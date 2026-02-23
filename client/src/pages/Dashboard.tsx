@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { DollarSign, ShoppingBag, Truck, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -52,11 +53,30 @@ interface KpiCardProps {
   value: string | number;
   icon: LucideIcon;
   isLoading: boolean;
+  onClick?: () => void;
+  variant?: 'default' | 'warning';
 }
 
-function KpiCard({ title, value, icon: Icon, isLoading }: KpiCardProps) {
+function KpiCard({
+  title,
+  value,
+  icon: Icon,
+  isLoading,
+  onClick,
+  variant = 'default',
+}: KpiCardProps) {
+  const isWarning = variant === 'warning' && !isLoading && Number(value) > 0;
   return (
-    <Card>
+    <Card
+      className={
+        onClick
+          ? `cursor-pointer transition-all hover:border-gold/50 hover:shadow-md ${isWarning ? 'border-amber-500/40' : ''}`
+          : isWarning
+            ? 'border-amber-500/40'
+            : ''
+      }
+      onClick={onClick}
+    >
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -64,11 +84,17 @@ function KpiCard({ title, value, icon: Icon, isLoading }: KpiCardProps) {
             {isLoading ? (
               <Skeleton className="h-8 w-24 mt-1" />
             ) : (
-              <p className="text-2xl font-semibold text-foreground font-data mt-1">{value}</p>
+              <p
+                className={`text-2xl font-semibold font-data mt-1 ${isWarning ? 'text-amber-400' : 'text-foreground'}`}
+              >
+                {value}
+              </p>
             )}
           </div>
-          <div className="h-12 w-12 rounded-md bg-gold/10 flex items-center justify-center">
-            <Icon className="h-6 w-6 text-gold" />
+          <div
+            className={`h-12 w-12 rounded-md flex items-center justify-center ${isWarning ? 'bg-amber-500/10' : 'bg-gold/10'}`}
+          >
+            <Icon className={`h-6 w-6 ${isWarning ? 'text-amber-400' : 'text-gold'}`} />
           </div>
         </div>
       </CardContent>
@@ -79,6 +105,7 @@ function KpiCard({ title, value, icon: Icon, isLoading }: KpiCardProps) {
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const dateParams =
     dateRange.from && dateRange.to
@@ -185,6 +212,8 @@ export default function Dashboard() {
           value={kpis?.low_stock_items || 0}
           icon={AlertTriangle}
           isLoading={kpisLoading}
+          onClick={() => navigate('/inventory?lowStock=true')}
+          variant="warning"
         />
       </div>
 

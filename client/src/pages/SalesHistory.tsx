@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Download, CalendarIcon, ChevronDown, ChevronRight } from 'lucide-react';
+import { Download, CalendarIcon, ChevronDown, ChevronRight, Printer } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -15,12 +16,14 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import DataTable from '../components/DataTable';
+import ReceiptDialog from '../components/ReceiptDialog';
 import { formatCurrency, formatDateTime, formatDate } from '../lib/utils';
 
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { DateRange } from '../components/ui/calendar';
+import type { ReceiptData } from '../components/Receipt';
 
 interface Sale {
   id: number;
@@ -66,6 +69,8 @@ export default function SalesHistory() {
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   const params: Record<string, string> = {};
   if (dateRange.from) params.from = format(dateRange.from, 'yyyy-MM-dd');
@@ -106,6 +111,40 @@ export default function SalesHistory() {
     a.download = `moon-sales-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handlePrintReceipt = async (saleId: number) => {
+    try {
+      const response = await api.get(`/api/sales/${saleId}`);
+      const sale = response.data.data;
+      const items = (sale.items || []).map(
+        (item: { product_name: string; quantity: number; unit_price: number }) => ({
+          name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+        })
+      );
+      const subtotal = items.reduce(
+        (sum: number, item: { unit_price: number; quantity: number }) =>
+          sum + item.unit_price * item.quantity,
+        0
+      );
+
+      setReceiptData({
+        saleId: sale.id,
+        items,
+        subtotal,
+        discount: sale.discount || 0,
+        discountType: sale.discount_type || 'fixed',
+        total: sale.total,
+        paymentMethod: sale.payment_method,
+        cashierName: sale.cashier_name || '',
+        date: sale.created_at,
+      });
+      setReceiptOpen(true);
+    } catch {
+      toast.error(t('receipt.printFailed'));
+    }
   };
 
   const columns: ColumnDef<Sale>[] = [
@@ -165,6 +204,25 @@ export default function SalesHistory() {
       cell: ({ getValue }) => <Badge variant="gold">{getValue() as string}</Badge>,
     },
     { accessorKey: 'cashier_name', header: t('sales.cashier') },
+    {
+      id: 'print',
+      header: '',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={(e) => {
+            e.stopPropagation();
+            handlePrintReceipt(row.original.id);
+          }}
+          title={t('receipt.reprint')}
+        >
+          <Printer className="h-4 w-4 text-gold" />
+        </Button>
+      ),
+    },
   ];
 
   return (
@@ -280,6 +338,8 @@ export default function SalesHistory() {
           </CardContent>
         </Card>
       )}
+
+      <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receiptData} />
     </div>
   );
 }

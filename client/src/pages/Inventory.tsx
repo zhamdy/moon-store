@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, type ChangeEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Upload, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Upload, Pencil, Trash2, AlertTriangle, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -107,19 +108,34 @@ interface CsvProduct {
   min_stock: number;
 }
 
+interface LowStockProduct extends Product {
+  deficit: number;
+}
+
 export default function Inventory() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'Admin';
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [lowStockFilter, setLowStockFilter] = useState(searchParams.get('lowStock') === 'true');
 
-  const { data: productsData, isLoading } = useQuery<Product[]>({
+  const toggleLowStock = (on: boolean) => {
+    setLowStockFilter(on);
+    if (on) {
+      setSearchParams({ lowStock: 'true' });
+    } else {
+      setSearchParams({});
+    }
+  };
+
+  const { data: productsData, isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ['products', { category_id: categoryFilter === 'all' ? undefined : categoryFilter }],
     queryFn: () =>
       api
@@ -130,7 +146,16 @@ export default function Inventory() {
           },
         })
         .then((r) => r.data.data),
+    enabled: !lowStockFilter,
   });
+
+  const { data: lowStockData, isLoading: lowStockLoading } = useQuery<LowStockProduct[]>({
+    queryKey: ['products-low-stock'],
+    queryFn: () => api.get('/api/products/low-stock').then((r) => r.data.data),
+    enabled: lowStockFilter,
+  });
+
+  const isLoading = lowStockFilter ? lowStockLoading : productsLoading;
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: ['product-categories'],
@@ -307,11 +332,15 @@ export default function Inventory() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <span>{row.original.name}</span>
-          {row.original.stock <= row.original.min_stock && (
+          {row.original.stock === 0 ? (
+            <Badge variant="destructive" className="text-[10px]">
+              {t('inventory.critical')}
+            </Badge>
+          ) : row.original.stock <= row.original.min_stock ? (
             <Badge variant="warning" className="text-[10px]">
               {t('inventory.lowStock')}
             </Badge>
-          )}
+          ) : null}
         </div>
       ),
     },
@@ -328,12 +357,45 @@ export default function Inventory() {
       header: t('inventory.stock'),
       cell: ({ row }) => (
         <span
-          className={`font-data ${row.original.stock <= row.original.min_stock ? 'text-amber-400' : ''}`}
+          className={`font-data font-semibold ${
+            row.original.stock === 0
+              ? 'text-destructive'
+              : row.original.stock <= row.original.min_stock
+                ? 'text-amber-400'
+                : ''
+          }`}
         >
           {row.original.stock}
         </span>
       ),
     },
+    ...(lowStockFilter
+      ? [
+          {
+            accessorKey: 'min_stock' as const,
+            header: t('inventory.minStock'),
+            cell: ({ getValue }: { getValue: () => unknown }) => (
+              <span className="font-data text-muted">{getValue() as number}</span>
+            ),
+          } as ColumnDef<Product>,
+          {
+            id: 'deficit',
+            header: t('inventory.deficit'),
+            accessorFn: (row: Product) =>
+              (row as LowStockProduct).deficit ?? row.min_stock - row.stock,
+            cell: ({ getValue }: { getValue: () => unknown }) => {
+              const deficit = getValue() as number;
+              return (
+                <span
+                  className={`font-data font-semibold ${deficit > 0 ? 'text-destructive' : 'text-amber-400'}`}
+                >
+                  {deficit > 0 ? `−${deficit}` : `${deficit}`}
+                </span>
+              );
+            },
+          } as ColumnDef<Product>,
+        ]
+      : []),
     {
       accessorKey: 'category',
       header: t('inventory.categoryCol'),
@@ -415,29 +477,63 @@ export default function Inventory() {
         )}
       </div>
 
-      {/* Category filter */}
-      <div className="flex items-center gap-3">
-        <Label className="text-muted text-xs uppercase tracking-widest">
-          {t('inventory.category')}
-        </Label>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder={t('inventory.allCategories')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('inventory.allCategories')}</SelectItem>
-            {categories?.map((cat) => (
-              <SelectItem key={cat.id} value={String(cat.id)}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {!lowStockFilter && (
+          <>
+            <Label className="text-muted text-xs uppercase tracking-widest">
+              {t('inventory.category')}
+            </Label>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder={t('inventory.allCategories')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('inventory.allCategories')}</SelectItem>
+                {categories?.map((cat) => (
+                  <SelectItem key={cat.id} value={String(cat.id)}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+        {isAdmin && (
+          <button
+            onClick={() => toggleLowStock(!lowStockFilter)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              lowStockFilter
+                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                : 'bg-surface text-muted border border-border hover:border-amber-500/40 hover:text-amber-400'
+            }`}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {t('inventory.lowStockFilter')}
+          </button>
+        )}
       </div>
+
+      {/* Low-stock info banner */}
+      {lowStockFilter && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-md border border-amber-500/30 bg-amber-500/5">
+          <div className="flex items-center gap-2 text-sm text-amber-400">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{t('inventory.showingLowStock')}</span>
+          </div>
+          <button
+            onClick={() => toggleLowStock(false)}
+            className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
+          >
+            {t('inventory.viewAll')}
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
 
       <DataTable
         columns={columns}
-        data={productsData ?? []}
+        data={(lowStockFilter ? lowStockData : productsData) ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('inventory.searchPlaceholder')}
       />

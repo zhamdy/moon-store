@@ -157,6 +157,29 @@ router.get(
   }
 );
 
+// GET /api/products/low-stock
+router.get(
+  '/low-stock',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await db.query(
+        `SELECT p.*, c.name as category_name, c.code as category_code, d.name as distributor_name,
+                (p.min_stock - p.stock) as deficit
+         FROM products p
+         LEFT JOIN categories c ON p.category_id = c.id
+         LEFT JOIN distributors d ON p.distributor_id = d.id
+         WHERE p.stock <= p.min_stock
+         ORDER BY deficit DESC, p.stock ASC`
+      );
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // GET /api/products/barcode/:barcode
 router.get(
   '/barcode/:barcode',
