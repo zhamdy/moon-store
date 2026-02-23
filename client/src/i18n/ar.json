@@ -183,6 +183,13 @@
   "inventory.viewAll": "عرض الكل",
   "inventory.critical": "نفذ من المخزون",
   "inventory.adjustStock": "تعديل المخزون",
+  "inventory.productImage": "صورة المنتج",
+  "inventory.uploadImage": "رفع",
+  "inventory.removeImage": "إزالة",
+  "inventory.imageUploaded": "تم رفع الصورة",
+  "inventory.imageUploadFailed": "فشل رفع الصورة",
+  "inventory.imageRemoved": "تم إزالة الصورة",
+  "inventory.imageRemoveFailed": "فشل إزالة الصورة",
 
   "stock.adjustTitle": "تعديل المخزون",
   "stock.currentStock": "المخزون الحالي",

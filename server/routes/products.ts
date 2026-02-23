@@ -1,8 +1,38 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import db from '../db';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { productSchema } from '../validators/productSchema';
+
+// Multer config for product image uploads
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.join(__dirname, '..', 'uploads', 'products');
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, and WebP images are allowed'));
+    }
+  },
+});
 
 const router: Router = Router();
 
@@ -529,6 +559,85 @@ router.get(
         [req.params.id]
       );
       res.json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/products/:id/image
+router.post(
+  '/:id/image',
+  verifyToken,
+  requireRole('Admin'),
+  upload.single('image'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No image file provided' });
+      }
+
+      const productId = Number(req.params.id);
+      const imageUrl = `/uploads/products/${req.file.filename}`;
+
+      // Delete old image if exists
+      const existing = await db.query<{ image_url: string | null }>(
+        'SELECT image_url FROM products WHERE id = ?',
+        [productId]
+      );
+      if (existing.rows.length === 0) {
+        // Clean up uploaded file
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({ success: false, error: 'Product not found' });
+      }
+      if (existing.rows[0].image_url) {
+        const oldPath = path.join(__dirname, '..', existing.rows[0].image_url);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+
+      await db.query(
+        "UPDATE products SET image_url = ?, updated_at = datetime('now') WHERE id = ?",
+        [imageUrl, productId]
+      );
+
+      res.json({ success: true, data: { image_url: imageUrl } });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// DELETE /api/products/:id/image
+router.delete(
+  '/:id/image',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = Number(req.params.id);
+
+      const existing = await db.query<{ image_url: string | null }>(
+        'SELECT image_url FROM products WHERE id = ?',
+        [productId]
+      );
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Product not found' });
+      }
+      if (existing.rows[0].image_url) {
+        const oldPath = path.join(__dirname, '..', existing.rows[0].image_url);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+
+      await db.query(
+        "UPDATE products SET image_url = NULL, updated_at = datetime('now') WHERE id = ?",
+        [productId]
+      );
+
+      res.json({ success: true, data: { message: 'Image removed' } });
     } catch (err) {
       next(err);
     }

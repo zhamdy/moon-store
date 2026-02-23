@@ -37,6 +37,7 @@ interface Product {
   category_id: number | null;
   distributor_id: number | null;
   distributor_name: string | null;
+  image_url: string | null;
 }
 
 export default function POS() {
@@ -251,7 +252,16 @@ export default function POS() {
                   )}
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
-                      <Package className="h-5 w-5 text-gold" />
+                      {product.image_url ? (
+                        <img
+                          src={`${api.defaults.baseURL}${product.image_url}`}
+                          alt={product.name}
+                          className="h-10 w-10 rounded object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <Package className="h-5 w-5 text-gold" />
+                      )}
                       <Badge variant={getStockVariant(product)} className="text-[10px]">
                         {product.stock} {t('pos.inStock')}
                       </Badge>

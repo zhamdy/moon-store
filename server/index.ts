@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import errorHandler from './middleware/errorHandler';
 
 import authRoutes from './routes/auth';
@@ -57,6 +58,9 @@ app.use(limiter);
 // Parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
+
+// Static files (product images)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);

@@ -183,6 +183,13 @@
   "inventory.viewAll": "View All",
   "inventory.critical": "Out of stock",
   "inventory.adjustStock": "Adjust Stock",
+  "inventory.productImage": "Product Image",
+  "inventory.uploadImage": "Upload",
+  "inventory.removeImage": "Remove",
+  "inventory.imageUploaded": "Image uploaded",
+  "inventory.imageUploadFailed": "Failed to upload image",
+  "inventory.imageRemoved": "Image removed",
+  "inventory.imageRemoveFailed": "Failed to remove image",
 
   "stock.adjustTitle": "Adjust Stock",
   "stock.currentStock": "Current Stock",

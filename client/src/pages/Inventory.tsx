@@ -5,7 +5,17 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Upload, Pencil, Trash2, AlertTriangle, X, PackageMinus } from 'lucide-react';
+import {
+  Plus,
+  Upload,
+  Pencil,
+  Trash2,
+  AlertTriangle,
+  X,
+  PackageMinus,
+  ImagePlus,
+  Package,
+} from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -73,6 +83,7 @@ interface Product {
   distributor_id: number | null;
   distributor_name: string | null;
   min_stock: number;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -256,6 +267,32 @@ export default function Inventory() {
       toast.error(err.response?.data?.error || t('inventory.importFailed')),
   });
 
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (productId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+      await api.post(`/api/products/${productId}/image`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success(t('inventory.imageUploaded'));
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    } catch {
+      toast.error(t('inventory.imageUploadFailed'));
+    }
+  };
+
+  const handleRemoveImage = async (productId: number) => {
+    try {
+      await api.delete(`/api/products/${productId}/image`);
+      toast.success(t('inventory.imageRemoved'));
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    } catch {
+      toast.error(t('inventory.imageRemoveFailed'));
+    }
+  };
+
   const onSubmit = (data: ProductFormData) => {
     if (editingProduct) {
       updateMutation.mutate({ id: editingProduct.id, data });
@@ -344,6 +381,18 @@ export default function Inventory() {
       header: t('inventory.productName'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
+          {row.original.image_url ? (
+            <img
+              src={`${api.defaults.baseURL}${row.original.image_url}`}
+              alt={row.original.name}
+              className="h-8 w-8 rounded object-cover shrink-0"
+              loading="lazy"
+            />
+          ) : (
+            <div className="h-8 w-8 rounded bg-muted/30 flex items-center justify-center shrink-0">
+              <Package className="h-4 w-4 text-muted" />
+            </div>
+          )}
           <span>{row.original.name}</span>
           {row.original.stock === 0 ? (
             <Badge variant="destructive" className="text-[10px]">
@@ -689,6 +738,63 @@ export default function Inventory() {
                 <Input type="number" {...register('min_stock')} />
               </div>
             </div>
+
+            {/* Image upload (only for existing products) */}
+            {editingProduct && (
+              <div className="space-y-2 border-t border-border pt-4">
+                <Label>{t('inventory.productImage')}</Label>
+                <div className="flex items-center gap-3">
+                  {editingProduct.image_url ? (
+                    <img
+                      src={`${api.defaults.baseURL}${editingProduct.image_url}`}
+                      alt={editingProduct.name}
+                      className="h-16 w-16 rounded object-cover border border-border"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded bg-muted/30 flex items-center justify-center border border-dashed border-border">
+                      <ImagePlus className="h-6 w-6 text-muted" />
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp"
+                      ref={imageInputRef}
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && editingProduct) {
+                          handleImageUpload(editingProduct.id, file);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      <Upload className="h-3.5 w-3.5 me-1" />
+                      {t('inventory.uploadImage')}
+                    </Button>
+                    {editingProduct.image_url && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => handleRemoveImage(editingProduct.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 me-1" />
+                        {t('inventory.removeImage')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
                 {editingProduct ? t('common.update') : t('common.create')}
