@@ -89,7 +89,7 @@ export default function DistributorsPage() {
       reset();
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Failed to create distributor'),
+      toast.error(err.response?.data?.error || t('distributors.createFailed')),
   });
 
   const updateMutation = useMutation({
@@ -103,7 +103,7 @@ export default function DistributorsPage() {
       reset();
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Failed to update distributor'),
+      toast.error(err.response?.data?.error || t('distributors.updateFailed')),
   });
 
   const deleteMutation = useMutation({
@@ -114,7 +114,7 @@ export default function DistributorsPage() {
       setDeleteId(null);
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Failed to delete distributor'),
+      toast.error(err.response?.data?.error || t('distributors.deleteFailed')),
   });
 
   const onSubmit = (data: DistributorFormData) => {

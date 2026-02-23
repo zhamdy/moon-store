@@ -187,7 +187,7 @@ export default function Deliveries() {
       reset();
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Failed to create order'),
+      toast.error(err.response?.data?.error || t('deliveries.createFailed')),
   });
 
   const updateMutation = useMutation({
@@ -201,7 +201,7 @@ export default function Deliveries() {
       setEditingOrder(null);
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Failed to update order'),
+      toast.error(err.response?.data?.error || t('deliveries.updateFailed')),
   });
 
   const statusMutation = useMutation({
@@ -213,7 +213,7 @@ export default function Deliveries() {
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Failed to update status'),
+      toast.error(err.response?.data?.error || t('deliveries.statusFailed')),
   });
 
   const onSubmit = (data: DeliveryFormData) => {

@@ -3,6 +3,11 @@
 ## Overview
 Luxury fashion retail management system. Monorepo with React SPA frontend + Express REST API backend.
 
+## Git Workflow
+- **Always create a new branch before starting a new feature.** Branch from `main` using a descriptive name (e.g., `feature/add-distributors`, `fix/login-bug`).
+- Commit frequently with clear messages.
+- Merge back to `main` via PR when the feature is complete.
+
 ## Quick Reference
 
 ### Run Commands

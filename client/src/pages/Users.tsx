@@ -107,7 +107,7 @@ export default function UsersPage() {
       reset();
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Failed to create user'),
+      toast.error(err.response?.data?.error || t('users.createFailed')),
   });
 
   const updateMutation = useMutation({
@@ -120,7 +120,7 @@ export default function UsersPage() {
       setEditingUser(null);
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Failed to update user'),
+      toast.error(err.response?.data?.error || t('users.updateFailed')),
   });
 
   const deleteMutation = useMutation({
@@ -131,7 +131,7 @@ export default function UsersPage() {
       setDeleteId(null);
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Failed to delete user'),
+      toast.error(err.response?.data?.error || t('users.deleteFailed')),
   });
 
   const onSubmit = (data: UserFormData) => {
