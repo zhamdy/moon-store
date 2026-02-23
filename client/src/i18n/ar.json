@@ -466,6 +466,14 @@
   "loyalty.adjustFailed": "فشل تعديل النقاط",
   "loyalty.insufficientPoints": "نقاط غير كافية",
 
+  "export.csv": "تصدير CSV",
+  "export.pdf": "تصدير PDF",
+  "export.fullReport": "تصدير التقرير",
+  "export.generating": "جاري الإنشاء...",
+  "export.csvExported": "تم تصدير CSV",
+  "export.pdfExported": "تم تصدير تقرير PDF",
+  "export.pdfFailed": "فشل إنشاء PDF",
+
   "charts.sold": "مباع",
   "charts.orders": "طلبات",
 

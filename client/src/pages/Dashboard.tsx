@@ -1,12 +1,22 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, ShoppingBag, Truck, AlertTriangle, TrendingUp } from 'lucide-react';
+import {
+  DollarSign,
+  ShoppingBag,
+  Truck,
+  AlertTriangle,
+  TrendingUp,
+  Download,
+  FileText,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Calendar } from '../components/ui/calendar';
 import { Skeleton } from '../components/ui/skeleton';
+import { exportToCsv, exportToPdf } from '../lib/exportUtils';
 import RevenueChart from '../components/charts/RevenueChart';
 import TopProductsChart from '../components/charts/TopProductsChart';
 import PaymentPieChart from '../components/charts/PaymentPieChart';
@@ -196,9 +206,89 @@ export default function Dashboard() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCsv = (dataType: string) => {
+    switch (dataType) {
+      case 'revenue':
+        exportToCsv('revenue.csv', (revenue || []) as Record<string, unknown>[], [
+          { key: 'date', label: t('sales.dateTime') },
+          { key: 'revenue', label: t('dashboard.revenue') },
+        ]);
+        break;
+      case 'top-products':
+        exportToCsv('top-products.csv', (topProducts || []) as Record<string, unknown>[], [
+          { key: 'name', label: t('common.name') },
+          { key: 'total_sold', label: t('dashboard.itemsSold') },
+        ]);
+        break;
+      case 'payment-methods':
+        exportToCsv('payment-methods.csv', (paymentMethods || []) as Record<string, unknown>[], [
+          { key: 'payment_method', label: t('cart.paymentMethod') },
+          { key: 'count', label: t('dashboard.salesCount') },
+          { key: 'revenue', label: t('dashboard.revenue') },
+        ]);
+        break;
+      case 'orders-per-day':
+        exportToCsv('orders-per-day.csv', (ordersPerDay || []) as Record<string, unknown>[], [
+          { key: 'date', label: t('sales.dateTime') },
+          { key: 'orders', label: t('charts.orders') },
+        ]);
+        break;
+      case 'cashier-performance':
+        exportToCsv(
+          'cashier-performance.csv',
+          (cashierPerformance || []) as Record<string, unknown>[],
+          [
+            { key: 'cashier_name', label: t('dashboard.cashierName') },
+            { key: 'total_sales', label: t('dashboard.salesCount') },
+            { key: 'total_revenue', label: t('dashboard.revenue') },
+            { key: 'avg_order_value', label: t('dashboard.avgOrder') },
+            { key: 'total_items', label: t('dashboard.itemsSold') },
+          ]
+        );
+        break;
+      case 'sales-by-category':
+        exportToCsv('sales-by-category.csv', (categorySales || []) as Record<string, unknown>[], [
+          { key: 'category_name', label: t('inventory.categoryCol') },
+          { key: 'total_sold', label: t('dashboard.itemsSold') },
+          { key: 'revenue', label: t('dashboard.revenue') },
+        ]);
+        break;
+      case 'sales-by-distributor':
+        exportToCsv(
+          'sales-by-distributor.csv',
+          (distributorSales || []) as Record<string, unknown>[],
+          [
+            { key: 'distributor_name', label: t('inventory.distributor') },
+            { key: 'total_sold', label: t('dashboard.itemsSold') },
+            { key: 'revenue', label: t('dashboard.revenue') },
+          ]
+        );
+        break;
+    }
+    toast.success(t('export.csvExported'));
+  };
+
+  const handleExportPdf = async () => {
+    setExporting(true);
+    try {
+      const dateStr = new Date().toISOString().split('T')[0];
+      await exportToPdf(
+        'dashboard-content',
+        `MOON-Report-${dateStr}.pdf`,
+        `MOON Fashion & Style — ${t('dashboard.title')}`
+      );
+      toast.success(t('export.pdfExported'));
+    } catch {
+      toast.error(t('export.pdfFailed'));
+    }
+    setExporting(false);
+  };
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-display tracking-wider text-foreground">
             {t('dashboard.title')}
@@ -206,219 +296,308 @@ export default function Dashboard() {
           <div className="gold-divider mt-2" />
         </div>
 
-        {/* Date range picker */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <CalendarIcon className="h-4 w-4 text-gold" />
-              {dateRange.from ? (
-                <>
-                  {formatDate(dateRange.from)} - {dateRange.to ? formatDate(dateRange.to) : '...'}
-                </>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleExportPdf}
+            disabled={exporting}
+          >
+            <FileText className="h-4 w-4 text-gold" />
+            {exporting ? t('export.generating') : t('export.fullReport')}
+          </Button>
+
+          {/* Date range picker */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <CalendarIcon className="h-4 w-4 text-gold" />
+                {dateRange.from ? (
+                  <>
+                    {formatDate(dateRange.from)} - {dateRange.to ? formatDate(dateRange.to) : '...'}
+                  </>
+                ) : (
+                  t('dashboard.selectDateRange')
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={(range) => setDateRange(range || { from: null, to: null })}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      <div id="dashboard-content" className="space-y-6">
+        {/* KPI cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <KpiCard
+            title={t('dashboard.todayRevenue')}
+            value={formatCurrency(kpis?.today_revenue || 0)}
+            icon={DollarSign}
+            isLoading={kpisLoading}
+          />
+          <KpiCard
+            title={t('dashboard.monthRevenue')}
+            value={formatCurrency(kpis?.month_revenue || 0)}
+            icon={TrendingUp}
+            isLoading={kpisLoading}
+          />
+          <KpiCard
+            title={t('dashboard.grossProfit')}
+            value={formatCurrency(kpis?.month_profit || 0)}
+            icon={TrendingUp}
+            isLoading={kpisLoading}
+          />
+          <KpiCard
+            title={t('dashboard.totalSales')}
+            value={kpis?.total_sales || 0}
+            icon={ShoppingBag}
+            isLoading={kpisLoading}
+          />
+          <KpiCard
+            title={t('dashboard.pendingDeliveries')}
+            value={kpis?.pending_deliveries || 0}
+            icon={Truck}
+            isLoading={kpisLoading}
+          />
+          <KpiCard
+            title={t('dashboard.lowStockItems')}
+            value={kpis?.low_stock_items || 0}
+            icon={AlertTriangle}
+            isLoading={kpisLoading}
+            onClick={() => navigate('/inventory?lowStock=true')}
+            variant="warning"
+          />
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-lg">{t('dashboard.dailyRevenue')}</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleExportCsv('revenue')}
+                title={t('export.csv')}
+              >
+                <Download className="h-3.5 w-3.5 text-muted" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {revenueLoading ? (
+                <Skeleton className="h-[300px] w-full" />
               ) : (
-                t('dashboard.selectDateRange')
+                <RevenueChart data={revenue || []} />
               )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              onSelect={(range) => setDateRange(range || { from: null, to: null })}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
+            </CardContent>
+          </Card>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <KpiCard
-          title={t('dashboard.todayRevenue')}
-          value={formatCurrency(kpis?.today_revenue || 0)}
-          icon={DollarSign}
-          isLoading={kpisLoading}
-        />
-        <KpiCard
-          title={t('dashboard.monthRevenue')}
-          value={formatCurrency(kpis?.month_revenue || 0)}
-          icon={TrendingUp}
-          isLoading={kpisLoading}
-        />
-        <KpiCard
-          title={t('dashboard.grossProfit')}
-          value={formatCurrency(kpis?.month_profit || 0)}
-          icon={TrendingUp}
-          isLoading={kpisLoading}
-        />
-        <KpiCard
-          title={t('dashboard.totalSales')}
-          value={kpis?.total_sales || 0}
-          icon={ShoppingBag}
-          isLoading={kpisLoading}
-        />
-        <KpiCard
-          title={t('dashboard.pendingDeliveries')}
-          value={kpis?.pending_deliveries || 0}
-          icon={Truck}
-          isLoading={kpisLoading}
-        />
-        <KpiCard
-          title={t('dashboard.lowStockItems')}
-          value={kpis?.low_stock_items || 0}
-          icon={AlertTriangle}
-          isLoading={kpisLoading}
-          onClick={() => navigate('/inventory?lowStock=true')}
-          variant="warning"
-        />
-      </div>
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-lg">{t('dashboard.topSellers')}</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleExportCsv('top-products')}
+                title={t('export.csv')}
+              >
+                <Download className="h-3.5 w-3.5 text-muted" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {topLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <TopProductsChart data={topProducts || []} />
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.dailyRevenue')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {revenueLoading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <RevenueChart data={revenue || []} />
-            )}
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-lg">{t('dashboard.paymentMethods')}</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleExportCsv('payment-methods')}
+                title={t('export.csv')}
+              >
+                <Download className="h-3.5 w-3.5 text-muted" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {paymentLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <PaymentPieChart data={paymentMethods || []} />
+              )}
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.topSellers')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topLoading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <TopProductsChart data={topProducts || []} />
-            )}
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-lg">{t('dashboard.ordersPerDay')}</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleExportCsv('orders-per-day')}
+                title={t('export.csv')}
+              >
+                <Download className="h-3.5 w-3.5 text-muted" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {ordersLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <OrdersAreaChart data={ordersPerDay || []} />
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.paymentMethods')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {paymentLoading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <PaymentPieChart data={paymentMethods || []} />
-            )}
-          </CardContent>
-        </Card>
+        {/* Cashier Performance */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-lg">{t('dashboard.cashierRevenue')}</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleExportCsv('cashier-performance')}
+                title={t('export.csv')}
+              >
+                <Download className="h-3.5 w-3.5 text-muted" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {cashierLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <CashierPerformanceChart data={cashierPerformance || []} />
+              )}
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.ordersPerDay')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {ordersLoading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <OrdersAreaChart data={ordersPerDay || []} />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Cashier Performance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.cashierRevenue')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {cashierLoading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <CashierPerformanceChart data={cashierPerformance || []} />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.cashierStats')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {cashierLoading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <div className="overflow-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-muted">
-                      <th className="text-start py-2 font-medium">{t('dashboard.cashierName')}</th>
-                      <th className="text-end py-2 font-medium">{t('dashboard.salesCount')}</th>
-                      <th className="text-end py-2 font-medium">{t('dashboard.revenue')}</th>
-                      <th className="text-end py-2 font-medium">{t('dashboard.avgOrder')}</th>
-                      <th className="text-end py-2 font-medium">{t('dashboard.itemsSold')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(cashierPerformance || []).map((c) => (
-                      <tr key={c.cashier_id} className="border-b border-border/50">
-                        <td className="py-2 font-medium">{c.cashier_name}</td>
-                        <td className="py-2 text-end font-data">{c.total_sales}</td>
-                        <td className="py-2 text-end font-data text-gold">
-                          {formatCurrency(c.total_revenue)}
-                        </td>
-                        <td className="py-2 text-end font-data">
-                          {formatCurrency(c.avg_order_value)}
-                        </td>
-                        <td className="py-2 text-end font-data">{c.total_items}</td>
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-lg">{t('dashboard.cashierStats')}</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleExportCsv('cashier-performance')}
+                title={t('export.csv')}
+              >
+                <Download className="h-3.5 w-3.5 text-muted" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {cashierLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <div className="overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-muted">
+                        <th className="text-start py-2 font-medium">
+                          {t('dashboard.cashierName')}
+                        </th>
+                        <th className="text-end py-2 font-medium">{t('dashboard.salesCount')}</th>
+                        <th className="text-end py-2 font-medium">{t('dashboard.revenue')}</th>
+                        <th className="text-end py-2 font-medium">{t('dashboard.avgOrder')}</th>
+                        <th className="text-end py-2 font-medium">{t('dashboard.itemsSold')}</th>
                       </tr>
-                    ))}
-                    {(!cashierPerformance || cashierPerformance.length === 0) && (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-muted">
-                          {t('common.noResults')}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                    </thead>
+                    <tbody>
+                      {(cashierPerformance || []).map((c) => (
+                        <tr key={c.cashier_id} className="border-b border-border/50">
+                          <td className="py-2 font-medium">{c.cashier_name}</td>
+                          <td className="py-2 text-end font-data">{c.total_sales}</td>
+                          <td className="py-2 text-end font-data text-gold">
+                            {formatCurrency(c.total_revenue)}
+                          </td>
+                          <td className="py-2 text-end font-data">
+                            {formatCurrency(c.avg_order_value)}
+                          </td>
+                          <td className="py-2 text-end font-data">{c.total_items}</td>
+                        </tr>
+                      ))}
+                      {(!cashierPerformance || cashierPerformance.length === 0) && (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-muted">
+                            {t('common.noResults')}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Category & Distributor Sales */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.salesByCategory')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {categoryLoading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <CategorySalesChart data={categorySales || []} />
-            )}
-          </CardContent>
-        </Card>
+        {/* Category & Distributor Sales */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-lg">{t('dashboard.salesByCategory')}</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleExportCsv('sales-by-category')}
+                title={t('export.csv')}
+              >
+                <Download className="h-3.5 w-3.5 text-muted" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {categoryLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <CategorySalesChart data={categorySales || []} />
+              )}
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">{t('dashboard.salesByDistributor')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {distributorLoading ? (
-              <Skeleton className="h-[300px] w-full" />
-            ) : (
-              <DistributorSalesChart data={distributorSales || []} />
-            )}
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-lg">{t('dashboard.salesByDistributor')}</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => handleExportCsv('sales-by-distributor')}
+                title={t('export.csv')}
+              >
+                <Download className="h-3.5 w-3.5 text-muted" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {distributorLoading ? (
+                <Skeleton className="h-[300px] w-full" />
+              ) : (
+                <DistributorSalesChart data={distributorSales || []} />
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
+      {/* close dashboard-content */}
     </div>
   );
 }

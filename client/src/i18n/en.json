@@ -466,6 +466,14 @@
   "loyalty.adjustFailed": "Failed to adjust points",
   "loyalty.insufficientPoints": "Not enough points",
 
+  "export.csv": "Export CSV",
+  "export.pdf": "Export PDF",
+  "export.fullReport": "Export Report",
+  "export.generating": "Generating...",
+  "export.csvExported": "CSV exported",
+  "export.pdfExported": "PDF report exported",
+  "export.pdfFailed": "Failed to generate PDF",
+
   "charts.sold": "sold",
   "charts.orders": "orders",
 
