@@ -3,6 +3,7 @@ import db from '../db';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { saleSchema } from '../validators/saleSchema';
 import { refundSchema } from '../validators/refundSchema';
+import { logAuditFromReq } from '../middleware/auditLogger';
 
 const router: Router = Router();
 
@@ -301,6 +302,11 @@ router.post(
         await db.query<{ name: string }>('SELECT name FROM users WHERE id = ?', [authReq.user!.id])
       ).rows[0];
 
+      logAuditFromReq(req, 'create', 'sale', sale.id, {
+        total: sale.total,
+        items: parsed.items.length,
+      });
+
       res.status(201).json({
         success: true,
         data: { ...sale, cashier_name: cashier?.name, items: saleItems },
@@ -548,6 +554,8 @@ router.post(
       } catch (err: any) {
         return res.status(400).json({ success: false, error: err.message });
       }
+
+      logAuditFromReq(req, 'refund', 'sale', req.params.id, { refund_amount: refund.total_refund });
 
       res.status(201).json({
         success: true,

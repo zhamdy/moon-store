@@ -19,6 +19,7 @@ import categoryRoutes from './routes/categories';
 import stockAdjustmentRoutes from './routes/stockAdjustments';
 import settingsRoutes from './routes/settings';
 import purchaseOrderRoutes from './routes/purchaseOrders';
+import auditLogRoutes from './routes/auditLog';
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 3001;
@@ -77,6 +78,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/stock-adjustments', stockAdjustmentRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
+app.use('/api/audit-log', auditLogRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

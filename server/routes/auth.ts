@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import db from '../db';
 import { verifyToken, AuthRequest } from '../middleware/auth';
+import { logAudit } from '../middleware/auditLogger';
 
 const router: Router = Router();
 
@@ -56,6 +57,16 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
+    });
+
+    logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'login',
+      entityType: 'auth',
+      entityId: user.id,
+      details: { email: user.email, role: user.role },
+      ipAddress: req.ip || req.socket.remoteAddress,
     });
 
     res.json({

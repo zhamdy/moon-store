@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import db from '../db';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { createUserSchema, updateUserSchema } from '../validators/userSchema';
+import { logAuditFromReq } from '../middleware/auditLogger';
 
 const router: Router = Router();
 
@@ -62,6 +63,7 @@ router.post(
         [name, email, hash, role]
       );
 
+      logAuditFromReq(req, 'create', 'user', result.rows[0]?.id, { name, email, role });
       res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err: any) {
       if (err.message?.includes('UNIQUE')) {
@@ -133,6 +135,7 @@ router.delete(
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'User not found' });
       }
+      logAuditFromReq(req, 'delete', 'user', req.params.id);
       res.json({ success: true, data: { message: 'User deleted' } });
     } catch (err) {
       next(err);

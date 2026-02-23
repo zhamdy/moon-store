@@ -586,5 +586,22 @@
   "po.cancelled": "Cancelled",
   "po.viewDetails": "View Details",
   "po.suggestedQty": "Suggested: {qty}",
-  "po.autoGenerateEmpty": "No low-stock products with assigned distributors"
+  "po.autoGenerateEmpty": "No low-stock products with assigned distributors",
+
+  "nav.auditLog": "Audit Log",
+
+  "audit.title": "Audit Log",
+  "audit.user": "User",
+  "audit.action": "Action",
+  "audit.entityType": "Entity Type",
+  "audit.entityId": "Entity ID",
+  "audit.details": "Details",
+  "audit.ipAddress": "IP Address",
+  "audit.timestamp": "Timestamp",
+  "audit.allActions": "All Actions",
+  "audit.allEntities": "All Entities",
+  "audit.allUsers": "All Users",
+  "audit.dateFrom": "From",
+  "audit.dateTo": "To",
+  "audit.noEntries": "No audit log entries"
 }

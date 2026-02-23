@@ -6,6 +6,7 @@ import fs from 'fs';
 import db from '../db';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { productSchema, variantSchema } from '../validators/productSchema';
+import { logAuditFromReq } from '../middleware/auditLogger';
 
 // Multer config for product image uploads
 const storage = multer.diskStorage({
@@ -337,6 +338,7 @@ router.post(
         ]
       );
 
+      logAuditFromReq(req, 'create', 'product', result.rows[0]?.id, { name, sku, price });
       res.status(201).json({ success: true, data: result.rows[0] });
     } catch (err: any) {
       if (err.message?.includes('UNIQUE')) {
@@ -405,6 +407,7 @@ router.put(
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Product not found' });
       }
+      logAuditFromReq(req, 'update', 'product', req.params.id);
       res.json({ success: true, data: result.rows[0] });
     } catch (err: any) {
       if (err.message?.includes('UNIQUE')) {
@@ -428,6 +431,7 @@ router.delete(
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Product not found' });
       }
+      logAuditFromReq(req, 'delete', 'product', req.params.id);
       res.json({ success: true, data: { message: 'Product deleted' } });
     } catch (err) {
       next(err);

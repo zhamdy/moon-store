@@ -586,5 +586,22 @@
   "po.cancelled": "ملغي",
   "po.viewDetails": "عرض التفاصيل",
   "po.suggestedQty": "المقترح: {qty}",
-  "po.autoGenerateEmpty": "لا توجد منتجات منخفضة المخزون مع موزعين معينين"
+  "po.autoGenerateEmpty": "لا توجد منتجات منخفضة المخزون مع موزعين معينين",
+
+  "nav.auditLog": "سجل المراجعة",
+
+  "audit.title": "سجل المراجعة",
+  "audit.user": "المستخدم",
+  "audit.action": "الإجراء",
+  "audit.entityType": "نوع الكيان",
+  "audit.entityId": "معرف الكيان",
+  "audit.details": "التفاصيل",
+  "audit.ipAddress": "عنوان IP",
+  "audit.timestamp": "الوقت",
+  "audit.allActions": "جميع الإجراءات",
+  "audit.allEntities": "جميع الكيانات",
+  "audit.allUsers": "جميع المستخدمين",
+  "audit.dateFrom": "من",
+  "audit.dateTo": "إلى",
+  "audit.noEntries": "لا توجد سجلات مراجعة"
 }
