@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import db from '../db';
 import { verifyToken, requireRole } from '../middleware/auth';
 import { customerSchema } from '../validators/customerSchema';
@@ -153,6 +154,108 @@ router.get(
         data: result.rows,
         meta: { total: countResult.rows[0].count, page: pageNum, limit: limitNum },
       });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/customers/:id/loyalty — loyalty transaction history
+router.get(
+  '/:id/loyalty',
+  verifyToken,
+  requireRole('Admin', 'Cashier'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const customerId = req.params.id;
+
+      // Get current points balance
+      const customer = await db.query<{ loyalty_points: number }>(
+        'SELECT loyalty_points FROM customers WHERE id = ?',
+        [customerId]
+      );
+      if (customer.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Customer not found' });
+      }
+
+      // Get transaction history
+      const transactions = await db.query(
+        `SELECT lt.*, s.total as sale_total
+         FROM loyalty_transactions lt
+         LEFT JOIN sales s ON lt.sale_id = s.id
+         WHERE lt.customer_id = ?
+         ORDER BY lt.created_at DESC
+         LIMIT 100`,
+        [customerId]
+      );
+
+      res.json({
+        success: true,
+        data: {
+          points: customer.rows[0].loyalty_points,
+          transactions: transactions.rows,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/customers/:id/loyalty/adjust — manual admin adjustment
+const loyaltyAdjustSchema = z.object({
+  points: z
+    .number()
+    .int()
+    .refine((v) => v !== 0, 'Points cannot be zero'),
+  note: z.string().min(1, 'Note is required'),
+});
+
+router.post(
+  '/:id/loyalty/adjust',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const customerId = Number(req.params.id);
+      const parsed = loyaltyAdjustSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      }
+
+      const { points, note } = parsed.data;
+
+      const rawDb = db.db;
+      const txn = rawDb.transaction(() => {
+        // Update customer points
+        const result = rawDb
+          .prepare(
+            "UPDATE customers SET loyalty_points = MAX(0, loyalty_points + ?), updated_at = datetime('now') WHERE id = ? RETURNING loyalty_points"
+          )
+          .get(points, customerId) as { loyalty_points: number } | undefined;
+
+        if (!result) {
+          throw new Error('Customer not found');
+        }
+
+        // Log the transaction
+        rawDb
+          .prepare(
+            'INSERT INTO loyalty_transactions (customer_id, points, type, note) VALUES (?, ?, ?, ?)'
+          )
+          .run(customerId, points, 'adjustment', note);
+
+        return result.loyalty_points;
+      });
+
+      let newPoints: number;
+      try {
+        newPoints = txn();
+      } catch (err: any) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+
+      res.json({ success: true, data: { loyalty_points: newPoints } });
     } catch (err) {
       next(err);
     }

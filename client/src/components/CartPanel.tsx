@@ -1,6 +1,17 @@
 import { useState, useEffect, useMemo, type MutableRefObject } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Minus, Plus, X, ShoppingBag, Search, UserRound, Tag, Pause, Archive } from 'lucide-react';
+import {
+  Minus,
+  Plus,
+  X,
+  ShoppingBag,
+  Search,
+  UserRound,
+  Tag,
+  Pause,
+  Archive,
+  Star,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -36,12 +47,20 @@ interface SaleData {
   payment_method: PaymentMethod;
   customer_id?: number;
   tax_amount?: number;
+  points_redeemed?: number;
 }
 
-interface TaxSettings {
+interface AppSettings {
   tax_enabled: string;
   tax_rate: string;
   tax_mode: string;
+  loyalty_enabled: string;
+  loyalty_earn_rate: string;
+  loyalty_redeem_value: string;
+}
+
+interface CustomerLoyalty {
+  points: number;
 }
 
 interface ApiErrorResponse {
@@ -88,17 +107,37 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
 
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300);
 
-  // Tax settings
-  const { data: taxSettings } = useQuery<TaxSettings>({
+  const [redeemPoints, setRedeemPoints] = useState(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
+
+  // App settings (tax + loyalty)
+  const { data: appSettings } = useQuery<AppSettings>({
     queryKey: ['settings'],
     queryFn: () => api.get('/api/settings').then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
+  // Customer loyalty points
+  const { data: customerLoyalty } = useQuery<CustomerLoyalty>({
+    queryKey: ['customer-loyalty', selectedCustomer?.id],
+    queryFn: () =>
+      api.get(`/api/customers/${selectedCustomer!.id}/loyalty`).then((r) => r.data.data),
+    enabled: !!selectedCustomer && appSettings?.loyalty_enabled === 'true',
+    staleTime: 30 * 1000,
+  });
+
+  const loyaltyInfo = useMemo(() => {
+    const enabled = appSettings?.loyalty_enabled === 'true';
+    const earnRate = parseFloat(appSettings?.loyalty_earn_rate || '1');
+    const redeemValue = parseFloat(appSettings?.loyalty_redeem_value || '5');
+    const customerPoints = customerLoyalty?.points || 0;
+    return { enabled, earnRate, redeemValue, customerPoints };
+  }, [appSettings, customerLoyalty]);
+
   const taxInfo = useMemo(() => {
-    const enabled = taxSettings?.tax_enabled === 'true';
-    const rate = parseFloat(taxSettings?.tax_rate || '0');
-    const mode = taxSettings?.tax_mode || 'exclusive';
+    const enabled = appSettings?.tax_enabled === 'true';
+    const rate = parseFloat(appSettings?.tax_rate || '0');
+    const mode = appSettings?.tax_mode || 'exclusive';
     if (!enabled || rate <= 0)
       return { enabled: false, rate: 0, mode, amount: 0, totalWithTax: getTotal() };
 
@@ -115,7 +154,12 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     }
 
     return { enabled: true, rate, mode, amount: taxAmount, totalWithTax };
-  }, [taxSettings, getTotal]);
+  }, [appSettings, getTotal]);
+
+  const pointsDiscountAmount = useMemo(() => {
+    if (!redeemPoints || pointsToRedeem <= 0 || !loyaltyInfo.enabled) return 0;
+    return Math.round((pointsToRedeem / 100) * loyaltyInfo.redeemValue * 100) / 100;
+  }, [redeemPoints, pointsToRedeem, loyaltyInfo]);
 
   // Expose checkout trigger for keyboard shortcuts
   useEffect(() => {
@@ -174,8 +218,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       setCheckoutOpen(false);
       setSelectedCustomer(null);
       setCustomerSearch('');
+      setRedeemPoints(false);
+      setPointsToRedeem(0);
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-loyalty'] });
 
       setReceiptData(newReceipt);
       setReceiptOpen(true);
@@ -218,6 +265,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       discount_type: discountType,
       payment_method: paymentMethod,
       ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
+      ...(redeemPoints && pointsToRedeem > 0 ? { points_redeemed: pointsToRedeem } : {}),
     };
 
     checkoutMutation.mutate(saleData);
@@ -543,9 +591,17 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   <span>{formatCurrency(taxInfo.amount)}</span>
                 </div>
               )}
+              {pointsDiscountAmount > 0 && (
+                <div className="flex justify-between text-base text-gold font-data">
+                  <span>{t('loyalty.pointsDiscount')}</span>
+                  <span>-{formatCurrency(pointsDiscountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-lg font-semibold font-data">
                 <span>{t('cart.total')}</span>
-                <span className="text-gold">{formatCurrency(taxInfo.totalWithTax)}</span>
+                <span className="text-gold">
+                  {formatCurrency(Math.max(0, taxInfo.totalWithTax - pointsDiscountAmount))}
+                </span>
               </div>
             </div>
 
@@ -561,13 +617,27 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   <UserRound className="h-4 w-4 text-gold shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{selectedCustomer.name}</p>
-                    <p className="text-xs text-muted">{selectedCustomer.phone}</p>
+                    <p className="text-xs text-muted">
+                      {selectedCustomer.phone}
+                      {loyaltyInfo.enabled && (
+                        <span className="ms-2 text-gold">
+                          <Star className="h-3 w-3 inline-block" />{' '}
+                          {t('loyalty.pointsBalance', {
+                            points: String(loyaltyInfo.customerPoints),
+                          })}
+                        </span>
+                      )}
+                    </p>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 shrink-0"
-                    onClick={() => setSelectedCustomer(null)}
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setRedeemPoints(false);
+                      setPointsToRedeem(0);
+                    }}
                   >
                     <X className="h-3 w-3" />
                   </Button>
@@ -606,6 +676,68 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                 </div>
               )}
             </div>
+
+            {/* Loyalty Points Redemption */}
+            {loyaltyInfo.enabled && selectedCustomer && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body flex items-center gap-1.5">
+                    <Star className="h-3.5 w-3.5 text-gold" />
+                    {t('loyalty.redeemPoints')}
+                  </h3>
+                  <div className="flex items-center justify-between p-2 bg-surface rounded-md border border-border">
+                    <div>
+                      <p className="text-sm font-medium">{t('loyalty.points')}</p>
+                      <p className="text-lg font-semibold text-gold font-data">
+                        {loyaltyInfo.customerPoints}
+                      </p>
+                    </div>
+                    {loyaltyInfo.customerPoints > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="redeem-toggle" className="text-xs text-muted">
+                          {t('loyalty.redeemToggle')}
+                        </Label>
+                        <input
+                          id="redeem-toggle"
+                          type="checkbox"
+                          checked={redeemPoints}
+                          onChange={(e) => {
+                            setRedeemPoints(e.target.checked);
+                            if (!e.target.checked) setPointsToRedeem(0);
+                          }}
+                          className="accent-gold h-4 w-4"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {redeemPoints && loyaltyInfo.customerPoints > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">{t('loyalty.pointsToRedeem')}</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={loyaltyInfo.customerPoints}
+                        value={pointsToRedeem || ''}
+                        onChange={(e) => {
+                          const val = Math.min(
+                            Math.max(0, parseInt(e.target.value) || 0),
+                            loyaltyInfo.customerPoints
+                          );
+                          setPointsToRedeem(val);
+                        }}
+                        className="h-8 text-sm font-data w-32"
+                      />
+                      {pointsDiscountAmount > 0 && (
+                        <p className="text-xs text-gold font-data">
+                          = -{formatCurrency(pointsDiscountAmount)} {t('loyalty.pointsDiscount')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
 
             <Separator />
 

@@ -50,7 +50,8 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const { items, discount, discount_type, payment_method, customer_id } = parsed.data;
+      const { items, discount, discount_type, payment_method, customer_id, points_redeemed } =
+        parsed.data;
 
       // Calculate total
       let subtotal = 0;
@@ -95,12 +96,45 @@ router.post(
         }
       }
 
+      // Load loyalty settings
+      const loyaltyEnabledRow = rawDb
+        .prepare("SELECT value FROM settings WHERE key = 'loyalty_enabled'")
+        .get() as { value: string } | undefined;
+      const loyaltyEarnRateRow = rawDb
+        .prepare("SELECT value FROM settings WHERE key = 'loyalty_earn_rate'")
+        .get() as { value: string } | undefined;
+      const loyaltyRedeemValueRow = rawDb
+        .prepare("SELECT value FROM settings WHERE key = 'loyalty_redeem_value'")
+        .get() as { value: string } | undefined;
+
+      const loyaltyEnabled = loyaltyEnabledRow?.value === 'true';
+      const loyaltyEarnRate = parseFloat(loyaltyEarnRateRow?.value || '1');
+      const loyaltyRedeemValue = parseFloat(loyaltyRedeemValueRow?.value || '5');
+
+      // Calculate points redemption discount
+      let pointsDiscount = 0;
+      if (loyaltyEnabled && points_redeemed > 0 && customer_id) {
+        pointsDiscount = Math.round((points_redeemed / 100) * loyaltyRedeemValue * 100) / 100;
+        pointsDiscount = Math.min(pointsDiscount, total); // cannot exceed total
+        total = Math.round((total - pointsDiscount) * 100) / 100;
+      }
+
       // Use raw db for transaction
       const txn = rawDb.transaction(() => {
+        // Validate customer has enough points for redemption
+        if (loyaltyEnabled && points_redeemed > 0 && customer_id) {
+          const cust = rawDb
+            .prepare('SELECT loyalty_points FROM customers WHERE id = ?')
+            .get(customer_id) as { loyalty_points: number } | undefined;
+          if (!cust || cust.loyalty_points < points_redeemed) {
+            throw new Error('Insufficient loyalty points');
+          }
+        }
+
         const saleResult = rawDb
           .prepare(
-            `INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id, customer_id, tax_amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`
+            `INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id, customer_id, tax_amount, points_redeemed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
           )
           .get(
             total,
@@ -109,7 +143,8 @@ router.post(
             payment_method,
             authReq.user!.id,
             customer_id || null,
-            taxAmount
+            taxAmount,
+            points_redeemed || 0
           ) as Record<string, any>;
 
         for (const item of items) {
@@ -149,6 +184,50 @@ router.post(
               'Sale',
               authReq.user!.id
             );
+        }
+
+        // Loyalty: deduct redeemed points and earn new points
+        if (loyaltyEnabled && customer_id) {
+          // Deduct redeemed points
+          if (points_redeemed > 0) {
+            rawDb
+              .prepare(
+                "UPDATE customers SET loyalty_points = loyalty_points - ?, updated_at = datetime('now') WHERE id = ?"
+              )
+              .run(points_redeemed, customer_id);
+            rawDb
+              .prepare(
+                'INSERT INTO loyalty_transactions (customer_id, sale_id, points, type, note) VALUES (?, ?, ?, ?, ?)'
+              )
+              .run(
+                customer_id,
+                saleResult.id,
+                -points_redeemed,
+                'redeemed',
+                `Redeemed on sale #${saleResult.id}`
+              );
+          }
+
+          // Earn points based on total spent (after all discounts)
+          const earnedPoints = Math.floor(total * loyaltyEarnRate);
+          if (earnedPoints > 0) {
+            rawDb
+              .prepare(
+                "UPDATE customers SET loyalty_points = loyalty_points + ?, updated_at = datetime('now') WHERE id = ?"
+              )
+              .run(earnedPoints, customer_id);
+            rawDb
+              .prepare(
+                'INSERT INTO loyalty_transactions (customer_id, sale_id, points, type, note) VALUES (?, ?, ?, ?, ?)'
+              )
+              .run(
+                customer_id,
+                saleResult.id,
+                earnedPoints,
+                'earned',
+                `Earned from sale #${saleResult.id}`
+              );
+          }
         }
 
         return saleResult;

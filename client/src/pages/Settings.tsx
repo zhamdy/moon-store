@@ -17,10 +17,13 @@ import { useTranslation } from '../i18n';
 import api from '../services/api';
 import type { AxiosError } from 'axios';
 
-interface TaxSettings {
+interface AllSettings {
   tax_enabled: string;
   tax_rate: string;
   tax_mode: string;
+  loyalty_enabled: string;
+  loyalty_earn_rate: string;
+  loyalty_redeem_value: string;
 }
 
 export default function Settings() {
@@ -31,7 +34,11 @@ export default function Settings() {
   const [taxRate, setTaxRate] = useState('15');
   const [taxMode, setTaxMode] = useState('exclusive');
 
-  const { data: settings, isLoading } = useQuery<TaxSettings>({
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
+  const [loyaltyEarnRate, setLoyaltyEarnRate] = useState('1');
+  const [loyaltyRedeemValue, setLoyaltyRedeemValue] = useState('5');
+
+  const { data: settings, isLoading } = useQuery<AllSettings>({
     queryKey: ['settings'],
     queryFn: () => api.get('/api/settings').then((r) => r.data.data),
   });
@@ -41,6 +48,9 @@ export default function Settings() {
       setTaxEnabled(settings.tax_enabled === 'true');
       setTaxRate(settings.tax_rate || '15');
       setTaxMode(settings.tax_mode || 'exclusive');
+      setLoyaltyEnabled(settings.loyalty_enabled === 'true');
+      setLoyaltyEarnRate(settings.loyalty_earn_rate || '1');
+      setLoyaltyRedeemValue(settings.loyalty_redeem_value || '5');
     }
   }, [settings]);
 
@@ -59,6 +69,9 @@ export default function Settings() {
       tax_enabled: String(taxEnabled),
       tax_rate: taxRate,
       tax_mode: taxMode,
+      loyalty_enabled: String(loyaltyEnabled),
+      loyalty_earn_rate: loyaltyEarnRate,
+      loyalty_redeem_value: loyaltyRedeemValue,
     });
   };
 
@@ -73,6 +86,7 @@ export default function Settings() {
         <div className="gold-divider mt-2" />
       </div>
 
+      {/* Tax Settings */}
       <Card className="max-w-lg">
         <CardHeader>
           <CardTitle className="text-lg">{t('settings.taxSettings')}</CardTitle>
@@ -123,12 +137,61 @@ export default function Settings() {
               </div>
             </>
           )}
-
-          <Button onClick={handleSave} disabled={saveMutation.isPending}>
-            {t('common.save')}
-          </Button>
         </CardContent>
       </Card>
+
+      {/* Loyalty Settings */}
+      <Card className="max-w-lg">
+        <CardHeader>
+          <CardTitle className="text-lg">{t('loyalty.title')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-sm font-medium">{t('loyalty.enabled')}</Label>
+              <p className="text-xs text-muted">{t('loyalty.enabledDesc')}</p>
+            </div>
+            <Switch checked={loyaltyEnabled} onCheckedChange={setLoyaltyEnabled} />
+          </div>
+
+          {loyaltyEnabled && (
+            <>
+              <div className="space-y-2">
+                <Label>{t('loyalty.earnRate')}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={loyaltyEarnRate}
+                  onChange={(e) => setLoyaltyEarnRate(e.target.value)}
+                  className="w-32"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t('loyalty.redeemValue')}</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={loyaltyRedeemValue}
+                    onChange={(e) => setLoyaltyRedeemValue(e.target.value)}
+                    className="w-32"
+                  />
+                  <span className="text-xs text-muted">$ / 100 pts</span>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="max-w-lg">
+        <Button onClick={handleSave} disabled={saveMutation.isPending}>
+          {t('common.save')}
+        </Button>
+      </div>
     </div>
   );
 }

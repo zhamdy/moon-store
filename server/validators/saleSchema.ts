@@ -12,6 +12,7 @@ export const saleSchema = z.object({
   discount_type: z.enum(['fixed', 'percentage']).default('fixed'),
   payment_method: z.enum(['Cash', 'Card', 'Other']).default('Cash'),
   customer_id: z.number().int().positive().optional().nullable(),
+  points_redeemed: z.number().int().min(0).default(0),
 });
 
 export type SaleItem = z.infer<typeof saleItemSchema>;

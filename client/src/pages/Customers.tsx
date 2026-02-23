@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Trash2, History } from 'lucide-react';
+import { Plus, Pencil, Trash2, History, Star } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
@@ -40,6 +40,7 @@ interface CustomerRecord {
   phone: string;
   address: string | null;
   notes: string | null;
+  loyalty_points: number;
   created_at: string;
   updated_at: string;
 }
@@ -152,6 +153,16 @@ export default function CustomersPage() {
       accessorKey: 'address',
       header: t('customers.address'),
       cell: ({ getValue }) => <span className="text-muted">{(getValue() as string) || '-'}</span>,
+    },
+    {
+      accessorKey: 'loyalty_points',
+      header: t('loyalty.points'),
+      cell: ({ getValue }) => (
+        <span className="font-data flex items-center gap-1 text-gold">
+          <Star className="h-3 w-3" />
+          {(getValue() as number) || 0}
+        </span>
+      ),
     },
     {
       id: 'actions',

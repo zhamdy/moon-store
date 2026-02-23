@@ -26,6 +26,9 @@ const updateSettingsSchema = z.object({
   tax_enabled: z.enum(['true', 'false']).optional(),
   tax_rate: z.string().optional(),
   tax_mode: z.enum(['inclusive', 'exclusive']).optional(),
+  loyalty_enabled: z.enum(['true', 'false']).optional(),
+  loyalty_earn_rate: z.string().optional(),
+  loyalty_redeem_value: z.string().optional(),
 });
 
 router.put(
