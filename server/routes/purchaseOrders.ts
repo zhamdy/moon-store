@@ -50,7 +50,7 @@ router.get(
          ${whereClause}`,
         params
       );
-      const total = countResult[0].count;
+      const total = countResult.rows[0].count;
 
       const orders = await db.query(
         `SELECT po.*, d.name as distributor_name, u.name as created_by_name,
@@ -66,7 +66,7 @@ router.get(
 
       res.json({
         success: true,
-        data: orders,
+        data: orders.rows,
         meta: { total, page: pageNum, limit: limitNum },
       });
     } catch (err) {
@@ -93,7 +93,7 @@ router.get(
          ORDER BY d.name, p.name`
       );
 
-      res.json({ success: true, data: lowStock });
+      res.json({ success: true, data: lowStock.rows });
     } catch (err) {
       next(err);
     }
@@ -116,7 +116,7 @@ router.get(
         [req.params.id]
       );
 
-      if (order.length === 0) {
+      if (order.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Purchase order not found' });
       }
 
@@ -131,14 +131,14 @@ router.get(
         [req.params.id]
       );
 
-      const parsedItems = items.map((item: Record<string, unknown>) => ({
+      const parsedItems = items.rows.map((item: Record<string, unknown>) => ({
         ...item,
         variant_attributes: item.variant_attributes
           ? JSON.parse(item.variant_attributes as string)
           : null,
       }));
 
-      res.json({ success: true, data: { ...order[0], items: parsedItems } });
+      res.json({ success: true, data: { ...order.rows[0], items: parsedItems } });
     } catch (err) {
       next(err);
     }
@@ -164,7 +164,7 @@ router.post(
         [poNumber, parsed.distributor_id, parsed.notes || null, total, authReq.user!.id]
       );
 
-      const poId = (result as unknown as { lastInsertRowid: number }).lastInsertRowid;
+      const poId = result.lastInsertRowid as number;
 
       for (const item of parsed.items) {
         await db.query(
@@ -200,7 +200,7 @@ router.put(
       const existing = await db.query(`SELECT * FROM purchase_orders WHERE id = ?`, [
         req.params.id,
       ]);
-      if (existing.length === 0) {
+      if (existing.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Purchase order not found' });
       }
 
@@ -227,11 +227,11 @@ router.post(
       const authReq = req as AuthRequest;
 
       const order = await db.query(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
-      if (order.length === 0) {
+      if (order.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Purchase order not found' });
       }
 
-      const po = order[0] as Record<string, unknown>;
+      const po = order.rows[0] as Record<string, unknown>;
       if (po.status === 'Cancelled' || po.status === 'Received') {
         return res.status(400).json({
           success: false,
@@ -275,15 +275,21 @@ router.post(
           }
 
           // Log stock adjustment
+          const currentProduct = db.db
+            .prepare('SELECT stock FROM products WHERE id = ?')
+            .get(poItem.product_id) as { stock: number } | undefined;
+          const prevStock = (currentProduct?.stock || 0) - actualReceive;
           db.db
             .prepare(
-              `INSERT INTO stock_adjustments (product_id, type, quantity, reason, adjusted_by)
-               VALUES (?, 'add', ?, ?, ?)`
+              `INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id)
+               VALUES (?, ?, ?, ?, ?, ?)`
             )
             .run(
               poItem.product_id,
+              prevStock,
+              prevStock + actualReceive,
               actualReceive,
-              `PO receive: ${(po as Record<string, unknown>).po_number}`,
+              'Import',
               authReq.user!.id
             );
         }
@@ -334,11 +340,11 @@ router.delete(
       const existing = await db.query(`SELECT * FROM purchase_orders WHERE id = ?`, [
         req.params.id,
       ]);
-      if (existing.length === 0) {
+      if (existing.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Purchase order not found' });
       }
 
-      const po = existing[0] as Record<string, unknown>;
+      const po = existing.rows[0] as Record<string, unknown>;
       if (po.status !== 'Draft') {
         return res.status(400).json({
           success: false,

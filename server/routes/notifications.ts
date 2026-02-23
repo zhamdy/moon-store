@@ -30,8 +30,8 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
 
     res.json({
       success: true,
-      data: notifications,
-      meta: { unread_count: unreadCount[0].count },
+      data: notifications.rows,
+      meta: { unread_count: unreadCount.rows[0].count },
     });
   } catch (err) {
     next(err);
@@ -49,7 +49,7 @@ router.get(
         `SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = 0`,
         [authReq.user!.id]
       );
-      res.json({ success: true, data: { count: result[0].count } });
+      res.json({ success: true, data: { count: result.rows[0].count } });
     } catch (err) {
       next(err);
     }
