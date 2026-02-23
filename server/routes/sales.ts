@@ -50,7 +50,7 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const { items, discount, discount_type, payment_method } = parsed.data;
+      const { items, discount, discount_type, payment_method, customer_id } = parsed.data;
 
       // Calculate total
       let subtotal = 0;
@@ -69,13 +69,17 @@ router.post(
       const txn = rawDb.transaction(() => {
         const saleResult = rawDb
           .prepare(
-            `INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id)
-         VALUES (?, ?, ?, ?, ?) RETURNING *`
+            `INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id, customer_id)
+         VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
           )
-          .get(total, discount, discount_type, payment_method, authReq.user!.id) as Record<
-          string,
-          any
-        >;
+          .get(
+            total,
+            discount,
+            discount_type,
+            payment_method,
+            authReq.user!.id,
+            customer_id || null
+          ) as Record<string, any>;
 
         for (const item of items) {
           rawDb
@@ -136,7 +140,16 @@ router.get(
   requireRole('Admin', 'Cashier'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { page = 1, limit = 25, from, to, payment_method, cashier_id, search } = req.query;
+      const {
+        page = 1,
+        limit = 25,
+        from,
+        to,
+        payment_method,
+        cashier_id,
+        customer_id,
+        search,
+      } = req.query;
       const pageNum = Number(page);
       const limitNum = Number(limit);
       const offset = (pageNum - 1) * limitNum;
@@ -160,6 +173,10 @@ router.get(
         where.push(`s.cashier_id = ?`);
         params.push(cashier_id);
       }
+      if (customer_id) {
+        where.push(`s.customer_id = ?`);
+        params.push(customer_id);
+      }
       if (search) {
         where.push(`CAST(s.id AS TEXT) LIKE ?`);
         params.push(`%${search}%`);
@@ -179,11 +196,12 @@ router.get(
       );
 
       const result = await db.query(
-        `SELECT s.*, u.name as cashier_name,
+        `SELECT s.*, u.name as cashier_name, c.name as customer_name,
         (SELECT COUNT(*) FROM sale_items WHERE sale_id = s.id) as items_count,
         s.refund_status, s.refunded_amount
        FROM sales s
        LEFT JOIN users u ON s.cashier_id = u.id
+       LEFT JOIN customers c ON s.customer_id = c.id
        ${whereClause}
        ORDER BY s.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -288,12 +306,10 @@ router.post(
             .json({ success: false, error: `Product ${refundItem.product_id} not in this sale` });
         }
         if (refundItem.quantity > saleItem.quantity) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              error: `Refund quantity exceeds sold quantity for product ${refundItem.product_id}`,
-            });
+          return res.status(400).json({
+            success: false,
+            error: `Refund quantity exceeds sold quantity for product ${refundItem.product_id}`,
+          });
         }
       }
 

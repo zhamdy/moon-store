@@ -249,6 +249,8 @@
   "sales.selectItems": "اختر العناصر للاسترجاع",
   "sales.qtyToRefund": "الكمية للاسترجاع",
   "sales.alreadyFullyRefunded": "تم الاسترجاع بالكامل",
+  "sales.customer": "العميل",
+  "sales.walkIn": "عميل عابر",
 
   "users.title": "المستخدمون",
   "users.addUser": "إضافة مستخدم",
@@ -311,6 +313,14 @@
   "customers.createFailed": "فشل إنشاء العميل",
   "customers.updateFailed": "فشل تحديث العميل",
   "customers.deleteFailed": "فشل حذف العميل",
+  "customers.viewHistory": "عرض السجل",
+  "customers.purchaseHistory": "سجل المشتريات",
+  "customers.totalSpent": "إجمالي الإنفاق",
+  "customers.orderCount": "الطلبات",
+  "customers.avgOrder": "متوسط الطلب",
+  "customers.lastPurchase": "آخر شراء",
+  "customers.noPurchases": "لا توجد مشتريات بعد",
+  "customers.backToList": "العودة للعملاء",
 
   "distributors.title": "الموزعون",
   "distributors.addDistributor": "إضافة موزع",

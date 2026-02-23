@@ -45,6 +45,8 @@ interface Sale {
   created_at: string;
   refund_status: 'partial' | 'full' | null;
   refunded_amount: number | null;
+  customer_id: number | null;
+  customer_name: string | null;
 }
 
 interface SaleItem {
@@ -250,6 +252,13 @@ export default function SalesHistory() {
       },
     },
     { accessorKey: 'cashier_name', header: t('sales.cashier') },
+    {
+      id: 'customer_name',
+      header: t('sales.customer'),
+      cell: ({ row }) => (
+        <span className="text-muted">{row.original.customer_name || t('sales.walkIn')}</span>
+      ),
+    },
     {
       id: 'actions',
       header: '',

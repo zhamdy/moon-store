@@ -249,6 +249,8 @@
   "sales.selectItems": "Select items to refund",
   "sales.qtyToRefund": "Qty to refund",
   "sales.alreadyFullyRefunded": "Fully refunded",
+  "sales.customer": "Customer",
+  "sales.walkIn": "Walk-in",
 
   "users.title": "Users",
   "users.addUser": "Add User",
@@ -311,6 +313,14 @@
   "customers.createFailed": "Failed to create customer",
   "customers.updateFailed": "Failed to update customer",
   "customers.deleteFailed": "Failed to delete customer",
+  "customers.viewHistory": "View History",
+  "customers.purchaseHistory": "Purchase History",
+  "customers.totalSpent": "Total Spent",
+  "customers.orderCount": "Orders",
+  "customers.avgOrder": "Avg. Order",
+  "customers.lastPurchase": "Last Purchase",
+  "customers.noPurchases": "No purchases yet",
+  "customers.backToList": "Back to Customers",
 
   "distributors.title": "Distributors",
   "distributors.addDistributor": "Add Distributor",

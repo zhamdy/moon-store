@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, History } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import DataTable from '../components/DataTable';
+import CustomerDetail from '../components/CustomerDetail';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -62,6 +63,7 @@ export default function CustomersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<CustomerRecord | null>(null);
+  const [viewingCustomer, setViewingCustomer] = useState<CustomerRecord | null>(null);
 
   const { data: customers, isLoading } = useQuery<CustomerRecord[]>({
     queryKey: ['customers'],
@@ -161,6 +163,15 @@ export default function CustomersPage() {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
+            onClick={() => setViewingCustomer(row.original)}
+            title={t('customers.viewHistory')}
+          >
+            <History className="h-3.5 w-3.5 text-gold" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
             onClick={() => openEditDialog(row.original)}
           >
             <Pencil className="h-3.5 w-3.5 text-gold" />
@@ -177,6 +188,18 @@ export default function CustomersPage() {
       ),
     },
   ];
+
+  if (viewingCustomer) {
+    return (
+      <div className="p-6 animate-fade-in">
+        <CustomerDetail
+          customerId={viewingCustomer.id}
+          customerName={viewingCustomer.name}
+          onBack={() => setViewingCustomer(null)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
