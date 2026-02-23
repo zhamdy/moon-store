@@ -36,6 +36,7 @@ type PaymentMethod = 'Cash' | 'Card' | 'Other';
 
 interface SaleItem {
   product_id: number;
+  variant_id?: number | null;
   quantity: number;
   unit_price: number;
 }
@@ -232,6 +233,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         const saleData: SaleData = {
           items: items.map((i) => ({
             product_id: i.product_id,
+            ...(i.variant_id ? { variant_id: i.variant_id } : {}),
             quantity: i.quantity,
             unit_price: i.unit_price,
           })),
@@ -345,7 +347,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         ) : (
           items.map((item) => (
             <div
-              key={item.product_id}
+              key={`${item.product_id}-${item.variant_id || 0}`}
               className="flex items-center gap-3 p-3 bg-surface rounded-md border border-border"
             >
               <div className="flex-1 min-w-0">
@@ -357,7 +359,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
+                  onClick={() =>
+                    updateQuantity(item.product_id, item.quantity - 1, item.variant_id)
+                  }
                 >
                   <Minus className="h-3.5 w-3.5 text-gold" />
                 </Button>
@@ -366,7 +370,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                  onClick={() =>
+                    updateQuantity(item.product_id, item.quantity + 1, item.variant_id)
+                  }
                   disabled={item.quantity >= item.stock}
                 >
                   <Plus className="h-3.5 w-3.5 text-gold" />
@@ -379,7 +385,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7"
-                onClick={() => removeItem(item.product_id)}
+                onClick={() => removeItem(item.product_id, item.variant_id)}
               >
                 <X className="h-3 w-3 text-destructive" />
               </Button>

@@ -1,12 +1,19 @@
 import { useState, useCallback, useRef, useMemo, type ChangeEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Camera, Package, Keyboard } from 'lucide-react';
+import { Search, Camera, Package, Keyboard, Layers } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../components/ui/dialog';
 import CartPanel from '../components/CartPanel';
 import BarcodeScanner from '../components/BarcodeScanner';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
@@ -38,6 +45,19 @@ interface Product {
   distributor_id: number | null;
   distributor_name: string | null;
   image_url: string | null;
+  has_variants: number;
+  variant_count: number;
+  variant_stock: number;
+}
+
+interface ProductVariant {
+  id: number;
+  product_id: number;
+  sku: string;
+  barcode: string | null;
+  price: number | null;
+  stock: number;
+  attributes: Record<string, string>;
 }
 
 export default function POS() {
@@ -45,6 +65,8 @@ export default function POS() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [variantDialogOpen, setVariantDialogOpen] = useState(false);
+  const [variantProduct, setVariantProduct] = useState<Product | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const checkoutTriggerRef = useRef<() => void>(null);
   const { addItem, items, updateQuantity, removeItem, clearCart, discount, discountType } =
@@ -121,6 +143,13 @@ export default function POS() {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Fetch variants for selected product
+  const { data: variants } = useQuery<ProductVariant[]>({
+    queryKey: ['product-variants', variantProduct?.id],
+    queryFn: () => api.get(`/api/products/${variantProduct!.id}/variants`).then((r) => r.data.data),
+    enabled: !!variantProduct && variantDialogOpen,
+  });
+
   const handleBarcodeDetected = useCallback(
     async (barcode: string) => {
       try {
@@ -139,13 +168,39 @@ export default function POS() {
   );
 
   const handleProductClick = (product: Product) => {
+    if (product.has_variants && product.variant_count > 0) {
+      // Open variant selector
+      setVariantProduct(product);
+      setVariantDialogOpen(true);
+      return;
+    }
     if (product.stock === 0) return;
     addItem(product);
   };
 
+  const handleVariantSelect = (variant: ProductVariant) => {
+    if (!variantProduct || variant.stock === 0) return;
+    addItem({
+      id: variantProduct.id,
+      name: variantProduct.name,
+      price: variant.price || variantProduct.price,
+      stock: variant.stock,
+      variant_id: variant.id,
+      variant_attributes: variant.attributes,
+    });
+    setVariantDialogOpen(false);
+    setVariantProduct(null);
+  };
+
+  const getEffectiveStock = (product: Product) => {
+    if (product.has_variants && product.variant_count > 0) return product.variant_stock;
+    return product.stock;
+  };
+
   const getStockVariant = (product: Product) => {
-    if (product.stock === 0) return 'destructive' as const;
-    if (product.stock <= product.min_stock) return 'warning' as const;
+    const stock = getEffectiveStock(product);
+    if (stock === 0) return 'destructive' as const;
+    if (stock <= product.min_stock) return 'warning' as const;
     return 'success' as const;
   };
 
@@ -237,13 +292,13 @@ export default function POS() {
                 <Card
                   key={product.id}
                   className={`relative transition-all ${
-                    product.stock === 0
+                    getEffectiveStock(product) === 0
                       ? 'opacity-60 cursor-not-allowed'
                       : 'cursor-pointer hover:border-gold/50 hover:shadow-md'
                   }`}
                   onClick={() => handleProductClick(product)}
                 >
-                  {product.stock === 0 && (
+                  {getEffectiveStock(product) === 0 && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/60">
                       <span className="text-xs font-semibold text-destructive uppercase tracking-wider">
                         {t('pos.outOfStock')}
@@ -262,9 +317,17 @@ export default function POS() {
                       ) : (
                         <Package className="h-5 w-5 text-gold" />
                       )}
-                      <Badge variant={getStockVariant(product)} className="text-[10px]">
-                        {product.stock} {t('pos.inStock')}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        {product.has_variants > 0 && (
+                          <Badge variant="gold" className="text-[10px] gap-0.5">
+                            <Layers className="h-2.5 w-2.5" />
+                            {product.variant_count}
+                          </Badge>
+                        )}
+                        <Badge variant={getStockVariant(product)} className="text-[10px]">
+                          {getEffectiveStock(product)} {t('pos.inStock')}
+                        </Badge>
+                      </div>
                     </div>
                     {(product.category_name || product.category) && (
                       <Badge variant="gold" className="text-[10px] mb-1">
@@ -290,6 +353,70 @@ export default function POS() {
           <CartPanel checkoutTriggerRef={checkoutTriggerRef} />
         </div>
       </div>
+
+      {/* Variant Selector Dialog */}
+      <Dialog
+        open={variantDialogOpen}
+        onOpenChange={(open) => {
+          setVariantDialogOpen(open);
+          if (!open) setVariantProduct(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {variantProduct?.name} — {t('variants.selectVariant')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('variants.variantCount', { count: String(variantProduct?.variant_count || 0) })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {variants?.map((variant) => (
+              <button
+                key={variant.id}
+                onClick={() => handleVariantSelect(variant)}
+                disabled={variant.stock === 0}
+                className={`w-full flex items-center justify-between p-3 rounded-md border transition-colors text-start ${
+                  variant.stock === 0
+                    ? 'opacity-50 cursor-not-allowed border-border'
+                    : 'border-border hover:border-gold/50 cursor-pointer'
+                }`}
+              >
+                <div>
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {Object.entries(variant.attributes).map(([key, value]) => (
+                      <Badge key={key} variant="gold" className="text-[10px]">
+                        {key}: {value}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted font-data">
+                    {t('pos.sku')}: {variant.sku}
+                  </p>
+                </div>
+                <div className="text-end">
+                  <p className="text-sm font-semibold text-gold font-data">
+                    {formatCurrency(Number(variant.price || variantProduct?.price || 0))}
+                  </p>
+                  <Badge
+                    variant={
+                      variant.stock === 0
+                        ? 'destructive'
+                        : variant.stock <= 5
+                          ? 'warning'
+                          : 'success'
+                    }
+                    className="text-[10px]"
+                  >
+                    {variant.stock} {t('pos.inStock')}
+                  </Badge>
+                </div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <KeyboardShortcutsHelp open={showShortcuts} onOpenChange={setShowShortcuts} />
     </div>

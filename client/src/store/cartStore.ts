@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export interface CartItem {
   product_id: number;
+  variant_id?: number | null;
   name: string;
   unit_price: number;
   quantity: number;
@@ -13,6 +14,8 @@ export interface Product {
   name: string;
   price: string | number;
   stock: number;
+  variant_id?: number | null;
+  variant_attributes?: Record<string, string>;
 }
 
 export type DiscountType = 'fixed' | 'percentage';
@@ -22,8 +25,8 @@ interface CartState {
   discount: number;
   discountType: DiscountType;
   addItem: (product: Product) => void;
-  removeItem: (productId: number) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
+  removeItem: (productId: number, variantId?: number | null) => void;
+  updateQuantity: (productId: number, quantity: number, variantId?: number | null) => void;
   setDiscount: (discount: number) => void;
   setDiscountType: (discountType: DiscountType) => void;
   getSubtotal: () => number;
@@ -38,20 +41,29 @@ export const useCartStore = create<CartState>()((set, get) => ({
 
   addItem: (product) =>
     set((state) => {
-      const existing = state.items.find((i) => i.product_id === product.id);
+      const variantId = product.variant_id || null;
+      const existing = state.items.find(
+        (i) => i.product_id === product.id && (i.variant_id || null) === variantId
+      );
       if (existing) {
         return {
           items: state.items.map((i) =>
-            i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i
+            i.product_id === product.id && (i.variant_id || null) === variantId
+              ? { ...i, quantity: i.quantity + 1 }
+              : i
           ),
         };
       }
+      const variantLabel = product.variant_attributes
+        ? ` (${Object.values(product.variant_attributes).join(' / ')})`
+        : '';
       return {
         items: [
           ...state.items,
           {
             product_id: product.id,
-            name: product.name,
+            variant_id: variantId,
+            name: product.name + variantLabel,
             unit_price: parseFloat(String(product.price)),
             quantity: 1,
             stock: product.stock,
@@ -60,15 +72,19 @@ export const useCartStore = create<CartState>()((set, get) => ({
       };
     }),
 
-  removeItem: (productId) =>
+  removeItem: (productId, variantId) =>
     set((state) => ({
-      items: state.items.filter((i) => i.product_id !== productId),
+      items: state.items.filter(
+        (i) => !(i.product_id === productId && (i.variant_id || null) === (variantId || null))
+      ),
     })),
 
-  updateQuantity: (productId, quantity) =>
+  updateQuantity: (productId, quantity, variantId) =>
     set((state) => ({
       items: state.items.map((i) =>
-        i.product_id === productId ? { ...i, quantity: Math.max(1, quantity) } : i
+        i.product_id === productId && (i.variant_id || null) === (variantId || null)
+          ? { ...i, quantity: Math.max(1, quantity) }
+          : i
       ),
     })),
 

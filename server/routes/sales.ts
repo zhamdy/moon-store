@@ -148,42 +148,89 @@ router.post(
           ) as Record<string, any>;
 
         for (const item of items) {
-          // Snapshot cost_price and current stock from product
-          const product = rawDb
-            .prepare('SELECT cost_price, stock FROM products WHERE id = ?')
-            .get(item.product_id) as { cost_price: number; stock: number } | undefined;
-          const costPrice = product?.cost_price || 0;
-          const previousStock = product?.stock || 0;
+          const variantId = (item as any).variant_id || null;
 
-          rawDb
-            .prepare(
-              'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, cost_price) VALUES (?, ?, ?, ?, ?)'
-            )
-            .run(saleResult.id, item.product_id, item.quantity, item.unit_price, costPrice);
+          if (variantId) {
+            // Variant sale: deduct stock from variant
+            const variant = rawDb
+              .prepare(
+                'SELECT cost_price, stock FROM product_variants WHERE id = ? AND product_id = ?'
+              )
+              .get(variantId, item.product_id) as { cost_price: number; stock: number } | undefined;
+            const costPrice = variant?.cost_price || 0;
+            const previousStock = variant?.stock || 0;
 
-          const updated = rawDb
-            .prepare(
-              "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ? AND stock >= ?"
-            )
-            .run(item.quantity, item.product_id, item.quantity);
+            rawDb
+              .prepare(
+                'INSERT INTO sale_items (sale_id, product_id, variant_id, quantity, unit_price, cost_price) VALUES (?, ?, ?, ?, ?, ?)'
+              )
+              .run(
+                saleResult.id,
+                item.product_id,
+                variantId,
+                item.quantity,
+                item.unit_price,
+                costPrice
+              );
 
-          if (updated.changes === 0) {
-            throw new Error(`Insufficient stock for product ID ${item.product_id}`);
+            const updated = rawDb
+              .prepare('UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?')
+              .run(item.quantity, variantId, item.quantity);
+
+            if (updated.changes === 0) {
+              throw new Error(`Insufficient stock for variant ID ${variantId}`);
+            }
+
+            // Log stock adjustment against parent product
+            rawDb
+              .prepare(
+                'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES (?, ?, ?, ?, ?, ?)'
+              )
+              .run(
+                item.product_id,
+                previousStock,
+                previousStock - item.quantity,
+                -item.quantity,
+                'Sale',
+                authReq.user!.id
+              );
+          } else {
+            // Regular product sale
+            const product = rawDb
+              .prepare('SELECT cost_price, stock FROM products WHERE id = ?')
+              .get(item.product_id) as { cost_price: number; stock: number } | undefined;
+            const costPrice = product?.cost_price || 0;
+            const previousStock = product?.stock || 0;
+
+            rawDb
+              .prepare(
+                'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, cost_price) VALUES (?, ?, ?, ?, ?)'
+              )
+              .run(saleResult.id, item.product_id, item.quantity, item.unit_price, costPrice);
+
+            const updated = rawDb
+              .prepare(
+                "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ? AND stock >= ?"
+              )
+              .run(item.quantity, item.product_id, item.quantity);
+
+            if (updated.changes === 0) {
+              throw new Error(`Insufficient stock for product ID ${item.product_id}`);
+            }
+
+            rawDb
+              .prepare(
+                'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES (?, ?, ?, ?, ?, ?)'
+              )
+              .run(
+                item.product_id,
+                previousStock,
+                previousStock - item.quantity,
+                -item.quantity,
+                'Sale',
+                authReq.user!.id
+              );
           }
-
-          // Log stock adjustment
-          rawDb
-            .prepare(
-              'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES (?, ?, ?, ?, ?, ?)'
-            )
-            .run(
-              item.product_id,
-              previousStock,
-              previousStock - item.quantity,
-              -item.quantity,
-              'Sale',
-              authReq.user!.id
-            );
         }
 
         // Loyalty: deduct redeemed points and earn new points

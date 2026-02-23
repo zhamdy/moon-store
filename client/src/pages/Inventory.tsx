@@ -17,6 +17,7 @@ import {
   Package,
   Download,
   Percent,
+  Layers,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -87,8 +88,22 @@ interface Product {
   distributor_name: string | null;
   min_stock: number;
   image_url: string | null;
+  has_variants: number;
+  variant_count: number;
+  variant_stock: number;
   created_at: string;
   updated_at: string;
+}
+
+interface ProductVariant {
+  id: number;
+  product_id: number;
+  sku: string;
+  barcode: string | null;
+  price: number | null;
+  cost_price: number;
+  stock: number;
+  attributes: Record<string, string>;
 }
 
 interface ImportResult {
@@ -160,22 +175,20 @@ export default function Inventory() {
   const [bulkDistributor, setBulkDistributor] = useState('');
   const [bulkPricePercent, setBulkPricePercent] = useState('');
 
-  const currentData = (lowStockFilter ? lowStockData : productsData) ?? [];
-  const selectedIds = useMemo(() => {
-    return Object.keys(rowSelection)
-      .filter((k) => rowSelection[k])
-      .map((id) => Number(id));
-  }, [rowSelection]);
-  const selectedCount = selectedIds.length;
-
-  const toggleLowStock = (on: boolean) => {
-    setLowStockFilter(on);
-    if (on) {
-      setSearchParams({ lowStock: 'true' });
-    } else {
-      setSearchParams({});
-    }
-  };
+  // Variant management state
+  const [variantsDialogOpen, setVariantsDialogOpen] = useState(false);
+  const [variantsProduct, setVariantsProduct] = useState<Product | null>(null);
+  const [variantFormOpen, setVariantFormOpen] = useState(false);
+  const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
+  const [variantDeleteId, setVariantDeleteId] = useState<number | null>(null);
+  const [variantAttrs, setVariantAttrs] = useState<Array<{ key: string; value: string }>>([
+    { key: '', value: '' },
+  ]);
+  const [variantSku, setVariantSku] = useState('');
+  const [variantBarcode, setVariantBarcode] = useState('');
+  const [variantPrice, setVariantPrice] = useState('');
+  const [variantCostPrice, setVariantCostPrice] = useState('');
+  const [variantStock, setVariantStock] = useState('0');
 
   const { data: productsData, isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ['products', { category_id: categoryFilter === 'all' ? undefined : categoryFilter }],
@@ -198,6 +211,22 @@ export default function Inventory() {
   });
 
   const isLoading = lowStockFilter ? lowStockLoading : productsLoading;
+  const currentData = (lowStockFilter ? lowStockData : productsData) ?? [];
+  const selectedIds = useMemo(() => {
+    return Object.keys(rowSelection)
+      .filter((k) => rowSelection[k])
+      .map((id) => Number(id));
+  }, [rowSelection]);
+  const selectedCount = selectedIds.length;
+
+  const toggleLowStock = (on: boolean) => {
+    setLowStockFilter(on);
+    if (on) {
+      setSearchParams({ lowStock: 'true' });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: ['product-categories'],
@@ -316,6 +345,108 @@ export default function Inventory() {
     onError: (err: AxiosError<ApiErrorResponse>) =>
       toast.error(err.response?.data?.error || t('bulk.updateFailed')),
   });
+
+  // Variant queries & mutations
+  const { data: variants, isLoading: variantsLoading } = useQuery<ProductVariant[]>({
+    queryKey: ['product-variants', variantsProduct?.id],
+    queryFn: () =>
+      api.get(`/api/products/${variantsProduct!.id}/variants`).then((r) => r.data.data),
+    enabled: !!variantsProduct && variantsDialogOpen,
+  });
+
+  const createVariantMutation = useMutation({
+    mutationFn: (data: { productId: number; variant: Record<string, unknown> }) =>
+      api.post(`/api/products/${data.productId}/variants`, data.variant),
+    onSuccess: () => {
+      toast.success(t('variants.created'));
+      queryClient.invalidateQueries({ queryKey: ['product-variants', variantsProduct?.id] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      resetVariantForm();
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('variants.createFailed')),
+  });
+
+  const updateVariantMutation = useMutation({
+    mutationFn: (data: {
+      productId: number;
+      variantId: number;
+      variant: Record<string, unknown>;
+    }) => api.put(`/api/products/${data.productId}/variants/${data.variantId}`, data.variant),
+    onSuccess: () => {
+      toast.success(t('variants.updated'));
+      queryClient.invalidateQueries({ queryKey: ['product-variants', variantsProduct?.id] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      resetVariantForm();
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('variants.updateFailed')),
+  });
+
+  const deleteVariantMutation = useMutation({
+    mutationFn: (data: { productId: number; variantId: number }) =>
+      api.delete(`/api/products/${data.productId}/variants/${data.variantId}`),
+    onSuccess: () => {
+      toast.success(t('variants.deleted'));
+      queryClient.invalidateQueries({ queryKey: ['product-variants', variantsProduct?.id] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      setVariantDeleteId(null);
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('variants.deleteFailed')),
+  });
+
+  const resetVariantForm = () => {
+    setVariantFormOpen(false);
+    setEditingVariant(null);
+    setVariantAttrs([{ key: '', value: '' }]);
+    setVariantSku('');
+    setVariantBarcode('');
+    setVariantPrice('');
+    setVariantCostPrice('');
+    setVariantStock('0');
+  };
+
+  const openEditVariant = (variant: ProductVariant) => {
+    setEditingVariant(variant);
+    setVariantSku(variant.sku);
+    setVariantBarcode(variant.barcode || '');
+    setVariantPrice(variant.price != null ? String(variant.price) : '');
+    setVariantCostPrice(variant.cost_price ? String(variant.cost_price) : '');
+    setVariantStock(String(variant.stock));
+    setVariantAttrs(Object.entries(variant.attributes).map(([key, value]) => ({ key, value })));
+    setVariantFormOpen(true);
+  };
+
+  const handleVariantSubmit = () => {
+    const attributes: Record<string, string> = {};
+    for (const attr of variantAttrs) {
+      if (attr.key.trim() && attr.value.trim()) {
+        attributes[attr.key.trim()] = attr.value.trim();
+      }
+    }
+    if (Object.keys(attributes).length === 0) {
+      toast.error(t('variants.attributes') + ' required');
+      return;
+    }
+    const payload = {
+      sku: variantSku,
+      barcode: variantBarcode || null,
+      price: variantPrice ? Number(variantPrice) : null,
+      cost_price: variantCostPrice ? Number(variantCostPrice) : 0,
+      stock: Number(variantStock) || 0,
+      attributes,
+    };
+    if (editingVariant && variantsProduct) {
+      updateVariantMutation.mutate({
+        productId: variantsProduct.id,
+        variantId: editingVariant.id,
+        variant: payload,
+      });
+    } else if (variantsProduct) {
+      createVariantMutation.mutate({ productId: variantsProduct.id, variant: payload });
+    }
+  };
 
   const handleBulkExport = () => {
     const selected = currentData.filter((p) => selectedIds.includes(p.id));
@@ -588,6 +719,23 @@ export default function Inventory() {
       ),
     },
     {
+      id: 'variants',
+      header: t('variants.title'),
+      cell: ({ row }) => {
+        const p = row.original;
+        if (!p.has_variants || p.variant_count === 0) return <span className="text-muted">-</span>;
+        return (
+          <div className="flex items-center gap-1">
+            <Badge variant="gold" className="text-[10px] gap-0.5">
+              <Layers className="h-2.5 w-2.5" />
+              {p.variant_count}
+            </Badge>
+            <span className="text-xs text-muted font-data">({p.variant_stock})</span>
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: 'distributor_name',
       header: t('inventory.distributor'),
       cell: ({ getValue }) => (
@@ -602,6 +750,18 @@ export default function Inventory() {
             enableSorting: false,
             cell: ({ row }: { row: { original: Product } }) => (
               <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title={t('variants.manageVariants')}
+                  onClick={() => {
+                    setVariantsProduct(row.original);
+                    setVariantsDialogOpen(true);
+                  }}
+                >
+                  <Layers className="h-3.5 w-3.5 text-purple-400" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1113,6 +1273,243 @@ export default function Inventory() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Manage Variants Dialog */}
+      <Dialog
+        open={variantsDialogOpen}
+        onOpenChange={(open) => {
+          setVariantsDialogOpen(open);
+          if (!open) {
+            setVariantsProduct(null);
+            resetVariantForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {variantsProduct?.name} — {t('variants.manageVariants')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('variants.variantCount', { count: String(variants?.length || 0) })}
+              {variants && variants.length > 0 && (
+                <>
+                  {' '}
+                  · {t('variants.totalStock')}: {variants.reduce((s, v) => s + v.stock, 0)}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Variant list */}
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {variantsLoading ? (
+              <p className="text-sm text-muted text-center py-4">{t('common.loading')}...</p>
+            ) : variants && variants.length > 0 ? (
+              variants.map((variant) => (
+                <div
+                  key={variant.id}
+                  className="flex items-center justify-between p-3 rounded-md border border-border"
+                >
+                  <div>
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {Object.entries(variant.attributes).map(([key, value]) => (
+                        <Badge key={key} variant="gold" className="text-[10px]">
+                          {key}: {value}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted font-data">
+                      SKU: {variant.sku}
+                      {variant.barcode && <> · {variant.barcode}</>}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-end me-2">
+                      <p className="text-sm font-semibold text-gold font-data">
+                        {formatCurrency(Number(variant.price || variantsProduct?.price || 0))}
+                      </p>
+                      <Badge
+                        variant={variant.stock === 0 ? 'destructive' : 'success'}
+                        className="text-[10px]"
+                      >
+                        {variant.stock}
+                      </Badge>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => openEditVariant(variant)}
+                    >
+                      <Pencil className="h-3 w-3 text-gold" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setVariantDeleteId(variant.id)}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted text-center py-4">
+                {t('variants.title')} — {t('common.noResults')}
+              </p>
+            )}
+          </div>
+
+          {/* Add/Edit variant form */}
+          {variantFormOpen ? (
+            <div className="border-t border-border pt-4 space-y-3">
+              <h4 className="text-sm font-semibold">
+                {editingVariant ? t('variants.editVariant') : t('variants.addVariant')}
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('variants.sku')}</Label>
+                  <Input
+                    value={variantSku}
+                    onChange={(e) => setVariantSku(e.target.value)}
+                    placeholder="SKU"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('variants.barcode')}</Label>
+                  <Input
+                    value={variantBarcode}
+                    onChange={(e) => setVariantBarcode(e.target.value)}
+                    placeholder={t('variants.barcode')}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('variants.price')}</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={variantPrice}
+                    onChange={(e) => setVariantPrice(e.target.value)}
+                    placeholder={t('variants.price')}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('variants.costPrice')}</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={variantCostPrice}
+                    onChange={(e) => setVariantCostPrice(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('variants.stock')}</Label>
+                  <Input
+                    type="number"
+                    value={variantStock}
+                    onChange={(e) => setVariantStock(e.target.value)}
+                  />
+                </div>
+              </div>
+              {/* Attributes */}
+              <div className="space-y-2">
+                <Label className="text-xs">{t('variants.attributes')}</Label>
+                {variantAttrs.map((attr, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input
+                      placeholder={t('variants.attributeName')}
+                      value={attr.key}
+                      onChange={(e) => {
+                        const updated = [...variantAttrs];
+                        updated[i] = { ...updated[i], key: e.target.value };
+                        setVariantAttrs(updated);
+                      }}
+                      className="flex-1"
+                    />
+                    <Input
+                      placeholder={t('variants.attributeValue')}
+                      value={attr.value}
+                      onChange={(e) => {
+                        const updated = [...variantAttrs];
+                        updated[i] = { ...updated[i], value: e.target.value };
+                        setVariantAttrs(updated);
+                      }}
+                      className="flex-1"
+                    />
+                    {variantAttrs.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        onClick={() => setVariantAttrs(variantAttrs.filter((_, j) => j !== i))}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setVariantAttrs([...variantAttrs, { key: '', value: '' }])}
+                >
+                  <Plus className="h-3 w-3 me-1" />
+                  {t('variants.addAttribute')}
+                </Button>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" size="sm" onClick={resetVariantForm}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleVariantSubmit}
+                  disabled={createVariantMutation.isPending || updateVariantMutation.isPending}
+                >
+                  {editingVariant ? t('common.update') : t('common.create')}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => setVariantFormOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              {t('variants.addVariant')}
+            </Button>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Variant Confirmation */}
+      <AlertDialog open={!!variantDeleteId} onOpenChange={() => setVariantDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('variants.deleteVariant')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('variants.deleteConfirm')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (variantDeleteId && variantsProduct) {
+                  deleteVariantMutation.mutate({
+                    productId: variantsProduct.id,
+                    variantId: variantDeleteId,
+                  });
+                }
+              }}
+              className="bg-destructive text-foreground hover:bg-destructive/90"
+            >
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

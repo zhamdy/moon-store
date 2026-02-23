@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import db from '../db';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
-import { productSchema } from '../validators/productSchema';
+import { productSchema, variantSchema } from '../validators/productSchema';
 
 // Multer config for product image uploads
 const storage = multer.diskStorage({
@@ -81,7 +81,9 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
     const total = countResult.rows[0].count;
 
     const result = await db.query(
-      `SELECT p.*, c.name as category_name, c.code as category_code, d.name as distributor_name
+      `SELECT p.*, c.name as category_name, c.code as category_code, d.name as distributor_name,
+              (SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id = p.id) as variant_count,
+              (SELECT COALESCE(SUM(pv.stock), 0) FROM product_variants pv WHERE pv.product_id = p.id) as variant_stock
        FROM products p
        LEFT JOIN categories c ON p.category_id = c.id
        LEFT JOIN distributors d ON p.distributor_id = d.id
@@ -217,13 +219,44 @@ router.get(
   verifyToken,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // First check products table
       const result = await db.query('SELECT * FROM products WHERE barcode = ?', [
         req.params.barcode,
       ]);
-      if (result.rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'Product not found' });
+      if (result.rows.length > 0) {
+        return res.json({ success: true, data: result.rows[0] });
       }
-      res.json({ success: true, data: result.rows[0] });
+
+      // Then check variants table
+      const variantResult = await db.query(
+        `SELECT v.*, p.name as product_name, p.category, p.category_id, p.image_url, p.has_variants
+         FROM product_variants v
+         JOIN products p ON v.product_id = p.id
+         WHERE v.barcode = ?`,
+        [req.params.barcode]
+      );
+      if (variantResult.rows.length > 0) {
+        const v = variantResult.rows[0] as Record<string, any>;
+        // Return as a product-like object for POS compatibility
+        return res.json({
+          success: true,
+          data: {
+            id: v.product_id,
+            name: v.product_name,
+            sku: v.sku,
+            barcode: v.barcode,
+            price: v.price,
+            stock: v.stock,
+            category: v.category,
+            category_id: v.category_id,
+            image_url: v.image_url,
+            variant_id: v.id,
+            variant_attributes: JSON.parse(v.attributes || '{}'),
+          },
+        });
+      }
+
+      return res.status(404).json({ success: false, error: 'Product not found' });
     } catch (err) {
       next(err);
     }
@@ -743,6 +776,172 @@ router.delete(
       );
 
       res.json({ success: true, data: { message: 'Image removed' } });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/products/:id/variants
+router.get(
+  '/:id/variants',
+  verifyToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await db.query(
+        `SELECT * FROM product_variants WHERE product_id = ? ORDER BY sku`,
+        [req.params.id]
+      );
+      // Parse attributes JSON
+      const variants = result.rows.map((v: any) => ({
+        ...v,
+        attributes: JSON.parse(v.attributes || '{}'),
+      }));
+      res.json({ success: true, data: variants });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/products/:id/variants
+router.post(
+  '/:id/variants',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const parsed = variantSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      }
+
+      const productId = Number(req.params.id);
+      const { sku, barcode, price, cost_price, stock, attributes } = parsed.data;
+
+      const rawDb = db.db;
+      const txn = rawDb.transaction(() => {
+        // Verify product exists
+        const product = rawDb.prepare('SELECT id FROM products WHERE id = ?').get(productId) as
+          | Record<string, any>
+          | undefined;
+        if (!product) throw new Error('Product not found');
+
+        // Mark product as has_variants
+        rawDb.prepare('UPDATE products SET has_variants = 1 WHERE id = ?').run(productId);
+
+        const variant = rawDb
+          .prepare(
+            `INSERT INTO product_variants (product_id, sku, barcode, price, cost_price, stock, attributes)
+             VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`
+          )
+          .get(
+            productId,
+            sku,
+            barcode || null,
+            price || null,
+            cost_price,
+            stock,
+            JSON.stringify(attributes)
+          ) as Record<string, any>;
+
+        return variant;
+      });
+
+      try {
+        const variant = txn();
+        res.status(201).json({
+          success: true,
+          data: { ...variant, attributes: JSON.parse(variant.attributes || '{}') },
+        });
+      } catch (err: any) {
+        if (err.message === 'Product not found') {
+          return res.status(404).json({ success: false, error: err.message });
+        }
+        if (err.message?.includes('UNIQUE')) {
+          return res.status(409).json({ success: false, error: 'SKU or barcode already exists' });
+        }
+        throw err;
+      }
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// PUT /api/products/:id/variants/:variantId
+router.put(
+  '/:id/variants/:variantId',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const parsed = variantSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      }
+
+      const { sku, barcode, price, cost_price, stock, attributes } = parsed.data;
+
+      const result = await db.query(
+        `UPDATE product_variants SET sku=?, barcode=?, price=?, cost_price=?, stock=?, attributes=?
+         WHERE id=? AND product_id=? RETURNING *`,
+        [
+          sku,
+          barcode || null,
+          price || null,
+          cost_price,
+          stock,
+          JSON.stringify(attributes),
+          req.params.variantId,
+          req.params.id,
+        ]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Variant not found' });
+      }
+
+      const variant = result.rows[0] as Record<string, any>;
+      res.json({
+        success: true,
+        data: { ...variant, attributes: JSON.parse(variant.attributes || '{}') },
+      });
+    } catch (err: any) {
+      if (err.message?.includes('UNIQUE')) {
+        return res.status(409).json({ success: false, error: 'SKU or barcode already exists' });
+      }
+      next(err);
+    }
+  }
+);
+
+// DELETE /api/products/:id/variants/:variantId
+router.delete(
+  '/:id/variants/:variantId',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await db.query(
+        'DELETE FROM product_variants WHERE id = ? AND product_id = ? RETURNING id',
+        [req.params.variantId, req.params.id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Variant not found' });
+      }
+
+      // Check if any variants remain — if not, unset has_variants
+      const remaining = await db.query<{ count: number }>(
+        'SELECT COUNT(*) as count FROM product_variants WHERE product_id = ?',
+        [req.params.id]
+      );
+      if (remaining.rows[0].count === 0) {
+        await db.query('UPDATE products SET has_variants = 0 WHERE id = ?', [req.params.id]);
+      }
+
+      res.json({ success: true, data: { message: 'Variant deleted' } });
     } catch (err) {
       next(err);
     }
