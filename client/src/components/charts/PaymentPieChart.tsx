@@ -59,28 +59,30 @@ export default function PaymentPieChart({ data }: PaymentPieChartProps) {
   const { t } = useTranslation();
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <PieChart>
-        <Pie
-          data={data}
-          cx="50%"
-          cy="50%"
-          innerRadius={60}
-          outerRadius={100}
-          paddingAngle={5}
-          dataKey="count"
-          nameKey="payment_method"
-          label={({ payment_method, percent }: PieLabelProps) =>
-            `${payment_method} ${(percent * 100).toFixed(0)}%`
-          }
-          labelLine={{ stroke: isDark ? '#6B6B6B' : '#999999' }}
-        >
-          {data?.map((_: PaymentDataPoint, index: number) => (
-            <Cell key={index} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
-      </PieChart>
-    </ResponsiveContainer>
+    <div dir="ltr">
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={60}
+            outerRadius={100}
+            paddingAngle={5}
+            dataKey="count"
+            nameKey="payment_method"
+            label={({ payment_method, percent }: PieLabelProps) =>
+              `${payment_method} ${(percent * 100).toFixed(0)}%`
+            }
+            labelLine={{ stroke: isDark ? '#6B6B6B' : '#999999' }}
+          >
+            {data?.map((_: PaymentDataPoint, index: number) => (
+              <Cell key={index} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

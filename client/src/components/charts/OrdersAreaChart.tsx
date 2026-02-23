@@ -56,34 +56,36 @@ export default function OrdersAreaChart({ data }: OrdersAreaChartProps) {
   const { t } = useTranslation();
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <AreaChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <defs>
-          <linearGradient id="blushGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#E8B4C8" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#E8B4C8" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#1E1E1E' : '#E5E5E5'} />
-        <XAxis
-          dataKey="date"
-          tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
-          tickFormatter={(val: string) => format(new Date(val), 'MMM dd')}
-          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-        />
-        <YAxis
-          tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
-          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-        />
-        <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
-        <Area
-          type="monotone"
-          dataKey="orders"
-          stroke="#E8B4C8"
-          strokeWidth={2}
-          fill="url(#blushGradient)"
-        />
-      </AreaChart>
-    </ResponsiveContainer>
+    <div dir="ltr">
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+          <defs>
+            <linearGradient id="blushGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#E8B4C8" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#E8B4C8" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#1E1E1E' : '#E5E5E5'} />
+          <XAxis
+            dataKey="date"
+            tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
+            tickFormatter={(val: string) => format(new Date(val), 'MMM dd')}
+            stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+          />
+          <YAxis
+            tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
+            stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+          />
+          <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
+          <Area
+            type="monotone"
+            dataKey="orders"
+            stroke="#E8B4C8"
+            strokeWidth={2}
+            fill="url(#blushGradient)"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

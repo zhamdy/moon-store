@@ -34,17 +34,21 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  // Daily Operations
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard', roles: ['Admin'] },
   { to: '/pos', icon: ShoppingCart, labelKey: 'nav.pos', roles: ['Admin', 'Cashier'] },
-  { to: '/inventory', icon: Package, labelKey: 'nav.inventory', roles: ['Admin', 'Cashier'] },
-  { to: '/barcode', icon: ScanBarcode, labelKey: 'nav.barcode', roles: ['Admin', 'Cashier'] },
-  { to: '/deliveries', icon: Truck, labelKey: 'nav.deliveries', roles: ['Admin', 'Delivery'] },
   { to: '/sales', icon: History, labelKey: 'nav.sales', roles: ['Admin', 'Cashier'] },
-  { to: '/users', icon: Users, labelKey: 'nav.users', roles: ['Admin'] },
-  { to: '/customers', icon: UserRound, labelKey: 'nav.customers', roles: ['Admin'] },
-  { to: '/distributors', icon: Building2, labelKey: 'nav.distributors', roles: ['Admin'] },
+  // Products & Stock
+  { to: '/inventory', icon: Package, labelKey: 'nav.inventory', roles: ['Admin', 'Cashier'] },
   { to: '/categories', icon: Layers, labelKey: 'nav.categories', roles: ['Admin'] },
+  { to: '/barcode', icon: ScanBarcode, labelKey: 'nav.barcode', roles: ['Admin', 'Cashier'] },
   { to: '/purchase-orders', icon: ClipboardList, labelKey: 'nav.purchaseOrders', roles: ['Admin'] },
+  { to: '/distributors', icon: Building2, labelKey: 'nav.distributors', roles: ['Admin'] },
+  // Orders & Customers
+  { to: '/deliveries', icon: Truck, labelKey: 'nav.deliveries', roles: ['Admin', 'Delivery'] },
+  { to: '/customers', icon: UserRound, labelKey: 'nav.customers', roles: ['Admin'] },
+  // Administration
+  { to: '/users', icon: Users, labelKey: 'nav.users', roles: ['Admin'] },
   { to: '/audit-log', icon: ScrollText, labelKey: 'nav.auditLog', roles: ['Admin'] },
   { to: '/settings', icon: Settings, labelKey: 'nav.settings', roles: ['Admin'] },
 ];

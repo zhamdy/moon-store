@@ -46,29 +46,35 @@ export default function DistributorSalesChart({ data }: DistributorSalesChartPro
   const isDark = theme === 'dark';
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 100, bottom: 5 }}>
-        <CartesianGrid
-          strokeDasharray="3 3"
-          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-          horizontal={false}
-        />
-        <XAxis
-          type="number"
-          tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
-          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-          tickFormatter={(v) => formatCurrency(v)}
-        />
-        <YAxis
-          dataKey="distributor_name"
-          type="category"
-          tick={{ fill: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}
-          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-          width={90}
-        />
-        <Tooltip content={<CustomTooltip isDark={isDark} />} />
-        <Bar dataKey="revenue" fill="#8B7355" radius={[0, 4, 4, 0]} barSize={20} />
-      </BarChart>
-    </ResponsiveContainer>
+    <div dir="ltr">
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 5, right: 20, left: 100, bottom: 5 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+            horizontal={false}
+          />
+          <XAxis
+            type="number"
+            tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
+            stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+            tickFormatter={(v) => formatCurrency(v)}
+          />
+          <YAxis
+            dataKey="distributor_name"
+            type="category"
+            tick={{ fill: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}
+            stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+            width={90}
+          />
+          <Tooltip content={<CustomTooltip isDark={isDark} />} />
+          <Bar dataKey="revenue" fill="#8B7355" radius={[0, 4, 4, 0]} barSize={20} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

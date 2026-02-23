@@ -47,28 +47,34 @@ export default function TopProductsChart({ data }: TopProductsChartProps) {
   const { t } = useTranslation();
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 100, bottom: 5 }}>
-        <CartesianGrid
-          strokeDasharray="3 3"
-          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-          horizontal={false}
-        />
-        <XAxis
-          type="number"
-          tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
-          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-        />
-        <YAxis
-          dataKey="name"
-          type="category"
-          tick={{ fill: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}
-          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-          width={90}
-        />
-        <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
-        <Bar dataKey="total_sold" fill="#C9A96E" radius={[0, 4, 4, 0]} barSize={20} />
-      </BarChart>
-    </ResponsiveContainer>
+    <div dir="ltr">
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 5, right: 20, left: 100, bottom: 5 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+            horizontal={false}
+          />
+          <XAxis
+            type="number"
+            tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
+            stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+          />
+          <YAxis
+            dataKey="name"
+            type="category"
+            tick={{ fill: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}
+            stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+            width={90}
+          />
+          <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
+          <Bar dataKey="total_sold" fill="#C9A96E" radius={[0, 4, 4, 0]} barSize={20} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
