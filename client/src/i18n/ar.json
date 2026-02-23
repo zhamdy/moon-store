@@ -78,6 +78,8 @@
   "dashboard.revenue": "الإيرادات",
   "dashboard.avgOrder": "متوسط الطلب",
   "dashboard.itemsSold": "العناصر المباعة",
+  "dashboard.salesByCategory": "الإيرادات حسب الفئة",
+  "dashboard.salesByDistributor": "الإيرادات حسب الموزع",
 
   "pos.title": "نقطة البيع",
   "pos.searchPlaceholder": "البحث عن منتجات بالاسم أو الرمز...",

@@ -12,6 +12,8 @@ import TopProductsChart from '../components/charts/TopProductsChart';
 import PaymentPieChart from '../components/charts/PaymentPieChart';
 import OrdersAreaChart from '../components/charts/OrdersAreaChart';
 import CashierPerformanceChart from '../components/charts/CashierPerformanceChart';
+import CategorySalesChart from '../components/charts/CategorySalesChart';
+import DistributorSalesChart from '../components/charts/DistributorSalesChart';
 import { formatCurrency, formatDate } from '../lib/utils';
 import api from '../services/api';
 import { format } from 'date-fns';
@@ -57,6 +59,18 @@ interface CashierPerformance {
   total_revenue: number;
   avg_order_value: number;
   total_items: number;
+}
+
+interface CategorySales {
+  category_name: string;
+  total_sold: number;
+  revenue: number;
+}
+
+interface DistributorSales {
+  distributor_name: string;
+  total_sold: number;
+  revenue: number;
 }
 
 interface KpiCardProps {
@@ -162,6 +176,22 @@ export default function Dashboard() {
     queryFn: () =>
       api
         .get('/api/analytics/cashier-performance', { params: dateParams })
+        .then((r) => r.data.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: categorySales, isLoading: categoryLoading } = useQuery<CategorySales[]>({
+    queryKey: ['sales-by-category', dateParams],
+    queryFn: () =>
+      api.get('/api/analytics/sales-by-category', { params: dateParams }).then((r) => r.data.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: distributorSales, isLoading: distributorLoading } = useQuery<DistributorSales[]>({
+    queryKey: ['sales-by-distributor', dateParams],
+    queryFn: () =>
+      api
+        .get('/api/analytics/sales-by-distributor', { params: dateParams })
         .then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
@@ -356,6 +386,35 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Category & Distributor Sales */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">{t('dashboard.salesByCategory')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {categoryLoading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <CategorySalesChart data={categorySales || []} />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">{t('dashboard.salesByDistributor')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {distributorLoading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <DistributorSalesChart data={distributorSales || []} />
             )}
           </CardContent>
         </Card>

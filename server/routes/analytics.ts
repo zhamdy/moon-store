@@ -220,4 +220,78 @@ router.get(
   }
 );
 
+// GET /api/analytics/sales-by-category
+router.get(
+  '/sales-by-category',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { from, to } = req.query;
+      let dateFilter = "s.created_at >= date('now', '-30 days')";
+      let params: unknown[] = [];
+
+      if (from && to) {
+        dateFilter = 's.created_at >= ? AND s.created_at <= ?';
+        params = [from, to + ' 23:59:59'];
+      }
+
+      const result = await db.query(
+        `SELECT COALESCE(c.name, p.category, 'Uncategorized') as category_name,
+                SUM(si.quantity) as total_sold,
+                COALESCE(SUM(si.quantity * si.unit_price), 0) as revenue
+         FROM sale_items si
+         JOIN sales s ON si.sale_id = s.id
+         JOIN products p ON si.product_id = p.id
+         LEFT JOIN categories c ON p.category_id = c.id
+         WHERE ${dateFilter}
+         GROUP BY category_name
+         ORDER BY revenue DESC`,
+        params
+      );
+
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/analytics/sales-by-distributor
+router.get(
+  '/sales-by-distributor',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { from, to } = req.query;
+      let dateFilter = "s.created_at >= date('now', '-30 days')";
+      let params: unknown[] = [];
+
+      if (from && to) {
+        dateFilter = 's.created_at >= ? AND s.created_at <= ?';
+        params = [from, to + ' 23:59:59'];
+      }
+
+      const result = await db.query(
+        `SELECT COALESCE(d.name, 'No Distributor') as distributor_name,
+                SUM(si.quantity) as total_sold,
+                COALESCE(SUM(si.quantity * si.unit_price), 0) as revenue
+         FROM sale_items si
+         JOIN sales s ON si.sale_id = s.id
+         JOIN products p ON si.product_id = p.id
+         LEFT JOIN distributors d ON p.distributor_id = d.id
+         WHERE ${dateFilter}
+         GROUP BY distributor_name
+         ORDER BY revenue DESC`,
+        params
+      );
+
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 export default router;

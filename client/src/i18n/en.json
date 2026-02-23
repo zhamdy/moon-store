@@ -78,6 +78,8 @@
   "dashboard.revenue": "Revenue",
   "dashboard.avgOrder": "Avg Order",
   "dashboard.itemsSold": "Items Sold",
+  "dashboard.salesByCategory": "Revenue by Category",
+  "dashboard.salesByDistributor": "Revenue by Distributor",
 
   "pos.title": "Point of Sale",
   "pos.searchPlaceholder": "Search products by name or SKU...",
