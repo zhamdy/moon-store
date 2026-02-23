@@ -4,7 +4,18 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Search, UserPlus, Check } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Search,
+  UserPlus,
+  Check,
+  Clock,
+  TrendingUp,
+  AlertTriangle,
+  Truck,
+  History,
+} from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -24,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import { Card, CardContent } from '../components/ui/card';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import { formatDateTime } from '../lib/utils';
@@ -46,6 +58,7 @@ interface DeliveryOrder {
   status: DeliveryStatus;
   assigned_to: number | null;
   assigned_name: string | null;
+  estimated_delivery: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -75,6 +88,29 @@ interface ApiErrorResponse {
   error: string;
 }
 
+interface StatusHistoryEntry {
+  id: number;
+  order_id: number;
+  status: string;
+  notes: string | null;
+  changed_by_name: string | null;
+  created_at: string;
+}
+
+interface PerformanceData {
+  totalDelivered: number;
+  onTimePercent: number;
+  avgDeliveryMinutes: number;
+  overdueCount: number;
+  driverStats: Array<{
+    id: number;
+    name: string;
+    total_orders: number;
+    delivered: number;
+    cancelled: number;
+  }>;
+}
+
 const deliverySchema = z.object({
   customer_id: z.coerce.number().optional().nullable(),
   customer_name: z.string().min(1, 'Name required'),
@@ -82,6 +118,7 @@ const deliverySchema = z.object({
   address: z.string().min(1, 'Address required'),
   notes: z.string().optional(),
   assigned_to: z.coerce.number().optional().nullable(),
+  estimated_delivery: z.string().optional().nullable(),
   items: z
     .array(
       z.object({
@@ -97,6 +134,7 @@ type DeliveryFormData = z.infer<typeof deliverySchema>;
 interface DeliveryPayload extends Omit<DeliveryFormData, 'items'> {
   customer_id: number | null;
   assigned_to: number | null;
+  estimated_delivery: string | null;
   items: Array<{ product_id: number; quantity: number }>;
 }
 
@@ -113,6 +151,9 @@ export default function Deliveries() {
   const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
   const customerDropdownRef = useRef<HTMLDivElement>(null);
+  const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
+  const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null);
+  const [timelineOrderNumber, setTimelineOrderNumber] = useState('');
 
   const { data: orders, isLoading } = useQuery<DeliveryOrder[]>({
     queryKey: ['deliveries', { status: statusFilter }],
@@ -144,6 +185,18 @@ export default function Deliveries() {
     enabled: isAdmin && dialogOpen,
   });
 
+  const { data: performance } = useQuery<PerformanceData>({
+    queryKey: ['delivery-performance'],
+    queryFn: () => api.get('/api/delivery/analytics/performance').then((r) => r.data.data),
+    enabled: isAdmin,
+  });
+
+  const { data: statusHistory } = useQuery<StatusHistoryEntry[]>({
+    queryKey: ['delivery-history', timelineOrderId],
+    queryFn: () => api.get(`/api/delivery/${timelineOrderId}/history`).then((r) => r.data.data),
+    enabled: !!timelineOrderId && timelineDialogOpen,
+  });
+
   // Close customer dropdown on outside click
   useEffect(() => {
     function handleClick(e: globalThis.MouseEvent) {
@@ -171,6 +224,7 @@ export default function Deliveries() {
       address: '',
       notes: '',
       assigned_to: null,
+      estimated_delivery: '',
       items: [{ product_id: 0, quantity: 1 }],
     },
   });
@@ -183,6 +237,7 @@ export default function Deliveries() {
       toast.success(t('deliveries.orderCreated'));
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['delivery-performance'] });
       setDialogOpen(false);
       reset();
     },
@@ -197,6 +252,7 @@ export default function Deliveries() {
       toast.success(t('deliveries.orderUpdated'));
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['delivery-performance'] });
       setDialogOpen(false);
       setEditingOrder(null);
     },
@@ -211,6 +267,8 @@ export default function Deliveries() {
       const status = res.data.data.status;
       toast.success(t('deliveries.statusUpdated', { status }));
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+      queryClient.invalidateQueries({ queryKey: ['delivery-performance'] });
+      queryClient.invalidateQueries({ queryKey: ['delivery-history'] });
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
       toast.error(err.response?.data?.error || t('deliveries.statusFailed')),
@@ -221,6 +279,7 @@ export default function Deliveries() {
       ...data,
       customer_id: selectedCustomer?.id || null,
       assigned_to: data.assigned_to || null,
+      estimated_delivery: data.estimated_delivery || null,
       items: data.items.map((i) => ({
         product_id: Number(i.product_id),
         quantity: Number(i.quantity),
@@ -246,6 +305,7 @@ export default function Deliveries() {
       address: '',
       notes: '',
       assigned_to: null,
+      estimated_delivery: '',
       items: [{ product_id: 0, quantity: 1 }],
     });
     setDialogOpen(true);
@@ -271,6 +331,18 @@ export default function Deliveries() {
     setValue('address', '');
   };
 
+  const openTimeline = (order: DeliveryOrder) => {
+    setTimelineOrderId(order.id);
+    setTimelineOrderNumber(order.order_number);
+    setTimelineDialogOpen(true);
+  };
+
+  const isOverdue = (order: DeliveryOrder) => {
+    if (!order.estimated_delivery) return false;
+    if (order.status === 'Delivered' || order.status === 'Cancelled') return false;
+    return new Date(order.estimated_delivery) < new Date();
+  };
+
   const statuses = ['All', 'Pending', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'];
 
   const statusLabelMap: Record<string, string> = {
@@ -286,7 +358,17 @@ export default function Deliveries() {
     {
       accessorKey: 'order_number',
       header: t('deliveries.orderNumber'),
-      cell: ({ getValue }) => <span className="font-data text-gold">{getValue() as string}</span>,
+      cell: ({ getValue, row }) => (
+        <div className="flex items-center gap-2">
+          <span className="font-data text-gold">{getValue() as string}</span>
+          {isOverdue(row.original) && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+              <AlertTriangle className="h-3 w-3" />
+              {t('deliveries.overdue')}
+            </span>
+          )}
+        </div>
+      ),
     },
     { accessorKey: 'customer_name', header: t('deliveries.customer') },
     {
@@ -330,10 +412,37 @@ export default function Deliveries() {
       cell: ({ getValue }) => (getValue() as string) || '-',
     },
     {
+      accessorKey: 'estimated_delivery',
+      header: t('deliveries.estimatedDelivery'),
+      cell: ({ getValue }) => {
+        const val = getValue() as string | null;
+        return val ? (
+          <span className="text-muted font-data text-xs">{formatDateTime(val)}</span>
+        ) : (
+          '-'
+        );
+      },
+    },
+    {
       accessorKey: 'created_at',
       header: t('deliveries.created'),
       cell: ({ getValue }) => (
         <span className="text-muted font-data text-xs">{formatDateTime(getValue() as string)}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1"
+          onClick={() => openTimeline(row.original)}
+        >
+          <History className="h-3.5 w-3.5" />
+          {t('deliveries.viewTimeline')}
+        </Button>
       ),
     },
   ];
@@ -355,6 +464,58 @@ export default function Deliveries() {
         )}
       </div>
 
+      {/* Performance metrics (Admin only) */}
+      {isAdmin && performance && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-full bg-green-500/10">
+                <Truck className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('deliveries.totalDelivered')}</p>
+                <p className="text-xl font-bold font-data">{performance.totalDelivered}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-full bg-blue-500/10">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('deliveries.onTimeRate')}</p>
+                <p className="text-xl font-bold font-data">{performance.onTimePercent}%</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-full bg-purple-500/10">
+                <Clock className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('deliveries.avgDeliveryTime')}</p>
+                <p className="text-xl font-bold font-data">
+                  {t('deliveries.minutes', { count: performance.avgDeliveryMinutes })}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-full bg-destructive/10">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('deliveries.overdueOrders')}</p>
+                <p className="text-xl font-bold font-data">{performance.overdueCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Status filter */}
       <div className="flex gap-2 flex-wrap">
         {statuses.map((s) => (
@@ -375,6 +536,66 @@ export default function Deliveries() {
         isLoading={isLoading}
         searchPlaceholder={t('deliveries.searchPlaceholder')}
       />
+
+      {/* Timeline Dialog */}
+      <Dialog open={timelineDialogOpen} onOpenChange={setTimelineDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              {t('deliveries.statusTimeline')} — {timelineOrderNumber}
+            </DialogTitle>
+            <DialogDescription>{t('deliveries.statusTimeline')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-0">
+            {/* Status stepper */}
+            {statusHistory && statusHistory.length > 0 ? (
+              <div className="relative ps-6">
+                {/* Vertical line */}
+                <div className="absolute start-[11px] top-2 bottom-2 w-0.5 bg-border" />
+                {statusHistory.map((entry, idx) => {
+                  const isLast = idx === statusHistory.length - 1;
+                  const isCancelled = entry.status === 'Cancelled';
+                  return (
+                    <div key={entry.id} className="relative pb-6 last:pb-0">
+                      {/* Dot */}
+                      <div
+                        className={`absolute start-[-13px] top-1 h-3 w-3 rounded-full border-2 ${
+                          isCancelled
+                            ? 'border-destructive bg-destructive'
+                            : isLast
+                              ? 'border-gold bg-gold'
+                              : 'border-muted-foreground bg-muted-foreground'
+                        }`}
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={entry.status} />
+                          <span className="text-xs text-muted-foreground font-data">
+                            {formatDateTime(entry.created_at)}
+                          </span>
+                        </div>
+                        {entry.changed_by_name && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            by {entry.changed_by_name}
+                          </p>
+                        )}
+                        {entry.notes && (
+                          <p className="text-sm mt-1 text-foreground/80">{entry.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                {t('common.noResults')}
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -474,9 +695,15 @@ export default function Deliveries() {
                 <p className="text-xs text-destructive">{errors.address.message}</p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label>{t('deliveries.notes')}</Label>
-              <Textarea {...register('notes')} rows={2} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('deliveries.notes')}</Label>
+                <Textarea {...register('notes')} rows={2} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('deliveries.estimatedDelivery')}</Label>
+                <Input type="datetime-local" {...register('estimated_delivery')} />
+              </div>
             </div>
             {isAdmin && deliveryUsers && (
               <div className="space-y-2">

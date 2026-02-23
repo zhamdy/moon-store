@@ -13,10 +13,12 @@ export const deliverySchema = z.object({
   notes: z.string().optional().nullable(),
   items: z.array(deliveryItemSchema).min(1, 'At least one item required'),
   assigned_to: z.number().int().positive().optional().nullable(),
+  estimated_delivery: z.string().optional().nullable(),
 });
 
 export const statusUpdateSchema = z.object({
   status: z.enum(['Pending', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled']),
+  notes: z.string().optional().nullable(),
 });
 
 export type DeliveryItem = z.infer<typeof deliveryItemSchema>;
