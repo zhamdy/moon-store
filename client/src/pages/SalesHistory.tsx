@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Download, CalendarIcon, ChevronDown, ChevronRight, Printer } from 'lucide-react';
+import {
+  Download,
+  CalendarIcon,
+  ChevronDown,
+  ChevronRight,
+  Printer,
+  RotateCcw,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -17,6 +24,7 @@ import {
 } from '../components/ui/select';
 import DataTable from '../components/DataTable';
 import ReceiptDialog from '../components/ReceiptDialog';
+import RefundDialog from '../components/RefundDialog';
 import { formatCurrency, formatDateTime, formatDate } from '../lib/utils';
 
 import api from '../services/api';
@@ -35,6 +43,8 @@ interface Sale {
   cashier_name: string;
   items_count: number;
   created_at: string;
+  refund_status: 'partial' | 'full' | null;
+  refunded_amount: number | null;
 }
 
 interface SaleItem {
@@ -71,6 +81,13 @@ export default function SalesHistory() {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundSale, setRefundSale] = useState<{
+    id: number;
+    total: number;
+    refundedAmount: number;
+    items: { product_id: number; product_name: string; quantity: number; unit_price: number }[];
+  } | null>(null);
 
   const params: Record<string, string> = {};
   if (dateRange.from) params.from = format(dateRange.from, 'yyyy-MM-dd');
@@ -147,6 +164,22 @@ export default function SalesHistory() {
     }
   };
 
+  const handleRefund = async (sale: Sale) => {
+    try {
+      const response = await api.get(`/api/sales/${sale.id}`);
+      const detail = response.data.data;
+      setRefundSale({
+        id: sale.id,
+        total: sale.total,
+        refundedAmount: sale.refunded_amount || 0,
+        items: detail.items || [],
+      });
+      setRefundOpen(true);
+    } catch {
+      toast.error(t('sales.refundFailed'));
+    }
+  };
+
   const columns: ColumnDef<Sale>[] = [
     {
       id: 'expand',
@@ -203,24 +236,52 @@ export default function SalesHistory() {
       header: t('sales.payment'),
       cell: ({ getValue }) => <Badge variant="gold">{getValue() as string}</Badge>,
     },
+    {
+      id: 'refund_status',
+      header: t('sales.refundStatus'),
+      cell: ({ row }) => {
+        const status = row.original.refund_status;
+        if (!status) return <span className="text-muted">-</span>;
+        return (
+          <Badge variant={status === 'full' ? 'destructive' : 'secondary'}>
+            {status === 'full' ? t('sales.refundFull') : t('sales.refundPartial')}
+          </Badge>
+        );
+      },
+    },
     { accessorKey: 'cashier_name', header: t('sales.cashier') },
     {
-      id: 'print',
+      id: 'actions',
       header: '',
       enableSorting: false,
       cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={(e) => {
-            e.stopPropagation();
-            handlePrintReceipt(row.original.id);
-          }}
-          title={t('receipt.reprint')}
-        >
-          <Printer className="h-4 w-4 text-gold" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRefund(row.original);
+            }}
+            title={t('sales.refund')}
+            disabled={row.original.refund_status === 'full'}
+          >
+            <RotateCcw className="h-4 w-4 text-blush" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePrintReceipt(row.original.id);
+            }}
+            title={t('receipt.reprint')}
+          >
+            <Printer className="h-4 w-4 text-gold" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -340,6 +401,17 @@ export default function SalesHistory() {
       )}
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receiptData} />
+
+      {refundSale && (
+        <RefundDialog
+          open={refundOpen}
+          onOpenChange={setRefundOpen}
+          saleId={refundSale.id}
+          saleTotal={refundSale.total}
+          refundedAmount={refundSale.refundedAmount}
+          items={refundSale.items}
+        />
+      )}
     </div>
   );
 }

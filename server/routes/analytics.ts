@@ -12,10 +12,10 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const todayRevenue = await db.query<{ revenue: number }>(
-        `SELECT COALESCE(SUM(total), 0) as revenue FROM sales WHERE date(created_at) = date('now')`
+        `SELECT COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as revenue FROM sales WHERE date(created_at) = date('now')`
       );
       const monthRevenue = await db.query<{ revenue: number }>(
-        `SELECT COALESCE(SUM(total), 0) as revenue FROM sales WHERE created_at >= date('now', 'start of month')`
+        `SELECT COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as revenue FROM sales WHERE created_at >= date('now', 'start of month')`
       );
       const totalSales = await db.query<{ count: number }>('SELECT COUNT(*) as count FROM sales');
       const pendingDeliveries = await db.query<{ count: number }>(

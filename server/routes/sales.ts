@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import db from '../db';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { saleSchema } from '../validators/saleSchema';
+import { refundSchema } from '../validators/refundSchema';
 
 const router: Router = Router();
 
@@ -13,11 +14,11 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const today = await db.query<{ revenue: number; count: number }>(
-        `SELECT COALESCE(SUM(total), 0) as revenue, COUNT(*) as count
+        `SELECT COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as revenue, COUNT(*) as count
        FROM sales WHERE date(created_at) = date('now')`
       );
       const month = await db.query<{ revenue: number; count: number }>(
-        `SELECT COALESCE(SUM(total), 0) as revenue, COUNT(*) as count
+        `SELECT COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as revenue, COUNT(*) as count
        FROM sales WHERE created_at >= date('now', 'start of month')`
       );
 
@@ -179,7 +180,8 @@ router.get(
 
       const result = await db.query(
         `SELECT s.*, u.name as cashier_name,
-        (SELECT COUNT(*) FROM sale_items WHERE sale_id = s.id) as items_count
+        (SELECT COUNT(*) FROM sale_items WHERE sale_id = s.id) as items_count,
+        s.refund_status, s.refunded_amount
        FROM sales s
        LEFT JOIN users u ON s.cashier_id = u.id
        ${whereClause}
@@ -230,6 +232,168 @@ router.get(
       );
 
       res.json({ success: true, data: { ...saleResult.rows[0], items: items.rows } });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/sales/:id/refund
+router.post(
+  '/:id/refund',
+  verifyToken,
+  requireRole('Admin', 'Cashier'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const saleId = Number(req.params.id);
+
+      const parsed = refundSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      }
+
+      const { items, reason, restock } = parsed.data;
+
+      // Verify the sale exists
+      const saleResult = await db.query<{
+        id: number;
+        total: number;
+        refunded_amount: number | null;
+        refund_status: string | null;
+      }>('SELECT id, total, refunded_amount, refund_status FROM sales WHERE id = ?', [saleId]);
+
+      if (saleResult.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Sale not found' });
+      }
+
+      const sale = saleResult.rows[0];
+      if (sale.refund_status === 'full') {
+        return res.status(400).json({ success: false, error: 'Sale already fully refunded' });
+      }
+
+      // Get sale items for validation
+      const saleItems = await db.query<{
+        product_id: number;
+        quantity: number;
+        unit_price: number;
+      }>('SELECT product_id, quantity, unit_price FROM sale_items WHERE sale_id = ?', [saleId]);
+
+      // Validate refund items against sale items
+      for (const refundItem of items) {
+        const saleItem = saleItems.rows.find((si) => si.product_id === refundItem.product_id);
+        if (!saleItem) {
+          return res
+            .status(400)
+            .json({ success: false, error: `Product ${refundItem.product_id} not in this sale` });
+        }
+        if (refundItem.quantity > saleItem.quantity) {
+          return res
+            .status(400)
+            .json({
+              success: false,
+              error: `Refund quantity exceeds sold quantity for product ${refundItem.product_id}`,
+            });
+        }
+      }
+
+      // Calculate refund amount
+      let refundAmount = 0;
+      for (const item of items) {
+        refundAmount += item.unit_price * item.quantity;
+      }
+
+      const previouslyRefunded = sale.refunded_amount || 0;
+      if (previouslyRefunded + refundAmount > sale.total) {
+        return res.status(400).json({ success: false, error: 'Refund amount exceeds sale total' });
+      }
+
+      const newRefundedTotal = previouslyRefunded + refundAmount;
+      const refundStatus = newRefundedTotal >= sale.total ? 'full' : 'partial';
+
+      // Execute refund in transaction
+      const rawDb = db.db;
+      const txn = rawDb.transaction(() => {
+        // Insert refund record
+        const refund = rawDb
+          .prepare(
+            `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
+             VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
+          )
+          .get(
+            saleId,
+            refundAmount,
+            reason,
+            JSON.stringify(items),
+            restock ? 1 : 0,
+            authReq.user!.id
+          ) as Record<string, any>;
+
+        // Update sale refund status
+        rawDb
+          .prepare('UPDATE sales SET refund_status = ?, refunded_amount = ? WHERE id = ?')
+          .run(refundStatus, newRefundedTotal, saleId);
+
+        // Restock if requested
+        if (restock) {
+          for (const item of items) {
+            rawDb
+              .prepare(
+                "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?"
+              )
+              .run(item.quantity, item.product_id);
+          }
+        }
+
+        return refund;
+      });
+
+      let refund: Record<string, any>;
+      try {
+        refund = txn();
+      } catch (err: any) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+
+      res.status(201).json({
+        success: true,
+        data: {
+          ...refund,
+          items: JSON.parse(refund.items),
+          refund_status: refundStatus,
+          refunded_amount: newRefundedTotal,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/sales/:id/refunds
+router.get(
+  '/:id/refunds',
+  verifyToken,
+  requireRole('Admin', 'Cashier'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const saleId = Number(req.params.id);
+
+      const result = await db.query(
+        `SELECT r.*, u.name as cashier_name
+         FROM refunds r
+         LEFT JOIN users u ON r.cashier_id = u.id
+         WHERE r.sale_id = ?
+         ORDER BY r.created_at DESC`,
+        [saleId]
+      );
+
+      const refunds = result.rows.map((r: any) => ({
+        ...r,
+        items: JSON.parse(r.items),
+      }));
+
+      res.json({ success: true, data: refunds });
     } catch (err) {
       next(err);
     }
