@@ -402,6 +402,111 @@ router.delete(
   }
 );
 
+// POST /api/products/bulk-delete
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1, 'At least one product ID required'),
+});
+
+router.post(
+  '/bulk-delete',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const parsed = bulkDeleteSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      }
+
+      const { ids } = parsed.data;
+      const placeholders = ids.map(() => '?').join(',');
+      const result = await db.query(
+        `DELETE FROM products WHERE id IN (${placeholders}) RETURNING id`,
+        ids
+      );
+
+      res.json({ success: true, data: { deleted: result.rows.length } });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// PUT /api/products/bulk-update
+const bulkUpdateSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1),
+  updates: z.object({
+    category_id: z.number().int().positive().optional(),
+    distributor_id: z.number().int().positive().nullable().optional(),
+    price_percent: z.number().min(-99).max(1000).optional(),
+  }),
+});
+
+router.put(
+  '/bulk-update',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const parsed = bulkUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      }
+
+      const { ids, updates } = parsed.data;
+      const rawDb = db.db;
+
+      const txn = rawDb.transaction(() => {
+        let updated = 0;
+
+        if (updates.category_id !== undefined) {
+          // Resolve category name
+          const cat = rawDb
+            .prepare('SELECT name FROM categories WHERE id = ?')
+            .get(updates.category_id) as { name: string } | undefined;
+          if (!cat) throw new Error('Category not found');
+
+          const placeholders = ids.map(() => '?').join(',');
+          const stmt = rawDb.prepare(
+            `UPDATE products SET category_id = ?, category = ?, updated_at = datetime('now') WHERE id IN (${placeholders})`
+          );
+          const result = stmt.run(updates.category_id, cat.name, ...ids);
+          updated = result.changes;
+        }
+
+        if (updates.distributor_id !== undefined) {
+          const placeholders = ids.map(() => '?').join(',');
+          const stmt = rawDb.prepare(
+            `UPDATE products SET distributor_id = ?, updated_at = datetime('now') WHERE id IN (${placeholders})`
+          );
+          const result = stmt.run(updates.distributor_id, ...ids);
+          updated = result.changes;
+        }
+
+        if (updates.price_percent !== undefined) {
+          const factor = 1 + updates.price_percent / 100;
+          const placeholders = ids.map(() => '?').join(',');
+          const stmt = rawDb.prepare(
+            `UPDATE products SET price = ROUND(price * ?, 2), updated_at = datetime('now') WHERE id IN (${placeholders})`
+          );
+          const result = stmt.run(factor, ...ids);
+          updated = result.changes;
+        }
+
+        return updated;
+      });
+
+      const updated = txn();
+      res.json({ success: true, data: { updated } });
+    } catch (err: any) {
+      if (err.message === 'Category not found') {
+        return res.status(404).json({ success: false, error: err.message });
+      }
+      next(err);
+    }
+  }
+);
+
 // POST /api/products/import
 router.post(
   '/import',

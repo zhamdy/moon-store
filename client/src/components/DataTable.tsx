@@ -8,6 +8,8 @@ import {
   flexRender,
   type ColumnDef,
   type SortingState,
+  type RowSelectionState,
+  type OnChangeFn,
 } from '@tanstack/react-table';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
 import { Input } from './ui/input';
@@ -22,6 +24,10 @@ interface DataTableProps<TData> {
   isLoading?: boolean;
   searchPlaceholder?: string;
   enableSearch?: boolean;
+  enableRowSelection?: boolean;
+  rowSelection?: RowSelectionState;
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+  getRowId?: (row: TData) => string;
 }
 
 export default function DataTable<TData>({
@@ -30,6 +36,10 @@ export default function DataTable<TData>({
   isLoading,
   searchPlaceholder,
   enableSearch = true,
+  enableRowSelection = false,
+  rowSelection,
+  onRowSelectionChange,
+  getRowId,
 }: DataTableProps<TData>): React.JSX.Element {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string>('');
@@ -38,9 +48,15 @@ export default function DataTable<TData>({
   const table = useReactTable<TData>({
     data: data || [],
     columns,
-    state: { sorting, globalFilter },
+    state: {
+      sorting,
+      globalFilter,
+      ...(enableRowSelection && rowSelection !== undefined ? { rowSelection } : {}),
+    },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    ...(enableRowSelection ? { enableRowSelection: true, onRowSelectionChange } : {}),
+    ...(getRowId ? { getRowId } : {}),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),

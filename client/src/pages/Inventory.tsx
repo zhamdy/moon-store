@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, type ChangeEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
@@ -15,6 +15,8 @@ import {
   PackageMinus,
   ImagePlus,
   Package,
+  Download,
+  Percent,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -45,13 +47,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import { Checkbox } from '../components/ui/checkbox';
 import DataTable from '../components/DataTable';
 import AdjustStockDialog from '../components/AdjustStockDialog';
 import { formatCurrency } from '../lib/utils';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import type { AxiosError, AxiosResponse } from 'axios';
 
 interface Category {
@@ -146,6 +149,24 @@ export default function Inventory() {
     name: string;
     stock: number;
   } | null>(null);
+
+  // Bulk operations state
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false);
+  const [bulkDistributorOpen, setBulkDistributorOpen] = useState(false);
+  const [bulkPriceOpen, setBulkPriceOpen] = useState(false);
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkDistributor, setBulkDistributor] = useState('');
+  const [bulkPricePercent, setBulkPricePercent] = useState('');
+
+  const currentData = (lowStockFilter ? lowStockData : productsData) ?? [];
+  const selectedIds = useMemo(() => {
+    return Object.keys(rowSelection)
+      .filter((k) => rowSelection[k])
+      .map((id) => Number(id));
+  }, [rowSelection]);
+  const selectedCount = selectedIds.length;
 
   const toggleLowStock = (on: boolean) => {
     setLowStockFilter(on);
@@ -267,6 +288,72 @@ export default function Inventory() {
       toast.error(err.response?.data?.error || t('inventory.importFailed')),
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: number[]) => api.post('/api/products/bulk-delete', { ids }),
+    onSuccess: (res: AxiosResponse<{ data: { deleted: number } }>) => {
+      toast.success(t('bulk.deleteSuccess', { count: String(res.data.data.deleted) }));
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products-low-stock'] });
+      setRowSelection({});
+      setBulkDeleteOpen(false);
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('bulk.deleteFailed')),
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (data: { ids: number[]; updates: Record<string, unknown> }) =>
+      api.put('/api/products/bulk-update', data),
+    onSuccess: () => {
+      toast.success(t('bulk.updateSuccess'));
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products-low-stock'] });
+      setRowSelection({});
+      setBulkCategoryOpen(false);
+      setBulkDistributorOpen(false);
+      setBulkPriceOpen(false);
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('bulk.updateFailed')),
+  });
+
+  const handleBulkExport = () => {
+    const selected = currentData.filter((p) => selectedIds.includes(p.id));
+    const headers = [
+      'name',
+      'sku',
+      'barcode',
+      'price',
+      'cost_price',
+      'stock',
+      'category',
+      'min_stock',
+    ];
+    const csvRows = [
+      headers.join(','),
+      ...selected.map((p) =>
+        [
+          p.name,
+          p.sku,
+          p.barcode || '',
+          p.price,
+          p.cost_price,
+          p.stock,
+          p.category || '',
+          p.min_stock,
+        ].join(',')
+      ),
+    ];
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `products-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(t('bulk.exportSuccess', { count: String(selected.length) }));
+  };
+
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = async (productId: number, file: File) => {
@@ -376,6 +463,26 @@ export default function Inventory() {
   };
 
   const columns: ColumnDef<Product>[] = [
+    ...(isAdmin
+      ? [
+          {
+            id: 'select',
+            header: ({ table }: { table: import('@tanstack/react-table').Table<Product> }) => (
+              <Checkbox
+                checked={table.getIsAllPageRowsSelected()}
+                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+              />
+            ),
+            cell: ({ row }: { row: import('@tanstack/react-table').Row<Product> }) => (
+              <Checkbox
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(!!value)}
+              />
+            ),
+            enableSorting: false,
+          } as ColumnDef<Product>,
+        ]
+      : []),
     {
       accessorKey: 'name',
       header: t('inventory.productName'),
@@ -622,11 +729,52 @@ export default function Inventory() {
         </div>
       )}
 
+      {/* Bulk action toolbar */}
+      {isAdmin && selectedCount > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-md border border-gold/30 bg-gold/5">
+          <span className="text-sm font-medium text-gold">
+            {t('bulk.selected', { count: String(selectedCount) })}
+          </span>
+          <div className="flex items-center gap-2 ms-auto">
+            <Button variant="outline" size="sm" onClick={() => setBulkCategoryOpen(true)}>
+              {t('bulk.changeCategory')}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setBulkDistributorOpen(true)}>
+              {t('bulk.changeDistributor')}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setBulkPriceOpen(true)}>
+              <Percent className="h-3.5 w-3.5 me-1" />
+              {t('bulk.adjustPrice')}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleBulkExport}>
+              <Download className="h-3.5 w-3.5 me-1" />
+              {t('bulk.export')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5 me-1" />
+              {t('bulk.deleteSelected')}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>
+              {t('bulk.clearSelection')}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <DataTable
         columns={columns}
-        data={(lowStockFilter ? lowStockData : productsData) ?? []}
+        data={currentData}
         isLoading={isLoading}
         searchPlaceholder={t('inventory.searchPlaceholder')}
+        enableRowSelection={isAdmin}
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        getRowId={(row: Product) => String(row.id)}
       />
 
       {/* Add/Edit Dialog */}
@@ -831,6 +979,140 @@ export default function Inventory() {
         productName={adjustProduct?.name ?? ''}
         currentStock={adjustProduct?.stock ?? 0}
       />
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('bulk.deleteTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('bulk.deleteConfirm', { count: String(selectedCount) })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkDeleteMutation.mutate(selectedIds)}
+              className="bg-destructive text-foreground hover:bg-destructive/90"
+            >
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Change Category */}
+      <Dialog open={bulkCategoryOpen} onOpenChange={setBulkCategoryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('bulk.changeCategoryTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('bulk.changeCategoryDesc', { count: String(selectedCount) })}
+            </DialogDescription>
+          </DialogHeader>
+          <Select value={bulkCategory} onValueChange={setBulkCategory}>
+            <SelectTrigger>
+              <SelectValue placeholder={t('inventory.selectCategory')} />
+            </SelectTrigger>
+            <SelectContent>
+              {categories?.map((cat) => (
+                <SelectItem key={cat.id} value={String(cat.id)}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button
+              disabled={!bulkCategory || bulkUpdateMutation.isPending}
+              onClick={() =>
+                bulkUpdateMutation.mutate({
+                  ids: selectedIds,
+                  updates: { category_id: Number(bulkCategory) },
+                })
+              }
+            >
+              {t('common.update')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Change Distributor */}
+      <Dialog open={bulkDistributorOpen} onOpenChange={setBulkDistributorOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('bulk.changeDistributorTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('bulk.changeDistributorDesc', { count: String(selectedCount) })}
+            </DialogDescription>
+          </DialogHeader>
+          <Select value={bulkDistributor} onValueChange={setBulkDistributor}>
+            <SelectTrigger>
+              <SelectValue placeholder={t('inventory.selectDistributor')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="null">{t('inventory.noDistributor')}</SelectItem>
+              {distributors?.map((d) => (
+                <SelectItem key={d.id} value={String(d.id)}>
+                  {d.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button
+              disabled={!bulkDistributor || bulkUpdateMutation.isPending}
+              onClick={() =>
+                bulkUpdateMutation.mutate({
+                  ids: selectedIds,
+                  updates: {
+                    distributor_id: bulkDistributor === 'null' ? null : Number(bulkDistributor),
+                  },
+                })
+              }
+            >
+              {t('common.update')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Price Adjust */}
+      <Dialog open={bulkPriceOpen} onOpenChange={setBulkPriceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('bulk.adjustPriceTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('bulk.adjustPriceDesc', { count: String(selectedCount) })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>{t('bulk.pricePercent')}</Label>
+            <Input
+              type="number"
+              step="0.1"
+              value={bulkPricePercent}
+              onChange={(e) => setBulkPricePercent(e.target.value)}
+              placeholder="+10 or -15"
+            />
+            <p className="text-xs text-muted">{t('bulk.pricePercentHint')}</p>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={!bulkPricePercent || bulkUpdateMutation.isPending}
+              onClick={() =>
+                bulkUpdateMutation.mutate({
+                  ids: selectedIds,
+                  updates: { price_percent: Number(bulkPricePercent) },
+                })
+              }
+            >
+              {t('common.update')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
