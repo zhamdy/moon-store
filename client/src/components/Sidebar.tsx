@@ -10,6 +10,7 @@ import {
   UserRound,
   Building2,
   Layers,
+  ClipboardList,
   Settings,
   LogOut,
   Moon,
@@ -41,6 +42,7 @@ const navItems: NavItem[] = [
   { to: '/customers', icon: UserRound, labelKey: 'nav.customers', roles: ['Admin'] },
   { to: '/distributors', icon: Building2, labelKey: 'nav.distributors', roles: ['Admin'] },
   { to: '/categories', icon: Layers, labelKey: 'nav.categories', roles: ['Admin'] },
+  { to: '/purchase-orders', icon: ClipboardList, labelKey: 'nav.purchaseOrders', roles: ['Admin'] },
   { to: '/settings', icon: Settings, labelKey: 'nav.settings', roles: ['Admin'] },
 ];
 
