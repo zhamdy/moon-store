@@ -4,6 +4,7 @@ import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { saleSchema } from '../validators/saleSchema';
 import { refundSchema } from '../validators/refundSchema';
 import { logAuditFromReq } from '../middleware/auditLogger';
+import { notifySale } from '../services/notifications';
 
 const router: Router = Router();
 
@@ -306,6 +307,8 @@ router.post(
         total: sale.total,
         items: parsed.items.length,
       });
+
+      notifySale(sale.total, sale.id, cashier?.name || 'Unknown');
 
       res.status(201).json({
         success: true,

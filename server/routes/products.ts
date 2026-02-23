@@ -7,6 +7,7 @@ import db from '../db';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { productSchema, variantSchema } from '../validators/productSchema';
 import { logAuditFromReq } from '../middleware/auditLogger';
+import { notifyLowStock } from '../services/notifications';
 
 // Multer config for product image uploads
 const storage = multer.diskStorage({
@@ -408,6 +409,13 @@ router.put(
         return res.status(404).json({ success: false, error: 'Product not found' });
       }
       logAuditFromReq(req, 'update', 'product', req.params.id);
+
+      // Check low stock
+      const updated = result.rows[0] as Record<string, any>;
+      if (updated.stock <= updated.min_stock) {
+        notifyLowStock(updated.name, updated.stock, updated.id);
+      }
+
       res.json({ success: true, data: result.rows[0] });
     } catch (err: any) {
       if (err.message?.includes('UNIQUE')) {
@@ -675,6 +683,14 @@ router.post(
         result = txn();
       } catch (err: any) {
         return res.status(400).json({ success: false, error: err.message });
+      }
+
+      // Check low stock after adjustment
+      const prod = rawDb
+        .prepare('SELECT name, stock, min_stock FROM products WHERE id = ?')
+        .get(productId) as { name: string; stock: number; min_stock: number } | undefined;
+      if (prod && prod.stock <= prod.min_stock) {
+        notifyLowStock(prod.name, prod.stock, productId);
       }
 
       res.json({ success: true, data: result });

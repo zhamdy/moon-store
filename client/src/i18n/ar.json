@@ -603,5 +603,20 @@
   "audit.allUsers": "جميع المستخدمين",
   "audit.dateFrom": "من",
   "audit.dateTo": "إلى",
-  "audit.noEntries": "لا توجد سجلات مراجعة"
+  "audit.noEntries": "لا توجد سجلات مراجعة",
+
+  "nav.notifications": "الإشعارات",
+
+  "notifications.title": "الإشعارات",
+  "notifications.markAllRead": "تعيين الكل كمقروء",
+  "notifications.noNotifications": "لا توجد إشعارات",
+  "notifications.viewAll": "عرض جميع الإشعارات",
+  "notifications.unread": "غير مقروء",
+  "notifications.justNow": "الآن",
+  "notifications.minutesAgo": "منذ {count} دقيقة",
+  "notifications.hoursAgo": "منذ {count} ساعة",
+  "notifications.daysAgo": "منذ {count} يوم",
+  "notifications.lowStock": "مخزون منخفض",
+  "notifications.newSale": "بيع جديد",
+  "notifications.deliveryOverdue": "تأخر التوصيل"
 }

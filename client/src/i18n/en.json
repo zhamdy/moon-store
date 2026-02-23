@@ -603,5 +603,20 @@
   "audit.allUsers": "All Users",
   "audit.dateFrom": "From",
   "audit.dateTo": "To",
-  "audit.noEntries": "No audit log entries"
+  "audit.noEntries": "No audit log entries",
+
+  "nav.notifications": "Notifications",
+
+  "notifications.title": "Notifications",
+  "notifications.markAllRead": "Mark all read",
+  "notifications.noNotifications": "No notifications",
+  "notifications.viewAll": "View all notifications",
+  "notifications.unread": "unread",
+  "notifications.justNow": "Just now",
+  "notifications.minutesAgo": "{count}m ago",
+  "notifications.hoursAgo": "{count}h ago",
+  "notifications.daysAgo": "{count}d ago",
+  "notifications.lowStock": "Low Stock",
+  "notifications.newSale": "New Sale",
+  "notifications.deliveryOverdue": "Delivery Overdue"
 }

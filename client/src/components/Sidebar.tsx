@@ -24,6 +24,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useTranslation } from '../i18n';
 import api from '../services/api';
 import moonLogo from '../assets/moon-logo.svg';
+import NotificationCenter from './NotificationCenter';
 
 interface NavItem {
   to: string;
@@ -96,7 +97,10 @@ export default function Sidebar(): React.JSX.Element {
           ))}
         </nav>
 
-        {/* Settings toggles */}
+        {/* Notifications + Settings toggles */}
+        <div className="px-4 pb-1 flex justify-end">
+          <NotificationCenter />
+        </div>
         <div className="px-4 pb-2 flex gap-2">
           <button
             onClick={toggleLocale}
