@@ -72,7 +72,11 @@ for (const file of files) {
   }
   const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
   console.log(`  Running: ${file}`);
+  // Temporarily disable FK checks if migration needs table rebuild
+  const needsFkOff = sql.includes('-- @FK_OFF');
+  if (needsFkOff) db.pragma('foreign_keys = OFF');
   db.exec(sql);
+  if (needsFkOff) db.pragma('foreign_keys = ON');
   db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file);
 }
 

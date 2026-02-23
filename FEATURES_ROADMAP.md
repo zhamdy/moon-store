@@ -616,21 +616,33 @@ Add export buttons to each dashboard chart section. Support CSV (data) and PDF (
 **Type:** Enhancement
 **Priority:** Medium
 **Complexity:** Complex
+**Status:** ✅ Implemented (revamped to external shipping model)
 
-### Problem it solves
+### What was implemented
+- Replaced internal driver assignment with **external shipping company** selection
+- Added **shipping companies** CRUD (name, phone, website)
+- Added **tracking number** and **shipping cost** per order
+- Simplified statuses: Pending → Shipped → Delivered / Cancelled
+- SMS notifications include shipping company name and tracking number
+- Performance metrics: avg delivery days, pending/shipped counts, per-company stats
+- Status timeline with history tracking (from prior iteration)
+
+### Original problem it solved
 Delivery tracking is basic — status only. There's no time tracking (how long each status lasted), no delivery proof, no route visualization, and no delivery performance metrics. This limits operations management.
 
-### Proposed solution
+### Original proposed solution
 Add status timestamps, estimated delivery time, delivery proof (notes + optional photo), and delivery performance metrics.
 
 ### Key functionality / acceptance criteria
-- [ ] Each status change is timestamped (new `delivery_status_history` table)
-- [ ] Estimated delivery time field on order creation
-- [ ] Actual delivery time auto-calculated from status history
+- [x] Each status change is timestamped (new `delivery_status_history` table)
+- [x] Estimated delivery time field on order creation
+- [x] Actual delivery time auto-calculated from status history
 - [ ] Delivery completion: driver adds notes + optional photo
-- [ ] Delivery performance metrics: on-time %, avg delivery time, orders per driver
-- [ ] Status timeline view in order detail (visual progress bar)
-- [ ] Late deliveries highlighted in red
+- [x] Delivery performance metrics: avg delivery time, orders per shipping company
+- [x] Status timeline view in order detail (visual progress bar)
+- [x] Shipping company management (CRUD)
+- [x] Tracking number with copy-to-clipboard
+- [x] Shipping cost per order
 
 ### UI/UX considerations
 - Status timeline as a horizontal stepper with timestamps

@@ -21,6 +21,7 @@ import settingsRoutes from './routes/settings';
 import purchaseOrderRoutes from './routes/purchaseOrders';
 import auditLogRoutes from './routes/auditLog';
 import notificationRoutes from './routes/notifications';
+import shippingCompanyRoutes from './routes/shippingCompanies';
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 3001;
@@ -81,6 +82,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/audit-log', auditLogRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/shipping-companies', shippingCompanyRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

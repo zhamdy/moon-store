@@ -1,6 +1,12 @@
 import { Badge } from './ui/badge';
 
-type DeliveryStatus = 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
+type DeliveryStatus =
+  | 'Pending'
+  | 'Preparing'
+  | 'Out for Delivery'
+  | 'Shipped'
+  | 'Delivered'
+  | 'Cancelled';
 
 type BadgeVariant = 'warning' | 'info' | 'gold' | 'success' | 'destructive' | 'secondary';
 
@@ -8,6 +14,7 @@ const statusStyles: Record<DeliveryStatus, BadgeVariant> = {
   Pending: 'warning',
   Preparing: 'info',
   'Out for Delivery': 'gold',
+  Shipped: 'info',
   Delivered: 'success',
   Cancelled: 'destructive',
 };
