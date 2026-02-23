@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E8C98A"/>
+      <stop offset="100%" style="stop-color:#A07840"/>
+    </linearGradient>
+  </defs>
+  <path d="M30 8C18.954 8 10 16.954 10 28s8.954 20 20 20c3.87 0 7.47-1.1 10.53-3C36.16 48.48 30 41.86 30 34c0-7.86 6.16-14.48 14.53-17C41.47 9.1 37.87 8 34 8c-1.36 0-2.7.14-4 .4" fill="url(#goldGrad)"/>
+  <text x="58" y="24" font-family="Playfair Display, serif" font-size="22" font-weight="700" fill="#C9A96E" letter-spacing="0.15em">MOON</text>
+  <text x="58" y="42" font-family="Cormorant Garamond, serif" font-size="10" fill="#6B6B6B" letter-spacing="0.25em">FASHION &amp; STYLE</text>
+</svg>

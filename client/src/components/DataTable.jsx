@@ -1,0 +1,174 @@
+import { useState } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+} from '@tanstack/react-table';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Skeleton } from './ui/skeleton';
+import { useTranslation } from '../i18n';
+
+export default function DataTable({ columns, data, isLoading, searchPlaceholder, enableSearch = true }) {
+  const [sorting, setSorting] = useState([]);
+  const [globalFilter, setGlobalFilter] = useState('');
+  const { t } = useTranslation();
+
+  const table = useReactTable({
+    data: data || [],
+    columns,
+    state: { sorting, globalFilter },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 10 } },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {enableSearch && <Skeleton className="h-10 w-72" />}
+        <Skeleton className="h-10 w-full" />
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {enableSearch && (
+        <div className="relative w-72">
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
+          <Input
+            placeholder={searchPlaceholder || t('common.search')}
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="ps-9"
+          />
+        </div>
+      )}
+
+      <div className="rounded-md border border-border overflow-hidden">
+        <table className="w-full text-sm font-data">
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id} className="bg-table-header border-b border-border">
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className="px-4 py-3 text-start font-medium text-foreground tracking-wider uppercase text-xs"
+                  >
+                    {header.isPlaceholder ? null : (
+                      <div
+                        className={`flex items-center gap-2 ${
+                          header.column.getCanSort() ? 'cursor-pointer select-none' : ''
+                        }`}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getCanSort() && (
+                          <span className="text-gold">
+                            {header.column.getIsSorted() === 'asc' ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : header.column.getIsSorted() === 'desc' ? (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-8 text-center text-muted"
+                >
+                  {t('common.noResults')}
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-b border-border hover:bg-surface/50 transition-colors"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-4 py-3 text-foreground">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-muted">
+          <span>{t('common.rowsPerPage')}</span>
+          <Select
+            value={String(table.getState().pagination.pageSize)}
+            onValueChange={(val) => table.setPageSize(Number(val))}
+          >
+            <SelectTrigger className="w-[70px] h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+            </SelectContent>
+          </Select>
+          <span>
+            {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
+            {' - '}
+            {Math.min(
+              (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+              table.getFilteredRowModel().rows.length
+            )}
+            {` ${t('common.of')} `}
+            {table.getFilteredRowModel().rows.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            {t('common.previous')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            {t('common.next')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
