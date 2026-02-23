@@ -11,6 +11,7 @@ import BarcodeTools from './pages/BarcodeTools';
 import Deliveries from './pages/Deliveries';
 import SalesHistory from './pages/SalesHistory';
 import UsersPage from './pages/Users';
+import DistributorsPage from './pages/Distributors';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { useAuthStore } from './store/authStore';
 import { useSettingsStore } from './store/settingsStore';
@@ -113,6 +114,16 @@ export default function App(): React.ReactElement {
               <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
                 <ErrorBoundary>
                   <UsersPage />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/distributors"
+            element={
+              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <DistributorsPage />
                 </ErrorBoundary>
               </ProtectedRoute>
             }

@@ -7,6 +7,7 @@ import {
   Truck,
   History,
   Users,
+  Building2,
   LogOut,
   Moon,
   Sun,
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
   { to: '/deliveries', icon: Truck, labelKey: 'nav.deliveries', roles: ['Admin', 'Delivery'] },
   { to: '/sales', icon: History, labelKey: 'nav.sales', roles: ['Admin', 'Cashier'] },
   { to: '/users', icon: Users, labelKey: 'nav.users', roles: ['Admin'] },
+  { to: '/distributors', icon: Building2, labelKey: 'nav.distributors', roles: ['Admin'] },
 ];
 
 export default function Sidebar(): React.JSX.Element {

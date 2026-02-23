@@ -1,6 +1,6 @@
-import { useState, useRef, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
@@ -42,6 +42,20 @@ import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError, AxiosResponse } from 'axios';
 
+interface Category {
+  id: number;
+  name: string;
+  code: string;
+}
+
+interface Distributor {
+  id: number;
+  name: string;
+  contact_person: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
 interface Product {
   id: number;
   name: string;
@@ -50,6 +64,11 @@ interface Product {
   price: string | number;
   stock: number;
   category: string;
+  category_id: number | null;
+  category_name: string | null;
+  category_code: string | null;
+  distributor_id: number | null;
+  distributor_name: string | null;
   min_stock: number;
   created_at: string;
   updated_at: string;
@@ -66,12 +85,13 @@ interface ApiErrorResponse {
 
 const getProductSchema = () =>
   z.object({
-    name: z.string().min(1, tStandalone('inventory.nameRequired')),
-    sku: z.string().min(1, tStandalone('inventory.skuRequired')),
+    name: z.string().min(1, tStandalone('validation.nameReq')),
+    sku: z.string().min(1, tStandalone('validation.skuRequired')),
     barcode: z.string().optional(),
-    price: z.coerce.number().positive(tStandalone('inventory.priceMustBePositive')),
-    stock: z.coerce.number().int().min(0, tStandalone('inventory.stockCannotBeNegative')),
-    category: z.string().optional(),
+    price: z.coerce.number().positive(tStandalone('validation.pricePositive')),
+    stock: z.coerce.number().int().min(0, tStandalone('validation.stockNonNeg')),
+    category_id: z.coerce.number().int().positive().optional().nullable(),
+    distributor_id: z.coerce.number().int().positive().optional().nullable(),
     min_stock: z.coerce.number().int().min(0).default(5),
   });
 
@@ -100,37 +120,60 @@ export default function Inventory() {
   const [categoryFilter, setCategoryFilter] = useState('all');
 
   const { data: productsData, isLoading } = useQuery<Product[]>({
-    queryKey: ['products', { category: categoryFilter === 'all' ? undefined : categoryFilter }],
+    queryKey: ['products', { category_id: categoryFilter === 'all' ? undefined : categoryFilter }],
     queryFn: () =>
       api
         .get('/api/products', {
           params: {
             limit: 200,
-            category: categoryFilter === 'all' ? undefined : categoryFilter,
+            category_id: categoryFilter === 'all' ? undefined : categoryFilter,
           },
         })
         .then((r) => r.data.data),
   });
 
-  const { data: categories } = useQuery<string[]>({
+  const { data: categories } = useQuery<Category[]>({
     queryKey: ['product-categories'],
     queryFn: () => api.get('/api/products/categories').then((r) => r.data.data),
+  });
+
+  const { data: distributors } = useQuery<Distributor[]>({
+    queryKey: ['distributors'],
+    queryFn: () => api.get('/api/distributors').then((r) => r.data.data),
   });
 
   const {
     register,
     handleSubmit,
     reset,
+    control,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<ProductFormData>({
     resolver: zodResolver(getProductSchema()),
   });
+
+  const watchCategoryId = watch('category_id');
+
+  // Auto-generate SKU when category changes (only for new products)
+  useEffect(() => {
+    if (!editingProduct && watchCategoryId && dialogOpen) {
+      api
+        .get(`/api/products/generate-sku/${watchCategoryId}`)
+        .then((r) => {
+          setValue('sku', r.data.data.sku);
+        })
+        .catch(() => {});
+    }
+  }, [watchCategoryId, editingProduct, dialogOpen, setValue]);
 
   const createMutation = useMutation({
     mutationFn: (data: ProductFormData) => api.post('/api/products', data),
     onSuccess: () => {
       toast.success(t('inventory.productCreated'));
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['product-categories'] });
       setDialogOpen(false);
       reset();
     },
@@ -144,6 +187,7 @@ export default function Inventory() {
     onSuccess: () => {
       toast.success(t('inventory.productUpdated'));
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['product-categories'] });
       setDialogOpen(false);
       setEditingProduct(null);
       reset();
@@ -187,14 +231,40 @@ export default function Inventory() {
 
   const openEditDialog = (product: Product) => {
     setEditingProduct(product);
-    reset(product as unknown as ProductFormData);
+    reset({
+      name: product.name,
+      sku: product.sku,
+      barcode: product.barcode || '',
+      price: Number(product.price),
+      stock: product.stock,
+      category_id: product.category_id,
+      distributor_id: product.distributor_id,
+      min_stock: product.min_stock,
+    });
     setDialogOpen(true);
   };
 
   const openCreateDialog = () => {
     setEditingProduct(null);
-    reset({ name: '', sku: '', barcode: '', price: 0, stock: 0, category: '', min_stock: 5 });
+    reset({
+      name: '',
+      sku: '',
+      barcode: '',
+      price: 0,
+      stock: 0,
+      category_id: null,
+      distributor_id: null,
+      min_stock: 5,
+    });
     setDialogOpen(true);
+
+    // Auto-generate barcode for new products
+    api
+      .get('/api/products/generate-barcode')
+      .then((r) => {
+        setValue('barcode', r.data.data.barcode);
+      })
+      .catch(() => {});
   };
 
   const handleCSVImport = (e: ChangeEvent<HTMLInputElement>) => {
@@ -267,8 +337,17 @@ export default function Inventory() {
     {
       accessorKey: 'category',
       header: t('inventory.categoryCol'),
+      cell: ({ row }) => (
+        <Badge variant="secondary">
+          {row.original.category_name || row.original.category || t('inventory.na')}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'distributor_name',
+      header: t('inventory.distributor'),
       cell: ({ getValue }) => (
-        <Badge variant="secondary">{(getValue() as string) || t('inventory.na')}</Badge>
+        <span className="text-muted text-sm">{(getValue() as string) || '-'}</span>
       ),
     },
     ...(isAdmin
@@ -348,8 +427,8 @@ export default function Inventory() {
           <SelectContent>
             <SelectItem value="all">{t('inventory.allCategories')}</SelectItem>
             {categories?.map((cat) => (
-              <SelectItem key={cat} value={cat}>
-                {cat}
+              <SelectItem key={cat.id} value={String(cat.id)}>
+                {cat.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -382,14 +461,52 @@ export default function Inventory() {
                 {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label>{t('inventory.sku')}</Label>
-                <Input {...register('sku')} />
-                {errors.sku && <p className="text-xs text-destructive">{errors.sku.message}</p>}
+                <Label>{t('inventory.categoryCol')}</Label>
+                <Controller
+                  name="category_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value ? String(field.value) : ''}
+                      onValueChange={(val) => field.onChange(val ? Number(val) : null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('inventory.selectCategory')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories?.map((cat) => (
+                          <SelectItem key={cat.id} value={String(cat.id)}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
-              <div className="space-y-2">
-                <Label>{t('inventory.barcode')}</Label>
-                <Input {...register('barcode')} />
-              </div>
+              {/* SKU & Barcode: read-only display for edit, hidden for create (auto-generated) */}
+              {editingProduct ? (
+                <div className="space-y-2">
+                  <Label>{t('inventory.sku')}</Label>
+                  <Input
+                    value={editingProduct.sku}
+                    readOnly
+                    className="bg-muted/20 cursor-default"
+                  />
+                </div>
+              ) : null}
+              {editingProduct ? (
+                <div className="space-y-2">
+                  <Label>{t('inventory.barcode')}</Label>
+                  <Input
+                    value={editingProduct.barcode || '-'}
+                    readOnly
+                    className="bg-muted/20 cursor-default"
+                  />
+                </div>
+              ) : null}
+              <input type="hidden" {...register('sku')} />
+              <input type="hidden" {...register('barcode')} />
               <div className="space-y-2">
                 <Label>{t('inventory.price')}</Label>
                 <Input type="number" step="0.01" {...register('price')} />
@@ -401,8 +518,29 @@ export default function Inventory() {
                 {errors.stock && <p className="text-xs text-destructive">{errors.stock.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label>{t('inventory.categoryCol')}</Label>
-                <Input {...register('category')} />
+                <Label>{t('inventory.distributor')}</Label>
+                <Controller
+                  name="distributor_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value ? String(field.value) : 'none'}
+                      onValueChange={(val) => field.onChange(val === 'none' ? null : Number(val))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('inventory.selectDistributor')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{t('inventory.noDistributor')}</SelectItem>
+                        {distributors?.map((d) => (
+                          <SelectItem key={d.id} value={String(d.id)}>
+                            {d.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
               <div className="space-y-2">
                 <Label>{t('inventory.minStockAlert')}</Label>

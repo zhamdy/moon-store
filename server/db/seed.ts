@@ -6,6 +6,23 @@ const dbPath = path.join(__dirname, 'moon.db');
 const db = new Database(dbPath);
 db.pragma('foreign_keys = ON');
 
+interface Category {
+  name: string;
+  code: string;
+}
+
+const categories: Category[] = [
+  { name: 'Dresses', code: 'DRS' },
+  { name: 'Knitwear', code: 'KNT' },
+  { name: 'Bags', code: 'BAG' },
+  { name: 'Bottoms', code: 'BTM' },
+  { name: 'Jewelry', code: 'JWL' },
+  { name: 'Tops', code: 'TOP' },
+  { name: 'Outerwear', code: 'JKT' },
+  { name: 'Shoes', code: 'SHO' },
+  { name: 'Accessories', code: 'ACC' },
+];
+
 interface Product {
   name: string;
   sku: string;
@@ -219,15 +236,34 @@ async function seed(): Promise<void> {
   const deliveryHash = await bcrypt.hash('delivery123', 10);
   insertUser.run('James Wilson', 'james@moon.com', deliveryHash, 'Delivery');
 
-  // Insert products
+  // Insert categories
+  const insertCategory = db.prepare(`INSERT OR IGNORE INTO categories (name, code) VALUES (?, ?)`);
+  const insertCategories = db.transaction(() => {
+    for (const c of categories) {
+      insertCategory.run(c.name, c.code);
+    }
+  });
+  insertCategories();
+  console.log(`  ${categories.length} categories inserted.`);
+
+  // Insert products with category_id
   const insertProduct = db.prepare(
-    `INSERT OR IGNORE INTO products (name, sku, barcode, price, stock, category, min_stock)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT OR IGNORE INTO products (name, sku, barcode, price, stock, category, category_id, min_stock)
+     VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?), ?)`
   );
 
   const insertMany = db.transaction(() => {
     for (const p of products) {
-      insertProduct.run(p.name, p.sku, p.barcode, p.price, p.stock, p.category, p.min_stock);
+      insertProduct.run(
+        p.name,
+        p.sku,
+        p.barcode,
+        p.price,
+        p.stock,
+        p.category,
+        p.category,
+        p.min_stock
+      );
     }
   });
   insertMany();

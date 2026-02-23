@@ -22,6 +22,9 @@ interface Product {
   stock: number;
   min_stock: number;
   category: string;
+  category_id: number | null;
+  distributor_id: number | null;
+  distributor_name: string | null;
 }
 
 export default function POS() {
