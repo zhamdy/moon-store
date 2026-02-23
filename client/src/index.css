@@ -126,6 +126,47 @@
   .no-print {
     display: none !important;
   }
+  /* Hide the main app when printing receipts */
+  #root {
+    display: none !important;
+  }
+  /* Show the Radix dialog portal */
+  [data-radix-portal] {
+    display: block !important;
+  }
+  [data-radix-dialog-overlay] {
+    display: none !important;
+  }
+  [data-radix-dialog-content] {
+    position: static !important;
+    transform: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+    max-width: none !important;
+    max-height: none !important;
+    width: 80mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    animation: none !important;
+  }
+  .receipt-content {
+    width: 80mm !important;
+    padding: 2mm !important;
+    color: black !important;
+    background: white !important;
+    font-size: 11px !important;
+  }
+  .receipt-content * {
+    color: black !important;
+  }
+  .receipt-content .text-gray-500,
+  .receipt-content .text-gray-600 {
+    color: #555 !important;
+  }
+  .receipt-content .text-red-600 {
+    color: #c00 !important;
+  }
 }
 
 /* Animations */

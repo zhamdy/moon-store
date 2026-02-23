@@ -1,0 +1,6 @@
+node_modules
+dist
+server/db/moon.db
+server/db/moon.db-wal
+server/db/moon.db-shm
+package-lock.json
