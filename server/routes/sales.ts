@@ -82,11 +82,12 @@ router.post(
           ) as Record<string, any>;
 
         for (const item of items) {
-          // Snapshot cost_price from product
+          // Snapshot cost_price and current stock from product
           const product = rawDb
-            .prepare('SELECT cost_price FROM products WHERE id = ?')
-            .get(item.product_id) as { cost_price: number } | undefined;
+            .prepare('SELECT cost_price, stock FROM products WHERE id = ?')
+            .get(item.product_id) as { cost_price: number; stock: number } | undefined;
           const costPrice = product?.cost_price || 0;
+          const previousStock = product?.stock || 0;
 
           rawDb
             .prepare(
@@ -103,6 +104,20 @@ router.post(
           if (updated.changes === 0) {
             throw new Error(`Insufficient stock for product ID ${item.product_id}`);
           }
+
+          // Log stock adjustment
+          rawDb
+            .prepare(
+              'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES (?, ?, ?, ?, ?, ?)'
+            )
+            .run(
+              item.product_id,
+              previousStock,
+              previousStock - item.quantity,
+              -item.quantity,
+              'Sale',
+              authReq.user!.id
+            );
         }
 
         return saleResult;

@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import db from '../db';
-import { verifyToken, requireRole } from '../middleware/auth';
+import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { productSchema } from '../validators/productSchema';
 
 const router: Router = Router();
@@ -436,6 +437,98 @@ router.post(
       }
 
       res.json({ success: true, data: { imported, errors } });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/products/:id/adjust-stock
+const adjustStockSchema = z.object({
+  delta: z
+    .number()
+    .int()
+    .refine((v) => v !== 0, 'Delta cannot be zero'),
+  reason: z.enum(['Manual Adjustment', 'Damaged', 'Stock Count']),
+});
+
+router.post(
+  '/:id/adjust-stock',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const productId = Number(req.params.id);
+
+      const parsed = adjustStockSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      }
+
+      const { delta, reason } = parsed.data;
+
+      const rawDb = db.db;
+      const txn = rawDb.transaction(() => {
+        const product = rawDb
+          .prepare('SELECT id, stock FROM products WHERE id = ?')
+          .get(productId) as { id: number; stock: number } | undefined;
+
+        if (!product) {
+          throw new Error('Product not found');
+        }
+
+        const previousQty = product.stock;
+        const newQty = previousQty + delta;
+
+        if (newQty < 0) {
+          throw new Error('Stock cannot go below zero');
+        }
+
+        rawDb
+          .prepare("UPDATE products SET stock = ?, updated_at = datetime('now') WHERE id = ?")
+          .run(newQty, productId);
+
+        rawDb
+          .prepare(
+            'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES (?, ?, ?, ?, ?, ?)'
+          )
+          .run(productId, previousQty, newQty, delta, reason, authReq.user!.id);
+
+        return { previous_qty: previousQty, new_qty: newQty, delta };
+      });
+
+      let result;
+      try {
+        result = txn();
+      } catch (err: any) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+
+      res.json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/products/:id/stock-history
+router.get(
+  '/:id/stock-history',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await db.query(
+        `SELECT sa.*, u.name as user_name
+         FROM stock_adjustments sa
+         LEFT JOIN users u ON sa.user_id = u.id
+         WHERE sa.product_id = ?
+         ORDER BY sa.created_at DESC
+         LIMIT 50`,
+        [req.params.id]
+      );
+      res.json({ success: true, data: result.rows });
     } catch (err) {
       next(err);
     }

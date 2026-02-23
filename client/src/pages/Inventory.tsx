@@ -5,7 +5,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { Plus, Upload, Pencil, Trash2, AlertTriangle, X } from 'lucide-react';
+import { Plus, Upload, Pencil, Trash2, AlertTriangle, X, PackageMinus } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import DataTable from '../components/DataTable';
+import AdjustStockDialog from '../components/AdjustStockDialog';
 import { formatCurrency } from '../lib/utils';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
@@ -128,6 +129,12 @@ export default function Inventory() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [lowStockFilter, setLowStockFilter] = useState(searchParams.get('lowStock') === 'true');
+  const [adjustStockOpen, setAdjustStockOpen] = useState(false);
+  const [adjustProduct, setAdjustProduct] = useState<{
+    id: number;
+    name: string;
+    stock: number;
+  } | null>(null);
 
   const toggleLowStock = (on: boolean) => {
     setLowStockFilter(on);
@@ -443,6 +450,22 @@ export default function Inventory() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
+                  title={t('inventory.adjustStock')}
+                  onClick={() => {
+                    setAdjustProduct({
+                      id: row.original.id,
+                      name: row.original.name,
+                      stock: row.original.stock,
+                    });
+                    setAdjustStockOpen(true);
+                  }}
+                >
+                  <PackageMinus className="h-3.5 w-3.5 text-blue-400" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => openEditDialog(row.original)}
                 >
                   <Pencil className="h-3.5 w-3.5 text-gold" />
@@ -693,6 +716,15 @@ export default function Inventory() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Adjust Stock Dialog */}
+      <AdjustStockDialog
+        open={adjustStockOpen}
+        onOpenChange={setAdjustStockOpen}
+        productId={adjustProduct?.id ?? null}
+        productName={adjustProduct?.name ?? ''}
+        currentStock={adjustProduct?.stock ?? 0}
+      />
     </div>
   );
 }
