@@ -14,6 +14,7 @@ import analyticsRoutes from './routes/analytics';
 import userRoutes from './routes/users';
 import customerRoutes from './routes/customers';
 import distributorRoutes from './routes/distributors';
+import categoryRoutes from './routes/categories';
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 3001;
@@ -65,6 +66,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/distributors', distributorRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
