@@ -8,6 +8,8 @@ export interface ReceiptData {
   discount: number;
   discountType: string;
   total: number;
+  taxAmount?: number;
+  taxRate?: number;
   paymentMethod: string;
   cashierName: string;
   customerName?: string;
@@ -93,6 +95,14 @@ export default function Receipt({ data }: ReceiptProps) {
             <span>-{formatCurrency(discountAmount)}</span>
           </div>
         )}
+        {data.taxAmount && data.taxAmount > 0 ? (
+          <div className="flex justify-between">
+            <span>
+              {t('tax.vat')} {data.taxRate ? `(${data.taxRate}%)` : ''}
+            </span>
+            <span>{formatCurrency(data.taxAmount)}</span>
+          </div>
+        ) : null}
         <div className="border-t border-gray-300 my-1" />
         <div className="flex justify-between text-sm font-bold">
           <span>{t('cart.total')}</span>

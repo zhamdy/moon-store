@@ -425,6 +425,23 @@
   "receipt.printFailed": "فشل تحميل الإيصال",
   "receipt.reprint": "طباعة الإيصال",
 
+  "nav.settings": "الإعدادات",
+
+  "settings.title": "الإعدادات",
+  "settings.taxSettings": "إعدادات الضريبة / ضريبة القيمة المضافة",
+  "settings.taxEnabled": "تفعيل الضريبة / ضريبة القيمة المضافة",
+  "settings.taxEnabledDesc": "تطبيق الضريبة على جميع المبيعات عند الدفع",
+  "settings.taxRate": "نسبة الضريبة (%)",
+  "settings.taxMode": "نوع الضريبة",
+  "settings.taxExclusive": "غير شاملة (تضاف على السعر)",
+  "settings.taxInclusive": "شاملة (السعر يشمل الضريبة)",
+  "settings.taxExclusiveDesc": "يتم إضافة الضريبة على سعر المنتج عند الدفع",
+  "settings.taxInclusiveDesc": "أسعار المنتجات تشمل الضريبة بالفعل، يتم استخراج الضريبة من الإجمالي",
+  "settings.saved": "تم حفظ الإعدادات",
+  "settings.saveFailed": "فشل حفظ الإعدادات",
+
+  "tax.vat": "ضريبة القيمة المضافة",
+
   "charts.sold": "مباع",
   "charts.orders": "طلبات",
 

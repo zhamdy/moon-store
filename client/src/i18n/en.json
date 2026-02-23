@@ -425,6 +425,23 @@
   "receipt.printFailed": "Failed to load receipt",
   "receipt.reprint": "Print Receipt",
 
+  "nav.settings": "Settings",
+
+  "settings.title": "Settings",
+  "settings.taxSettings": "Tax / VAT Configuration",
+  "settings.taxEnabled": "Enable Tax / VAT",
+  "settings.taxEnabledDesc": "Apply tax on all sales at checkout",
+  "settings.taxRate": "Tax Rate (%)",
+  "settings.taxMode": "Tax Mode",
+  "settings.taxExclusive": "Exclusive (tax added on top)",
+  "settings.taxInclusive": "Inclusive (price includes tax)",
+  "settings.taxExclusiveDesc": "Tax is added on top of the product price at checkout",
+  "settings.taxInclusiveDesc": "Product prices already include tax, tax is extracted from the total",
+  "settings.saved": "Settings saved",
+  "settings.saveFailed": "Failed to save settings",
+
+  "tax.vat": "VAT",
+
   "charts.sold": "sold",
   "charts.orders": "orders",
 

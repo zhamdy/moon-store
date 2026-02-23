@@ -1,4 +1,4 @@
-import { useState, useEffect, type MutableRefObject } from 'react';
+import { useState, useEffect, useMemo, type MutableRefObject } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Minus, Plus, X, ShoppingBag, Search, UserRound, Tag, Pause, Archive } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -35,6 +35,13 @@ interface SaleData {
   discount_type: string;
   payment_method: PaymentMethod;
   customer_id?: number;
+  tax_amount?: number;
+}
+
+interface TaxSettings {
+  tax_enabled: string;
+  tax_rate: string;
+  tax_mode: string;
 }
 
 interface ApiErrorResponse {
@@ -81,6 +88,35 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
 
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300);
 
+  // Tax settings
+  const { data: taxSettings } = useQuery<TaxSettings>({
+    queryKey: ['settings'],
+    queryFn: () => api.get('/api/settings').then((r) => r.data.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const taxInfo = useMemo(() => {
+    const enabled = taxSettings?.tax_enabled === 'true';
+    const rate = parseFloat(taxSettings?.tax_rate || '0');
+    const mode = taxSettings?.tax_mode || 'exclusive';
+    if (!enabled || rate <= 0)
+      return { enabled: false, rate: 0, mode, amount: 0, totalWithTax: getTotal() };
+
+    const afterDiscount = getTotal();
+    let taxAmount = 0;
+    let totalWithTax = afterDiscount;
+
+    if (mode === 'exclusive') {
+      taxAmount = Math.round(afterDiscount * (rate / 100) * 100) / 100;
+      totalWithTax = afterDiscount + taxAmount;
+    } else {
+      taxAmount = Math.round((afterDiscount - afterDiscount / (1 + rate / 100)) * 100) / 100;
+      totalWithTax = afterDiscount;
+    }
+
+    return { enabled: true, rate, mode, amount: taxAmount, totalWithTax };
+  }, [taxSettings, getTotal]);
+
   // Expose checkout trigger for keyboard shortcuts
   useEffect(() => {
     if (checkoutTriggerRef) {
@@ -125,6 +161,8 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         discount: sale.discount || 0,
         discountType: sale.discount_type || 'fixed',
         total: sale.total,
+        taxAmount: sale.tax_amount || 0,
+        taxRate: taxInfo.enabled ? taxInfo.rate : 0,
         paymentMethod: sale.payment_method,
         cashierName: sale.cashier_name || '',
         customerName: selectedCustomer?.name,
@@ -427,9 +465,18 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               </span>
             </div>
           )}
+          {taxInfo.enabled && (
+            <div className="flex justify-between text-base text-muted font-data">
+              <span>
+                {t('tax.vat')}
+                <span className="text-sm ms-1 opacity-70">({taxInfo.rate}%)</span>
+              </span>
+              <span>{formatCurrency(taxInfo.amount)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-xl font-semibold font-data text-foreground">
             <span>{t('cart.total')}</span>
-            <span className="text-gold">{formatCurrency(getTotal())}</span>
+            <span className="text-gold">{formatCurrency(taxInfo.totalWithTax)}</span>
           </div>
         </div>
 
@@ -488,9 +535,17 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   </span>
                 </div>
               )}
+              {taxInfo.enabled && (
+                <div className="flex justify-between text-base text-muted font-data">
+                  <span>
+                    {t('tax.vat')} ({taxInfo.rate}%)
+                  </span>
+                  <span>{formatCurrency(taxInfo.amount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-lg font-semibold font-data">
                 <span>{t('cart.total')}</span>
-                <span className="text-gold">{formatCurrency(getTotal())}</span>
+                <span className="text-gold">{formatCurrency(taxInfo.totalWithTax)}</span>
               </div>
             </div>
 

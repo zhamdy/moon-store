@@ -62,15 +62,45 @@ router.post(
       if (discount_type === 'percentage') {
         discountAmount = (subtotal * discount) / 100;
       }
-      const total = Math.max(0, subtotal - discountAmount);
+      const afterDiscount = Math.max(0, subtotal - discountAmount);
+
+      // Load tax settings
+      const rawDb = db.db;
+      const taxEnabledRow = rawDb
+        .prepare("SELECT value FROM settings WHERE key = 'tax_enabled'")
+        .get() as { value: string } | undefined;
+      const taxRateRow = rawDb
+        .prepare("SELECT value FROM settings WHERE key = 'tax_rate'")
+        .get() as { value: string } | undefined;
+      const taxModeRow = rawDb
+        .prepare("SELECT value FROM settings WHERE key = 'tax_mode'")
+        .get() as { value: string } | undefined;
+
+      const taxEnabled = taxEnabledRow?.value === 'true';
+      const taxRate = parseFloat(taxRateRow?.value || '0');
+      const taxMode = taxModeRow?.value || 'exclusive';
+
+      let taxAmount = 0;
+      let total = afterDiscount;
+
+      if (taxEnabled && taxRate > 0) {
+        if (taxMode === 'exclusive') {
+          // Tax added on top
+          taxAmount = Math.round(afterDiscount * (taxRate / 100) * 100) / 100;
+          total = afterDiscount + taxAmount;
+        } else {
+          // Tax inclusive - extract tax from total
+          taxAmount = Math.round((afterDiscount - afterDiscount / (1 + taxRate / 100)) * 100) / 100;
+          total = afterDiscount; // price already includes tax
+        }
+      }
 
       // Use raw db for transaction
-      const rawDb = db.db;
       const txn = rawDb.transaction(() => {
         const saleResult = rawDb
           .prepare(
-            `INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id, customer_id)
-         VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
+            `INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id, customer_id, tax_amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`
           )
           .get(
             total,
@@ -78,7 +108,8 @@ router.post(
             discount_type,
             payment_method,
             authReq.user!.id,
-            customer_id || null
+            customer_id || null,
+            taxAmount
           ) as Record<string, any>;
 
         for (const item of items) {

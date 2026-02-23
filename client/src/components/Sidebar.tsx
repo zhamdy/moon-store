@@ -10,6 +10,7 @@ import {
   UserRound,
   Building2,
   Layers,
+  Settings,
   LogOut,
   Moon,
   Sun,
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { to: '/customers', icon: UserRound, labelKey: 'nav.customers', roles: ['Admin'] },
   { to: '/distributors', icon: Building2, labelKey: 'nav.distributors', roles: ['Admin'] },
   { to: '/categories', icon: Layers, labelKey: 'nav.categories', roles: ['Admin'] },
+  { to: '/settings', icon: Settings, labelKey: 'nav.settings', roles: ['Admin'] },
 ];
 
 export default function Sidebar(): React.JSX.Element {

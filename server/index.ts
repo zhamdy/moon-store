@@ -17,6 +17,7 @@ import customerRoutes from './routes/customers';
 import distributorRoutes from './routes/distributors';
 import categoryRoutes from './routes/categories';
 import stockAdjustmentRoutes from './routes/stockAdjustments';
+import settingsRoutes from './routes/settings';
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 3001;
@@ -73,6 +74,7 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/distributors', distributorRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/stock-adjustments', stockAdjustmentRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

@@ -14,6 +14,7 @@ import UsersPage from './pages/Users';
 import CustomersPage from './pages/Customers';
 import DistributorsPage from './pages/Distributors';
 import CategoriesPage from './pages/Categories';
+import SettingsPage from './pages/Settings';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { useAuthStore } from './store/authStore';
 import { useSettingsStore } from './store/settingsStore';
@@ -146,6 +147,16 @@ export default function App(): React.ReactElement {
               <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
                 <ErrorBoundary>
                   <CategoriesPage />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <SettingsPage />
                 </ErrorBoundary>
               </ProtectedRoute>
             }
