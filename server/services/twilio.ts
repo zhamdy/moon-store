@@ -5,9 +5,16 @@ type TwilioClient = any;
 let twilioClient: TwilioClient | null = null;
 
 function getClient(): TwilioClient | null {
-  if (!twilioClient && process.env.TWILIO_ACCOUNT_SID && !process.env.TWILIO_ACCOUNT_SID.startsWith('ACxx')) {
+  if (
+    !twilioClient &&
+    process.env.TWILIO_ACCOUNT_SID &&
+    !process.env.TWILIO_ACCOUNT_SID.startsWith('ACxx')
+  ) {
     const twilio = require('twilio');
-    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN) as TwilioClient;
+    twilioClient = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    ) as TwilioClient;
   }
   return twilioClient;
 }

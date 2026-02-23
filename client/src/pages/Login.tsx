@@ -99,9 +99,7 @@ export default function Login() {
                 placeholder={t('login.emailPlaceholder')}
                 {...register('email')}
               />
-              {errors.email && (
-                <p className="text-xs text-destructive">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">

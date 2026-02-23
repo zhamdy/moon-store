@@ -1,7 +1,7 @@
 import { useState, useCallback, type ChangeEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Printer, Package } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Card, CardContent } from '../components/ui/card';
@@ -48,16 +48,19 @@ export default function BarcodeTools() {
       p.sku.toLowerCase().includes(productSearch.toLowerCase())
   );
 
-  const handleBarcodeDetected = useCallback(async (barcode: string) => {
-    try {
-      const response = await api.get(`/api/products/barcode/${barcode}`);
-      setScannedProduct(response.data.data as Product);
-      toast.success(t('barcode.productFound'));
-    } catch {
-      toast.error(t('barcode.productNotFound'));
-      setScannedProduct(null);
-    }
-  }, [t]);
+  const handleBarcodeDetected = useCallback(
+    async (barcode: string) => {
+      try {
+        const response = await api.get(`/api/products/barcode/${barcode}`);
+        setScannedProduct(response.data.data as Product);
+        toast.success(t('barcode.productFound'));
+      } catch {
+        toast.error(t('barcode.productNotFound'));
+        setScannedProduct(null);
+      }
+    },
+    [t]
+  );
 
   const handleAddToCart = (product: Product) => {
     addItem(product);
@@ -87,31 +90,39 @@ export default function BarcodeTools() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const barcodeHtml = selectedProducts.map((p) => `
+    const barcodeHtml = selectedProducts
+      .map(
+        (p) => `
       <div style="display:inline-block;width:45%;margin:2%;padding:16px;border:1px solid #ccc;text-align:center;">
         <svg id="barcode-${p.id}"></svg>
         <p style="margin:4px 0;font-weight:bold;">${p.name}</p>
         <p style="margin:2px 0;color:#666;">SKU: ${p.sku}</p>
         <p style="margin:2px 0;font-size:18px;font-weight:bold;">$${parseFloat(String(p.price)).toFixed(2)}</p>
       </div>
-    `).join('');
+    `
+      )
+      .join('');
 
     printWindow.document.write(`
       <html>
         <head>
           <title>MOON - Barcodes</title>
-          <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+          <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js">${'</'}script>
           <style>body{font-family:Inter,sans-serif;padding:20px;}</style>
         </head>
         <body>
           <h2 style="text-align:center;">MOON Fashion & Style - Barcodes</h2>
           ${barcodeHtml}
           <script>
-            ${selectedProducts.map((p) => `
+            ${selectedProducts
+              .map(
+                (p) => `
               try { JsBarcode("#barcode-${p.id}", "${p.barcode || p.sku}", {width:2,height:60,displayValue:true,fontSize:12}); } catch(e) {}
-            `).join('\n')}
+            `
+              )
+              .join('\n')}
             setTimeout(() => window.print(), 500);
-          <\/script>
+          ${'</'}script>
         </body>
       </html>
     `);
@@ -120,7 +131,9 @@ export default function BarcodeTools() {
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-display tracking-wider text-foreground">{t('barcode.title')}</h1>
+        <h1 className="text-3xl font-display tracking-wider text-foreground">
+          {t('barcode.title')}
+        </h1>
         <div className="gold-divider mt-2" />
       </div>
 
@@ -147,7 +160,10 @@ export default function BarcodeTools() {
                         <p className="text-lg font-semibold text-gold font-data mt-1">
                           {formatCurrency(Number(scannedProduct.price))}
                         </p>
-                        <Badge variant={scannedProduct.stock > 0 ? 'success' : 'destructive'} className="mt-1">
+                        <Badge
+                          variant={scannedProduct.stock > 0 ? 'success' : 'destructive'}
+                          className="mt-1"
+                        >
                           {scannedProduct.stock} in stock
                         </Badge>
                       </div>
@@ -210,7 +226,7 @@ export default function BarcodeTools() {
                       if (!printWindow) return;
                       printWindow.document.write(`
                         <html><head><title>Barcode - ${selectedProduct.name}</title>
-                        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+                        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js">${'</'}script>
                         <style>body{font-family:Inter,sans-serif;display:flex;justify-content:center;padding:40px;}</style>
                         </head><body>
                         <div style="text-align:center;">
@@ -222,7 +238,7 @@ export default function BarcodeTools() {
                         <script>
                           try { JsBarcode("#bc","${selectedProduct.barcode || selectedProduct.sku}",{width:2,height:80,displayValue:true}); } catch(e){}
                           setTimeout(()=>window.print(),500);
-                        <\/script></body></html>
+                        ${'</'}script></body></html>
                       `);
                     }}
                   >
@@ -238,8 +254,14 @@ export default function BarcodeTools() {
         {/* Bulk Print Tab */}
         <TabsContent value="bulk" className="space-y-4">
           <div className="flex justify-between items-center">
-            <p className="text-sm text-muted">{t('barcode.selected', { count: selectedForPrint.size })}</p>
-            <Button className="gap-2" onClick={handleBulkPrint} disabled={selectedForPrint.size === 0}>
+            <p className="text-sm text-muted">
+              {t('barcode.selected', { count: selectedForPrint.size })}
+            </p>
+            <Button
+              className="gap-2"
+              onClick={handleBulkPrint}
+              disabled={selectedForPrint.size === 0}
+            >
               <Printer className="h-4 w-4" />
               {t('barcode.generatePrint', { count: selectedForPrint.size })}
             </Button>
@@ -249,10 +271,18 @@ export default function BarcodeTools() {
               <thead>
                 <tr className="bg-table-header border-b border-border">
                   <th className="px-4 py-3 w-12"></th>
-                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">{t('barcode.product')}</th>
-                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">{t('barcode.sku')}</th>
-                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">{t('barcode.barcodeCol')}</th>
-                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">{t('barcode.price')}</th>
+                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">
+                    {t('barcode.product')}
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">
+                    {t('barcode.sku')}
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">
+                    {t('barcode.barcodeCol')}
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">
+                    {t('barcode.price')}
+                  </th>
                 </tr>
               </thead>
               <tbody>

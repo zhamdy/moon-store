@@ -29,7 +29,10 @@ export const useOfflineStore = create<OfflineState>()(
 
       addToQueue: (action) =>
         set((state) => ({
-          queue: [...state.queue, { ...action, id: Date.now(), createdAt: new Date().toISOString() }],
+          queue: [
+            ...state.queue,
+            { ...action, id: Date.now(), createdAt: new Date().toISOString() },
+          ],
         })),
 
       removeFromQueue: (id) =>

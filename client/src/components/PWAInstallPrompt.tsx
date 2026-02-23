@@ -64,9 +64,7 @@ export default function PWAInstallPrompt() {
             <p className="text-sm font-medium text-foreground font-display tracking-wider">
               {t('pwa.installApp')}
             </p>
-            <p className="text-xs text-muted mt-1">
-              {t('pwa.installDesc')}
-            </p>
+            <p className="text-xs text-muted mt-1">{t('pwa.installDesc')}</p>
             <div className="flex gap-2 mt-3">
               <Button size="sm" onClick={handleInstall}>
                 {t('common.install')}

@@ -24,7 +24,7 @@ function verifyToken(req: AuthRequest, res: Response, next: NextFunction): void 
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as AuthUser;
     req.user = decoded;
     next();
-  } catch (err) {
+  } catch (_err) {
     res.status(401).json({ success: false, error: 'Invalid or expired token' });
     return;
   }

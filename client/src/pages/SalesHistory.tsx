@@ -8,11 +8,15 @@ import { Badge } from '../components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Calendar } from '../components/ui/calendar';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '../components/ui/select';
 import DataTable from '../components/DataTable';
 import { formatCurrency, formatDateTime, formatDate } from '../lib/utils';
-import { useAuthStore } from '../store/authStore';
+
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -59,8 +63,6 @@ interface SalesResponse {
 
 export default function SalesHistory() {
   const { t } = useTranslation();
-  const { user } = useAuthStore();
-  const isAdmin = user?.role === 'Admin';
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
@@ -132,7 +134,9 @@ export default function SalesHistory() {
     {
       accessorKey: 'created_at',
       header: t('sales.dateTime'),
-      cell: ({ getValue }) => <span className="font-data">{formatDateTime(getValue() as string)}</span>,
+      cell: ({ getValue }) => (
+        <span className="font-data">{formatDateTime(getValue() as string)}</span>
+      ),
     },
     { accessorKey: 'items_count', header: t('sales.items') },
     {
@@ -167,7 +171,9 @@ export default function SalesHistory() {
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">{t('sales.title')}</h1>
+          <h1 className="text-3xl font-display tracking-wider text-foreground">
+            {t('sales.title')}
+          </h1>
           <div className="gold-divider mt-2" />
         </div>
         <Button variant="outline" className="gap-2" onClick={handleExportCSV}>
@@ -181,14 +187,20 @@ export default function SalesHistory() {
         <Card>
           <CardContent className="p-4 flex items-center gap-6">
             <div>
-              <p className="text-xs text-muted uppercase tracking-widest font-body">{t('sales.totalRevenue')}</p>
+              <p className="text-xs text-muted uppercase tracking-widest font-body">
+                {t('sales.totalRevenue')}
+              </p>
               <p className="text-2xl font-semibold text-gold font-data">
                 {formatCurrency(salesData.meta.total_revenue)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-muted uppercase tracking-widest font-body">{t('sales.totalSales')}</p>
-              <p className="text-2xl font-semibold text-foreground font-data">{salesData.meta.total}</p>
+              <p className="text-xs text-muted uppercase tracking-widest font-body">
+                {t('sales.totalSales')}
+              </p>
+              <p className="text-2xl font-semibold text-foreground font-data">
+                {salesData.meta.total}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -258,7 +270,9 @@ export default function SalesHistory() {
             <div className="space-y-2">
               {saleDetail.items?.map((item, i) => (
                 <div key={i} className="flex justify-between text-sm font-data">
-                  <span>{item.product_name} x{item.quantity}</span>
+                  <span>
+                    {item.product_name} x{item.quantity}
+                  </span>
                   <span>{formatCurrency(item.unit_price * item.quantity)}</span>
                 </div>
               ))}

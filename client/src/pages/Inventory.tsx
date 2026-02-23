@@ -10,14 +10,29 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from '../components/ui/dialog';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '../components/ui/select';
 import DataTable from '../components/DataTable';
 import { formatCurrency } from '../lib/utils';
@@ -49,15 +64,16 @@ interface ApiErrorResponse {
   error: string;
 }
 
-const getProductSchema = () => z.object({
-  name: z.string().min(1, tStandalone('inventory.nameRequired')),
-  sku: z.string().min(1, tStandalone('inventory.skuRequired')),
-  barcode: z.string().optional(),
-  price: z.coerce.number().positive(tStandalone('inventory.priceMustBePositive')),
-  stock: z.coerce.number().int().min(0, tStandalone('inventory.stockCannotBeNegative')),
-  category: z.string().optional(),
-  min_stock: z.coerce.number().int().min(0).default(5),
-});
+const getProductSchema = () =>
+  z.object({
+    name: z.string().min(1, tStandalone('inventory.nameRequired')),
+    sku: z.string().min(1, tStandalone('inventory.skuRequired')),
+    barcode: z.string().optional(),
+    price: z.coerce.number().positive(tStandalone('inventory.priceMustBePositive')),
+    stock: z.coerce.number().int().min(0, tStandalone('inventory.stockCannotBeNegative')),
+    category: z.string().optional(),
+    min_stock: z.coerce.number().int().min(0).default(5),
+  });
 
 type ProductFormData = z.infer<ReturnType<typeof getProductSchema>>;
 
@@ -86,12 +102,14 @@ export default function Inventory() {
   const { data: productsData, isLoading } = useQuery<Product[]>({
     queryKey: ['products', { category: categoryFilter === 'all' ? undefined : categoryFilter }],
     queryFn: () =>
-      api.get('/api/products', {
-        params: {
-          limit: 200,
-          category: categoryFilter === 'all' ? undefined : categoryFilter,
-        },
-      }).then((r) => r.data.data),
+      api
+        .get('/api/products', {
+          params: {
+            limit: 200,
+            category: categoryFilter === 'all' ? undefined : categoryFilter,
+          },
+        })
+        .then((r) => r.data.data),
   });
 
   const { data: categories } = useQuery<string[]>({
@@ -99,7 +117,12 @@ export default function Inventory() {
     queryFn: () => api.get('/api/products/categories').then((r) => r.data.data),
   });
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<ProductFormData>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ProductFormData>({
     resolver: zodResolver(getProductSchema()),
   });
 
@@ -111,11 +134,13 @@ export default function Inventory() {
       setDialogOpen(false);
       reset();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || t('inventory.failedToCreateProduct')),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('inventory.failedToCreateProduct')),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: ProductFormData }) => api.put(`/api/products/${id}`, data),
+    mutationFn: ({ id, data }: { id: number; data: ProductFormData }) =>
+      api.put(`/api/products/${id}`, data),
     onSuccess: () => {
       toast.success(t('inventory.productUpdated'));
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -123,7 +148,8 @@ export default function Inventory() {
       setEditingProduct(null);
       reset();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || t('inventory.failedToUpdateProduct')),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('inventory.failedToUpdateProduct')),
   });
 
   const deleteMutation = useMutation({
@@ -133,7 +159,8 @@ export default function Inventory() {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setDeleteId(null);
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || t('inventory.failedToDeleteProduct')),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('inventory.failedToDeleteProduct')),
   });
 
   const importMutation = useMutation({
@@ -146,7 +173,8 @@ export default function Inventory() {
       }
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || t('inventory.importFailed')),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('inventory.importFailed')),
   });
 
   const onSubmit = (data: ProductFormData) => {
@@ -203,48 +231,84 @@ export default function Inventory() {
   };
 
   const columns: ColumnDef<Product>[] = [
-    { accessorKey: 'name', header: t('inventory.productName'), cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <span>{row.original.name}</span>
-        {row.original.stock <= row.original.min_stock && (
-          <Badge variant="warning" className="text-[10px]">{t('inventory.lowStock')}</Badge>
-        )}
-      </div>
-    )},
-    { accessorKey: 'sku', header: t('inventory.sku') },
-    { accessorKey: 'price', header: t('inventory.price'), cell: ({ getValue }) => (
-      <span className="font-data">{formatCurrency(Number(getValue()))}</span>
-    )},
-    { accessorKey: 'stock', header: t('inventory.stock'), cell: ({ row }) => (
-      <span className={`font-data ${row.original.stock <= row.original.min_stock ? 'text-amber-400' : ''}`}>
-        {row.original.stock}
-      </span>
-    )},
-    { accessorKey: 'category', header: t('inventory.categoryCol'), cell: ({ getValue }) => (
-      <Badge variant="secondary">{(getValue() as string) || t('inventory.na')}</Badge>
-    )},
-    ...(isAdmin ? [{
-      id: 'actions',
-      header: t('common.actions'),
-      enableSorting: false,
-      cell: ({ row }: { row: { original: Product } }) => (
-        <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(row.original)}>
-            <Pencil className="h-3.5 w-3.5 text-gold" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteId(row.original.id)}>
-            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-          </Button>
+    {
+      accessorKey: 'name',
+      header: t('inventory.productName'),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <span>{row.original.name}</span>
+          {row.original.stock <= row.original.min_stock && (
+            <Badge variant="warning" className="text-[10px]">
+              {t('inventory.lowStock')}
+            </Badge>
+          )}
         </div>
       ),
-    } as ColumnDef<Product>] : []),
+    },
+    { accessorKey: 'sku', header: t('inventory.sku') },
+    {
+      accessorKey: 'price',
+      header: t('inventory.price'),
+      cell: ({ getValue }) => (
+        <span className="font-data">{formatCurrency(Number(getValue()))}</span>
+      ),
+    },
+    {
+      accessorKey: 'stock',
+      header: t('inventory.stock'),
+      cell: ({ row }) => (
+        <span
+          className={`font-data ${row.original.stock <= row.original.min_stock ? 'text-amber-400' : ''}`}
+        >
+          {row.original.stock}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'category',
+      header: t('inventory.categoryCol'),
+      cell: ({ getValue }) => (
+        <Badge variant="secondary">{(getValue() as string) || t('inventory.na')}</Badge>
+      ),
+    },
+    ...(isAdmin
+      ? [
+          {
+            id: 'actions',
+            header: t('common.actions'),
+            enableSorting: false,
+            cell: ({ row }: { row: { original: Product } }) => (
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => openEditDialog(row.original)}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gold" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setDeleteId(row.original.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </Button>
+              </div>
+            ),
+          } as ColumnDef<Product>,
+        ]
+      : []),
   ];
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">{t('inventory.title')}</h1>
+          <h1 className="text-3xl font-display tracking-wider text-foreground">
+            {t('inventory.title')}
+          </h1>
           <div className="gold-divider mt-2" />
         </div>
         {isAdmin && (
@@ -256,7 +320,11 @@ export default function Inventory() {
               onChange={handleCSVImport}
               className="hidden"
             />
-            <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()}>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Upload className="h-4 w-4 text-gold" />
               {t('inventory.importCsv')}
             </Button>
@@ -270,7 +338,9 @@ export default function Inventory() {
 
       {/* Category filter */}
       <div className="flex items-center gap-3">
-        <Label className="text-muted text-xs uppercase tracking-widest">{t('inventory.category')}</Label>
+        <Label className="text-muted text-xs uppercase tracking-widest">
+          {t('inventory.category')}
+        </Label>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder={t('inventory.allCategories')} />
@@ -278,7 +348,9 @@ export default function Inventory() {
           <SelectContent>
             <SelectItem value="all">{t('inventory.allCategories')}</SelectItem>
             {categories?.map((cat) => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              <SelectItem key={cat} value={cat}>
+                {cat}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -295,7 +367,9 @@ export default function Inventory() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingProduct ? t('inventory.editProduct') : t('inventory.addProductTitle')}</DialogTitle>
+            <DialogTitle>
+              {editingProduct ? t('inventory.editProduct') : t('inventory.addProductTitle')}
+            </DialogTitle>
             <DialogDescription>
               {editingProduct ? t('inventory.updateDetails') : t('inventory.addToInventory')}
             </DialogDescription>
@@ -349,9 +423,7 @@ export default function Inventory() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('inventory.deleteProduct')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('inventory.deleteConfirm')}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t('inventory.deleteConfirm')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>

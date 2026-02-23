@@ -1,9 +1,20 @@
 import * as React from 'react';
 import { useState } from 'react';
 import {
-  startOfMonth, endOfMonth, startOfWeek, endOfWeek,
-  addMonths, subMonths, eachDayOfInterval, format,
-  isSameMonth, isSameDay, isWithinInterval, isToday, isBefore, isAfter,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  subMonths,
+  eachDayOfInterval,
+  format,
+  isSameMonth,
+  isSameDay,
+  isWithinInterval,
+  isToday,
+  isBefore,
+  isAfter,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,7 +58,10 @@ function MonthGrid({ month, selected, onDayClick, showOutsideDays }: MonthGridPr
     <div className="space-y-1">
       <div className="grid grid-cols-7 gap-0">
         {DAYS.map((d) => (
-          <div key={d} className="h-9 w-9 flex items-center justify-center text-muted text-[0.8rem] font-data">
+          <div
+            key={d}
+            className="h-9 w-9 flex items-center justify-center text-muted text-[0.8rem] font-data"
+          >
             {d}
           </div>
         ))}
@@ -72,7 +86,7 @@ function MonthGrid({ month, selected, onDayClick, showOutsideDays }: MonthGridPr
                   'relative h-9 w-9 flex items-center justify-center',
                   inRange && !sel && 'bg-gold/20',
                   rangeStart && selected?.to && 'rounded-l-md bg-gold/20',
-                  rangeEnd && selected?.from && 'rounded-r-md bg-gold/20',
+                  rangeEnd && selected?.from && 'rounded-r-md bg-gold/20'
                 )}
               >
                 <button
@@ -84,8 +98,9 @@ function MonthGrid({ month, selected, onDayClick, showOutsideDays }: MonthGridPr
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold',
                     outside && 'text-muted opacity-50',
                     today && !sel && 'bg-surface text-gold',
-                    sel && 'bg-gold text-primary-foreground hover:bg-gold hover:text-primary-foreground',
-                    !sel && !outside && !today && 'text-foreground',
+                    sel &&
+                      'bg-gold text-primary-foreground hover:bg-gold hover:text-primary-foreground',
+                    !sel && !outside && !today && 'text-foreground'
                   )}
                 >
                   {format(day, 'd')}
@@ -147,7 +162,10 @@ function Calendar({
         </button>
         <div className="flex gap-8">
           {months.map((m) => (
-            <span key={m.toISOString()} className="text-sm font-medium font-display tracking-wider text-foreground">
+            <span
+              key={m.toISOString()}
+              className="text-sm font-medium font-display tracking-wider text-foreground"
+            >
               {format(m, 'MMMM yyyy')}
             </span>
           ))}

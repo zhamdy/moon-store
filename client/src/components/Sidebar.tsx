@@ -106,9 +106,7 @@ export default function Sidebar(): React.JSX.Element {
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-3 px-4 py-2 mb-2">
             <div className="h-8 w-8 rounded-full bg-gold/20 flex items-center justify-center">
-              <span className="text-gold text-sm font-semibold">
-                {user?.name?.[0] || 'U'}
-              </span>
+              <span className="text-gold text-sm font-semibold">{user?.name?.[0] || 'U'}</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{user?.name}</p>

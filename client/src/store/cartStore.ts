@@ -42,9 +42,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
       if (existing) {
         return {
           items: state.items.map((i) =>
-            i.product_id === product.id
-              ? { ...i, quantity: i.quantity + 1 }
-              : i
+            i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i
           ),
         };
       }
@@ -85,8 +83,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
   getTotal: () => {
     const { items, discount, discountType } = get();
     const subtotal = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
-    const discountAmount =
-      discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
+    const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
     return Math.max(0, subtotal - discountAmount);
   },
 

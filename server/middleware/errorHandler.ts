@@ -4,7 +4,7 @@ interface AppError extends Error {
   statusCode?: number;
 }
 
-function errorHandler(err: AppError, req: Request, res: Response, next: NextFunction): void {
+function errorHandler(err: AppError, _req: Request, res: Response, _next: NextFunction): void {
   console.error('Error:', err.message);
   console.error(err.stack);
 

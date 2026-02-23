@@ -31,9 +31,15 @@ const CustomTooltip = ({ active, payload, isDark, t }: CustomTooltipProps) => {
       }}
       className="rounded-md p-3 shadow-lg"
     >
-      <p className="text-xs font-data" style={{ color: isDark ? '#F5F0E8' : '#1E1E1E' }}>{payload[0].name}</p>
-      <p className="text-sm font-semibold text-gold font-data">{payload[0].value} {t('charts.orders')}</p>
-      <p className="text-xs font-data" style={{ color: isDark ? '#6B6B6B' : '#888888' }}>{formatCurrency((payload[0].payload as PaymentDataPoint).revenue)}</p>
+      <p className="text-xs font-data" style={{ color: isDark ? '#F5F0E8' : '#1E1E1E' }}>
+        {payload[0].name}
+      </p>
+      <p className="text-sm font-semibold text-gold font-data">
+        {payload[0].value} {t('charts.orders')}
+      </p>
+      <p className="text-xs font-data" style={{ color: isDark ? '#6B6B6B' : '#888888' }}>
+        {formatCurrency((payload[0].payload as PaymentDataPoint).revenue)}
+      </p>
     </div>
   );
 };

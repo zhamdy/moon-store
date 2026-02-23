@@ -1,4 +1,12 @@
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from 'recharts';
 import { format } from 'date-fns';
 import { formatCurrency } from '../../lib/utils';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -27,8 +35,12 @@ const CustomTooltip = ({ active, payload, label, isDark }: CustomTooltipProps) =
       }}
       className="rounded-md p-3 shadow-lg"
     >
-      <p className="text-xs font-data" style={{ color: isDark ? '#6B6B6B' : '#888888' }}>{format(new Date(label as string), 'MMM dd, yyyy')}</p>
-      <p className="text-sm font-semibold text-gold font-data">{formatCurrency(payload[0].value as number)}</p>
+      <p className="text-xs font-data" style={{ color: isDark ? '#6B6B6B' : '#888888' }}>
+        {format(new Date(label as string), 'MMM dd, yyyy')}
+      </p>
+      <p className="text-sm font-semibold text-gold font-data">
+        {formatCurrency(payload[0].value as number)}
+      </p>
     </div>
   );
 };

@@ -113,10 +113,7 @@ export default function DataTable<TData>({
           <tbody>
             {table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-4 py-8 text-center text-muted"
-                >
+                <td colSpan={columns.length} className="px-4 py-8 text-center text-muted">
                   {t('common.noResults')}
                 </td>
               </tr>

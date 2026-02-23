@@ -27,8 +27,12 @@ const CustomTooltip = ({ active, payload, isDark, t }: CustomTooltipProps) => {
       }}
       className="rounded-md p-3 shadow-lg"
     >
-      <p className="text-xs font-data" style={{ color: isDark ? '#F5F0E8' : '#1E1E1E' }}>{(payload[0].payload as TopProductDataPoint).name}</p>
-      <p className="text-sm font-semibold text-gold font-data">{payload[0].value} {t('charts.sold')}</p>
+      <p className="text-xs font-data" style={{ color: isDark ? '#F5F0E8' : '#1E1E1E' }}>
+        {(payload[0].payload as TopProductDataPoint).name}
+      </p>
+      <p className="text-sm font-semibold text-gold font-data">
+        {payload[0].value} {t('charts.sold')}
+      </p>
     </div>
   );
 };
@@ -45,8 +49,16 @@ export default function TopProductsChart({ data }: TopProductsChartProps) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 100, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#1E1E1E' : '#E5E5E5'} horizontal={false} />
-        <XAxis type="number" tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }} stroke={isDark ? '#1E1E1E' : '#E5E5E5'} />
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+          horizontal={false}
+        />
+        <XAxis
+          type="number"
+          tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
+          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+        />
         <YAxis
           dataKey="name"
           type="category"

@@ -16,7 +16,8 @@ export default function Layout(): React.JSX.Element {
         {!isOnline && (
           <div className="bg-gold-dark/20 border-b border-gold-dark text-gold px-4 py-2 text-sm flex items-center gap-2 font-data">
             <WifiOff className="h-4 w-4" />
-            {t('offline.offlineBanner')}{queueLength > 0 && ` ${t('offline.queuedForSync', { count: queueLength })}`}
+            {t('offline.offlineBanner')}
+            {queueLength > 0 && ` ${t('offline.queuedForSync', { count: queueLength })}`}
           </div>
         )}
         <Outlet />

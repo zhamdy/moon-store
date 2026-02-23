@@ -17,9 +17,5 @@ interface StatusBadgeProps {
 }
 
 export default function StatusBadge({ status }: StatusBadgeProps) {
-  return (
-    <Badge variant={statusStyles[status as DeliveryStatus] || 'secondary'}>
-      {status}
-    </Badge>
-  );
+  return <Badge variant={statusStyles[status as DeliveryStatus] || 'secondary'}>{status}</Badge>;
 }

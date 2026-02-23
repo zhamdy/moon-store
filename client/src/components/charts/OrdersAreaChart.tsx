@@ -1,4 +1,12 @@
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { format } from 'date-fns';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useTranslation } from '../../i18n';
@@ -28,8 +36,12 @@ const CustomTooltip = ({ active, payload, label, isDark, t }: CustomTooltipProps
       }}
       className="rounded-md p-3 shadow-lg"
     >
-      <p className="text-xs font-data" style={{ color: isDark ? '#6B6B6B' : '#888888' }}>{format(new Date(label as string), 'MMM dd, yyyy')}</p>
-      <p className="text-sm font-semibold text-blush font-data">{payload[0].value} {t('charts.orders')}</p>
+      <p className="text-xs font-data" style={{ color: isDark ? '#6B6B6B' : '#888888' }}>
+        {format(new Date(label as string), 'MMM dd, yyyy')}
+      </p>
+      <p className="text-sm font-semibold text-blush font-data">
+        {payload[0].value} {t('charts.orders')}
+      </p>
     </div>
   );
 };
@@ -59,7 +71,10 @@ export default function OrdersAreaChart({ data }: OrdersAreaChartProps) {
           tickFormatter={(val: string) => format(new Date(val), 'MMM dd')}
           stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
         />
-        <YAxis tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }} stroke={isDark ? '#1E1E1E' : '#E5E5E5'} />
+        <YAxis
+          tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
+          stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+        />
         <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
         <Area
           type="monotone"

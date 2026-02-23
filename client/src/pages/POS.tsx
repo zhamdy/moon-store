@@ -37,18 +37,21 @@ export default function POS() {
     staleTime: 2 * 60 * 1000,
   });
 
-  const handleBarcodeDetected = useCallback(async (barcode: string) => {
-    try {
-      const response = await api.get(`/api/products/barcode/${barcode}`);
-      const product = response.data.data as Product;
-      if (product) {
-        addItem(product);
-        setShowScanner(false);
+  const handleBarcodeDetected = useCallback(
+    async (barcode: string) => {
+      try {
+        const response = await api.get(`/api/products/barcode/${barcode}`);
+        const product = response.data.data as Product;
+        if (product) {
+          addItem(product);
+          setShowScanner(false);
+        }
+      } catch {
+        // Product not found - ignore
       }
-    } catch {
-      // Product not found - ignore
-    }
-  }, [addItem]);
+    },
+    [addItem]
+  );
 
   return (
     <div className="p-6 animate-fade-in">

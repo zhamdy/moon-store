@@ -37,18 +37,17 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
       { expiresIn: '15m' }
     );
 
-    const refreshToken = jwt.sign(
-      { id: user.id },
-      process.env.JWT_REFRESH_SECRET as string,
-      { expiresIn: '7d' }
-    );
+    const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET as string, {
+      expiresIn: '7d',
+    });
 
     // Store refresh token
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    await db.query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)',
-      [user.id, refreshToken, expiresAt]
-    );
+    await db.query('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)', [
+      user.id,
+      refreshToken,
+      expiresAt,
+    ]);
 
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', refreshToken, {

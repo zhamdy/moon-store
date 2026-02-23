@@ -80,9 +80,10 @@ export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const { t } = useTranslation();
 
-  const dateParams = dateRange.from && dateRange.to
-    ? { from: format(dateRange.from, 'yyyy-MM-dd'), to: format(dateRange.to, 'yyyy-MM-dd') }
-    : {};
+  const dateParams =
+    dateRange.from && dateRange.to
+      ? { from: format(dateRange.from, 'yyyy-MM-dd'), to: format(dateRange.to, 'yyyy-MM-dd') }
+      : {};
 
   const { data: kpis, isLoading: kpisLoading } = useQuery<KpiData>({
     queryKey: ['dashboard-kpis'],
@@ -92,25 +93,29 @@ export default function Dashboard() {
 
   const { data: revenue, isLoading: revenueLoading } = useQuery<RevenueDataPoint[]>({
     queryKey: ['revenue', dateParams],
-    queryFn: () => api.get('/api/analytics/revenue', { params: dateParams }).then((r) => r.data.data),
+    queryFn: () =>
+      api.get('/api/analytics/revenue', { params: dateParams }).then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: topProducts, isLoading: topLoading } = useQuery<TopProduct[]>({
     queryKey: ['top-products', dateParams],
-    queryFn: () => api.get('/api/analytics/top-products', { params: dateParams }).then((r) => r.data.data),
+    queryFn: () =>
+      api.get('/api/analytics/top-products', { params: dateParams }).then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: paymentMethods, isLoading: paymentLoading } = useQuery<PaymentMethod[]>({
     queryKey: ['payment-methods', dateParams],
-    queryFn: () => api.get('/api/analytics/payment-methods', { params: dateParams }).then((r) => r.data.data),
+    queryFn: () =>
+      api.get('/api/analytics/payment-methods', { params: dateParams }).then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: ordersPerDay, isLoading: ordersLoading } = useQuery<OrdersPerDay[]>({
     queryKey: ['orders-per-day', dateParams],
-    queryFn: () => api.get('/api/analytics/orders-per-day', { params: dateParams }).then((r) => r.data.data),
+    queryFn: () =>
+      api.get('/api/analytics/orders-per-day', { params: dateParams }).then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -118,7 +123,9 @@ export default function Dashboard() {
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">{t('dashboard.title')}</h1>
+          <h1 className="text-3xl font-display tracking-wider text-foreground">
+            {t('dashboard.title')}
+          </h1>
           <div className="gold-divider mt-2" />
         </div>
 

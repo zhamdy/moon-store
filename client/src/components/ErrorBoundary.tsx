@@ -34,9 +34,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
           <h2 className="text-xl font-display tracking-wider text-foreground">
             {t('error.title')}
           </h2>
-          <p className="text-muted text-sm">
-            {this.state.error?.message || t('error.title')}
-          </p>
+          <p className="text-muted text-sm">{this.state.error?.message || t('error.title')}</p>
           <Button
             onClick={() => {
               this.setState({ hasError: false, error: null });

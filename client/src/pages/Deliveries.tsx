@@ -10,10 +10,19 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from '../components/ui/dialog';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '../components/ui/select';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
@@ -21,7 +30,7 @@ import { formatDateTime } from '../lib/utils';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
-import { t as tStandalone } from '../i18n';
+
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError, AxiosResponse } from 'axios';
 
@@ -73,10 +82,14 @@ const deliverySchema = z.object({
   address: z.string().min(1, 'Address required'),
   notes: z.string().optional(),
   assigned_to: z.coerce.number().optional().nullable(),
-  items: z.array(z.object({
-    product_id: z.coerce.number().positive(),
-    quantity: z.coerce.number().int().positive(),
-  })).min(1, 'Add at least one item'),
+  items: z
+    .array(
+      z.object({
+        product_id: z.coerce.number().positive(),
+        quantity: z.coerce.number().int().positive(),
+      })
+    )
+    .min(1, 'Add at least one item'),
 });
 
 type DeliveryFormData = z.infer<typeof deliverySchema>;
@@ -104,9 +117,11 @@ export default function Deliveries() {
   const { data: orders, isLoading } = useQuery<DeliveryOrder[]>({
     queryKey: ['deliveries', { status: statusFilter }],
     queryFn: () =>
-      api.get('/api/delivery', {
-        params: { limit: 100, status: statusFilter === 'All' ? undefined : statusFilter },
-      }).then((r) => r.data.data),
+      api
+        .get('/api/delivery', {
+          params: { limit: 100, status: statusFilter === 'All' ? undefined : statusFilter },
+        })
+        .then((r) => r.data.data),
   });
 
   const { data: products } = useQuery<Product[]>({
@@ -122,7 +137,10 @@ export default function Deliveries() {
 
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ['customers', { search: customerSearch }],
-    queryFn: () => api.get('/api/customers', { params: { search: customerSearch || undefined } }).then((r) => r.data.data),
+    queryFn: () =>
+      api
+        .get('/api/customers', { params: { search: customerSearch || undefined } })
+        .then((r) => r.data.data),
     enabled: isAdmin && dialogOpen,
   });
 
@@ -137,9 +155,24 @@ export default function Deliveries() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const { register, handleSubmit, control, reset, formState: { errors }, setValue } = useForm<DeliveryFormData>({
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors },
+    setValue,
+  } = useForm<DeliveryFormData>({
     resolver: zodResolver(deliverySchema),
-    defaultValues: { customer_id: null, customer_name: '', phone: '', address: '', notes: '', assigned_to: null, items: [{ product_id: 0, quantity: 1 }] },
+    defaultValues: {
+      customer_id: null,
+      customer_name: '',
+      phone: '',
+      address: '',
+      notes: '',
+      assigned_to: null,
+      items: [{ product_id: 0, quantity: 1 }],
+    },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
@@ -153,11 +186,13 @@ export default function Deliveries() {
       setDialogOpen(false);
       reset();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || 'Failed to create order'),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || 'Failed to create order'),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: DeliveryPayload }) => api.put(`/api/delivery/${id}`, data),
+    mutationFn: ({ id, data }: { id: number; data: DeliveryPayload }) =>
+      api.put(`/api/delivery/${id}`, data),
     onSuccess: () => {
       toast.success(t('deliveries.orderUpdated'));
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
@@ -165,17 +200,20 @@ export default function Deliveries() {
       setDialogOpen(false);
       setEditingOrder(null);
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || 'Failed to update order'),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || 'Failed to update order'),
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) => api.put(`/api/delivery/${id}/status`, { status }),
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      api.put(`/api/delivery/${id}/status`, { status }),
     onSuccess: (res: AxiosResponse<{ data: { status: string } }>) => {
       const status = res.data.data.status;
       toast.success(t('deliveries.statusUpdated', { status }));
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || 'Failed to update status'),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || 'Failed to update status'),
   });
 
   const onSubmit = (data: DeliveryFormData) => {
@@ -201,7 +239,15 @@ export default function Deliveries() {
     setSelectedCustomer(null);
     setIsNewCustomer(true);
     setCustomerSearch('');
-    reset({ customer_id: null, customer_name: '', phone: '', address: '', notes: '', assigned_to: null, items: [{ product_id: 0, quantity: 1 }] });
+    reset({
+      customer_id: null,
+      customer_name: '',
+      phone: '',
+      address: '',
+      notes: '',
+      assigned_to: null,
+      items: [{ product_id: 0, quantity: 1 }],
+    });
     setDialogOpen(true);
   };
 
@@ -228,53 +274,77 @@ export default function Deliveries() {
   const statuses = ['All', 'Pending', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'];
 
   const statusLabelMap: Record<string, string> = {
-    'All': t('common.all'),
-    'Pending': t('deliveries.pending'),
-    'Preparing': t('deliveries.preparing'),
+    All: t('common.all'),
+    Pending: t('deliveries.pending'),
+    Preparing: t('deliveries.preparing'),
     'Out for Delivery': t('deliveries.outForDelivery'),
-    'Delivered': t('deliveries.delivered'),
-    'Cancelled': t('deliveries.cancelled'),
+    Delivered: t('deliveries.delivered'),
+    Cancelled: t('deliveries.cancelled'),
   };
 
   const columns: ColumnDef<DeliveryOrder>[] = [
-    { accessorKey: 'order_number', header: t('deliveries.orderNumber'), cell: ({ getValue }) => (
-      <span className="font-data text-gold">{getValue() as string}</span>
-    )},
+    {
+      accessorKey: 'order_number',
+      header: t('deliveries.orderNumber'),
+      cell: ({ getValue }) => <span className="font-data text-gold">{getValue() as string}</span>,
+    },
     { accessorKey: 'customer_name', header: t('deliveries.customer') },
-    { accessorKey: 'phone', header: t('deliveries.phone'), cell: ({ getValue }) => (
-      <span className="font-data">{getValue() as string}</span>
-    )},
-    { accessorKey: 'status', header: t('common.status'), cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <StatusBadge status={row.original.status} />
-        {(isAdmin || user?.role === 'Delivery') && row.original.status !== 'Delivered' && row.original.status !== 'Cancelled' && (
-          <Select
-            value={row.original.status}
-            onValueChange={(val) => statusMutation.mutate({ id: row.original.id, status: val })}
-          >
-            <SelectTrigger className="h-7 w-[140px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {statuses.filter((s) => s !== 'All').map((s) => (
-                <SelectItem key={s} value={s}>{statusLabelMap[s] || s}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
-    )},
-    { accessorKey: 'assigned_name', header: t('deliveries.assignedTo'), cell: ({ getValue }) => (getValue() as string) || '-' },
-    { accessorKey: 'created_at', header: t('deliveries.created'), cell: ({ getValue }) => (
-      <span className="text-muted font-data text-xs">{formatDateTime(getValue() as string)}</span>
-    )},
+    {
+      accessorKey: 'phone',
+      header: t('deliveries.phone'),
+      cell: ({ getValue }) => <span className="font-data">{getValue() as string}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: t('common.status'),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <StatusBadge status={row.original.status} />
+          {(isAdmin || user?.role === 'Delivery') &&
+            row.original.status !== 'Delivered' &&
+            row.original.status !== 'Cancelled' && (
+              <Select
+                value={row.original.status}
+                onValueChange={(val) => statusMutation.mutate({ id: row.original.id, status: val })}
+              >
+                <SelectTrigger className="h-7 w-[140px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statuses
+                    .filter((s) => s !== 'All')
+                    .map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {statusLabelMap[s] || s}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'assigned_name',
+      header: t('deliveries.assignedTo'),
+      cell: ({ getValue }) => (getValue() as string) || '-',
+    },
+    {
+      accessorKey: 'created_at',
+      header: t('deliveries.created'),
+      cell: ({ getValue }) => (
+        <span className="text-muted font-data text-xs">{formatDateTime(getValue() as string)}</span>
+      ),
+    },
   ];
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">{t('deliveries.title')}</h1>
+          <h1 className="text-3xl font-display tracking-wider text-foreground">
+            {t('deliveries.title')}
+          </h1>
           <div className="gold-divider mt-2" />
         </div>
         {isAdmin && (
@@ -310,7 +380,9 @@ export default function Deliveries() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingOrder ? t('deliveries.editOrder') : t('deliveries.newOrderTitle')}</DialogTitle>
+            <DialogTitle>
+              {editingOrder ? t('deliveries.editOrder') : t('deliveries.newOrderTitle')}
+            </DialogTitle>
             <DialogDescription>{t('deliveries.fillDetails')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -324,7 +396,9 @@ export default function Deliveries() {
                 >
                   <Search className="h-4 w-4 me-2 text-muted-foreground shrink-0" />
                   {selectedCustomer ? (
-                    <span className="truncate">{selectedCustomer.name} — {selectedCustomer.phone}</span>
+                    <span className="truncate">
+                      {selectedCustomer.name} — {selectedCustomer.phone}
+                    </span>
                   ) : isNewCustomer ? (
                     <span className="text-foreground">{t('deliveries.newCustomer')}</span>
                   ) : (
@@ -337,7 +411,9 @@ export default function Deliveries() {
                       <Input
                         placeholder={t('deliveries.searchCustomer')}
                         value={customerSearch}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setCustomerSearch(e.target.value)}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                          setCustomerSearch(e.target.value)
+                        }
                         autoFocus
                       />
                     </div>
@@ -347,7 +423,9 @@ export default function Deliveries() {
                     >
                       <UserPlus className="h-4 w-4 text-gold shrink-0" />
                       <span className="font-medium">{t('deliveries.newCustomer')}</span>
-                      {isNewCustomer && !selectedCustomer && <Check className="h-4 w-4 ms-auto text-gold" />}
+                      {isNewCustomer && !selectedCustomer && (
+                        <Check className="h-4 w-4 ms-auto text-gold" />
+                      )}
                     </div>
                     {customers && customers.length > 0 ? (
                       customers.map((c) => (
@@ -360,11 +438,15 @@ export default function Deliveries() {
                             <div className="font-medium truncate">{c.name}</div>
                             <div className="text-xs text-muted-foreground font-data">{c.phone}</div>
                           </div>
-                          {selectedCustomer?.id === c.id && <Check className="h-4 w-4 shrink-0 text-gold" />}
+                          {selectedCustomer?.id === c.id && (
+                            <Check className="h-4 w-4 shrink-0 text-gold" />
+                          )}
                         </div>
                       ))
                     ) : (
-                      <div className="px-3 py-2 text-sm text-muted-foreground">{t('deliveries.noCustomersFound')}</div>
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        {t('deliveries.noCustomersFound')}
+                      </div>
                     )}
                   </div>
                 )}
@@ -375,7 +457,9 @@ export default function Deliveries() {
               <div className="space-y-2">
                 <Label>{t('deliveries.customerName')}</Label>
                 <Input {...register('customer_name')} />
-                {errors.customer_name && <p className="text-xs text-destructive">{errors.customer_name.message}</p>}
+                {errors.customer_name && (
+                  <p className="text-xs text-destructive">{errors.customer_name.message}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>{t('deliveries.phone')}</Label>
@@ -386,7 +470,9 @@ export default function Deliveries() {
             <div className="space-y-2">
               <Label>{t('deliveries.address')}</Label>
               <Textarea {...register('address')} />
-              {errors.address && <p className="text-xs text-destructive">{errors.address.message}</p>}
+              {errors.address && (
+                <p className="text-xs text-destructive">{errors.address.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>{t('deliveries.notes')}</Label>
@@ -401,7 +487,9 @@ export default function Deliveries() {
                 >
                   <option value="">{t('deliveries.unassigned')}</option>
                   {deliveryUsers.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -411,11 +499,18 @@ export default function Deliveries() {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label>{t('deliveries.items')}</Label>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ product_id: 0, quantity: 1 })}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append({ product_id: 0, quantity: 1 })}
+                >
                   <Plus className="h-3 w-3 me-1" /> {t('deliveries.addItem')}
                 </Button>
               </div>
-              {errors.items?.root && <p className="text-xs text-destructive">{errors.items.root.message}</p>}
+              {errors.items?.root && (
+                <p className="text-xs text-destructive">{errors.items.root.message}</p>
+              )}
               {fields.map((field, index) => (
                 <div key={field.id} className="flex gap-2 items-end">
                   <div className="flex-1">
@@ -425,7 +520,9 @@ export default function Deliveries() {
                     >
                       <option value="">{t('deliveries.selectProduct')}</option>
                       {products?.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.stock} in stock)</option>
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.stock} in stock)
+                        </option>
                       ))}
                     </select>
                   </div>

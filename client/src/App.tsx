@@ -35,50 +35,88 @@ export default function App(): React.ReactElement {
   return (
     <>
       <Routes>
-        <Route path="/login" element={
-          isAuthenticated ? <Navigate to={defaultRoute()} replace /> : <Login />
-        } />
+        <Route
+          path="/login"
+          element={isAuthenticated ? <Navigate to={defaultRoute()} replace /> : <Login />}
+        />
 
-        <Route element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route path="/" element={
-            <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-              <ErrorBoundary><Dashboard /></ErrorBoundary>
+        <Route
+          element={
+            <ProtectedRoute>
+              <Layout />
             </ProtectedRoute>
-          } />
-          <Route path="/pos" element={
-            <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-              <ErrorBoundary><POS /></ErrorBoundary>
-            </ProtectedRoute>
-          } />
-          <Route path="/inventory" element={
-            <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-              <ErrorBoundary><Inventory /></ErrorBoundary>
-            </ProtectedRoute>
-          } />
-          <Route path="/barcode" element={
-            <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-              <ErrorBoundary><BarcodeTools /></ErrorBoundary>
-            </ProtectedRoute>
-          } />
-          <Route path="/deliveries" element={
-            <ProtectedRoute roles={['Admin', 'Delivery'] satisfies UserRole[]}>
-              <ErrorBoundary><Deliveries /></ErrorBoundary>
-            </ProtectedRoute>
-          } />
-          <Route path="/sales" element={
-            <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-              <ErrorBoundary><SalesHistory /></ErrorBoundary>
-            </ProtectedRoute>
-          } />
-          <Route path="/users" element={
-            <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-              <ErrorBoundary><UsersPage /></ErrorBoundary>
-            </ProtectedRoute>
-          } />
+          }
+        >
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <Dashboard />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pos"
+            element={
+              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <POS />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <Inventory />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/barcode"
+            element={
+              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <BarcodeTools />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/deliveries"
+            element={
+              <ProtectedRoute roles={['Admin', 'Delivery'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <Deliveries />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sales"
+            element={
+              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <SalesHistory />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <UsersPage />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         <Route path="*" element={<Navigate to={defaultRoute()} replace />} />

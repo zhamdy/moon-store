@@ -10,15 +10,23 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from '../components/ui/dialog';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '../components/ui/select';
 import DataTable from '../components/DataTable';
 import { formatDateTime, formatDate } from '../lib/utils';
 import { useAuthStore } from '../store/authStore';
@@ -80,7 +88,12 @@ export default function UsersPage() {
   });
 
   const schema = editingUser ? editSchema : createSchema;
-  const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm<UserFormData>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<UserFormData>({
     resolver: zodResolver(schema),
     defaultValues: { name: '', email: '', password: '', role: 'Cashier' },
   });
@@ -93,18 +106,21 @@ export default function UsersPage() {
       setDialogOpen(false);
       reset();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || 'Failed to create user'),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || 'Failed to create user'),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<UserFormData> }) => api.put(`/api/users/${id}`, data),
+    mutationFn: ({ id, data }: { id: number; data: Partial<UserFormData> }) =>
+      api.put(`/api/users/${id}`, data),
     onSuccess: () => {
       toast.success(t('users.userUpdated'));
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setDialogOpen(false);
       setEditingUser(null);
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || 'Failed to update user'),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || 'Failed to update user'),
   });
 
   const deleteMutation = useMutation({
@@ -114,7 +130,8 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setDeleteId(null);
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => toast.error(err.response?.data?.error || 'Failed to delete user'),
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || 'Failed to delete user'),
   });
 
   const onSubmit = (data: UserFormData) => {
@@ -141,27 +158,48 @@ export default function UsersPage() {
 
   const columns: ColumnDef<UserRecord>[] = [
     { accessorKey: 'name', header: t('common.name') },
-    { accessorKey: 'email', header: t('common.email'), cell: ({ getValue }) => (
-      <span className="font-data">{getValue() as string}</span>
-    )},
-    { accessorKey: 'role', header: t('common.role'), cell: ({ getValue }) => (
-      <Badge variant={roleBadgeVariant[getValue() as UserRole] || 'secondary'}>{getValue() as string}</Badge>
-    )},
-    { accessorKey: 'last_login', header: t('users.lastLogin'), cell: ({ getValue }) => (
-      <span className="text-muted font-data text-xs">
-        {getValue() ? formatDateTime(getValue() as string) : t('users.never')}
-      </span>
-    )},
-    { accessorKey: 'created_at', header: t('users.createdDate'), cell: ({ getValue }) => (
-      <span className="text-muted font-data text-xs">{formatDate(getValue() as string)}</span>
-    )},
+    {
+      accessorKey: 'email',
+      header: t('common.email'),
+      cell: ({ getValue }) => <span className="font-data">{getValue() as string}</span>,
+    },
+    {
+      accessorKey: 'role',
+      header: t('common.role'),
+      cell: ({ getValue }) => (
+        <Badge variant={roleBadgeVariant[getValue() as UserRole] || 'secondary'}>
+          {getValue() as string}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'last_login',
+      header: t('users.lastLogin'),
+      cell: ({ getValue }) => (
+        <span className="text-muted font-data text-xs">
+          {getValue() ? formatDateTime(getValue() as string) : t('users.never')}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'created_at',
+      header: t('users.createdDate'),
+      cell: ({ getValue }) => (
+        <span className="text-muted font-data text-xs">{formatDate(getValue() as string)}</span>
+      ),
+    },
     {
       id: 'actions',
       header: t('common.actions'),
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(row.original)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => openEditDialog(row.original)}
+          >
             <Pencil className="h-3.5 w-3.5 text-gold" />
           </Button>
           <Button
@@ -187,7 +225,9 @@ export default function UsersPage() {
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">{t('users.title')}</h1>
+          <h1 className="text-3xl font-display tracking-wider text-foreground">
+            {t('users.title')}
+          </h1>
           <div className="gold-divider mt-2" />
         </div>
         <Button className="gap-2" onClick={openCreateDialog}>
@@ -226,7 +266,9 @@ export default function UsersPage() {
             <div className="space-y-2">
               <Label>{editingUser ? t('users.passwordKeep') : t('common.password')}</Label>
               <Input type="password" {...register('password')} />
-              {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+              {errors.password && (
+                <p className="text-xs text-destructive">{errors.password.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>{t('common.role')}</Label>
@@ -254,9 +296,7 @@ export default function UsersPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('users.deleteUser')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('users.deleteConfirm')}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t('users.deleteConfirm')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>

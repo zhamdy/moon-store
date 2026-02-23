@@ -6,7 +6,10 @@ interface ProtectedRouteProps {
   roles?: string[];
 }
 
-export default function ProtectedRoute({ children, roles }: ProtectedRouteProps): React.JSX.Element {
+export default function ProtectedRoute({
+  children,
+  roles,
+}: ProtectedRouteProps): React.JSX.Element {
   const { isAuthenticated, user } = useAuthStore();
 
   if (!isAuthenticated) {

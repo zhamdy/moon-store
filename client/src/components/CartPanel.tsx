@@ -36,8 +36,16 @@ interface ApiErrorResponse {
 
 export default function CartPanel(): React.JSX.Element {
   const {
-    items, discount, discountType, removeItem, updateQuantity,
-    setDiscount, setDiscountType, getSubtotal, getTotal, clearCart,
+    items,
+    discount,
+    discountType,
+    removeItem,
+    updateQuantity,
+    setDiscount,
+    setDiscountType,
+    getSubtotal,
+    getTotal,
+    clearCart,
   } = useCartStore();
   const { addToQueue } = useOfflineStore();
   const queryClient = useQueryClient();
@@ -120,7 +128,10 @@ export default function CartPanel(): React.JSX.Element {
           <p className="text-center text-muted text-sm py-8">{t('cart.empty')}</p>
         ) : (
           items.map((item) => (
-            <div key={item.product_id} className="flex items-center gap-3 p-3 bg-surface rounded-md border border-border">
+            <div
+              key={item.product_id}
+              className="flex items-center gap-3 p-3 bg-surface rounded-md border border-border"
+            >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
                 <p className="text-xs text-muted font-data">{formatCurrency(item.unit_price)}</p>
@@ -170,7 +181,9 @@ export default function CartPanel(): React.JSX.Element {
             min="0"
             placeholder={t('cart.discount')}
             value={discount || ''}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDiscount(parseFloat(e.target.value) || 0)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setDiscount(parseFloat(e.target.value) || 0)
+            }
             className="w-24 h-8 text-sm"
           />
           <div className="flex border border-border rounded-md overflow-hidden">
@@ -199,7 +212,9 @@ export default function CartPanel(): React.JSX.Element {
           {discount > 0 && (
             <div className="flex justify-between text-sm text-blush font-data">
               <span>{t('cart.discount')}</span>
-              <span>-{discountType === 'percentage' ? `${discount}%` : formatCurrency(discount)}</span>
+              <span>
+                -{discountType === 'percentage' ? `${discount}%` : formatCurrency(discount)}
+              </span>
             </div>
           )}
           <div className="flex justify-between text-lg font-semibold font-data text-foreground">
@@ -228,10 +243,14 @@ export default function CartPanel(): React.JSX.Element {
           <div className="mt-6 space-y-6">
             {/* Order summary */}
             <div className="space-y-2">
-              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body">{t('cart.orderSummary')}</h3>
+              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body">
+                {t('cart.orderSummary')}
+              </h3>
               {items.map((item) => (
                 <div key={item.product_id} className="flex justify-between text-sm font-data">
-                  <span>{item.name} x{item.quantity}</span>
+                  <span>
+                    {item.name} x{item.quantity}
+                  </span>
                   <span>{formatCurrency(item.unit_price * item.quantity)}</span>
                 </div>
               ))}
@@ -244,12 +263,19 @@ export default function CartPanel(): React.JSX.Element {
 
             {/* Payment method */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body">{t('cart.paymentMethod')}</h3>
-              <RadioGroup value={paymentMethod} onValueChange={(val: string) => setPaymentMethod(val as PaymentMethod)}>
+              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body">
+                {t('cart.paymentMethod')}
+              </h3>
+              <RadioGroup
+                value={paymentMethod}
+                onValueChange={(val: string) => setPaymentMethod(val as PaymentMethod)}
+              >
                 {(['Cash', 'Card', 'Other'] as const).map((method) => (
                   <div key={method} className="flex items-center gap-2">
                     <RadioGroupItem value={method} id={method} />
-                    <Label htmlFor={method} className="cursor-pointer">{paymentLabels[method]}</Label>
+                    <Label htmlFor={method} className="cursor-pointer">
+                      {paymentLabels[method]}
+                    </Label>
                   </div>
                 ))}
               </RadioGroup>
