@@ -71,6 +71,13 @@
   "dashboard.topSellers": "أفضل 10 منتجات مبيعاً",
   "dashboard.paymentMethods": "المبيعات حسب طريقة الدفع",
   "dashboard.ordersPerDay": "الطلبات في اليوم",
+  "dashboard.cashierRevenue": "الإيرادات حسب الكاشير",
+  "dashboard.cashierStats": "أداء الكاشير",
+  "dashboard.cashierName": "الكاشير",
+  "dashboard.salesCount": "المبيعات",
+  "dashboard.revenue": "الإيرادات",
+  "dashboard.avgOrder": "متوسط الطلب",
+  "dashboard.itemsSold": "العناصر المباعة",
 
   "pos.title": "نقطة البيع",
   "pos.searchPlaceholder": "البحث عن منتجات بالاسم أو الرمز...",

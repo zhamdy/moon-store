@@ -181,4 +181,43 @@ router.get(
   }
 );
 
+// GET /api/analytics/cashier-performance
+router.get(
+  '/cashier-performance',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { from, to } = req.query;
+      let dateFilter = "s.created_at >= date('now', '-30 days')";
+      let params: unknown[] = [];
+
+      if (from && to) {
+        dateFilter = 's.created_at >= ? AND s.created_at <= ?';
+        params = [from, to + ' 23:59:59'];
+      }
+
+      const result = await db.query(
+        `SELECT u.id as cashier_id, u.name as cashier_name,
+                COUNT(s.id) as total_sales,
+                COALESCE(SUM(s.total - COALESCE(s.refunded_amount, 0)), 0) as total_revenue,
+                ROUND(COALESCE(AVG(s.total), 0), 2) as avg_order_value,
+                COALESCE(SUM(
+                  (SELECT SUM(si.quantity) FROM sale_items si WHERE si.sale_id = s.id)
+                ), 0) as total_items
+         FROM sales s
+         JOIN users u ON s.cashier_id = u.id
+         WHERE ${dateFilter}
+         GROUP BY u.id, u.name
+         ORDER BY total_revenue DESC`,
+        params
+      );
+
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 export default router;

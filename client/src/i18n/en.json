@@ -71,6 +71,13 @@
   "dashboard.topSellers": "Top 10 Best Sellers",
   "dashboard.paymentMethods": "Sales by Payment Method",
   "dashboard.ordersPerDay": "Orders per Day",
+  "dashboard.cashierRevenue": "Revenue by Cashier",
+  "dashboard.cashierStats": "Cashier Performance",
+  "dashboard.cashierName": "Cashier",
+  "dashboard.salesCount": "Sales",
+  "dashboard.revenue": "Revenue",
+  "dashboard.avgOrder": "Avg Order",
+  "dashboard.itemsSold": "Items Sold",
 
   "pos.title": "Point of Sale",
   "pos.searchPlaceholder": "Search products by name or SKU...",

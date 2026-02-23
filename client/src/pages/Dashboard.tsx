@@ -11,6 +11,7 @@ import RevenueChart from '../components/charts/RevenueChart';
 import TopProductsChart from '../components/charts/TopProductsChart';
 import PaymentPieChart from '../components/charts/PaymentPieChart';
 import OrdersAreaChart from '../components/charts/OrdersAreaChart';
+import CashierPerformanceChart from '../components/charts/CashierPerformanceChart';
 import { formatCurrency, formatDate } from '../lib/utils';
 import api from '../services/api';
 import { format } from 'date-fns';
@@ -47,6 +48,15 @@ interface PaymentMethod {
 interface OrdersPerDay {
   date: string;
   orders: number;
+}
+
+interface CashierPerformance {
+  cashier_id: number;
+  cashier_name: string;
+  total_sales: number;
+  total_revenue: number;
+  avg_order_value: number;
+  total_items: number;
 }
 
 interface KpiCardProps {
@@ -144,6 +154,15 @@ export default function Dashboard() {
     queryKey: ['orders-per-day', dateParams],
     queryFn: () =>
       api.get('/api/analytics/orders-per-day', { params: dateParams }).then((r) => r.data.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: cashierPerformance, isLoading: cashierLoading } = useQuery<CashierPerformance[]>({
+    queryKey: ['cashier-performance', dateParams],
+    queryFn: () =>
+      api
+        .get('/api/analytics/cashier-performance', { params: dateParams })
+        .then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -274,6 +293,69 @@ export default function Dashboard() {
               <Skeleton className="h-[300px] w-full" />
             ) : (
               <OrdersAreaChart data={ordersPerDay || []} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Cashier Performance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">{t('dashboard.cashierRevenue')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {cashierLoading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <CashierPerformanceChart data={cashierPerformance || []} />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">{t('dashboard.cashierStats')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {cashierLoading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-muted">
+                      <th className="text-start py-2 font-medium">{t('dashboard.cashierName')}</th>
+                      <th className="text-end py-2 font-medium">{t('dashboard.salesCount')}</th>
+                      <th className="text-end py-2 font-medium">{t('dashboard.revenue')}</th>
+                      <th className="text-end py-2 font-medium">{t('dashboard.avgOrder')}</th>
+                      <th className="text-end py-2 font-medium">{t('dashboard.itemsSold')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(cashierPerformance || []).map((c) => (
+                      <tr key={c.cashier_id} className="border-b border-border/50">
+                        <td className="py-2 font-medium">{c.cashier_name}</td>
+                        <td className="py-2 text-end font-data">{c.total_sales}</td>
+                        <td className="py-2 text-end font-data text-gold">
+                          {formatCurrency(c.total_revenue)}
+                        </td>
+                        <td className="py-2 text-end font-data">
+                          {formatCurrency(c.avg_order_value)}
+                        </td>
+                        <td className="py-2 text-end font-data">{c.total_items}</td>
+                      </tr>
+                    ))}
+                    {(!cashierPerformance || cashierPerformance.length === 0) && (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-muted">
+                          {t('common.noResults')}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             )}
           </CardContent>
         </Card>
