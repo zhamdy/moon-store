@@ -82,11 +82,17 @@ router.post(
           ) as Record<string, any>;
 
         for (const item of items) {
+          // Snapshot cost_price from product
+          const product = rawDb
+            .prepare('SELECT cost_price FROM products WHERE id = ?')
+            .get(item.product_id) as { cost_price: number } | undefined;
+          const costPrice = product?.cost_price || 0;
+
           rawDb
             .prepare(
-              'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)'
+              'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, cost_price) VALUES (?, ?, ?, ?, ?)'
             )
-            .run(saleResult.id, item.product_id, item.quantity, item.unit_price);
+            .run(saleResult.id, item.product_id, item.quantity, item.unit_price, costPrice);
 
           const updated = rawDb
             .prepare(

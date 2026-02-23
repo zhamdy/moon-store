@@ -22,6 +22,7 @@ import type { DateRange } from '../components/ui/calendar';
 interface KpiData {
   today_revenue: number;
   month_revenue: number;
+  month_profit: number;
   total_sales: number;
   pending_deliveries: number;
   low_stock_items: number;
@@ -182,7 +183,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard
           title={t('dashboard.todayRevenue')}
           value={formatCurrency(kpis?.today_revenue || 0)}
@@ -192,6 +193,12 @@ export default function Dashboard() {
         <KpiCard
           title={t('dashboard.monthRevenue')}
           value={formatCurrency(kpis?.month_revenue || 0)}
+          icon={TrendingUp}
+          isLoading={kpisLoading}
+        />
+        <KpiCard
+          title={t('dashboard.grossProfit')}
+          value={formatCurrency(kpis?.month_profit || 0)}
           icon={TrendingUp}
           isLoading={kpisLoading}
         />

@@ -25,11 +25,20 @@ router.get(
         'SELECT COUNT(*) as count FROM products WHERE stock <= min_stock'
       );
 
+      // Gross profit = revenue - cost of goods sold
+      const monthProfit = await db.query<{ profit: number }>(
+        `SELECT COALESCE(SUM((si.unit_price - si.cost_price) * si.quantity), 0) as profit
+         FROM sale_items si
+         JOIN sales s ON si.sale_id = s.id
+         WHERE s.created_at >= date('now', 'start of month')`
+      );
+
       res.json({
         success: true,
         data: {
           today_revenue: todayRevenue.rows[0].revenue,
           month_revenue: monthRevenue.rows[0].revenue,
+          month_profit: monthProfit.rows[0].profit,
           total_sales: totalSales.rows[0].count,
           pending_deliveries: pendingDeliveries.rows[0].count,
           low_stock_items: lowStock.rows[0].count,

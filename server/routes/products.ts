@@ -231,8 +231,18 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const { name, sku, barcode, price, stock, category, category_id, distributor_id, min_stock } =
-        parsed.data;
+      const {
+        name,
+        sku,
+        barcode,
+        price,
+        cost_price,
+        stock,
+        category,
+        category_id,
+        distributor_id,
+        min_stock,
+      } = parsed.data;
 
       // Resolve category text from category_id if not provided
       let categoryText = category || null;
@@ -247,13 +257,14 @@ router.post(
       }
 
       const result = await db.query(
-        `INSERT INTO products (name, sku, barcode, price, stock, category, category_id, distributor_id, min_stock)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
         [
           name,
           sku,
           barcode || null,
           price,
+          cost_price,
           stock,
           categoryText,
           category_id || null,
@@ -284,8 +295,18 @@ router.put(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const { name, sku, barcode, price, stock, category, category_id, distributor_id, min_stock } =
-        parsed.data;
+      const {
+        name,
+        sku,
+        barcode,
+        price,
+        cost_price,
+        stock,
+        category,
+        category_id,
+        distributor_id,
+        min_stock,
+      } = parsed.data;
 
       // Resolve category text from category_id if not provided
       let categoryText = category || null;
@@ -300,13 +321,14 @@ router.put(
       }
 
       const result = await db.query(
-        `UPDATE products SET name=?, sku=?, barcode=?, price=?, stock=?, category=?, category_id=?, distributor_id=?, min_stock=?, updated_at=datetime('now')
+        `UPDATE products SET name=?, sku=?, barcode=?, price=?, cost_price=?, stock=?, category=?, category_id=?, distributor_id=?, min_stock=?, updated_at=datetime('now')
          WHERE id=? RETURNING *`,
         [
           name,
           sku,
           barcode || null,
           price,
+          cost_price,
           stock,
           categoryText,
           category_id || null,
@@ -375,6 +397,7 @@ router.post(
             sku,
             barcode,
             price,
+            cost_price,
             stock,
             category,
             category_id,
@@ -382,14 +405,15 @@ router.post(
             min_stock,
           } = parsed.data;
           await db.query(
-            `INSERT INTO products (name, sku, barcode, price, stock, category, category_id, distributor_id, min_stock)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(sku) DO UPDATE SET name=?, price=?, stock=?, category=?, category_id=?, distributor_id=?, min_stock=?, updated_at=datetime('now')`,
+            `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(sku) DO UPDATE SET name=?, price=?, cost_price=?, stock=?, category=?, category_id=?, distributor_id=?, min_stock=?, updated_at=datetime('now')`,
             [
               name,
               sku,
               barcode || null,
               price,
+              cost_price,
               stock,
               category || null,
               category_id || null,
@@ -397,6 +421,7 @@ router.post(
               min_stock,
               name,
               price,
+              cost_price,
               stock,
               category || null,
               category_id || null,

@@ -63,6 +63,7 @@ interface Product {
   sku: string;
   barcode: string | null;
   price: string | number;
+  cost_price: number;
   stock: number;
   category: string;
   category_id: number | null;
@@ -90,6 +91,7 @@ const getProductSchema = () =>
     sku: z.string().min(1, tStandalone('validation.skuRequired')),
     barcode: z.string().optional(),
     price: z.coerce.number().positive(tStandalone('validation.pricePositive')),
+    cost_price: z.coerce.number().min(0).default(0),
     stock: z.coerce.number().int().min(0, tStandalone('validation.stockNonNeg')),
     category_id: z.coerce.number().int().positive().optional().nullable(),
     distributor_id: z.coerce.number().int().positive().optional().nullable(),
@@ -103,6 +105,7 @@ interface CsvProduct {
   sku: string;
   barcode: string;
   price: number;
+  cost_price: number;
   stock: number;
   category: string;
   min_stock: number;
@@ -261,6 +264,7 @@ export default function Inventory() {
       sku: product.sku,
       barcode: product.barcode || '',
       price: Number(product.price),
+      cost_price: product.cost_price || 0,
       stock: product.stock,
       category_id: product.category_id,
       distributor_id: product.distributor_id,
@@ -276,6 +280,7 @@ export default function Inventory() {
       sku: '',
       barcode: '',
       price: 0,
+      cost_price: 0,
       stock: 0,
       category_id: null,
       distributor_id: null,
@@ -313,6 +318,7 @@ export default function Inventory() {
           sku: obj.sku || '',
           barcode: obj.barcode || '',
           price: parseFloat(obj.price) || 0,
+          cost_price: parseFloat(obj.cost_price) || 0,
           stock: parseInt(obj.stock) || 0,
           category: obj.category || '',
           min_stock: parseInt(obj.min_stock) || 5,
@@ -351,6 +357,19 @@ export default function Inventory() {
       cell: ({ getValue }) => (
         <span className="font-data">{formatCurrency(Number(getValue()))}</span>
       ),
+    },
+    {
+      id: 'margin',
+      header: t('inventory.margin'),
+      cell: ({ row }) => {
+        const price = Number(row.original.price);
+        const cost = row.original.cost_price || 0;
+        if (price <= 0 || cost <= 0) return <span className="text-muted">-</span>;
+        const margin = ((price - cost) / price) * 100;
+        const color =
+          margin >= 50 ? 'text-emerald-500' : margin >= 20 ? 'text-amber-400' : 'text-destructive';
+        return <span className={`font-data font-semibold ${color}`}>{margin.toFixed(0)}%</span>;
+      },
     },
     {
       accessorKey: 'stock',
@@ -607,6 +626,10 @@ export default function Inventory() {
                 <Label>{t('inventory.price')}</Label>
                 <Input type="number" step="0.01" {...register('price')} />
                 {errors.price && <p className="text-xs text-destructive">{errors.price.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label>{t('inventory.costPrice')}</Label>
+                <Input type="number" step="0.01" {...register('cost_price')} />
               </div>
               <div className="space-y-2">
                 <Label>{t('inventory.stock')}</Label>
