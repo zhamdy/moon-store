@@ -167,6 +167,13 @@ export default function Sidebar(): React.JSX.Element {
           </NavLink>
         ))}
         <button
+          onClick={toggleLocale}
+          className="flex flex-col items-center gap-1 px-2 py-1 text-[10px] text-muted"
+        >
+          <Languages className="h-5 w-5" />
+          <span>{locale === 'ar' ? 'EN' : '\u0639\u0631'}</span>
+        </button>
+        <button
           onClick={toggleTheme}
           className="flex flex-col items-center gap-1 px-2 py-1 text-[10px] text-gold"
         >
