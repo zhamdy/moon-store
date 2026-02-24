@@ -17,6 +17,11 @@ import {
   Moon,
   Sun,
   Languages,
+  Ticket,
+  Gift,
+  PackageCheck,
+  MapPin,
+  Download,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
@@ -45,6 +50,11 @@ const navItems: NavItem[] = [
   { to: '/distributors', icon: Building2, labelKey: 'nav.distributors', roles: ['Admin'] },
   { to: '/categories', icon: Layers, labelKey: 'nav.categories', roles: ['Admin'] },
   { to: '/purchase-orders', icon: ClipboardList, labelKey: 'nav.purchaseOrders', roles: ['Admin'] },
+  { to: '/promotions', icon: Ticket, labelKey: 'nav.promotions', roles: ['Admin'] },
+  { to: '/gift-cards', icon: Gift, labelKey: 'nav.giftCards', roles: ['Admin'] },
+  { to: '/stock-count', icon: PackageCheck, labelKey: 'nav.stockCount', roles: ['Admin'] },
+  { to: '/locations', icon: MapPin, labelKey: 'nav.locations', roles: ['Admin'] },
+  { to: '/exports', icon: Download, labelKey: 'nav.exports', roles: ['Admin'] },
   { to: '/audit-log', icon: ScrollText, labelKey: 'nav.auditLog', roles: ['Admin'] },
   { to: '/settings', icon: Settings, labelKey: 'nav.settings', roles: ['Admin'] },
 ];

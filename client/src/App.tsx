@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -20,6 +20,13 @@ import AuditLogPage from './pages/AuditLog';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { useAuthStore } from './store/authStore';
 import { useSettingsStore } from './store/settingsStore';
+
+const PromotionsPage = lazy(() => import('./pages/Promotions'));
+const GiftCardsPage = lazy(() => import('./pages/GiftCards'));
+const StockCountPage = lazy(() => import('./pages/StockCount'));
+const LocationsPage = lazy(() => import('./pages/Locations'));
+const ExportsPage = lazy(() => import('./pages/Exports'));
+const CustomerDisplay = lazy(() => import('./pages/CustomerDisplay'));
 
 type UserRole = 'Admin' | 'Cashier' | 'Delivery';
 
@@ -183,7 +190,77 @@ export default function App(): React.ReactElement {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/promotions"
+            element={
+              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
+                    <PromotionsPage />
+                  </Suspense>
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/gift-cards"
+            element={
+              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
+                    <GiftCardsPage />
+                  </Suspense>
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stock-count"
+            element={
+              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
+                    <StockCountPage />
+                  </Suspense>
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/locations"
+            element={
+              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
+                    <LocationsPage />
+                  </Suspense>
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/exports"
+            element={
+              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
+                <ErrorBoundary>
+                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
+                    <ExportsPage />
+                  </Suspense>
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
         </Route>
+
+        {/* Customer-facing display (no auth required) */}
+        <Route
+          path="/customer-display"
+          element={
+            <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
+              <CustomerDisplay />
+            </Suspense>
+          }
+        />
 
         <Route path="*" element={<Navigate to={defaultRoute()} replace />} />
       </Routes>

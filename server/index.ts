@@ -21,6 +21,15 @@ import settingsRoutes from './routes/settings';
 import purchaseOrderRoutes from './routes/purchaseOrders';
 import auditLogRoutes from './routes/auditLog';
 import notificationRoutes from './routes/notifications';
+import couponRoutes from './routes/coupons';
+import giftCardRoutes from './routes/giftCards';
+import bundleRoutes from './routes/bundles';
+import stockCountRoutes from './routes/stockCounts';
+import reservationRoutes from './routes/reservations';
+import labelTemplateRoutes from './routes/labelTemplates';
+import locationRoutes from './routes/locations';
+import exportRoutes from './routes/exports';
+import { cleanupExpiredReservations } from './routes/reservations';
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 3001;
@@ -81,6 +90,14 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/audit-log', auditLogRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/coupons', couponRoutes);
+app.use('/api/gift-cards', giftCardRoutes);
+app.use('/api/bundles', bundleRoutes);
+app.use('/api/stock-counts', stockCountRoutes);
+app.use('/api/reservations', reservationRoutes);
+app.use('/api/label-templates', labelTemplateRoutes);
+app.use('/api/locations', locationRoutes);
+app.use('/api/exports', exportRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
@@ -89,6 +106,9 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 // Error handler
 app.use(errorHandler);
+
+// Cleanup expired reservations every 5 minutes
+setInterval(cleanupExpiredReservations, 5 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`MOON Fashion API running on port ${PORT}`);

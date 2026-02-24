@@ -1,9 +1,11 @@
 # MOON Fashion & Style - Project Documentation
 
 ## Overview
+
 Luxury fashion retail management system. Monorepo with React SPA frontend + Express REST API backend.
 
 ## Git Workflow
+
 - **Always create a new branch before starting a new feature.** Branch from `main` using a descriptive name (e.g., `feature/add-distributors`, `fix/login-bug`).
 - Commit frequently with clear messages.
 - Merge back to `main` via PR when the feature is complete.
@@ -11,6 +13,7 @@ Luxury fashion retail management system. Monorepo with React SPA frontend + Expr
 ## Quick Reference
 
 ### Run Commands
+
 ```bash
 # Server (Terminal 1)
 cd server && npm run dev          # Port 3001, auto-reload
@@ -27,13 +30,15 @@ cd server && npm run seed         # Seed sample data (3 users + 20 products)
 ```
 
 ### Default Logins
-| Email | Password | Role |
-|-------|----------|------|
-| admin@moon.com | admin123 | Admin |
-| sarah@moon.com | cashier123 | Cashier |
+
+| Email          | Password    | Role     |
+| -------------- | ----------- | -------- |
+| admin@moon.com | admin123    | Admin    |
+| sarah@moon.com | cashier123  | Cashier  |
 | james@moon.com | delivery123 | Delivery |
 
 ### Known Build Warnings (not errors)
+
 - Chunk size warning (>500KB) — expected for SPA bundle
 - These are pre-existing and safe to ignore
 
@@ -42,6 +47,7 @@ cd server && npm run seed         # Seed sample data (3 users + 20 products)
 ## Architecture
 
 ### Monorepo Structure
+
 ```
 moon-store/
 ├── client/          # React 18 + Vite SPA
@@ -73,48 +79,52 @@ moon-store/
 ```
 
 ### Frontend Stack
-| Concern | Library |
-|---------|---------|
-| Framework | React 18 + Vite 5 |
-| Routing | React Router v6 |
-| State (local) | Zustand 5 (persist middleware) |
-| State (server) | TanStack React Query v5 |
-| Tables | TanStack React Table v8 |
-| Forms | React Hook Form + Zod |
-| UI primitives | Radix UI (via shadcn/ui) |
-| Styling | Tailwind CSS 3 + CSS variables |
-| Charts | Recharts 2 |
-| Barcode scan | @ericblade/quagga2 |
-| Barcode gen | jsbarcode |
-| HTTP | Axios (with token refresh interceptor) |
-| PWA | vite-plugin-pwa (Workbox) |
-| Icons | lucide-react |
-| Toasts | react-hot-toast |
+
+| Concern        | Library                                |
+| -------------- | -------------------------------------- |
+| Framework      | React 18 + Vite 5                      |
+| Routing        | React Router v6                        |
+| State (local)  | Zustand 5 (persist middleware)         |
+| State (server) | TanStack React Query v5                |
+| Tables         | TanStack React Table v8                |
+| Forms          | React Hook Form + Zod                  |
+| UI primitives  | Radix UI (via shadcn/ui)               |
+| Styling        | Tailwind CSS 3 + CSS variables         |
+| Charts         | Recharts 2                             |
+| Barcode scan   | @ericblade/quagga2                     |
+| Barcode gen    | jsbarcode                              |
+| HTTP           | Axios (with token refresh interceptor) |
+| PWA            | vite-plugin-pwa (Workbox)              |
+| Icons          | lucide-react                           |
+| Toasts         | react-hot-toast                        |
 
 ### Backend Stack
-| Concern | Library |
-|---------|---------|
-| Framework | Express 4 |
-| Database | SQLite via better-sqlite3 (WAL mode) |
-| Auth | JWT (access 15min + refresh 7d httpOnly cookie) |
-| Password | bcrypt |
-| Validation | Zod |
-| SMS/WhatsApp | Twilio SDK |
-| Security | helmet, cors, express-rate-limit |
+
+| Concern      | Library                                         |
+| ------------ | ----------------------------------------------- |
+| Framework    | Express 4                                       |
+| Database     | SQLite via better-sqlite3 (WAL mode)            |
+| Auth         | JWT (access 15min + refresh 7d httpOnly cookie) |
+| Password     | bcrypt                                          |
+| Validation   | Zod                                             |
+| SMS/WhatsApp | Twilio SDK                                      |
+| Security     | helmet, cors, express-rate-limit                |
 
 ---
 
 ## Frontend Details
 
 ### Zustand Stores (client/src/store/)
-| Store | Key State | Persisted |
-|-------|-----------|-----------|
-| `authStore` | user, accessToken, isAuthenticated | Yes (moon-auth) |
-| `cartStore` | items[], discount, discountType | No (session) |
-| `offlineStore` | queue[], isSyncing | Yes (moon-offline-queue) |
-| `settingsStore` | locale (ar/en), theme (light/dark) | Yes (moon-settings) |
+
+| Store           | Key State                          | Persisted                |
+| --------------- | ---------------------------------- | ------------------------ |
+| `authStore`     | user, accessToken, isAuthenticated | Yes (moon-auth)          |
+| `cartStore`     | items[], discount, discountType    | No (session)             |
+| `offlineStore`  | queue[], isSyncing                 | Yes (moon-offline-queue) |
+| `settingsStore` | locale (ar/en), theme (light/dark) | Yes (moon-settings)      |
 
 ### i18n System (client/src/i18n/)
+
 - Custom lightweight system (no i18next dependency)
 - `useTranslation()` hook returns `{ t, locale, isRtl }`
 - Standalone `t(key, params)` for class components & Zod schemas
@@ -123,6 +133,7 @@ moon-store/
 - **Defaults**: Arabic (RTL) + Light mode
 
 ### Theming
+
 - CSS variables in `index.css`: `:root` = light, `.dark` = dark
 - Tailwind colors reference `hsl(var(--...))`
 - `settingsStore.hydrate()` syncs `<html>` lang/dir/class on load
@@ -130,24 +141,27 @@ moon-store/
 - Fonts: Playfair Display (display), Cormorant Garamond (body), Inter (data), Cairo (arabic)
 
 ### RTL Support
+
 - Tailwind logical properties throughout: `ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `text-start`, `text-end`
 - `dir="rtl"` on `<html>` element (set by settingsStore)
 - Sheet/dialog components use logical positioning
 - CartPanel checkout sheet: `side={isRtl ? 'left' : 'right'}`
 
 ### Pages & Access Control
-| Page | Route | Roles |
-|------|-------|-------|
-| Dashboard | `/` | Admin |
-| POS | `/pos` | Admin, Cashier |
-| Inventory | `/inventory` | Admin, Cashier |
-| Barcode Tools | `/barcode` | Admin, Cashier |
-| Deliveries | `/deliveries` | Admin, Delivery |
-| Sales History | `/sales` | Admin, Cashier |
-| Users | `/users` | Admin |
-| Login | `/login` | Public |
+
+| Page          | Route         | Roles           |
+| ------------- | ------------- | --------------- |
+| Dashboard     | `/`           | Admin           |
+| POS           | `/pos`        | Admin, Cashier  |
+| Inventory     | `/inventory`  | Admin, Cashier  |
+| Barcode Tools | `/barcode`    | Admin, Cashier  |
+| Deliveries    | `/deliveries` | Admin, Delivery |
+| Sales History | `/sales`      | Admin, Cashier  |
+| Users         | `/users`      | Admin           |
+| Login         | `/login`      | Public          |
 
 ### Key Components
+
 - **Layout.jsx** — Sidebar + main content wrapper + offline banner
 - **Sidebar.jsx** — Navigation + language/theme toggles
 - **CartPanel.jsx** — Shopping cart with checkout sheet + offline fallback
@@ -157,6 +171,7 @@ moon-store/
 - **ErrorBoundary.jsx** — React error boundary (class component, uses standalone `t()`)
 
 ### API Client (client/src/services/api.js)
+
 - Axios instance, base URL from `VITE_API_URL` or `http://localhost:3001`
 - Request interceptor: attaches `Bearer` token from authStore
 - Response interceptor: on 401, attempts token refresh via `/api/auth/refresh`
@@ -168,6 +183,7 @@ moon-store/
 ## Backend Details
 
 ### API Endpoints
+
 ```
 POST   /api/auth/login          # Login → accessToken + refreshToken cookie
 POST   /api/auth/refresh        # Refresh access token
@@ -210,6 +226,7 @@ GET    /api/health              # Health check
 ```
 
 ### Database Schema (SQLite)
+
 - **users** — id, name, email (unique), password_hash, role (Admin/Cashier/Delivery), created_at, last_login
 - **refresh_tokens** — id, user_id (FK), token, expires_at
 - **products** — id, name, sku (unique), barcode (unique), price, stock, category, min_stock, created_at, updated_at
@@ -220,26 +237,29 @@ GET    /api/health              # Health check
 - **offline_sync_queue** — id, action_type, payload (JSON), synced, created_at
 
 ### Auth Flow
+
 1. Login: email/password → bcrypt compare → JWT access (15min) + refresh (7d httpOnly cookie)
 2. API calls: Bearer token in Authorization header
 3. Token expired: client interceptor calls `/api/auth/refresh` → new access token
 4. Role check: `requireRole('Admin')` middleware on protected routes
 
 ### Environment Variables (server/.env)
-| Variable | Default | Description |
-|----------|---------|-------------|
-| PORT | 3001 | Server port |
-| DATABASE_URL | postgresql://... | Not used (SQLite) — legacy config |
-| JWT_SECRET | — | Access token secret (min 32 chars) |
-| JWT_REFRESH_SECRET | — | Refresh token secret (min 32 chars) |
-| TWILIO_* | — | Optional SMS/WhatsApp config |
-| CLIENT_URL | http://localhost:5173 | CORS origin |
+
+| Variable           | Default               | Description                         |
+| ------------------ | --------------------- | ----------------------------------- |
+| PORT               | 3001                  | Server port                         |
+| DATABASE_URL       | postgresql://...      | Not used (SQLite) — legacy config   |
+| JWT_SECRET         | —                     | Access token secret (min 32 chars)  |
+| JWT_REFRESH_SECRET | —                     | Refresh token secret (min 32 chars) |
+| TWILIO\_\*         | —                     | Optional SMS/WhatsApp config        |
+| CLIENT_URL         | http://localhost:5173 | CORS origin                         |
 
 > Note: Despite DATABASE_URL referencing PostgreSQL, the actual DB is SQLite (`server/db/moon.db`). The `db/index.js` wraps better-sqlite3 with a pg-compatible query interface.
 
 ---
 
 ## PWA & Offline
+
 - Service worker via vite-plugin-pwa (Workbox)
 - Products API cached with StaleWhileRevalidate (24h)
 - Sales API cached with NetworkFirst (1h)
@@ -247,6 +267,7 @@ GET    /api/health              # Health check
 - Install prompt shown after 30s on first visit
 
 ## API Response Format
+
 ```json
 { "success": true, "data": { ... } }
 { "success": true, "data": [...], "meta": { "total": 100, "page": 1, "limit": 25 } }
@@ -254,9 +275,11 @@ GET    /api/health              # Health check
 ```
 
 ## Conventions
+
 - All UI components are functional with hooks (except ErrorBoundary — class component)
 - Currency formatting is locale-aware (ar-SA/en-US) with Western Arabic numerals
 - Date formatting uses date-fns
 - Tailwind class merging via `cn()` utility (clsx + tailwind-merge)
 - Zod validation on both client (forms) and server (request bodies)
 - Path alias: `@/` → `client/src/` (Vite + Tailwind)
+- Always Update FEATURES_ROADMAP.md if u work on in it

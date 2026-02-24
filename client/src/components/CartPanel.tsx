@@ -11,6 +11,10 @@ import {
   Pause,
   Archive,
   Star,
+  StickyNote,
+  Pencil,
+  Ticket,
+  HandCoins,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from './ui/button';
@@ -39,6 +43,12 @@ interface SaleItem {
   variant_id?: number | null;
   quantity: number;
   unit_price: number;
+  memo?: string | null;
+}
+
+interface PaymentEntry {
+  method: PaymentMethod | 'Gift Card';
+  amount: number;
 }
 
 interface SaleData {
@@ -46,9 +56,13 @@ interface SaleData {
   discount: number;
   discount_type: string;
   payment_method: PaymentMethod;
+  payments?: PaymentEntry[];
   customer_id?: number;
   tax_amount?: number;
   points_redeemed?: number;
+  notes?: string;
+  tip?: number;
+  coupon_code?: string;
 }
 
 interface AppSettings {
@@ -84,10 +98,19 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     items,
     discount,
     discountType,
+    notes,
+    tip,
+    couponCode,
+    couponDiscount,
     removeItem,
     updateQuantity,
+    setItemMemo,
     setDiscount,
     setDiscountType,
+    setNotes,
+    setTip,
+    setCoupon,
+    clearCoupon,
     getSubtotal,
     getTotal,
     clearCart,
@@ -100,11 +123,15 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const [checkoutOpen, setCheckoutOpen] = useState<boolean>(false);
   const [heldCartsOpen, setHeldCartsOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
+  const [splitPayment, setSplitPayment] = useState(false);
+  const [payments, setPayments] = useState<PaymentEntry[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [couponInput, setCouponInput] = useState('');
+  const [editingMemo, setEditingMemo] = useState<string | null>(null);
 
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300);
 
@@ -262,15 +289,39 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         product_id: i.product_id,
         quantity: i.quantity,
         unit_price: i.unit_price,
+        ...(i.variant_id ? { variant_id: i.variant_id } : {}),
+        ...(i.memo ? { memo: i.memo } : {}),
       })),
       discount,
       discount_type: discountType,
-      payment_method: paymentMethod,
+      payment_method: splitPayment ? 'Cash' : paymentMethod,
+      ...(splitPayment && payments.length > 0 ? { payments } : {}),
       ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
       ...(redeemPoints && pointsToRedeem > 0 ? { points_redeemed: pointsToRedeem } : {}),
+      ...(notes ? { notes } : {}),
+      ...(tip > 0 ? { tip } : {}),
+      ...(couponCode ? { coupon_code: couponCode } : {}),
     };
 
     checkoutMutation.mutate(saleData);
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    try {
+      const res = await api.post('/api/coupons/validate', {
+        code: couponInput.trim(),
+        subtotal: getSubtotal(),
+        ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
+        item_product_ids: items.map((i) => i.product_id),
+      });
+      const data = res.data.data;
+      setCoupon(data.code, data.discount);
+      toast.success(t('cart.couponApplied'));
+    } catch (err: unknown) {
+      const axiosErr = err as AxiosError<ApiErrorResponse>;
+      toast.error(axiosErr.response?.data?.error || t('cart.couponInvalid'));
+    }
   };
 
   const handleSelectCustomer = (customer: CustomerRecord) => {
@@ -351,8 +402,40 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               className="flex items-center gap-3 p-3 bg-surface rounded-md border border-border"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-base font-medium text-foreground truncate">{item.name}</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-base font-medium text-foreground truncate">{item.name}</p>
+                  <button
+                    onClick={() => setEditingMemo(`${item.product_id}-${item.variant_id || 0}`)}
+                    className="p-0.5 rounded hover:bg-background transition-colors"
+                    title={t('cart.addMemo')}
+                  >
+                    <Pencil className={`h-3 w-3 ${item.memo ? 'text-gold' : 'text-muted'}`} />
+                  </button>
+                </div>
                 <p className="text-sm text-muted font-data">{formatCurrency(item.unit_price)}</p>
+                {item.memo && <p className="text-xs text-gold/70 mt-0.5">{item.memo}</p>}
+                {editingMemo === `${item.product_id}-${item.variant_id || 0}` && (
+                  <Input
+                    autoFocus
+                    placeholder={t('cart.memoPlaceholder')}
+                    defaultValue={item.memo || ''}
+                    className="mt-1 h-7 text-xs"
+                    onBlur={(e) => {
+                      setItemMemo(item.product_id, e.target.value, item.variant_id);
+                      setEditingMemo(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setItemMemo(
+                          item.product_id,
+                          (e.target as HTMLInputElement).value,
+                          item.variant_id
+                        );
+                        setEditingMemo(null);
+                      }
+                    }}
+                  />
+                )}
               </div>
               <div className="flex items-center gap-1">
                 <Button
@@ -597,16 +680,30 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   <span>{formatCurrency(taxInfo.amount)}</span>
                 </div>
               )}
+              {couponDiscount > 0 && (
+                <div className="flex justify-between text-base text-gold font-data">
+                  <span>
+                    {t('cart.coupon')} ({couponCode})
+                  </span>
+                  <span>-{formatCurrency(couponDiscount)}</span>
+                </div>
+              )}
               {pointsDiscountAmount > 0 && (
                 <div className="flex justify-between text-base text-gold font-data">
                   <span>{t('loyalty.pointsDiscount')}</span>
                   <span>-{formatCurrency(pointsDiscountAmount)}</span>
                 </div>
               )}
+              {tip > 0 && (
+                <div className="flex justify-between text-base text-muted font-data">
+                  <span>{t('cart.tip')}</span>
+                  <span>+{formatCurrency(tip)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-lg font-semibold font-data">
                 <span>{t('cart.total')}</span>
                 <span className="text-gold">
-                  {formatCurrency(Math.max(0, taxInfo.totalWithTax - pointsDiscountAmount))}
+                  {formatCurrency(Math.max(0, taxInfo.totalWithTax - pointsDiscountAmount + tip))}
                 </span>
               </div>
             </div>
@@ -745,35 +842,210 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               </>
             )}
 
+            {/* Coupon */}
+            <Separator />
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body flex items-center gap-1.5">
+                <Ticket className="h-3.5 w-3.5 text-gold" />
+                {t('cart.coupon')}
+              </h3>
+              {couponCode ? (
+                <div className="flex items-center justify-between p-2 bg-gold/5 rounded-md border border-gold/30">
+                  <div>
+                    <p className="text-sm font-semibold font-data">{couponCode}</p>
+                    <p className="text-xs text-gold font-data">-{formatCurrency(couponDiscount)}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => {
+                      clearCoupon();
+                      setCouponInput('');
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={t('cart.couponPlaceholder')}
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    className="flex-1 h-8 text-sm"
+                  />
+                  <Button variant="outline" size="sm" onClick={handleApplyCoupon}>
+                    {t('cart.applyCoupon')}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Tip */}
+            <Separator />
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body flex items-center gap-1.5">
+                <HandCoins className="h-3.5 w-3.5 text-gold" />
+                {t('cart.tip')}
+              </h3>
+              <div className="flex gap-1.5">
+                {[10, 15, 20].map((pct) => {
+                  const tipAmount = Math.round(((getTotal() * pct) / 100) * 100) / 100;
+                  return (
+                    <button
+                      key={pct}
+                      onClick={() => setTip(tipAmount)}
+                      className={`flex-1 py-1.5 rounded text-[11px] font-data font-medium transition-colors ${
+                        tip === tipAmount
+                          ? 'bg-gold/20 text-gold border border-gold/40'
+                          : 'bg-surface text-muted border border-border hover:border-gold/30'
+                      }`}
+                    >
+                      {pct}%
+                    </button>
+                  );
+                })}
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={t('cart.customTip')}
+                  value={tip || ''}
+                  onChange={(e) => setTip(parseFloat(e.target.value) || 0)}
+                  className="flex-1 h-8 text-xs font-data"
+                />
+              </div>
+            </div>
+
+            {/* Sale Notes */}
+            <Separator />
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body flex items-center gap-1.5">
+                <StickyNote className="h-3.5 w-3.5 text-gold" />
+                {t('cart.notes')}
+              </h3>
+              <textarea
+                placeholder={t('cart.notesPlaceholder')}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none"
+                maxLength={500}
+              />
+            </div>
+
             <Separator />
 
             {/* Payment method */}
             <div className="space-y-2">
-              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body">
-                {t('cart.paymentMethod')}
-              </h3>
-              <RadioGroup
-                value={paymentMethod}
-                onValueChange={(val: string) => setPaymentMethod(val as PaymentMethod)}
-                className="space-y-1.5"
-              >
-                {(['Cash', 'Card', 'Other'] as const).map((method) => (
-                  <div
-                    key={method}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md border transition-colors cursor-pointer ${
-                      paymentMethod === method
-                        ? 'border-gold/50 bg-gold/5'
-                        : 'border-border hover:border-gold/30'
-                    }`}
-                    onClick={() => setPaymentMethod(method)}
-                  >
-                    <RadioGroupItem value={method} id={method} />
-                    <Label htmlFor={method} className="cursor-pointer text-sm font-medium flex-1">
-                      {paymentLabels[method]}
-                    </Label>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body">
+                  {t('cart.paymentMethod')}
+                </h3>
+                <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={splitPayment}
+                    onChange={(e) => {
+                      setSplitPayment(e.target.checked);
+                      if (e.target.checked) {
+                        setPayments([
+                          { method: 'Cash', amount: 0 },
+                          { method: 'Card', amount: 0 },
+                        ]);
+                      } else {
+                        setPayments([]);
+                      }
+                    }}
+                    className="accent-gold h-3.5 w-3.5"
+                  />
+                  {t('cart.splitPayment')}
+                </label>
+              </div>
+
+              {!splitPayment ? (
+                <RadioGroup
+                  value={paymentMethod}
+                  onValueChange={(val: string) => setPaymentMethod(val as PaymentMethod)}
+                  className="space-y-1.5"
+                >
+                  {(['Cash', 'Card', 'Other'] as const).map((method) => (
+                    <div
+                      key={method}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md border transition-colors cursor-pointer ${
+                        paymentMethod === method
+                          ? 'border-gold/50 bg-gold/5'
+                          : 'border-border hover:border-gold/30'
+                      }`}
+                      onClick={() => setPaymentMethod(method)}
+                    >
+                      <RadioGroupItem value={method} id={method} />
+                      <Label htmlFor={method} className="cursor-pointer text-sm font-medium flex-1">
+                        {paymentLabels[method]}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              ) : (
+                <div className="space-y-2">
+                  {payments.map((p, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <select
+                        className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                        value={p.method}
+                        onChange={(e) => {
+                          const next = [...payments];
+                          next[idx] = { ...next[idx], method: e.target.value as PaymentMethod };
+                          setPayments(next);
+                        }}
+                      >
+                        <option value="Cash">{t('cart.cash')}</option>
+                        <option value="Card">{t('cart.card')}</option>
+                        <option value="Gift Card">{t('cart.giftCard')}</option>
+                        <option value="Other">{t('cart.other')}</option>
+                      </select>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={p.amount || ''}
+                        onChange={(e) => {
+                          const next = [...payments];
+                          next[idx] = { ...next[idx], amount: parseFloat(e.target.value) || 0 };
+                          setPayments(next);
+                        }}
+                        className="flex-1 h-8 text-xs font-data"
+                      />
+                      {payments.length > 2 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setPayments(payments.filter((_, i) => i !== idx))}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between text-xs">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPayments([...payments, { method: 'Cash', amount: 0 }])}
+                    >
+                      <Plus className="h-3 w-3 me-1" /> {t('cart.addPayment')}
+                    </Button>
+                    <span
+                      className={`font-data ${Math.abs(payments.reduce((s, p) => s + p.amount, 0) - (getTotal() + tip)) < 0.01 ? 'text-green-500' : 'text-red-500'}`}
+                    >
+                      {formatCurrency(payments.reduce((s, p) => s + p.amount, 0))} /{' '}
+                      {formatCurrency(getTotal() + tip)}
+                    </span>
                   </div>
-                ))}
-              </RadioGroup>
+                </div>
+              )}
             </div>
 
             <Button

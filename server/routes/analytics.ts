@@ -19,10 +19,10 @@ router.get(
       );
       const totalSales = await db.query<{ count: number }>('SELECT COUNT(*) as count FROM sales');
       const pendingDeliveries = await db.query<{ count: number }>(
-        `SELECT COUNT(*) as count FROM delivery_orders WHERE status IN ('Pending', 'Preparing', 'Out for Delivery')`
+        `SELECT COUNT(*) as count FROM delivery_orders WHERE status IN ('Order Received', 'Shipping Contacted', 'In Transit')`
       );
       const lowStock = await db.query<{ count: number }>(
-        'SELECT COUNT(*) as count FROM products WHERE stock <= min_stock'
+        "SELECT COUNT(*) as count FROM products WHERE stock <= min_stock AND status = 'active'"
       );
 
       // Gross profit = revenue - cost of goods sold
@@ -287,6 +287,170 @@ router.get(
         params
       );
 
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/analytics/abc-classification — ABC/Pareto analysis
+router.get(
+  '/abc-classification',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Rank products by revenue contribution over last 90 days
+      const result = await db.query(
+        `SELECT p.id, p.name, p.sku, p.stock, p.price, p.abc_class,
+                COALESCE(SUM(si.quantity * si.unit_price), 0) as revenue,
+                COALESCE(SUM(si.quantity), 0) as units_sold
+         FROM products p
+         LEFT JOIN sale_items si ON si.product_id = p.id
+         LEFT JOIN sales s ON si.sale_id = s.id AND s.created_at >= date('now', '-90 days')
+         WHERE p.status = 'active'
+         GROUP BY p.id
+         ORDER BY revenue DESC`
+      );
+
+      const products = result.rows as any[];
+      const totalRevenue = products.reduce((sum: number, p: any) => sum + p.revenue, 0);
+
+      // Calculate cumulative percentages and assign ABC
+      let cumulative = 0;
+      const rawDb = db.db;
+      const updateStmt = rawDb.prepare('UPDATE products SET abc_class = ? WHERE id = ?');
+
+      for (const product of products) {
+        cumulative += product.revenue;
+        const pct = totalRevenue > 0 ? (cumulative / totalRevenue) * 100 : 100;
+        let newClass = 'C';
+        if (pct <= 80) newClass = 'A';
+        else if (pct <= 95) newClass = 'B';
+
+        if (product.abc_class !== newClass) {
+          updateStmt.run(newClass, product.id);
+        }
+        product.abc_class = newClass;
+        product.revenue_pct =
+          totalRevenue > 0 ? Math.round((product.revenue / totalRevenue) * 10000) / 100 : 0;
+        product.cumulative_pct = Math.round(pct * 100) / 100;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          products,
+          summary: {
+            total_revenue: totalRevenue,
+            a_count: products.filter((p: any) => p.abc_class === 'A').length,
+            b_count: products.filter((p: any) => p.abc_class === 'B').length,
+            c_count: products.filter((p: any) => p.abc_class === 'C').length,
+          },
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/analytics/reorder-suggestions — Auto reorder point suggestions
+router.get(
+  '/reorder-suggestions',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Products below reorder point based on sales velocity
+      const result = await db.query(
+        `SELECT p.id, p.name, p.sku, p.stock, p.min_stock, p.price, p.cost_price,
+                p.lead_time_days, p.reorder_qty,
+                COALESCE(
+                  (SELECT SUM(si.quantity) FROM sale_items si
+                   JOIN sales s ON si.sale_id = s.id
+                   WHERE si.product_id = p.id AND s.created_at >= date('now', '-30 days')),
+                  0
+                ) as sold_last_30d
+         FROM products p
+         WHERE p.status = 'active' AND p.stock <= p.min_stock
+         ORDER BY p.stock ASC`
+      );
+
+      const suggestions = (result.rows as any[]).map((p: any) => {
+        const dailyVelocity = p.sold_last_30d / 30;
+        const daysOfStock = dailyVelocity > 0 ? Math.round(p.stock / dailyVelocity) : 999;
+        const suggestedQty =
+          p.reorder_qty > 0
+            ? p.reorder_qty
+            : Math.max(Math.ceil(dailyVelocity * (p.lead_time_days + 14)), p.min_stock * 2);
+
+        return {
+          ...p,
+          daily_velocity: Math.round(dailyVelocity * 100) / 100,
+          days_of_stock: daysOfStock,
+          suggested_qty: suggestedQty,
+          estimated_cost: suggestedQty * (p.cost_price || 0),
+        };
+      });
+
+      res.json({ success: true, data: suggestions });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/analytics/inventory-snapshot — Create inventory snapshot
+router.post(
+  '/inventory-snapshot',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const rawDb = db.db;
+      const products = rawDb
+        .prepare(`SELECT id, stock, cost_price, price FROM products WHERE status = 'active'`)
+        .all() as Array<{ id: number; stock: number; cost_price: number; price: number }>;
+
+      const totalUnits = products.reduce((sum, p) => sum + p.stock, 0);
+      const totalCostValue = products.reduce((sum, p) => sum + p.stock * (p.cost_price || 0), 0);
+      const totalRetailValue = products.reduce((sum, p) => sum + p.stock * p.price, 0);
+
+      const snapshot = rawDb
+        .prepare(
+          `INSERT INTO inventory_snapshots (total_products, total_units, total_cost_value, total_retail_value, snapshot_data)
+         VALUES (?, ?, ?, ?, ?) RETURNING *`
+        )
+        .get(
+          products.length,
+          totalUnits,
+          Math.round(totalCostValue * 100) / 100,
+          Math.round(totalRetailValue * 100) / 100,
+          JSON.stringify(
+            products.map((p) => ({ id: p.id, stock: p.stock, cost: p.cost_price, price: p.price }))
+          )
+        );
+
+      res.status(201).json({ success: true, data: snapshot });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/analytics/inventory-snapshots — List snapshots
+router.get(
+  '/inventory-snapshots',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await db.query(
+        `SELECT id, total_products, total_units, total_cost_value, total_retail_value, created_at
+         FROM inventory_snapshots ORDER BY created_at DESC LIMIT 30`
+      );
       res.json({ success: true, data: result.rows });
     } catch (err) {
       next(err);

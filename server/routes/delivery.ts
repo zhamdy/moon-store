@@ -217,15 +217,24 @@ router.post(
         items,
         assigned_to,
         estimated_delivery,
+        shipping_company,
+        tracking_number,
       } = parsed.data;
       const order_number = generateOrderNumber();
+
+      // Auto-set estimated_delivery to +3 days if not provided
+      let resolvedEstimatedDelivery = estimated_delivery || null;
+      if (!resolvedEstimatedDelivery) {
+        const d = new Date();
+        d.setDate(d.getDate() + 3);
+        resolvedEstimatedDelivery = d.toISOString().slice(0, 16);
+      }
 
       const rawDb = db.db;
       const txn = rawDb.transaction(() => {
         let resolvedCustomerId: number | null = customer_id || null;
 
         if (resolvedCustomerId) {
-          // Fetch existing customer to verify it exists
           const existing = rawDb
             .prepare('SELECT id FROM customers WHERE id = ?')
             .get(resolvedCustomerId) as Record<string, any> | undefined;
@@ -233,7 +242,6 @@ router.post(
             throw new Error('Customer not found');
           }
         } else {
-          // Auto-create customer from provided name/phone/address
           const newCustomer = rawDb
             .prepare('INSERT INTO customers (name, phone, address) VALUES (?, ?, ?) RETURNING *')
             .get(customer_name, phone, address || null) as Record<string, any>;
@@ -242,8 +250,8 @@ router.post(
 
         const order = rawDb
           .prepare(
-            `INSERT INTO delivery_orders (order_number, customer_name, phone, address, notes, assigned_to, customer_id, estimated_delivery)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
+            `INSERT INTO delivery_orders (order_number, customer_name, phone, address, notes, assigned_to, customer_id, estimated_delivery, shipping_company, tracking_number)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
           )
           .get(
             order_number,
@@ -253,7 +261,9 @@ router.post(
             notes || null,
             assigned_to || null,
             resolvedCustomerId,
-            estimated_delivery || null
+            resolvedEstimatedDelivery,
+            shipping_company || null,
+            tracking_number || null
           ) as Record<string, any>;
 
         for (const item of items) {
@@ -301,6 +311,8 @@ router.put(
         items,
         assigned_to,
         estimated_delivery,
+        shipping_company,
+        tracking_number,
       } = parsed.data;
 
       const rawDb = db.db;
@@ -323,7 +335,7 @@ router.put(
 
         const order = rawDb
           .prepare(
-            `UPDATE delivery_orders SET customer_name=?, phone=?, address=?, notes=?, assigned_to=?, customer_id=?, estimated_delivery=?, updated_at=datetime('now')
+            `UPDATE delivery_orders SET customer_name=?, phone=?, address=?, notes=?, assigned_to=?, customer_id=?, estimated_delivery=?, shipping_company=?, tracking_number=?, updated_at=datetime('now')
          WHERE id=? RETURNING *`
           )
           .get(
@@ -334,6 +346,8 @@ router.put(
             assigned_to || null,
             resolvedCustomerId,
             estimated_delivery || null,
+            shipping_company || null,
+            tracking_number || null,
             req.params.id
           ) as Record<string, any> | undefined;
 
@@ -397,8 +411,8 @@ router.put(
         )
         .run(req.params.id, status, notes || null, authReq.user!.id);
 
-      if (status === 'Out for Delivery') {
-        const msg = `Hi ${order.customer_name}! \u{1F319} Your MOON order ${order.order_number} is on its way. Expected: 30-45 mins. Thank you!`;
+      if (status === 'In Transit') {
+        const msg = `Hi ${order.customer_name}! \u{1F319} Your MOON order ${order.order_number} is now in transit. Expected delivery: 1-3 days. Thank you!`;
         sendSMS(order.phone, msg);
         sendWhatsApp(order.phone, msg);
       } else if (status === 'Delivered') {

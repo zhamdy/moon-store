@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useMemo, type ChangeEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Search, Camera, Package, Keyboard, Layers } from 'lucide-react';
+import { useState, useCallback, useRef, useMemo, useEffect, type ChangeEvent } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Search, Camera, Package, Keyboard, Layers, Star, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -74,7 +74,63 @@ export default function POS() {
   const { holdCart, carts: heldCarts } = useHeldCartsStore();
   const { t } = useTranslation();
 
+  const queryClient = useQueryClient();
   const debouncedSearch = useDebouncedValue(searchInput, 300);
+
+  // Cart recovery banner
+  const isRecovered = items.length > 0 && useCartStore.getState().isRecoveredCart();
+  const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
+  useEffect(() => {
+    if (isRecovered) setShowRecoveryBanner(true);
+  }, []);
+
+  // Favorites
+  const { data: favorites } = useQuery<number[]>({
+    queryKey: ['favorites'],
+    queryFn: () => api.get('/api/users/me/favorites').then((r) => r.data.data),
+    staleTime: 60 * 1000,
+  });
+
+  const favMutation = useMutation({
+    mutationFn: (favs: number[]) => api.put('/api/users/me/favorites', { favorites: favs }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['favorites'] }),
+  });
+
+  const toggleFavorite = (productId: number) => {
+    const current = favorites || [];
+    const next = current.includes(productId)
+      ? current.filter((id) => id !== productId)
+      : [...current, productId];
+    favMutation.mutate(next);
+  };
+
+  // BroadcastChannel for customer display
+  useEffect(() => {
+    const channel = new BroadcastChannel('moon-customer-display');
+    const subtotal = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+    const total = useCartStore.getState().getTotal();
+    if (items.length > 0) {
+      channel.postMessage({
+        type: 'cart-update',
+        cart: {
+          items: items.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            memo: i.memo,
+          })),
+          subtotal,
+          discount: useCartStore.getState().discount,
+          discountType: useCartStore.getState().discountType,
+          total,
+          tip: useCartStore.getState().tip,
+        },
+      });
+    } else {
+      channel.postMessage({ type: 'cart-clear' });
+    }
+    channel.close();
+  }, [items]);
 
   // Keyboard shortcuts
   const shortcutActions = useMemo(
@@ -273,6 +329,55 @@ export default function POS() {
             </div>
           )}
 
+          {/* Cart recovery banner */}
+          {showRecoveryBanner && (
+            <div className="flex items-center gap-3 p-3 rounded-md border border-gold/50 bg-gold/5">
+              <AlertCircle className="h-5 w-5 text-gold shrink-0" />
+              <p className="text-sm flex-1">{t('cart.recoveredCart')}</p>
+              <Button size="sm" variant="outline" onClick={() => setShowRecoveryBanner(false)}>
+                {t('cart.keepCart')}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive"
+                onClick={() => {
+                  clearCart();
+                  setShowRecoveryBanner(false);
+                }}
+              >
+                {t('cart.discardCart')}
+              </Button>
+            </div>
+          )}
+
+          {/* Favorites grid */}
+          {favorites && favorites.length > 0 && products && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-medium uppercase tracking-widest text-muted flex items-center gap-1.5">
+                <Star className="h-3 w-3 text-gold" /> {t('pos.favorites')}
+              </h3>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {favorites.map((favId) => {
+                  const product = products.find((p) => p.id === favId);
+                  if (!product) return null;
+                  return (
+                    <button
+                      key={favId}
+                      onClick={() => handleProductClick(product)}
+                      className="shrink-0 px-4 py-2 rounded-md border border-gold/30 bg-gold/5 hover:bg-gold/10 transition-colors"
+                    >
+                      <p className="text-sm font-medium truncate max-w-32">{product.name}</p>
+                      <p className="text-xs text-gold font-data">
+                        {formatCurrency(Number(product.price))}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {showScanner && (
             <div className="rounded-md border border-border overflow-hidden">
               <BarcodeScanner onDetected={handleBarcodeDetected} />
@@ -338,9 +443,22 @@ export default function POS() {
                     <p className="text-[11px] text-muted truncate font-data">
                       {t('pos.sku')}: {product.sku}
                     </p>
-                    <p className="text-lg font-semibold text-gold font-data mt-1">
-                      {formatCurrency(Number(product.price))}
-                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-lg font-semibold text-gold font-data">
+                        {formatCurrency(Number(product.price))}
+                      </p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(product.id);
+                        }}
+                        className="p-1 rounded hover:bg-surface transition-colors"
+                      >
+                        <Star
+                          className={`h-4 w-4 ${favorites?.includes(product.id) ? 'fill-gold text-gold' : 'text-muted'}`}
+                        />
+                      </button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}

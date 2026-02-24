@@ -46,7 +46,12 @@ import { useTranslation } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError, AxiosResponse } from 'axios';
 
-type DeliveryStatus = 'Pending' | 'Preparing' | 'Out for Delivery' | 'Delivered' | 'Cancelled';
+type DeliveryStatus =
+  | 'Order Received'
+  | 'Shipping Contacted'
+  | 'In Transit'
+  | 'Delivered'
+  | 'Cancelled';
 
 interface DeliveryOrder {
   id: number;
@@ -59,6 +64,8 @@ interface DeliveryOrder {
   assigned_to: number | null;
   assigned_name: string | null;
   estimated_delivery: string | null;
+  shipping_company: string | null;
+  tracking_number: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -119,6 +126,8 @@ const deliverySchema = z.object({
   notes: z.string().optional(),
   assigned_to: z.coerce.number().optional().nullable(),
   estimated_delivery: z.string().optional().nullable(),
+  shipping_company: z.string().optional().nullable(),
+  tracking_number: z.string().optional().nullable(),
   items: z
     .array(
       z.object({
@@ -135,6 +144,8 @@ interface DeliveryPayload extends Omit<DeliveryFormData, 'items'> {
   customer_id: number | null;
   assigned_to: number | null;
   estimated_delivery: string | null;
+  shipping_company: string | null;
+  tracking_number: string | null;
   items: Array<{ product_id: number; quantity: number }>;
 }
 
@@ -225,6 +236,8 @@ export default function Deliveries() {
       notes: '',
       assigned_to: null,
       estimated_delivery: '',
+      shipping_company: '',
+      tracking_number: '',
       items: [{ product_id: 0, quantity: 1 }],
     },
   });
@@ -280,6 +293,8 @@ export default function Deliveries() {
       customer_id: selectedCustomer?.id || null,
       assigned_to: data.assigned_to || null,
       estimated_delivery: data.estimated_delivery || null,
+      shipping_company: data.shipping_company || null,
+      tracking_number: data.tracking_number || null,
       items: data.items.map((i) => ({
         product_id: Number(i.product_id),
         quantity: Number(i.quantity),
@@ -298,6 +313,9 @@ export default function Deliveries() {
     setSelectedCustomer(null);
     setIsNewCustomer(true);
     setCustomerSearch('');
+    const defaultEstimated = new Date();
+    defaultEstimated.setDate(defaultEstimated.getDate() + 3);
+    const estimatedStr = defaultEstimated.toISOString().slice(0, 16);
     reset({
       customer_id: null,
       customer_name: '',
@@ -305,7 +323,9 @@ export default function Deliveries() {
       address: '',
       notes: '',
       assigned_to: null,
-      estimated_delivery: '',
+      estimated_delivery: estimatedStr,
+      shipping_company: '',
+      tracking_number: '',
       items: [{ product_id: 0, quantity: 1 }],
     });
     setDialogOpen(true);
@@ -343,13 +363,20 @@ export default function Deliveries() {
     return new Date(order.estimated_delivery) < new Date();
   };
 
-  const statuses = ['All', 'Pending', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'];
+  const statuses = [
+    'All',
+    'Order Received',
+    'Shipping Contacted',
+    'In Transit',
+    'Delivered',
+    'Cancelled',
+  ];
 
   const statusLabelMap: Record<string, string> = {
     All: t('common.all'),
-    Pending: t('deliveries.pending'),
-    Preparing: t('deliveries.preparing'),
-    'Out for Delivery': t('deliveries.outForDelivery'),
+    'Order Received': t('deliveries.orderReceived'),
+    'Shipping Contacted': t('deliveries.shippingContacted'),
+    'In Transit': t('deliveries.inTransit'),
     Delivered: t('deliveries.delivered'),
     Cancelled: t('deliveries.cancelled'),
   };
@@ -410,6 +437,19 @@ export default function Deliveries() {
       accessorKey: 'assigned_name',
       header: t('deliveries.assignedTo'),
       cell: ({ getValue }) => (getValue() as string) || '-',
+    },
+    {
+      accessorKey: 'shipping_company',
+      header: t('deliveries.shippingCompany'),
+      cell: ({ getValue }) => (getValue() as string) || '-',
+    },
+    {
+      accessorKey: 'tracking_number',
+      header: t('deliveries.trackingNumber'),
+      cell: ({ getValue }) => {
+        const val = getValue() as string | null;
+        return val ? <span className="font-data text-xs">{val}</span> : '-';
+      },
     },
     {
       accessorKey: 'estimated_delivery',
@@ -703,6 +743,22 @@ export default function Deliveries() {
               <div className="space-y-2">
                 <Label>{t('deliveries.estimatedDelivery')}</Label>
                 <Input type="datetime-local" {...register('estimated_delivery')} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('deliveries.shippingCompany')}</Label>
+                <Input
+                  {...register('shipping_company')}
+                  placeholder={t('deliveries.shippingCompanyPlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('deliveries.trackingNumber')}</Label>
+                <Input
+                  {...register('tracking_number')}
+                  placeholder={t('deliveries.trackingNumberPlaceholder')}
+                />
               </div>
             </div>
             {isAdmin && deliveryUsers && (
