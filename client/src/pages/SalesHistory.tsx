@@ -386,28 +386,27 @@ export default function SalesHistory() {
         data={salesData?.data ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('sales.searchPlaceholder')}
-      />
-
-      {/* Expanded sale detail */}
-      {expandedRow && saleDetail && (
-        <Card className="border-gold/30 animate-fade-in">
-          <CardContent className="p-4">
-            <h3 className="text-sm font-medium text-gold mb-3 font-display tracking-wider">
-              {t('sales.itemBreakdown', { id: expandedRow })}
-            </h3>
-            <div className="space-y-2">
-              {saleDetail.items?.map((item, i) => (
-                <div key={i} className="flex justify-between text-sm font-data">
-                  <span>
-                    {item.product_name} x{item.quantity}
-                  </span>
-                  <span>{formatCurrency(item.unit_price * item.quantity)}</span>
-                </div>
-              ))}
+        renderSubComponent={(sale: Sale) => {
+          if (expandedRow !== sale.id || !saleDetail || saleDetail.id !== sale.id) return null;
+          return (
+            <div className="animate-fade-in">
+              <h3 className="text-sm font-medium text-gold mb-2 font-display tracking-wider">
+                {t('sales.itemBreakdown', { id: sale.id })}
+              </h3>
+              <div className="space-y-1.5">
+                {saleDetail.items?.map((item, i) => (
+                  <div key={i} className="flex justify-between text-sm font-data">
+                    <span>
+                      {item.product_name} <span className="text-muted">x{item.quantity}</span>
+                    </span>
+                    <span>{formatCurrency(item.unit_price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          );
+        }}
+      />
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receiptData} />
 

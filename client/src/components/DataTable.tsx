@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,6 +28,7 @@ interface DataTableProps<TData> {
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
   getRowId?: (row: TData) => string;
+  renderSubComponent?: (row: TData) => React.ReactNode | null;
 }
 
 export default function DataTable<TData>({
@@ -40,6 +41,7 @@ export default function DataTable<TData>({
   rowSelection,
   onRowSelectionChange,
   getRowId,
+  renderSubComponent,
 }: DataTableProps<TData>): React.JSX.Element {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string>('');
@@ -134,18 +136,27 @@ export default function DataTable<TData>({
                 </td>
               </tr>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-border hover:bg-surface/50 transition-colors"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 text-foreground">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const subContent = renderSubComponent ? renderSubComponent(row.original) : null;
+                return (
+                  <Fragment key={row.id}>
+                    <tr className="border-b border-border hover:bg-surface/50 transition-colors">
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-4 py-3 text-foreground">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                    {subContent && (
+                      <tr className="bg-surface/30">
+                        <td colSpan={columns.length} className="px-6 py-3">
+                          {subContent}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>

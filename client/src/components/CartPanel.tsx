@@ -14,7 +14,7 @@ import {
   StickyNote,
   Pencil,
   Ticket,
-  HandCoins,
+  Percent,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from './ui/button';
@@ -132,6 +132,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [couponInput, setCouponInput] = useState('');
   const [editingMemo, setEditingMemo] = useState<string | null>(null);
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
 
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300);
 
@@ -207,6 +210,22 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         .then((r) => r.data.data),
     enabled: checkoutOpen && debouncedCustomerSearch.length > 0,
     staleTime: 30 * 1000,
+  });
+
+  const createCustomerMutation = useMutation({
+    mutationFn: (data: { name: string; phone: string }) => api.post('/api/customers', data),
+    onSuccess: (response) => {
+      const customer = response.data.data;
+      setSelectedCustomer(customer);
+      setShowNewCustomer(false);
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast.success(t('cart.customerCreated'));
+    },
+    onError: () => {
+      toast.error(t('cart.customerCreateError'));
+    },
   });
 
   const checkoutMutation = useMutation({
@@ -695,15 +714,15 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                 </div>
               )}
               {tip > 0 && (
-                <div className="flex justify-between text-base text-muted font-data">
-                  <span>{t('cart.tip')}</span>
-                  <span>+{formatCurrency(tip)}</span>
+                <div className="flex justify-between text-base text-gold font-data">
+                  <span>{t('cart.quickDiscount')}</span>
+                  <span>-{formatCurrency(tip)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-semibold font-data">
                 <span>{t('cart.total')}</span>
                 <span className="text-gold">
-                  {formatCurrency(Math.max(0, taxInfo.totalWithTax - pointsDiscountAmount + tip))}
+                  {formatCurrency(Math.max(0, taxInfo.totalWithTax - pointsDiscountAmount - tip))}
                 </span>
               </div>
             </div>
@@ -745,37 +764,92 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
-              ) : (
-                <div className="relative">
-                  <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
+              ) : showNewCustomer ? (
+                <div className="space-y-2 p-2 bg-surface rounded-md border border-border">
                   <Input
-                    placeholder={t('cart.searchCustomer')}
-                    value={customerSearch}
-                    onChange={(e) => {
-                      setCustomerSearch(e.target.value);
-                      setShowCustomerDropdown(true);
-                    }}
-                    onFocus={() => setShowCustomerDropdown(true)}
-                    className="ps-9 h-9 text-sm"
+                    placeholder={t('cart.customerName')}
+                    value={newCustomerName}
+                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    className="h-8 text-sm"
                   />
-                  {showCustomerDropdown && customerSearch.length > 0 && (
-                    <div className="absolute z-20 top-full mt-1 w-full bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
-                      {customers && customers.length > 0 ? (
-                        customers.map((c) => (
-                          <button
-                            key={c.id}
-                            className="w-full text-start px-3 py-2 text-sm hover:bg-surface transition-colors"
-                            onClick={() => handleSelectCustomer(c)}
-                          >
-                            <span className="font-medium">{c.name}</span>
-                            <span className="text-muted text-xs ms-2">{c.phone}</span>
-                          </button>
-                        ))
-                      ) : (
-                        <p className="px-3 py-2 text-xs text-muted">{t('cart.noCustomer')}</p>
-                      )}
-                    </div>
-                  )}
+                  <Input
+                    placeholder={t('cart.customerPhone')}
+                    value={newCustomerPhone}
+                    onChange={(e) => setNewCustomerPhone(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 h-7 text-xs"
+                      disabled={
+                        !newCustomerName.trim() ||
+                        !newCustomerPhone.trim() ||
+                        createCustomerMutation.isPending
+                      }
+                      onClick={() =>
+                        createCustomerMutation.mutate({
+                          name: newCustomerName.trim(),
+                          phone: newCustomerPhone.trim(),
+                        })
+                      }
+                    >
+                      {createCustomerMutation.isPending ? '...' : t('cart.saveCustomer')}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setShowNewCustomer(false);
+                        setNewCustomerName('');
+                        setNewCustomerPhone('');
+                      }}
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
+                    <Input
+                      placeholder={t('cart.searchCustomer')}
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value);
+                        setShowCustomerDropdown(true);
+                      }}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      className="ps-9 h-9 text-sm"
+                    />
+                    {showCustomerDropdown && customerSearch.length > 0 && (
+                      <div className="absolute z-20 top-full mt-1 w-full bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        {customers && customers.length > 0 ? (
+                          customers.map((c) => (
+                            <button
+                              key={c.id}
+                              className="w-full text-start px-3 py-2 text-sm hover:bg-surface transition-colors"
+                              onClick={() => handleSelectCustomer(c)}
+                            >
+                              <span className="font-medium">{c.name}</span>
+                              <span className="text-muted text-xs ms-2">{c.phone}</span>
+                            </button>
+                          ))
+                        ) : (
+                          <p className="px-3 py-2 text-xs text-muted">{t('cart.noCustomer')}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowNewCustomer(true)}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-gold hover:text-gold/80 transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {t('cart.addNewCustomer')}
+                  </button>
                 </div>
               )}
             </div>
@@ -882,22 +956,22 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               )}
             </div>
 
-            {/* Tip */}
+            {/* Quick Discount */}
             <Separator />
             <div className="space-y-2">
               <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body flex items-center gap-1.5">
-                <HandCoins className="h-3.5 w-3.5 text-gold" />
-                {t('cart.tip')}
+                <Percent className="h-3.5 w-3.5 text-gold" />
+                {t('cart.quickDiscount')}
               </h3>
               <div className="flex gap-1.5">
-                {[10, 15, 20].map((pct) => {
-                  const tipAmount = Math.round(((getTotal() * pct) / 100) * 100) / 100;
+                {[5, 10, 15].map((pct) => {
+                  const discAmount = Math.round(((getTotal() * pct) / 100) * 100) / 100;
                   return (
                     <button
                       key={pct}
-                      onClick={() => setTip(tipAmount)}
+                      onClick={() => setTip(discAmount)}
                       className={`flex-1 py-1.5 rounded text-[11px] font-data font-medium transition-colors ${
-                        tip === tipAmount
+                        tip === discAmount
                           ? 'bg-gold/20 text-gold border border-gold/40'
                           : 'bg-surface text-muted border border-border hover:border-gold/30'
                       }`}
@@ -910,7 +984,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   type="number"
                   min="0"
                   step="0.01"
-                  placeholder={t('cart.customTip')}
+                  placeholder={t('cart.customAmount')}
                   value={tip || ''}
                   onChange={(e) => setTip(parseFloat(e.target.value) || 0)}
                   className="flex-1 h-8 text-xs font-data"
@@ -1038,10 +1112,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                       <Plus className="h-3 w-3 me-1" /> {t('cart.addPayment')}
                     </Button>
                     <span
-                      className={`font-data ${Math.abs(payments.reduce((s, p) => s + p.amount, 0) - (getTotal() + tip)) < 0.01 ? 'text-green-500' : 'text-red-500'}`}
+                      className={`font-data ${Math.abs(payments.reduce((s, p) => s + p.amount, 0) - Math.max(0, getTotal() - tip)) < 0.01 ? 'text-green-500' : 'text-red-500'}`}
                     >
                       {formatCurrency(payments.reduce((s, p) => s + p.amount, 0))} /{' '}
-                      {formatCurrency(getTotal() + tip)}
+                      {formatCurrency(Math.max(0, getTotal() - tip))}
                     </span>
                   </div>
                 </div>
