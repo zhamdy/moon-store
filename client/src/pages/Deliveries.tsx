@@ -15,11 +15,18 @@ import {
   AlertTriangle,
   Truck,
   History,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -474,15 +481,19 @@ export default function Deliveries() {
       id: 'actions',
       header: '',
       cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1"
-          onClick={() => openTimeline(row.original)}
-        >
-          <History className="h-3.5 w-3.5" />
-          {t('deliveries.viewTimeline')}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => openTimeline(row.original)}>
+              <History className="h-4 w-4 me-2" />
+              {t('deliveries.viewTimeline')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ];

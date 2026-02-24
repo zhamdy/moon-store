@@ -20,11 +20,19 @@ import {
   Layers,
   Archive,
   RotateCcw,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -795,74 +803,61 @@ export default function Inventory() {
             cell: ({ row }: { row: { original: Product } }) => {
               const isDiscontinued = row.original.status === 'discontinued';
               return (
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    title={t('variants.manageVariants')}
-                    disabled={isDiscontinued}
-                    onClick={() => {
-                      setVariantsProduct(row.original);
-                      setVariantsDialogOpen(true);
-                    }}
-                  >
-                    <Layers
-                      className={`h-3.5 w-3.5 ${isDiscontinued ? 'text-muted' : 'text-purple-400'}`}
-                    />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    title={t('inventory.adjustStock')}
-                    disabled={isDiscontinued}
-                    onClick={() => {
-                      setAdjustProduct({
-                        id: row.original.id,
-                        name: row.original.name,
-                        stock: row.original.stock,
-                      });
-                      setAdjustStockOpen(true);
-                    }}
-                  >
-                    <PackageMinus
-                      className={`h-3.5 w-3.5 ${isDiscontinued ? 'text-muted' : 'text-blue-400'}`}
-                    />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    disabled={isDiscontinued}
-                    onClick={() => openEditDialog(row.original)}
-                  >
-                    <Pencil
-                      className={`h-3.5 w-3.5 ${isDiscontinued ? 'text-muted' : 'text-gold'}`}
-                    />
-                  </Button>
-                  {isDiscontinued ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      title={t('inventory.reactivateProduct')}
-                      onClick={() => setReactivateId(row.original.id)}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5 text-emerald-400" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
                     </Button>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      title={t('inventory.discontinueProduct')}
-                      onClick={() => setDiscontinueId(row.original.id)}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      disabled={isDiscontinued}
+                      onClick={() => {
+                        setVariantsProduct(row.original);
+                        setVariantsDialogOpen(true);
+                      }}
                     >
-                      <Archive className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  )}
-                </div>
+                      <Layers className="h-4 w-4 me-2 text-purple-400" />
+                      {t('variants.manageVariants')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={isDiscontinued}
+                      onClick={() => {
+                        setAdjustProduct({
+                          id: row.original.id,
+                          name: row.original.name,
+                          stock: row.original.stock,
+                        });
+                        setAdjustStockOpen(true);
+                      }}
+                    >
+                      <PackageMinus className="h-4 w-4 me-2 text-blue-400" />
+                      {t('inventory.adjustStock')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={isDiscontinued}
+                      onClick={() => openEditDialog(row.original)}
+                    >
+                      <Pencil className="h-4 w-4 me-2 text-gold" />
+                      {t('common.edit')}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {isDiscontinued ? (
+                      <DropdownMenuItem onClick={() => setReactivateId(row.original.id)}>
+                        <RotateCcw className="h-4 w-4 me-2 text-emerald-400" />
+                        {t('inventory.reactivateProduct')}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => setDiscontinueId(row.original.id)}
+                      >
+                        <Archive className="h-4 w-4 me-2" />
+                        {t('inventory.discontinueProduct')}
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               );
             },
           } as ColumnDef<Product>,

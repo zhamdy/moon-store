@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Ticket, Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Ticket, Plus, Search, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -188,26 +195,31 @@ export default function Promotions() {
                     </Badge>
                   </td>
                   <td className="p-3 text-end">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(c)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      {c.status === 'active' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => deleteMutation.mutate(c.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                      )}
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit(c)}>
+                          <Pencil className="h-4 w-4 me-2 text-gold" />
+                          {t('common.edit')}
+                        </DropdownMenuItem>
+                        {c.status === 'active' && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => deleteMutation.mutate(c.id)}
+                            >
+                              <Trash2 className="h-4 w-4 me-2" />
+                              {t('common.delete')}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               ))}

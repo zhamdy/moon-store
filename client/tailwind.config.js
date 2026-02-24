@@ -34,9 +34,9 @@ export default {
       },
       fontFamily: {
         display: ['Playfair Display', 'serif'],
-        body: ['Cormorant Garamond', 'serif'],
-        data: ['Inter', 'sans-serif'],
-        arabic: ['Cairo', 'Inter', 'sans-serif'],
+        body: ['DM Sans', 'sans-serif'],
+        data: ['DM Sans', 'sans-serif'],
+        arabic: ['IBM Plex Sans Arabic', 'DM Sans', 'sans-serif'],
       },
       letterSpacing: {
         wider: '0.05em',

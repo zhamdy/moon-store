@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Plus, Gift, XCircle, Eye, CreditCard } from 'lucide-react';
+import { Plus, Gift, XCircle, Eye, CreditCard, MoreHorizontal } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -210,33 +217,36 @@ export default function GiftCards() {
     },
     {
       id: 'actions',
-      header: t('common.actions'),
+      header: '',
       enableSorting: false,
       cell: ({ row }) => {
         const card = row.original;
         return (
-          <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              title={t('giftCards.transactions')}
-              onClick={() => setTransactionsCard(card)}
-            >
-              <Eye className="h-3.5 w-3.5 text-gold" />
-            </Button>
-            {card.status === 'active' && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title={t('giftCards.cancel')}
-                onClick={() => setCancelId(card.id)}
-              >
-                <XCircle className="h-3.5 w-3.5 text-destructive" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
-            )}
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setTransactionsCard(card)}>
+                <Eye className="h-4 w-4 me-2 text-gold" />
+                {t('giftCards.transactions')}
+              </DropdownMenuItem>
+              {card.status === 'active' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => setCancelId(card.id)}
+                  >
+                    <XCircle className="h-4 w-4 me-2" />
+                    {t('giftCards.cancel')}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         );
       },
     },

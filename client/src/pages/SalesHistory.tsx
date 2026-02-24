@@ -8,11 +8,18 @@ import {
   ChevronRight,
   Printer,
   RotateCcw,
+  MoreHorizontal,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Calendar } from '../components/ui/calendar';
 import {
@@ -264,33 +271,39 @@ export default function SalesHistory() {
       header: '',
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleRefund(row.original);
-            }}
-            title={t('sales.refund')}
-            disabled={row.original.refund_status === 'full'}
-          >
-            <RotateCcw className="h-4 w-4 text-blush" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePrintReceipt(row.original.id);
-            }}
-            title={t('receipt.reprint')}
-          >
-            <Printer className="h-4 w-4 text-gold" />
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              disabled={row.original.refund_status === 'full'}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRefund(row.original);
+              }}
+            >
+              <RotateCcw className="h-4 w-4 me-2 text-blush" />
+              {t('sales.refund')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePrintReceipt(row.original.id);
+              }}
+            >
+              <Printer className="h-4 w-4 me-2 text-gold" />
+              {t('receipt.reprint')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ];
