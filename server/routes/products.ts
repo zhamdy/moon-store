@@ -45,6 +45,7 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
       search,
       category,
       category_id,
+      collection_id,
       status,
       page = 1,
       limit = 25,
@@ -67,7 +68,10 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
       const s = `%${search}%`;
       params.push(s, s, s);
     }
-    if (category_id) {
+    if (collection_id) {
+      where.push(`p.id IN (SELECT product_id FROM collection_products WHERE collection_id = ?)`);
+      params.push(collection_id);
+    } else if (category_id) {
       where.push(`p.category_id = ?`);
       params.push(category_id);
     } else if (category) {
@@ -373,12 +377,10 @@ router.put(
         [req.params.id]
       );
       if (existing.rows.length > 0 && existing.rows[0].status === 'discontinued') {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            error: 'Cannot edit a discontinued product. Reactivate it first.',
-          });
+        return res.status(403).json({
+          success: false,
+          error: 'Cannot edit a discontinued product. Reactivate it first.',
+        });
       }
 
       const parsed = productSchema.safeParse(req.body);

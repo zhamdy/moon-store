@@ -5,6 +5,7 @@ import { saleSchema } from '../validators/saleSchema';
 import { refundSchema } from '../validators/refundSchema';
 import { logAuditFromReq } from '../middleware/auditLogger';
 import { notifySale } from '../services/notifications';
+import { recordSaleMovement, recordRefundMovement } from './register';
 
 const router: Router = Router();
 
@@ -392,6 +393,20 @@ router.post(
 
       notifySale(sale.total, sale.id, cashier?.name || 'Unknown');
 
+      // Record cash register movement for cash payments
+      const cashPayments = (parsed.data.payments || []).filter(
+        (p: { method: string }) => p.method === 'Cash'
+      );
+      const cashAmount = cashPayments.reduce(
+        (sum: number, p: { amount: number }) => sum + p.amount,
+        0
+      );
+      const singleCashPayment = parsed.data.payment_method === 'Cash' ? sale.total : 0;
+      const totalCashForRegister = cashAmount || singleCashPayment;
+      if (totalCashForRegister > 0) {
+        recordSaleMovement(authReq.user!.id, sale.id, totalCashForRegister);
+      }
+
       res.status(201).json({
         success: true,
         data: { ...sale, cashier_name: cashier?.name, items: saleItems },
@@ -641,6 +656,9 @@ router.post(
       }
 
       logAuditFromReq(req, 'refund', 'sale', req.params.id, { refund_amount: refund.total_refund });
+
+      // Record cash register refund movement
+      recordRefundMovement((req as AuthRequest).user!.id, refund.total_refund);
 
       res.status(201).json({
         success: true,

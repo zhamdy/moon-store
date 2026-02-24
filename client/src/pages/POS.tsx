@@ -63,6 +63,7 @@ interface ProductVariant {
 export default function POS() {
   const [searchInput, setSearchInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCollection, setSelectedCollection] = useState<number | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
@@ -183,15 +184,31 @@ export default function POS() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch products with debounced search and category filter
+  // Fetch collections
+  const { data: collections } = useQuery<{ id: number; name: string; product_count: number }[]>({
+    queryKey: ['collections-pos'],
+    queryFn: () => api.get('/api/collections').then((r) => r.data.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch products with debounced search and category/collection filter
   const { data: products, isLoading } = useQuery<Product[]>({
-    queryKey: ['products', { search: debouncedSearch, category_id: selectedCategory, limit: 100 }],
+    queryKey: [
+      'products',
+      {
+        search: debouncedSearch,
+        category_id: selectedCategory,
+        collection_id: selectedCollection,
+        limit: 100,
+      },
+    ],
     queryFn: () =>
       api
         .get('/api/products', {
           params: {
             search: debouncedSearch || undefined,
             category_id: selectedCategory || undefined,
+            collection_id: selectedCollection || undefined,
             limit: 100,
           },
         })
@@ -324,6 +341,29 @@ export default function POS() {
                   }`}
                 >
                   {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Collection filter chips */}
+          {collections && collections.length > 0 && (
+            <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:overflow-x-auto pb-1 scrollbar-thin">
+              <Layers className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+              {collections.map((col) => (
+                <button
+                  key={col.id}
+                  onClick={() => {
+                    setSelectedCollection(selectedCollection === col.id ? null : col.id);
+                    if (selectedCollection !== col.id) setSelectedCategory(null);
+                  }}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    selectedCollection === col.id
+                      ? 'bg-gold text-primary-foreground'
+                      : 'bg-surface text-muted border border-border hover:border-gold/50'
+                  }`}
+                >
+                  {col.name} ({col.product_count})
                 </button>
               ))}
             </div>

@@ -180,4 +180,20 @@ router.post(
   }
 );
 
+// GET /api/exports/backup — Download database backup
+router.get(
+  '/backup',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const path = require('path');
+      const dbPath = path.join(__dirname, '..', 'db', 'moon.db');
+      res.download(dbPath, `moon-backup-${new Date().toISOString().split('T')[0]}.db`);
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 export default router;

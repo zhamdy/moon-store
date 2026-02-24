@@ -29,6 +29,15 @@ import reservationRoutes from './routes/reservations';
 import labelTemplateRoutes from './routes/labelTemplates';
 import locationRoutes from './routes/locations';
 import exportRoutes from './routes/exports';
+import registerRoutes from './routes/register';
+import exchangeRoutes from './routes/exchanges';
+import shiftRoutes from './routes/shifts';
+import expenseRoutes from './routes/expenses';
+import segmentRoutes from './routes/segments';
+import layawayRoutes from './routes/layaway';
+import collectionRoutes from './routes/collections';
+import warrantyRoutes from './routes/warranty';
+import feedbackRoutes from './routes/feedback';
 import { cleanupExpiredReservations } from './routes/reservations';
 
 const app = express();
@@ -102,6 +111,15 @@ app.use('/api/reservations', reservationRoutes);
 app.use('/api/label-templates', labelTemplateRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/exports', exportRoutes);
+app.use('/api/register', registerRoutes);
+app.use('/api/exchanges', exchangeRoutes);
+app.use('/api/shifts', shiftRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/segments', segmentRoutes);
+app.use('/api/layaway', layawayRoutes);
+app.use('/api/collections', collectionRoutes);
+app.use('/api/warranty', warrantyRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
