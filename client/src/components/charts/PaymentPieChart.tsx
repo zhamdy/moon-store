@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '../../lib/utils';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useTranslation } from '../../i18n';
@@ -49,7 +49,6 @@ interface PaymentPieChartProps {
 }
 
 interface PieLabelProps {
-  payment_method: string;
   percent: number;
 }
 
@@ -60,26 +59,29 @@ export default function PaymentPieChart({ data }: PaymentPieChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <PieChart>
+      <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
         <Pie
           data={data}
           cx="50%"
           cy="50%"
-          innerRadius={60}
-          outerRadius={100}
+          innerRadius={45}
+          outerRadius={75}
           paddingAngle={5}
           dataKey="count"
           nameKey="payment_method"
-          label={({ payment_method, percent }: PieLabelProps) =>
-            `${payment_method} ${(percent * 100).toFixed(0)}%`
-          }
-          labelLine={{ stroke: isDark ? '#6B6B6B' : '#999999' }}
+          label={({ percent }: PieLabelProps) => `${(percent * 100).toFixed(0)}%`}
+          labelLine={false}
         >
           {data?.map((_: PaymentDataPoint, index: number) => (
             <Cell key={index} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
         <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
+        <Legend
+          formatter={(value) => (
+            <span style={{ color: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}>{value}</span>
+          )}
+        />
       </PieChart>
     </ResponsiveContainer>
   );

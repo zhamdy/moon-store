@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PackageCheck, Plus, ArrowLeft, Check, X } from 'lucide-react';
+import { PackageCheck, Plus, ArrowLeft, ArrowRight, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -52,7 +52,7 @@ interface Category {
 }
 
 export default function StockCountPage() {
-  const { t } = useTranslation();
+  const { t, isRtl } = useTranslation();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedCount, setSelectedCount] = useState<number | null>(null);
@@ -137,7 +137,7 @@ export default function StockCountPage() {
       <div className="p-6 animate-fade-in">
         <div className="mb-6 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => setSelectedCount(null)}>
-            <ArrowLeft className="h-5 w-5" />
+            {isRtl ? <ArrowRight className="h-5 w-5" /> : <ArrowLeft className="h-5 w-5" />}
           </Button>
           <div>
             <h1 className="text-2xl font-display tracking-wider">

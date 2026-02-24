@@ -58,15 +58,19 @@ export default function CategorySalesChart({ data }: CategorySalesChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <PieChart>
+      <PieChart margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
         <Pie
           data={data}
           cx="50%"
           cy="50%"
-          outerRadius={100}
+          outerRadius={60}
           dataKey="revenue"
           nameKey="category_name"
-          label={({ category_name, percent }) => `${category_name} ${(percent * 100).toFixed(0)}%`}
+          label={({ percent }) => {
+            const pct = percent * 100;
+            if (pct < 5) return '';
+            return `${pct.toFixed(0)}%`;
+          }}
           labelLine={false}
         >
           {data.map((_entry, index) => (
