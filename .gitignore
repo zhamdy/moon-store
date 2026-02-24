@@ -4,4 +4,8 @@ dist/
 *.log
 .DS_Store
 *.db
+*.png
+*.jpeg
+*.jpg
+nul
 .playwright-mcp/
