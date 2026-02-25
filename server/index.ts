@@ -7,48 +7,11 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import errorHandler from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
+import { sanitizeBody } from './middleware/sanitize';
 import logger from './lib/logger';
 import db from './db';
 
-import authRoutes from './routes/auth';
-import productRoutes from './routes/products';
-import salesRoutes from './routes/sales';
-import deliveryRoutes from './routes/delivery';
-import analyticsRoutes from './routes/analytics';
-import userRoutes from './routes/users';
-import customerRoutes from './routes/customers';
-import distributorRoutes from './routes/distributors';
-import categoryRoutes from './routes/categories';
-import stockAdjustmentRoutes from './routes/stockAdjustments';
-import settingsRoutes from './routes/settings';
-import purchaseOrderRoutes from './routes/purchaseOrders';
-import auditLogRoutes from './routes/auditLog';
-import notificationRoutes from './routes/notifications';
-import couponRoutes from './routes/coupons';
-import giftCardRoutes from './routes/giftCards';
-import bundleRoutes from './routes/bundles';
-import stockCountRoutes from './routes/stockCounts';
-import reservationRoutes from './routes/reservations';
-import labelTemplateRoutes from './routes/labelTemplates';
-
-import exportRoutes from './routes/exports';
-import registerRoutes from './routes/register';
-import exchangeRoutes from './routes/exchanges';
-import shiftRoutes from './routes/shifts';
-import expenseRoutes from './routes/expenses';
-import segmentRoutes from './routes/segments';
-import layawayRoutes from './routes/layaway';
-import collectionRoutes from './routes/collections';
-import warrantyRoutes from './routes/warranty';
-import feedbackRoutes from './routes/feedback';
-import branchRoutes from './routes/branches';
-import storefrontRoutes from './routes/storefront';
-import onlineOrderRoutes from './routes/onlineOrders';
-import reportRoutes from './routes/reports';
-import vendorRoutes from './routes/vendors';
-import aiRoutes from './routes/ai';
-import shippingCompanyRoutes from './routes/shippingCompanies';
-import { cleanupExpiredReservations } from './routes/reservations';
+import { routeTable, cleanupExpiredReservations } from './routes';
 
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
@@ -107,6 +70,9 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
+// Input sanitization (strip HTML/XSS vectors from request body strings)
+app.use(sanitizeBody);
+
 // Request logging
 app.use(requestLogger);
 
@@ -114,44 +80,9 @@ app.use(requestLogger);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/sales', salesRoutes);
-app.use('/api/delivery', deliveryRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/distributors', distributorRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/stock-adjustments', stockAdjustmentRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/purchase-orders', purchaseOrderRoutes);
-app.use('/api/audit-log', auditLogRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/coupons', couponRoutes);
-app.use('/api/gift-cards', giftCardRoutes);
-app.use('/api/bundles', bundleRoutes);
-app.use('/api/stock-counts', stockCountRoutes);
-app.use('/api/reservations', reservationRoutes);
-app.use('/api/label-templates', labelTemplateRoutes);
-
-app.use('/api/exports', exportRoutes);
-app.use('/api/register', registerRoutes);
-app.use('/api/exchanges', exchangeRoutes);
-app.use('/api/shifts', shiftRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/segments', segmentRoutes);
-app.use('/api/layaway', layawayRoutes);
-app.use('/api/collections', collectionRoutes);
-app.use('/api/warranty', warrantyRoutes);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/branches', branchRoutes);
-app.use('/api/storefront', storefrontRoutes);
-app.use('/api/online-orders', onlineOrderRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/vendors', vendorRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/shipping-companies', shippingCompanyRoutes);
+for (const [routePath, router] of routeTable) {
+  app.use(routePath, router);
+}
 
 // Health check (includes DB connectivity test)
 app.get('/api/health', (_req: Request, res: Response) => {

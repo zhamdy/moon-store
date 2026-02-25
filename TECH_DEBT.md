@@ -9,10 +9,10 @@
 | Severity | Count |
 |----------|-------|
 | Critical | ~~5~~ 0 |
-| High | ~~10~~ 3 |
+| High | ~~10~~ 2 |
 | Medium | ~~12~~ 7 |
 | Low | ~~14~~ 4 |
-| **Total** | **41** (27 fixed, 14 remaining) |
+| **Total** | **41** (28 fixed, 13 remaining) |
 
 ---
 
@@ -106,11 +106,10 @@
 - **Risk**: Silent data corruption or unexpected behavior.
 - **Fix**: ~~Only catch specific SQLite `RETURNING` incompatibility errors, rethrow others.~~ Done — only catches errors containing "RETURNING", rethrows all others.
 
-### 12. Monolith Server Entry Point
-- **File**: `server/index.ts` — 46 imports, 36 `app.use()` calls
-- **Issue**: Every route file is imported and mounted at the top level. Adding a new feature means touching this file.
-- **Risk**: Merge conflicts, slow server startup, tight coupling.
-- **Fix**: Auto-discover routes from filesystem or group into domain modules.
+### ~~12. Monolith Server Entry Point~~ [FIXED]
+- **File**: `server/index.ts` — ~~46 imports, 36 `app.use()` calls~~ → **14 imports, 170→135 lines**
+- **Issue**: Every route file was imported and mounted at the top level. Adding a new feature meant touching this file.
+- **Fix**: ~~Auto-discover routes from filesystem or group into domain modules.~~ Done — created `server/routes/index.ts` as centralized route registry. `routeTable: [string, Router][]` array + single `for..of` loop in `index.ts`. Adding a new route = 1 import + 1 line in the registry.
 
 ### ~~13. N+1 Query Problem in Delivery Route~~ [FIXED]
 - **File**: `server/routes/delivery.ts`
@@ -150,10 +149,9 @@
 - **Risk**: Stuck migrations require manual DB intervention.
 - **Fix**: Add rollback support to migration runner, or at minimum document manual rollback steps.
 
-### 19. Hardcoded CORS Origins
-- **File**: `server/index.ts:64-69`
-- **Issue**: `localhost:5173`, `5174`, `5175` are hardcoded. Should be configurable for deployment.
-- **Fix**: Use `ALLOWED_ORIGINS` env var as comma-separated list.
+### ~~19. Hardcoded CORS Origins~~ [ALREADY DONE]
+- **File**: `server/index.ts:71-78`
+- **Status**: Already supports `ALLOWED_ORIGINS` env var as comma-separated list. Hardcoded values are dev-only fallbacks when env var is not set.
 
 ### ~~20. Rate Limiter Not Per-Route~~ [FIXED]
 - **File**: `server/index.ts:81-88`
@@ -166,15 +164,14 @@
 - **Risk**: In-flight requests dropped on deploy. DB connections not closed cleanly.
 - **Fix**: ~~Handle `SIGTERM`/`SIGINT`, drain connections, close DB, clear intervals.~~ Done — `shutdown()` handles SIGTERM/SIGINT, clears interval, closes server + DB, 10s force exit timeout.
 
-### 22. Client Bundle Size
-- **Issue**: 36 pages, all lazy-loaded but still results in >500KB chunks. No route-based code splitting for heavy dependencies (Recharts, TanStack Table).
-- **Fix**: Split heavy chart/table libraries into separate chunks. Consider dynamic imports for Recharts only on Dashboard.
+### ~~22. Client Bundle Size~~ [FIXED]
+- **Issue**: 36 pages, all lazy-loaded but heavy vendor deps bundled into single chunk.
+- **Fix**: ~~Split heavy libraries into separate chunks.~~ Done — Vite `manualChunks` splits vendors into 5 cached chunks: `vendor-react` (165 KB), `vendor-charts` (411 KB), `vendor-query` (96 KB), `vendor-ui` (109 KB), `vendor-forms` (86 KB). Vendor cache invalidation is now independent of app code changes.
 
-### 23. Mixed Sync/Async DB Patterns
+### ~~23. Mixed Sync/Async DB Patterns~~ [FIXED]
 - **File**: `server/db/index.ts`
 - **Issue**: The pg-compat wrapper makes synchronous `better-sqlite3` calls look async (returns plain objects, not Promises). Routes use `await db.query()` but it resolves immediately.
-- **Risk**: Confusing to developers. False sense of async behavior.
-- **Fix**: Either make the wrapper truly async-compatible or document that `await` is unnecessary.
+- **Fix**: ~~Document that `await` is unnecessary.~~ Done — added clear documentation comment explaining the sync-wrapped-in-Promise pattern and when to use `db.db` for raw access.
 
 ### 24. `uploads/` Directory in Server Root
 - **File**: `server/uploads/`
@@ -182,9 +179,9 @@
 - **Risk**: Disk exhaustion. Lost on redeploy (not in external storage).
 - **Fix**: Add file size/type validation in upload routes. Plan migration to S3/R2 for production.
 
-### 25. No Input Sanitization Layer
-- **Issue**: Zod validates structure but doesn't sanitize HTML/SQL. No XSS protection for stored user input (product names, customer names, notes fields).
-- **Fix**: Add sanitization middleware or use a library like `dompurify` for text fields rendered in the frontend.
+### ~~25. No Input Sanitization Layer~~ [FIXED]
+- **Issue**: Zod validates structure but didn't sanitize HTML/SQL. No XSS protection for stored user input.
+- **Fix**: ~~Add sanitization middleware.~~ Done — `server/middleware/sanitize.ts` strips HTML tags, `<script>`, `javascript:` URIs, and inline event handlers from all string values in request bodies. Applied globally before routes.
 
 ### ~~26. Timer-Based Cleanup Without Error Handling~~ [FIXED]
 - **File**: `server/routes/reservations.ts`
@@ -252,10 +249,10 @@
 - **Issue**: Create/Edit/Checkout buttons don't show loading spinners during mutations. Users can double-click and create duplicate records.
 - **Status**: Already implemented — all checked files use `isPending` to disable buttons during mutations.
 
-### 39. API Client Global Mutable State
+### ~~39. API Client Global Mutable State~~ [FIXED]
 - **File**: `client/src/services/api.ts`
-- **Issue**: `isRefreshing` and `failedQueue` are module-level mutable variables. Potential race condition if multiple tabs or instances exist.
-- **Fix**: Move to a class or closure. Consider using `navigator.locks` for tab-safe token refresh.
+- **Issue**: `isRefreshing` and `failedQueue` were module-level mutable variables.
+- **Fix**: ~~Move to a class or closure.~~ Done — encapsulated in `setupRefreshInterceptor()` closure. State is no longer accessible outside the interceptor.
 
 ### ~~40. Hardcoded English in Zod Validation Schemas~~ [FIXED]
 - **Files**: `Login.tsx`, `Users.tsx`, `Categories.tsx`, `Customers.tsx`, `Distributors.tsx`, `Deliveries.tsx`

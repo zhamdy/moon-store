@@ -56,7 +56,11 @@ function query<T = Record<string, unknown>>(text: string, params: unknown[] = []
   return { rows: [], rowCount: info.changes, lastInsertRowid: info.lastInsertRowid };
 }
 
-// Override query to return promises (to match async pg interface)
+// NOTE: better-sqlite3 is synchronous. The exported query() wraps results in
+// Promise.resolve() to match a pg-compatible async interface. This means
+// `await db.query()` resolves immediately (no I/O wait). Routes can safely
+// use `await` for consistency, but be aware there is no true async behavior.
+// For raw synchronous access (e.g. transactions), use `db.db` directly.
 export = {
   query: <T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<QueryResult<T>> =>
     Promise.resolve(query<T>(text, params)),
