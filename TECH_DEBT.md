@@ -10,9 +10,9 @@
 |----------|-------|
 | Critical | ~~5~~ 0 |
 | High | ~~10~~ 2 |
-| Medium | ~~12~~ 7 |
-| Low | ~~14~~ 1 |
-| **Total** | **41** (31 fixed, 10 remaining) |
+| Medium | ~~12~~ 3 |
+| Low | ~~14~~ 0 |
+| **Total** | **41** (36 fixed, 5 remaining) |
 
 ---
 
@@ -69,18 +69,17 @@
 - **Risk**: Hard to maintain, slow to iterate, high merge conflict probability.
 - **Fix**: Extract sub-components, custom hooks for data fetching, and modal components.
 
-### 7. Monster Route Files
+### 7. Monster Route Files [PARTIAL]
 - **Files**:
-  - `server/routes/products.ts` — **1,175 lines**
-  - `server/routes/sales.ts` — **752 lines**
+  - `server/routes/products.ts` — **1,175 lines** (still needs service extraction)
+  - `server/routes/sales.ts` — ~~752 lines~~ → **350 lines** (service extracted)
   - `server/routes/analytics.ts` — **461 lines**
   - `server/routes/delivery.ts` — **453 lines**
   - `server/routes/register.ts` — **408 lines**
   - `server/routes/coupons.ts` — **405 lines**
   - `server/routes/giftCards.ts` — **396 lines**
 - **Issue**: Business logic mixed directly into route handlers. No service layer.
-- **Risk**: Impossible to reuse logic, hard to test, high coupling.
-- **Fix**: Extract service layer (`server/services/`) for business logic. Routes should only handle req/res.
+- **Progress**: Extracted `server/services/saleService.ts` (401 lines) with `calculateSaleTotals()`, `executeSaleTransaction()`, `executeRefundTransaction()`. Sales route now handles only HTTP concerns. Remaining large files still need extraction.
 
 ### ~~8. 37 `as any` Type Casts Across Server~~ [FIXED]
 - **Files**: `ai.ts` (10), `exports.ts` (5), `sales.ts` (3), `onlineOrders.ts` (7), `analytics.ts` (2), `branches.ts` (2), `reports.ts` (2), `giftCards.ts` (1), `stockCounts.ts` (1), `storefront.ts` (1), `layaway.ts` (1), `migrate.ts` (2)
