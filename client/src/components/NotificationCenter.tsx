@@ -135,6 +135,7 @@ export default function NotificationCenter(): React.JSX.Element {
       <button
         onClick={() => setOpen(!open)}
         className="relative flex items-center justify-center h-9 w-9 rounded-md text-muted hover:text-foreground hover:bg-surface border border-border transition-colors"
+        aria-label={t('notifications.title')}
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
@@ -163,6 +164,7 @@ export default function NotificationCenter(): React.JSX.Element {
               <button
                 onClick={() => setOpen(false)}
                 className="text-muted hover:text-foreground transition-colors p-1 rounded hover:bg-surface"
+                aria-label={t('common.close')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -212,6 +214,7 @@ export default function NotificationCenter(): React.JSX.Element {
                       }}
                       className="shrink-0 mt-0.5 p-1 text-muted hover:text-foreground rounded hover:bg-background transition-colors"
                       title="Mark as read"
+                      aria-label={t('notifications.markAllRead')}
                     >
                       <Check className="h-3.5 w-3.5" />
                     </button>

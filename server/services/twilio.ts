@@ -1,4 +1,5 @@
 import type { MessageInstance } from 'twilio/lib/rest/api/v2010/account/message';
+import logger from '../lib/logger';
 
 type TwilioClient = any;
 
@@ -22,7 +23,7 @@ function getClient(): TwilioClient | null {
 async function sendSMS(phone: string, message: string): Promise<MessageInstance | null> {
   const client = getClient();
   if (!client) {
-    console.log(`[Twilio SMS skipped - not configured] To: ${phone} | ${message}`);
+    logger.debug('Twilio SMS skipped - not configured', { phone });
     return null;
   }
   try {
@@ -31,10 +32,10 @@ async function sendSMS(phone: string, message: string): Promise<MessageInstance 
       from: process.env.TWILIO_PHONE,
       to: phone,
     });
-    console.log(`SMS sent to ${phone}: ${result.sid}`);
+    logger.info('SMS sent', { phone, sid: result.sid });
     return result;
   } catch (err: unknown) {
-    console.error('SMS send failed:', (err as Error).message);
+    logger.error('SMS send failed', { phone, error: (err as Error).message });
     return null;
   }
 }
@@ -42,7 +43,7 @@ async function sendSMS(phone: string, message: string): Promise<MessageInstance 
 async function sendWhatsApp(phone: string, message: string): Promise<MessageInstance | null> {
   const client = getClient();
   if (!client) {
-    console.log(`[Twilio WhatsApp skipped - not configured] To: ${phone} | ${message}`);
+    logger.debug('Twilio WhatsApp skipped - not configured', { phone });
     return null;
   }
   try {
@@ -51,10 +52,10 @@ async function sendWhatsApp(phone: string, message: string): Promise<MessageInst
       from: process.env.TWILIO_WHATSAPP_FROM,
       to: `whatsapp:${phone}`,
     });
-    console.log(`WhatsApp sent to ${phone}: ${result.sid}`);
+    logger.info('WhatsApp sent', { phone, sid: result.sid });
     return result;
   } catch (err: unknown) {
-    console.error('WhatsApp send failed:', (err as Error).message);
+    logger.error('WhatsApp send failed', { phone, error: (err as Error).message });
     return null;
   }
 }

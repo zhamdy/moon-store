@@ -1,30 +1,31 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { lazy, Suspense, type ComponentType } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './pages/Login';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
+import { useAuthStore } from './store/authStore';
+
+// Eagerly loaded (critical path)
 import Dashboard from './pages/Dashboard';
 import POS from './pages/POS';
 import Inventory from './pages/Inventory';
-import BarcodeTools from './pages/BarcodeTools';
-import Deliveries from './pages/Deliveries';
-import SalesHistory from './pages/SalesHistory';
-import UsersPage from './pages/Users';
-import CustomersPage from './pages/Customers';
-import DistributorsPage from './pages/Distributors';
-import CategoriesPage from './pages/Categories';
-import SettingsPage from './pages/Settings';
-import PurchaseOrdersPage from './pages/PurchaseOrders';
-import AuditLogPage from './pages/AuditLog';
-import PWAInstallPrompt from './components/PWAInstallPrompt';
-import { useAuthStore } from './store/authStore';
-import { useSettingsStore } from './store/settingsStore';
 
+// Lazy loaded
+const BarcodeTools = lazy(() => import('./pages/BarcodeTools'));
+const Deliveries = lazy(() => import('./pages/Deliveries'));
+const SalesHistory = lazy(() => import('./pages/SalesHistory'));
+const UsersPage = lazy(() => import('./pages/Users'));
+const CustomersPage = lazy(() => import('./pages/Customers'));
+const DistributorsPage = lazy(() => import('./pages/Distributors'));
+const CategoriesPage = lazy(() => import('./pages/Categories'));
+const SettingsPage = lazy(() => import('./pages/Settings'));
+const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrders'));
+const AuditLogPage = lazy(() => import('./pages/AuditLog'));
 const PromotionsPage = lazy(() => import('./pages/Promotions'));
 const GiftCardsPage = lazy(() => import('./pages/GiftCards'));
 const StockCountPage = lazy(() => import('./pages/StockCount'));
-
 const ExportsPage = lazy(() => import('./pages/Exports'));
 const CustomerDisplay = lazy(() => import('./pages/CustomerDisplay'));
 const RegisterPage = lazy(() => import('./pages/Register'));
@@ -47,13 +48,53 @@ const AiInsightsPage = lazy(() => import('./pages/AiInsights'));
 
 type UserRole = 'Admin' | 'Cashier' | 'Delivery';
 
+interface RouteConfig {
+  path: string;
+  component: ComponentType;
+  roles: UserRole[];
+}
+
+const routes: RouteConfig[] = [
+  { path: '/', component: Dashboard, roles: ['Admin'] },
+  { path: '/pos', component: POS, roles: ['Admin', 'Cashier'] },
+  { path: '/inventory', component: Inventory, roles: ['Admin', 'Cashier'] },
+  { path: '/barcode', component: BarcodeTools, roles: ['Admin', 'Cashier'] },
+  { path: '/deliveries', component: Deliveries, roles: ['Admin', 'Delivery'] },
+  { path: '/sales', component: SalesHistory, roles: ['Admin', 'Cashier'] },
+  { path: '/users', component: UsersPage, roles: ['Admin'] },
+  { path: '/customers', component: CustomersPage, roles: ['Admin'] },
+  { path: '/distributors', component: DistributorsPage, roles: ['Admin'] },
+  { path: '/categories', component: CategoriesPage, roles: ['Admin'] },
+  { path: '/purchase-orders', component: PurchaseOrdersPage, roles: ['Admin'] },
+  { path: '/audit-log', component: AuditLogPage, roles: ['Admin'] },
+  { path: '/settings', component: SettingsPage, roles: ['Admin'] },
+  { path: '/promotions', component: PromotionsPage, roles: ['Admin'] },
+  { path: '/gift-cards', component: GiftCardsPage, roles: ['Admin'] },
+  { path: '/stock-count', component: StockCountPage, roles: ['Admin'] },
+  { path: '/shifts', component: ShiftsPage, roles: ['Admin', 'Cashier', 'Delivery'] },
+  { path: '/expenses', component: ExpensesPage, roles: ['Admin'] },
+  { path: '/segments', component: SegmentsPage, roles: ['Admin'] },
+  { path: '/layaway', component: LayawayPage, roles: ['Admin', 'Cashier'] },
+  { path: '/register', component: RegisterPage, roles: ['Admin', 'Cashier'] },
+  { path: '/exports', component: ExportsPage, roles: ['Admin'] },
+  { path: '/collections', component: CollectionsPage, roles: ['Admin'] },
+  { path: '/warranty', component: WarrantyPage, roles: ['Admin'] },
+  { path: '/feedback', component: FeedbackPage, roles: ['Admin'] },
+  { path: '/backup', component: BackupPage, roles: ['Admin'] },
+  { path: '/activity', component: ActivityFeedPage, roles: ['Admin'] },
+  { path: '/branches', component: BranchesPage, roles: ['Admin'] },
+  { path: '/storefront', component: StorefrontPage, roles: ['Admin'] },
+  { path: '/online-orders', component: OnlineOrdersPage, roles: ['Admin'] },
+  { path: '/report-builder', component: ReportBuilderPage, roles: ['Admin'] },
+  { path: '/vendors', component: VendorsPage, roles: ['Admin'] },
+  { path: '/smart-pricing', component: SmartPricingPage, roles: ['Admin'] },
+  { path: '/ai-insights', component: AiInsightsPage, roles: ['Admin'] },
+];
+
+const LazyFallback = <div className="p-8 text-center text-muted">Loading...</div>;
+
 export default function App(): React.ReactElement {
   const { isAuthenticated, user } = useAuthStore();
-  const hydrate = useSettingsStore((s) => s.hydrate);
-
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
 
   const defaultRoute = (): string => {
     if (!isAuthenticated) return '/login';
@@ -77,396 +118,29 @@ export default function App(): React.ReactElement {
             </ProtectedRoute>
           }
         >
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Dashboard />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/pos"
-            element={
-              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <POS />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/inventory"
-            element={
-              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Inventory />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/barcode"
-            element={
-              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <BarcodeTools />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/deliveries"
-            element={
-              <ProtectedRoute roles={['Admin', 'Delivery'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Deliveries />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/sales"
-            element={
-              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <SalesHistory />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/users"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <UsersPage />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/customers"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <CustomersPage />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/distributors"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <DistributorsPage />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/categories"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <CategoriesPage />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/purchase-orders"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <PurchaseOrdersPage />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/audit-log"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <AuditLogPage />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <SettingsPage />
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/promotions"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <PromotionsPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/gift-cards"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <GiftCardsPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/stock-count"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <StockCountPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
+          {routes.map(({ path, component: Component, roles }) => (
+            <Route
+              key={path}
+              path={path}
+              element={
+                <ProtectedRoute roles={roles satisfies UserRole[]}>
+                  <ErrorBoundary>
+                    <Suspense fallback={LazyFallback}>
+                      <Component />
+                    </Suspense>
+                  </ErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+          ))}
           <Route path="/locations" element={<Navigate to="/branches" replace />} />
-          <Route
-            path="/shifts"
-            element={
-              <ProtectedRoute roles={['Admin', 'Cashier', 'Delivery'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <ShiftsPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/expenses"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <ExpensesPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/segments"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <SegmentsPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/layaway"
-            element={
-              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <LayawayPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <ProtectedRoute roles={['Admin', 'Cashier'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <RegisterPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/exports"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <ExportsPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/collections"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <CollectionsPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/warranty"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <WarrantyPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/feedback"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <FeedbackPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/backup"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <BackupPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/activity"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <ActivityFeedPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/branches"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <BranchesPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/storefront"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <StorefrontPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/online-orders"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <OnlineOrdersPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/report-builder"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <ReportBuilderPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/vendors"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <VendorsPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/smart-pricing"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <SmartPricingPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/ai-insights"
-            element={
-              <ProtectedRoute roles={['Admin'] satisfies UserRole[]}>
-                <ErrorBoundary>
-                  <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
-                    <AiInsightsPage />
-                  </Suspense>
-                </ErrorBoundary>
-              </ProtectedRoute>
-            }
-          />
         </Route>
 
         {/* Customer-facing display (no auth required) */}
         <Route
           path="/customer-display"
           element={
-            <Suspense fallback={<div className="p-8 text-center text-muted">Loading...</div>}>
+            <Suspense fallback={LazyFallback}>
               <CustomerDisplay />
             </Suspense>
           }

@@ -40,11 +40,15 @@ function query<T = Record<string, unknown>>(text: string, params: unknown[] = []
     try {
       const rows = db.prepare(sqliteText).all(...params) as T[];
       return { rows };
-    } catch {
-      // Fallback: run without RETURNING, return empty
-      const cleanSql = sqliteText.replace(/RETURNING\s+.*/i, '');
-      const info = db.prepare(cleanSql).run(...params);
-      return { rows: [{ id: info.lastInsertRowid } as unknown as T] };
+    } catch (err: unknown) {
+      // Only fall back for RETURNING-specific incompatibility, rethrow other errors
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('RETURNING') || message.includes('near "RETURNING"')) {
+        const cleanSql = sqliteText.replace(/RETURNING\s+.*/i, '');
+        const info = db.prepare(cleanSql).run(...params);
+        return { rows: [{ id: info.lastInsertRowid } as unknown as T] };
+      }
+      throw err;
     }
   }
 

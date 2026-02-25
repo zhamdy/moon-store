@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import logger from '../lib/logger';
 
 interface AppError extends Error {
   statusCode?: number;
@@ -8,10 +9,11 @@ function errorHandler(err: AppError, _req: Request, res: Response, _next: NextFu
   const statusCode = err.statusCode || 500;
   const isDev = process.env.NODE_ENV !== 'production';
 
-  console.error('Error:', err.message);
-  if (isDev) {
-    console.error(err.stack);
-  }
+  logger.error('Request error', {
+    message: err.message,
+    statusCode,
+    stack: isDev ? err.stack : undefined,
+  });
 
   // Only expose internal error details in development
   const message =

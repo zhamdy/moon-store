@@ -1,6 +1,7 @@
 import db from '../db';
 import { Request } from 'express';
 import { AuthRequest } from './auth';
+import logger from '../lib/logger';
 
 interface AuditEntry {
   userId?: number;
@@ -28,8 +29,8 @@ export function logAudit(entry: AuditEntry): void {
         JSON.stringify(entry.details || {}),
         entry.ipAddress || null
       );
-  } catch {
-    // Audit logging should never crash the app
+  } catch (err) {
+    logger.error('Audit log failed', { error: (err as Error).message, action: entry.action });
   }
 }
 

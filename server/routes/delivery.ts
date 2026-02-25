@@ -60,17 +60,32 @@ router.get(
         )
       ).rows as Record<string, any>[];
 
-      // Fetch items for each order
-      for (const order of orders) {
-        const items = (
+      // Batch-fetch items for all orders in a single query
+      if (orders.length > 0) {
+        const orderIds = orders.map((o) => o.id);
+        const placeholders = orderIds.map(() => '?').join(',');
+        const allItems = (
           await db.query(
             `SELECT di.*, p.name as product_name, p.price as product_price
-         FROM delivery_items di JOIN products p ON di.product_id = p.id
-         WHERE di.order_id = ?`,
-            [order.id]
+             FROM delivery_items di JOIN products p ON di.product_id = p.id
+             WHERE di.order_id IN (${placeholders})`,
+            orderIds
           )
-        ).rows;
-        order.items = items;
+        ).rows as Record<string, any>[];
+
+        const itemsByOrder = new Map<number, Record<string, any>[]>();
+        for (const item of allItems) {
+          const list = itemsByOrder.get(item.order_id) || [];
+          list.push(item);
+          itemsByOrder.set(item.order_id, list);
+        }
+        for (const order of orders) {
+          order.items = itemsByOrder.get(order.id) || [];
+        }
+      } else {
+        for (const order of orders) {
+          order.items = [];
+        }
       }
 
       res.json({

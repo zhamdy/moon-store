@@ -32,6 +32,9 @@ function ThemedToaster(): React.ReactElement {
   );
 }
 
+// Hydrate settings (theme/locale) synchronously before render to prevent FOUC
+useSettingsStore.getState().hydrate();
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('Root element not found');

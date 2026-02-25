@@ -33,6 +33,7 @@ export default function Layout(): React.JSX.Element {
               onClick={toggleLocale}
               className="flex items-center justify-center h-9 w-9 rounded-md text-muted hover:text-foreground hover:bg-surface border border-border transition-colors"
               title={locale === 'ar' ? 'English' : 'عربي'}
+              aria-label={locale === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}
             >
               <Languages className="h-4 w-4" />
             </button>
@@ -40,6 +41,7 @@ export default function Layout(): React.JSX.Element {
               onClick={toggleTheme}
               className="flex items-center justify-center h-9 w-9 rounded-md text-muted hover:text-foreground hover:bg-surface border border-border transition-colors"
               title={theme === 'dark' ? t('theme.light') : t('theme.dark')}
+              aria-label={theme === 'dark' ? t('theme.light') : t('theme.dark')}
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
