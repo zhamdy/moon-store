@@ -16,21 +16,21 @@ export default function StorefrontPage() {
 
   const { data: config } = useQuery<Record<string, string>>({
     queryKey: ['storefront-config'],
-    queryFn: () => api.get('/api/storefront/config').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/storefront/config').then((r) => r.data.data),
   });
   const { data: banners } = useQuery<Record<string, unknown>[]>({
     queryKey: ['storefront-banners'],
-    queryFn: () => api.get('/api/storefront/banners').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/storefront/banners').then((r) => r.data.data),
   });
   const { data: products } = useQuery<Record<string, unknown>[]>({
     queryKey: ['storefront-products'],
-    queryFn: () => api.get('/api/storefront/products?limit=8').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/storefront/products?limit=8').then((r) => r.data.data),
     enabled: tab === 'preview',
   });
 
   const [configForm, setConfigForm] = useState<Record<string, string>>({});
   const saveConfig = useMutation({
-    mutationFn: (data: Record<string, string>) => api.put('/api/storefront/config', data),
+    mutationFn: (data: Record<string, string>) => api.put('/api/v1/storefront/config', data),
     onSuccess: () => {
       toast.success(t('settings.saved'));
       qc.invalidateQueries({ queryKey: ['storefront-config'] });

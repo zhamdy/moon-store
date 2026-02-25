@@ -105,12 +105,13 @@ export default function SalesHistory() {
 
   const { data: salesData, isLoading } = useQuery<SalesResponse>({
     queryKey: ['sales', params],
-    queryFn: () => api.get('/api/sales', { params: { ...params, limit: 200 } }).then((r) => r.data),
+    queryFn: () =>
+      api.get('/api/v1/sales', { params: { ...params, limit: 200 } }).then((r) => r.data),
   });
 
   const { data: saleDetail } = useQuery<SaleDetail>({
     queryKey: ['sale-detail', expandedRow],
-    queryFn: () => api.get(`/api/sales/${expandedRow}`).then((r) => r.data.data),
+    queryFn: () => api.get(`/api/v1/sales/${expandedRow}`).then((r) => r.data.data),
     enabled: !!expandedRow,
   });
 
@@ -141,7 +142,7 @@ export default function SalesHistory() {
 
   const handlePrintReceipt = async (saleId: number) => {
     try {
-      const response = await api.get(`/api/sales/${saleId}`);
+      const response = await api.get(`/api/v1/sales/${saleId}`);
       const sale = response.data.data;
       const items = (sale.items || []).map(
         (item: { product_name: string; quantity: number; unit_price: number }) => ({
@@ -175,7 +176,7 @@ export default function SalesHistory() {
 
   const handleRefund = async (sale: Sale) => {
     try {
-      const response = await api.get(`/api/sales/${sale.id}`);
+      const response = await api.get(`/api/v1/sales/${sale.id}`);
       const detail = response.data.data;
       setRefundSale({
         id: sale.id,

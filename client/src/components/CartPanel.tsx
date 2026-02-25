@@ -146,7 +146,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   // App settings (tax + loyalty)
   const { data: appSettings } = useQuery<AppSettings>({
     queryKey: ['settings'],
-    queryFn: () => api.get('/api/settings').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/settings').then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -154,7 +154,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const { data: customerLoyalty } = useQuery<CustomerLoyalty>({
     queryKey: ['customer-loyalty', selectedCustomer?.id],
     queryFn: () =>
-      api.get(`/api/customers/${selectedCustomer!.id}/loyalty`).then((r) => r.data.data),
+      api.get(`/api/v1/customers/${selectedCustomer!.id}/loyalty`).then((r) => r.data.data),
     enabled: !!selectedCustomer && appSettings?.loyalty_enabled === 'true',
     staleTime: 30 * 1000,
   });
@@ -209,14 +209,14 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     queryKey: ['customers', { search: debouncedCustomerSearch }],
     queryFn: () =>
       api
-        .get('/api/customers', { params: { search: debouncedCustomerSearch || undefined } })
+        .get('/api/v1/customers', { params: { search: debouncedCustomerSearch || undefined } })
         .then((r) => r.data.data),
     enabled: checkoutOpen && debouncedCustomerSearch.length > 0,
     staleTime: 30 * 1000,
   });
 
   const createCustomerMutation = useMutation({
-    mutationFn: (data: { name: string; phone: string }) => api.post('/api/customers', data),
+    mutationFn: (data: { name: string; phone: string }) => api.post('/api/v1/customers', data),
     onSuccess: (response) => {
       const customer = response.data.data;
       setSelectedCustomer(customer);
@@ -232,7 +232,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   });
 
   const checkoutMutation = useMutation({
-    mutationFn: (saleData: SaleData) => api.post('/api/sales', saleData),
+    mutationFn: (saleData: SaleData) => api.post('/api/v1/sales', saleData),
     onSuccess: (response) => {
       const sale = response.data.data;
       const receiptItems = (sale.items || []).map(
@@ -331,7 +331,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
     try {
-      const res = await api.post('/api/coupons/validate', {
+      const res = await api.post('/api/v1/coupons/validate', {
         code: couponInput.trim(),
         subtotal: getSubtotal(),
         ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),

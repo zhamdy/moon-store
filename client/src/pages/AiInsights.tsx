@@ -25,17 +25,17 @@ export default function AiInsightsPage() {
 
   const { data: predictions } = useQuery<Record<string, unknown>[]>({
     queryKey: ['predictions'],
-    queryFn: () => api.get('/api/ai/predictions').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/ai/predictions').then((r) => r.data.data),
     enabled: tab === 'predictions',
   });
   const { data: knowledgeBase } = useQuery<Record<string, unknown>[]>({
     queryKey: ['knowledge-base'],
-    queryFn: () => api.get('/api/ai/knowledge-base').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/ai/knowledge-base').then((r) => r.data.data),
     enabled: tab === 'knowledge',
   });
 
   const generatePredictions = useMutation({
-    mutationFn: () => api.post('/api/ai/predictions/generate'),
+    mutationFn: () => api.post('/api/v1/ai/predictions/generate'),
     onSuccess: (res) => {
       toast.success(`${res.data.data.length} ${t('aiInsights.predictionsGenerated')}`);
       qc.invalidateQueries({ queryKey: ['predictions'] });
@@ -43,7 +43,7 @@ export default function AiInsightsPage() {
   });
 
   const addKbEntry = useMutation({
-    mutationFn: (data: typeof kbForm) => api.post('/api/ai/knowledge-base', data),
+    mutationFn: (data: typeof kbForm) => api.post('/api/v1/ai/knowledge-base', data),
     onSuccess: () => {
       toast.success(t('aiInsights.kbAdded'));
       qc.invalidateQueries({ queryKey: ['knowledge-base'] });

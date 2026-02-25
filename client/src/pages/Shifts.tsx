@@ -43,13 +43,13 @@ export default function ShiftsPage() {
   // Current shift
   const { data: currentShift } = useQuery<Shift | null>({
     queryKey: ['shifts', 'current'],
-    queryFn: () => api.get('/api/shifts/current').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/shifts/current').then((r) => r.data.data),
   });
 
   // Active shifts (admin)
   const { data: activeShifts } = useQuery<Shift[]>({
     queryKey: ['shifts', 'active'],
-    queryFn: () => api.get('/api/shifts/active').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/shifts/active').then((r) => r.data.data),
     enabled: isAdmin && tab === 'active',
   });
 
@@ -58,7 +58,7 @@ export default function ShiftsPage() {
     queryKey: ['shifts', 'history'],
     queryFn: () =>
       api
-        .get('/api/shifts/history?limit=50')
+        .get('/api/v1/shifts/history?limit=50')
         .then((r) => ({ data: r.data.data, meta: r.data.meta })),
     enabled: isAdmin && tab === 'history',
   });
@@ -66,12 +66,12 @@ export default function ShiftsPage() {
   // Timesheet (admin)
   const { data: timesheet } = useQuery<TimesheetEntry[]>({
     queryKey: ['shifts', 'timesheet'],
-    queryFn: () => api.get('/api/shifts/timesheet').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/shifts/timesheet').then((r) => r.data.data),
     enabled: isAdmin && tab === 'timesheet',
   });
 
   const clockIn = useMutation({
-    mutationFn: () => api.post('/api/shifts/clock-in'),
+    mutationFn: () => api.post('/api/v1/shifts/clock-in'),
     onSuccess: () => {
       toast.success(t('shifts.clockedIn'));
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
@@ -81,7 +81,7 @@ export default function ShiftsPage() {
   });
 
   const clockOut = useMutation({
-    mutationFn: () => api.post('/api/shifts/clock-out'),
+    mutationFn: () => api.post('/api/v1/shifts/clock-out'),
     onSuccess: () => {
       toast.success(t('shifts.clockedOut'));
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
@@ -91,7 +91,7 @@ export default function ShiftsPage() {
   });
 
   const startBreak = useMutation({
-    mutationFn: () => api.post('/api/shifts/start-break'),
+    mutationFn: () => api.post('/api/v1/shifts/start-break'),
     onSuccess: () => {
       toast.success(t('shifts.onBreak'));
       queryClient.invalidateQueries({ queryKey: ['shifts'] });
@@ -101,7 +101,7 @@ export default function ShiftsPage() {
   });
 
   const endBreak = useMutation({
-    mutationFn: () => api.post('/api/shifts/end-break'),
+    mutationFn: () => api.post('/api/v1/shifts/end-break'),
     onSuccess: () => {
       toast.success(t('shifts.breakEnded'));
       queryClient.invalidateQueries({ queryKey: ['shifts'] });

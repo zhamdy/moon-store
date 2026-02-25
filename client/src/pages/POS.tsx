@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect, type ChangeEvent } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Camera, Package, Keyboard, Layers, Star, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Input } from '../components/ui/input';
@@ -8,24 +7,19 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../components/ui/dialog';
 import CartPanel from '../components/CartPanel';
 import BarcodeScanner from '../components/BarcodeScanner';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
+import VariantPickerDialog from '../components/pos/VariantPickerDialog';
 import { useCartStore } from '../store/cartStore';
 import { useHeldCartsStore } from '../store/heldCartsStore';
 import { formatCurrency } from '../lib/utils';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { usePosShortcuts } from '../hooks/usePosShortcuts';
+import { usePosData } from '../hooks/usePosData';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
-import type { Category, Product, ProductVariant } from '@/types';
+import type { Product, ProductVariant } from '@/types';
 
 export default function POS() {
   const [searchInput, setSearchInput] = useState('');
@@ -33,8 +27,6 @@ export default function POS() {
   const [selectedCollection, setSelectedCollection] = useState<number | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [variantDialogOpen, setVariantDialogOpen] = useState(false);
-  const [variantProduct, setVariantProduct] = useState<Product | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const checkoutTriggerRef = useRef<() => void>(null);
   const { addItem, items, updateQuantity, removeItem, clearCart, discount, discountType } =
@@ -43,8 +35,22 @@ export default function POS() {
   const { t } = useTranslation();
   const [animateGrid] = useAutoAnimate();
 
-  const queryClient = useQueryClient();
   const debouncedSearch = useDebouncedValue(searchInput, 300);
+
+  // Extracted data hook
+  const {
+    favorites,
+    toggleFavorite,
+    categories,
+    collections,
+    products,
+    isLoadingProducts,
+    variants,
+    variantProduct,
+    setVariantProduct,
+    variantDialogOpen,
+    setVariantDialogOpen,
+  } = usePosData({ debouncedSearch, selectedCategory, selectedCollection });
 
   // Cart recovery banner
   const isRecovered = items.length > 0 && useCartStore.getState().isRecoveredCart();
@@ -52,26 +58,6 @@ export default function POS() {
   useEffect(() => {
     if (isRecovered) setShowRecoveryBanner(true);
   }, []);
-
-  // Favorites
-  const { data: favorites } = useQuery<number[]>({
-    queryKey: ['favorites'],
-    queryFn: () => api.get('/api/users/me/favorites').then((r) => r.data.data),
-    staleTime: 60 * 1000,
-  });
-
-  const favMutation = useMutation({
-    mutationFn: (favs: number[]) => api.put('/api/users/me/favorites', { favorites: favs }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['favorites'] }),
-  });
-
-  const toggleFavorite = (productId: number) => {
-    const current = favorites || [];
-    const next = current.includes(productId)
-      ? current.filter((id) => id !== productId)
-      : [...current, productId];
-    favMutation.mutate(next);
-  };
 
   // BroadcastChannel for customer display
   useEffect(() => {
@@ -145,56 +131,10 @@ export default function POS() {
 
   usePosShortcuts(shortcutActions);
 
-  // Fetch categories
-  const { data: categories } = useQuery<Category[]>({
-    queryKey: ['categories'],
-    queryFn: () => api.get('/api/products/categories').then((r) => r.data.data),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Fetch collections
-  const { data: collections } = useQuery<{ id: number; name: string; product_count: number }[]>({
-    queryKey: ['collections-pos'],
-    queryFn: () => api.get('/api/collections').then((r) => r.data.data),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Fetch products with debounced search and category/collection filter
-  const { data: products, isLoading } = useQuery<Product[]>({
-    queryKey: [
-      'products',
-      {
-        search: debouncedSearch,
-        category_id: selectedCategory,
-        collection_id: selectedCollection,
-        limit: 100,
-      },
-    ],
-    queryFn: () =>
-      api
-        .get('/api/products', {
-          params: {
-            search: debouncedSearch || undefined,
-            category_id: selectedCategory || undefined,
-            collection_id: selectedCollection || undefined,
-            limit: 100,
-          },
-        })
-        .then((r) => r.data.data),
-    staleTime: 2 * 60 * 1000,
-  });
-
-  // Fetch variants for selected product
-  const { data: variants } = useQuery<ProductVariant[]>({
-    queryKey: ['product-variants', variantProduct?.id],
-    queryFn: () => api.get(`/api/products/${variantProduct!.id}/variants`).then((r) => r.data.data),
-    enabled: !!variantProduct && variantDialogOpen,
-  });
-
   const handleBarcodeDetected = useCallback(
     async (barcode: string) => {
       try {
-        const response = await api.get(`/api/products/barcode/${barcode}`);
+        const response = await api.get(`/api/v1/products/barcode/${barcode}`);
         const product = response.data.data as Product;
         if (product) {
           addItem(product);
@@ -210,7 +150,6 @@ export default function POS() {
 
   const handleProductClick = (product: Product) => {
     if (product.has_variants && product.variant_count > 0) {
-      // Open variant selector
       setVariantProduct(product);
       setVariantDialogOpen(true);
       return;
@@ -393,7 +332,7 @@ export default function POS() {
           )}
 
           {/* Product grid */}
-          {isLoading ? (
+          {isLoadingProducts ? (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
               {[...Array(8)].map((_, i) => (
                 <Skeleton key={i} className="h-36 rounded-md" />
@@ -481,68 +420,16 @@ export default function POS() {
       </div>
 
       {/* Variant Selector Dialog */}
-      <Dialog
+      <VariantPickerDialog
         open={variantDialogOpen}
         onOpenChange={(open) => {
           setVariantDialogOpen(open);
           if (!open) setVariantProduct(null);
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {variantProduct?.name} — {t('variants.selectVariant')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('variants.variantCount', { count: String(variantProduct?.variant_count || 0) })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {variants?.map((variant) => (
-              <button
-                key={variant.id}
-                onClick={() => handleVariantSelect(variant)}
-                disabled={variant.stock === 0}
-                className={`w-full flex items-center justify-between p-3 rounded-md border transition-colors text-start ${
-                  variant.stock === 0
-                    ? 'opacity-50 cursor-not-allowed border-border'
-                    : 'border-border hover:border-gold/50 cursor-pointer'
-                }`}
-              >
-                <div>
-                  <div className="flex flex-wrap gap-1 mb-1">
-                    {Object.entries(variant.attributes).map(([key, value]) => (
-                      <Badge key={key} variant="gold" className="text-[10px]">
-                        {key}: {value}
-                      </Badge>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted font-data">
-                    {t('pos.sku')}: {variant.sku}
-                  </p>
-                </div>
-                <div className="text-end">
-                  <p className="text-sm font-semibold text-gold font-data">
-                    {formatCurrency(Number(variant.price || variantProduct?.price || 0))}
-                  </p>
-                  <Badge
-                    variant={
-                      variant.stock === 0
-                        ? 'destructive'
-                        : variant.stock <= 5
-                          ? 'warning'
-                          : 'success'
-                    }
-                    className="text-[10px]"
-                  >
-                    {variant.stock} {t('pos.inStock')}
-                  </Badge>
-                </div>
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+        product={variantProduct}
+        variants={variants}
+        onSelectVariant={handleVariantSelect}
+      />
 
       <KeyboardShortcutsHelp open={showShortcuts} onOpenChange={setShowShortcuts} />
     </div>

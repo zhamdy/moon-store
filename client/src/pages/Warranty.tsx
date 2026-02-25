@@ -46,12 +46,12 @@ export default function WarrantyPage() {
 
   const { data: claims } = useQuery<Claim[]>({
     queryKey: ['warranty'],
-    queryFn: () => api.get('/api/warranty').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/warranty').then((r) => r.data.data),
   });
 
   const createMutation = useMutation({
     mutationFn: (data: { sale_id: number; product_id: number; issue: string }) =>
-      api.post('/api/warranty', data),
+      api.post('/api/v1/warranty', data),
     onSuccess: () => {
       toast.success(t('warranty.create'));
       queryClient.invalidateQueries({ queryKey: ['warranty'] });
@@ -63,7 +63,7 @@ export default function WarrantyPage() {
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
-      api.put(`/api/warranty/${id}/status`, { status }),
+      api.put(`/api/v1/warranty/${id}/status`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['warranty'] });
     },

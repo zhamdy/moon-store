@@ -28,7 +28,7 @@ export default function BarcodeTools() {
 
   const { data: products } = useQuery<Product[]>({
     queryKey: ['products', { limit: 200 }],
-    queryFn: () => api.get('/api/products', { params: { limit: 200 } }).then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/products', { params: { limit: 200 } }).then((r) => r.data.data),
   });
 
   const selectedProduct = products?.find((p) => p.id === selectedProductId);
@@ -41,7 +41,7 @@ export default function BarcodeTools() {
   const handleBarcodeDetected = useCallback(
     async (barcode: string) => {
       try {
-        const response = await api.get(`/api/products/barcode/${barcode}`);
+        const response = await api.get(`/api/v1/products/barcode/${barcode}`);
         setScannedProduct(response.data.data as Product);
         toast.success(t('barcode.productFound'));
       } catch {

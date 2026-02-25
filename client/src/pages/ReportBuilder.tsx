@@ -60,11 +60,11 @@ export default function ReportBuilderPage() {
 
   const { data: reports } = useQuery<SavedReport[]>({
     queryKey: ['reports'],
-    queryFn: () => api.get('/api/reports').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/reports').then((r) => r.data.data),
   });
 
   const createReport = useMutation({
-    mutationFn: (data: typeof form) => api.post('/api/reports', data),
+    mutationFn: (data: typeof form) => api.post('/api/v1/reports', data),
     onSuccess: () => {
       toast.success(t('reportBuilder.created'));
       qc.invalidateQueries({ queryKey: ['reports'] });
@@ -73,7 +73,7 @@ export default function ReportBuilderPage() {
   });
 
   const deleteReport = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/reports/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/v1/reports/${id}`),
     onSuccess: () => {
       toast.success(t('reportBuilder.deleted'));
       qc.invalidateQueries({ queryKey: ['reports'] });
@@ -81,7 +81,7 @@ export default function ReportBuilderPage() {
   });
 
   const runReport = useMutation({
-    mutationFn: (id: number) => api.post(`/api/reports/${id}/run`).then((r) => r.data.data),
+    mutationFn: (id: number) => api.post(`/api/v1/reports/${id}/run`).then((r) => r.data.data),
     onSuccess: (data) => {
       setResultData(data);
       toast.success(t('reportBuilder.runSuccess'));
@@ -91,7 +91,7 @@ export default function ReportBuilderPage() {
 
   const runQuick = useMutation({
     mutationFn: (data: typeof quickForm) =>
-      api.post('/api/reports/quick', data).then((r) => r.data.data),
+      api.post('/api/v1/reports/quick', data).then((r) => r.data.data),
     onSuccess: (data) => {
       setResultData(data);
       toast.success(t('reportBuilder.runSuccess'));

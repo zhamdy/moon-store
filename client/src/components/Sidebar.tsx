@@ -99,7 +99,7 @@ export default function Sidebar(): React.JSX.Element {
 
   const handleLogout = async (): Promise<void> => {
     try {
-      await api.post('/api/auth/logout');
+      await api.post('/api/v1/auth/logout');
     } catch {
       // Continue logout even if API fails
     }

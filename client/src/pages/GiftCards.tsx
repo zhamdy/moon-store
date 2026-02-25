@@ -77,20 +77,21 @@ export default function GiftCards() {
   // Queries
   const { data: giftCards, isLoading } = useQuery<GiftCard[]>({
     queryKey: ['gift-cards'],
-    queryFn: () => api.get('/api/gift-cards', { params: { limit: 200 } }).then((r) => r.data.data),
+    queryFn: () =>
+      api.get('/api/v1/gift-cards', { params: { limit: 200 } }).then((r) => r.data.data),
   });
 
   const { data: transactions, isLoading: transactionsLoading } = useQuery<GiftCardTransaction[]>({
     queryKey: ['gift-card-transactions', transactionsCard?.id],
     queryFn: () =>
-      api.get(`/api/gift-cards/${transactionsCard!.id}/transactions`).then((r) => r.data.data),
+      api.get(`/api/v1/gift-cards/${transactionsCard!.id}/transactions`).then((r) => r.data.data),
     enabled: !!transactionsCard,
   });
 
   // Mutations
   const createMutation = useMutation({
     mutationFn: (data: { initial_value: number; customer_id?: number; expires_at?: string }) =>
-      api.post('/api/gift-cards', data),
+      api.post('/api/v1/gift-cards', data),
     onSuccess: () => {
       toast.success(t('giftCards.created'));
       queryClient.invalidateQueries({ queryKey: ['gift-cards'] });
@@ -102,7 +103,7 @@ export default function GiftCards() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (id: number) => api.put(`/api/gift-cards/${id}`, { status: 'cancelled' }),
+    mutationFn: (id: number) => api.put(`/api/v1/gift-cards/${id}`, { status: 'cancelled' }),
     onSuccess: () => {
       toast.success(t('giftCards.cancelSuccess'));
       queryClient.invalidateQueries({ queryKey: ['gift-cards'] });

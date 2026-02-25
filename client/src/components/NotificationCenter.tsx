@@ -61,7 +61,7 @@ export default function NotificationCenter(): React.JSX.Element {
   const { data: unreadData } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: async () => {
-      const res = await api.get('/api/notifications/unread-count');
+      const res = await api.get('/api/v1/notifications/unread-count');
       return res.data.data as { count: number };
     },
     refetchInterval: 30000,
@@ -70,7 +70,7 @@ export default function NotificationCenter(): React.JSX.Element {
   const { data: notifications } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const res = await api.get('/api/notifications?limit=20');
+      const res = await api.get('/api/v1/notifications?limit=20');
       return res.data.data as Notification[];
     },
     enabled: open,
@@ -78,7 +78,7 @@ export default function NotificationCenter(): React.JSX.Element {
   });
 
   const markReadMutation = useMutation({
-    mutationFn: (id: number) => api.put(`/api/notifications/${id}/read`),
+    mutationFn: (id: number) => api.put(`/api/v1/notifications/${id}/read`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
@@ -86,7 +86,7 @@ export default function NotificationCenter(): React.JSX.Element {
   });
 
   const markAllReadMutation = useMutation({
-    mutationFn: () => api.put('/api/notifications/read-all'),
+    mutationFn: () => api.put('/api/v1/notifications/read-all'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });

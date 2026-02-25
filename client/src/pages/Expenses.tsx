@@ -63,19 +63,19 @@ export default function ExpensesPage() {
   }>({
     queryKey: ['expenses'],
     queryFn: () =>
-      api.get('/api/expenses?limit=100').then((r) => ({ data: r.data.data, meta: r.data.meta })),
+      api.get('/api/v1/expenses?limit=100').then((r) => ({ data: r.data.data, meta: r.data.meta })),
   });
 
   const { data: pnl } = useQuery<PnLData>({
     queryKey: ['expenses', 'pnl'],
-    queryFn: () => api.get('/api/expenses/pnl').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/expenses/pnl').then((r) => r.data.data),
     enabled: tab === 'pnl',
   });
 
   const saveMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
-      if (editingId) return api.put(`/api/expenses/${editingId}`, data);
-      return api.post('/api/expenses', data);
+      if (editingId) return api.put(`/api/v1/expenses/${editingId}`, data);
+      return api.post('/api/v1/expenses', data);
     },
     onSuccess: () => {
       toast.success(editingId ? t('expenses.updated') : t('expenses.created'));
@@ -88,7 +88,7 @@ export default function ExpensesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/expenses/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/v1/expenses/${id}`),
     onSuccess: () => {
       toast.success(t('expenses.deleted'));
       queryClient.invalidateQueries({ queryKey: ['expenses'] });

@@ -60,7 +60,7 @@ export default function SegmentsPage() {
 
   const { data, isLoading } = useQuery<{ customers: CustomerRFM[]; summary: SegmentSummary[] }>({
     queryKey: ['segments'],
-    queryFn: () => api.get('/api/segments').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/segments').then((r) => r.data.data),
   });
 
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null);

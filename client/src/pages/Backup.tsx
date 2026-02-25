@@ -12,7 +12,7 @@ export default function BackupPage() {
   const [lastBackup, setLastBackup] = useState<string | null>(null);
 
   const backupMutation = useMutation({
-    mutationFn: () => api.get('/api/exports/backup', { responseType: 'blob' }),
+    mutationFn: () => api.get('/api/v1/exports/backup', { responseType: 'blob' }),
     onSuccess: (res) => {
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');

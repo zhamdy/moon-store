@@ -40,7 +40,7 @@ export default function Settings() {
 
   const { data: settings, isLoading } = useQuery<AllSettings>({
     queryKey: ['settings'],
-    queryFn: () => api.get('/api/settings').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/settings').then((r) => r.data.data),
   });
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export default function Settings() {
   }, [settings]);
 
   const saveMutation = useMutation({
-    mutationFn: (data: Record<string, string>) => api.put('/api/settings', data),
+    mutationFn: (data: Record<string, string>) => api.put('/api/v1/settings', data),
     onSuccess: () => {
       toast.success(t('settings.saved'));
       queryClient.invalidateQueries({ queryKey: ['settings'] });

@@ -50,11 +50,11 @@ export default function ExportsPage() {
 
   const { data: history } = useQuery<ExportRecord[]>({
     queryKey: ['exports'],
-    queryFn: () => api.get('/api/exports').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/exports').then((r) => r.data.data),
   });
 
   const generateMutation = useMutation({
-    mutationFn: () => api.post('/api/exports/generate', { module: selectedModule, format }),
+    mutationFn: () => api.post('/api/v1/exports/generate', { module: selectedModule, format }),
     onSuccess: (res) => {
       const { columns, rows, module: mod } = res.data.data;
       const filename = `moon-${mod}-${new Date().toISOString().slice(0, 10)}.csv`;

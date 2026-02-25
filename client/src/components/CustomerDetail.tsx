@@ -80,7 +80,7 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
 
   const { data: appSettings } = useQuery<AppSettings>({
     queryKey: ['settings'],
-    queryFn: () => api.get('/api/settings').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/settings').then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -88,24 +88,26 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
 
   const { data: stats } = useQuery<CustomerStats>({
     queryKey: ['customer-stats', customerId],
-    queryFn: () => api.get(`/api/customers/${customerId}/stats`).then((r) => r.data.data),
+    queryFn: () => api.get(`/api/v1/customers/${customerId}/stats`).then((r) => r.data.data),
   });
 
   const { data: salesData, isLoading } = useQuery<{ data: CustomerSale[] }>({
     queryKey: ['customer-sales', customerId],
     queryFn: () =>
-      api.get(`/api/customers/${customerId}/sales`, { params: { limit: 100 } }).then((r) => r.data),
+      api
+        .get(`/api/v1/customers/${customerId}/sales`, { params: { limit: 100 } })
+        .then((r) => r.data),
   });
 
   const { data: loyaltyData } = useQuery<LoyaltyData>({
     queryKey: ['customer-loyalty', customerId],
-    queryFn: () => api.get(`/api/customers/${customerId}/loyalty`).then((r) => r.data.data),
+    queryFn: () => api.get(`/api/v1/customers/${customerId}/loyalty`).then((r) => r.data.data),
     enabled: loyaltyEnabled,
   });
 
   const adjustMutation = useMutation({
     mutationFn: (data: { points: number; note: string }) =>
-      api.post(`/api/customers/${customerId}/loyalty/adjust`, data),
+      api.post(`/api/v1/customers/${customerId}/loyalty/adjust`, data),
     onSuccess: () => {
       toast.success(t('loyalty.adjustSuccess'));
       queryClient.invalidateQueries({ queryKey: ['customer-loyalty', customerId] });

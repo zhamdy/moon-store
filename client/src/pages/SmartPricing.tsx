@@ -53,16 +53,16 @@ export default function SmartPricingPage() {
 
   const { data: suggestions } = useQuery<PriceSuggestion[]>({
     queryKey: ['price-suggestions'],
-    queryFn: () => api.get('/api/ai/pricing/suggestions').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/ai/pricing/suggestions').then((r) => r.data.data),
   });
   const { data: rules } = useQuery<PricingRule[]>({
     queryKey: ['pricing-rules'],
-    queryFn: () => api.get('/api/ai/pricing/rules').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/ai/pricing/rules').then((r) => r.data.data),
     enabled: tab === 'rules',
   });
 
   const generate = useMutation({
-    mutationFn: () => api.post('/api/ai/pricing/generate'),
+    mutationFn: () => api.post('/api/v1/ai/pricing/generate'),
     onSuccess: (res) => {
       toast.success(`${res.data.data.length} ${t('smartPricing.suggestionsGenerated')}`);
       qc.invalidateQueries({ queryKey: ['price-suggestions'] });
@@ -71,7 +71,7 @@ export default function SmartPricingPage() {
 
   const handleSuggestion = useMutation({
     mutationFn: ({ id, action }: { id: number; action: string }) =>
-      api.put(`/api/ai/pricing/suggestions/${id}`, { action }),
+      api.put(`/api/v1/ai/pricing/suggestions/${id}`, { action }),
     onSuccess: () => {
       toast.success(t('smartPricing.updated'));
       qc.invalidateQueries({ queryKey: ['price-suggestions'] });
@@ -79,7 +79,7 @@ export default function SmartPricingPage() {
   });
 
   const createRule = useMutation({
-    mutationFn: (data: typeof ruleForm) => api.post('/api/ai/pricing/rules', data),
+    mutationFn: (data: typeof ruleForm) => api.post('/api/v1/ai/pricing/rules', data),
     onSuccess: () => {
       toast.success(t('smartPricing.ruleCreated'));
       qc.invalidateQueries({ queryKey: ['pricing-rules'] });

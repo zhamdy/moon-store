@@ -54,7 +54,7 @@ export default function OnlineOrdersPage() {
     queryKey: ['online-orders', statusFilter],
     queryFn: () =>
       api
-        .get('/api/online-orders', { params: { status: statusFilter || undefined } })
+        .get('/api/v1/online-orders', { params: { status: statusFilter || undefined } })
         .then((r) => r.data),
   });
 
@@ -67,7 +67,7 @@ export default function OnlineOrdersPage() {
       id: number;
       status: string;
       tracking_number?: string;
-    }) => api.put(`/api/online-orders/${id}/status`, { status, tracking_number }),
+    }) => api.put(`/api/v1/online-orders/${id}/status`, { status, tracking_number }),
     onSuccess: () => {
       toast.success(t('onlineOrders.statusUpdated'));
       qc.invalidateQueries({ queryKey: ['online-orders'] });
@@ -76,7 +76,7 @@ export default function OnlineOrdersPage() {
   });
 
   const viewOrder = async (id: number) => {
-    const res = await api.get(`/api/online-orders/${id}`);
+    const res = await api.get(`/api/v1/online-orders/${id}`);
     setSelectedOrder(res.data.data);
     setDetailOpen(true);
   };

@@ -66,7 +66,7 @@ export default function CustomersPage() {
 
   const { data: customers, isLoading } = useQuery<CustomerRecord[]>({
     queryKey: ['customers'],
-    queryFn: () => api.get('/api/customers').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/customers').then((r) => r.data.data),
   });
 
   const {
@@ -79,7 +79,7 @@ export default function CustomersPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: CustomerFormData) => api.post('/api/customers', data),
+    mutationFn: (data: CustomerFormData) => api.post('/api/v1/customers', data),
     onSuccess: () => {
       toast.success(t('customers.customerCreated'));
       queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -92,7 +92,7 @@ export default function CustomersPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: CustomerFormData }) =>
-      api.put(`/api/customers/${id}`, data),
+      api.put(`/api/v1/customers/${id}`, data),
     onSuccess: () => {
       toast.success(t('customers.customerUpdated'));
       queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -105,7 +105,7 @@ export default function CustomersPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/customers/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/v1/customers/${id}`),
     onSuccess: () => {
       toast.success(t('customers.customerDeleted'));
       queryClient.invalidateQueries({ queryKey: ['customers'] });

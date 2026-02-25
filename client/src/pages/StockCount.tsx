@@ -53,24 +53,24 @@ export default function StockCountPage() {
 
   const { data: counts, isLoading } = useQuery<StockCount[]>({
     queryKey: ['stock-counts'],
-    queryFn: () => api.get('/api/stock-counts').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/stock-counts').then((r) => r.data.data),
   });
 
   const { data: detail } = useQuery<CountDetail>({
     queryKey: ['stock-count', selectedCount],
-    queryFn: () => api.get(`/api/stock-counts/${selectedCount}`).then((r) => r.data.data),
+    queryFn: () => api.get(`/api/v1/stock-counts/${selectedCount}`).then((r) => r.data.data),
     enabled: !!selectedCount,
   });
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: ['categories'],
-    queryFn: () => api.get('/api/categories').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/categories').then((r) => r.data.data),
     staleTime: 5 * 60 * 1000,
   });
 
   const createMutation = useMutation({
     mutationFn: () =>
-      api.post('/api/stock-counts', { category_id: categoryId, notes: notes || undefined }),
+      api.post('/api/v1/stock-counts', { category_id: categoryId, notes: notes || undefined }),
     onSuccess: (res) => {
       toast.success(t('stockCount.created'));
       queryClient.invalidateQueries({ queryKey: ['stock-counts'] });
@@ -85,18 +85,18 @@ export default function StockCountPage() {
 
   const updateItemMutation = useMutation({
     mutationFn: ({ itemId, actual_qty }: { itemId: number; actual_qty: number }) =>
-      api.put(`/api/stock-counts/${selectedCount}/items/${itemId}`, { actual_qty }),
+      api.put(`/api/v1/stock-counts/${selectedCount}/items/${itemId}`, { actual_qty }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-count', selectedCount] }),
   });
 
   const toggleApproveMutation = useMutation({
     mutationFn: (itemId: number) =>
-      api.put(`/api/stock-counts/${selectedCount}/items/${itemId}/approve`),
+      api.put(`/api/v1/stock-counts/${selectedCount}/items/${itemId}/approve`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-count', selectedCount] }),
   });
 
   const approveCountMutation = useMutation({
-    mutationFn: () => api.post(`/api/stock-counts/${selectedCount}/approve`),
+    mutationFn: () => api.post(`/api/v1/stock-counts/${selectedCount}/approve`),
     onSuccess: () => {
       toast.success(t('stockCount.approved'));
       queryClient.invalidateQueries({ queryKey: ['stock-counts'] });
@@ -108,7 +108,7 @@ export default function StockCountPage() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: () => api.delete(`/api/stock-counts/${selectedCount}`),
+    mutationFn: () => api.delete(`/api/v1/stock-counts/${selectedCount}`),
     onSuccess: () => {
       toast.success(t('stockCount.cancelled'));
       queryClient.invalidateQueries({ queryKey: ['stock-counts'] });

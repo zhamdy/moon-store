@@ -61,12 +61,12 @@ export default function CollectionsPage() {
 
   const { data: collections } = useQuery<Collection[]>({
     queryKey: ['collections'],
-    queryFn: () => api.get('/api/collections').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/collections').then((r) => r.data.data),
   });
 
   const { data: detail } = useQuery<CollectionDetail>({
     queryKey: ['collection-detail', selectedCol],
-    queryFn: () => api.get(`/api/collections/${selectedCol}`).then((r) => r.data.data),
+    queryFn: () => api.get(`/api/v1/collections/${selectedCol}`).then((r) => r.data.data),
     enabled: !!selectedCol,
   });
 
@@ -74,15 +74,15 @@ export default function CollectionsPage() {
     queryKey: ['products-for-collection', productSearch],
     queryFn: () =>
       api
-        .get('/api/products', { params: { search: productSearch, limit: 20 } })
+        .get('/api/v1/products', { params: { search: productSearch, limit: 20 } })
         .then((r) => r.data.data),
     enabled: addProductOpen,
   });
 
   const saveMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => {
-      if (editingId) return api.put(`/api/collections/${editingId}`, data);
-      return api.post('/api/collections', data);
+      if (editingId) return api.put(`/api/v1/collections/${editingId}`, data);
+      return api.post('/api/v1/collections', data);
     },
     onSuccess: () => {
       toast.success(t('collections.created'));
@@ -94,7 +94,7 @@ export default function CollectionsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/collections/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/v1/collections/${id}`),
     onSuccess: () => {
       toast.success(t('common.delete'));
       queryClient.invalidateQueries({ queryKey: ['collections'] });
@@ -106,7 +106,7 @@ export default function CollectionsPage() {
     mutationFn: (productId: number) => {
       if (!detail) return Promise.reject();
       const currentIds = detail.products.map((p) => p.id);
-      return api.put(`/api/collections/${selectedCol}`, {
+      return api.put(`/api/v1/collections/${selectedCol}`, {
         name: detail.name,
         season: detail.season || undefined,
         year: detail.year || undefined,
@@ -126,7 +126,7 @@ export default function CollectionsPage() {
     mutationFn: (productId: number) => {
       if (!detail) return Promise.reject();
       const currentIds = detail.products.map((p) => p.id).filter((id) => id !== productId);
-      return api.put(`/api/collections/${selectedCol}`, {
+      return api.put(`/api/v1/collections/${selectedCol}`, {
         name: detail.name,
         season: detail.season || undefined,
         year: detail.year || undefined,

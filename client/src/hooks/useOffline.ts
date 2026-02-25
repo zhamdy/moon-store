@@ -41,7 +41,7 @@ export function useOffline(): UseOfflineReturn {
     for (const item of queue) {
       try {
         if (item.type === 'sale') {
-          await api.post('/api/sales', item.payload);
+          await api.post('/api/v1/sales', item.payload);
           removeFromQueue(item.id);
           synced++;
         }

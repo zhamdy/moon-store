@@ -69,7 +69,7 @@ export default function RefundDialog({
       items: { product_id: number; quantity: number; unit_price: number }[];
       reason: string;
       restock: boolean;
-    }) => api.post(`/api/sales/${saleId}/refund`, data).then((r) => r.data),
+    }) => api.post(`/api/v1/sales/${saleId}/refund`, data).then((r) => r.data),
     onSuccess: () => {
       toast.success(t('sales.refundSuccess'));
       queryClient.invalidateQueries({ queryKey: ['sales'] });

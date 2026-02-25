@@ -69,13 +69,15 @@ export default function Promotions() {
   const { data: coupons, isLoading } = useQuery<Coupon[]>({
     queryKey: ['coupons', search],
     queryFn: () =>
-      api.get('/api/coupons', { params: { search: search || undefined } }).then((r) => r.data.data),
+      api
+        .get('/api/v1/coupons', { params: { search: search || undefined } })
+        .then((r) => r.data.data),
   });
 
   const saveMutation = useMutation({
     mutationFn: (data: typeof form) => {
-      if (editingId) return api.put(`/api/coupons/${editingId}`, data);
-      return api.post('/api/coupons', data);
+      if (editingId) return api.put(`/api/v1/coupons/${editingId}`, data);
+      return api.post('/api/v1/coupons', data);
     },
     onSuccess: () => {
       toast.success(editingId ? t('promotions.updated') : t('promotions.created'));
@@ -88,7 +90,7 @@ export default function Promotions() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/coupons/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/v1/coupons/${id}`),
     onSuccess: () => {
       toast.success(t('promotions.deactivated'));
       queryClient.invalidateQueries({ queryKey: ['coupons'] });

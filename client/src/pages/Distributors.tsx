@@ -66,7 +66,7 @@ export default function DistributorsPage() {
 
   const { data: distributors, isLoading } = useQuery<DistributorRecord[]>({
     queryKey: ['distributors'],
-    queryFn: () => api.get('/api/distributors').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/distributors').then((r) => r.data.data),
   });
 
   const {
@@ -79,7 +79,7 @@ export default function DistributorsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: DistributorFormData) => api.post('/api/distributors', data),
+    mutationFn: (data: DistributorFormData) => api.post('/api/v1/distributors', data),
     onSuccess: () => {
       toast.success(t('distributors.distributorCreated'));
       queryClient.invalidateQueries({ queryKey: ['distributors'] });
@@ -92,7 +92,7 @@ export default function DistributorsPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: DistributorFormData }) =>
-      api.put(`/api/distributors/${id}`, data),
+      api.put(`/api/v1/distributors/${id}`, data),
     onSuccess: () => {
       toast.success(t('distributors.distributorUpdated'));
       queryClient.invalidateQueries({ queryKey: ['distributors'] });
@@ -105,7 +105,7 @@ export default function DistributorsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/distributors/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/v1/distributors/${id}`),
     onSuccess: () => {
       toast.success(t('distributors.distributorDeleted'));
       queryClient.invalidateQueries({ queryKey: ['distributors'] });

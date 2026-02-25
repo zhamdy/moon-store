@@ -98,20 +98,20 @@ export default function BranchesPage() {
 
   const { data: branches } = useQuery<Branch[]>({
     queryKey: ['branches'],
-    queryFn: () => api.get('/api/branches').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/branches').then((r) => r.data.data),
   });
   const { data: consolidated } = useQuery<ConsolidatedData>({
     queryKey: ['branches-dashboard'],
-    queryFn: () => api.get('/api/branches/dashboard/consolidated').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/branches/dashboard/consolidated').then((r) => r.data.data),
     enabled: tab === 'dashboard',
   });
   const { data: users } = useQuery<{ id: number; name: string }[]>({
     queryKey: ['users-list'],
-    queryFn: () => api.get('/api/users').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/users').then((r) => r.data.data),
   });
   const { data: transfers } = useQuery<Transfer[]>({
     queryKey: ['branch-transfers'],
-    queryFn: () => api.get('/api/branches/transfers').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/branches/transfers').then((r) => r.data.data),
     enabled: tab === 'transfers',
   });
 
@@ -123,8 +123,8 @@ export default function BranchesPage() {
         tax_rate: Number(data.tax_rate),
       };
       return editingId
-        ? api.put(`/api/branches/${editingId}`, payload)
-        : api.post('/api/branches', payload);
+        ? api.put(`/api/v1/branches/${editingId}`, payload)
+        : api.post('/api/v1/branches', payload);
     },
     onSuccess: () => {
       toast.success(t('branches.saved'));
@@ -137,7 +137,7 @@ export default function BranchesPage() {
   });
 
   const deleteBranch = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/branches/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/v1/branches/${id}`),
     onSuccess: () => {
       toast.success(t('branches.deleted'));
       qc.invalidateQueries({ queryKey: ['branches'] });
@@ -148,7 +148,7 @@ export default function BranchesPage() {
 
   const saveSetting = useMutation({
     mutationFn: (data: typeof settingForm) =>
-      api.put(`/api/branches/${selectedBranch}/settings`, data),
+      api.put(`/api/v1/branches/${selectedBranch}/settings`, data),
     onSuccess: () => {
       toast.success(t('settings.saved'));
       setSettingForm({ setting_key: '', setting_value: '' });
@@ -158,7 +158,7 @@ export default function BranchesPage() {
   });
 
   const createTransfer = useMutation({
-    mutationFn: (data: typeof transferForm) => api.post('/api/branches/transfers', data),
+    mutationFn: (data: typeof transferForm) => api.post('/api/v1/branches/transfers', data),
     onSuccess: () => {
       toast.success(t('locations.transferCreated'));
       qc.invalidateQueries({ queryKey: ['branch-transfers'] });

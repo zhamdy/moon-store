@@ -25,7 +25,7 @@ export default function FeedbackPage() {
 
   const { data } = useQuery<{ feedback: FeedbackEntry[]; stats: FeedbackStats }>({
     queryKey: ['feedback'],
-    queryFn: () => api.get('/api/feedback').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/feedback').then((r) => r.data.data),
   });
 
   return (

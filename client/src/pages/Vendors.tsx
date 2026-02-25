@@ -71,17 +71,17 @@ export default function VendorsPage() {
     queryKey: ['vendors', statusFilter],
     queryFn: () =>
       api
-        .get('/api/vendors', { params: { status: statusFilter || undefined } })
+        .get('/api/v1/vendors', { params: { status: statusFilter || undefined } })
         .then((r) => r.data.data),
   });
   const { data: stats } = useQuery<Record<string, unknown>>({
     queryKey: ['vendor-stats'],
-    queryFn: () => api.get('/api/vendors/dashboard/stats').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/vendors/dashboard/stats').then((r) => r.data.data),
   });
 
   const saveVendor = useMutation({
     mutationFn: (data: typeof form) =>
-      editingId ? api.put(`/api/vendors/${editingId}`, data) : api.post('/api/vendors', data),
+      editingId ? api.put(`/api/v1/vendors/${editingId}`, data) : api.post('/api/v1/vendors', data),
     onSuccess: () => {
       toast.success(t('vendors.saved'));
       qc.invalidateQueries({ queryKey: ['vendors'] });
@@ -94,7 +94,7 @@ export default function VendorsPage() {
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
-      api.put(`/api/vendors/${id}/status`, { status }),
+      api.put(`/api/v1/vendors/${id}/status`, { status }),
     onSuccess: () => {
       toast.success(t('vendors.statusUpdated'));
       qc.invalidateQueries({ queryKey: ['vendors'] });
@@ -103,7 +103,7 @@ export default function VendorsPage() {
 
   const createPayout = useMutation({
     mutationFn: (data: typeof payoutForm) =>
-      api.post(`/api/vendors/${selectedVendor?.id}/payouts`, data),
+      api.post(`/api/v1/vendors/${selectedVendor?.id}/payouts`, data),
     onSuccess: () => {
       toast.success(t('vendors.payoutCreated'));
       qc.invalidateQueries({ queryKey: ['vendors'] });

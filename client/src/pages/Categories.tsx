@@ -58,7 +58,7 @@ export default function CategoriesPage() {
 
   const { data: categories, isLoading } = useQuery<CategoryRecord[]>({
     queryKey: ['categories'],
-    queryFn: () => api.get('/api/categories').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/categories').then((r) => r.data.data),
   });
 
   const {
@@ -71,7 +71,7 @@ export default function CategoriesPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: CategoryFormData) => api.post('/api/categories', data),
+    mutationFn: (data: CategoryFormData) => api.post('/api/v1/categories', data),
     onSuccess: () => {
       toast.success(t('categories.categoryCreated'));
       queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -84,7 +84,7 @@ export default function CategoriesPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: CategoryFormData }) =>
-      api.put(`/api/categories/${id}`, data),
+      api.put(`/api/v1/categories/${id}`, data),
     onSuccess: () => {
       toast.success(t('categories.categoryUpdated'));
       queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -97,7 +97,7 @@ export default function CategoriesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/categories/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/v1/categories/${id}`),
     onSuccess: () => {
       toast.success(t('categories.categoryDeleted'));
       queryClient.invalidateQueries({ queryKey: ['categories'] });

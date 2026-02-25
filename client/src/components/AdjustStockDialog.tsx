@@ -40,7 +40,7 @@ export default function AdjustStockDialog({
 
   const mutation = useMutation({
     mutationFn: (data: { delta: number; reason: string }) =>
-      api.post(`/api/products/${productId}/adjust-stock`, data).then((r) => r.data),
+      api.post(`/api/v1/products/${productId}/adjust-stock`, data).then((r) => r.data),
     onSuccess: () => {
       toast.success(t('stock.adjustSuccess'));
       queryClient.invalidateQueries({ queryKey: ['products'] });

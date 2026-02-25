@@ -70,7 +70,7 @@ export default function AuditLog() {
     ],
     queryFn: () =>
       api
-        .get('/api/audit-log', {
+        .get('/api/v1/audit-log', {
           params: {
             page,
             limit: 50,
@@ -87,17 +87,17 @@ export default function AuditLog() {
 
   const { data: actions } = useQuery<string[]>({
     queryKey: ['audit-actions'],
-    queryFn: () => api.get('/api/audit-log/actions').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/audit-log/actions').then((r) => r.data.data),
   });
 
   const { data: entityTypes } = useQuery<string[]>({
     queryKey: ['audit-entity-types'],
-    queryFn: () => api.get('/api/audit-log/entity-types').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/audit-log/entity-types').then((r) => r.data.data),
   });
 
   const { data: users } = useQuery<User[]>({
     queryKey: ['users-list'],
-    queryFn: () => api.get('/api/users').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/users').then((r) => r.data.data),
   });
 
   const entries = data?.data ?? [];

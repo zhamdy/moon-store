@@ -63,18 +63,18 @@ export default function LayawayPage() {
   const { data: layaways } = useQuery<{ data: LayawayOrder[]; meta: { total: number } }>({
     queryKey: ['layaway'],
     queryFn: () =>
-      api.get('/api/layaway?limit=100').then((r) => ({ data: r.data.data, meta: r.data.meta })),
+      api.get('/api/v1/layaway?limit=100').then((r) => ({ data: r.data.data, meta: r.data.meta })),
   });
 
   const { data: detail } = useQuery<LayawayDetail>({
     queryKey: ['layaway', selectedId],
-    queryFn: () => api.get(`/api/layaway/${selectedId}`).then((r) => r.data.data),
+    queryFn: () => api.get(`/api/v1/layaway/${selectedId}`).then((r) => r.data.data),
     enabled: detailDialogOpen && !!selectedId,
   });
 
   const payMutation = useMutation({
     mutationFn: (data: { id: number; amount: number }) =>
-      api.post(`/api/layaway/${data.id}/payment`, { amount: data.amount }),
+      api.post(`/api/v1/layaway/${data.id}/payment`, { amount: data.amount }),
     onSuccess: () => {
       toast.success(t('layaway.paymentSuccess'));
       queryClient.invalidateQueries({ queryKey: ['layaway'] });
@@ -86,7 +86,7 @@ export default function LayawayPage() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (id: number) => api.post(`/api/layaway/${id}/cancel`),
+    mutationFn: (id: number) => api.post(`/api/v1/layaway/${id}/cancel`),
     onSuccess: () => {
       toast.success(t('layaway.cancelled'));
       queryClient.invalidateQueries({ queryKey: ['layaway'] });

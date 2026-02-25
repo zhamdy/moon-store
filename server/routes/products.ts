@@ -1,40 +1,28 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import db from '../db';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { productSchema, productStatusSchema, variantSchema } from '../validators/productSchema';
 import { logAuditFromReq } from '../middleware/auditLogger';
-import { notifyLowStock } from '../services/notifications';
+import { createUpload, validateMagic, uploadRateLimit } from '../middleware/upload';
+import {
+  generateSku,
+  generateBarcode,
+  createProduct,
+  updateProduct,
+  bulkDeleteProducts,
+  bulkUpdateProducts,
+  importProducts,
+  adjustStock,
+  createVariant,
+  updateVariant,
+  deleteVariant,
+  batchGenerateBarcodes,
+} from '../services/productService';
 
-// Multer config for product image uploads
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = path.join(__dirname, '..', 'uploads', 'products');
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
-  fileFilter: (_req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only JPEG, PNG, and WebP images are allowed'));
-    }
-  },
-});
+const upload = createUpload({ maxSize: 2 * 1024 * 1024, destination: 'uploads/products' });
 
 const router: Router = Router();
 
@@ -134,28 +122,11 @@ router.get(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const catResult = await db.query<{ code: string }>(
-        'SELECT code FROM categories WHERE id = ?',
-        [req.params.categoryId]
-      );
-      if (catResult.rows.length === 0) {
+      const result = await generateSku(Number(req.params.categoryId));
+      if (!result) {
         return res.status(404).json({ success: false, error: 'Category not found' });
       }
-
-      const code = catResult.rows[0].code;
-      const prefix = `MN-${code}-`;
-
-      // Find the max SKU number for this prefix
-      const maxResult = await db.query<{ max_num: number | null }>(
-        `SELECT MAX(CAST(SUBSTR(sku, ?) AS INTEGER)) as max_num
-         FROM products WHERE sku LIKE ?`,
-        [prefix.length + 1, `${prefix}%`]
-      );
-
-      const nextNum = (maxResult.rows[0].max_num || 0) + 1;
-      const sku = `${prefix}${String(nextNum).padStart(3, '0')}`;
-
-      res.json({ success: true, data: { sku } });
+      res.json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
@@ -169,36 +140,8 @@ router.get(
   requireRole('Admin'),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const prefix = '890100';
-
-      // Find the max barcode number with this prefix
-      const maxResult = await db.query<{ max_bc: string | null }>(
-        `SELECT MAX(barcode) as max_bc FROM products WHERE barcode LIKE ? AND LENGTH(barcode) = 13`,
-        [`${prefix}%`]
-      );
-
-      let nextSeq: number;
-      if (maxResult.rows[0].max_bc) {
-        // Extract the sequential part (digits after prefix, before check digit)
-        const existing = maxResult.rows[0].max_bc;
-        const seqPart = existing.substring(prefix.length, 12); // 6 digits
-        nextSeq = parseInt(seqPart, 10) + 1;
-      } else {
-        nextSeq = 1;
-      }
-
-      const seqStr = String(nextSeq).padStart(6, '0');
-      const partial = prefix + seqStr; // 12 digits
-
-      // Calculate EAN-13 check digit
-      let sum = 0;
-      for (let i = 0; i < 12; i++) {
-        sum += parseInt(partial[i], 10) * (i % 2 === 0 ? 1 : 3);
-      }
-      const checkDigit = (10 - (sum % 10)) % 10;
-      const barcode = partial + checkDigit;
-
-      res.json({ success: true, data: { barcode } });
+      const result = await generateBarcode();
+      res.json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
@@ -311,50 +254,13 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const {
-        name,
-        sku,
-        barcode,
-        price,
-        cost_price,
-        stock,
-        category,
-        category_id,
-        distributor_id,
-        min_stock,
-      } = parsed.data;
-
-      // Resolve category text from category_id if not provided
-      let categoryText = category || null;
-      if (category_id && !categoryText) {
-        const catResult = await db.query<{ name: string }>(
-          'SELECT name FROM categories WHERE id = ?',
-          [category_id]
-        );
-        if (catResult.rows.length > 0) {
-          categoryText = catResult.rows[0].name;
-        }
-      }
-
-      const result = await db.query(
-        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-        [
-          name,
-          sku,
-          barcode || null,
-          price,
-          cost_price,
-          stock,
-          categoryText,
-          category_id || null,
-          distributor_id || null,
-          min_stock,
-        ]
-      );
-
-      logAuditFromReq(req, 'create', 'product', result.rows[0]?.id, { name, sku, price });
-      res.status(201).json({ success: true, data: result.rows[0] });
+      const product = await createProduct(parsed.data);
+      logAuditFromReq(req, 'create', 'product', product?.id, {
+        name: parsed.data.name,
+        sku: parsed.data.sku,
+        price: parsed.data.price,
+      });
+      res.status(201).json({ success: true, data: product });
     } catch (err: any) {
       if (err.message?.includes('UNIQUE')) {
         return res.status(409).json({ success: false, error: 'SKU or barcode already exists' });
@@ -371,106 +277,24 @@ router.put(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Block edits on discontinued products
-      const existing = await db.query<{ status: string }>(
-        'SELECT status FROM products WHERE id = ?',
-        [req.params.id]
-      );
-      if (existing.rows.length > 0 && existing.rows[0].status === 'discontinued') {
-        return res.status(403).json({
-          success: false,
-          error: 'Cannot edit a discontinued product. Reactivate it first.',
-        });
-      }
-
       const parsed = productSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const {
-        name,
-        sku,
-        barcode,
-        price,
-        cost_price,
-        stock,
-        category,
-        category_id,
-        distributor_id,
-        min_stock,
-      } = parsed.data;
+      const authReq = req as AuthRequest;
+      const product = await updateProduct(req.params.id, parsed.data, authReq.user!.id);
 
-      // Resolve category text from category_id if not provided
-      let categoryText = category || null;
-      if (category_id && !categoryText) {
-        const catResult = await db.query<{ name: string }>(
-          'SELECT name FROM categories WHERE id = ?',
-          [category_id]
-        );
-        if (catResult.rows.length > 0) {
-          categoryText = catResult.rows[0].name;
-        }
-      }
-
-      // Get old prices for price history tracking
-      const oldProduct = await db.query<{ price: number; cost_price: number }>(
-        'SELECT price, cost_price FROM products WHERE id = ?',
-        [req.params.id]
-      );
-
-      const result = await db.query(
-        `UPDATE products SET name=?, sku=?, barcode=?, price=?, cost_price=?, stock=?, category=?, category_id=?, distributor_id=?, min_stock=?, updated_at=datetime('now')
-         WHERE id=? RETURNING *`,
-        [
-          name,
-          sku,
-          barcode || null,
-          price,
-          cost_price,
-          stock,
-          categoryText,
-          category_id || null,
-          distributor_id || null,
-          min_stock,
-          req.params.id,
-        ]
-      );
-
-      if (result.rows.length === 0) {
+      if (!product) {
         return res.status(404).json({ success: false, error: 'Product not found' });
       }
 
-      // Log price history if price or cost changed
-      const authReq2 = req as AuthRequest;
-      if (oldProduct.rows.length > 0) {
-        const old = oldProduct.rows[0];
-        if (old.price !== price) {
-          db.db
-            .prepare(
-              'INSERT INTO price_history (product_id, field, old_value, new_value, user_id) VALUES (?, ?, ?, ?, ?)'
-            )
-            .run(req.params.id, 'price', old.price, price, authReq2.user!.id);
-        }
-        if (old.cost_price !== cost_price) {
-          db.db
-            .prepare(
-              'INSERT INTO price_history (product_id, field, old_value, new_value, user_id) VALUES (?, ?, ?, ?, ?)'
-            )
-            .run(req.params.id, 'cost_price', old.cost_price, cost_price, authReq2.user!.id);
-        }
-      }
-
       logAuditFromReq(req, 'update', 'product', req.params.id);
-
-      // Check low stock
-      const updated = result.rows[0] as Record<string, any>;
-      if (updated.stock <= updated.min_stock) {
-        notifyLowStock(updated.name, updated.stock, updated.id);
-      }
-
-      res.json({ success: true, data: result.rows[0] });
+      res.json({ success: true, data: product });
     } catch (err: any) {
+      if (err.type === 'discontinued') {
+        return res.status(403).json({ success: false, error: err.message });
+      }
       if (err.message?.includes('UNIQUE')) {
         return res.status(409).json({ success: false, error: 'SKU or barcode already exists' });
       }
@@ -509,7 +333,7 @@ router.put(
   }
 );
 
-// DELETE /api/products/:id (soft delete → discontinue)
+// DELETE /api/products/:id (soft delete -> discontinue)
 router.delete(
   '/:id',
   verifyToken,
@@ -547,14 +371,8 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const { ids } = parsed.data;
-      const placeholders = ids.map(() => '?').join(',');
-      const result = await db.query(
-        `UPDATE products SET status = 'discontinued', updated_at = datetime('now') WHERE id IN (${placeholders}) RETURNING id`,
-        ids
-      );
-
-      res.json({ success: true, data: { deleted: result.rows.length } });
+      const deleted = await bulkDeleteProducts(parsed.data.ids);
+      res.json({ success: true, data: { deleted } });
     } catch (err) {
       next(err);
     }
@@ -584,58 +402,7 @@ router.put(
       }
 
       const { ids, updates } = parsed.data;
-      const rawDb = db.db;
-
-      const txn = rawDb.transaction(() => {
-        let updated = 0;
-
-        if (updates.category_id !== undefined) {
-          // Resolve category name
-          const cat = rawDb
-            .prepare('SELECT name FROM categories WHERE id = ?')
-            .get(updates.category_id) as { name: string } | undefined;
-          if (!cat) throw new Error('Category not found');
-
-          const placeholders = ids.map(() => '?').join(',');
-          const stmt = rawDb.prepare(
-            `UPDATE products SET category_id = ?, category = ?, updated_at = datetime('now') WHERE id IN (${placeholders})`
-          );
-          const result = stmt.run(updates.category_id, cat.name, ...ids);
-          updated = result.changes;
-        }
-
-        if (updates.distributor_id !== undefined) {
-          const placeholders = ids.map(() => '?').join(',');
-          const stmt = rawDb.prepare(
-            `UPDATE products SET distributor_id = ?, updated_at = datetime('now') WHERE id IN (${placeholders})`
-          );
-          const result = stmt.run(updates.distributor_id, ...ids);
-          updated = result.changes;
-        }
-
-        if (updates.price_percent !== undefined) {
-          const factor = 1 + updates.price_percent / 100;
-          const placeholders = ids.map(() => '?').join(',');
-          const stmt = rawDb.prepare(
-            `UPDATE products SET price = ROUND(price * ?, 2), updated_at = datetime('now') WHERE id IN (${placeholders})`
-          );
-          const result = stmt.run(factor, ...ids);
-          updated = result.changes;
-        }
-
-        if (updates.status !== undefined) {
-          const placeholders = ids.map(() => '?').join(',');
-          const stmt = rawDb.prepare(
-            `UPDATE products SET status = ?, updated_at = datetime('now') WHERE id IN (${placeholders})`
-          );
-          const result = stmt.run(updates.status, ...ids);
-          updated = result.changes;
-        }
-
-        return updated;
-      });
-
-      const updated = txn();
+      const updated = bulkUpdateProducts(ids, updates);
       res.json({ success: true, data: { updated } });
     } catch (err: any) {
       if (err.message === 'Category not found') {
@@ -658,59 +425,8 @@ router.post(
         return res.status(400).json({ success: false, error: 'Products array required' });
       }
 
-      let imported = 0;
-      const errors: { row: number; error: string }[] = [];
-      for (let i = 0; i < products.length; i++) {
-        const parsed = productSchema.safeParse(products[i]);
-        if (!parsed.success) {
-          errors.push({ row: i + 1, error: parsed.error.errors[0].message });
-          continue;
-        }
-        try {
-          const {
-            name,
-            sku,
-            barcode,
-            price,
-            cost_price,
-            stock,
-            category,
-            category_id,
-            distributor_id,
-            min_stock,
-          } = parsed.data;
-          await db.query(
-            `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(sku) DO UPDATE SET name=?, price=?, cost_price=?, stock=?, category=?, category_id=?, distributor_id=?, min_stock=?, updated_at=datetime('now')`,
-            [
-              name,
-              sku,
-              barcode || null,
-              price,
-              cost_price,
-              stock,
-              category || null,
-              category_id || null,
-              distributor_id || null,
-              min_stock,
-              name,
-              price,
-              cost_price,
-              stock,
-              category || null,
-              category_id || null,
-              distributor_id || null,
-              min_stock,
-            ]
-          );
-          imported++;
-        } catch (err: any) {
-          errors.push({ row: i + 1, error: err.message });
-        }
-      }
-
-      res.json({ success: true, data: { imported, errors } });
+      const result = await importProducts(products);
+      res.json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
@@ -740,55 +456,11 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const { delta, reason } = parsed.data;
-
-      const rawDb = db.db;
-      const txn = rawDb.transaction(() => {
-        const product = rawDb
-          .prepare('SELECT id, stock, status FROM products WHERE id = ?')
-          .get(productId) as { id: number; stock: number; status: string } | undefined;
-
-        if (!product) {
-          throw new Error('Product not found');
-        }
-
-        if (product.status === 'discontinued') {
-          throw new Error('Cannot adjust stock on a discontinued product');
-        }
-
-        const previousQty = product.stock;
-        const newQty = previousQty + delta;
-
-        if (newQty < 0) {
-          throw new Error('Stock cannot go below zero');
-        }
-
-        rawDb
-          .prepare("UPDATE products SET stock = ?, updated_at = datetime('now') WHERE id = ?")
-          .run(newQty, productId);
-
-        rawDb
-          .prepare(
-            'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES (?, ?, ?, ?, ?, ?)'
-          )
-          .run(productId, previousQty, newQty, delta, reason, authReq.user!.id);
-
-        return { previous_qty: previousQty, new_qty: newQty, delta };
-      });
-
       let result;
       try {
-        result = txn();
+        result = adjustStock(productId, parsed.data, authReq.user!.id);
       } catch (err: any) {
         return res.status(400).json({ success: false, error: err.message });
-      }
-
-      // Check low stock after adjustment
-      const prod = rawDb
-        .prepare('SELECT name, stock, min_stock FROM products WHERE id = ?')
-        .get(productId) as { name: string; stock: number; min_stock: number } | undefined;
-      if (prod && prod.stock <= prod.min_stock) {
-        notifyLowStock(prod.name, prod.stock, productId);
       }
 
       res.json({ success: true, data: result });
@@ -826,7 +498,9 @@ router.post(
   '/:id/image',
   verifyToken,
   requireRole('Admin'),
+  uploadRateLimit,
   upload.single('image'),
+  validateMagic,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.file) {
@@ -946,45 +620,10 @@ router.post(
       }
 
       const productId = Number(req.params.id);
-      const { sku, barcode, price, cost_price, stock, attributes } = parsed.data;
-
-      const rawDb = db.db;
-      const txn = rawDb.transaction(() => {
-        // Verify product exists
-        const product = rawDb
-          .prepare('SELECT id, status FROM products WHERE id = ?')
-          .get(productId) as Record<string, any> | undefined;
-        if (!product) throw new Error('Product not found');
-        if (product.status === 'discontinued')
-          throw new Error('Cannot add variants to a discontinued product');
-
-        // Mark product as has_variants
-        rawDb.prepare('UPDATE products SET has_variants = 1 WHERE id = ?').run(productId);
-
-        const variant = rawDb
-          .prepare(
-            `INSERT INTO product_variants (product_id, sku, barcode, price, cost_price, stock, attributes)
-             VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`
-          )
-          .get(
-            productId,
-            sku,
-            barcode || null,
-            price || null,
-            cost_price,
-            stock,
-            JSON.stringify(attributes)
-          ) as Record<string, any>;
-
-        return variant;
-      });
 
       try {
-        const variant = txn();
-        res.status(201).json({
-          success: true,
-          data: { ...variant, attributes: JSON.parse(variant.attributes || '{}') },
-        });
+        const variant = createVariant(productId, parsed.data);
+        res.status(201).json({ success: true, data: variant });
       } catch (err: any) {
         if (err.message === 'Product not found') {
           return res.status(404).json({ success: false, error: err.message });
@@ -1012,32 +651,12 @@ router.put(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const { sku, barcode, price, cost_price, stock, attributes } = parsed.data;
-
-      const result = await db.query(
-        `UPDATE product_variants SET sku=?, barcode=?, price=?, cost_price=?, stock=?, attributes=?
-         WHERE id=? AND product_id=? RETURNING *`,
-        [
-          sku,
-          barcode || null,
-          price || null,
-          cost_price,
-          stock,
-          JSON.stringify(attributes),
-          req.params.variantId,
-          req.params.id,
-        ]
-      );
-
-      if (result.rows.length === 0) {
+      const variant = await updateVariant(req.params.id, req.params.variantId, parsed.data);
+      if (!variant) {
         return res.status(404).json({ success: false, error: 'Variant not found' });
       }
 
-      const variant = result.rows[0] as Record<string, any>;
-      res.json({
-        success: true,
-        data: { ...variant, attributes: JSON.parse(variant.attributes || '{}') },
-      });
+      res.json({ success: true, data: variant });
     } catch (err: any) {
       if (err.message?.includes('UNIQUE')) {
         return res.status(409).json({ success: false, error: 'SKU or barcode already exists' });
@@ -1054,22 +673,9 @@ router.delete(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await db.query(
-        'DELETE FROM product_variants WHERE id = ? AND product_id = ? RETURNING id',
-        [req.params.variantId, req.params.id]
-      );
-
-      if (result.rows.length === 0) {
+      const deleted = await deleteVariant(req.params.id, req.params.variantId);
+      if (!deleted) {
         return res.status(404).json({ success: false, error: 'Variant not found' });
-      }
-
-      // Check if any variants remain — if not, unset has_variants
-      const remaining = await db.query<{ count: number }>(
-        'SELECT COUNT(*) as count FROM product_variants WHERE product_id = ?',
-        [req.params.id]
-      );
-      if (remaining.rows[0].count === 0) {
-        await db.query('UPDATE products SET has_variants = 0 WHERE id = ?', [req.params.id]);
       }
 
       res.json({ success: true, data: { message: 'Variant deleted' } });
@@ -1118,52 +724,7 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const { product_ids } = parsed.data;
-      const rawDb = db.db;
-      const prefix = '890100';
-
-      const txn = rawDb.transaction(() => {
-        const results: { product_id: number; barcode: string }[] = [];
-
-        // Get current max barcode
-        const maxResult = rawDb
-          .prepare(
-            `SELECT MAX(barcode) as max_bc FROM products WHERE barcode LIKE ? AND LENGTH(barcode) = 13`
-          )
-          .get(`${prefix}%`) as { max_bc: string | null };
-
-        let nextSeq = 1;
-        if (maxResult.max_bc) {
-          const seqPart = maxResult.max_bc.substring(prefix.length, 12);
-          nextSeq = parseInt(seqPart, 10) + 1;
-        }
-
-        for (const pid of product_ids) {
-          const product = rawDb
-            .prepare('SELECT id, barcode FROM products WHERE id = ?')
-            .get(pid) as { id: number; barcode: string | null } | undefined;
-          if (!product || product.barcode) continue;
-
-          const seqStr = String(nextSeq).padStart(6, '0');
-          const partial = prefix + seqStr;
-          let sum = 0;
-          for (let i = 0; i < 12; i++) {
-            sum += parseInt(partial[i], 10) * (i % 2 === 0 ? 1 : 3);
-          }
-          const checkDigit = (10 - (sum % 10)) % 10;
-          const barcode = partial + checkDigit;
-
-          rawDb
-            .prepare("UPDATE products SET barcode = ?, updated_at = datetime('now') WHERE id = ?")
-            .run(barcode, pid);
-          results.push({ product_id: pid, barcode });
-          nextSeq++;
-        }
-
-        return results;
-      });
-
-      const results = txn();
+      const results = batchGenerateBarcodes(parsed.data.product_ids);
       logAuditFromReq(req, 'batch_barcode', 'product', undefined, { count: results.length });
       res.json({ success: true, data: results });
     } catch (err) {

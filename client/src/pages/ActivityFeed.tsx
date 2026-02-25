@@ -27,7 +27,7 @@ export default function ActivityFeedPage() {
 
   const { data: entries } = useQuery<AuditEntry[]>({
     queryKey: ['activity-feed'],
-    queryFn: () => api.get('/api/audit-log?limit=50').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/audit-log?limit=50').then((r) => r.data.data),
   });
 
   return (

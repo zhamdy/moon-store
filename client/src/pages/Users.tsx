@@ -83,7 +83,7 @@ export default function UsersPage() {
 
   const { data: users, isLoading } = useQuery<UserRecord[]>({
     queryKey: ['users'],
-    queryFn: () => api.get('/api/users').then((r) => r.data.data),
+    queryFn: () => api.get('/api/v1/users').then((r) => r.data.data),
   });
 
   const schema = editingUser ? getEditSchema() : getCreateSchema();
@@ -98,7 +98,7 @@ export default function UsersPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: UserFormData) => api.post('/api/users', data),
+    mutationFn: (data: UserFormData) => api.post('/api/v1/users', data),
     onSuccess: () => {
       toast.success(t('users.userCreated'));
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -111,7 +111,7 @@ export default function UsersPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<UserFormData> }) =>
-      api.put(`/api/users/${id}`, data),
+      api.put(`/api/v1/users/${id}`, data),
     onSuccess: () => {
       toast.success(t('users.userUpdated'));
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -123,7 +123,7 @@ export default function UsersPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/users/${id}`),
+    mutationFn: (id: number) => api.delete(`/api/v1/users/${id}`),
     onSuccess: () => {
       toast.success(t('users.userDeleted'));
       queryClient.invalidateQueries({ queryKey: ['users'] });

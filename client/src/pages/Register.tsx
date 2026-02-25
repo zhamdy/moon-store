@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Vault,
   DollarSign,
@@ -10,11 +9,9 @@ import {
   X,
   AlertTriangle,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
 import {
   Dialog,
@@ -25,54 +22,13 @@ import {
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
-import api from '../services/api';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
-
-interface RegisterSession {
-  id: number;
-  cashier_id: number;
-  cashier_name: string;
-  opened_at: string;
-  closed_at: string | null;
-  opening_float: number;
-  expected_cash: number;
-  counted_cash: number | null;
-  variance: number | null;
-  status: 'open' | 'closed';
-  notes: string | null;
-  sale_count?: number;
-  total_in?: number;
-  total_out?: number;
-  total_sales?: number;
-}
-
-interface RegisterMovement {
-  id: number;
-  session_id: number;
-  type: 'sale' | 'refund' | 'cash_in' | 'cash_out';
-  amount: number;
-  sale_id: number | null;
-  note: string | null;
-  created_at: string;
-}
-
-interface RegisterReport {
-  session: RegisterSession;
-  movements: RegisterMovement[];
-  summary: {
-    total_sales: number;
-    total_refunds: number;
-    total_cash_in: number;
-    total_cash_out: number;
-    sale_count: number;
-    refund_count: number;
-  };
-}
+import { useRegisterData } from '../hooks/useRegisterData';
+import CashMovementDialog from '../components/register/CashMovementDialog';
+import RegisterReport from '../components/register/RegisterReport';
+import type { RegisterReportData } from '../hooks/useRegisterData';
 
 export default function RegisterPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
 
   const [openDialogOpen, setOpenDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
@@ -84,93 +40,67 @@ export default function RegisterPage() {
   const [countedCash, setCountedCash] = useState('');
   const [closeNotes, setCloseNotes] = useState('');
   const [movementType, setMovementType] = useState<'cash_in' | 'cash_out'>('cash_in');
-  const [movementAmount, setMovementAmount] = useState('');
-  const [movementNote, setMovementNote] = useState('');
 
-  const [reportData, setReportData] = useState<RegisterReport | null>(null);
+  const [reportData, setReportData] = useState<RegisterReportData | null>(null);
 
-  // Current open session
-  const { data: currentSession, isLoading } = useQuery<RegisterSession | null>({
-    queryKey: ['register', 'current'],
-    queryFn: () => api.get('/api/register/current').then((r) => r.data.data),
-  });
+  const {
+    currentSession,
+    isLoading,
+    historyData,
+    openMutation,
+    closeMutation,
+    movementMutation,
+    forceCloseMutation,
+    loadReport,
+  } = useRegisterData(historyDialogOpen);
 
-  // Session history (admin)
-  const { data: historyData } = useQuery<{
-    data: RegisterSession[];
-    meta: { total: number; page: number; limit: number };
-  }>({
-    queryKey: ['register', 'history'],
-    queryFn: () =>
-      api.get('/api/register/history').then((r) => ({
-        data: r.data.data,
-        meta: r.data.meta,
-      })),
-    enabled: historyDialogOpen,
-  });
-
-  // Open register
-  const openMutation = useMutation({
-    mutationFn: (data: { opening_float: number }) => api.post('/api/register/open', data),
-    onSuccess: () => {
-      toast.success(t('register.registerOpen'));
-      queryClient.invalidateQueries({ queryKey: ['register'] });
-      setOpenDialogOpen(false);
-      setOpeningFloat('');
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  // Close register
-  const closeMutation = useMutation({
-    mutationFn: (data: { counted_cash: number; notes?: string }) =>
-      api.post('/api/register/close', data),
-    onSuccess: () => {
-      toast.success(t('register.registerClosed'));
-      queryClient.invalidateQueries({ queryKey: ['register'] });
-      setCloseDialogOpen(false);
-      setCountedCash('');
-      setCloseNotes('');
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  // Cash movement
-  const movementMutation = useMutation({
-    mutationFn: (data: { type: string; amount: number; note?: string }) =>
-      api.post('/api/register/movement', data),
-    onSuccess: () => {
-      toast.success(t('register.movementRecorded'));
-      queryClient.invalidateQueries({ queryKey: ['register'] });
-      setMovementDialogOpen(false);
-      setMovementAmount('');
-      setMovementNote('');
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  // Force close (admin)
-  const forceCloseMutation = useMutation({
-    mutationFn: (id: number) => api.post(`/api/register/${id}/force-close`),
-    onSuccess: () => {
-      toast.success(t('register.registerClosed'));
-      queryClient.invalidateQueries({ queryKey: ['register'] });
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  const loadReport = async (sessionId: number) => {
-    try {
-      const res = await api.get(`/api/register/${sessionId}/report`);
-      setReportData(res.data.data);
+  const handleLoadReport = async (sessionId: number) => {
+    const data = await loadReport(sessionId);
+    if (data) {
+      setReportData(data);
       setReportDialogOpen(true);
-    } catch {
-      toast.error('Failed to load report');
     }
+  };
+
+  const handleOpenRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    openMutation.mutate(
+      { opening_float: Number(openingFloat) || 0 },
+      {
+        onSuccess: () => {
+          setOpenDialogOpen(false);
+          setOpeningFloat('');
+        },
+      }
+    );
+  };
+
+  const handleCloseRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    closeMutation.mutate(
+      {
+        counted_cash: Number(countedCash) || 0,
+        notes: closeNotes || undefined,
+      },
+      {
+        onSuccess: () => {
+          setCloseDialogOpen(false);
+          setCountedCash('');
+          setCloseNotes('');
+        },
+      }
+    );
+  };
+
+  const handleMovement = (type: 'cash_in' | 'cash_out', amount: number, note?: string) => {
+    movementMutation.mutate(
+      { type, amount, note },
+      {
+        onSuccess: () => {
+          setMovementDialogOpen(false);
+        },
+      }
+    );
   };
 
   const variance = currentSession ? (Number(countedCash) || 0) - currentSession.expected_cash : 0;
@@ -313,7 +243,7 @@ export default function RegisterPage() {
             <Button
               variant="outline"
               className="h-20 flex-col gap-2"
-              onClick={() => loadReport(currentSession.id)}
+              onClick={() => handleLoadReport(currentSession.id)}
             >
               <FileText className="h-6 w-6 text-gold" />
               <span>{t('register.xReport')}</span>
@@ -353,13 +283,7 @@ export default function RegisterPage() {
             <DialogTitle>{t('register.openRegister')}</DialogTitle>
             <DialogDescription>{t('register.openingFloatDesc')}</DialogDescription>
           </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              openMutation.mutate({ opening_float: Number(openingFloat) || 0 });
-            }}
-            className="space-y-4"
-          >
+          <form onSubmit={handleOpenRegister} className="space-y-4">
             <div className="space-y-1">
               <Label>{t('register.openingFloat')}</Label>
               <Input
@@ -387,16 +311,7 @@ export default function RegisterPage() {
               {t('register.expectedCash')}: {formatCurrency(currentSession?.expected_cash || 0)}
             </DialogDescription>
           </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              closeMutation.mutate({
-                counted_cash: Number(countedCash) || 0,
-                notes: closeNotes || undefined,
-              });
-            }}
-            className="space-y-4"
-          >
+          <form onSubmit={handleCloseRegister} className="space-y-4">
             <div className="space-y-1">
               <Label>{t('register.countedCash')}</Label>
               <Input
@@ -436,171 +351,20 @@ export default function RegisterPage() {
       </Dialog>
 
       {/* Cash Movement Dialog */}
-      <Dialog open={movementDialogOpen} onOpenChange={setMovementDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {movementType === 'cash_in' ? t('register.cashIn') : t('register.cashOut')}
-            </DialogTitle>
-            <DialogDescription>{t('register.notePlaceholder')}</DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              movementMutation.mutate({
-                type: movementType,
-                amount: Number(movementAmount) || 0,
-                note: movementNote || undefined,
-              });
-            }}
-            className="space-y-4"
-          >
-            <div className="space-y-1">
-              <Label>{t('register.amount')}</Label>
-              <Input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={movementAmount}
-                onChange={(e) => setMovementAmount(e.target.value)}
-                autoFocus
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('register.note')}</Label>
-              <Input
-                value={movementNote}
-                onChange={(e) => setMovementNote(e.target.value)}
-                placeholder={t('register.notePlaceholder')}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={movementMutation.isPending}>
-              {movementMutation.isPending ? t('common.loading') : t('common.confirm')}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CashMovementDialog
+        open={movementDialogOpen}
+        onOpenChange={setMovementDialogOpen}
+        onSubmit={handleMovement}
+        isSubmitting={movementMutation.isPending}
+        movementType={movementType}
+      />
 
       {/* Report Dialog */}
-      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t('register.report')}</DialogTitle>
-            <DialogDescription>
-              {reportData?.session.cashier_name} —{' '}
-              {reportData && new Date(reportData.session.opened_at).toLocaleString()}
-            </DialogDescription>
-          </DialogHeader>
-          {reportData && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-md bg-surface">
-                  <span className="text-xs text-muted">{t('register.totalSales')}</span>
-                  <p className="text-lg font-data font-bold">
-                    {formatCurrency(reportData.summary.total_sales)}
-                  </p>
-                  <span className="text-xs text-muted">
-                    {reportData.summary.sale_count} {t('register.saleCount').toLowerCase()}
-                  </span>
-                </div>
-                <div className="p-3 rounded-md bg-surface">
-                  <span className="text-xs text-muted">{t('register.totalRefunds')}</span>
-                  <p className="text-lg font-data font-bold text-red-500">
-                    {formatCurrency(reportData.summary.total_refunds)}
-                  </p>
-                  <span className="text-xs text-muted">
-                    {reportData.summary.refund_count} refunds
-                  </span>
-                </div>
-                <div className="p-3 rounded-md bg-surface">
-                  <span className="text-xs text-muted">{t('register.totalCashIn')}</span>
-                  <p className="text-lg font-data font-bold text-emerald-500">
-                    {formatCurrency(reportData.summary.total_cash_in)}
-                  </p>
-                </div>
-                <div className="p-3 rounded-md bg-surface">
-                  <span className="text-xs text-muted">{t('register.totalCashOut')}</span>
-                  <p className="text-lg font-data font-bold text-red-500">
-                    {formatCurrency(reportData.summary.total_cash_out)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-md bg-gold/5 border border-gold/20">
-                <div className="flex justify-between text-sm">
-                  <span>{t('register.openingFloat')}</span>
-                  <span className="font-data">
-                    {formatCurrency(reportData.session.opening_float)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span>{t('register.expectedCash')}</span>
-                  <span className="font-data font-bold">
-                    {formatCurrency(reportData.session.expected_cash)}
-                  </span>
-                </div>
-                {reportData.session.counted_cash !== null && (
-                  <>
-                    <div className="flex justify-between text-sm mt-1">
-                      <span>{t('register.countedCash')}</span>
-                      <span className="font-data">
-                        {formatCurrency(reportData.session.counted_cash)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm mt-1 font-bold">
-                      <span>{t('register.variance')}</span>
-                      <span
-                        className={`font-data ${
-                          (reportData.session.variance || 0) >= 0
-                            ? 'text-emerald-500'
-                            : 'text-red-500'
-                        }`}
-                      >
-                        {formatCurrency(Math.abs(reportData.session.variance || 0))}{' '}
-                        {(reportData.session.variance || 0) >= 0
-                          ? t('register.over')
-                          : t('register.short')}
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Movements list */}
-              {reportData.movements.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2">{t('register.movements')}</h4>
-                  <div className="max-h-48 overflow-y-auto space-y-1">
-                    {reportData.movements.map((m) => (
-                      <div
-                        key={m.id}
-                        className="flex items-center justify-between text-xs p-2 rounded bg-surface"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={
-                              m.type === 'sale' || m.type === 'cash_in' ? 'default' : 'destructive'
-                            }
-                            className="text-[10px]"
-                          >
-                            {m.type}
-                          </Badge>
-                          {m.note && <span className="text-muted">{m.note}</span>}
-                        </div>
-                        <span className="font-data font-medium">
-                          {m.type === 'sale' || m.type === 'cash_in' ? '+' : '-'}
-                          {formatCurrency(m.amount)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <RegisterReport
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        reportData={reportData}
+      />
 
       {/* History Dialog */}
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
@@ -642,7 +406,7 @@ export default function RegisterPage() {
                         {new Date(s.opened_at).toLocaleString()}
                       </td>
                       <td className="p-2 font-data text-xs">
-                        {s.closed_at ? new Date(s.closed_at).toLocaleString() : '—'}
+                        {s.closed_at ? new Date(s.closed_at).toLocaleString() : '\u2014'}
                       </td>
                       <td className="p-2 text-end font-data">
                         {formatCurrency(s.total_sales || 0)}
@@ -653,7 +417,7 @@ export default function RegisterPage() {
                             {formatCurrency(Math.abs(s.variance))}
                           </span>
                         ) : (
-                          '—'
+                          '\u2014'
                         )}
                       </td>
                       <td className="p-2">
@@ -662,7 +426,7 @@ export default function RegisterPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 text-xs"
-                            onClick={() => loadReport(s.id)}
+                            onClick={() => handleLoadReport(s.id)}
                           >
                             <FileText className="h-3 w-3" />
                           </Button>

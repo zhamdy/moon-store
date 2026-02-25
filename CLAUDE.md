@@ -53,4 +53,10 @@ Pages:            React Query + react-hot-toast + shadcn Dialog/Sheet
 i18n:             useTranslation() → { t, locale, isRtl }
 Stores:           Zustand with persist middleware
 Route ordering:   Specific routes BEFORE /:id params (Express matches first)
+Shared types:     import type { Product, ApiErrorResponse } from '@/types'
+Route registry:   server/routes/index.ts — add new route = 1 import + 1 line
+Service layer:    Business logic in server/services/ (e.g. saleService.ts)
+Migrations:       NNN_description.sql, indexes as idx_{table}_{column}
+Zod i18n:         Wrap schemas in getter functions, use tStandalone() for messages
+Sanitization:     server/middleware/sanitize.ts strips HTML/XSS from req.body
 ```

@@ -72,7 +72,7 @@ const setupRefreshInterceptor = () => {
 
         try {
           const response = await axios.post<RefreshResponseData>(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/refresh`,
+            `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/v1/auth/refresh`,
             {},
             { withCredentials: true }
           );
