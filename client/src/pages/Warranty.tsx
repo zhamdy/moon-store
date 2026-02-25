@@ -16,10 +16,8 @@ import {
 import { useTranslation } from '../i18n';
 import api from '../services/api';
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse } from '@/types';
 
-interface ApiErrorResponse {
-  error?: string;
-}
 interface Claim {
   id: number;
   sale_id: number;

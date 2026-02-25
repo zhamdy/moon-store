@@ -8,10 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { useTranslation } from '../i18n';
 import type { AxiosError } from 'axios';
 import api from '../services/api';
-
-interface ApiErrorResponse {
-  error?: string;
-}
+import type { ApiErrorResponse } from '@/types';
 
 interface ExportRecord {
   id: number;

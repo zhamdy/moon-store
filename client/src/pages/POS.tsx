@@ -25,41 +25,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { usePosShortcuts } from '../hooks/usePosShortcuts';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
-
-interface Category {
-  id: number;
-  name: string;
-  code: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  barcode: string | null;
-  price: string | number;
-  stock: number;
-  min_stock: number;
-  category: string;
-  category_name: string | null;
-  category_id: number | null;
-  distributor_id: number | null;
-  distributor_name: string | null;
-  image_url: string | null;
-  has_variants: number;
-  variant_count: number;
-  variant_stock: number;
-}
-
-interface ProductVariant {
-  id: number;
-  product_id: number;
-  sku: string;
-  barcode: string | null;
-  price: number | null;
-  stock: number;
-  attributes: Record<string, string>;
-}
+import type { Category, Product, ProductVariant } from '@/types';
 
 export default function POS() {
   const [searchInput, setSearchInput] = useState('');

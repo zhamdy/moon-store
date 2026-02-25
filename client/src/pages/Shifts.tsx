@@ -9,10 +9,7 @@ import { useTranslation } from '../i18n';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
 import type { AxiosError } from 'axios';
-
-interface ApiErrorResponse {
-  error?: string;
-}
+import type { ApiErrorResponse } from '@/types';
 
 interface Shift {
   id: number;

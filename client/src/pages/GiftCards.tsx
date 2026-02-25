@@ -37,6 +37,7 @@ import api from '../services/api';
 import { useTranslation } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse } from '@/types';
 
 interface GiftCard {
   id: number;
@@ -58,10 +59,6 @@ interface GiftCardTransaction {
   amount: number;
   reference_id: number | null;
   created_at: string;
-}
-
-interface ApiErrorResponse {
-  error: string;
 }
 
 export default function GiftCards() {

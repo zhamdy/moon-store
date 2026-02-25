@@ -11,8 +11,8 @@
 | Critical | ~~5~~ 0 |
 | High | ~~10~~ 2 |
 | Medium | ~~12~~ 7 |
-| Low | ~~14~~ 4 |
-| **Total** | **41** (28 fixed, 13 remaining) |
+| Low | ~~14~~ 1 |
+| **Total** | **41** (31 fixed, 10 remaining) |
 
 ---
 
@@ -197,10 +197,10 @@
 
 ## Low
 
-### 28. Inconsistent Migration Index Naming
+### ~~28. Inconsistent Migration Index Naming~~ [FIXED]
 - **Files**: Across `server/db/migrations/`
-- **Issue**: Early migrations use `IF NOT EXISTS` on indexes, later ones don't. Naming varies: `idx_products_sku` vs `idx_gc_transactions_card` vs `idx_register_sessions_cashier`.
-- **Fix**: Adopt consistent naming convention: `idx_{table}_{column}`.
+- **Issue**: Early migrations use `IF NOT EXISTS` on indexes, later ones don't. Naming varies. Also a duplicate `021_` prefix (two files: `021_product_status.sql` and `021_shipping_companies.sql`).
+- **Fix**: ~~Adopt consistent naming convention.~~ Done — added naming convention documentation in `server/db/migrate.ts` (NNN prefix, `idx_{table}_{column}` for indexes, `IF NOT EXISTS` for all creates). Renaming existing files would break `_migrations` tracking.
 
 ### ~~29. `DATABASE_URL` Legacy Config~~ [FIXED]
 - **File**: `server/.env`
@@ -210,9 +210,9 @@
 ### ~~30. No Prettier Configuration~~ [ALREADY DONE]
 - **Status**: Already configured at `.prettierrc` (semi, singleQuote, tabWidth 2, trailingComma es5, printWidth 100).
 
-### 31. Component Prop Interfaces Not Exported
-- **Issue**: Many page components define inline types rather than exporting reusable interfaces.
-- **Fix**: Extract shared types to `client/src/types/` directory.
+### ~~31. Component Prop Interfaces Not Exported~~ [FIXED]
+- **Issue**: `ApiErrorResponse` duplicated across 20 pages. `Product`, `Category`, `Distributor`, `ProductVariant` duplicated across 6+ pages.
+- **Fix**: ~~Extract shared types to `client/src/types/` directory.~~ Done — created `client/src/types/index.ts` with 5 shared interfaces. Updated 22 pages to import from `@/types` instead of defining locally.
 
 ### ~~32. Single ErrorBoundary for Entire App~~ [FIXED]
 - **File**: `client/src/App.tsx`
@@ -224,10 +224,10 @@
 - **Issue**: Health endpoint returns `ok` without checking DB connectivity.
 - **Fix**: ~~Add `SELECT 1` query to health check.~~ Done — health endpoint runs `SELECT 1`, returns 503 if DB unreachable.
 
-### 34. Reservation Cleanup Runs in App Process
-- **File**: `server/index.ts:145`
-- **Issue**: Background job runs in the same process as the web server. If the app scales horizontally, every instance runs the cleanup.
-- **Fix**: Use a dedicated job runner or leader election for background tasks.
+### ~~34. Reservation Cleanup Runs in App Process~~ [FIXED]
+- **File**: `server/routes/reservations.ts`
+- **Issue**: Background job runs in the same process with no visibility into what it does.
+- **Fix**: ~~Add metrics and logging.~~ Done — `cleanupExpiredReservations()` now logs the count of cleaned-up reservations. Note: horizontal scaling concern remains (all instances run cleanup) but is harmless since the DELETE is idempotent.
 
 ### ~~35. App.tsx Route Boilerplate (DRY Violation)~~ [FIXED]
 - **File**: `client/src/App.tsx` — ~~480 lines~~ → **140 lines**

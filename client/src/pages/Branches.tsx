@@ -27,11 +27,9 @@ import {
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse } from '@/types';
 import api from '../services/api';
 
-interface ApiErrorResponse {
-  error?: string;
-}
 interface Branch {
   id: number;
   name: string;

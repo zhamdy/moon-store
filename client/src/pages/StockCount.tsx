@@ -15,11 +15,8 @@ import {
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse, Category } from '@/types';
 import api from '../services/api';
-
-interface ApiErrorResponse {
-  error?: string;
-}
 
 interface StockCount {
   id: number;
@@ -44,11 +41,6 @@ interface CountItem {
 
 interface CountDetail extends StockCount {
   items: CountItem[];
-}
-
-interface Category {
-  id: number;
-  name: string;
 }
 
 export default function StockCountPage() {

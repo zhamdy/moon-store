@@ -107,7 +107,12 @@ router.delete(
 export function cleanupExpiredReservations(): void {
   try {
     const rawDb = db.db;
-    rawDb.prepare("DELETE FROM stock_reservations WHERE expires_at <= datetime('now')").run();
+    const result = rawDb
+      .prepare("DELETE FROM stock_reservations WHERE expires_at <= datetime('now')")
+      .run();
+    if (result.changes > 0) {
+      logger.info('Cleaned up expired reservations', { count: result.changes });
+    }
   } catch (err) {
     logger.error('Reservation cleanup failed', { error: (err as Error).message });
   }

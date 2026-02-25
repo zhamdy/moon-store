@@ -67,63 +67,11 @@ import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import type { AxiosError, AxiosResponse } from 'axios';
-
-interface Category {
-  id: number;
-  name: string;
-  code: string;
-}
-
-interface Distributor {
-  id: number;
-  name: string;
-  contact_person: string | null;
-  phone: string | null;
-  email: string | null;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  barcode: string | null;
-  price: string | number;
-  cost_price: number;
-  stock: number;
-  category: string;
-  category_id: number | null;
-  category_name: string | null;
-  category_code: string | null;
-  distributor_id: number | null;
-  distributor_name: string | null;
-  min_stock: number;
-  image_url: string | null;
-  has_variants: number;
-  variant_count: number;
-  variant_stock: number;
-  status: 'active' | 'inactive' | 'discontinued';
-  created_at: string;
-  updated_at: string;
-}
-
-interface ProductVariant {
-  id: number;
-  product_id: number;
-  sku: string;
-  barcode: string | null;
-  price: number | null;
-  cost_price: number;
-  stock: number;
-  attributes: Record<string, string>;
-}
+import type { ApiErrorResponse, Product, Category, Distributor, ProductVariant } from '@/types';
 
 interface ImportResult {
   imported: number;
   errors: Array<{ row: number; error: string }>;
-}
-
-interface ApiErrorResponse {
-  error: string;
 }
 
 const getProductSchema = () =>

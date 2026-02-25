@@ -34,6 +34,7 @@ import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse } from '@/types';
 
 type UserRole = 'Admin' | 'Cashier' | 'Delivery';
 
@@ -44,10 +45,6 @@ interface UserRecord {
   role: UserRole;
   last_login: string | null;
   created_at: string;
-}
-
-interface ApiErrorResponse {
-  error: string;
 }
 
 const getCreateSchema = () =>

@@ -31,6 +31,7 @@ import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse } from '@/types';
 
 interface DistributorRecord {
   id: number;
@@ -42,10 +43,6 @@ interface DistributorRecord {
   notes: string | null;
   created_at: string;
   updated_at: string;
-}
-
-interface ApiErrorResponse {
-  error: string;
 }
 
 const getDistributorFormSchema = () =>

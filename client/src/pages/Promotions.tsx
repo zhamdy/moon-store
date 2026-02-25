@@ -23,11 +23,8 @@ import {
 import { formatCurrency } from '../lib/utils';
 import { useTranslation } from '../i18n';
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse } from '@/types';
 import api from '../services/api';
-
-interface ApiErrorResponse {
-  error?: string;
-}
 
 interface Coupon {
   id: number;

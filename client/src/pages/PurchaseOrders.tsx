@@ -37,20 +37,7 @@ import api from '../services/api';
 import { useTranslation } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
-
-interface Distributor {
-  id: number;
-  name: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  cost_price: number;
-  stock: number;
-  min_stock: number;
-}
+import type { ApiErrorResponse, Product, Distributor } from '@/types';
 
 interface PurchaseOrder {
   id: number;
@@ -100,10 +87,6 @@ interface LineItem {
   product_name: string;
   quantity: number;
   cost_price: number;
-}
-
-interface ApiErrorResponse {
-  error: string;
 }
 
 const STATUS_COLORS: Record<string, string> = {

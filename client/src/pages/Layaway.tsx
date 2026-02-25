@@ -18,10 +18,7 @@ import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
 import api from '../services/api';
 import type { AxiosError } from 'axios';
-
-interface ApiErrorResponse {
-  error?: string;
-}
+import type { ApiErrorResponse } from '@/types';
 
 interface LayawayOrder {
   id: number;

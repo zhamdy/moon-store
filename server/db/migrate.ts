@@ -54,6 +54,14 @@ for (const [name, check] of Object.entries(reconcile)) {
 
 console.log('Running migrations...');
 
+// Migration naming convention:
+//   {NNN}_{description}.sql  (e.g. 066_add_reviews.sql)
+// - NNN is a zero-padded sequential number
+// - Each number should be unique (note: 021 has two files — a legacy duplicate
+//   that is harmless since they are independent, but avoid repeating this)
+// - Indexes follow: idx_{table}_{column}
+// - Use "IF NOT EXISTS" for all CREATE TABLE/INDEX statements
+// - Files are sorted lexicographically and run in order
 const migrationsDir = path.join(__dirname, 'migrations');
 const files = fs.readdirSync(migrationsDir).sort();
 

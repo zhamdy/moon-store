@@ -15,20 +15,7 @@ import { formatCurrency } from '../lib/utils';
 import { useCartStore } from '../store/cartStore';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  barcode: string | null;
-  price: string | number;
-  stock: number;
-  min_stock: number;
-  category: string;
-  category_id: number | null;
-  distributor_id: number | null;
-  distributor_name: string | null;
-}
+import type { Product } from '@/types';
 
 export default function BarcodeTools() {
   const { t } = useTranslation();

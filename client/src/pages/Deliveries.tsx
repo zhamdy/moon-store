@@ -57,6 +57,7 @@ import { useTranslation, t as tStandalone } from '../i18n';
 
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError, AxiosResponse } from 'axios';
+import type { ApiErrorResponse, Product } from '@/types';
 
 type DeliveryStatus = 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
 
@@ -85,23 +86,11 @@ interface DeliveryOrder {
   updated_at: string;
 }
 
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  price: string | number;
-  stock: number;
-}
-
 interface Customer {
   id: number;
   name: string;
   phone: string;
   address: string | null;
-}
-
-interface ApiErrorResponse {
-  error: string;
 }
 
 interface StatusHistoryEntry {

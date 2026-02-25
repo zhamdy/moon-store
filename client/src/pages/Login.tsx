@@ -16,6 +16,7 @@ import api from '../services/api';
 import moonLogo from '../assets/moon-logo.svg';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse } from '@/types';
 
 const getLoginSchema = () =>
   z.object({
@@ -30,10 +31,6 @@ interface LoginResponseData {
     accessToken: string;
     user: User;
   };
-}
-
-interface ApiErrorResponse {
-  error: string;
 }
 
 export default function Login() {

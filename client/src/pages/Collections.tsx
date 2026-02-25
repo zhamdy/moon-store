@@ -17,10 +17,8 @@ import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
 import api from '../services/api';
 import type { AxiosError } from 'axios';
+import type { ApiErrorResponse, Product } from '@/types';
 
-interface ApiErrorResponse {
-  error?: string;
-}
 interface Collection {
   id: number;
   name: string;
@@ -40,14 +38,6 @@ interface CollectionDetail extends Collection {
     stock: number;
     image_url: string | null;
   }[];
-}
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  price: number;
-  stock: number;
 }
 
 const seasons = ['Spring', 'Summer', 'Fall', 'Winter'] as const;
@@ -249,7 +239,7 @@ export default function CollectionsPage() {
                       <span className="text-sm font-medium">{p.name}</span>
                       <span className="text-xs text-muted ms-2 font-data">{p.sku}</span>
                     </div>
-                    <span className="text-sm font-data">{formatCurrency(p.price)}</span>
+                    <span className="text-sm font-data">{formatCurrency(Number(p.price))}</span>
                   </button>
                 ))}
             </div>
