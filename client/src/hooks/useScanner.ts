@@ -3,17 +3,29 @@ import Quagga from '@ericblade/quagga2';
 
 interface UseScannerReturn {
   isScanning: boolean;
-  startScanner: (targetElement: HTMLElement | string) => void;
+  startScanner: (targetElement: HTMLElement) => void;
   stopScanner: () => void;
 }
+
+const COOLDOWN_MS = 2000;
 
 export function useScanner(onDetected: (code: string) => void): UseScannerReturn {
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<boolean>(false);
+  const lastCodeRef = useRef<string>('');
+  const lastTimeRef = useRef<number>(0);
 
   const startScanner = useCallback(
-    (targetElement: HTMLElement | string) => {
-      if (isScanning) return;
+    (targetElement: HTMLElement) => {
+      if (scannerRef.current) return;
+      scannerRef.current = true;
+
+      // Ensure the container has explicit dimensions before Quagga reads them
+      const rect = targetElement.getBoundingClientRect();
+      const w = Math.max(rect.width, 320);
+      const h = Math.max(rect.height, 240);
+      targetElement.style.width = w + 'px';
+      targetElement.style.height = h + 'px';
 
       Quagga.init(
         {
@@ -22,8 +34,8 @@ export function useScanner(onDetected: (code: string) => void): UseScannerReturn
             target: targetElement,
             constraints: {
               facingMode: 'environment',
-              width: { ideal: 640 },
-              height: { ideal: 480 },
+              width: 640,
+              height: 480,
             },
           },
           decoder: {
@@ -36,12 +48,14 @@ export function useScanner(onDetected: (code: string) => void): UseScannerReturn
               'upc_e_reader',
             ],
           },
-          locate: true,
+          numOfWorkers: 0,
+          locate: false,
           frequency: 10,
         },
         (err: unknown) => {
           if (err) {
             console.error('Scanner init error:', err);
+            scannerRef.current = false;
             return;
           }
           Quagga.start();
@@ -50,14 +64,21 @@ export function useScanner(onDetected: (code: string) => void): UseScannerReturn
       );
 
       Quagga.onDetected((result) => {
-        if (result?.codeResult?.code) {
-          onDetected(result.codeResult.code);
-        }
-      });
+        const code = result?.codeResult?.code;
+        if (!code) return;
 
-      scannerRef.current = true;
+        const now = Date.now();
+        // Ignore same code within cooldown period
+        if (code === lastCodeRef.current && now - lastTimeRef.current < COOLDOWN_MS) {
+          return;
+        }
+
+        lastCodeRef.current = code;
+        lastTimeRef.current = now;
+        onDetected(code);
+      });
     },
-    [isScanning, onDetected]
+    [onDetected]
   );
 
   const stopScanner = useCallback(() => {
@@ -65,6 +86,8 @@ export function useScanner(onDetected: (code: string) => void): UseScannerReturn
       Quagga.stop();
       scannerRef.current = false;
       setIsScanning(false);
+      lastCodeRef.current = '';
+      lastTimeRef.current = 0;
     }
   }, []);
 

@@ -165,14 +165,15 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     return { enabled, earnRate, redeemValue, customerPoints };
   }, [appSettings, customerLoyalty]);
 
+  const cartTotal = getTotal();
   const taxInfo = useMemo(() => {
     const enabled = appSettings?.tax_enabled === 'true';
     const rate = parseFloat(appSettings?.tax_rate || '0');
     const mode = appSettings?.tax_mode || 'exclusive';
     if (!enabled || rate <= 0)
-      return { enabled: false, rate: 0, mode, amount: 0, totalWithTax: getTotal() };
+      return { enabled: false, rate: 0, mode, amount: 0, totalWithTax: cartTotal };
 
-    const afterDiscount = getTotal();
+    const afterDiscount = cartTotal;
     let taxAmount = 0;
     let totalWithTax = afterDiscount;
 
@@ -185,7 +186,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     }
 
     return { enabled: true, rate, mode, amount: taxAmount, totalWithTax };
-  }, [appSettings, getTotal]);
+  }, [appSettings, cartTotal]);
 
   const pointsDiscountAmount = useMemo(() => {
     if (!redeemPoints || pointsToRedeem <= 0 || !loyaltyInfo.enabled) return 0;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Check, CheckCheck, Package, ShoppingCart, Truck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -54,6 +54,7 @@ export default function NotificationCenter(): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { data: unreadData } = useQuery({
     queryKey: ['notifications-unread-count'],
@@ -109,8 +110,7 @@ export default function NotificationCenter(): React.JSX.Element {
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-notification-center]')) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
@@ -129,7 +129,7 @@ export default function NotificationCenter(): React.JSX.Element {
   };
 
   return (
-    <div className="relative" data-notification-center>
+    <div className="relative" ref={containerRef}>
       <button
         onClick={() => setOpen(!open)}
         className="relative flex items-center justify-center h-9 w-9 rounded-md text-muted hover:text-foreground hover:bg-surface border border-border transition-colors"

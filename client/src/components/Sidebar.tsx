@@ -14,13 +14,9 @@ import {
   ScrollText,
   Settings,
   LogOut,
-  Moon,
-  Sun,
-  Languages,
   Ticket,
   Gift,
   PackageCheck,
-  MapPin,
   Download,
   Vault,
   Clock,
@@ -32,14 +28,19 @@ import {
   Star,
   Database,
   Activity,
+  GitBranch,
+  Globe,
+  ShoppingBag,
+  BarChart3,
+  Store,
+  Zap,
+  Brain,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { useSettingsStore } from '../store/settingsStore';
 import { useTranslation } from '../i18n';
 import api from '../services/api';
 import moonLogo from '../assets/moon-logo.svg';
-import NotificationCenter from './NotificationCenter';
 
 interface NavItem {
   to: string;
@@ -73,8 +74,15 @@ const navItems: NavItem[] = [
   { to: '/promotions', icon: Ticket, labelKey: 'nav.promotions', roles: ['Admin'] },
   { to: '/gift-cards', icon: Gift, labelKey: 'nav.giftCards', roles: ['Admin'] },
   { to: '/stock-count', icon: PackageCheck, labelKey: 'nav.stockCount', roles: ['Admin'] },
-  { to: '/locations', icon: MapPin, labelKey: 'nav.locations', roles: ['Admin'] },
+
   { to: '/exports', icon: Download, labelKey: 'nav.exports', roles: ['Admin'] },
+  { to: '/branches', icon: GitBranch, labelKey: 'nav.branches', roles: ['Admin'] },
+  { to: '/storefront', icon: Globe, labelKey: 'nav.storefront', roles: ['Admin'] },
+  { to: '/online-orders', icon: ShoppingBag, labelKey: 'nav.onlineOrders', roles: ['Admin'] },
+  { to: '/report-builder', icon: BarChart3, labelKey: 'nav.reportBuilder', roles: ['Admin'] },
+  { to: '/vendors', icon: Store, labelKey: 'nav.vendors', roles: ['Admin'] },
+  { to: '/smart-pricing', icon: Zap, labelKey: 'nav.smartPricing', roles: ['Admin'] },
+  { to: '/ai-insights', icon: Brain, labelKey: 'nav.aiInsights', roles: ['Admin'] },
   { to: '/audit-log', icon: ScrollText, labelKey: 'nav.auditLog', roles: ['Admin'] },
   { to: '/settings', icon: Settings, labelKey: 'nav.settings', roles: ['Admin'] },
 ];
@@ -82,8 +90,7 @@ const navItems: NavItem[] = [
 export default function Sidebar(): React.JSX.Element {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
-  const { t, locale } = useTranslation();
-  const { toggleLocale, toggleTheme, theme } = useSettingsStore();
+  const { t } = useTranslation();
 
   const filteredNav = navItems.filter((item) => item.roles.includes(user?.role ?? ''));
 
@@ -127,38 +134,8 @@ export default function Sidebar(): React.JSX.Element {
           ))}
         </nav>
 
-        {/* Notifications + Settings toggles */}
-        <div className="px-4 pb-1 flex justify-end">
-          <NotificationCenter />
-        </div>
-        <div className="px-4 pb-2 flex gap-2">
-          <button
-            onClick={toggleLocale}
-            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-data text-muted hover:text-foreground hover:bg-surface border border-border transition-colors"
-          >
-            <Languages className="h-3.5 w-3.5" />
-            {locale === 'ar' ? 'EN' : '\u0639\u0631\u0628\u064A'}
-          </button>
-          <button
-            onClick={toggleTheme}
-            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-data text-muted hover:text-foreground hover:bg-surface border border-border transition-colors"
-          >
-            {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-            {theme === 'dark' ? t('theme.light') : t('theme.dark')}
-          </button>
-        </div>
-
-        {/* User info + logout */}
+        {/* Logout */}
         <div className="p-4 border-t border-border">
-          <div className="flex items-center gap-3 px-4 py-2 mb-2">
-            <div className="h-8 w-8 rounded-full bg-gold/20 flex items-center justify-center">
-              <span className="text-gold text-sm font-semibold">{user?.name?.[0] || 'U'}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{user?.name}</p>
-              <p className="text-xs text-muted">{user?.role}</p>
-            </div>
-          </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-4 py-2 w-full text-sm text-muted hover:text-destructive transition-colors rounded-md"
@@ -186,19 +163,6 @@ export default function Sidebar(): React.JSX.Element {
             <span>{t(item.labelKey).split(' ')[0]}</span>
           </NavLink>
         ))}
-        <button
-          onClick={toggleLocale}
-          className="flex flex-col items-center gap-1 px-2 py-1 text-[10px] text-muted"
-        >
-          <Languages className="h-5 w-5" />
-          <span>{locale === 'ar' ? 'EN' : '\u0639\u0631'}</span>
-        </button>
-        <button
-          onClick={toggleTheme}
-          className="flex flex-col items-center gap-1 px-2 py-1 text-[10px] text-gold"
-        >
-          {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </button>
       </nav>
     </>
   );

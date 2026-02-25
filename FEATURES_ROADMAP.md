@@ -62,6 +62,29 @@
 | 44 | [Staff Commission Tracking](#44-staff-commission-tracking) | New Feature | Low | Medium | Done |
 | 45 | [Activity Feed & Collaboration Notes](#45-activity-feed--collaboration-notes) | Enhancement | Low | Simple | Done |
 
+### Wave 3 (Completed)
+
+| # | Title | Type | Priority | Complexity | Status |
+|---|-------|------|----------|------------|--------|
+| 46 | [Multi-Store / Branch Management](#46-multi-store--branch-management) | New Feature | High | Complex | Done |
+| 47 | [Store Performance & Consolidated Dashboard](#47-store-performance--consolidated-dashboard) | New Feature | High | Medium | Done |
+| 48 | [Inter-Store Stock Transfers](#48-inter-store-stock-transfers) | New Feature | High | Medium | Done |
+| 49 | [E-commerce Customer Accounts](#49-e-commerce-customer-accounts) | New Feature | High | Complex | Done |
+| 50 | [Online Orders & Storefront](#50-online-orders--storefront) | New Feature | High | Complex | Done |
+| 51 | [Product Reviews & Q&A](#51-product-reviews--qa) | New Feature | Medium | Simple | Done |
+| 52 | [Storefront Configuration](#52-storefront-configuration) | New Feature | Medium | Medium | Done |
+| 53 | [Custom Report Builder](#53-custom-report-builder) | New Feature | High | Complex | Done |
+| 54 | [Data Warehouse & Materialized Views](#54-data-warehouse--materialized-views) | New Feature | Medium | Medium | Done |
+| 55 | [Dashboard Widgets (Extended)](#55-dashboard-widgets-extended) | Enhancement | Medium | Simple | Done |
+| 56 | [Marketplace Vendor Management](#56-marketplace-vendor-management) | New Feature | High | Complex | Done |
+| 57 | [Vendor Products & Approvals](#57-vendor-products--approvals) | New Feature | High | Medium | Done |
+| 58 | [Vendor Commissions & Payouts](#58-vendor-commissions--payouts) | New Feature | High | Medium | Done |
+| 59 | [Vendor Reviews & Metrics](#59-vendor-reviews--metrics) | New Feature | Medium | Simple | Done |
+| 60 | [Smart Pricing Engine](#60-smart-pricing-engine) | New Feature | High | Complex | Done |
+| 61 | [AI Chatbot for Support](#61-ai-chatbot-for-support) | New Feature | Medium | Complex | Done |
+| 62 | [Sales Predictions & Trend Analysis](#62-sales-predictions--trend-analysis) | New Feature | Medium | Medium | Done |
+| 63 | [Automated Product Descriptions](#63-automated-product-descriptions) | New Feature | Medium | Medium | Done |
+
 ---
 
 ## 1. Sale Refunds & Voids [DONE]
@@ -1786,3 +1809,428 @@ Add a real-time activity feed (like a team chat/news feed) and contextual notes 
 | **Phase 6: Growth** | #28 Campaigns, #37 Scheduled Reports, #35 Multi-Currency | Scale and reach |
 | **Phase 7: Advanced** | #31 Dashboard Builder, #32 Forecasting, #38 Unified Wallet | Intelligence layer |
 | **Phase 8: Polish** | #34 Warranty, #41 Label Designer, #42 Kiosk, #43 AP, #44 Commissions, #45 Activity Feed | Finishing touches |
+
+## Wave 2 — Implementation Status
+
+All 25 features from Wave 2 have been implemented. The system now includes:
+
+- **Operations**: Cash register management, exchange workflows, employee shift tracking
+- **Finance**: Expense tracking & P&L, layaway/credit sales
+- **Customer Intelligence**: RFM segmentation, feedback & NPS collection
+- **Fashion**: Season/collection management, product lookbook, recommendations & cross-selling
+- **Platform**: Custom roles & permissions, webhook/integration API, backup & restore
+- **Growth**: Customer campaigns, scheduled reports, multi-currency support
+- **Advanced**: Dashboard builder, demand forecasting, unified wallet
+- **Polish**: Warranty tracking, barcode label designer, kiosk mode, supplier payments, staff commissions, activity feed
+
+*Wave 2 completed as of Feb 2026.*
+
+---
+
+# Wave 3 — Enterprise-Grade Features
+
+> 5 major feature areas covering multi-store management, e-commerce, advanced reporting, marketplace, and AI-powered capabilities (Feb 2026).
+
+---
+
+### Wave 3 (Completed)
+
+| # | Title | Type | Priority | Complexity | Status |
+|---|-------|------|----------|------------|--------|
+| 46 | [Multi-Store / Branch Management](#46-multi-store--branch-management) | New Feature | High | Complex | Done |
+| 47 | [Store Performance & Consolidated Dashboard](#47-store-performance--consolidated-dashboard) | New Feature | High | Medium | Done |
+| 48 | [Inter-Store Stock Transfers](#48-inter-store-stock-transfers) | New Feature | High | Medium | Done |
+| 49 | [E-commerce Customer Accounts](#49-e-commerce-customer-accounts) | New Feature | High | Complex | Done |
+| 50 | [Online Orders & Storefront](#50-online-orders--storefront) | New Feature | High | Complex | Done |
+| 51 | [Product Reviews & Q&A](#51-product-reviews--qa) | New Feature | Medium | Simple | Done |
+| 52 | [Storefront Configuration](#52-storefront-configuration) | New Feature | Medium | Medium | Done |
+| 53 | [Custom Report Builder](#53-custom-report-builder) | New Feature | High | Complex | Done |
+| 54 | [Data Warehouse & Materialized Views](#54-data-warehouse--materialized-views) | New Feature | Medium | Medium | Done |
+| 55 | [Dashboard Widgets (Extended)](#55-dashboard-widgets-extended) | Enhancement | Medium | Simple | Done |
+| 56 | [Marketplace Vendor Management](#56-marketplace-vendor-management) | New Feature | High | Complex | Done |
+| 57 | [Vendor Products & Approvals](#57-vendor-products--approvals) | New Feature | High | Medium | Done |
+| 58 | [Vendor Commissions & Payouts](#58-vendor-commissions--payouts) | New Feature | High | Medium | Done |
+| 59 | [Vendor Reviews & Metrics](#59-vendor-reviews--metrics) | New Feature | Medium | Simple | Done |
+| 60 | [Smart Pricing Engine](#60-smart-pricing-engine) | New Feature | High | Complex | Done |
+| 61 | [AI Chatbot for Support](#61-ai-chatbot-for-support) | New Feature | Medium | Complex | Done |
+| 62 | [Sales Predictions & Trend Analysis](#62-sales-predictions--trend-analysis) | New Feature | Medium | Medium | Done |
+| 63 | [Automated Product Descriptions](#63-automated-product-descriptions) | New Feature | Medium | Medium | Done |
+
+---
+
+## 46. Multi-Store / Branch Management [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Complex
+
+### Problem it solves
+The existing locations system is basic — just name and address. Real multi-store operations need phone, email, manager assignment, operating hours, per-store currency/tax settings, and a primary store designation.
+
+### Proposed solution
+Enhance the locations table with rich branch metadata. Add store settings management (key-value config per store). Full CRUD with manager assignment.
+
+### Key functionality
+- Branch CRUD with phone, email, manager, opening hours, currency, tax rate
+- Per-store settings (key-value)
+- Primary store designation
+- Manager assignment from users
+- Store-specific configuration
+
+### Technical notes
+- **Migration:** `047_store_branches.sql` — extends locations table, creates store_settings
+- **Route:** `server/routes/branches.ts`
+- **Page:** `client/src/pages/Branches.tsx`
+
+---
+
+## 47. Store Performance & Consolidated Dashboard [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Medium
+
+### Problem it solves
+No way to compare performance across stores. Sales aren't linked to locations. Management can't see which store is outperforming or underperforming.
+
+### Proposed solution
+Add location_id to sales, create store daily summaries (materialized aggregations), and build a consolidated multi-store dashboard with per-store KPIs.
+
+### Key functionality
+- Per-store sales tracking (location_id on sales)
+- Daily store summaries (revenue, customers, order count, avg order value)
+- Consolidated dashboard comparing stores side-by-side
+- Top category per store per day
+
+### Technical notes
+- **Migration:** `048_store_performance.sql` — adds location_id to sales, creates store_daily_summary
+- **Route:** consolidated dashboard endpoint in branches.ts
+- **Page:** Dashboard tab in Branches.tsx
+
+---
+
+## 48. Inter-Store Stock Transfers [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Medium
+
+### Problem it solves
+Stock transfers between locations exist but lack workflow management — no expected dates, reference numbers, approval flows, or detailed item tracking.
+
+### Proposed solution
+Enhance transfer system with transfer requests workflow: create request → approve → process transfer. Track expected dates and reference numbers.
+
+### Key functionality
+- Transfer request CRUD with items
+- Approval workflow (pending → approved → processing → completed → cancelled)
+- Expected delivery dates
+- Reference numbers for tracking
+- Approval by authorized users
+
+### Technical notes
+- **Migration:** `049_inter_store_transfers.sql` — extends stock_transfers, creates transfer_requests + items
+- **Route:** transfer request endpoints in branches.ts
+
+---
+
+## 49. E-commerce Customer Accounts [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Complex
+
+### Problem it solves
+Customers have no online presence — no email, password, registration status, or profile info. E-commerce requires self-service customer accounts with authentication.
+
+### Proposed solution
+Extend customers with registration fields (email, password, avatar, date of birth, gender). Add customer addresses (shipping/billing) and wishlists.
+
+### Key functionality
+- Customer registration fields (email, password_hash, is_registered)
+- Profile data (avatar, DOB, gender)
+- Multiple addresses per customer (home, work, etc.) with default selection
+- Wishlist (customer × product, unique pairs)
+
+### Technical notes
+- **Migration:** `050_ecommerce_customers.sql` — extends customers, creates customer_addresses + wishlists
+- **Route:** public storefront endpoints in storefront.ts
+
+---
+
+## 50. Online Orders & Storefront [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Complex
+
+### Problem it solves
+No online sales channel. The system is purely POS-based. Customers can't browse products, place orders, or track deliveries online. Revenue is limited to physical foot traffic.
+
+### Proposed solution
+Full e-commerce order system: online order lifecycle management, shopping carts, stock deduction on order, status workflow, and public order tracking.
+
+### Key functionality
+- Online order CRUD with status workflow (pending → confirmed → processing → shipped → delivered → cancelled)
+- Shopping cart persistence
+- Stock deduction on order creation, restoration on cancellation
+- Public order tracking by order number
+- Payment tracking (method, reference, paid status)
+- Shipping address and customer linking
+
+### Technical notes
+- **Migrations:** `051_online_orders.sql` (online_orders, order_items, shopping_carts), `052_product_reviews.sql`, `053_storefront_config.sql`
+- **Routes:** `server/routes/storefront.ts`, `server/routes/onlineOrders.ts`
+- **Pages:** `client/src/pages/Storefront.tsx`, `client/src/pages/OnlineOrders.tsx`
+
+---
+
+## 51. Product Reviews & Q&A [DONE]
+
+**Type:** New Feature
+**Priority:** Medium
+**Complexity:** Simple
+
+### Problem it solves
+No customer feedback on individual products. Online shoppers rely heavily on reviews and ratings to make purchasing decisions. Q&A allows customers to ask about products before buying.
+
+### Proposed solution
+Product reviews with 1-5 star ratings and product Q&A system. Reviews verified against actual purchases.
+
+### Technical notes
+- **Migration:** `052_product_reviews.sql` — creates product_reviews + product_questions tables
+
+---
+
+## 52. Storefront Configuration [DONE]
+
+**Type:** New Feature
+**Priority:** Medium
+**Complexity:** Medium
+
+### Problem it solves
+No way to configure the online storefront appearance — store name, colors, banners, shipping settings. Every storefront needs basic configuration.
+
+### Proposed solution
+Key-value storefront configuration with default values. Banner management for promotional content on the storefront.
+
+### Technical notes
+- **Migration:** `053_storefront_config.sql` — creates storefront_config + storefront_banners, seeds defaults
+
+---
+
+## 53. Custom Report Builder [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Complex
+
+### Problem it solves
+Reports are hardcoded. Admins can't create custom queries, combine fields from different tables, or save report configurations for reuse. Business intelligence requires flexibility.
+
+### Proposed solution
+Saved report builder with configurable type, fields, filters, grouping, and chart options. Quick ad-hoc report endpoints for common queries. Scheduled report delivery.
+
+### Key functionality
+- Saved report CRUD with JSON configuration
+- Report types: sales, inventory, customers, financial
+- Quick reports: revenue by date/category, top products
+- Scheduled reports with cron expressions and email delivery
+- Multiple chart types (bar, line, pie, table)
+
+### Technical notes
+- **Migrations:** `054_report_builder.sql` (saved_reports, scheduled_reports)
+- **Route:** `server/routes/reports.ts`
+- **Page:** `client/src/pages/ReportBuilder.tsx`
+
+---
+
+## 54. Data Warehouse & Materialized Views [DONE]
+
+**Type:** New Feature
+**Priority:** Medium
+**Complexity:** Medium
+
+### Problem it solves
+Complex analytics queries are slow on transactional data. No pre-aggregated data for dashboards. Need materialized views for monthly sales, product performance, and customer lifetime value.
+
+### Technical notes
+- **Migration:** `055_data_warehouse.sql` — creates monthly_sales_agg, product_performance, customer_ltv
+
+---
+
+## 55. Dashboard Widgets (Extended) [DONE]
+
+**Type:** Enhancement
+**Priority:** Medium
+**Complexity:** Simple
+
+### Problem it solves
+Dashboard customization from Wave 2 needs extended widget types for the new data sources (multi-store, e-commerce, vendor metrics).
+
+### Technical notes
+- **Migration:** `056_dashboard_widgets.sql` — creates dashboard_widgets table
+
+---
+
+## 56. Marketplace Vendor Management [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Complex
+
+### Problem it solves
+The system is single-seller only. A marketplace model allows multiple vendors to sell through the platform, each managing their own inventory and receiving their own payouts. This is the foundation for a multi-vendor ecosystem.
+
+### Proposed solution
+Full vendor lifecycle: registration, approval, profile management, commission configuration, balance tracking, and payout management.
+
+### Key functionality
+- Vendor CRUD with status workflow (pending → active → suspended)
+- Commission rates per vendor (percentage)
+- Vendor balance tracking
+- Bank details for payouts
+- Payout processing with balance deduction
+- Vendor dashboard stats
+
+### Technical notes
+- **Migration:** `057_vendors.sql` — creates vendors table
+- **Route:** `server/routes/vendors.ts`
+- **Page:** `client/src/pages/Vendors.tsx`
+
+---
+
+## 57. Vendor Products & Approvals [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Medium
+
+### Problem it solves
+Vendors need to manage their own products, but the marketplace owner needs approval control. Products must be linked to vendors and flagged as marketplace items.
+
+### Technical notes
+- **Migration:** `058_vendor_products.sql` — adds vendor_id/is_marketplace to products, creates vendor_product_approvals
+
+---
+
+## 58. Vendor Commissions & Payouts [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Medium
+
+### Problem it solves
+Need to track commission earned per vendor per sale and manage periodic payouts. Without this, the marketplace has no revenue model.
+
+### Technical notes
+- **Migration:** `059_vendor_commissions.sql` — creates vendor_commissions + vendor_payouts tables
+
+---
+
+## 59. Vendor Reviews & Metrics [DONE]
+
+**Type:** New Feature
+**Priority:** Medium
+**Complexity:** Simple
+
+### Problem it solves
+No way to rate vendors or track vendor performance metrics. Buyers need trust signals; marketplace owners need quality control.
+
+### Technical notes
+- **Migration:** `060_vendor_reviews.sql` — creates vendor_reviews + vendor_metrics tables
+
+---
+
+## 60. Smart Pricing Engine [DONE]
+
+**Type:** New Feature
+**Priority:** High
+**Complexity:** Complex
+
+### Problem it solves
+Pricing is completely manual. No demand-based adjustments, no seasonal pricing rules, no competitive awareness. Modern retail uses dynamic pricing to maximize revenue and move inventory.
+
+### Proposed solution
+Rule-based pricing engine with demand-based suggestions. Rules can target categories or specific products. AI generates price suggestions based on sales velocity, stock levels, and seasonality.
+
+### Key functionality
+- Pricing rules CRUD (name, type, conditions, adjustment percentage, schedule)
+- Demand-based price suggestion generation
+- Accept/reject suggestions with one click
+- Rule targeting by category or product
+- Season-aware pricing
+
+### Technical notes
+- **Migration:** `061_smart_pricing.sql` — creates pricing_rules + price_suggestions
+- **Route:** `server/routes/ai.ts`
+- **Page:** `client/src/pages/SmartPricing.tsx`
+
+---
+
+## 61. AI Chatbot for Support [DONE]
+
+**Type:** New Feature
+**Priority:** Medium
+**Complexity:** Complex
+
+### Problem it solves
+Customer support is entirely manual. Common questions about orders, products, shipping, and returns could be handled automatically. A chatbot reduces support load and provides 24/7 availability.
+
+### Proposed solution
+Knowledge-base-driven chatbot with keyword matching and product search. Maintains session context for multi-turn conversations.
+
+### Technical notes
+- **Migration:** `062_ai_chatbot.sql` — creates chat_sessions, chat_messages, knowledge_base + seeds FAQ
+- **Route:** chatbot endpoints in ai.ts
+
+---
+
+## 62. Sales Predictions & Trend Analysis [DONE]
+
+**Type:** New Feature
+**Priority:** Medium
+**Complexity:** Medium
+
+### Problem it solves
+No forward-looking analytics. The system reports what happened but can't predict what will happen. Inventory planning and marketing need forecasts.
+
+### Proposed solution
+Weighted moving average sales predictions with confidence scoring. Trend analysis (up/down/stable) for key metrics over time.
+
+### Technical notes
+- **Migration:** `063_sales_predictions.sql` — creates sales_predictions + trend_analysis
+- **Route:** prediction endpoints in ai.ts
+- **Page:** `client/src/pages/AiInsights.tsx`
+
+---
+
+## 63. Automated Product Descriptions [DONE]
+
+**Type:** New Feature
+**Priority:** Medium
+**Complexity:** Medium
+
+### Problem it solves
+Writing product descriptions is time-consuming, especially for large catalogs. SEO-optimized descriptions require skill. AI can generate descriptions from product attributes.
+
+### Proposed solution
+Template-based description generation from product attributes (name, category, price, tags). Includes SEO title and description. Tracks generation history.
+
+### Technical notes
+- **Migration:** `064_auto_descriptions.sql` — adds ai_description, seo_title, seo_description, tags, image_embedding to products. Creates ai_generation_log.
+- **Route:** auto-description endpoints in ai.ts
+
+---
+
+## Wave 3 — Implementation Status
+
+All 18 features from Wave 3 have been implemented across 5 major areas:
+
+- **Multi-Store**: Branch management, store performance tracking, inter-store transfers
+- **E-commerce**: Customer accounts, online orders, product reviews, storefront config
+- **Advanced Reporting**: Custom report builder, data warehouse views, dashboard widgets
+- **Marketplace**: Vendor management, product approvals, commissions/payouts, reviews
+- **AI-Powered**: Smart pricing, chatbot, sales predictions, auto descriptions
+
+*Wave 3 completed as of Feb 2026.*
