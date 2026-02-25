@@ -174,7 +174,7 @@ router.post(
         ]
       );
 
-      logAuditFromReq(req, 'create', 'gift_card', (result.rows[0] as any)?.id, {
+      logAuditFromReq(req, 'create', 'gift_card', (result.rows[0] as { id: number })?.id, {
         code: finalCode,
         initial_value,
       });

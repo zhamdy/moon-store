@@ -17,8 +17,8 @@ db.exec(`CREATE TABLE IF NOT EXISTS _migrations (
 // Helper to check if a column exists on a table
 function hasColumn(table: string, column: string): boolean {
   try {
-    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as any[];
-    return cols.some((c: any) => c.name === column);
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    return cols.some((c) => c.name === column);
   } catch {
     return false;
   }
@@ -27,7 +27,7 @@ function hasColumn(table: string, column: string): boolean {
 function tableExists(name: string): boolean {
   const result = db
     .prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?")
-    .get(name) as any;
+    .get(name) as { count: number };
   return result.count > 0;
 }
 
@@ -61,7 +61,7 @@ const applied = new Set(
   db
     .prepare('SELECT name FROM _migrations')
     .all()
-    .map((r: any) => r.name)
+    .map((r) => (r as { name: string }).name)
 );
 
 for (const file of files) {

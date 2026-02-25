@@ -585,6 +585,8 @@
   "validation.pricePositive": "يجب أن يكون السعر موجباً",
   "validation.stockNonNeg": "لا يمكن أن يكون المخزون سالباً",
   "validation.addItem": "أضف عنصراً واحداً على الأقل",
+  "validation.passwordRequired": "كلمة المرور مطلوبة",
+  "validation.codeRequired": "الرمز مطلوب",
 
   "nav.purchaseOrders": "أوامر الشراء",
 

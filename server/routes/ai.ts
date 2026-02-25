@@ -58,8 +58,25 @@ router.post(
        FROM products p WHERE p.status = 'active'`
       );
 
-      const suggestions: any[] = [];
-      for (const p of products.rows as any[]) {
+      interface PricingProduct {
+        id: number;
+        name: string;
+        price: number;
+        stock: number;
+        cost_price: number;
+        monthly_sales: number;
+        weekly_sales: number;
+      }
+      interface PricingSuggestion {
+        product_id: number;
+        product_name: string;
+        current_price: number;
+        suggested_price: number;
+        reason: string;
+        confidence: number;
+      }
+      const suggestions: PricingSuggestion[] = [];
+      for (const p of products.rows as unknown as PricingProduct[]) {
         let suggested_price = p.price;
         let reason = '';
 
@@ -88,6 +105,7 @@ router.post(
         if (suggested_price !== p.price) {
           suggestions.push({
             product_id: p.id,
+            product_name: p.name,
             current_price: p.price,
             suggested_price,
             reason,
@@ -143,7 +161,12 @@ router.put(
           req.params.id,
         ]);
         if (suggestion.rows.length > 0) {
-          const s = suggestion.rows[0] as any;
+          const s = suggestion.rows[0] as {
+            product_id: number;
+            current_price: number;
+            suggested_price: number;
+            reason: string;
+          };
           await db.query('UPDATE products SET price = ? WHERE id = ?', [
             s.suggested_price,
             s.product_id,
@@ -194,7 +217,7 @@ router.post('/chat/message', async (req: Request, res: Response, next: NextFunct
     );
     if (session.rows.length === 0)
       return res.status(404).json({ success: false, error: 'Session not found' });
-    const sessionId = (session.rows[0] as any).id;
+    const sessionId = (session.rows[0] as { id: number }).id;
 
     // Save customer message
     await db.query(
@@ -207,9 +230,9 @@ router.post('/chat/message', async (req: Request, res: Response, next: NextFunct
     let botResponse = 'Thank you for your message! A team member will help you shortly.';
 
     const kb = await db.query('SELECT * FROM knowledge_base WHERE is_active = 1');
-    for (const entry of kb.rows as any[]) {
-      const keywords = entry.keywords.split(',').map((k: string) => k.trim().toLowerCase());
-      if (keywords.some((k: string) => lowerMsg.includes(k))) {
+    for (const entry of kb.rows as Array<{ keywords: string; answer: string }>) {
+      const keywords = entry.keywords.split(',').map((k) => k.trim().toLowerCase());
+      if (keywords.some((k) => lowerMsg.includes(k))) {
         botResponse = entry.answer;
         break;
       }
@@ -227,8 +250,8 @@ router.post('/chat/message', async (req: Request, res: Response, next: NextFunct
           "SELECT name, price FROM products WHERE status = 'active' AND (name LIKE ? OR category LIKE ?) LIMIT 3",
           [`%${searchTerms}%`, `%${searchTerms}%`]
         );
-        if ((products.rows as any[]).length > 0) {
-          const list = (products.rows as any[])
+        if ((products.rows as Array<{ name: string; price: number }>).length > 0) {
+          const list = (products.rows as Array<{ name: string; price: number }>)
             .map((p) => `• ${p.name} — ${p.price} SAR`)
             .join('\n');
           botResponse = `I found these products for you:\n${list}\n\nWould you like more details?`;
@@ -269,12 +292,29 @@ router.post(
        FROM products p WHERE p.status = 'active'`
       );
 
-      const predictions: any[] = [];
+      interface PredictionProduct {
+        id: number;
+        name: string;
+        price: number;
+        category: string;
+        last_30d: number;
+        prev_30d: number;
+      }
+      interface Prediction {
+        product_id: number;
+        product_name: string;
+        category: string;
+        predicted_units: number;
+        predicted_revenue: number;
+        trend: string;
+        confidence: number;
+      }
+      const predictions: Prediction[] = [];
       const nextMonth = new Date();
       nextMonth.setMonth(nextMonth.getMonth() + 1);
       const period = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
 
-      for (const p of products.rows as any[]) {
+      for (const p of products.rows as unknown as PredictionProduct[]) {
         // Weighted average: 70% recent, 30% older
         const predicted_units = Math.round(p.last_30d * 0.7 + p.prev_30d * 0.3);
         const predicted_revenue = predicted_units * p.price;
@@ -347,7 +387,13 @@ router.post(
       const product = await db.query('SELECT * FROM products WHERE id = ?', [req.params.productId]);
       if (product.rows.length === 0)
         return res.status(404).json({ success: false, error: 'Product not found' });
-      const p = product.rows[0] as any;
+      const p = product.rows[0] as {
+        id: number;
+        name: string;
+        category: string;
+        price: number;
+        sku: string;
+      };
 
       // Template-based description generation
       const descriptions: Record<string, string> = {

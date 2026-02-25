@@ -205,7 +205,10 @@ router.post(
           .prepare(
             'INSERT INTO transfer_requests (from_location_id, to_location_id, requested_by, notes) VALUES (?, ?, ?, ?) RETURNING *'
           )
-          .get(from_location_id, to_location_id, authReq.user!.id, notes || null) as any;
+          .get(from_location_id, to_location_id, authReq.user!.id, notes || null) as Record<
+          string,
+          unknown
+        >;
         for (const item of items) {
           rawDb
             .prepare(
@@ -346,7 +349,7 @@ router.delete(
       ]);
       if (check.rows.length === 0)
         return res.status(404).json({ success: false, error: 'Branch not found' });
-      if ((check.rows[0] as any).is_primary)
+      if ((check.rows[0] as { is_primary: number }).is_primary)
         return res.status(400).json({ success: false, error: 'Cannot delete primary branch' });
       await db.query("UPDATE locations SET status = 'inactive' WHERE id = ?", [req.params.id]);
       res.json({ success: true, data: { message: 'Branch deactivated' } });

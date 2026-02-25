@@ -314,8 +314,20 @@ router.get(
          ORDER BY revenue DESC`
       );
 
-      const products = result.rows as any[];
-      const totalRevenue = products.reduce((sum: number, p: any) => sum + p.revenue, 0);
+      interface AbcProduct {
+        id: number;
+        name: string;
+        sku: string;
+        stock: number;
+        price: number;
+        abc_class: string;
+        revenue: number;
+        units_sold: number;
+        revenue_pct?: number;
+        cumulative_pct?: number;
+      }
+      const products = result.rows as unknown as AbcProduct[];
+      const totalRevenue = products.reduce((sum, p) => sum + p.revenue, 0);
 
       // Calculate cumulative percentages and assign ABC
       let cumulative = 0;
@@ -344,9 +356,9 @@ router.get(
           products,
           summary: {
             total_revenue: totalRevenue,
-            a_count: products.filter((p: any) => p.abc_class === 'A').length,
-            b_count: products.filter((p: any) => p.abc_class === 'B').length,
-            c_count: products.filter((p: any) => p.abc_class === 'C').length,
+            a_count: products.filter((p) => p.abc_class === 'A').length,
+            b_count: products.filter((p) => p.abc_class === 'B').length,
+            c_count: products.filter((p) => p.abc_class === 'C').length,
           },
         },
       });
@@ -378,7 +390,19 @@ router.get(
          ORDER BY p.stock ASC`
       );
 
-      const suggestions = (result.rows as any[]).map((p: any) => {
+      interface ReorderProduct {
+        id: number;
+        name: string;
+        sku: string;
+        stock: number;
+        min_stock: number;
+        price: number;
+        cost_price: number;
+        lead_time_days: number;
+        reorder_qty: number;
+        sold_last_30d: number;
+      }
+      const suggestions = (result.rows as unknown as ReorderProduct[]).map((p) => {
         const dailyVelocity = p.sold_last_30d / 30;
         const daysOfStock = dailyVelocity > 0 ? Math.round(p.stock / dailyVelocity) : 999;
         const suggestedQty =

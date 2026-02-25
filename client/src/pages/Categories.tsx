@@ -28,7 +28,7 @@ import {
 } from '../components/ui/alert-dialog';
 import DataTable from '../components/DataTable';
 import api from '../services/api';
-import { useTranslation } from '../i18n';
+import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
 
@@ -44,12 +44,13 @@ interface ApiErrorResponse {
   error: string;
 }
 
-const categoryFormSchema = z.object({
-  name: z.string().min(1, 'Name required'),
-  code: z.string().min(1, 'Code required'),
-});
+const getCategoryFormSchema = () =>
+  z.object({
+    name: z.string().min(1, tStandalone('validation.nameRequired')),
+    code: z.string().min(1, tStandalone('validation.codeRequired')),
+  });
 
-type CategoryFormData = z.infer<typeof categoryFormSchema>;
+type CategoryFormData = z.infer<ReturnType<typeof getCategoryFormSchema>>;
 
 export default function CategoriesPage() {
   const { t } = useTranslation();
@@ -69,7 +70,7 @@ export default function CategoriesPage() {
     reset,
     formState: { errors },
   } = useForm<CategoryFormData>({
-    resolver: zodResolver(categoryFormSchema),
+    resolver: zodResolver(getCategoryFormSchema()),
   });
 
   const createMutation = useMutation({

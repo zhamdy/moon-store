@@ -31,7 +31,7 @@ import DataTable from '../components/DataTable';
 import { formatDateTime, formatDate } from '../lib/utils';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
-import { useTranslation } from '../i18n';
+import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
 
@@ -50,22 +50,24 @@ interface ApiErrorResponse {
   error: string;
 }
 
-const createSchema = z.object({
-  name: z.string().min(1, 'Name required'),
-  email: z.string().email('Invalid email'),
-  password: z.string().min(6, 'Min 6 characters'),
-  role: z.enum(['Admin', 'Cashier', 'Delivery']),
-});
+const getCreateSchema = () =>
+  z.object({
+    name: z.string().min(1, tStandalone('validation.nameRequired')),
+    email: z.string().email(tStandalone('validation.emailInvalid')),
+    password: z.string().min(6, tStandalone('validation.passwordMin')),
+    role: z.enum(['Admin', 'Cashier', 'Delivery']),
+  });
 
-const editSchema = z.object({
-  name: z.string().min(1, 'Name required'),
-  email: z.string().email('Invalid email'),
-  password: z.string().optional(),
-  role: z.enum(['Admin', 'Cashier', 'Delivery']),
-});
+const getEditSchema = () =>
+  z.object({
+    name: z.string().min(1, tStandalone('validation.nameRequired')),
+    email: z.string().email(tStandalone('validation.emailInvalid')),
+    password: z.string().optional(),
+    role: z.enum(['Admin', 'Cashier', 'Delivery']),
+  });
 
-type CreateUserFormData = z.infer<typeof createSchema>;
-type EditUserFormData = z.infer<typeof editSchema>;
+type CreateUserFormData = z.infer<ReturnType<typeof getCreateSchema>>;
+type EditUserFormData = z.infer<ReturnType<typeof getEditSchema>>;
 type UserFormData = CreateUserFormData | EditUserFormData;
 
 const roleBadgeVariant: Record<UserRole, 'gold' | 'blush' | 'secondary'> = {
@@ -87,7 +89,7 @@ export default function UsersPage() {
     queryFn: () => api.get('/api/users').then((r) => r.data.data),
   });
 
-  const schema = editingUser ? editSchema : createSchema;
+  const schema = editingUser ? getEditSchema() : getCreateSchema();
   const {
     register,
     handleSubmit,

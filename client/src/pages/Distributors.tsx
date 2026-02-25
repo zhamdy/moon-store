@@ -28,7 +28,7 @@ import {
 } from '../components/ui/alert-dialog';
 import DataTable from '../components/DataTable';
 import api from '../services/api';
-import { useTranslation } from '../i18n';
+import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
 
@@ -48,16 +48,17 @@ interface ApiErrorResponse {
   error: string;
 }
 
-const distributorFormSchema = z.object({
-  name: z.string().min(1, 'Name required'),
-  contact_person: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().optional(),
-  address: z.string().optional(),
-  notes: z.string().optional(),
-});
+const getDistributorFormSchema = () =>
+  z.object({
+    name: z.string().min(1, tStandalone('validation.nameRequired')),
+    contact_person: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().optional(),
+    address: z.string().optional(),
+    notes: z.string().optional(),
+  });
 
-type DistributorFormData = z.infer<typeof distributorFormSchema>;
+type DistributorFormData = z.infer<ReturnType<typeof getDistributorFormSchema>>;
 
 export default function DistributorsPage() {
   const { t } = useTranslation();
@@ -77,7 +78,7 @@ export default function DistributorsPage() {
     reset,
     formState: { errors },
   } = useForm<DistributorFormData>({
-    resolver: zodResolver(distributorFormSchema),
+    resolver: zodResolver(getDistributorFormSchema()),
   });
 
   const createMutation = useMutation({

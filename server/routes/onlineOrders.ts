@@ -66,7 +66,7 @@ router.get(
         `SELECT COUNT(*) as total FROM online_orders o ${where}`,
         params
       );
-      const total = (countResult.rows[0] as any).total;
+      const total = (countResult.rows[0] as { total: number }).total;
       const result = await db.query(
         `SELECT o.*, c.name as customer_name, c.phone as customer_phone
        FROM online_orders o LEFT JOIN customers c ON o.customer_id = c.id
@@ -125,7 +125,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
       for (const item of items) {
         const product = rawDb
           .prepare('SELECT price, stock FROM products WHERE id = ?')
-          .get(item.product_id) as any;
+          .get(item.product_id) as { price: number; stock: number } | undefined;
         if (!product) throw new Error(`Product ${item.product_id} not found`);
         if (product.stock < item.quantity)
           throw new Error(`Insufficient stock for product ${item.product_id}`);
@@ -138,13 +138,16 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         'SELECT config_value FROM storefront_config WHERE config_key = ?'
       );
       const freeThreshold = Number(
-        (shippingConfig.get('shipping_free_threshold') as any)?.config_value || 500
+        (shippingConfig.get('shipping_free_threshold') as { config_value: string } | undefined)
+          ?.config_value || 500
       );
       const standardRate = Number(
-        (shippingConfig.get('shipping_standard_rate') as any)?.config_value || 25
+        (shippingConfig.get('shipping_standard_rate') as { config_value: string } | undefined)
+          ?.config_value || 25
       );
       const expressRate = Number(
-        (shippingConfig.get('shipping_express_rate') as any)?.config_value || 50
+        (shippingConfig.get('shipping_express_rate') as { config_value: string } | undefined)
+          ?.config_value || 50
       );
       const shipping_cost =
         subtotal >= freeThreshold ? 0 : shipping_method === 'express' ? expressRate : standardRate;
@@ -168,7 +171,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
           shipping_address_id || null,
           shipping_method,
           notes || null
-        ) as any;
+        ) as { id: number; [key: string]: unknown };
 
       for (const item of resolvedItems) {
         rawDb
@@ -236,7 +239,7 @@ router.put(
           'SELECT product_id, quantity FROM online_order_items WHERE order_id = ?',
           [req.params.id]
         );
-        for (const item of items.rows as any[]) {
+        for (const item of items.rows as Array<{ product_id: number; quantity: number }>) {
           await db.query('UPDATE products SET stock = stock + ? WHERE id = ?', [
             item.quantity,
             item.product_id,

@@ -256,7 +256,11 @@ router.post(
       // Restore stock
       const items = await db.query('SELECT * FROM layaway_items WHERE layaway_id = ?', [id]);
       const rawDb = db.db;
-      for (const item of items.rows as any[]) {
+      for (const item of items.rows as Array<{
+        variant_id: number | null;
+        quantity: number;
+        product_id: number;
+      }>) {
         if (item.variant_id) {
           rawDb
             .prepare('UPDATE product_variants SET stock = stock + ? WHERE id = ?')

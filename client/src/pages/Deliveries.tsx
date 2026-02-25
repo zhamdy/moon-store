@@ -53,7 +53,7 @@ import StatusBadge from '../components/StatusBadge';
 import { formatDateTime, formatCurrency } from '../lib/utils';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
-import { useTranslation } from '../i18n';
+import { useTranslation, t as tStandalone } from '../i18n';
 
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError, AxiosResponse } from 'axios';
@@ -128,27 +128,28 @@ interface PerformanceData {
   }>;
 }
 
-const deliverySchema = z.object({
-  customer_id: z.coerce.number().optional().nullable(),
-  customer_name: z.string().min(1, 'Name required'),
-  phone: z.string().min(1, 'Phone required'),
-  address: z.string().min(1, 'Address required'),
-  notes: z.string().optional(),
-  estimated_delivery: z.string().optional().nullable(),
-  shipping_company_id: z.coerce.number().optional().nullable(),
-  tracking_number: z.string().optional().nullable(),
-  shipping_cost: z.coerce.number().nonnegative().optional().nullable(),
-  items: z
-    .array(
-      z.object({
-        product_id: z.coerce.number().positive(),
-        quantity: z.coerce.number().int().positive(),
-      })
-    )
-    .min(1, 'Add at least one item'),
-});
+const getDeliverySchema = () =>
+  z.object({
+    customer_id: z.coerce.number().optional().nullable(),
+    customer_name: z.string().min(1, tStandalone('validation.nameRequired')),
+    phone: z.string().min(1, tStandalone('validation.phoneRequired')),
+    address: z.string().min(1, tStandalone('validation.addressRequired')),
+    notes: z.string().optional(),
+    estimated_delivery: z.string().optional().nullable(),
+    shipping_company_id: z.coerce.number().optional().nullable(),
+    tracking_number: z.string().optional().nullable(),
+    shipping_cost: z.coerce.number().nonnegative().optional().nullable(),
+    items: z
+      .array(
+        z.object({
+          product_id: z.coerce.number().positive(),
+          quantity: z.coerce.number().int().positive(),
+        })
+      )
+      .min(1, tStandalone('validation.addItem')),
+  });
 
-type DeliveryFormData = z.infer<typeof deliverySchema>;
+type DeliveryFormData = z.infer<ReturnType<typeof getDeliverySchema>>;
 
 interface DeliveryPayload extends Omit<DeliveryFormData, 'items'> {
   customer_id: number | null;
@@ -240,7 +241,7 @@ export default function Deliveries() {
     formState: { errors },
     setValue,
   } = useForm<DeliveryFormData>({
-    resolver: zodResolver(deliverySchema),
+    resolver: zodResolver(getDeliverySchema()),
     defaultValues: {
       customer_id: null,
       customer_name: '',

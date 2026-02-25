@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import db from '../db';
 import { verifyToken } from '../middleware/auth';
 import { z } from 'zod';
+import logger from '../lib/logger';
 
 const router: Router = Router();
 
@@ -107,8 +108,8 @@ export function cleanupExpiredReservations(): void {
   try {
     const rawDb = db.db;
     rawDb.prepare("DELETE FROM stock_reservations WHERE expires_at <= datetime('now')").run();
-  } catch {
-    // silently fail
+  } catch (err) {
+    logger.error('Reservation cleanup failed', { error: (err as Error).message });
   }
 }
 

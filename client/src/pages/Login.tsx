@@ -14,15 +14,16 @@ import { useAuthStore } from '../store/authStore';
 import type { User } from '../store/authStore';
 import api from '../services/api';
 import moonLogo from '../assets/moon-logo.svg';
-import { useTranslation } from '../i18n';
+import { useTranslation, t as tStandalone } from '../i18n';
 import type { AxiosError } from 'axios';
 
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(1, 'Password is required'),
-});
+const getLoginSchema = () =>
+  z.object({
+    email: z.string().email(tStandalone('validation.emailInvalid')),
+    password: z.string().min(1, tStandalone('validation.passwordRequired')),
+  });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type LoginFormData = z.infer<ReturnType<typeof getLoginSchema>>;
 
 interface LoginResponseData {
   data: {
@@ -47,7 +48,7 @@ export default function Login() {
     handleSubmit,
     formState: { errors },
   } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(getLoginSchema()),
     defaultValues: { email: '', password: '' },
   });
 

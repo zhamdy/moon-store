@@ -10,9 +10,9 @@
 |----------|-------|
 | Critical | ~~5~~ 0 |
 | High | ~~10~~ 3 |
-| Medium | ~~19~~ 8 |
-| Low | ~~7~~ 2 |
-| **Total** | **41** (28 fixed, 13 remaining) |
+| Medium | ~~12~~ 7 |
+| Low | ~~14~~ 4 |
+| **Total** | **41** (27 fixed, 14 remaining) |
 
 ---
 
@@ -82,11 +82,11 @@
 - **Risk**: Impossible to reuse logic, hard to test, high coupling.
 - **Fix**: Extract service layer (`server/services/`) for business logic. Routes should only handle req/res.
 
-### 8. 37 `as any` Type Casts Across Server
+### ~~8. 37 `as any` Type Casts Across Server~~ [FIXED]
 - **Files**: `ai.ts` (10), `exports.ts` (5), `sales.ts` (3), `onlineOrders.ts` (7), `analytics.ts` (2), `branches.ts` (2), `reports.ts` (2), `giftCards.ts` (1), `stockCounts.ts` (1), `storefront.ts` (1), `layaway.ts` (1), `migrate.ts` (2)
 - **Issue**: `as any` bypasses TypeScript's type system entirely.
 - **Risk**: Runtime type errors that TypeScript was supposed to prevent.
-- **Fix**: Define proper interfaces for DB query results and API payloads.
+- **Fix**: ~~Define proper interfaces for DB query results and API payloads.~~ Done — replaced all 33 `as any` casts with proper typed interfaces, `Record<string, unknown>`, or specific `{ field: type }` casts across 11 files.
 
 ### ~~9. Missing Database Indexes on Wave 3 Tables (050-064)~~ [FIXED]
 - **Files**: `server/db/migrations/050_ecommerce_customers.sql` through `064_auto_descriptions.sql`
@@ -186,10 +186,10 @@
 - **Issue**: Zod validates structure but doesn't sanitize HTML/SQL. No XSS protection for stored user input (product names, customer names, notes fields).
 - **Fix**: Add sanitization middleware or use a library like `dompurify` for text fields rendered in the frontend.
 
-### 26. Timer-Based Cleanup Without Error Handling
-- **File**: `server/index.ts:145`
-- **Issue**: `setInterval(cleanupExpiredReservations, 5 * 60 * 1000)` — if this function throws, the error is unhandled and may crash the process.
-- **Fix**: Wrap in try/catch or use a proper job scheduler.
+### ~~26. Timer-Based Cleanup Without Error Handling~~ [FIXED]
+- **File**: `server/routes/reservations.ts`
+- **Issue**: `cleanupExpiredReservations` had no error handling — if it threw, the error was unhandled.
+- **Fix**: ~~Wrap in try/catch or use a proper job scheduler.~~ Done — `cleanupExpiredReservations()` now has try/catch with structured error logging via `logger.error()`.
 
 ### 27. No API Versioning
 - **Issue**: All endpoints are under `/api/` with no version prefix (e.g., `/api/v1/`).
@@ -205,10 +205,10 @@
 - **Issue**: Early migrations use `IF NOT EXISTS` on indexes, later ones don't. Naming varies: `idx_products_sku` vs `idx_gc_transactions_card` vs `idx_register_sessions_cashier`.
 - **Fix**: Adopt consistent naming convention: `idx_{table}_{column}`.
 
-### 29. `DATABASE_URL` Legacy Config
+### ~~29. `DATABASE_URL` Legacy Config~~ [FIXED]
 - **File**: `server/.env`
-- **Issue**: PostgreSQL connection string exists in `.env` but is never used (app uses SQLite).
-- **Fix**: Remove the misleading env var.
+- **Issue**: PostgreSQL connection string existed in `.env` but was never used (app uses SQLite).
+- **Fix**: ~~Remove the misleading env var.~~ Done — removed `DATABASE_URL` from `.env`.
 
 ### ~~30. No Prettier Configuration~~ [ALREADY DONE]
 - **Status**: Already configured at `.prettierrc` (semi, singleQuote, tabWidth 2, trailingComma es5, printWidth 100).
@@ -217,10 +217,10 @@
 - **Issue**: Many page components define inline types rather than exporting reusable interfaces.
 - **Fix**: Extract shared types to `client/src/types/` directory.
 
-### 32. Single ErrorBoundary for Entire App
-- **File**: `client/src/components/ErrorBoundary.tsx`
-- **Issue**: Only one error boundary wraps the whole app. A crash in any page takes down everything.
-- **Fix**: Add per-page error boundaries, especially for heavy pages (Inventory, POS, Dashboard).
+### ~~32. Single ErrorBoundary for Entire App~~ [FIXED]
+- **File**: `client/src/App.tsx`
+- **Issue**: Only one error boundary wrapped the whole app. A crash in any page took down everything.
+- **Fix**: ~~Add per-page error boundaries.~~ Done — App.tsx refactor (#35) wraps each route in its own `<ErrorBoundary>` via the RouteConfig array.
 
 ### ~~33. No Health Check for Database~~ [FIXED]
 - **File**: `server/index.ts:137-139`
@@ -257,10 +257,10 @@
 - **Issue**: `isRefreshing` and `failedQueue` are module-level mutable variables. Potential race condition if multiple tabs or instances exist.
 - **Fix**: Move to a class or closure. Consider using `navigator.locks` for tab-safe token refresh.
 
-### 40. Hardcoded English in Zod Validation Schemas
-- **Files**: `Customers.tsx`, `Users.tsx`, and other form pages
-- **Issue**: Zod `.min(1, 'Name required')` messages are hardcoded English while the app supports Arabic.
-- **Fix**: Use the standalone `t()` function from `i18n/` in all Zod schemas (pattern already exists in Inventory.tsx).
+### ~~40. Hardcoded English in Zod Validation Schemas~~ [FIXED]
+- **Files**: `Login.tsx`, `Users.tsx`, `Categories.tsx`, `Customers.tsx`, `Distributors.tsx`, `Deliveries.tsx`
+- **Issue**: Zod `.min(1, 'Name required')` messages were hardcoded English while the app supports Arabic.
+- **Fix**: ~~Use the standalone `t()` function from `i18n/` in all Zod schemas.~~ Done — all 6 pages now use `tStandalone()` with getter functions (`getSchema()`) for locale-reactive validation. Added `validation.passwordRequired` and `validation.codeRequired` keys to en.json/ar.json.
 
 ### ~~41. Accessibility — Missing ARIA Labels~~ [FIXED]
 - **Files**: `Layout.tsx`, `Sidebar.tsx`, `NotificationCenter.tsx`, `DataTable.tsx`
@@ -311,11 +311,11 @@
 15. ~~Fix N+1 query in delivery (#13)~~ — batch IN query
 16. ~~Fix silent audit logger (#14)~~ — structured error logging
 
-### Sprint 4 — Client Quality [PARTIAL]
+### Sprint 4 — Client Quality [DONE]
 16. ~~Fix theme flash on load (#37)~~ — hydrate moved to main.tsx (synchronous)
 17. ~~Add loading states to mutation buttons (#38)~~ — already implemented
 18. ~~Fix logout to clear all stores + cache (#36)~~ — clears queryClient + offlineStore + cart
-19. Translate Zod validation messages (#40)
+19. ~~Translate Zod validation messages (#40)~~ — all 6 pages use `tStandalone()` with getter schemas
 20. ~~Add ARIA labels to all icon buttons (#41)~~ — added to Layout + NotificationCenter
 
 ### Sprint 5 — Production Readiness [PARTIAL]

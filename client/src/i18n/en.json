@@ -585,6 +585,8 @@
   "validation.pricePositive": "Price must be positive",
   "validation.stockNonNeg": "Stock cannot be negative",
   "validation.addItem": "Add at least one item",
+  "validation.passwordRequired": "Password is required",
+  "validation.codeRequired": "Code required",
 
   "nav.purchaseOrders": "Purchase Orders",
 

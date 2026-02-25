@@ -47,7 +47,7 @@ router.post(
       const authReq = req as AuthRequest;
       const { module: mod, format, filters } = parsed.data;
 
-      let data: any[] = [];
+      let data: Record<string, unknown>[] = [];
       let columns: string[] = [];
 
       switch (mod) {
@@ -57,7 +57,7 @@ router.post(
                     p.category, p.status, p.abc_class, p.created_at
              FROM products p ORDER BY p.name`
           );
-          data = result.rows as any[];
+          data = result.rows;
           columns = [
             'id',
             'name',
@@ -84,7 +84,7 @@ router.post(
              ORDER BY s.created_at DESC
              LIMIT 1000`
           );
-          data = result.rows as any[];
+          data = result.rows;
           columns = [
             'id',
             'total',
@@ -103,7 +103,7 @@ router.post(
             `SELECT id, name, phone, email, loyalty_points, total_spent, visit_count, created_at
              FROM customers ORDER BY name`
           );
-          data = result.rows as any[];
+          data = result.rows;
           columns = [
             'id',
             'name',
@@ -123,7 +123,7 @@ router.post(
                     p.abc_class
              FROM products p WHERE p.status = 'active' ORDER BY p.name`
           );
-          data = result.rows as any[];
+          data = result.rows;
           columns = [
             'id',
             'name',
@@ -148,7 +148,7 @@ router.post(
              ORDER BY d.created_at DESC
              LIMIT 1000`
           );
-          data = result.rows as any[];
+          data = result.rows;
           columns = [
             'id',
             'order_number',

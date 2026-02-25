@@ -30,7 +30,7 @@ import {
 import DataTable from '../components/DataTable';
 import CustomerDetail from '../components/CustomerDetail';
 import api from '../services/api';
-import { useTranslation } from '../i18n';
+import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
 
@@ -49,14 +49,15 @@ interface ApiErrorResponse {
   error: string;
 }
 
-const customerFormSchema = z.object({
-  name: z.string().min(1, 'Name required'),
-  phone: z.string().min(1, 'Phone required'),
-  address: z.string().optional(),
-  notes: z.string().optional(),
-});
+const getCustomerFormSchema = () =>
+  z.object({
+    name: z.string().min(1, tStandalone('validation.nameRequired')),
+    phone: z.string().min(1, tStandalone('validation.phoneRequired')),
+    address: z.string().optional(),
+    notes: z.string().optional(),
+  });
 
-type CustomerFormData = z.infer<typeof customerFormSchema>;
+type CustomerFormData = z.infer<ReturnType<typeof getCustomerFormSchema>>;
 
 export default function CustomersPage() {
   const { t } = useTranslation();
@@ -77,7 +78,7 @@ export default function CustomersPage() {
     reset,
     formState: { errors },
   } = useForm<CustomerFormData>({
-    resolver: zodResolver(customerFormSchema),
+    resolver: zodResolver(getCustomerFormSchema()),
   });
 
   const createMutation = useMutation({

@@ -150,7 +150,7 @@ router.post(
               (
                 rawDb
                   .prepare('SELECT COUNT(*) as c FROM coupon_usage WHERE coupon_id = ?')
-                  .get(coupon.id) as any
+                  .get(coupon.id) as { c: number }
               ).c < coupon.max_uses
             ) {
               if (total >= (coupon.min_purchase || 0)) {
@@ -224,8 +224,8 @@ router.post(
         }
 
         for (const item of items) {
-          const variantId = (item as any).variant_id || null;
-          const itemMemo = (item as any).memo || null;
+          const variantId = item.variant_id || null;
+          const itemMemo = item.memo || null;
 
           if (variantId) {
             // Variant sale: deduct stock from variant

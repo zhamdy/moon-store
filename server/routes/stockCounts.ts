@@ -65,7 +65,7 @@ router.post(
           .prepare(
             `INSERT INTO stock_counts (category_id, notes, started_by) VALUES (?, ?, ?) RETURNING *`
           )
-          .get(category_id || null, notes || null, authReq.user!.id) as Record<string, any>;
+          .get(category_id || null, notes || null, authReq.user!.id) as Record<string, unknown>;
 
         // Build product filter
         const where: string[] = ["status = 'active'"];
@@ -97,10 +97,16 @@ router.post(
 
       const count = txn();
 
-      logAuditFromReq(req, 'create', 'stock_count', (count as any).id, {
-        category_id: category_id || null,
-        item_count: count.item_count,
-      });
+      logAuditFromReq(
+        req,
+        'create',
+        'stock_count',
+        (count as Record<string, unknown>).id as number,
+        {
+          category_id: category_id || null,
+          item_count: count.item_count,
+        }
+      );
 
       res.status(201).json({ success: true, data: count });
     } catch (err) {

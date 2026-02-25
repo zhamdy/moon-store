@@ -25,7 +25,7 @@ router.get('/products', async (req: Request, res: Response, next: NextFunction) 
     if (sort === 'name') orderBy = 'ORDER BY p.name ASC';
     if (sort === 'popular') orderBy = 'ORDER BY sold_count DESC';
     const countResult = await db.query(`SELECT COUNT(*) as total FROM products p ${where}`, params);
-    const total = (countResult.rows[0] as any).total;
+    const total = (countResult.rows[0] as { total: number }).total;
     const result = await db.query(
       `SELECT p.*, COALESCE((SELECT AVG(r.rating) FROM product_reviews r WHERE r.product_id = p.id AND r.is_approved = 1), 0) as avg_rating,
        COALESCE((SELECT COUNT(*) FROM product_reviews r WHERE r.product_id = p.id AND r.is_approved = 1), 0) as review_count,
