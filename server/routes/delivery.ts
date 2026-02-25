@@ -413,12 +413,12 @@ router.put(
 
       if (status === 'In Transit') {
         const msg = `Hi ${order.customer_name}! \u{1F319} Your MOON order ${order.order_number} is now in transit. Expected delivery: 1-3 days. Thank you!`;
-        sendSMS(order.phone, msg);
-        sendWhatsApp(order.phone, msg);
+        sendSMS(order.phone, msg).catch(() => {});
+        sendWhatsApp(order.phone, msg).catch(() => {});
       } else if (status === 'Delivered') {
         const msg = `Hi ${order.customer_name}! Your MOON order ${order.order_number} has been delivered. Thank you for shopping with us! \u{1F319}`;
-        sendSMS(order.phone, msg);
-        sendWhatsApp(order.phone, msg);
+        sendSMS(order.phone, msg).catch(() => {});
+        sendWhatsApp(order.phone, msg).catch(() => {});
       }
 
       res.json({ success: true, data: order });
