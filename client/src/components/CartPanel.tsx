@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, type MutableRefObject } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Minus,
@@ -119,6 +120,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const { carts: heldCarts, holdCart } = useHeldCartsStore();
   const queryClient = useQueryClient();
   const { t, isRtl } = useTranslation();
+  const [animateParent] = useAutoAnimate();
 
   const [checkoutOpen, setCheckoutOpen] = useState<boolean>(false);
   const [heldCartsOpen, setHeldCartsOpen] = useState(false);
@@ -409,7 +411,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       </div>
 
       {/* Items */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={animateParent} className="flex-1 overflow-y-auto p-4 space-y-3">
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <ShoppingBag className="h-12 w-12 text-gold/40 mb-3" />

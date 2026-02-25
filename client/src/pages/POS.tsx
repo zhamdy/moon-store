@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect, type ChangeEvent } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Camera, Package, Keyboard, Layers, Star, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -74,6 +75,7 @@ export default function POS() {
     useCartStore();
   const { holdCart, carts: heldCarts } = useHeldCartsStore();
   const { t } = useTranslation();
+  const [animateGrid] = useAutoAnimate();
 
   const queryClient = useQueryClient();
   const debouncedSearch = useDebouncedValue(searchInput, 300);
@@ -432,7 +434,7 @@ export default function POS() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div ref={animateGrid} className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
               {products?.map((product) => (
                 <Card
                   key={product.id}

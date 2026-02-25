@@ -1,12 +1,15 @@
-# MOON Fashion & Style - Shop Management System
+# MOON Fashion & Style
 
-A full-stack shop management web application for a luxury fashion retail brand. Built with React + Vite (frontend) and Node.js + Express + PostgreSQL (backend).
+A full-stack luxury fashion retail management system. Monorepo with React SPA frontend and Express REST API backend, powered by SQLite.
+
+**63 features** shipped across 3 development waves — from core POS to AI-powered insights.
 
 ## Prerequisites
 
 - **Node.js** 18+
-- **PostgreSQL** 15+
 - **Twilio account** (optional, for SMS/WhatsApp delivery notifications)
+
+No external database required — uses embedded SQLite with WAL mode.
 
 ## Quick Start
 
@@ -14,52 +17,44 @@ A full-stack shop management web application for a luxury fashion retail brand. 
 
 ```bash
 # Install server dependencies
-cd server
-npm install
+cd server && npm install
 
 # Install client dependencies
-cd ../client
-npm install
+cd ../client && npm install
 ```
 
-### 2. Database Setup
+### 2. Environment Setup
 
-Create a PostgreSQL database:
+Create `server/.env`:
 
-```sql
-CREATE DATABASE moondb;
+```env
+JWT_SECRET=your-access-token-secret-min-32-chars
+JWT_REFRESH_SECRET=your-refresh-token-secret-min-32-chars
 ```
 
-Update `server/.env` with your database connection string:
-
-```
-DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/moondb
-```
-
-Run migrations and seed:
+### 3. Database Setup
 
 ```bash
 cd server
-npm run migrate
-npm run seed
+npm run migrate    # Run all 64 migrations
+npm run seed       # Seed sample data (users, products, sales, customers)
 ```
 
-### 3. Start Development
+### 4. Start Development
 
 ```bash
-# Terminal 1 - Backend
-cd server
-npm run dev
+# Terminal 1 — Server (port 3001)
+cd server && npm run dev
 
-# Terminal 2 - Frontend
-cd client
-npm run dev
+# Terminal 2 — Client (port 5173)
+cd client && npm run dev
 ```
 
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:3001
+- Health check: http://localhost:3001/api/health
 
-### 4. Default Login
+### 5. Default Logins
 
 | Email | Password | Role |
 |-------|----------|------|
@@ -67,160 +62,210 @@ npm run dev
 | sarah@moon.com | cashier123 | Cashier |
 | james@moon.com | delivery123 | Delivery |
 
-## Twilio Setup (Optional)
-
-For SMS and WhatsApp delivery notifications:
-
-1. Create a [Twilio account](https://www.twilio.com)
-2. Get your Account SID and Auth Token from the console
-3. Get a Twilio phone number for SMS
-4. Set up the [WhatsApp Sandbox](https://www.twilio.com/docs/whatsapp/sandbox) for testing
-5. Update `server/.env`:
-
-```
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_PHONE=+1234567890
-TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
-```
-
-Without Twilio configured, notifications are logged to the console instead.
-
 ## Features
 
-- **Dashboard** - KPI cards, revenue charts, top products, payment breakdown (Admin)
-- **Point of Sale** - Product search/scan, cart management, checkout with offline support
-- **Inventory** - Full CRUD with sorting, filtering, CSV import, low stock alerts
-- **Barcode Tools** - Camera scanner, barcode generator, bulk print
-- **Deliveries** - Order management with status tracking, SMS/WhatsApp notifications
-- **Sales History** - Filterable history with CSV export, sale detail breakdown
-- **User Management** - Role-based user CRUD (Admin, Cashier, Delivery)
-- **PWA** - Installable, offline POS with background sync
+### Wave 1 — Core POS & Inventory (20 features)
+
+- **Dashboard** — KPI cards, revenue/profit charts, top products, payment breakdown, cashier performance
+- **Point of Sale** — Product search/scan, cart with hold/retrieve, checkout with split payments, keyboard shortcuts (F1-F5)
+- **Inventory** — Full CRUD, CSV import, bulk operations, low-stock alerts, stock adjustments, product images
+- **Barcode Tools** — Camera scanner (Quagga2), barcode generator, WYSIWYG label designer, bulk print
+- **Sales History** — Filterable history, refund/void workflow, receipt printing/reprint
+- **Deliveries** — Order management, status tracking, SMS/WhatsApp notifications, shipping company integration
+- **Customers** — Customer database, purchase history, loyalty points system
+- **User Management** — Role-based CRUD (Admin, Cashier, Delivery)
+- **Analytics** — Revenue trends, category/distributor breakdowns, ABC classification, reorder suggestions
+- **Product Variants** — Size/color variants with independent stock/pricing
+- **Purchase Orders** — Supplier ordering, receiving, auto-generation from low stock
+- **Tax/VAT Support** — Configurable tax rates, inclusive/exclusive modes
+- **Audit Log** — Full system activity trail
+- **Notification Center** — In-app notifications for low stock, sales, delivery alerts
+- **Analytics Export** — PDF and CSV exports
+
+### Wave 2 — Operations & Commerce (25 features)
+
+- **Cash Register** — Open/close drawer, cash in/out, variance tracking
+- **Exchange Workflow** — Return + new sale in one transaction
+- **Shift Tracking** — Clock in/out, breaks, timesheet reports
+- **Expense Tracking** — Categories, recurring expenses, P&L data
+- **Customer Segmentation** — RFM analysis, targeted segments
+- **Layaway/Credit Sales** — Payment plans with installment tracking
+- **Coupons & Promotions** — Percentage/fixed discounts, validation rules, usage limits
+- **Gift Cards** — Issuance, balance tracking, redemption at checkout
+- **Product Bundles** — Grouped products with bundle pricing
+- **Collections** — Season/collection management
+- **Custom Roles** — Configurable permissions
+- **Warranty Tracking** — Claims and coverage management
+- **Customer Feedback** — NPS collection and analysis
+- **Backup & Restore** — Database backup with cloud sync
+- **Activity Feed** — Collaboration notes
+
+### Wave 3 — Multi-Store, E-Commerce & AI (18 features)
+
+- **Multi-Store** — Branch management, consolidated dashboard, inter-store transfers
+- **E-Commerce** — Customer accounts, online orders, storefront configuration
+- **Product Reviews** — Ratings, Q&A, moderation
+- **Report Builder** — Custom queries, saved reports, scheduled execution
+- **Data Warehouse** — Materialized views for BI
+- **Marketplace** — Vendor management, product approvals, commissions, payouts
+- **Smart Pricing** — Rule-based dynamic pricing engine
+- **AI Chatbot** — Conversational support assistant
+- **Sales Predictions** — Trend analysis and demand forecasting
+- **Auto Descriptions** — AI-generated product descriptions
 
 ## Tech Stack
 
 ### Frontend
-- React 18 + Vite
-- React Router v6
-- Tailwind CSS + shadcn/ui (custom dark theme)
-- Zustand (state management)
-- TanStack React Query v5 (server state)
-- TanStack React Table v8 (data tables)
-- React Hook Form + Zod (forms/validation)
-- Recharts (analytics charts)
-- @ericblade/quagga2 (barcode scanning)
-- jsbarcode (barcode generation)
-- vite-plugin-pwa (PWA support)
+
+| Concern | Library |
+|---------|---------|
+| Framework | React 18 + Vite 5 (TypeScript) |
+| Routing | React Router v6 |
+| State | Zustand 5 (persist) + TanStack React Query v5 |
+| Tables | TanStack React Table v8 |
+| Forms | React Hook Form + Zod |
+| UI | Radix UI (shadcn/ui) + Tailwind CSS 3 |
+| Charts | Recharts 2 |
+| Barcode | @ericblade/quagga2 (scan) + jsbarcode (generate) |
+| PDF | jspdf + html2canvas |
+| Icons | lucide-react |
+| PWA | vite-plugin-pwa (Workbox) |
 
 ### Backend
-- Node.js + Express
-- PostgreSQL via `pg`
-- JWT authentication (access + refresh tokens)
-- bcrypt (password hashing)
-- Twilio SDK (SMS/WhatsApp)
-- Zod (validation)
-- helmet, cors, express-rate-limit (security)
+
+| Concern | Library |
+|---------|---------|
+| Framework | Express 4 (TypeScript via tsx) |
+| Database | SQLite via better-sqlite3 (WAL mode) |
+| Auth | JWT (15min access + 7d refresh cookie) + bcrypt |
+| Validation | Zod |
+| Messaging | Twilio SDK (SMS/WhatsApp) |
+| Security | helmet, cors, express-rate-limit |
+| Testing | Vitest |
 
 ## Project Structure
 
 ```
 moon-store/
-├── client/
-│   ├── public/
-│   ├── src/
-│   │   ├── assets/          # Logo SVG
-│   │   ├── components/
-│   │   │   ├── ui/          # shadcn/ui components
-│   │   │   ├── charts/      # Recharts components
-│   │   │   ├── Layout.jsx
-│   │   │   ├── Sidebar.jsx
-│   │   │   ├── DataTable.jsx
-│   │   │   ├── CartPanel.jsx
-│   │   │   ├── BarcodeScanner.jsx
-│   │   │   ├── BarcodeGenerator.jsx
-│   │   │   ├── StatusBadge.jsx
-│   │   │   ├── ProtectedRoute.jsx
-│   │   │   ├── ErrorBoundary.jsx
-│   │   │   └── PWAInstallPrompt.jsx
-│   │   ├── pages/
-│   │   │   ├── Login.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── POS.jsx
-│   │   │   ├── Inventory.jsx
-│   │   │   ├── BarcodeTools.jsx
-│   │   │   ├── Deliveries.jsx
-│   │   │   ├── SalesHistory.jsx
-│   │   │   └── Users.jsx
-│   │   ├── store/            # Zustand stores
-│   │   ├── services/         # Axios API client
-│   │   ├── hooks/            # Custom hooks
-│   │   ├── lib/              # Utilities
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── index.html
-│   ├── tailwind.config.js
-│   ├── vite.config.js
-│   └── package.json
-├── server/
-│   ├── routes/
-│   │   ├── auth.js
-│   │   ├── products.js
-│   │   ├── sales.js
-│   │   ├── delivery.js
-│   │   ├── analytics.js
-│   │   └── users.js
-│   ├── middleware/
-│   │   ├── auth.js
-│   │   └── errorHandler.js
-│   ├── services/
-│   │   └── twilio.js
+├── client/                    # React 18 + Vite SPA
+│   └── src/
+│       ├── components/
+│       │   ├── ui/            # shadcn/ui primitives
+│       │   └── charts/        # Recharts wrappers (7 chart types)
+│       ├── pages/             # 35+ route-level components
+│       ├── store/             # Zustand stores (auth, cart, settings, offline, heldCarts)
+│       ├── services/          # Axios client with token refresh interceptor
+│       ├── hooks/             # useOffline, useScanner, usePosShortcuts, useDebouncedValue
+│       ├── i18n/              # AR/EN translations (~180 keys per locale)
+│       ├── lib/               # utils.ts, queryClient.ts
+│       ├── App.tsx            # Router + 35+ routes with role guards
+│       └── index.css          # Tailwind + CSS variables (light/dark themes)
+├── server/                    # Express REST API
+│   ├── routes/                # 37 route files
+│   ├── middleware/            # auth.ts, errorHandler.ts, auditLogger.ts
+│   ├── services/              # twilio.ts, notifications.ts
+│   ├── validators/            # 10 Zod schema files
 │   ├── db/
-│   │   ├── index.js
-│   │   ├── migrate.js
-│   │   ├── seed.js
-│   │   └── migrations/
-│   ├── validators/
-│   ├── index.js
-│   └── package.json
-└── README.md
+│   │   ├── migrations/        # 64 SQL migration files
+│   │   ├── index.ts           # SQLite connection + pg-compatible query wrapper
+│   │   ├── migrate.ts         # Migration runner with reconciliation
+│   │   └── seed.ts            # Sample data (users, products, sales, customers)
+│   └── index.ts               # Express app setup
+├── CLAUDE.md                  # AI assistant instructions
+├── FEATURES_ROADMAP.md        # Full feature specs (63 features)
+└── docs/                      # Detailed documentation
+    ├── ARCHITECTURE.md        # Structure, stacks, stores, pages, components
+    ├── API_REFERENCE.md       # All endpoints, DB schema, auth flow
+    ├── CONVENTIONS.md         # Code patterns, naming, gotchas
+    ├── SMOKE_TEST.md          # Manual QA checklist
+    ├── OFFLINE_PWA.md         # Service worker, caching, offline queue
+    └── INTEGRATIONS.md        # Twilio, barcode, exports, AI
 ```
 
 ## Available Scripts
 
-### Server
+### Server (`cd server`)
 
 | Script | Description |
 |--------|-------------|
-| `npm run dev` | Start dev server with auto-reload |
+| `npm run dev` | Start dev server with auto-reload (tsx watch) |
 | `npm start` | Start production server |
 | `npm run migrate` | Run database migrations |
 | `npm run seed` | Seed database with sample data |
+| `npm test` | Run tests (Vitest) |
+| `npm run lint` | Lint TypeScript files |
+| `npm run format` | Format with Prettier |
 
-### Client
+### Client (`cd client`)
 
 | Script | Description |
 |--------|-------------|
-| `npm run dev` | Start Vite dev server |
+| `npm run dev` | Start Vite dev server (port 5173) |
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
+| `npm test` | Run tests (Vitest) |
+| `npm run lint` | Lint TypeScript files |
+| `npm run format` | Format with Prettier |
+
+## Internationalization
+
+- **Languages**: Arabic (RTL, default) and English (LTR)
+- **RTL Support**: Full — uses Tailwind logical properties (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`)
+- **Toggle**: Language and theme switches in the sidebar
+- **Fonts**: Playfair Display (titles), DM Sans (body), IBM Plex Sans Arabic (Arabic)
 
 ## PWA & Offline Mode
 
 The app is a Progressive Web App with offline support:
 
 1. **Install**: After 30 seconds on first visit, an install prompt appears
-2. **Offline POS**: Products are cached; sales made offline are queued
-3. **Background Sync**: When back online, queued sales sync automatically
-4. **Build PWA**: Run `npm run build` in `/client`, then serve the `dist/` folder
+2. **Offline POS**: Products cached via StaleWhileRevalidate (24h); sales queued offline
+3. **Background Sync**: Queued sales auto-sync when connectivity returns
+4. **Offline Banner**: Visual indicator when offline with queue count
 
 To test offline mode:
 1. Build the client: `cd client && npm run build`
-2. Serve with: `npm run preview`
+2. Serve: `npm run preview`
 3. Open DevTools > Application > Service Workers
-4. Check "Offline" to simulate offline mode
-5. Make a sale in POS - it will be queued
-6. Uncheck "Offline" - queued sales sync automatically
+4. Check "Offline" to simulate
+5. Make a sale in POS — it queues
+6. Uncheck "Offline" — queued sales sync automatically
+
+## Twilio Setup (Optional)
+
+For SMS and WhatsApp delivery notifications, add to `server/.env`:
+
+```env
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_PHONE=+1234567890
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+```
+
+Without Twilio configured, notifications are logged to console instead.
+
+## Environment Variables
+
+### Server (`server/.env`)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `JWT_SECRET` | Yes | — | Access token signing secret (min 32 chars) |
+| `JWT_REFRESH_SECRET` | Yes | — | Refresh token signing secret (min 32 chars) |
+| `PORT` | No | 3001 | Server port |
+| `CLIENT_URL` | No | http://localhost:5173 | CORS origin |
+| `ALLOWED_ORIGINS` | No | — | Additional CORS origins (comma-separated) |
+| `NODE_ENV` | No | — | Set to `production` to hide error stack traces |
+| `TWILIO_ACCOUNT_SID` | No | — | Twilio Account SID |
+| `TWILIO_AUTH_TOKEN` | No | — | Twilio Auth Token |
+| `TWILIO_PHONE` | No | — | Twilio SMS sender number |
+| `TWILIO_WHATSAPP_FROM` | No | — | Twilio WhatsApp sender |
+
+### Client (`client/.env`)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `VITE_API_URL` | No | http://localhost:3001 | Backend API URL |
 
 ## API Response Format
 
@@ -235,24 +280,14 @@ To test offline mode:
 { "success": false, "error": "Human readable message" }
 ```
 
-## Environment Variables
+## Documentation
 
-### Server (`server/.env`)
+For detailed documentation, see the [`docs/`](docs/) directory:
 
-| Variable | Description |
-|----------|-------------|
-| `PORT` | Server port (default: 3001) |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | JWT access token secret (min 32 chars) |
-| `JWT_REFRESH_SECRET` | JWT refresh token secret (min 32 chars) |
-| `TWILIO_ACCOUNT_SID` | Twilio Account SID |
-| `TWILIO_AUTH_TOKEN` | Twilio Auth Token |
-| `TWILIO_PHONE` | Twilio phone number for SMS |
-| `TWILIO_WHATSAPP_FROM` | Twilio WhatsApp sender |
-| `CLIENT_URL` | Frontend URL for CORS |
-
-### Client (`client/.env`)
-
-| Variable | Description |
-|----------|-------------|
-| `VITE_API_URL` | Backend API URL |
+- **[Architecture](docs/ARCHITECTURE.md)** — Project structure, stacks, stores, pages, components, theming, i18n, RTL, PWA
+- **[API Reference](docs/API_REFERENCE.md)** — All 37 route groups, database schema, auth flow, rate limits
+- **[Conventions](docs/CONVENTIONS.md)** — Code patterns, naming rules, SQLite gotchas, feature checklist
+- **[Smoke Test](docs/SMOKE_TEST.md)** — Manual QA checklist (16 sections)
+- **[Offline & PWA](docs/OFFLINE_PWA.md)** — Service worker, caching strategies, offline queue
+- **[Integrations](docs/INTEGRATIONS.md)** — Twilio, notifications, barcode, PDF/CSV export, AI features
+- **[Feature Roadmap](FEATURES_ROADMAP.md)** — Full specs for all 63 features across 3 waves

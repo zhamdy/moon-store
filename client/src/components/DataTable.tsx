@@ -1,4 +1,5 @@
 import { useState, Fragment } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -46,6 +47,7 @@ export default function DataTable<TData>({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string>('');
   const { t } = useTranslation();
+  const [animateParent] = useAutoAnimate();
 
   const table = useReactTable<TData>({
     data: data || [],
@@ -131,7 +133,7 @@ export default function DataTable<TData>({
               </tr>
             ))}
           </thead>
-          <tbody>
+          <tbody ref={animateParent}>
             {table.getRowModel().rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-12 text-center text-muted">

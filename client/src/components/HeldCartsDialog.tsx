@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Archive, Trash2, RotateCcw, ShoppingBag } from 'lucide-react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -25,6 +26,7 @@ interface HeldCartsDialogProps {
 
 export default function HeldCartsDialog({ open, onOpenChange }: HeldCartsDialogProps) {
   const { t } = useTranslation();
+  const [animateParent] = useAutoAnimate();
   const { carts, retrieveCart, deleteCart } = useHeldCartsStore();
   const cartStore = useCartStore();
 
@@ -88,7 +90,7 @@ export default function HeldCartsDialog({ open, onOpenChange }: HeldCartsDialogP
             <DialogDescription>{t('cart.heldCartsDesc')}</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          <div ref={animateParent} className="space-y-3 max-h-[60vh] overflow-y-auto">
             {carts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <ShoppingBag className="h-10 w-10 text-muted/40 mb-3" />

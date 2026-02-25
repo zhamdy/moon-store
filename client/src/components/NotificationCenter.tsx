@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Check, CheckCheck, Package, ShoppingCart, Truck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -52,6 +53,7 @@ function typeIcon(type: string) {
 export default function NotificationCenter(): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
+  const [animateParent] = useAutoAnimate();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -168,7 +170,7 @@ export default function NotificationCenter(): React.JSX.Element {
           </div>
 
           {/* Notification list */}
-          <div className="max-h-96 overflow-y-auto">
+          <div ref={animateParent} className="max-h-96 overflow-y-auto">
             {!notifications || notifications.length === 0 ? (
               <div className="p-8 text-center text-muted text-sm">
                 <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
