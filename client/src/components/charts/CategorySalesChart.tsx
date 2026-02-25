@@ -57,33 +57,35 @@ export default function CategorySalesChart({ data }: CategorySalesChartProps) {
   const isDark = theme === 'dark';
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <PieChart margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
-        <Pie
-          data={data}
-          cx="50%"
-          cy="50%"
-          outerRadius={60}
-          dataKey="revenue"
-          nameKey="category_name"
-          label={({ percent }) => {
-            const pct = percent * 100;
-            if (pct < 5) return '';
-            return `${pct.toFixed(0)}%`;
-          }}
-          labelLine={false}
-        >
-          {data.map((_entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip content={<CustomTooltip isDark={isDark} />} />
-        <Legend
-          formatter={(value) => (
-            <span style={{ color: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}>{value}</span>
-          )}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <div dir="ltr">
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            outerRadius={60}
+            dataKey="revenue"
+            nameKey="category_name"
+            label={({ percent }) => {
+              const pct = percent * 100;
+              if (pct < 5) return '';
+              return `${pct.toFixed(0)}%`;
+            }}
+            labelLine={false}
+          >
+            {data.map((_entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip content={<CustomTooltip isDark={isDark} />} />
+          <Legend
+            formatter={(value) => (
+              <span style={{ color: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}>{value}</span>
+            )}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

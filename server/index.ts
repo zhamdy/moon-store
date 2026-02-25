@@ -44,6 +44,7 @@ import onlineOrderRoutes from './routes/onlineOrders';
 import reportRoutes from './routes/reports';
 import vendorRoutes from './routes/vendors';
 import aiRoutes from './routes/ai';
+import shippingCompanyRoutes from './routes/shippingCompanies';
 import { cleanupExpiredReservations } from './routes/reservations';
 
 const app = express();
@@ -132,6 +133,7 @@ app.use('/api/online-orders', onlineOrderRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/shipping-companies', shippingCompanyRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

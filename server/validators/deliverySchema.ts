@@ -12,14 +12,14 @@ export const deliverySchema = z.object({
   address: z.string().min(1, 'Address required'),
   notes: z.string().optional().nullable(),
   items: z.array(deliveryItemSchema).min(1, 'At least one item required'),
-  assigned_to: z.number().int().positive().optional().nullable(),
   estimated_delivery: z.string().optional().nullable(),
-  shipping_company: z.string().max(255).optional().nullable(),
-  tracking_number: z.string().max(255).optional().nullable(),
+  shipping_company_id: z.number().int().positive().optional().nullable(),
+  tracking_number: z.string().optional().nullable(),
+  shipping_cost: z.number().nonnegative().optional().nullable(),
 });
 
 export const statusUpdateSchema = z.object({
-  status: z.enum(['Order Received', 'Shipping Contacted', 'In Transit', 'Delivered', 'Cancelled']),
+  status: z.enum(['Pending', 'Shipped', 'Delivered', 'Cancelled']),
   notes: z.string().optional().nullable(),
 });
 

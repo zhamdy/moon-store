@@ -19,10 +19,9 @@ function generateOrderNumber(): string {
 router.get(
   '/',
   verifyToken,
-  requireRole('Admin', 'Delivery'),
+  requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const authReq = req as AuthRequest;
       const { page = 1, limit = 25, status, search } = req.query;
       const pageNum = Number(page);
       const limitNum = Number(limit);
@@ -31,17 +30,13 @@ router.get(
       const where: string[] = [];
       const params: unknown[] = [];
 
-      if (authReq.user!.role === 'Delivery') {
-        where.push(`d.assigned_to = ?`);
-        params.push(authReq.user!.id);
-      }
       if (status && status !== 'All') {
         where.push(`d.status = ?`);
         params.push(status);
       }
       if (search) {
-        where.push(`(d.customer_name LIKE ? OR d.order_number LIKE ?)`);
-        params.push(`%${search}%`, `%${search}%`);
+        where.push(`(d.customer_name LIKE ? OR d.order_number LIKE ? OR d.tracking_number LIKE ?)`);
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
       }
 
       const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
@@ -52,12 +47,12 @@ router.get(
       );
       const total = countResult.rows[0].count;
 
-      // Get orders
+      // Get orders with shipping company name
       const orders = (
         await db.query(
-          `SELECT d.*, u.name as assigned_name
+          `SELECT d.*, sc.name as shipping_company_name
        FROM delivery_orders d
-       LEFT JOIN users u ON d.assigned_to = u.id
+       LEFT JOIN shipping_companies sc ON d.shipping_company_id = sc.id
        ${whereClause}
        ORDER BY d.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -101,59 +96,47 @@ router.get(
       );
       const totalDelivered = totalResult.rows[0].count;
 
-      const onTimeResult = await db.query<{ count: number }>(
-        `SELECT COUNT(*) as count FROM delivery_orders
-         WHERE status = 'Delivered' AND estimated_delivery IS NOT NULL
-         AND updated_at <= estimated_delivery`
-      );
-      const onTimeCount = onTimeResult.rows[0].count;
-
-      const withEstimateResult = await db.query<{ count: number }>(
-        `SELECT COUNT(*) as count FROM delivery_orders
-         WHERE status = 'Delivered' AND estimated_delivery IS NOT NULL`
-      );
-      const withEstimate = withEstimateResult.rows[0].count;
-
-      const onTimePercent = withEstimate > 0 ? Math.round((onTimeCount / withEstimate) * 100) : 100;
-
-      const avgTimeResult = await db.query<{ avg_minutes: number | null }>(
+      const avgTimeResult = await db.query<{ avg_days: number | null }>(
         `SELECT AVG(
-           (julianday(updated_at) - julianday(created_at)) * 24 * 60
-         ) as avg_minutes
+           julianday(updated_at) - julianday(created_at)
+         ) as avg_days
          FROM delivery_orders
          WHERE status = 'Delivered'`
       );
-      const avgDeliveryMinutes = Math.round(avgTimeResult.rows[0].avg_minutes || 0);
+      const avgDeliveryDays = Math.round((avgTimeResult.rows[0].avg_days || 0) * 10) / 10;
 
-      const driverStats = (
+      const pendingResult = await db.query<{ count: number }>(
+        `SELECT COUNT(*) as count FROM delivery_orders WHERE status = 'Pending'`
+      );
+      const pendingCount = pendingResult.rows[0].count;
+
+      const shippedResult = await db.query<{ count: number }>(
+        `SELECT COUNT(*) as count FROM delivery_orders WHERE status = 'Shipped'`
+      );
+      const shippedCount = shippedResult.rows[0].count;
+
+      const companyStats = (
         await db.query(
-          `SELECT u.id, u.name,
+          `SELECT sc.id, sc.name,
            COUNT(*) as total_orders,
            SUM(CASE WHEN d.status = 'Delivered' THEN 1 ELSE 0 END) as delivered,
-           SUM(CASE WHEN d.status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled
+           SUM(CASE WHEN d.status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+           ROUND(AVG(CASE WHEN d.status = 'Delivered' THEN julianday(d.updated_at) - julianday(d.created_at) END), 1) as avg_days
          FROM delivery_orders d
-         JOIN users u ON d.assigned_to = u.id
-         GROUP BY u.id
+         JOIN shipping_companies sc ON d.shipping_company_id = sc.id
+         GROUP BY sc.id
          ORDER BY delivered DESC`
         )
       ).rows;
-
-      const overdueResult = await db.query<{ count: number }>(
-        `SELECT COUNT(*) as count FROM delivery_orders
-         WHERE status NOT IN ('Delivered', 'Cancelled')
-         AND estimated_delivery IS NOT NULL
-         AND estimated_delivery < datetime('now')`
-      );
-      const overdueCount = overdueResult.rows[0].count;
 
       res.json({
         success: true,
         data: {
           totalDelivered,
-          onTimePercent,
-          avgDeliveryMinutes,
-          overdueCount,
-          driverStats,
+          avgDeliveryDays,
+          pendingCount,
+          shippedCount,
+          companyStats,
         },
       });
     } catch (err) {
@@ -166,12 +149,13 @@ router.get(
 router.get(
   '/:id',
   verifyToken,
-  requireRole('Admin', 'Delivery'),
+  requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
-        `SELECT d.*, u.name as assigned_name
-       FROM delivery_orders d LEFT JOIN users u ON d.assigned_to = u.id
+        `SELECT d.*, sc.name as shipping_company_name
+       FROM delivery_orders d
+       LEFT JOIN shipping_companies sc ON d.shipping_company_id = sc.id
        WHERE d.id = ?`,
         [req.params.id]
       );
@@ -215,10 +199,10 @@ router.post(
         address,
         notes,
         items,
-        assigned_to,
         estimated_delivery,
-        shipping_company,
+        shipping_company_id,
         tracking_number,
+        shipping_cost,
       } = parsed.data;
       const order_number = generateOrderNumber();
 
@@ -250,7 +234,7 @@ router.post(
 
         const order = rawDb
           .prepare(
-            `INSERT INTO delivery_orders (order_number, customer_name, phone, address, notes, assigned_to, customer_id, estimated_delivery, shipping_company, tracking_number)
+            `INSERT INTO delivery_orders (order_number, customer_name, phone, address, notes, customer_id, estimated_delivery, shipping_company_id, tracking_number, shipping_cost)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
           )
           .get(
@@ -259,11 +243,11 @@ router.post(
             phone,
             address,
             notes || null,
-            assigned_to || null,
             resolvedCustomerId,
             resolvedEstimatedDelivery,
-            shipping_company || null,
-            tracking_number || null
+            shipping_company_id || null,
+            tracking_number || null,
+            shipping_cost || 0
           ) as Record<string, any>;
 
         for (const item of items) {
@@ -309,10 +293,10 @@ router.put(
         address,
         notes,
         items,
-        assigned_to,
         estimated_delivery,
-        shipping_company,
+        shipping_company_id,
         tracking_number,
+        shipping_cost,
       } = parsed.data;
 
       const rawDb = db.db;
@@ -335,7 +319,7 @@ router.put(
 
         const order = rawDb
           .prepare(
-            `UPDATE delivery_orders SET customer_name=?, phone=?, address=?, notes=?, assigned_to=?, customer_id=?, estimated_delivery=?, shipping_company=?, tracking_number=?, updated_at=datetime('now')
+            `UPDATE delivery_orders SET customer_name=?, phone=?, address=?, notes=?, customer_id=?, estimated_delivery=?, shipping_company_id=?, tracking_number=?, shipping_cost=?, updated_at=datetime('now')
          WHERE id=? RETURNING *`
           )
           .get(
@@ -343,11 +327,11 @@ router.put(
             phone,
             address,
             notes || null,
-            assigned_to || null,
             resolvedCustomerId,
             estimated_delivery || null,
-            shipping_company || null,
+            shipping_company_id || null,
             tracking_number || null,
+            shipping_cost || 0,
             req.params.id
           ) as Record<string, any> | undefined;
 
@@ -382,7 +366,7 @@ router.put(
 router.put(
   '/:id/status',
   verifyToken,
-  requireRole('Admin', 'Delivery'),
+  requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const parsed = statusUpdateSchema.safeParse(req.body);
@@ -411,8 +395,20 @@ router.put(
         )
         .run(req.params.id, status, notes || null, authReq.user!.id);
 
-      if (status === 'In Transit') {
-        const msg = `Hi ${order.customer_name}! \u{1F319} Your MOON order ${order.order_number} is now in transit. Expected delivery: 1-3 days. Thank you!`;
+      if (status === 'Shipped') {
+        // Get shipping company name for the SMS
+        let companyName = '';
+        if (order.shipping_company_id) {
+          const scResult = await db.query('SELECT name FROM shipping_companies WHERE id = ?', [
+            order.shipping_company_id,
+          ]);
+          if (scResult.rows.length > 0) {
+            companyName = (scResult.rows[0] as Record<string, any>).name;
+          }
+        }
+        const trackingInfo = order.tracking_number ? ` Tracking: ${order.tracking_number}` : '';
+        const viaCompany = companyName ? ` via ${companyName}` : '';
+        const msg = `Hi ${order.customer_name}! \u{1F319} Your MOON order ${order.order_number} has been shipped${viaCompany}.${trackingInfo} Thank you!`;
         sendSMS(order.phone, msg).catch(() => {});
         sendWhatsApp(order.phone, msg).catch(() => {});
       } else if (status === 'Delivered') {
@@ -432,7 +428,7 @@ router.put(
 router.get(
   '/:id/history',
   verifyToken,
-  requireRole('Admin', 'Delivery'),
+  requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(

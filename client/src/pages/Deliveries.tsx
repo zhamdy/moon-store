@@ -12,10 +12,15 @@ import {
   Check,
   Clock,
   TrendingUp,
-  AlertTriangle,
   Truck,
   History,
   MoreHorizontal,
+  Package,
+  Copy,
+  Globe,
+  Phone,
+  Building2,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -45,7 +50,7 @@ import {
 import { Card, CardContent } from '../components/ui/card';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
-import { formatDateTime } from '../lib/utils';
+import { formatDateTime, formatCurrency } from '../lib/utils';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
@@ -53,12 +58,15 @@ import { useTranslation } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError, AxiosResponse } from 'axios';
 
-type DeliveryStatus =
-  | 'Order Received'
-  | 'Shipping Contacted'
-  | 'In Transit'
-  | 'Delivered'
-  | 'Cancelled';
+type DeliveryStatus = 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
+
+interface ShippingCompany {
+  id: number;
+  name: string;
+  phone: string | null;
+  website: string | null;
+  created_at: string;
+}
 
 interface DeliveryOrder {
   id: number;
@@ -68,11 +76,11 @@ interface DeliveryOrder {
   address: string;
   notes: string | null;
   status: DeliveryStatus;
-  assigned_to: number | null;
-  assigned_name: string | null;
-  estimated_delivery: string | null;
-  shipping_company: string | null;
+  shipping_company_id: number | null;
+  shipping_company_name: string | null;
   tracking_number: string | null;
+  shipping_cost: number;
+  estimated_delivery: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -83,12 +91,6 @@ interface Product {
   sku: string;
   price: string | number;
   stock: number;
-}
-
-interface DeliveryUser {
-  id: number;
-  name: string;
-  email: string;
 }
 
 interface Customer {
@@ -113,15 +115,16 @@ interface StatusHistoryEntry {
 
 interface PerformanceData {
   totalDelivered: number;
-  onTimePercent: number;
-  avgDeliveryMinutes: number;
-  overdueCount: number;
-  driverStats: Array<{
+  avgDeliveryDays: number;
+  pendingCount: number;
+  shippedCount: number;
+  companyStats: Array<{
     id: number;
     name: string;
     total_orders: number;
     delivered: number;
     cancelled: number;
+    avg_days: number | null;
   }>;
 }
 
@@ -131,10 +134,10 @@ const deliverySchema = z.object({
   phone: z.string().min(1, 'Phone required'),
   address: z.string().min(1, 'Address required'),
   notes: z.string().optional(),
-  assigned_to: z.coerce.number().optional().nullable(),
   estimated_delivery: z.string().optional().nullable(),
-  shipping_company: z.string().optional().nullable(),
+  shipping_company_id: z.coerce.number().optional().nullable(),
   tracking_number: z.string().optional().nullable(),
+  shipping_cost: z.coerce.number().nonnegative().optional().nullable(),
   items: z
     .array(
       z.object({
@@ -149,10 +152,10 @@ type DeliveryFormData = z.infer<typeof deliverySchema>;
 
 interface DeliveryPayload extends Omit<DeliveryFormData, 'items'> {
   customer_id: number | null;
-  assigned_to: number | null;
-  estimated_delivery: string | null;
-  shipping_company: string | null;
+  shipping_company_id: number | null;
   tracking_number: string | null;
+  shipping_cost: number | null;
+  estimated_delivery: string | null;
   items: Array<{ product_id: number; quantity: number }>;
 }
 
@@ -172,6 +175,9 @@ export default function Deliveries() {
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
   const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null);
   const [timelineOrderNumber, setTimelineOrderNumber] = useState('');
+  const [companiesDialogOpen, setCompaniesDialogOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<ShippingCompany | null>(null);
+  const [companyFormOpen, setCompanyFormOpen] = useState(false);
 
   const { data: orders, isLoading } = useQuery<DeliveryOrder[]>({
     queryKey: ['deliveries', { status: statusFilter }],
@@ -188,9 +194,9 @@ export default function Deliveries() {
     queryFn: () => api.get('/api/products', { params: { limit: 200 } }).then((r) => r.data.data),
   });
 
-  const { data: deliveryUsers } = useQuery<DeliveryUser[]>({
-    queryKey: ['delivery-users'],
-    queryFn: () => api.get('/api/users/delivery').then((r) => r.data.data),
+  const { data: shippingCompanies } = useQuery<ShippingCompany[]>({
+    queryKey: ['shipping-companies'],
+    queryFn: () => api.get('/api/shipping-companies').then((r) => r.data.data),
     enabled: isAdmin,
   });
 
@@ -241,10 +247,10 @@ export default function Deliveries() {
       phone: '',
       address: '',
       notes: '',
-      assigned_to: null,
       estimated_delivery: '',
-      shipping_company: '',
+      shipping_company_id: null,
       tracking_number: '',
+      shipping_cost: 0,
       items: [{ product_id: 0, quantity: 1 }],
     },
   });
@@ -294,14 +300,56 @@ export default function Deliveries() {
       toast.error(err.response?.data?.error || t('deliveries.statusFailed')),
   });
 
+  // Shipping company mutations
+  const companyCreateMutation = useMutation({
+    mutationFn: (data: { name: string; phone?: string; website?: string }) =>
+      api.post('/api/shipping-companies', data),
+    onSuccess: () => {
+      toast.success(t('deliveries.companySaved'));
+      queryClient.invalidateQueries({ queryKey: ['shipping-companies'] });
+      setCompanyFormOpen(false);
+      setEditingCompany(null);
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('deliveries.createFailed')),
+  });
+
+  const companyUpdateMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: { name: string; phone?: string; website?: string };
+    }) => api.put(`/api/shipping-companies/${id}`, data),
+    onSuccess: () => {
+      toast.success(t('deliveries.companySaved'));
+      queryClient.invalidateQueries({ queryKey: ['shipping-companies'] });
+      setCompanyFormOpen(false);
+      setEditingCompany(null);
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('deliveries.updateFailed')),
+  });
+
+  const companyDeleteMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/api/shipping-companies/${id}`),
+    onSuccess: () => {
+      toast.success(t('deliveries.companyDeleted'));
+      queryClient.invalidateQueries({ queryKey: ['shipping-companies'] });
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('deliveries.companyDeleteFailed')),
+  });
+
   const onSubmit = (data: DeliveryFormData) => {
     const payload: DeliveryPayload = {
       ...data,
       customer_id: selectedCustomer?.id || null,
-      assigned_to: data.assigned_to || null,
-      estimated_delivery: data.estimated_delivery || null,
-      shipping_company: data.shipping_company || null,
+      shipping_company_id: data.shipping_company_id || null,
       tracking_number: data.tracking_number || null,
+      shipping_cost: data.shipping_cost || null,
+      estimated_delivery: data.estimated_delivery || null,
       items: data.items.map((i) => ({
         product_id: Number(i.product_id),
         quantity: Number(i.quantity),
@@ -329,10 +377,10 @@ export default function Deliveries() {
       phone: '',
       address: '',
       notes: '',
-      assigned_to: null,
       estimated_delivery: estimatedStr,
-      shipping_company: '',
+      shipping_company_id: null,
       tracking_number: '',
+      shipping_cost: 0,
       items: [{ product_id: 0, quantity: 1 }],
     });
     setDialogOpen(true);
@@ -364,26 +412,17 @@ export default function Deliveries() {
     setTimelineDialogOpen(true);
   };
 
-  const isOverdue = (order: DeliveryOrder) => {
-    if (!order.estimated_delivery) return false;
-    if (order.status === 'Delivered' || order.status === 'Cancelled') return false;
-    return new Date(order.estimated_delivery) < new Date();
+  const copyTracking = (tracking: string) => {
+    navigator.clipboard.writeText(tracking);
+    toast.success(t('deliveries.copyTracking'));
   };
 
-  const statuses = [
-    'All',
-    'Order Received',
-    'Shipping Contacted',
-    'In Transit',
-    'Delivered',
-    'Cancelled',
-  ];
+  const statuses = ['All', 'Pending', 'Shipped', 'Delivered', 'Cancelled'];
 
   const statusLabelMap: Record<string, string> = {
     All: t('common.all'),
-    'Order Received': t('deliveries.orderReceived'),
-    'Shipping Contacted': t('deliveries.shippingContacted'),
-    'In Transit': t('deliveries.inTransit'),
+    Pending: t('deliveries.pending'),
+    Shipped: t('deliveries.shipped'),
     Delivered: t('deliveries.delivered'),
     Cancelled: t('deliveries.cancelled'),
   };
@@ -392,17 +431,7 @@ export default function Deliveries() {
     {
       accessorKey: 'order_number',
       header: t('deliveries.orderNumber'),
-      cell: ({ getValue, row }) => (
-        <div className="flex items-center gap-2">
-          <span className="font-data text-gold">{getValue() as string}</span>
-          {isOverdue(row.original) && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-              <AlertTriangle className="h-3 w-3" />
-              {t('deliveries.overdue')}
-            </span>
-          )}
-        </div>
-      ),
+      cell: ({ getValue }) => <span className="font-data text-gold">{getValue() as string}</span>,
     },
     { accessorKey: 'customer_name', header: t('deliveries.customer') },
     {
@@ -416,14 +445,14 @@ export default function Deliveries() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <StatusBadge status={row.original.status} />
-          {(isAdmin || user?.role === 'Delivery') &&
+          {isAdmin &&
             row.original.status !== 'Delivered' &&
             row.original.status !== 'Cancelled' && (
               <Select
                 value={row.original.status}
                 onValueChange={(val) => statusMutation.mutate({ id: row.original.id, status: val })}
               >
-                <SelectTrigger className="h-7 w-[140px] text-xs">
+                <SelectTrigger className="h-7 w-[120px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -441,12 +470,7 @@ export default function Deliveries() {
       ),
     },
     {
-      accessorKey: 'assigned_name',
-      header: t('deliveries.assignedTo'),
-      cell: ({ getValue }) => (getValue() as string) || '-',
-    },
-    {
-      accessorKey: 'shipping_company',
+      accessorKey: 'shipping_company_name',
       header: t('deliveries.shippingCompany'),
       cell: ({ getValue }) => (getValue() as string) || '-',
     },
@@ -455,19 +479,26 @@ export default function Deliveries() {
       header: t('deliveries.trackingNumber'),
       cell: ({ getValue }) => {
         const val = getValue() as string | null;
-        return val ? <span className="font-data text-xs">{val}</span> : '-';
+        if (!val) return '-';
+        return (
+          <div className="flex items-center gap-1">
+            <span className="font-data text-xs">{val}</span>
+            <button
+              onClick={() => copyTracking(val)}
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+          </div>
+        );
       },
     },
     {
-      accessorKey: 'estimated_delivery',
-      header: t('deliveries.estimatedDelivery'),
+      accessorKey: 'shipping_cost',
+      header: t('deliveries.shippingCost'),
       cell: ({ getValue }) => {
-        const val = getValue() as string | null;
-        return val ? (
-          <span className="text-muted font-data text-xs">{formatDateTime(val)}</span>
-        ) : (
-          '-'
-        );
+        const val = getValue() as number;
+        return val ? <span className="font-data">{formatCurrency(val)}</span> : '-';
       },
     },
     {
@@ -531,40 +562,85 @@ export default function Deliveries() {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-blue-500/10">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{t('deliveries.onTimeRate')}</p>
-                <p className="text-xl font-bold font-data">{performance.onTimePercent}%</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-full bg-purple-500/10">
                 <Clock className="h-5 w-5 text-purple-600" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">{t('deliveries.avgDeliveryTime')}</p>
                 <p className="text-xl font-bold font-data">
-                  {t('deliveries.minutes', { count: performance.avgDeliveryMinutes })}
+                  {t('deliveries.days', { count: performance.avgDeliveryDays })}
                 </p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-destructive/10">
-                <AlertTriangle className="h-5 w-5 text-destructive" />
+              <div className="p-2 rounded-full bg-amber-500/10">
+                <Package className="h-5 w-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">{t('deliveries.overdueOrders')}</p>
-                <p className="text-xl font-bold font-data">{performance.overdueCount}</p>
+                <p className="text-xs text-muted-foreground">{t('deliveries.pendingOrders')}</p>
+                <p className="text-xl font-bold font-data">{performance.pendingCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-full bg-blue-500/10">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('deliveries.shippedOrders')}</p>
+                <p className="text-xl font-bold font-data">{performance.shippedCount}</p>
               </div>
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Company stats */}
+      {isAdmin && performance && performance.companyStats.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-sm font-medium mb-3">{t('deliveries.companyStats')}</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-start py-2 pe-4 text-muted-foreground font-medium">
+                      {t('deliveries.shippingCompany')}
+                    </th>
+                    <th className="text-start py-2 pe-4 text-muted-foreground font-medium">
+                      {t('deliveries.totalOrders')}
+                    </th>
+                    <th className="text-start py-2 pe-4 text-muted-foreground font-medium">
+                      {t('deliveries.deliveredCount')}
+                    </th>
+                    <th className="text-start py-2 pe-4 text-muted-foreground font-medium">
+                      {t('deliveries.cancelledCount')}
+                    </th>
+                    <th className="text-start py-2 text-muted-foreground font-medium">
+                      {t('deliveries.avgDays')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {performance.companyStats.map((cs) => (
+                    <tr key={cs.id} className="border-b border-border/50 last:border-0">
+                      <td className="py-2 pe-4 font-medium">{cs.name}</td>
+                      <td className="py-2 pe-4 font-data">{cs.total_orders}</td>
+                      <td className="py-2 pe-4 font-data text-green-600">{cs.delivered}</td>
+                      <td className="py-2 pe-4 font-data text-destructive">{cs.cancelled}</td>
+                      <td className="py-2 font-data">
+                        {cs.avg_days != null ? `${cs.avg_days}` : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Status filter */}
@@ -599,17 +675,14 @@ export default function Deliveries() {
             <DialogDescription>{t('deliveries.statusTimeline')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-0">
-            {/* Status stepper */}
             {statusHistory && statusHistory.length > 0 ? (
               <div className="relative ps-6">
-                {/* Vertical line */}
                 <div className="absolute start-[11px] top-2 bottom-2 w-0.5 bg-border" />
                 {statusHistory.map((entry, idx) => {
                   const isLast = idx === statusHistory.length - 1;
                   const isCancelled = entry.status === 'Cancelled';
                   return (
                     <div key={entry.id} className="relative pb-6 last:pb-0">
-                      {/* Dot */}
                       <div
                         className={`absolute start-[-13px] top-1 h-3 w-3 rounded-full border-2 ${
                           isCancelled
@@ -645,6 +718,101 @@ export default function Deliveries() {
               </p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Shipping Companies Dialog */}
+      <Dialog open={companiesDialogOpen} onOpenChange={setCompaniesDialogOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              {t('deliveries.manageCompanies')}
+            </DialogTitle>
+            <DialogDescription>{t('deliveries.manageCompanies')}</DialogDescription>
+          </DialogHeader>
+
+          {companyFormOpen ? (
+            <CompanyForm
+              company={editingCompany}
+              onSave={(data) => {
+                if (editingCompany) {
+                  companyUpdateMutation.mutate({ id: editingCompany.id, data });
+                } else {
+                  companyCreateMutation.mutate(data);
+                }
+              }}
+              onCancel={() => {
+                setCompanyFormOpen(false);
+                setEditingCompany(null);
+              }}
+              isPending={companyCreateMutation.isPending || companyUpdateMutation.isPending}
+              t={t}
+            />
+          ) : (
+            <div className="space-y-2">
+              <Button
+                size="sm"
+                className="gap-1 w-full"
+                onClick={() => {
+                  setEditingCompany(null);
+                  setCompanyFormOpen(true);
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {t('deliveries.addCompany')}
+              </Button>
+              {shippingCompanies && shippingCompanies.length > 0 ? (
+                shippingCompanies.map((sc) => (
+                  <div
+                    key={sc.id}
+                    className="flex items-center justify-between p-3 rounded-md border border-border"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{sc.name}</p>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                        {sc.phone && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" /> {sc.phone}
+                          </span>
+                        )}
+                        {sc.website && (
+                          <span className="flex items-center gap-1">
+                            <Globe className="h-3 w-3" /> {sc.website}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditingCompany(sc);
+                          setCompanyFormOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => companyDeleteMutation.mutate(sc.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  {t('common.noResults')}
+                </p>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -756,38 +924,43 @@ export default function Deliveries() {
                 <Input type="datetime-local" {...register('estimated_delivery')} />
               </div>
             </div>
+
+            {/* Shipping fields */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{t('deliveries.shippingCompany')}</Label>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-xs"
+                  onClick={() => setCompaniesDialogOpen(true)}
+                >
+                  {t('deliveries.manageCompanies')}
+                </Button>
+              </div>
+              <select
+                {...register('shipping_company_id')}
+                className="flex h-10 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-data text-foreground"
+              >
+                <option value="">{t('deliveries.noCompany')}</option>
+                {shippingCompanies?.map((sc) => (
+                  <option key={sc.id} value={sc.id}>
+                    {sc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{t('deliveries.shippingCompany')}</Label>
-                <Input
-                  {...register('shipping_company')}
-                  placeholder={t('deliveries.shippingCompanyPlaceholder')}
-                />
+                <Label>{t('deliveries.trackingNumber')}</Label>
+                <Input {...register('tracking_number')} placeholder="e.g. 1234567890" />
               </div>
               <div className="space-y-2">
-                <Label>{t('deliveries.trackingNumber')}</Label>
-                <Input
-                  {...register('tracking_number')}
-                  placeholder={t('deliveries.trackingNumberPlaceholder')}
-                />
+                <Label>{t('deliveries.shippingCost')}</Label>
+                <Input type="number" step="0.01" min="0" {...register('shipping_cost')} />
               </div>
             </div>
-            {isAdmin && deliveryUsers && (
-              <div className="space-y-2">
-                <Label>{t('deliveries.assignTo')}</Label>
-                <select
-                  {...register('assigned_to')}
-                  className="flex h-10 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-data text-foreground"
-                >
-                  <option value="">{t('deliveries.unassigned')}</option>
-                  {deliveryUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             {/* Items */}
             <div className="space-y-2">
@@ -844,5 +1017,59 @@ export default function Deliveries() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Sub-component for company add/edit form
+function CompanyForm({
+  company,
+  onSave,
+  onCancel,
+  isPending,
+  t,
+}: {
+  company: ShippingCompany | null;
+  onSave: (data: { name: string; phone?: string; website?: string }) => void;
+  onCancel: () => void;
+  isPending: boolean;
+  t: (key: string) => string;
+}) {
+  const [name, setName] = useState(company?.name || '');
+  const [phone, setPhone] = useState(company?.phone || '');
+  const [website, setWebsite] = useState(company?.website || '');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSave({
+      name: name.trim(),
+      phone: phone.trim() || undefined,
+      website: website.trim() || undefined,
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="space-y-2">
+        <Label>{t('deliveries.companyName')}</Label>
+        <Input value={name} onChange={(e) => setName(e.target.value)} required />
+      </div>
+      <div className="space-y-2">
+        <Label>{t('deliveries.companyPhone')}</Label>
+        <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label>{t('deliveries.companyWebsite')}</Label>
+        <Input value={website} onChange={(e) => setWebsite(e.target.value)} />
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+          {t('common.cancel')}
+        </Button>
+        <Button type="submit" size="sm" disabled={isPending}>
+          {t('common.save')}
+        </Button>
+      </div>
+    </form>
   );
 }

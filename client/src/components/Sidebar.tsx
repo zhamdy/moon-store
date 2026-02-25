@@ -50,11 +50,9 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  // Daily Operations
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard', roles: ['Admin'] },
   { to: '/pos', icon: ShoppingCart, labelKey: 'nav.pos', roles: ['Admin', 'Cashier'] },
-  { to: '/inventory', icon: Package, labelKey: 'nav.inventory', roles: ['Admin', 'Cashier'] },
-  { to: '/barcode', icon: ScanBarcode, labelKey: 'nav.barcode', roles: ['Admin', 'Cashier'] },
-  { to: '/deliveries', icon: Truck, labelKey: 'nav.deliveries', roles: ['Admin', 'Delivery'] },
   { to: '/sales', icon: History, labelKey: 'nav.sales', roles: ['Admin', 'Cashier'] },
   { to: '/register', icon: Vault, labelKey: 'nav.register', roles: ['Admin', 'Cashier'] },
   { to: '/shifts', icon: Clock, labelKey: 'nav.shifts', roles: ['Admin', 'Cashier', 'Delivery'] },
@@ -66,15 +64,20 @@ const navItems: NavItem[] = [
   { to: '/feedback', icon: Star, labelKey: 'nav.feedback', roles: ['Admin'] },
   { to: '/backup', icon: Database, labelKey: 'nav.backup', roles: ['Admin'] },
   { to: '/activity', icon: Activity, labelKey: 'nav.activity', roles: ['Admin'] },
-  { to: '/users', icon: Users, labelKey: 'nav.users', roles: ['Admin'] },
-  { to: '/customers', icon: UserRound, labelKey: 'nav.customers', roles: ['Admin'] },
-  { to: '/distributors', icon: Building2, labelKey: 'nav.distributors', roles: ['Admin'] },
+  // Products & Stock
+  { to: '/inventory', icon: Package, labelKey: 'nav.inventory', roles: ['Admin', 'Cashier'] },
   { to: '/categories', icon: Layers, labelKey: 'nav.categories', roles: ['Admin'] },
+  { to: '/barcode', icon: ScanBarcode, labelKey: 'nav.barcode', roles: ['Admin', 'Cashier'] },
   { to: '/purchase-orders', icon: ClipboardList, labelKey: 'nav.purchaseOrders', roles: ['Admin'] },
   { to: '/promotions', icon: Ticket, labelKey: 'nav.promotions', roles: ['Admin'] },
   { to: '/gift-cards', icon: Gift, labelKey: 'nav.giftCards', roles: ['Admin'] },
   { to: '/stock-count', icon: PackageCheck, labelKey: 'nav.stockCount', roles: ['Admin'] },
-
+  { to: '/distributors', icon: Building2, labelKey: 'nav.distributors', roles: ['Admin'] },
+  // Orders & Customers
+  { to: '/deliveries', icon: Truck, labelKey: 'nav.deliveries', roles: ['Admin', 'Delivery'] },
+  { to: '/customers', icon: UserRound, labelKey: 'nav.customers', roles: ['Admin'] },
+  // Administration
+  { to: '/users', icon: Users, labelKey: 'nav.users', roles: ['Admin'] },
   { to: '/exports', icon: Download, labelKey: 'nav.exports', roles: ['Admin'] },
   { to: '/branches', icon: GitBranch, labelKey: 'nav.branches', roles: ['Admin'] },
   { to: '/storefront', icon: Globe, labelKey: 'nav.storefront', roles: ['Admin'] },

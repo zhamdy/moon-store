@@ -58,31 +58,33 @@ export default function PaymentPieChart({ data }: PaymentPieChartProps) {
   const { t } = useTranslation();
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
-        <Pie
-          data={data}
-          cx="50%"
-          cy="50%"
-          innerRadius={45}
-          outerRadius={75}
-          paddingAngle={5}
-          dataKey="count"
-          nameKey="payment_method"
-          label={({ percent }: PieLabelProps) => `${(percent * 100).toFixed(0)}%`}
-          labelLine={false}
-        >
-          {data?.map((_: PaymentDataPoint, index: number) => (
-            <Cell key={index} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
-        <Legend
-          formatter={(value) => (
-            <span style={{ color: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}>{value}</span>
-          )}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+    <div dir="ltr">
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={45}
+            outerRadius={75}
+            paddingAngle={5}
+            dataKey="count"
+            nameKey="payment_method"
+            label={({ percent }: PieLabelProps) => `${(percent * 100).toFixed(0)}%`}
+            labelLine={false}
+          >
+            {data?.map((_: PaymentDataPoint, index: number) => (
+              <Cell key={index} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
+          <Legend
+            formatter={(value) => (
+              <span style={{ color: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}>{value}</span>
+            )}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
