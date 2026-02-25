@@ -18,11 +18,21 @@ import {
   Download,
   Percent,
   Layers,
+  Archive,
+  RotateCcw,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -91,6 +101,7 @@ interface Product {
   has_variants: number;
   variant_count: number;
   variant_stock: number;
+  status: 'active' | 'inactive' | 'discontinued';
   created_at: string;
   updated_at: string;
 }
@@ -154,9 +165,11 @@ export default function Inventory() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [discontinueId, setDiscontinueId] = useState<number | null>(null);
+  const [reactivateId, setReactivateId] = useState<number | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [lowStockFilter, setLowStockFilter] = useState(searchParams.get('lowStock') === 'true');
   const [adjustStockOpen, setAdjustStockOpen] = useState(false);
   const [adjustProduct, setAdjustProduct] = useState<{
@@ -174,6 +187,8 @@ export default function Inventory() {
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkDistributor, setBulkDistributor] = useState('');
   const [bulkPricePercent, setBulkPricePercent] = useState('');
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [bulkStatusValue, setBulkStatusValue] = useState('');
 
   // Variant management state
   const [variantsDialogOpen, setVariantsDialogOpen] = useState(false);
@@ -191,13 +206,17 @@ export default function Inventory() {
   const [variantStock, setVariantStock] = useState('0');
 
   const { data: productsData, isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ['products', { category_id: categoryFilter === 'all' ? undefined : categoryFilter }],
+    queryKey: [
+      'products',
+      { category_id: categoryFilter === 'all' ? undefined : categoryFilter, status: statusFilter },
+    ],
     queryFn: () =>
       api
         .get('/api/products', {
           params: {
             limit: 200,
             category_id: categoryFilter === 'all' ? undefined : categoryFilter,
+            status: statusFilter,
           },
         })
         .then((r) => r.data.data),
@@ -292,15 +311,29 @@ export default function Inventory() {
       toast.error(err.response?.data?.error || t('inventory.failedToUpdateProduct')),
   });
 
-  const deleteMutation = useMutation({
+  const discontinueMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/api/products/${id}`),
     onSuccess: () => {
-      toast.success(t('inventory.productDeleted'));
+      toast.success(t('inventory.productDiscontinued'));
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      setDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: ['products-low-stock'] });
+      setDiscontinueId(null);
     },
     onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('inventory.failedToDeleteProduct')),
+      toast.error(err.response?.data?.error || t('bulk.deleteFailed')),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      api.put(`/api/products/${id}/status`, { status }),
+    onSuccess: () => {
+      toast.success(t('inventory.statusChanged'));
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products-low-stock'] });
+      setReactivateId(null);
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || t('bulk.updateFailed')),
   });
 
   const importMutation = useMutation({
@@ -320,7 +353,7 @@ export default function Inventory() {
   const bulkDeleteMutation = useMutation({
     mutationFn: (ids: number[]) => api.post('/api/products/bulk-delete', { ids }),
     onSuccess: (res: AxiosResponse<{ data: { deleted: number } }>) => {
-      toast.success(t('bulk.deleteSuccess', { count: String(res.data.data.deleted) }));
+      toast.success(t('bulk.discontinueSuccess', { count: String(res.data.data.deleted) }));
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['products-low-stock'] });
       setRowSelection({});
@@ -719,6 +752,25 @@ export default function Inventory() {
       ),
     },
     {
+      accessorKey: 'status',
+      header: t('inventory.status'),
+      cell: ({ row }) => {
+        const s = row.original.status || 'active';
+        const variant = s === 'active' ? 'success' : s === 'inactive' ? 'warning' : 'secondary';
+        const label =
+          s === 'active'
+            ? t('inventory.active')
+            : s === 'inactive'
+              ? t('inventory.inactive')
+              : t('inventory.discontinued');
+        return (
+          <Badge variant={variant} className="text-[10px]">
+            {label}
+          </Badge>
+        );
+      },
+    },
+    {
       id: 'variants',
       header: t('variants.title'),
       cell: ({ row }) => {
@@ -748,54 +800,66 @@ export default function Inventory() {
             id: 'actions',
             header: t('common.actions'),
             enableSorting: false,
-            cell: ({ row }: { row: { original: Product } }) => (
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  title={t('variants.manageVariants')}
-                  onClick={() => {
-                    setVariantsProduct(row.original);
-                    setVariantsDialogOpen(true);
-                  }}
-                >
-                  <Layers className="h-3.5 w-3.5 text-purple-400" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  title={t('inventory.adjustStock')}
-                  onClick={() => {
-                    setAdjustProduct({
-                      id: row.original.id,
-                      name: row.original.name,
-                      stock: row.original.stock,
-                    });
-                    setAdjustStockOpen(true);
-                  }}
-                >
-                  <PackageMinus className="h-3.5 w-3.5 text-blue-400" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openEditDialog(row.original)}
-                >
-                  <Pencil className="h-3.5 w-3.5 text-gold" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setDeleteId(row.original.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </Button>
-              </div>
-            ),
+            cell: ({ row }: { row: { original: Product } }) => {
+              const isDiscontinued = row.original.status === 'discontinued';
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      disabled={isDiscontinued}
+                      onClick={() => {
+                        setVariantsProduct(row.original);
+                        setVariantsDialogOpen(true);
+                      }}
+                    >
+                      <Layers className="h-4 w-4 me-2 text-purple-400" />
+                      {t('variants.manageVariants')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={isDiscontinued}
+                      onClick={() => {
+                        setAdjustProduct({
+                          id: row.original.id,
+                          name: row.original.name,
+                          stock: row.original.stock,
+                        });
+                        setAdjustStockOpen(true);
+                      }}
+                    >
+                      <PackageMinus className="h-4 w-4 me-2 text-blue-400" />
+                      {t('inventory.adjustStock')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={isDiscontinued}
+                      onClick={() => openEditDialog(row.original)}
+                    >
+                      <Pencil className="h-4 w-4 me-2 text-gold" />
+                      {t('common.edit')}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {isDiscontinued ? (
+                      <DropdownMenuItem onClick={() => setReactivateId(row.original.id)}>
+                        <RotateCcw className="h-4 w-4 me-2 text-emerald-400" />
+                        {t('inventory.reactivateProduct')}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => setDiscontinueId(row.original.id)}
+                      >
+                        <Archive className="h-4 w-4 me-2" />
+                        {t('inventory.discontinueProduct')}
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            },
           } as ColumnDef<Product>,
         ]
       : []),
@@ -855,6 +919,20 @@ export default function Inventory() {
                 ))}
               </SelectContent>
             </Select>
+            <Label className="text-muted text-xs uppercase tracking-widest ms-2">
+              {t('inventory.statusFilter')}
+            </Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder={t('inventory.allStatuses')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('inventory.allStatuses')}</SelectItem>
+                <SelectItem value="active">{t('inventory.active')}</SelectItem>
+                <SelectItem value="inactive">{t('inventory.inactive')}</SelectItem>
+                <SelectItem value="discontinued">{t('inventory.discontinued')}</SelectItem>
+              </SelectContent>
+            </Select>
           </>
         )}
         {isAdmin && (
@@ -906,6 +984,9 @@ export default function Inventory() {
               <Percent className="h-3.5 w-3.5 me-1" />
               {t('bulk.adjustPrice')}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setBulkStatusOpen(true)}>
+              {t('bulk.changeStatus')}
+            </Button>
             <Button variant="outline" size="sm" onClick={handleBulkExport}>
               <Download className="h-3.5 w-3.5 me-1" />
               {t('bulk.export')}
@@ -916,8 +997,8 @@ export default function Inventory() {
               className="text-destructive border-destructive/30 hover:bg-destructive/10"
               onClick={() => setBulkDeleteOpen(true)}
             >
-              <Trash2 className="h-3.5 w-3.5 me-1" />
-              {t('bulk.deleteSelected')}
+              <Archive className="h-3.5 w-3.5 me-1" />
+              {t('bulk.discontinueSelected')}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>
               {t('bulk.clearSelection')}
@@ -1112,20 +1193,40 @@ export default function Inventory() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      {/* Discontinue confirmation */}
+      <AlertDialog open={!!discontinueId} onOpenChange={() => setDiscontinueId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('inventory.deleteProduct')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('inventory.deleteConfirm')}</AlertDialogDescription>
+            <AlertDialogTitle>{t('inventory.discontinueProduct')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('inventory.discontinueConfirm')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              onClick={() => discontinueId && discontinueMutation.mutate(discontinueId)}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
-              {t('common.delete')}
+              {t('common.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reactivate confirmation */}
+      <AlertDialog open={!!reactivateId} onOpenChange={() => setReactivateId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('inventory.reactivateProduct')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('inventory.reactivateConfirm')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                reactivateId && statusMutation.mutate({ id: reactivateId, status: 'active' })
+              }
+            >
+              {t('common.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1140,13 +1241,13 @@ export default function Inventory() {
         currentStock={adjustProduct?.stock ?? 0}
       />
 
-      {/* Bulk Delete Confirmation */}
+      {/* Bulk Discontinue Confirmation */}
       <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('bulk.deleteTitle')}</AlertDialogTitle>
+            <AlertDialogTitle>{t('inventory.discontinueProduct')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('bulk.deleteConfirm', { count: String(selectedCount) })}
+              {t('bulk.discontinueConfirm', { count: String(selectedCount) })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1155,7 +1256,7 @@ export default function Inventory() {
               onClick={() => bulkDeleteMutation.mutate(selectedIds)}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
-              {t('common.delete')}
+              {t('common.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1267,6 +1368,42 @@ export default function Inventory() {
                   updates: { price_percent: Number(bulkPricePercent) },
                 })
               }
+            >
+              {t('common.update')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Change Status */}
+      <Dialog open={bulkStatusOpen} onOpenChange={setBulkStatusOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('bulk.changeStatusTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('bulk.changeStatusDesc', { count: String(selectedCount) })}
+            </DialogDescription>
+          </DialogHeader>
+          <Select value={bulkStatusValue} onValueChange={setBulkStatusValue}>
+            <SelectTrigger>
+              <SelectValue placeholder={t('inventory.status')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">{t('inventory.active')}</SelectItem>
+              <SelectItem value="inactive">{t('inventory.inactive')}</SelectItem>
+              <SelectItem value="discontinued">{t('inventory.discontinued')}</SelectItem>
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button
+              disabled={!bulkStatusValue || bulkUpdateMutation.isPending}
+              onClick={() => {
+                bulkUpdateMutation.mutate({
+                  ids: selectedIds,
+                  updates: { status: bulkStatusValue },
+                });
+                setBulkStatusOpen(false);
+              }}
             >
               {t('common.update')}
             </Button>

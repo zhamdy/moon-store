@@ -76,7 +76,12 @@
 /* Arabic font family */
 [lang="ar"] body,
 [lang="ar"] .font-data {
-  font-family: 'Cairo', 'Inter', sans-serif;
+  font-family: 'IBM Plex Sans Arabic', 'DM Sans', sans-serif;
+}
+
+/* Subtle zebra striping for table rows */
+table tbody tr:nth-child(even) {
+  background-color: hsl(var(--surface) / 0.3);
 }
 
 /* Custom scrollbar - light */

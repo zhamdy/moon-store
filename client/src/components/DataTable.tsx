@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,6 +28,7 @@ interface DataTableProps<TData> {
   rowSelection?: RowSelectionState;
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
   getRowId?: (row: TData) => string;
+  renderSubComponent?: (row: TData) => React.ReactNode | null;
 }
 
 export default function DataTable<TData>({
@@ -40,6 +41,7 @@ export default function DataTable<TData>({
   rowSelection,
   onRowSelectionChange,
   getRowId,
+  renderSubComponent,
 }: DataTableProps<TData>): React.JSX.Element {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string>('');
@@ -90,15 +92,18 @@ export default function DataTable<TData>({
         </div>
       )}
 
-      <div className="rounded-md border border-border overflow-hidden">
+      <div className="rounded-md border border-border overflow-hidden shadow-sm">
         <table className="w-full text-sm font-data">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="bg-table-header border-b border-border">
+              <tr
+                key={headerGroup.id}
+                className="bg-table-header border-b border-border sticky top-0 z-10"
+              >
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-3 text-start font-medium text-foreground tracking-wider uppercase text-xs"
+                    className="px-4 py-3 text-start font-semibold text-muted tracking-widest uppercase text-[11px]"
                   >
                     {header.isPlaceholder ? null : (
                       <div
@@ -129,30 +134,39 @@ export default function DataTable<TData>({
           <tbody>
             {table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-muted">
+                <td colSpan={columns.length} className="px-4 py-12 text-center text-muted">
                   {t('common.noResults')}
                 </td>
               </tr>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-border hover:bg-surface/50 transition-colors"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 text-foreground">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const subContent = renderSubComponent ? renderSubComponent(row.original) : null;
+                return (
+                  <Fragment key={row.id}>
+                    <tr className="group border-b border-border hover:bg-surface/50 transition-colors">
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-4 py-3.5 text-foreground">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                    {subContent && (
+                      <tr className="bg-surface/30">
+                        <td colSpan={columns.length} className="px-6 py-3">
+                          {subContent}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-t border-border pt-4">
         <div className="flex items-center gap-2 text-sm text-muted">
           <span>{t('common.rowsPerPage')}</span>
           <Select

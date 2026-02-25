@@ -89,7 +89,7 @@ router.get(
                 (p.min_stock * 2 - p.stock) as suggested_qty
          FROM products p
          LEFT JOIN distributors d ON p.distributor_id = d.id
-         WHERE p.stock <= p.min_stock AND p.distributor_id IS NOT NULL
+         WHERE p.stock <= p.min_stock AND p.distributor_id IS NOT NULL AND p.status = 'active'
          ORDER BY d.name, p.name`
       );
 

@@ -37,7 +37,7 @@ router.get(
 router.post(
   '/',
   verifyToken,
-  requireRole('Admin'),
+  requireRole('Admin', 'Cashier'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const parsed = customerSchema.safeParse(req.body);

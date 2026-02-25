@@ -1,5 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useTranslation } from '../../i18n';
 import { formatCurrency } from '../../lib/utils';
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
@@ -44,6 +45,7 @@ interface DistributorSalesChartProps {
 export default function DistributorSalesChart({ data }: DistributorSalesChartProps) {
   const theme = useSettingsStore((s) => s.theme);
   const isDark = theme === 'dark';
+  const { isRtl } = useTranslation();
 
   return (
     <div dir="ltr">
@@ -51,7 +53,11 @@ export default function DistributorSalesChart({ data }: DistributorSalesChartPro
         <BarChart
           data={data}
           layout="vertical"
-          margin={{ top: 5, right: 20, left: 100, bottom: 5 }}
+          margin={
+            isRtl
+              ? { top: 5, right: 20, left: 20, bottom: 5 }
+              : { top: 5, right: 20, left: 100, bottom: 5 }
+          }
         >
           <CartesianGrid
             strokeDasharray="3 3"
@@ -63,16 +69,23 @@ export default function DistributorSalesChart({ data }: DistributorSalesChartPro
             tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
             stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
             tickFormatter={(v) => formatCurrency(v)}
+            reversed={isRtl}
           />
           <YAxis
             dataKey="distributor_name"
             type="category"
             tick={{ fill: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}
             stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-            width={90}
+            width={isRtl ? 130 : 90}
+            orientation={isRtl ? 'right' : 'left'}
           />
           <Tooltip content={<CustomTooltip isDark={isDark} />} />
-          <Bar dataKey="revenue" fill="#8B7355" radius={[0, 4, 4, 0]} barSize={20} />
+          <Bar
+            dataKey="revenue"
+            fill="#8B7355"
+            radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
+            barSize={20}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -21,13 +21,41 @@ import settingsRoutes from './routes/settings';
 import purchaseOrderRoutes from './routes/purchaseOrders';
 import auditLogRoutes from './routes/auditLog';
 import notificationRoutes from './routes/notifications';
+import couponRoutes from './routes/coupons';
+import giftCardRoutes from './routes/giftCards';
+import bundleRoutes from './routes/bundles';
+import stockCountRoutes from './routes/stockCounts';
+import reservationRoutes from './routes/reservations';
+import labelTemplateRoutes from './routes/labelTemplates';
+
+import exportRoutes from './routes/exports';
+import registerRoutes from './routes/register';
+import exchangeRoutes from './routes/exchanges';
+import shiftRoutes from './routes/shifts';
+import expenseRoutes from './routes/expenses';
+import segmentRoutes from './routes/segments';
+import layawayRoutes from './routes/layaway';
+import collectionRoutes from './routes/collections';
+import warrantyRoutes from './routes/warranty';
+import feedbackRoutes from './routes/feedback';
+import branchRoutes from './routes/branches';
+import storefrontRoutes from './routes/storefront';
+import onlineOrderRoutes from './routes/onlineOrders';
+import reportRoutes from './routes/reports';
+import vendorRoutes from './routes/vendors';
+import aiRoutes from './routes/ai';
 import shippingCompanyRoutes from './routes/shippingCompanies';
+import { cleanupExpiredReservations } from './routes/reservations';
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 3001;
 
 // Security
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 app.use(
   cors({
     origin: function (
@@ -82,6 +110,29 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/audit-log', auditLogRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/coupons', couponRoutes);
+app.use('/api/gift-cards', giftCardRoutes);
+app.use('/api/bundles', bundleRoutes);
+app.use('/api/stock-counts', stockCountRoutes);
+app.use('/api/reservations', reservationRoutes);
+app.use('/api/label-templates', labelTemplateRoutes);
+
+app.use('/api/exports', exportRoutes);
+app.use('/api/register', registerRoutes);
+app.use('/api/exchanges', exchangeRoutes);
+app.use('/api/shifts', shiftRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/segments', segmentRoutes);
+app.use('/api/layaway', layawayRoutes);
+app.use('/api/collections', collectionRoutes);
+app.use('/api/warranty', warrantyRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/branches', branchRoutes);
+app.use('/api/storefront', storefrontRoutes);
+app.use('/api/online-orders', onlineOrderRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/vendors', vendorRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/shipping-companies', shippingCompanyRoutes);
 
 // Health check
@@ -91,6 +142,19 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 // Error handler
 app.use(errorHandler);
+
+// Cleanup expired reservations every 5 minutes
+setInterval(cleanupExpiredReservations, 5 * 60 * 1000);
+
+// Prevent crashes from unhandled errors
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err.message);
+  console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+});
 
 app.listen(PORT, () => {
   console.log(`MOON Fashion API running on port ${PORT}`);

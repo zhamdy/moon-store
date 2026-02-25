@@ -206,6 +206,14 @@ router.post(
       } = parsed.data;
       const order_number = generateOrderNumber();
 
+      // Auto-set estimated_delivery to +3 days if not provided
+      let resolvedEstimatedDelivery = estimated_delivery || null;
+      if (!resolvedEstimatedDelivery) {
+        const d = new Date();
+        d.setDate(d.getDate() + 3);
+        resolvedEstimatedDelivery = d.toISOString().slice(0, 16);
+      }
+
       const rawDb = db.db;
       const txn = rawDb.transaction(() => {
         let resolvedCustomerId: number | null = customer_id || null;
@@ -236,7 +244,7 @@ router.post(
             address,
             notes || null,
             resolvedCustomerId,
-            estimated_delivery || null,
+            resolvedEstimatedDelivery,
             shipping_company_id || null,
             tracking_number || null,
             shipping_cost || 0
@@ -401,12 +409,12 @@ router.put(
         const trackingInfo = order.tracking_number ? ` Tracking: ${order.tracking_number}` : '';
         const viaCompany = companyName ? ` via ${companyName}` : '';
         const msg = `Hi ${order.customer_name}! \u{1F319} Your MOON order ${order.order_number} has been shipped${viaCompany}.${trackingInfo} Thank you!`;
-        sendSMS(order.phone, msg);
-        sendWhatsApp(order.phone, msg);
+        sendSMS(order.phone, msg).catch(() => {});
+        sendWhatsApp(order.phone, msg).catch(() => {});
       } else if (status === 'Delivered') {
         const msg = `Hi ${order.customer_name}! Your MOON order ${order.order_number} has been delivered. Thank you for shopping with us! \u{1F319}`;
-        sendSMS(order.phone, msg);
-        sendWhatsApp(order.phone, msg);
+        sendSMS(order.phone, msg).catch(() => {});
+        sendWhatsApp(order.phone, msg).catch(() => {});
       }
 
       res.json({ success: true, data: order });

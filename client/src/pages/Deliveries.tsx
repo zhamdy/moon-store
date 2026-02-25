@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Truck,
   History,
+  MoreHorizontal,
   Package,
   Copy,
   Globe,
@@ -25,6 +26,12 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -361,13 +368,16 @@ export default function Deliveries() {
     setSelectedCustomer(null);
     setIsNewCustomer(true);
     setCustomerSearch('');
+    const defaultEstimated = new Date();
+    defaultEstimated.setDate(defaultEstimated.getDate() + 3);
+    const estimatedStr = defaultEstimated.toISOString().slice(0, 16);
     reset({
       customer_id: null,
       customer_name: '',
       phone: '',
       address: '',
       notes: '',
-      estimated_delivery: '',
+      estimated_delivery: estimatedStr,
       shipping_company_id: null,
       tracking_number: '',
       shipping_cost: 0,
@@ -502,15 +512,19 @@ export default function Deliveries() {
       id: 'actions',
       header: '',
       cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1"
-          onClick={() => openTimeline(row.original)}
-        >
-          <History className="h-3.5 w-3.5" />
-          {t('deliveries.viewTimeline')}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => openTimeline(row.original)}>
+              <History className="h-4 w-4 me-2" />
+              {t('deliveries.viewTimeline')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ];

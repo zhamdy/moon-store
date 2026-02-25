@@ -59,7 +59,7 @@ router.get(
         `SELECT COUNT(*) as count FROM audit_log a ${whereClause}`,
         params
       );
-      const total = countResult[0].count;
+      const total = countResult.rows[0].count;
 
       const entries = await db.query(
         `SELECT a.*, u.name as user_display_name
@@ -73,7 +73,7 @@ router.get(
 
       res.json({
         success: true,
-        data: entries,
+        data: entries.rows,
         meta: { total, page: pageNum, limit: limitNum },
       });
     } catch (err) {
@@ -90,7 +90,7 @@ router.get(
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(`SELECT DISTINCT action FROM audit_log ORDER BY action`);
-      res.json({ success: true, data: result.map((r: Record<string, unknown>) => r.action) });
+      res.json({ success: true, data: result.rows.map((r: Record<string, unknown>) => r.action) });
     } catch (err) {
       next(err);
     }
@@ -109,7 +109,7 @@ router.get(
       );
       res.json({
         success: true,
-        data: result.map((r: Record<string, unknown>) => r.entity_type),
+        data: result.rows.map((r: Record<string, unknown>) => r.entity_type),
       });
     } catch (err) {
       next(err);

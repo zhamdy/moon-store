@@ -11,6 +11,7 @@ export const productSchema = z.object({
   category_id: z.number().int().positive().optional().nullable(),
   distributor_id: z.number().int().positive().optional().nullable(),
   min_stock: z.number().int().min(0).default(5),
+  status: z.enum(['active', 'inactive', 'discontinued']).default('active').optional(),
 });
 
 export const productImportSchema = z.array(productSchema);
@@ -24,6 +25,10 @@ export const variantSchema = z.object({
   attributes: z
     .record(z.string(), z.string())
     .refine((obj) => Object.keys(obj).length > 0, 'At least one attribute required'),
+});
+
+export const productStatusSchema = z.object({
+  status: z.enum(['active', 'inactive', 'discontinued']),
 });
 
 export type Product = z.infer<typeof productSchema>;

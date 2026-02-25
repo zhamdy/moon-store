@@ -44,7 +44,7 @@ interface TopProductsChartProps {
 export default function TopProductsChart({ data }: TopProductsChartProps) {
   const theme = useSettingsStore((s) => s.theme);
   const isDark = theme === 'dark';
-  const { t } = useTranslation();
+  const { t, isRtl } = useTranslation();
 
   return (
     <div dir="ltr">
@@ -52,7 +52,11 @@ export default function TopProductsChart({ data }: TopProductsChartProps) {
         <BarChart
           data={data}
           layout="vertical"
-          margin={{ top: 5, right: 20, left: 100, bottom: 5 }}
+          margin={
+            isRtl
+              ? { top: 5, right: 20, left: 20, bottom: 5 }
+              : { top: 5, right: 20, left: 100, bottom: 5 }
+          }
         >
           <CartesianGrid
             strokeDasharray="3 3"
@@ -63,16 +67,23 @@ export default function TopProductsChart({ data }: TopProductsChartProps) {
             type="number"
             tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
             stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+            reversed={isRtl}
           />
           <YAxis
             dataKey="name"
             type="category"
             tick={{ fill: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}
             stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
-            width={90}
+            width={isRtl ? 130 : 90}
+            orientation={isRtl ? 'right' : 'left'}
           />
           <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
-          <Bar dataKey="total_sold" fill="#C9A96E" radius={[0, 4, 4, 0]} barSize={20} />
+          <Bar
+            dataKey="total_sold"
+            fill="#C9A96E"
+            radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
+            barSize={20}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -5,6 +5,7 @@ import { saleSchema } from '../validators/saleSchema';
 import { refundSchema } from '../validators/refundSchema';
 import { logAuditFromReq } from '../middleware/auditLogger';
 import { notifySale } from '../services/notifications';
+import { recordSaleMovement, recordRefundMovement } from './register';
 
 const router: Router = Router();
 
@@ -52,8 +53,18 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const { items, discount, discount_type, payment_method, customer_id, points_redeemed } =
-        parsed.data;
+      const {
+        items,
+        discount,
+        discount_type,
+        payment_method,
+        payments,
+        customer_id,
+        points_redeemed,
+        notes,
+        tip,
+        coupon_code,
+      } = parsed.data;
 
       // Calculate total
       let subtotal = 0;
@@ -121,6 +132,46 @@ router.post(
         total = Math.round((total - pointsDiscount) * 100) / 100;
       }
 
+      // Coupon validation
+      let couponId: number | null = null;
+      let couponDiscount = 0;
+      if (coupon_code) {
+        const coupon = rawDb
+          .prepare("SELECT * FROM coupons WHERE code = ? AND status = 'active'")
+          .get(coupon_code) as Record<string, any> | undefined;
+        if (coupon) {
+          const now = new Date().toISOString();
+          if (
+            (!coupon.starts_at || coupon.starts_at <= now) &&
+            (!coupon.expires_at || coupon.expires_at >= now)
+          ) {
+            if (
+              !coupon.max_uses ||
+              (
+                rawDb
+                  .prepare('SELECT COUNT(*) as c FROM coupon_usage WHERE coupon_id = ?')
+                  .get(coupon.id) as any
+              ).c < coupon.max_uses
+            ) {
+              if (total >= (coupon.min_purchase || 0)) {
+                couponDiscount =
+                  coupon.type === 'percentage'
+                    ? Math.round(total * (coupon.value / 100) * 100) / 100
+                    : coupon.value;
+                if (coupon.max_discount && couponDiscount > coupon.max_discount)
+                  couponDiscount = coupon.max_discount;
+                couponDiscount = Math.min(couponDiscount, total);
+                total = Math.round((total - couponDiscount) * 100) / 100;
+                couponId = coupon.id;
+              }
+            }
+          }
+        }
+      }
+
+      // Add tip (not included in sale total, stored separately)
+      const tipAmount = tip || 0;
+
       // Use raw db for transaction
       const txn = rawDb.transaction(() => {
         // Validate customer has enough points for redemption
@@ -135,22 +186,46 @@ router.post(
 
         const saleResult = rawDb
           .prepare(
-            `INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id, customer_id, tax_amount, points_redeemed)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
+            `INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id, customer_id, tax_amount, points_redeemed, notes, tip_amount, coupon_id, coupon_discount)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
           )
           .get(
             total,
             discount,
             discount_type,
-            payment_method,
+            payments && payments.length > 1 ? 'Split' : payment_method,
             authReq.user!.id,
             customer_id || null,
             taxAmount,
-            points_redeemed || 0
+            points_redeemed || 0,
+            notes || null,
+            tipAmount,
+            couponId,
+            couponDiscount
           ) as Record<string, any>;
+
+        // Record split payments
+        if (payments && payments.length > 0) {
+          const insertPayment = rawDb.prepare(
+            'INSERT INTO sale_payments (sale_id, method, amount) VALUES (?, ?, ?)'
+          );
+          for (const p of payments) {
+            insertPayment.run(saleResult.id, p.method, p.amount);
+          }
+        }
+
+        // Record coupon usage
+        if (couponId && couponDiscount > 0) {
+          rawDb
+            .prepare(
+              'INSERT INTO coupon_usage (coupon_id, sale_id, customer_id, discount_applied) VALUES (?, ?, ?, ?)'
+            )
+            .run(couponId, saleResult.id, customer_id || null, couponDiscount);
+        }
 
         for (const item of items) {
           const variantId = (item as any).variant_id || null;
+          const itemMemo = (item as any).memo || null;
 
           if (variantId) {
             // Variant sale: deduct stock from variant
@@ -164,7 +239,7 @@ router.post(
 
             rawDb
               .prepare(
-                'INSERT INTO sale_items (sale_id, product_id, variant_id, quantity, unit_price, cost_price) VALUES (?, ?, ?, ?, ?, ?)'
+                'INSERT INTO sale_items (sale_id, product_id, variant_id, quantity, unit_price, cost_price, memo) VALUES (?, ?, ?, ?, ?, ?, ?)'
               )
               .run(
                 saleResult.id,
@@ -172,7 +247,8 @@ router.post(
                 variantId,
                 item.quantity,
                 item.unit_price,
-                costPrice
+                costPrice,
+                itemMemo
               );
 
             const updated = rawDb
@@ -206,9 +282,16 @@ router.post(
 
             rawDb
               .prepare(
-                'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, cost_price) VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, cost_price, memo) VALUES (?, ?, ?, ?, ?, ?)'
               )
-              .run(saleResult.id, item.product_id, item.quantity, item.unit_price, costPrice);
+              .run(
+                saleResult.id,
+                item.product_id,
+                item.quantity,
+                item.unit_price,
+                costPrice,
+                itemMemo
+              );
 
             const updated = rawDb
               .prepare(
@@ -305,10 +388,24 @@ router.post(
 
       logAuditFromReq(req, 'create', 'sale', sale.id, {
         total: sale.total,
-        items: parsed.items.length,
+        items: parsed.data.items.length,
       });
 
       notifySale(sale.total, sale.id, cashier?.name || 'Unknown');
+
+      // Record cash register movement for cash payments
+      const cashPayments = (parsed.data.payments || []).filter(
+        (p: { method: string }) => p.method === 'Cash'
+      );
+      const cashAmount = cashPayments.reduce(
+        (sum: number, p: { amount: number }) => sum + p.amount,
+        0
+      );
+      const singleCashPayment = parsed.data.payment_method === 'Cash' ? sale.total : 0;
+      const totalCashForRegister = cashAmount || singleCashPayment;
+      if (totalCashForRegister > 0) {
+        recordSaleMovement(authReq.user!.id, sale.id, totalCashForRegister);
+      }
 
       res.status(201).json({
         success: true,
@@ -560,6 +657,9 @@ router.post(
 
       logAuditFromReq(req, 'refund', 'sale', req.params.id, { refund_amount: refund.total_refund });
 
+      // Record cash register refund movement
+      recordRefundMovement((req as AuthRequest).user!.id, refund.total_refund);
+
       res.status(201).json({
         success: true,
         data: {
@@ -599,6 +699,50 @@ router.get(
       }));
 
       res.json({ success: true, data: refunds });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/sales/:id/send-receipt — Send digital receipt
+router.post(
+  '/:id/send-receipt',
+  verifyToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { channel, destination } = req.body;
+      if (!channel || !destination) {
+        return res.status(400).json({ success: false, error: 'Channel and destination required' });
+      }
+      if (!['email', 'sms', 'whatsapp'].includes(channel)) {
+        return res
+          .status(400)
+          .json({ success: false, error: 'Channel must be email, sms, or whatsapp' });
+      }
+
+      // Verify sale exists
+      const saleResult = await db.query('SELECT * FROM sales WHERE id = ?', [req.params.id]);
+      if (saleResult.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Sale not found' });
+      }
+
+      // Update receipt_sent_via
+      await db.query('UPDATE sales SET receipt_sent_via = ? WHERE id = ?', [
+        channel,
+        req.params.id,
+      ]);
+
+      // In production, integrate with email/SMS/WhatsApp service here
+      // For now, just record the intent
+
+      res.json({
+        success: true,
+        data: {
+          message: `Receipt queued via ${channel} to ${destination}`,
+          sale_id: Number(req.params.id),
+        },
+      });
     } catch (err) {
       next(err);
     }

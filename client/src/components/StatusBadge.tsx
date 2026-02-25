@@ -1,6 +1,9 @@
 import { Badge } from './ui/badge';
 
 type DeliveryStatus =
+  | 'Order Received'
+  | 'Shipping Contacted'
+  | 'In Transit'
   | 'Pending'
   | 'Preparing'
   | 'Out for Delivery'
@@ -11,6 +14,9 @@ type DeliveryStatus =
 type BadgeVariant = 'warning' | 'info' | 'gold' | 'success' | 'destructive' | 'secondary';
 
 const statusStyles: Record<DeliveryStatus, BadgeVariant> = {
+  'Order Received': 'warning',
+  'Shipping Contacted': 'info',
+  'In Transit': 'gold',
   Pending: 'warning',
   Preparing: 'info',
   'Out for Delivery': 'gold',

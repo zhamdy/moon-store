@@ -119,6 +119,46 @@ router.put(
   }
 );
 
+// GET /api/users/me/favorites
+router.get(
+  '/me/favorites',
+  verifyToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const result = await db.query('SELECT favorites FROM users WHERE id = ?', [authReq.user!.id]);
+      const favorites = result.rows[0]?.favorites
+        ? JSON.parse(result.rows[0].favorites as string)
+        : [];
+      res.json({ success: true, data: favorites });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// PUT /api/users/me/favorites
+router.put(
+  '/me/favorites',
+  verifyToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authReq = req as AuthRequest;
+      const { favorites } = req.body;
+      if (!Array.isArray(favorites)) {
+        return res.status(400).json({ success: false, error: 'Favorites must be an array' });
+      }
+      await db.query('UPDATE users SET favorites = ? WHERE id = ?', [
+        JSON.stringify(favorites),
+        authReq.user!.id,
+      ]);
+      res.json({ success: true, data: favorites });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // DELETE /api/users/:id
 router.delete(
   '/:id',

@@ -10,6 +10,7 @@ import {
 import { format } from 'date-fns';
 import { formatCurrency } from '../../lib/utils';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useTranslation } from '../../i18n';
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 
@@ -52,11 +53,19 @@ interface RevenueChartProps {
 export default function RevenueChart({ data }: RevenueChartProps) {
   const theme = useSettingsStore((s) => s.theme);
   const isDark = theme === 'dark';
+  const { isRtl } = useTranslation();
 
   return (
     <div dir="ltr">
       <ResponsiveContainer width="100%" height={300}>
-        <AreaChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+        <AreaChart
+          data={data}
+          margin={
+            isRtl
+              ? { top: 5, right: 10, left: 20, bottom: 5 }
+              : { top: 5, right: 20, left: 10, bottom: 5 }
+          }
+        >
           <defs>
             <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#C9A96E" stopOpacity={0.3} />
@@ -69,11 +78,13 @@ export default function RevenueChart({ data }: RevenueChartProps) {
             tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
             tickFormatter={(val: string) => format(new Date(val), 'MMM dd')}
             stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+            reversed={isRtl}
           />
           <YAxis
             tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
             tickFormatter={(val: number) => `$${val}`}
             stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+            orientation={isRtl ? 'right' : 'left'}
           />
           <Tooltip content={<CustomTooltip isDark={isDark} />} />
           <Area
