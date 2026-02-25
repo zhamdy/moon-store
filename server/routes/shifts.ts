@@ -73,11 +73,11 @@ router.post('/clock-out', verifyToken, async (req: Request, res: Response, next:
     );
 
     const totalBreak = breakResult.rows[0].total_break as number;
-    const totalHours = `ROUND((julianday('now') - julianday(clock_in)) * 24 - ${totalBreak / 60.0}, 2)`;
+    const breakHours = totalBreak / 60.0;
 
     const result = await db.query(
-      `UPDATE shifts SET clock_out = datetime('now'), status = 'completed', break_minutes = ?, total_hours = ${totalHours} WHERE id = ? RETURNING *`,
-      [totalBreak, shiftId]
+      `UPDATE shifts SET clock_out = datetime('now'), status = 'completed', break_minutes = ?, total_hours = ROUND((julianday('now') - julianday(clock_in)) * 24 - ?, 2) WHERE id = ? RETURNING *`,
+      [totalBreak, breakHours, shiftId]
     );
 
     res.json({ success: true, data: result.rows[0] });
@@ -146,7 +146,7 @@ router.get(
   '/active',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
         `SELECT s.*, u.name as user_name, u.role

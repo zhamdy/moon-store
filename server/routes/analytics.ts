@@ -9,7 +9,7 @@ router.get(
   '/dashboard',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const todayRevenue = await db.query<{ revenue: number }>(
         `SELECT COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as revenue FROM sales WHERE date(created_at) = date('now')`
@@ -299,7 +299,7 @@ router.get(
   '/abc-classification',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       // Rank products by revenue contribution over last 90 days
       const result = await db.query(
@@ -361,7 +361,7 @@ router.get(
   '/reorder-suggestions',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       // Products below reorder point based on sales velocity
       const result = await db.query(
@@ -407,7 +407,7 @@ router.post(
   '/inventory-snapshot',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const rawDb = db.db;
       const products = rawDb
@@ -445,7 +445,7 @@ router.get(
   '/inventory-snapshots',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
         `SELECT id, total_products, total_units, total_cost_value, total_retail_value, created_at

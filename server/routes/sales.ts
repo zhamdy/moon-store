@@ -14,7 +14,7 @@ router.get(
   '/stats/summary',
   verifyToken,
   requireRole('Admin', 'Cashier'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const today = await db.query<{ revenue: number; count: number }>(
         `SELECT COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as revenue, COUNT(*) as count

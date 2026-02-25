@@ -15,7 +15,7 @@ const collectionSchema = z.object({
 });
 
 // GET /api/collections
-router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', verifyToken, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await db.query(
       `SELECT c.*, (SELECT COUNT(*) FROM collection_products WHERE collection_id = c.id) as product_count

@@ -22,7 +22,7 @@ router.get(
   '/',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
         `SELECT sc.*,

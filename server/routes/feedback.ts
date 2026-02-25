@@ -18,7 +18,7 @@ router.get(
   '/',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const feedback = await db.query(
         `SELECT cf.*, c.name as customer_name

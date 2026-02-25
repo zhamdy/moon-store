@@ -1,6 +1,6 @@
 # MOON Fashion & Style - Technical Debt Report
 
-> Generated: 2026-02-25 | Codebase: 36 routes, 36 pages, 64 migrations
+> Generated: 2026-02-25 | Updated: 2026-02-25 | Codebase: 36 routes, 36 pages, 64 migrations
 
 ---
 
@@ -8,17 +8,17 @@
 
 | Severity | Count |
 |----------|-------|
-| Critical | 5 |
-| High | 10 |
-| Medium | 19 |
-| Low | 7 |
-| **Total** | **41** |
+| Critical | ~~5~~ 0 |
+| High | ~~10~~ 8 |
+| Medium | ~~19~~ 15 |
+| Low | ~~7~~ 6 |
+| **Total** | **41** (12 fixed, 29 remaining) |
 
 ---
 
 ## Critical
 
-### 1. SQL Injection in Shifts Route
+### ~~1. SQL Injection in Shifts Route~~ [FIXED]
 - **File**: `server/routes/shifts.ts:76-80`
 - **Issue**: `totalBreak` is interpolated directly into SQL via template string instead of parameterized:
   ```ts
@@ -29,25 +29,25 @@
 - **Risk**: SQL injection if the pattern is copied to user-controlled inputs.
 - **Fix**: Move calculation to a parameterized value or compute in JavaScript.
 
-### 2. Zero Test Coverage
+### ~~2. Zero Test Coverage~~ [FIXED]
 - **Files**: Entire codebase
 - **Issue**: No test files exist (0 `.test.ts`, 0 `.spec.ts`). No test runner configured (no jest/vitest in dependencies).
 - **Risk**: Any refactor or bug fix can introduce regressions undetected. Impossible to safely ship changes.
 - **Fix**: Add Vitest for both client and server. Start with critical paths: auth, sales, cart logic.
 
-### 3. CORS Allows All Origins in Production
+### ~~3. CORS Allows All Origins in Production~~ [FIXED]
 - **File**: `server/index.ts:58-78`
 - **Issue**: The CORS callback always calls `callback(null, true)` — the `else` branch on line 73 allows all origins with the comment `// allow all in dev`, but there is no production check.
 - **Risk**: Any external site can make authenticated requests to the API via the user's browser cookies.
 - **Fix**: Check `NODE_ENV` and reject unknown origins in production.
 
-### 4. Error Handler Exposes Internal Messages
+### ~~4. Error Handler Exposes Internal Messages~~ [FIXED]
 - **File**: `server/middleware/errorHandler.ts:14`
 - **Issue**: Raw `err.message` is sent to clients in all environments. Stack traces are logged but messages like "SQLITE_CONSTRAINT" or internal errors leak to the frontend.
 - **Risk**: Information disclosure to attackers. OWASP Top 10 violation.
 - **Fix**: Return generic message in production, only expose details in development.
 
-### 5. No JWT Secret Validation at Startup
+### ~~5. No JWT Secret Validation at Startup~~ [FIXED]
 - **File**: `server/index.ts`
 - **Issue**: If `JWT_SECRET` or `JWT_REFRESH_SECRET` env vars are missing, the server starts but auth silently breaks or uses `undefined`.
 - **Risk**: Authentication bypass or cryptographic weakness.
@@ -124,21 +124,19 @@
 - **Risk**: Security-critical events can be lost without anyone knowing.
 - **Fix**: At minimum add `console.error` in the catch block.
 
-### 15. `noUnusedLocals` and `noUnusedParameters` Disabled
+### ~~15. `noUnusedLocals` and `noUnusedParameters` Disabled~~ [FIXED]
 - **Files**: `server/tsconfig.json:16-17`, `client/tsconfig.json:20-21`
 - **Issue**: Both set to `false`. Dead code and unused imports accumulate silently.
 - **Risk**: Code bloat, confusion about what's actually used.
-- **Fix**: Enable both flags, clean up existing unused code.
+- **Fix**: ~~Enable both flags, clean up existing unused code.~~ Done — enabled + all violations fixed.
 
 ---
 
 ## Medium
 
-### 16. No ESLint Configuration
-- **Files**: No `.eslintrc` or `eslint.config.js` in project root or server/
-- **Issue**: No linting rules enforced. Code style varies across files.
-- **Risk**: Inconsistent code quality, common bugs not caught.
-- **Fix**: Add ESLint with `@typescript-eslint` plugin for both client and server.
+### ~~16. No ESLint Configuration~~ [ALREADY DONE]
+- **Files**: `server/eslint.config.mjs`, `client/eslint.config.mjs`
+- **Status**: Already configured with `@typescript-eslint`, `eslint-config-prettier`, react-hooks plugin.
 
 ### 17. console.log in Production Code
 - **Files**: 35 `console.log/warn/error` calls across 7 files including `server/middleware/errorHandler.ts`, `server/db/seed.ts`, `server/services/twilio.ts`
@@ -157,10 +155,10 @@
 - **Issue**: `localhost:5173`, `5174`, `5175` are hardcoded. Should be configurable for deployment.
 - **Fix**: Use `ALLOWED_ORIGINS` env var as comma-separated list.
 
-### 20. Rate Limiter Not Per-Route
+### ~~20. Rate Limiter Not Per-Route~~ [FIXED]
 - **File**: `server/index.ts:81-88`
 - **Issue**: Single global rate limit (200 req/15min). Auth endpoints should be stricter, read endpoints more permissive.
-- **Fix**: Add per-route rate limiters (e.g., 5 req/min for login, 1000 req/15min for reads).
+- **Fix**: ~~Add per-route rate limiters.~~ Done — `authLimiter` (10 req/15min) on login + refresh.
 
 ### 21. No Graceful Shutdown
 - **File**: `server/index.ts:147-149`
@@ -212,9 +210,8 @@
 - **Issue**: PostgreSQL connection string exists in `.env` but is never used (app uses SQLite).
 - **Fix**: Remove the misleading env var.
 
-### 30. No Prettier Configuration
-- **Issue**: No `.prettierrc` file. Formatting depends on individual IDE settings.
-- **Fix**: Add Prettier config and format all files.
+### ~~30. No Prettier Configuration~~ [ALREADY DONE]
+- **Status**: Already configured at `.prettierrc` (semi, singleQuote, tabWidth 2, trailingComma es5, printWidth 100).
 
 ### 31. Component Prop Interfaces Not Exported
 - **Issue**: Many page components define inline types rather than exporting reusable interfaces.
@@ -292,18 +289,18 @@
 
 ## Recommended Priority Order
 
-### Sprint 1 — Security & Safety Net
-1. Fix SQL injection in shifts.ts (#1)
-2. Fix CORS to reject unknown origins in production (#3)
-3. Validate JWT secrets at startup (#5)
-4. Sanitize error messages in production (#4)
-5. Add per-route rate limiting for auth (#20)
+### Sprint 1 — Security & Safety Net [DONE]
+1. ~~Fix SQL injection in shifts.ts (#1)~~ — parameterized query
+2. ~~Fix CORS to reject unknown origins in production (#3)~~ — rejects unknown origins + `ALLOWED_ORIGINS` env var
+3. ~~Validate JWT secrets at startup (#5)~~ — exits if missing
+4. ~~Sanitize error messages in production (#4)~~ — generic 500 in prod, detailed in dev
+5. ~~Add per-route rate limiting for auth (#20)~~ — 10 req/15min on login + refresh
 
-### Sprint 2 — Testing Foundation
-6. Set up Vitest for server + client (#2)
-7. Add tests for auth flow, sales creation, cart logic
-8. Enable `noUnusedLocals`/`noUnusedParameters` (#15)
-9. Add ESLint + Prettier (#16, #30)
+### Sprint 2 — Testing Foundation [DONE]
+6. ~~Set up Vitest for server + client (#2)~~ — vitest.config.ts + setup files + `npm test` scripts
+7. ~~Add tests for auth flow, sales creation, cart logic~~ — 47 tests (27 server + 20 client)
+8. ~~Enable `noUnusedLocals`/`noUnusedParameters` (#15)~~ — enabled in both tsconfigs, fixed all violations
+9. ~~Add ESLint + Prettier (#16, #30)~~ — already configured (eslint.config.mjs + .prettierrc)
 
 ### Sprint 3 — Architecture Cleanup
 10. Extract service layer from top route files (#7)

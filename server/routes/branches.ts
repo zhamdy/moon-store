@@ -41,7 +41,7 @@ router.get(
   '/transfers',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
         `SELECT t.*, fl.name as from_location_name, tl.name as to_location_name, u.name as user_name
@@ -145,7 +145,7 @@ router.get(
   '/dashboard/consolidated',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const storeStats = await db.query(
         `SELECT l.id, l.name,
@@ -172,7 +172,7 @@ router.get(
 router.get(
   '/transfers/requests',
   verifyToken,
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
         `SELECT tr.*, fl.name as from_location_name, tl.name as to_location_name,
@@ -224,7 +224,7 @@ router.post(
 );
 
 // GET /api/branches — all branches with manager info
-router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', verifyToken, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await db.query(
       `SELECT l.*, u.name as manager_name,

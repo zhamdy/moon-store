@@ -12,7 +12,7 @@ const templateSchema = z.object({
 });
 
 // GET /api/label-templates
-router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/', verifyToken, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await db.query('SELECT * FROM label_templates ORDER BY is_default DESC, name');
     res.json({ success: true, data: result.rows });

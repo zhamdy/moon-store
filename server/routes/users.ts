@@ -12,7 +12,7 @@ router.get(
   '/',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
         'SELECT id, name, email, role, created_at, last_login FROM users ORDER BY created_at DESC'
@@ -29,7 +29,7 @@ router.get(
   '/delivery',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
         "SELECT id, name, email FROM users WHERE role = 'Delivery' ORDER BY name"

@@ -16,7 +16,7 @@ router.get(
   '/',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
         `SELECT e.*, u.name as user_name
@@ -185,7 +185,7 @@ router.get(
   '/backup',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const path = require('path');
       const dbPath = path.join(__dirname, '..', 'db', 'moon.db');

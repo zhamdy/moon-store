@@ -9,7 +9,7 @@ router.get(
   '/',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       // Get RFM data for each customer
       const result = await db.query(

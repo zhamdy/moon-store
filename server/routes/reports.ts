@@ -169,7 +169,6 @@ router.post('/:id/run', verifyToken, async (req: Request, res: Response, next: N
     const report = await db.query('SELECT * FROM saved_reports WHERE id = ?', [req.params.id]);
     if (report.rows.length === 0)
       return res.status(404).json({ success: false, error: 'Report not found' });
-    const _config = JSON.parse((report.rows[0] as Record<string, string>).config);
     const reportType = (report.rows[0] as Record<string, string>).report_type;
 
     let data: any[] = [];

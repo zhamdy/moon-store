@@ -118,7 +118,7 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
 });
 
 // GET /api/products/categories — return full category objects
-router.get('/categories', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/categories', verifyToken, async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await db.query('SELECT id, name, code FROM categories ORDER BY name');
     res.json({ success: true, data: result.rows });
@@ -167,7 +167,7 @@ router.get(
   '/generate-barcode',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const prefix = '890100';
 
@@ -210,7 +210,7 @@ router.get(
   '/low-stock',
   verifyToken,
   requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(
         `SELECT p.*, c.name as category_name, c.code as category_code, d.name as distributor_name,

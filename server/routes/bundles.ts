@@ -28,7 +28,7 @@ router.get(
   '/',
   verifyToken,
   requireRole('Admin', 'Cashier'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const bundles = (await db.query(`SELECT b.* FROM bundles b ORDER BY b.created_at DESC`))
         .rows as Record<string, any>[];
