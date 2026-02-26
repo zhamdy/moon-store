@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import { useSettingsStore } from '../store/settingsStore';
+import { formatCurrency } from '../lib/utils';
 
 interface Product {
   name: string;
@@ -46,7 +47,7 @@ export default function BarcodeGenerator({ value, product }: BarcodeGeneratorPro
           <p className="text-sm font-medium text-foreground">{product.name}</p>
           <p className="text-xs text-muted font-data">SKU: {product.sku}</p>
           <p className="text-sm font-semibold text-gold font-data">
-            ${parseFloat(String(product.price)).toFixed(2)}
+            {formatCurrency(parseFloat(String(product.price)))}
           </p>
         </div>
       )}

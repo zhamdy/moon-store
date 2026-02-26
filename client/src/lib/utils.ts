@@ -14,13 +14,15 @@ export function cn(...inputs: ClassValue[]): string {
 
 export function formatCurrency(amount: number): string {
   const locale = useSettingsStore.getState().locale;
+  const isWholeNumber = amount % 1 === 0;
   const formatted = new Intl.NumberFormat(locale === 'ar' ? 'ar-SA' : 'en-US', {
     style: 'decimal',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: isWholeNumber ? 0 : 2,
     maximumFractionDigits: 2,
     numberingSystem: 'latn',
   }).format(amount);
-  return `${formatted} $`;
+  const currency = locale === 'ar' ? 'جم' : 'EG';
+  return `${formatted} ${currency}`;
 }
 
 export function formatDate(date: string | Date): string {

@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Calendar } from '../components/ui/calendar';
-import { exportToCsv, exportToPdf } from '../lib/exportUtils';
+import { exportToExcel, exportMultiSheetExcel } from '../lib/exportUtils';
 import KpiCards from '../components/dashboard/KpiCards';
 import DashboardCharts from '../components/dashboard/DashboardCharts';
 import { useDashboardData } from '../hooks/useDashboardData';
@@ -33,14 +33,18 @@ export default function Dashboard() {
     (dataType: string) => {
       switch (dataType) {
         case 'revenue':
-          exportToCsv('revenue.csv', (data.revenue || []) as unknown as Record<string, unknown>[], [
-            { key: 'date', label: t('sales.dateTime') },
-            { key: 'revenue', label: t('dashboard.revenue') },
-          ]);
+          exportToExcel(
+            'revenue.xlsx',
+            (data.revenue || []) as unknown as Record<string, unknown>[],
+            [
+              { key: 'date', label: t('sales.dateTime') },
+              { key: 'revenue', label: t('dashboard.revenue') },
+            ]
+          );
           break;
         case 'top-products':
-          exportToCsv(
-            'top-products.csv',
+          exportToExcel(
+            'top-products.xlsx',
             (data.topProducts || []) as unknown as Record<string, unknown>[],
             [
               { key: 'name', label: t('common.name') },
@@ -49,8 +53,8 @@ export default function Dashboard() {
           );
           break;
         case 'payment-methods':
-          exportToCsv(
-            'payment-methods.csv',
+          exportToExcel(
+            'payment-methods.xlsx',
             (data.paymentMethods || []) as unknown as Record<string, unknown>[],
             [
               { key: 'payment_method', label: t('cart.paymentMethod') },
@@ -60,8 +64,8 @@ export default function Dashboard() {
           );
           break;
         case 'orders-per-day':
-          exportToCsv(
-            'orders-per-day.csv',
+          exportToExcel(
+            'orders-per-day.xlsx',
             (data.ordersPerDay || []) as unknown as Record<string, unknown>[],
             [
               { key: 'date', label: t('sales.dateTime') },
@@ -70,8 +74,8 @@ export default function Dashboard() {
           );
           break;
         case 'cashier-performance':
-          exportToCsv(
-            'cashier-performance.csv',
+          exportToExcel(
+            'cashier-performance.xlsx',
             (data.cashierPerformance || []) as unknown as Record<string, unknown>[],
             [
               { key: 'cashier_name', label: t('dashboard.cashierName') },
@@ -83,8 +87,8 @@ export default function Dashboard() {
           );
           break;
         case 'sales-by-category':
-          exportToCsv(
-            'sales-by-category.csv',
+          exportToExcel(
+            'sales-by-category.xlsx',
             (data.categorySales || []) as unknown as Record<string, unknown>[],
             [
               { key: 'category_name', label: t('inventory.categoryCol') },
@@ -94,8 +98,8 @@ export default function Dashboard() {
           );
           break;
         case 'sales-by-distributor':
-          exportToCsv(
-            'sales-by-distributor.csv',
+          exportToExcel(
+            'sales-by-distributor.xlsx',
             (data.distributorSales || []) as unknown as Record<string, unknown>[],
             [
               { key: 'distributor_name', label: t('inventory.distributor') },
@@ -110,16 +114,75 @@ export default function Dashboard() {
     [data, t]
   );
 
-  const handleExportPdf = async () => {
+  const handleExportPdf = () => {
     setExporting(true);
     try {
       const dateStr = new Date().toISOString().split('T')[0];
-      await exportToPdf(
-        'dashboard-content',
-        `MOON-Report-${dateStr}.pdf`,
-        `MOON Fashion & Style — ${t('dashboard.title')}`
-      );
-      toast.success(t('export.pdfExported'));
+      exportMultiSheetExcel(`MOON-Report-${dateStr}.xlsx`, [
+        {
+          name: 'Revenue',
+          data: (data.revenue || []) as unknown as Record<string, unknown>[],
+          columns: [
+            { key: 'date', label: t('sales.dateTime') },
+            { key: 'revenue', label: t('dashboard.revenue') },
+          ],
+        },
+        {
+          name: 'Top Products',
+          data: (data.topProducts || []) as unknown as Record<string, unknown>[],
+          columns: [
+            { key: 'name', label: t('common.name') },
+            { key: 'total_sold', label: t('dashboard.itemsSold') },
+          ],
+        },
+        {
+          name: 'Payment Methods',
+          data: (data.paymentMethods || []) as unknown as Record<string, unknown>[],
+          columns: [
+            { key: 'payment_method', label: t('cart.paymentMethod') },
+            { key: 'count', label: t('dashboard.salesCount') },
+            { key: 'revenue', label: t('dashboard.revenue') },
+          ],
+        },
+        {
+          name: 'Orders Per Day',
+          data: (data.ordersPerDay || []) as unknown as Record<string, unknown>[],
+          columns: [
+            { key: 'date', label: t('sales.dateTime') },
+            { key: 'orders', label: t('charts.orders') },
+          ],
+        },
+        {
+          name: 'Cashier Performance',
+          data: (data.cashierPerformance || []) as unknown as Record<string, unknown>[],
+          columns: [
+            { key: 'cashier_name', label: t('dashboard.cashierName') },
+            { key: 'total_sales', label: t('dashboard.salesCount') },
+            { key: 'total_revenue', label: t('dashboard.revenue') },
+            { key: 'avg_order_value', label: t('dashboard.avgOrder') },
+            { key: 'total_items', label: t('dashboard.itemsSold') },
+          ],
+        },
+        {
+          name: 'Sales by Category',
+          data: (data.categorySales || []) as unknown as Record<string, unknown>[],
+          columns: [
+            { key: 'category_name', label: t('inventory.categoryCol') },
+            { key: 'total_sold', label: t('dashboard.itemsSold') },
+            { key: 'revenue', label: t('dashboard.revenue') },
+          ],
+        },
+        {
+          name: 'Sales by Distributor',
+          data: (data.distributorSales || []) as unknown as Record<string, unknown>[],
+          columns: [
+            { key: 'distributor_name', label: t('inventory.distributor') },
+            { key: 'total_sold', label: t('dashboard.itemsSold') },
+            { key: 'revenue', label: t('dashboard.revenue') },
+          ],
+        },
+      ]);
+      toast.success(t('export.csvExported'));
     } catch {
       toast.error(t('export.pdfFailed'));
     }

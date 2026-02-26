@@ -1,6 +1,16 @@
 import { useState, useCallback, useRef, useMemo, useEffect, type ChangeEvent } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { Search, Camera, Package, Keyboard, Layers, Star, AlertCircle } from 'lucide-react';
+import {
+  Search,
+  Camera,
+  Package,
+  Keyboard,
+  Layers,
+  Star,
+  AlertCircle,
+  Gift,
+  Percent,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -16,7 +26,7 @@ import { useHeldCartsStore } from '../store/heldCartsStore';
 import { formatCurrency } from '../lib/utils';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { usePosShortcuts } from '../hooks/usePosShortcuts';
-import { usePosData } from '../hooks/usePosData';
+import { usePosData, type PosBundle } from '../hooks/usePosData';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 import type { Product, ProductVariant } from '@/types';
@@ -24,13 +34,20 @@ import type { Product, ProductVariant } from '@/types';
 export default function POS() {
   const [searchInput, setSearchInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [selectedCollection, setSelectedCollection] = useState<number | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const checkoutTriggerRef = useRef<() => void>(null);
-  const { addItem, items, updateQuantity, removeItem, clearCart, discount, discountType } =
-    useCartStore();
+  const {
+    addItem,
+    addBundle,
+    items,
+    updateQuantity,
+    removeItem,
+    clearCart,
+    discount,
+    discountType,
+  } = useCartStore();
   const { holdCart, carts: heldCarts } = useHeldCartsStore();
   const { t } = useTranslation();
   const [animateGrid] = useAutoAnimate();
@@ -42,15 +59,15 @@ export default function POS() {
     favorites,
     toggleFavorite,
     categories,
-    collections,
     products,
     isLoadingProducts,
+    bundles,
     variants,
     variantProduct,
     setVariantProduct,
     variantDialogOpen,
     setVariantDialogOpen,
-  } = usePosData({ debouncedSearch, selectedCategory, selectedCollection });
+  } = usePosData({ debouncedSearch, selectedCategory });
 
   // Cart recovery banner
   const isRecovered = items.length > 0 && useCartStore.getState().isRecoveredCart();
@@ -184,6 +201,28 @@ export default function POS() {
     return 'success' as const;
   };
 
+  const isBundleInStock = (bundle: PosBundle) =>
+    bundle.items.every((item) => {
+      const product = products?.find((p) => p.id === item.product_id);
+      return product && product.stock >= item.quantity;
+    });
+
+  const handleBundleClick = (bundle: PosBundle) => {
+    if (!isBundleInStock(bundle)) return;
+    const itemsWithStock = bundle.items.map((item) => {
+      const product = products?.find((p) => p.id === item.product_id);
+      return {
+        product_id: item.product_id,
+        product_name: item.product_name,
+        product_price: item.product_price,
+        quantity: item.quantity,
+        stock: product?.stock ?? 0,
+      };
+    });
+    addBundle({ name: bundle.name, price: bundle.price, items: itemsWithStock });
+    toast.success(t('pos.productFound', { name: bundle.name }));
+  };
+
   return (
     <div className="p-6 animate-fade-in">
       <div className="mb-6">
@@ -253,29 +292,6 @@ export default function POS() {
             </div>
           )}
 
-          {/* Collection filter chips */}
-          {collections && collections.length > 0 && (
-            <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:overflow-x-auto pb-1 scrollbar-thin">
-              <Layers className="h-4 w-4 text-gold shrink-0 mt-0.5" />
-              {collections.map((col) => (
-                <button
-                  key={col.id}
-                  onClick={() => {
-                    setSelectedCollection(selectedCollection === col.id ? null : col.id);
-                    if (selectedCollection !== col.id) setSelectedCategory(null);
-                  }}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    selectedCollection === col.id
-                      ? 'bg-gold text-primary-foreground'
-                      : 'bg-surface text-muted border border-border hover:border-gold/50'
-                  }`}
-                >
-                  {col.name} ({col.product_count})
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Cart recovery banner */}
           {showRecoveryBanner && (
             <div className="flex items-center gap-3 p-3 rounded-md border border-gold/50 bg-gold/5">
@@ -318,6 +334,53 @@ export default function POS() {
                       <p className="text-xs text-gold font-data">
                         {formatCurrency(Number(product.price))}
                       </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Bundles section */}
+          {bundles && bundles.length > 0 && products && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-medium uppercase tracking-widest text-muted flex items-center gap-1.5">
+                <Gift className="h-3 w-3 text-gold" /> {t('pos.bundles')}
+              </h3>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {bundles.map((bundle) => {
+                  const inStock = isBundleInStock(bundle);
+                  return (
+                    <button
+                      key={bundle.id}
+                      onClick={() => handleBundleClick(bundle)}
+                      disabled={!inStock}
+                      className={`shrink-0 px-4 py-2 rounded-md border transition-colors text-start ${
+                        inStock
+                          ? 'border-gold/30 bg-gold/5 hover:bg-gold/10'
+                          : 'border-border opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <p className="text-sm font-medium truncate max-w-40">{bundle.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted line-through font-data">
+                          {formatCurrency(bundle.original_price)}
+                        </span>
+                        <span className="text-xs text-gold font-data font-bold">
+                          {formatCurrency(bundle.price)}
+                        </span>
+                        {bundle.savings_percent > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600">
+                            <Percent className="h-2.5 w-2.5" />
+                            {bundle.savings_percent}%
+                          </span>
+                        )}
+                      </div>
+                      {!inStock && (
+                        <span className="text-[10px] text-destructive">
+                          {t('bundles.outOfStock')}
+                        </span>
+                      )}
                     </button>
                   );
                 })}

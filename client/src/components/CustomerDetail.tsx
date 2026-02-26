@@ -329,7 +329,14 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                         {formatCurrency(sale.total)}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant="gold">{sale.payment_method}</Badge>
+                        <Badge variant="gold">
+                          {{
+                            Cash: t('cart.cash'),
+                            Card: t('cart.card'),
+                            Other: t('cart.other'),
+                            'Gift Card': t('cart.giftCard'),
+                          }[sale.payment_method] || sale.payment_method}
+                        </Badge>
                       </td>
                     </tr>
                   ))}

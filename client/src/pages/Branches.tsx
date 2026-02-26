@@ -14,6 +14,7 @@ import {
   ArrowRightLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../lib/utils';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -91,7 +92,7 @@ export default function BranchesPage() {
     email: '',
     manager_id: '',
     opening_hours: '',
-    currency: 'SAR',
+    currency: 'EGP',
     tax_rate: 15,
   });
   const [settingForm, setSettingForm] = useState({ setting_key: '', setting_value: '' });
@@ -190,8 +191,7 @@ export default function BranchesPage() {
     setDialogOpen(true);
   };
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR' }).format(n);
+  const fmt = (n: number) => formatCurrency(n);
 
   return (
     <div className="p-6 animate-fade-in">
@@ -235,7 +235,7 @@ export default function BranchesPage() {
                 email: '',
                 manager_id: '',
                 opening_hours: '',
-                currency: 'SAR',
+                currency: 'EGP',
                 tax_rate: 15,
               });
               setDialogOpen(true);

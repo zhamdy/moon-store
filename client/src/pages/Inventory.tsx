@@ -53,6 +53,7 @@ import VariantManagerDialog from '../components/inventory/VariantManagerDialog';
 import { useInventoryData, type CsvProduct, type LowStockProduct } from '../hooks/useInventoryData';
 import { useVariantManagement } from '../hooks/useVariantManagement';
 import { formatCurrency } from '../lib/utils';
+import { exportToExcel } from '../lib/exportUtils';
 import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
@@ -210,38 +211,30 @@ export default function Inventory() {
 
   const handleBulkExport = () => {
     const selected = currentData.filter((p) => selectedIds.includes(p.id));
-    const headers = [
-      'name',
-      'sku',
-      'barcode',
-      'price',
-      'cost_price',
-      'stock',
-      'category',
-      'min_stock',
-    ];
-    const csvRows = [
-      headers.join(','),
-      ...selected.map((p) =>
-        [
-          p.name,
-          p.sku,
-          p.barcode || '',
-          p.price,
-          p.cost_price,
-          p.stock,
-          p.category || '',
-          p.min_stock,
-        ].join(',')
-      ),
-    ];
-    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `products-export-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const exportData = selected.map((p) => ({
+      name: p.name,
+      sku: p.sku,
+      barcode: p.barcode || '',
+      price: p.price,
+      cost_price: p.cost_price,
+      stock: p.stock,
+      category: p.category || '',
+      min_stock: p.min_stock,
+    }));
+    exportToExcel(
+      `products-export-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      exportData as unknown as Record<string, unknown>[],
+      [
+        { key: 'name', label: 'Name' },
+        { key: 'sku', label: 'SKU' },
+        { key: 'barcode', label: 'Barcode' },
+        { key: 'price', label: 'Price' },
+        { key: 'cost_price', label: 'Cost Price' },
+        { key: 'stock', label: 'Stock' },
+        { key: 'category', label: 'Category' },
+        { key: 'min_stock', label: 'Min Stock' },
+      ]
+    );
     toast.success(t('bulk.exportSuccess', { count: String(selected.length) }));
   };
 

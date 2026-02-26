@@ -20,6 +20,18 @@ export interface Product {
   variant_attributes?: Record<string, string>;
 }
 
+export interface BundleForCart {
+  name: string;
+  price: number;
+  items: {
+    product_id: number;
+    product_name: string;
+    product_price: number;
+    quantity: number;
+    stock: number;
+  }[];
+}
+
 export type DiscountType = 'fixed' | 'percentage';
 
 interface CartState {
@@ -32,6 +44,7 @@ interface CartState {
   couponDiscount: number;
   lastUpdated: number;
   addItem: (product: Product) => void;
+  addBundle: (bundle: BundleForCart) => void;
   removeItem: (productId: number, variantId?: number | null) => void;
   updateQuantity: (productId: number, quantity: number, variantId?: number | null) => void;
   setItemMemo: (productId: number, memo: string, variantId?: number | null) => void;
@@ -94,6 +107,42 @@ export const useCartStore = create<CartState>()(
             ],
             lastUpdated: Date.now(),
           };
+        }),
+
+      addBundle: (bundle) =>
+        set((state) => {
+          const originalTotal = bundle.items.reduce(
+            (sum, item) => sum + item.product_price * item.quantity,
+            0
+          );
+          const newItems = [...state.items];
+
+          for (const item of bundle.items) {
+            // Proportional price: (item_original / total_original) * bundle_price
+            const proportion =
+              originalTotal > 0
+                ? (item.product_price * item.quantity) / originalTotal
+                : 1 / bundle.items.length;
+            const adjustedUnitPrice = (proportion * bundle.price) / item.quantity;
+
+            const existing = newItems.find(
+              (i) => i.product_id === item.product_id && !i.variant_id
+            );
+            if (existing) {
+              existing.quantity += item.quantity;
+            } else {
+              newItems.push({
+                product_id: item.product_id,
+                name: item.product_name,
+                unit_price: Math.round(adjustedUnitPrice * 100) / 100,
+                quantity: item.quantity,
+                stock: item.stock,
+                memo: `[${bundle.name}]`,
+              });
+            }
+          }
+
+          return { items: newItems, lastUpdated: Date.now() };
         }),
 
       removeItem: (productId, variantId) =>

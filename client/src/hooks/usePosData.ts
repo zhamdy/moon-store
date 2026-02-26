@@ -6,7 +6,23 @@ import type { Category, Product, ProductVariant } from '@/types';
 interface UsePosDataParams {
   debouncedSearch: string;
   selectedCategory: number | null;
-  selectedCollection: number | null;
+}
+
+export interface PosBundle {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  status: string;
+  items: {
+    product_id: number;
+    product_name: string;
+    product_price: number;
+    quantity: number;
+  }[];
+  original_price: number;
+  savings: number;
+  savings_percent: number;
 }
 
 interface UsePosDataReturn {
@@ -14,9 +30,9 @@ interface UsePosDataReturn {
   favMutation: ReturnType<typeof useMutation<unknown, Error, number[]>>;
   toggleFavorite: (productId: number) => void;
   categories: Category[] | undefined;
-  collections: { id: number; name: string; product_count: number }[] | undefined;
   products: Product[] | undefined;
   isLoadingProducts: boolean;
+  bundles: PosBundle[] | undefined;
   variants: ProductVariant[] | undefined;
   variantProduct: Product | null;
   setVariantProduct: (product: Product | null) => void;
@@ -27,7 +43,6 @@ interface UsePosDataReturn {
 export function usePosData({
   debouncedSearch,
   selectedCategory,
-  selectedCollection,
 }: UsePosDataParams): UsePosDataReturn {
   const queryClient = useQueryClient();
 
@@ -39,7 +54,7 @@ export function usePosData({
   const { data: favorites } = useQuery<number[]>({
     queryKey: ['favorites'],
     queryFn: () => api.get('/api/v1/users/me/favorites').then((r) => r.data.data),
-    staleTime: 60 * 1000,
+    staleTime: 0,
   });
 
   const favMutation = useMutation({
@@ -59,24 +74,26 @@ export function usePosData({
   const { data: categories } = useQuery<Category[]>({
     queryKey: ['categories'],
     queryFn: () => api.get('/api/v1/products/categories').then((r) => r.data.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 
-  // Collections
-  const { data: collections } = useQuery<{ id: number; name: string; product_count: number }[]>({
-    queryKey: ['collections-pos'],
-    queryFn: () => api.get('/api/v1/collections').then((r) => r.data.data),
-    staleTime: 5 * 60 * 1000,
+  // Active bundles for POS
+  const { data: bundles } = useQuery<PosBundle[]>({
+    queryKey: ['bundles-pos'],
+    queryFn: () =>
+      api
+        .get('/api/v1/bundles')
+        .then((r) => (r.data.data as PosBundle[]).filter((b) => b.status === 'active')),
+    staleTime: 0,
   });
 
-  // Products with debounced search and category/collection filter
+  // Products with debounced search and category filter
   const { data: products, isLoading: isLoadingProducts } = useQuery<Product[]>({
     queryKey: [
       'products',
       {
         search: debouncedSearch,
         category_id: selectedCategory,
-        collection_id: selectedCollection,
         limit: 100,
       },
     ],
@@ -86,12 +103,11 @@ export function usePosData({
           params: {
             search: debouncedSearch || undefined,
             category_id: selectedCategory || undefined,
-            collection_id: selectedCollection || undefined,
             limit: 100,
           },
         })
         .then((r) => r.data.data),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
   });
 
   // Variants for selected product
@@ -107,9 +123,9 @@ export function usePosData({
     favMutation,
     toggleFavorite,
     categories,
-    collections,
     products,
     isLoadingProducts,
+    bundles,
     variants,
     variantProduct,
     setVariantProduct,

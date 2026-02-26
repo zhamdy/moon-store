@@ -31,7 +31,7 @@ export default function Receipt({ data }: ReceiptProps) {
       {/* Header */}
       <div className="text-center space-y-1">
         <h2 className="text-base font-bold tracking-[0.2em] uppercase">MOON</h2>
-        <p className="text-[10px] tracking-wider text-gray-500">Fashion & Style</p>
+        <p className="text-[10px] tracking-wider text-gray-500">{t('customerDisplay.tagline')}</p>
       </div>
 
       <div className="border-t border-dashed border-gray-300 my-3" />
@@ -114,7 +114,13 @@ export default function Receipt({ data }: ReceiptProps) {
 
       {/* Payment */}
       <div className="text-center text-gray-600">
-        {t('receipt.paidWith')}: {data.paymentMethod}
+        {t('receipt.paidWith')}:{' '}
+        {{
+          Cash: t('cart.cash'),
+          Card: t('cart.card'),
+          Other: t('cart.other'),
+          'Gift Card': t('cart.giftCard'),
+        }[data.paymentMethod] || data.paymentMethod}
       </div>
 
       <div className="border-t border-dashed border-gray-300 my-3" />

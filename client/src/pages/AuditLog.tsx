@@ -9,6 +9,22 @@ import {
   ShoppingCart,
   ChevronDown,
   ChevronRight,
+  Package,
+  Truck,
+  User,
+  Settings,
+  Receipt,
+  Vault,
+  Ticket,
+  Gift,
+  PackageCheck,
+  CalendarClock,
+  ArrowLeftRight,
+  Ban,
+  CheckCircle,
+  RefreshCw,
+  Barcode,
+  Activity,
 } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
@@ -37,7 +53,7 @@ interface AuditEntry {
   created_at: string;
 }
 
-interface User {
+interface UserEntry {
   id: number;
   name: string;
 }
@@ -48,8 +64,71 @@ const ACTION_CONFIG: Record<string, { color: string; icon: LucideIcon }> = {
   delete: { color: 'text-destructive', icon: Trash2 },
   login: { color: 'text-gold', icon: LogIn },
   refund: { color: 'text-amber-400', icon: RotateCcw },
-  sale: { color: 'text-purple-400', icon: ShoppingCart },
+  exchange: { color: 'text-purple-400', icon: ArrowLeftRight },
+  cancel: { color: 'text-destructive', icon: Ban },
+  approve: { color: 'text-emerald-400', icon: CheckCircle },
+  register_open: { color: 'text-amber-400', icon: Vault },
+  register_close: { color: 'text-muted', icon: Vault },
+  register_force_close: { color: 'text-destructive', icon: Vault },
+  status_change: { color: 'text-blue-400', icon: RefreshCw },
+  discontinue: { color: 'text-destructive', icon: Ban },
+  redeem: { color: 'text-teal-400', icon: Gift },
+  batch_barcode: { color: 'text-cyan-400', icon: Barcode },
 };
+
+const ENTITY_ICONS: Record<string, LucideIcon> = {
+  sale: ShoppingCart,
+  product: Package,
+  delivery: Truck,
+  user: User,
+  setting: Settings,
+  auth: LogIn,
+  expense: Receipt,
+  register_session: Vault,
+  coupon: Ticket,
+  gift_card: Gift,
+  stock_count: PackageCheck,
+  layaway: CalendarClock,
+};
+
+/** Translation key map for detail fields */
+const DETAIL_KEY_MAP: Record<string, string> = {
+  total: 'activity.detail.total',
+  deposit: 'activity.detail.deposit',
+  name: 'activity.detail.name',
+  email: 'activity.detail.email',
+  role: 'activity.detail.role',
+  status: 'activity.detail.status',
+  field: 'activity.detail.field',
+  old: 'activity.detail.old',
+  new: 'activity.detail.new',
+  amount: 'activity.detail.amount',
+  category: 'activity.detail.category',
+  refund_amount: 'activity.detail.refundAmount',
+  opening_float: 'activity.detail.openingFloat',
+  counted_cash: 'activity.detail.countedCash',
+  variance: 'activity.detail.variance',
+  code: 'activity.detail.code',
+  count: 'activity.detail.count',
+  balance: 'activity.detail.balance',
+};
+
+function parseDetails(
+  details: string,
+  t: (key: string) => string
+): { key: string; label: string; value: string }[] {
+  try {
+    const obj = JSON.parse(details);
+    if (typeof obj !== 'object' || obj === null) return [];
+    return Object.entries(obj).map(([k, v]) => ({
+      key: k,
+      label: DETAIL_KEY_MAP[k] ? t(DETAIL_KEY_MAP[k]) : k,
+      value: String(v),
+    }));
+  } catch {
+    return [];
+  }
+}
 
 export default function AuditLog() {
   const { t } = useTranslation();
@@ -62,6 +141,9 @@ export default function AuditLog() {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
+
+  const tAction = (action: string) => t(`activity.action.${action}`) || action;
+  const tEntity = (entity: string) => t(`activity.entity.${entity}`) || entity;
 
   const { data, isLoading } = useQuery<{ data: AuditEntry[]; meta: { total: number } }>({
     queryKey: [
@@ -95,7 +177,7 @@ export default function AuditLog() {
     queryFn: () => api.get('/api/v1/audit-log/entity-types').then((r) => r.data.data),
   });
 
-  const { data: users } = useQuery<User[]>({
+  const { data: users } = useQuery<UserEntry[]>({
     queryKey: ['users-list'],
     queryFn: () => api.get('/api/v1/users').then((r) => r.data.data),
   });
@@ -105,15 +187,7 @@ export default function AuditLog() {
   const totalPages = Math.ceil(total / 50);
 
   const getActionConfig = (action: string) =>
-    ACTION_CONFIG[action] || { color: 'text-muted', icon: Plus };
-
-  const parseDetails = (details: string): Record<string, unknown> => {
-    try {
-      return JSON.parse(details);
-    } catch {
-      return {};
-    }
-  };
+    ACTION_CONFIG[action] || { color: 'text-muted', icon: Activity };
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -140,7 +214,7 @@ export default function AuditLog() {
               <SelectItem value="all">{t('audit.allActions')}</SelectItem>
               {actions?.map((a) => (
                 <SelectItem key={a} value={a}>
-                  {a}
+                  {tAction(a)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -163,7 +237,7 @@ export default function AuditLog() {
               <SelectItem value="all">{t('audit.allEntities')}</SelectItem>
               {entityTypes?.map((e) => (
                 <SelectItem key={e} value={e}>
-                  {e}
+                  {tEntity(e)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -236,15 +310,15 @@ export default function AuditLog() {
       {/* Log entries */}
       <div className="space-y-1">
         {isLoading ? (
-          <div className="text-center py-8 text-muted">{t('common.loading')}...</div>
+          <div className="text-center py-8 text-muted">{t('common.loading')}</div>
         ) : entries.length === 0 ? (
           <div className="text-center py-8 text-muted">{t('audit.noEntries')}</div>
         ) : (
           entries.map((entry) => {
             const config = getActionConfig(entry.action);
-            const Icon = config.icon;
-            const details = parseDetails(entry.details);
-            const hasDetails = Object.keys(details).length > 0;
+            const EntityIcon = ENTITY_ICONS[entry.entity_type] || Activity;
+            const details = parseDetails(entry.details, t);
+            const hasDetails = details.length > 0;
             const isExpanded = expandedId === entry.id;
 
             return (
@@ -256,12 +330,12 @@ export default function AuditLog() {
                   className="w-full flex items-center gap-3 px-4 py-3 text-start"
                   onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                 >
-                  <Icon className={`h-4 w-4 shrink-0 ${config.color}`} />
+                  <EntityIcon className="h-4 w-4 shrink-0 text-gold/70" />
                   <Badge variant="secondary" className={`text-[10px] shrink-0 ${config.color}`}>
-                    {entry.action}
+                    {tAction(entry.action)}
                   </Badge>
                   <Badge variant="gold" className="text-[10px] shrink-0">
-                    {entry.entity_type}
+                    {tEntity(entry.entity_type)}
                   </Badge>
                   {entry.entity_id && (
                     <span className="text-xs text-muted font-data">#{entry.entity_id}</span>
@@ -281,12 +355,18 @@ export default function AuditLog() {
                 </button>
                 {isExpanded && hasDetails && (
                   <div className="px-4 pb-3 border-t border-border/50">
-                    <pre className="text-xs text-muted font-data mt-2 whitespace-pre-wrap break-all">
-                      {JSON.stringify(details, null, 2)}
-                    </pre>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                      {details.map((d) => (
+                        <span key={d.key} className="text-xs text-muted">
+                          <span className="text-muted/70">{d.label}:</span>{' '}
+                          <span className="font-data text-foreground">{d.value}</span>
+                        </span>
+                      ))}
+                    </div>
                     {entry.ip_address && (
-                      <p className="text-xs text-muted mt-1">
-                        {t('audit.ipAddress')}: {entry.ip_address}
+                      <p className="text-xs text-muted mt-1.5">
+                        {t('audit.ipAddress')}:{' '}
+                        <span className="font-data">{entry.ip_address}</span>
                       </p>
                     )}
                   </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Globe, Settings2, Image, Eye, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../lib/utils';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -163,11 +164,7 @@ export default function StorefrontPage() {
                 </div>
                 <div className="p-3">
                   <h3 className="text-sm font-medium truncate">{p.name}</h3>
-                  <p className="text-gold font-data">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR' }).format(
-                      p.price
-                    )}
-                  </p>
+                  <p className="text-gold font-data">{formatCurrency(p.price)}</p>
                   {p.avg_rating > 0 && (
                     <p className="text-xs text-muted mt-1">
                       {'★'.repeat(Math.round(p.avg_rating))} ({p.review_count})

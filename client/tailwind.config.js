@@ -36,7 +36,7 @@ export default {
         display: ['Playfair Display', 'serif'],
         body: ['DM Sans', 'sans-serif'],
         data: ['DM Sans', 'sans-serif'],
-        arabic: ['IBM Plex Sans Arabic', 'DM Sans', 'sans-serif'],
+        arabic: ['Noto Naskh Arabic', 'DM Sans', 'sans-serif'],
       },
       letterSpacing: {
         wider: '0.05em',

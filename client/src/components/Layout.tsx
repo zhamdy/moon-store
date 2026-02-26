@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
+import StartupPrompt from './StartupPrompt';
 import { useOffline } from '../hooks/useOffline';
 import { useTranslation } from '../i18n';
 import { useAuthStore } from '../store/authStore';
@@ -58,6 +59,7 @@ export default function Layout(): React.JSX.Element {
         )}
         <Outlet />
       </main>
+      <StartupPrompt />
     </div>
   );
 }

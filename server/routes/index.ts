@@ -28,7 +28,6 @@ import expenses from './expenses';
 import segments from './segments';
 import layaway from './layaway';
 import collections from './collections';
-import warranty from './warranty';
 import feedback from './feedback';
 import branches from './branches';
 import storefront from './storefront';
@@ -69,7 +68,6 @@ export const routeTable: [string, Router][] = [
   ['/api/v1/segments', segments],
   ['/api/v1/layaway', layaway],
   ['/api/v1/collections', collections],
-  ['/api/v1/warranty', warranty],
   ['/api/v1/feedback', feedback],
   ['/api/v1/branches', branches],
   ['/api/v1/storefront', storefront],

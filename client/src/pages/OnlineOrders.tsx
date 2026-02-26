@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Eye, Truck, XCircle, CheckCircle, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../lib/utils';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import {
@@ -81,8 +82,7 @@ export default function OnlineOrdersPage() {
     setDetailOpen(true);
   };
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR' }).format(n);
+  const fmt = (n: number) => formatCurrency(n);
   const statuses = ['', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
 
   return (

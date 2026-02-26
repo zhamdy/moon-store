@@ -74,67 +74,87 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      {/* Background subtle pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(201,169,110,0.03)_0%,_transparent_70%)]" />
+    <div className="min-h-screen bg-background flex flex-col lg:flex-row">
+      {/* Hero panel — desktop only */}
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center bg-gradient-to-br from-gold-dark via-gold to-gold-light overflow-hidden">
+        {/* Radial overlays for depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_rgba(255,255,255,0.15)_0%,_transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,_rgba(0,0,0,0.1)_0%,_transparent_50%)]" />
 
-      <Card className="w-full max-w-md relative animate-fade-in">
-        <CardHeader className="text-center space-y-4">
-          <div className="flex justify-center">
-            <img src={moonLogo} alt="MOON" className="h-14" />
-          </div>
-          <div className="gold-divider" />
-          <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
-          <CardDescription>{t('login.subtitle')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('login.email')}</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={t('login.emailPlaceholder')}
-                {...register('email')}
-              />
-              {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-            </div>
+        <div className="relative z-10 flex flex-col items-center text-center px-12 animate-fade-in">
+          <img src={moonLogo} alt="MOON" className="h-24 brightness-0 invert" />
+          <div className="gold-divider mt-6 mb-6 !bg-white/40" />
+          <h2 className="font-display text-3xl text-white tracking-wide">
+            {t('login.heroTagline')}
+          </h2>
+          <p className="mt-3 text-white/70 text-sm tracking-widest uppercase font-data">
+            {t('login.heroSubtext')}
+          </p>
+        </div>
+      </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">{t('login.password')}</Label>
-              <div className="relative">
+      {/* Form panel */}
+      <div className="flex-1 flex flex-col items-center justify-center p-4 lg:p-8">
+        {/* Mobile branding — visible below lg */}
+        <div className="lg:hidden flex flex-col items-center mb-6">
+          <img src={moonLogo} alt="MOON" className="h-16" />
+          <div className="gold-divider mt-4" />
+        </div>
+
+        <Card className="w-full max-w-md animate-scale-in">
+          <CardHeader className="text-center space-y-4">
+            <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
+            <CardDescription>{t('login.subtitle')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="stagger-children space-y-4">
+              <div className="space-y-2 animate-slide-up">
+                <Label htmlFor="email">{t('login.email')}</Label>
                 <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder={t('login.passwordPlaceholder')}
-                  {...register('password')}
+                  id="email"
+                  type="email"
+                  placeholder={t('login.emailPlaceholder')}
+                  {...register('email')}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-muted hover:text-gold transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
               </div>
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password.message}</p>
-              )}
-            </div>
 
-            <div className="flex items-center gap-2">
-              <Checkbox id="remember" />
-              <Label htmlFor="remember" className="text-sm text-muted cursor-pointer">
-                {t('login.rememberMe')}
-              </Label>
-            </div>
+              <div className="space-y-2 animate-slide-up">
+                <Label htmlFor="password">{t('login.password')}</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder={t('login.passwordPlaceholder')}
+                    {...register('password')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-muted hover:text-gold transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="text-xs text-destructive">{errors.password.message}</p>
+                )}
+              </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? t('login.submitting') : t('login.submit')}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <div className="flex items-center gap-2 animate-slide-up">
+                <Checkbox id="remember" />
+                <Label htmlFor="remember" className="text-sm text-muted cursor-pointer">
+                  {t('login.rememberMe')}
+                </Label>
+              </div>
+
+              <Button type="submit" className="w-full animate-slide-up" disabled={isLoading}>
+                {isLoading ? t('login.submitting') : t('login.submit')}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

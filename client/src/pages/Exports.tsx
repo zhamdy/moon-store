@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { useTranslation } from '../i18n';
+import { exportToExcel } from '../lib/exportUtils';
 import type { AxiosError } from 'axios';
 import api from '../services/api';
 import type { ApiErrorResponse } from '@/types';
@@ -21,32 +22,10 @@ interface ExportRecord {
 
 const MODULES = ['products', 'sales', 'customers', 'inventory', 'deliveries'] as const;
 
-function downloadCSV(columns: string[], rows: Record<string, unknown>[], filename: string) {
-  const header = columns.join(',');
-  const lines = rows.map((row) =>
-    columns
-      .map((col) => {
-        const val = row[col] ?? '';
-        const str = String(val).replace(/"/g, '""');
-        return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str;
-      })
-      .join(',')
-  );
-  const csv = [header, ...lines].join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export default function ExportsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedModule, setSelectedModule] = useState<string>('products');
-  const [format, setFormat] = useState<string>('csv');
 
   const { data: history } = useQuery<ExportRecord[]>({
     queryKey: ['exports'],
@@ -54,11 +33,14 @@ export default function ExportsPage() {
   });
 
   const generateMutation = useMutation({
-    mutationFn: () => api.post('/api/v1/exports/generate', { module: selectedModule, format }),
+    mutationFn: () =>
+      api.post('/api/v1/exports/generate', { module: selectedModule, format: 'xlsx' }),
     onSuccess: (res) => {
       const { columns, rows, module: mod } = res.data.data;
-      const filename = `moon-${mod}-${new Date().toISOString().slice(0, 10)}.csv`;
-      downloadCSV(columns, rows, filename);
+      const exportData = rows as Record<string, unknown>[];
+      const cols = (columns as string[]).map((c) => ({ key: c, label: c }));
+      const filename = `moon-${mod}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      exportToExcel(filename, exportData, cols);
       toast.success(t('exports.downloaded', { count: String(rows.length) }));
       queryClient.invalidateQueries({ queryKey: ['exports'] });
     },
@@ -100,31 +82,6 @@ export default function ExportsPage() {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="space-y-1">
-            <Label>{t('exports.format')}</Label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFormat('csv')}
-                className={`flex-1 py-2 rounded-md text-sm font-medium border transition-colors ${
-                  format === 'csv'
-                    ? 'bg-gold text-primary-foreground border-gold'
-                    : 'border-border hover:border-gold/50'
-                }`}
-              >
-                CSV
-              </button>
-              <button
-                onClick={() => setFormat('xlsx')}
-                className={`flex-1 py-2 rounded-md text-sm font-medium border transition-colors ${
-                  format === 'xlsx'
-                    ? 'bg-gold text-primary-foreground border-gold'
-                    : 'border-border hover:border-gold/50'
-                }`}
-              >
-                XLSX
-              </button>
-            </div>
           </div>
           <Button
             onClick={() => generateMutation.mutate()}

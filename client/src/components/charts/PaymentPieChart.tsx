@@ -57,12 +57,23 @@ export default function PaymentPieChart({ data }: PaymentPieChartProps) {
   const isDark = theme === 'dark';
   const { t } = useTranslation();
 
+  const paymentLabels: Record<string, string> = {
+    Cash: t('cart.cash'),
+    Card: t('cart.card'),
+    Other: t('cart.other'),
+    'Gift Card': t('cart.giftCard'),
+  };
+  const translatedData = data?.map((d) => ({
+    ...d,
+    payment_method: paymentLabels[d.payment_method] || d.payment_method,
+  }));
+
   return (
     <div dir="ltr">
       <ResponsiveContainer width="100%" height={300}>
         <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
           <Pie
-            data={data}
+            data={translatedData}
             cx="50%"
             cy="50%"
             innerRadius={45}
@@ -75,7 +86,7 @@ export default function PaymentPieChart({ data }: PaymentPieChartProps) {
             animationDuration={800}
             animationBegin={200}
           >
-            {data?.map((_: PaymentDataPoint, index: number) => (
+            {translatedData?.map((_: PaymentDataPoint, index: number) => (
               <Cell key={index} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>

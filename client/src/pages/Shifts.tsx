@@ -36,7 +36,7 @@ export default function ShiftsPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'my' | 'active' | 'history' | 'timesheet'>('my');
+  const [tab, setTab] = useState<'active' | 'history' | 'timesheet'>('active');
 
   const isAdmin = user?.role === 'Admin';
 

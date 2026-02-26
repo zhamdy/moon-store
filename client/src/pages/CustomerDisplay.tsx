@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { formatCurrency } from '../lib/utils';
+import { useTranslation } from '../i18n';
 import moonLogo from '../assets/moon-logo.svg';
 
 interface DisplayItem {
@@ -19,6 +20,7 @@ interface CartData {
 }
 
 export default function CustomerDisplay() {
+  const { t } = useTranslation();
   const [cart, setCart] = useState<CartData | null>(null);
   const [cleared, setCleared] = useState(false);
 
@@ -48,15 +50,17 @@ export default function CustomerDisplay() {
       <header className="flex items-center justify-between px-8 py-6 border-b border-[#c9a96e]/20">
         <img src={moonLogo} alt="MOON" className="h-10 invert brightness-200" />
         <p className="text-[#c9a96e] text-sm font-medium tracking-[0.3em] uppercase">
-          Fashion & Style
+          {t('customerDisplay.tagline')}
         </p>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-8">
         {cleared ? (
           <div className="text-center animate-fade-in">
-            <p className="text-4xl font-display text-[#c9a96e] mb-4">Thank You!</p>
-            <p className="text-lg text-white/60">Please visit again</p>
+            <p className="text-4xl font-display text-[#c9a96e] mb-4">
+              {t('customerDisplay.thankYou')}
+            </p>
+            <p className="text-lg text-white/60">{t('customerDisplay.visitAgain')}</p>
           </div>
         ) : !hasItems ? (
           <div className="text-center">
@@ -66,9 +70,11 @@ export default function CustomerDisplay() {
               className="h-24 mx-auto mb-6 invert brightness-200 opacity-30"
             />
             <p className="text-3xl font-display text-white/80 tracking-wider mb-2">
-              Welcome to MOON
+              {t('customerDisplay.welcome')}
             </p>
-            <p className="text-lg text-white/40 tracking-widest uppercase">Fashion & Style</p>
+            <p className="text-lg text-white/40 tracking-widest uppercase">
+              {t('customerDisplay.tagline')}
+            </p>
           </div>
         ) : (
           <div className="w-full max-w-2xl">
@@ -96,13 +102,13 @@ export default function CustomerDisplay() {
             {/* Totals */}
             <div className="border-t border-[#c9a96e]/30 pt-6 space-y-2">
               <div className="flex justify-between text-lg text-white/60">
-                <span>Subtotal</span>
+                <span>{t('cart.subtotal')}</span>
                 <span className="font-data">{formatCurrency(cart.subtotal)}</span>
               </div>
               {cart.discount > 0 && (
                 <div className="flex justify-between text-lg text-red-400">
                   <span>
-                    Discount{' '}
+                    {t('cart.discount')}{' '}
                     <span className="text-sm opacity-70">
                       (
                       {cart.discountType === 'percentage'
@@ -123,12 +129,12 @@ export default function CustomerDisplay() {
               )}
               {cart.tip > 0 && (
                 <div className="flex justify-between text-lg text-[#c9a96e]/70">
-                  <span>Tip</span>
+                  <span>{t('cart.tip')}</span>
                   <span className="font-data">{formatCurrency(cart.tip)}</span>
                 </div>
               )}
               <div className="flex justify-between text-3xl font-semibold pt-3 border-t border-[#c9a96e]/20">
-                <span>Total</span>
+                <span>{t('cart.total')}</span>
                 <span className="text-[#c9a96e] font-data">{formatCurrency(cart.total)}</span>
               </div>
             </div>
@@ -138,7 +144,7 @@ export default function CustomerDisplay() {
 
       {/* Footer */}
       <footer className="text-center py-4 text-white/20 text-xs tracking-widest uppercase">
-        MOON Fashion & Style
+        MOON {t('customerDisplay.tagline')}
       </footer>
     </div>
   );

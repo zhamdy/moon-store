@@ -660,12 +660,13 @@ for (let i = 0; i < 40; i++) {
   }
 
   const hasDiscount = Math.random() > 0.7;
-  const discount = hasDiscount ? Math.round(total * 0.1) : 0;
-  const finalTotal = total - discount;
+  const discountRate = hasDiscount ? 10 : 0;
+  const discountAmount = hasDiscount ? Math.round(total * 0.1) : 0;
+  const finalTotal = total - discountAmount;
 
   salesData.push({
     total: finalTotal,
-    discount,
+    discount: discountRate,
     dtype: hasDiscount ? 'percentage' : 'fixed',
     method: paymentMethods[Math.floor(Math.random() * paymentMethods.length)],
     cashier: Math.random() > 0.3 ? 2 : 1, // mostly cashier (id=2)

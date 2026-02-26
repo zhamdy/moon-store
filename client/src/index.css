@@ -76,7 +76,7 @@
 /* Arabic font family */
 [lang="ar"] body,
 [lang="ar"] .font-data {
-  font-family: 'IBM Plex Sans Arabic', 'DM Sans', sans-serif;
+  font-family: 'Noto Naskh Arabic', 'DM Sans', sans-serif;
 }
 
 /* Subtle zebra striping for table rows */

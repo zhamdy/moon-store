@@ -87,7 +87,7 @@ export default function BarcodeTools() {
         <svg id="barcode-${p.id}"></svg>
         <p style="margin:4px 0;font-weight:bold;">${p.name}</p>
         <p style="margin:2px 0;color:#666;">SKU: ${p.sku}</p>
-        <p style="margin:2px 0;font-size:18px;font-weight:bold;">$${parseFloat(String(p.price)).toFixed(2)}</p>
+        <p style="margin:2px 0;font-size:18px;font-weight:bold;">${formatCurrency(parseFloat(String(p.price)))}</p>
       </div>
     `
       )
@@ -223,7 +223,7 @@ export default function BarcodeTools() {
                           <svg id="bc"></svg>
                           <p><strong>${selectedProduct.name}</strong></p>
                           <p>SKU: ${selectedProduct.sku}</p>
-                          <p style="font-size:20px;font-weight:bold;">$${parseFloat(String(selectedProduct.price)).toFixed(2)}</p>
+                          <p style="font-size:20px;font-weight:bold;">${formatCurrency(parseFloat(String(selectedProduct.price)))}</p>
                         </div>
                         <script>
                           try { JsBarcode("#bc","${selectedProduct.barcode || selectedProduct.sku}",{width:2,height:80,displayValue:true}); } catch(e){}

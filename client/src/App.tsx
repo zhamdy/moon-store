@@ -33,11 +33,9 @@ const ShiftsPage = lazy(() => import('./pages/Shifts'));
 const ExpensesPage = lazy(() => import('./pages/Expenses'));
 const SegmentsPage = lazy(() => import('./pages/Segments'));
 const LayawayPage = lazy(() => import('./pages/Layaway'));
-const CollectionsPage = lazy(() => import('./pages/Collections'));
-const WarrantyPage = lazy(() => import('./pages/Warranty'));
+const BundlesPage = lazy(() => import('./pages/Bundles'));
 const FeedbackPage = lazy(() => import('./pages/Feedback'));
 const BackupPage = lazy(() => import('./pages/Backup'));
-const ActivityFeedPage = lazy(() => import('./pages/ActivityFeed'));
 const BranchesPage = lazy(() => import('./pages/Branches'));
 const StorefrontPage = lazy(() => import('./pages/Storefront'));
 const OnlineOrdersPage = lazy(() => import('./pages/OnlineOrders'));
@@ -77,11 +75,9 @@ const routes: RouteConfig[] = [
   { path: '/layaway', component: LayawayPage, roles: ['Admin', 'Cashier'] },
   { path: '/register', component: RegisterPage, roles: ['Admin', 'Cashier'] },
   { path: '/exports', component: ExportsPage, roles: ['Admin'] },
-  { path: '/collections', component: CollectionsPage, roles: ['Admin'] },
-  { path: '/warranty', component: WarrantyPage, roles: ['Admin'] },
+  { path: '/bundles', component: BundlesPage, roles: ['Admin'] },
   { path: '/feedback', component: FeedbackPage, roles: ['Admin'] },
   { path: '/backup', component: BackupPage, roles: ['Admin'] },
-  { path: '/activity', component: ActivityFeedPage, roles: ['Admin'] },
   { path: '/branches', component: BranchesPage, roles: ['Admin'] },
   { path: '/storefront', component: StorefrontPage, roles: ['Admin'] },
   { path: '/online-orders', component: OnlineOrdersPage, roles: ['Admin'] },

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DollarSign, Ban, Eye } from 'lucide-react';
+import { DollarSign, Ban, Eye, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -14,11 +14,31 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
 import api from '../services/api';
 import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
+import type { ApiErrorResponse, Product } from '@/types';
+
+interface Customer {
+  id: number;
+  name: string;
+  phone: string | null;
+}
+
+interface LayawayItem {
+  product_id: number;
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+}
 
 interface LayawayOrder {
   id: number;
@@ -55,15 +75,40 @@ const statusColors: Record<string, string> = {
 export default function LayawayPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [createOpen, setCreateOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [customerId, setCustomerId] = useState('');
+  const [createItems, setCreateItems] = useState<LayawayItem[]>([]);
+  const [deposit, setDeposit] = useState('');
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newCustName, setNewCustName] = useState('');
+  const [newCustPhone, setNewCustPhone] = useState('');
 
   const { data: layaways } = useQuery<{ data: LayawayOrder[]; meta: { total: number } }>({
     queryKey: ['layaway'],
     queryFn: () =>
       api.get('/api/v1/layaway?limit=100').then((r) => ({ data: r.data.data, meta: r.data.meta })),
+  });
+
+  const { data: customers } = useQuery<Customer[]>({
+    queryKey: ['customers-list'],
+    queryFn: () => api.get('/api/v1/customers?limit=200').then((r) => r.data.data),
+    enabled: createOpen,
+  });
+
+  const { data: products } = useQuery<Product[]>({
+    queryKey: ['products-layaway'],
+    queryFn: () => api.get('/api/v1/products?limit=200').then((r) => r.data.data),
+    enabled: createOpen,
   });
 
   const { data: detail } = useQuery<LayawayDetail>({
@@ -85,6 +130,37 @@ export default function LayawayPage() {
       toast.error(err.response?.data?.error || 'Error'),
   });
 
+  const createCustomerMutation = useMutation({
+    mutationFn: (data: { name: string; phone: string }) => api.post('/api/v1/customers', data),
+    onSuccess: (response) => {
+      const customer = response.data.data;
+      setCustomerId(String(customer.id));
+      setShowNewCustomer(false);
+      setNewCustName('');
+      setNewCustPhone('');
+      queryClient.invalidateQueries({ queryKey: ['customers-list'] });
+      toast.success(t('cart.customerCreated'));
+    },
+    onError: () => toast.error(t('cart.customerCreateError')),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: {
+      customer_id: number;
+      items: { product_id: number; quantity: number; unit_price: number }[];
+      deposit: number;
+      due_date: string;
+    }) => api.post('/api/v1/layaway', data),
+    onSuccess: () => {
+      toast.success(t('layaway.created'));
+      queryClient.invalidateQueries({ queryKey: ['layaway'] });
+      setCreateOpen(false);
+      resetCreateForm();
+    },
+    onError: (err: AxiosError<ApiErrorResponse>) =>
+      toast.error(err.response?.data?.error || 'Error'),
+  });
+
   const cancelMutation = useMutation({
     mutationFn: (id: number) => api.post(`/api/v1/layaway/${id}/cancel`),
     onSuccess: () => {
@@ -95,6 +171,56 @@ export default function LayawayPage() {
       toast.error(err.response?.data?.error || 'Error'),
   });
 
+  const defaultDueDate = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  };
+
+  const resetCreateForm = () => {
+    setCustomerId('');
+    setCreateItems([]);
+    setDeposit('');
+    setDueDate(defaultDueDate());
+    setSelectedProductId('');
+    setShowNewCustomer(false);
+    setNewCustName('');
+    setNewCustPhone('');
+  };
+
+  const addProduct = () => {
+    if (!selectedProductId) return;
+    const product = products?.find((p) => p.id === Number(selectedProductId));
+    if (!product) return;
+    if (createItems.some((i) => i.product_id === product.id)) return;
+    setCreateItems((prev) => [
+      ...prev,
+      {
+        product_id: product.id,
+        product_name: product.name,
+        unit_price: Number(product.price),
+        quantity: 1,
+      },
+    ]);
+    setSelectedProductId('');
+  };
+
+  const itemsTotal = createItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+
+  const handleCreate = () => {
+    if (!customerId || createItems.length === 0 || !dueDate) return;
+    createMutation.mutate({
+      customer_id: Number(customerId),
+      items: createItems.map((i) => ({
+        product_id: i.product_id,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+      })),
+      deposit: Number(deposit) || 0,
+      due_date: dueDate,
+    });
+  };
+
   return (
     <div className="p-6 animate-fade-in">
       <div className="mb-6 flex items-center justify-between">
@@ -104,6 +230,15 @@ export default function LayawayPage() {
           </h1>
           <div className="gold-divider mt-2" />
         </div>
+        <Button
+          className="gap-2"
+          onClick={() => {
+            resetCreateForm();
+            setCreateOpen(true);
+          }}
+        >
+          <Plus className="h-4 w-4" /> {t('layaway.create')}
+        </Button>
       </div>
 
       {/* Layaway table */}
@@ -222,6 +357,174 @@ export default function LayawayPage() {
               {payMutation.isPending ? t('common.loading') : t('layaway.makePayment')}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('layaway.create')}</DialogTitle>
+            <DialogDescription>{t('layaway.minDeposit', { percent: '0' })}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Customer */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{t('deliveries.customer')}</Label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewCustomer(!showNewCustomer)}
+                  className="text-xs text-gold hover:underline"
+                >
+                  {showNewCustomer ? t('deliveries.existingCustomer') : t('cart.addNewCustomer')}
+                </button>
+              </div>
+              {showNewCustomer ? (
+                <div className="space-y-2 p-3 border border-border rounded-md bg-surface/50">
+                  <Input
+                    placeholder={t('cart.customerName')}
+                    value={newCustName}
+                    onChange={(e) => setNewCustName(e.target.value)}
+                  />
+                  <Input
+                    placeholder={t('cart.customerPhone')}
+                    value={newCustPhone}
+                    onChange={(e) => setNewCustPhone(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    disabled={!newCustName.trim() || createCustomerMutation.isPending}
+                    onClick={() =>
+                      createCustomerMutation.mutate({
+                        name: newCustName.trim(),
+                        phone: newCustPhone.trim(),
+                      })
+                    }
+                  >
+                    {t('cart.saveCustomer')}
+                  </Button>
+                </div>
+              ) : (
+                <Select value={customerId} onValueChange={setCustomerId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('deliveries.selectCustomer')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers?.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.name} {c.phone ? `(${c.phone})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {/* Add product */}
+            <div className="space-y-1">
+              <Label>{t('deliveries.items')}</Label>
+              <div className="flex gap-2">
+                <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={t('deliveries.selectProduct')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products
+                      ?.filter((p) => !createItems.some((i) => i.product_id === p.id))
+                      .map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {p.name} — {formatCurrency(Number(p.price))}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={addProduct}
+                  disabled={!selectedProductId}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Items list */}
+            {createItems.length > 0 && (
+              <div className="border border-border rounded-md divide-y divide-border">
+                {createItems.map((item, idx) => (
+                  <div key={item.product_id} className="flex items-center gap-2 p-2">
+                    <span className="flex-1 text-sm truncate">{item.product_name}</span>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const qty = Math.max(1, Number(e.target.value));
+                        setCreateItems((prev) =>
+                          prev.map((it, i) => (i === idx ? { ...it, quantity: qty } : it))
+                        );
+                      }}
+                      className="w-16 h-8 text-sm font-data text-center"
+                    />
+                    <span className="text-sm font-data w-20 text-end">
+                      {formatCurrency(item.unit_price * item.quantity)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      onClick={() => setCreateItems((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex justify-between p-2 bg-surface">
+                  <span className="text-sm font-medium">{t('cart.total')}</span>
+                  <span className="text-sm font-data font-bold">{formatCurrency(itemsTotal)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Deposit */}
+            <div className="space-y-1">
+              <Label>{t('layaway.deposit')}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={deposit}
+                onChange={(e) => setDeposit(e.target.value)}
+                placeholder="0.00"
+                className="font-data"
+              />
+            </div>
+
+            {/* Due date */}
+            <div className="space-y-1">
+              <Label>{t('layaway.dueDate')}</Label>
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="font-data"
+              />
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={handleCreate}
+              disabled={
+                createMutation.isPending || !customerId || createItems.length === 0 || !dueDate
+              }
+            >
+              {createMutation.isPending ? t('common.loading') : t('layaway.create')}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

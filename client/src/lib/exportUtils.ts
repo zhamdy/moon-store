@@ -1,10 +1,9 @@
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
 
 /**
- * Export an array of objects to CSV and trigger download
+ * Export an array of objects to an Excel (.xlsx) file and trigger download
  */
-export function exportToCsv(
+export function exportToExcel(
   filename: string,
   data: Record<string, unknown>[],
   columns?: { key: string; label: string }[]
@@ -14,116 +13,50 @@ export function exportToCsv(
   const keys = columns ? columns.map((c) => c.key) : Object.keys(data[0]);
   const headers = columns ? columns.map((c) => c.label) : keys;
 
-  const csvRows = [
-    headers.join(','),
-    ...data.map((row) =>
-      keys
-        .map((key) => {
-          const val = row[key];
-          const str = val === null || val === undefined ? '' : String(val);
-          return str.includes(',') || str.includes('"') || str.includes('\n')
-            ? `"${str.replace(/"/g, '""')}"`
-            : str;
-        })
-        .join(',')
-    ),
-  ];
+  const rows = data.map((row) => keys.map((key) => row[key] ?? ''));
+  const sheetData = [headers, ...rows];
 
-  const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob(blob, filename);
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+  // Auto-fit column widths
+  ws['!cols'] = headers.map((h, i) => {
+    const maxLen = Math.max(h.length, ...rows.map((r) => String(r[i] ?? '').length));
+    return { wch: Math.min(maxLen + 2, 40) };
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+  const xlsxFilename = filename.replace(/\.(csv|pdf)$/i, '.xlsx');
+  XLSX.writeFile(wb, xlsxFilename);
 }
 
 /**
- * Export a DOM element as a PDF report
+ * Export multiple sheets to a single Excel file
  */
-export async function exportToPdf(elementId: string, filename: string, title?: string) {
-  const element = document.getElementById(elementId);
-  if (!element) return;
+export function exportMultiSheetExcel(
+  filename: string,
+  sheets: {
+    name: string;
+    data: Record<string, unknown>[];
+    columns?: { key: string; label: string }[];
+  }[]
+) {
+  const wb = XLSX.utils.book_new();
 
-  const canvas = await html2canvas(element, {
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    backgroundColor: getComputedStyle(document.documentElement)
-      .getPropertyValue('--background')
-      .trim()
-      ? '#ffffff'
-      : '#ffffff',
-  });
-
-  const imgData = canvas.toDataURL('image/png');
-  const pdf = new jsPDF({
-    orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
-
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 10;
-  const usableWidth = pageWidth - 2 * margin;
-
-  // Add title
-  if (title) {
-    pdf.setFontSize(16);
-    pdf.text(title, margin, margin + 5);
-    pdf.setFontSize(10);
-    pdf.text(new Date().toLocaleDateString(), margin, margin + 12);
+  for (const sheet of sheets) {
+    if (sheet.data.length === 0) continue;
+    const keys = sheet.columns ? sheet.columns.map((c) => c.key) : Object.keys(sheet.data[0]);
+    const headers = sheet.columns ? sheet.columns.map((c) => c.label) : keys;
+    const rows = sheet.data.map((row) => keys.map((key) => row[key] ?? ''));
+    const sheetData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    ws['!cols'] = headers.map((h, i) => {
+      const maxLen = Math.max(h.length, ...rows.map((r) => String(r[i] ?? '').length));
+      return { wch: Math.min(maxLen + 2, 40) };
+    });
+    XLSX.utils.book_append_sheet(wb, ws, sheet.name.slice(0, 31));
   }
 
-  const titleOffset = title ? 18 : 0;
-  const usableHeight = pageHeight - 2 * margin - titleOffset;
-
-  const imgWidth = usableWidth;
-  const imgHeight = (canvas.height * usableWidth) / canvas.width;
-
-  if (imgHeight <= usableHeight) {
-    pdf.addImage(imgData, 'PNG', margin, margin + titleOffset, imgWidth, imgHeight);
-  } else {
-    // Multi-page: slice the canvas
-    const pageCanvasHeight = (usableHeight / imgWidth) * canvas.width;
-    let yOffset = 0;
-    let isFirstPage = true;
-
-    while (yOffset < canvas.height) {
-      if (!isFirstPage) {
-        pdf.addPage();
-      }
-
-      const sliceHeight = Math.min(pageCanvasHeight, canvas.height - yOffset);
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceHeight;
-      const ctx = sliceCanvas.getContext('2d')!;
-      ctx.drawImage(canvas, 0, yOffset, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
-
-      const sliceData = sliceCanvas.toDataURL('image/png');
-      const sliceImgHeight = (sliceHeight * imgWidth) / canvas.width;
-
-      pdf.addImage(
-        sliceData,
-        'PNG',
-        margin,
-        margin + (isFirstPage ? titleOffset : 0),
-        imgWidth,
-        sliceImgHeight
-      );
-
-      yOffset += sliceHeight;
-      isFirstPage = false;
-    }
-  }
-
-  pdf.save(filename);
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  XLSX.writeFile(wb, filename);
 }

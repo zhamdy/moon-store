@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { BarChart3, Plus, Play, Trash2, Clock, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../lib/utils';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -98,8 +99,7 @@ export default function ReportBuilderPage() {
     },
   });
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'SAR' }).format(n);
+  const fmt = (n: number) => formatCurrency(n);
 
   return (
     <div className="p-6 animate-fade-in">

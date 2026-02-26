@@ -33,6 +33,7 @@ import DataTable from '../components/DataTable';
 import ReceiptDialog from '../components/ReceiptDialog';
 import RefundDialog from '../components/RefundDialog';
 import { formatCurrency, formatDateTime, formatDate } from '../lib/utils';
+import { exportToExcel } from '../lib/exportUtils';
 
 import api from '../services/api';
 import { useTranslation } from '../i18n';
@@ -61,6 +62,15 @@ interface SaleItem {
   product_name: string;
   quantity: number;
   unit_price: number;
+}
+
+interface Refund {
+  id: number;
+  amount: number;
+  reason: string;
+  cashier_name: string | null;
+  created_at: string;
+  items: { product_id: number; product_name: string; quantity: number; unit_price: number }[];
 }
 
 interface SaleDetail {
@@ -115,29 +125,35 @@ export default function SalesHistory() {
     enabled: !!expandedRow,
   });
 
+  const { data: saleRefunds } = useQuery<Refund[]>({
+    queryKey: ['sale-refunds', expandedRow],
+    queryFn: () => api.get(`/api/v1/sales/${expandedRow}/refunds`).then((r) => r.data.data),
+    enabled: !!expandedRow,
+  });
+
   const handleExportCSV = () => {
     const sales = salesData?.data || [];
     if (sales.length === 0) return;
 
-    const headers = ['Sale ID', 'Date', 'Items', 'Discount', 'Total', 'Payment', 'Cashier'];
-    const rows = sales.map((s) => [
-      s.id,
-      formatDateTime(s.created_at),
-      s.items_count,
-      s.discount || 0,
-      s.total,
-      s.payment_method,
-      s.cashier_name || '',
-    ]);
+    const exportData = sales.map((s) => ({
+      id: s.id,
+      date: formatDateTime(s.created_at),
+      items_count: s.items_count,
+      discount: s.discount || 0,
+      total: s.total,
+      payment_method: s.payment_method,
+      cashier_name: s.cashier_name || '',
+    }));
 
-    const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `moon-sales-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    exportToExcel(`moon-sales-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, exportData, [
+      { key: 'id', label: 'Sale ID' },
+      { key: 'date', label: 'Date' },
+      { key: 'items_count', label: 'Items' },
+      { key: 'discount', label: 'Discount' },
+      { key: 'total', label: 'Total' },
+      { key: 'payment_method', label: 'Payment' },
+      { key: 'cashier_name', label: 'Cashier' },
+    ]);
   };
 
   const handlePrintReceipt = async (saleId: number) => {
@@ -228,9 +244,9 @@ export default function SalesHistory() {
         const d = row.original.discount;
         if (!d || d === 0) return <span className="text-muted">-</span>;
         return (
-          <span className="text-blush font-data">
+          <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400 font-data">
             {row.original.discount_type === 'percentage' ? `${d}%` : formatCurrency(d)}
-          </span>
+          </Badge>
         );
       },
     },
@@ -244,7 +260,16 @@ export default function SalesHistory() {
     {
       accessorKey: 'payment_method',
       header: t('sales.payment'),
-      cell: ({ getValue }) => <Badge variant="gold">{getValue() as string}</Badge>,
+      cell: ({ getValue }) => {
+        const method = getValue() as string;
+        const labels: Record<string, string> = {
+          Cash: t('cart.cash'),
+          Card: t('cart.card'),
+          Other: t('cart.other'),
+          'Gift Card': t('cart.giftCard'),
+        };
+        return <Badge variant="gold">{labels[method] || method}</Badge>;
+      },
     },
     {
       id: 'refund_status',
@@ -253,7 +278,14 @@ export default function SalesHistory() {
         const status = row.original.refund_status;
         if (!status) return <span className="text-muted">-</span>;
         return (
-          <Badge variant={status === 'full' ? 'destructive' : 'secondary'}>
+          <Badge
+            variant="outline"
+            className={
+              status === 'full'
+                ? 'border-red-400 text-red-600 dark:text-red-400'
+                : 'border-amber-400 text-amber-600 dark:text-amber-400'
+            }
+          >
             {status === 'full' ? t('sales.refundFull') : t('sales.refundPartial')}
           </Badge>
         );
@@ -375,9 +407,9 @@ export default function SalesHistory() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('sales.allPayments')}</SelectItem>
-            <SelectItem value="Cash">Cash</SelectItem>
-            <SelectItem value="Card">Card</SelectItem>
-            <SelectItem value="Other">Other</SelectItem>
+            <SelectItem value="Cash">{t('cart.cash')}</SelectItem>
+            <SelectItem value="Card">{t('cart.card')}</SelectItem>
+            <SelectItem value="Other">{t('cart.other')}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -402,21 +434,73 @@ export default function SalesHistory() {
         searchPlaceholder={t('sales.searchPlaceholder')}
         renderSubComponent={(sale: Sale) => {
           if (expandedRow !== sale.id || !saleDetail || saleDetail.id !== sale.id) return null;
+          const refunds = saleRefunds && expandedRow === sale.id ? saleRefunds : [];
           return (
-            <div className="animate-fade-in">
-              <h3 className="text-sm font-medium text-gold mb-2 font-display tracking-wider">
-                {t('sales.itemBreakdown', { id: sale.id })}
-              </h3>
-              <div className="space-y-1.5">
-                {saleDetail.items?.map((item, i) => (
-                  <div key={i} className="flex justify-between text-sm font-data">
-                    <span>
-                      {item.product_name} <span className="text-muted">x{item.quantity}</span>
+            <div className="animate-fade-in space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-gold mb-2 font-display tracking-wider">
+                  {t('sales.itemBreakdown', { id: sale.id })}
+                </h3>
+                <div className="space-y-1.5">
+                  {saleDetail.items?.map((item, i) => (
+                    <div key={i} className="flex justify-between text-sm font-data">
+                      <span>
+                        {item.product_name} <span className="text-muted">x{item.quantity}</span>
+                      </span>
+                      <span>{formatCurrency(item.unit_price * item.quantity)}</span>
+                    </div>
+                  ))}
+                </div>
+                {sale.discount && sale.discount > 0 && (
+                  <div className="flex justify-between text-sm font-data mt-2 pt-2 border-t border-border">
+                    <span className="text-emerald-600 dark:text-emerald-400">
+                      {t('sales.discount')}
                     </span>
-                    <span>{formatCurrency(item.unit_price * item.quantity)}</span>
+                    <span className="text-emerald-600 dark:text-emerald-400">
+                      {sale.discount_type === 'percentage'
+                        ? `${sale.discount}%`
+                        : formatCurrency(sale.discount)}
+                    </span>
                   </div>
-                ))}
+                )}
               </div>
+              {refunds.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-blush mb-2 font-display tracking-wider">
+                    {t('sales.refund')}
+                  </h3>
+                  <div className="space-y-2">
+                    {refunds.map((refund) => (
+                      <div
+                        key={refund.id}
+                        className="text-sm font-data border border-border rounded-md p-3 bg-surface/50"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-red-600 dark:text-red-400 font-medium">
+                            {formatCurrency(refund.amount)}
+                          </span>
+                          <span className="text-muted text-xs">
+                            {formatDateTime(refund.created_at)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {{
+                              'Customer Return': t('sales.refundReasonCustomerReturn'),
+                              'Cashier Error': t('sales.refundReasonCashierError'),
+                              Defective: t('sales.refundReasonDefective'),
+                              Other: t('sales.refundReasonOther'),
+                            }[refund.reason] || refund.reason}
+                          </Badge>
+                          {refund.cashier_name && (
+                            <span className="text-muted text-xs">{refund.cashier_name}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         }}
