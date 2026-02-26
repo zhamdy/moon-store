@@ -4,6 +4,7 @@ import db from '../db';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { createUserSchema, updateUserSchema } from '../validators/userSchema';
 import { logAuditFromReq } from '../middleware/auditLogger';
+import { cacheControl } from '../middleware/cache';
 
 const router: Router = Router();
 
@@ -29,6 +30,7 @@ router.get(
   '/delivery',
   verifyToken,
   requireRole('Admin'),
+  cacheControl(60),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await db.query(

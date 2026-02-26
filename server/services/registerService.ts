@@ -77,14 +77,14 @@ async function findOpenSession(userId: number) {
 export async function getCurrentSession(userId: number): Promise<SessionRow | null> {
   const result = await db.query(
     `SELECT rs.*, u.name as cashier_name,
-            (SELECT COUNT(*) FROM register_movements WHERE session_id = rs.id AND type = 'sale') as sale_count,
-            (SELECT COALESCE(SUM(CASE WHEN type = 'sale' THEN amount WHEN type = 'cash_in' THEN amount ELSE 0 END), 0)
-             FROM register_movements WHERE session_id = rs.id) as total_in,
-            (SELECT COALESCE(SUM(CASE WHEN type = 'refund' THEN amount WHEN type = 'cash_out' THEN amount ELSE 0 END), 0)
-             FROM register_movements WHERE session_id = rs.id) as total_out
+            COUNT(CASE WHEN rm.type = 'sale' THEN 1 END) as sale_count,
+            COALESCE(SUM(CASE WHEN rm.type IN ('sale','cash_in') THEN rm.amount ELSE 0 END), 0) as total_in,
+            COALESCE(SUM(CASE WHEN rm.type IN ('refund','cash_out') THEN rm.amount ELSE 0 END), 0) as total_out
      FROM register_sessions rs
      JOIN users u ON rs.cashier_id = u.id
+     LEFT JOIN register_movements rm ON rm.session_id = rs.id
      WHERE rs.cashier_id = ? AND rs.status = 'open'
+     GROUP BY rs.id
      ORDER BY rs.opened_at DESC LIMIT 1`,
     [userId]
   );

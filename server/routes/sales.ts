@@ -176,12 +176,14 @@ router.get(
 
       const result = await db.query(
         `SELECT s.*, u.name as cashier_name, c.name as customer_name,
-        (SELECT COUNT(*) FROM sale_items WHERE sale_id = s.id) as items_count,
+        COUNT(si.id) as items_count,
         s.refund_status, s.refunded_amount
        FROM sales s
        LEFT JOIN users u ON s.cashier_id = u.id
        LEFT JOIN customers c ON s.customer_id = c.id
+       LEFT JOIN sale_items si ON si.sale_id = s.id
        ${whereClause}
+       GROUP BY s.id
        ORDER BY s.created_at DESC
        LIMIT ? OFFSET ?`,
         [...params, limitNum, offset]

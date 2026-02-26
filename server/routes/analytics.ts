@@ -17,6 +17,52 @@ import {
 
 const router: Router = Router();
 
+// GET /api/analytics/dashboard-all — combined endpoint (8-in-1)
+router.get(
+  '/dashboard-all',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { from, to } = req.query;
+      const [
+        kpis,
+        revenue,
+        topProducts,
+        paymentMethods,
+        ordersPerDay,
+        cashierPerformance,
+        categorySales,
+        distributorSales,
+      ] = await Promise.all([
+        getDashboardKpis(),
+        getRevenueByDate(from, to),
+        getTopProducts(from, to),
+        getPaymentMethodBreakdown(from, to),
+        getOrdersPerDay(from, to),
+        getCashierPerformance(from, to),
+        getSalesByCategory(from, to),
+        getSalesByDistributor(from, to),
+      ]);
+      res.json({
+        success: true,
+        data: {
+          kpis,
+          revenue,
+          topProducts,
+          paymentMethods,
+          ordersPerDay,
+          cashierPerformance,
+          categorySales,
+          distributorSales,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // GET /api/analytics/dashboard
 router.get(
   '/dashboard',

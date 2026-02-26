@@ -116,9 +116,13 @@ export async function listGiftCards(filters: GiftCardFilters): Promise<GiftCardL
 
   const result = await db.query(
     `SELECT gc.*,
-            (SELECT COUNT(*) FROM gift_card_transactions t WHERE t.gift_card_id = gc.id) as transaction_count,
-            (SELECT COALESCE(SUM(t.amount), 0) FROM gift_card_transactions t WHERE t.gift_card_id = gc.id) as total_redeemed
+            COALESCE(t_agg.transaction_count, 0) as transaction_count,
+            COALESCE(t_agg.total_redeemed, 0) as total_redeemed
      FROM gift_cards gc
+     LEFT JOIN (
+       SELECT gift_card_id, COUNT(*) as transaction_count, SUM(amount) as total_redeemed
+       FROM gift_card_transactions GROUP BY gift_card_id
+     ) t_agg ON t_agg.gift_card_id = gc.id
      ${whereClause}
      ORDER BY gc.created_at DESC
      LIMIT ? OFFSET ?`,

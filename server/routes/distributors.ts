@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import db from '../db';
 import { verifyToken, requireRole } from '../middleware/auth';
 import { distributorSchema } from '../validators/distributorSchema';
+import { cacheControl } from '../middleware/cache';
 
 const router: Router = Router();
 
@@ -10,6 +11,7 @@ router.get(
   '/',
   verifyToken,
   requireRole('Admin'),
+  cacheControl(300),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { search } = req.query;

@@ -231,22 +231,36 @@ export async function getCashierPerformance(
   from: unknown,
   to: unknown
 ): Promise<CashierPerformanceRow[]> {
-  const { dateFilter, params } = buildDateFilter(from, to, 's.created_at');
+  const { dateFilter: saleDateFilter, params: saleParams } = buildDateFilter(
+    from,
+    to,
+    'created_at'
+  );
+  const { dateFilter: siDateFilter, params: siParams } = buildDateFilter(from, to, 's2.created_at');
 
   const result = await db.query<CashierPerformanceRow>(
     `SELECT u.id as cashier_id, u.name as cashier_name,
-            COUNT(s.id) as total_sales,
-            COALESCE(SUM(s.total - COALESCE(s.refunded_amount, 0)), 0) as total_revenue,
-            ROUND(COALESCE(AVG(s.total), 0), 2) as avg_order_value,
-            COALESCE(SUM(
-              (SELECT SUM(si.quantity) FROM sale_items si WHERE si.sale_id = s.id)
-            ), 0) as total_items
-     FROM sales s
-     JOIN users u ON s.cashier_id = u.id
-     WHERE ${dateFilter}
-     GROUP BY u.id, u.name
-     ORDER BY total_revenue DESC`,
-    params
+            s_agg.total_sales, s_agg.total_revenue, s_agg.avg_order_value,
+            COALESCE(si_agg.total_items, 0) as total_items
+     FROM (
+       SELECT cashier_id,
+              COUNT(*) as total_sales,
+              COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as total_revenue,
+              ROUND(COALESCE(AVG(total), 0), 2) as avg_order_value
+       FROM sales
+       WHERE ${saleDateFilter}
+       GROUP BY cashier_id
+     ) s_agg
+     JOIN users u ON s_agg.cashier_id = u.id
+     LEFT JOIN (
+       SELECT s2.cashier_id, SUM(si.quantity) as total_items
+       FROM sale_items si
+       JOIN sales s2 ON si.sale_id = s2.id
+       WHERE ${siDateFilter}
+       GROUP BY s2.cashier_id
+     ) si_agg ON si_agg.cashier_id = u.id
+     ORDER BY s_agg.total_revenue DESC`,
+    [...saleParams, ...siParams]
   );
 
   return result.rows;
@@ -327,14 +341,19 @@ export async function getAbcClassification(): Promise<AbcClassificationResult> {
     if (pct <= 80) newClass = 'A';
     else if (pct <= 95) newClass = 'B';
 
-    if (product.abc_class !== newClass) {
-      updateStmt.run(newClass, product.id);
-    }
     product.abc_class = newClass;
     product.revenue_pct =
       totalRevenue > 0 ? Math.round((product.revenue / totalRevenue) * 10000) / 100 : 0;
     product.cumulative_pct = Math.round(pct * 100) / 100;
   }
+
+  // Batch-update all changed ABC classes in a single transaction
+  const updateAll = rawDb.transaction(() => {
+    for (const product of products) {
+      updateStmt.run(product.abc_class, product.id);
+    }
+  });
+  updateAll();
 
   return {
     products,

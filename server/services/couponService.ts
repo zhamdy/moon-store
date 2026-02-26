@@ -117,9 +117,11 @@ export async function listCoupons(filters: CouponFilters): Promise<CouponListRes
   const total = countResult.rows[0].count;
 
   const result = await db.query(
-    `SELECT c.*,
-            (SELECT COUNT(*) FROM coupon_usage cu WHERE cu.coupon_id = c.id) as usage_count
+    `SELECT c.*, COALESCE(cu_agg.usage_count, 0) as usage_count
      FROM coupons c
+     LEFT JOIN (
+       SELECT coupon_id, COUNT(*) as usage_count FROM coupon_usage GROUP BY coupon_id
+     ) cu_agg ON cu_agg.coupon_id = c.id
      ${whereClause}
      ORDER BY c.created_at DESC
      LIMIT ? OFFSET ?`,

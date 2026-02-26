@@ -6,27 +6,43 @@ import { customerSchema } from '../validators/customerSchema';
 
 const router: Router = Router();
 
-// GET /api/customers -- list with optional search
+// GET /api/customers -- list with optional search + pagination
 router.get(
   '/',
   verifyToken,
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { search } = req.query;
+      const { search, page = 1, limit = 50 } = req.query;
+      const pageNum = Number(page);
+      const limitNum = Number(limit);
+      const offset = (pageNum - 1) * limitNum;
 
-      let sql = 'SELECT * FROM customers';
+      const where: string[] = [];
       const params: unknown[] = [];
 
       if (search) {
-        sql += ' WHERE name LIKE ? OR phone LIKE ?';
+        where.push('(name LIKE ? OR phone LIKE ?)');
         params.push(`%${search}%`, `%${search}%`);
       }
 
-      sql += ' ORDER BY name ASC';
+      const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
-      const result = await db.query(sql, params);
-      res.json({ success: true, data: result.rows });
+      const countResult = await db.query<{ count: number }>(
+        `SELECT COUNT(*) as count FROM customers ${whereClause}`,
+        params
+      );
+      const total = countResult.rows[0].count;
+
+      const result = await db.query(
+        `SELECT * FROM customers ${whereClause} ORDER BY name ASC LIMIT ? OFFSET ?`,
+        [...params, limitNum, offset]
+      );
+      res.json({
+        success: true,
+        data: result.rows,
+        meta: { total, page: pageNum, limit: limitNum },
+      });
     } catch (err) {
       next(err);
     }

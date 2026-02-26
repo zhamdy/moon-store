@@ -18,6 +18,9 @@ const db = new Database(dbPath);
 // Enable WAL mode for better performance
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('cache_size = -32000'); // 32MB (default 2MB)
+db.pragma('mmap_size = 134217728'); // 128MB memory-mapped I/O
+db.pragma('synchronous = NORMAL'); // Safe with WAL, faster commits
 
 // Helper to mimic pg's query interface for easy migration
 // Supports $1, $2... parameterized queries (converts to ?)

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -29,83 +29,86 @@ export default function Dashboard() {
 
   const [exporting, setExporting] = useState(false);
 
-  const handleExportCsv = (dataType: string) => {
-    switch (dataType) {
-      case 'revenue':
-        exportToCsv('revenue.csv', (data.revenue || []) as unknown as Record<string, unknown>[], [
-          { key: 'date', label: t('sales.dateTime') },
-          { key: 'revenue', label: t('dashboard.revenue') },
-        ]);
-        break;
-      case 'top-products':
-        exportToCsv(
-          'top-products.csv',
-          (data.topProducts || []) as unknown as Record<string, unknown>[],
-          [
-            { key: 'name', label: t('common.name') },
-            { key: 'total_sold', label: t('dashboard.itemsSold') },
-          ]
-        );
-        break;
-      case 'payment-methods':
-        exportToCsv(
-          'payment-methods.csv',
-          (data.paymentMethods || []) as unknown as Record<string, unknown>[],
-          [
-            { key: 'payment_method', label: t('cart.paymentMethod') },
-            { key: 'count', label: t('dashboard.salesCount') },
-            { key: 'revenue', label: t('dashboard.revenue') },
-          ]
-        );
-        break;
-      case 'orders-per-day':
-        exportToCsv(
-          'orders-per-day.csv',
-          (data.ordersPerDay || []) as unknown as Record<string, unknown>[],
-          [
+  const handleExportCsv = useCallback(
+    (dataType: string) => {
+      switch (dataType) {
+        case 'revenue':
+          exportToCsv('revenue.csv', (data.revenue || []) as unknown as Record<string, unknown>[], [
             { key: 'date', label: t('sales.dateTime') },
-            { key: 'orders', label: t('charts.orders') },
-          ]
-        );
-        break;
-      case 'cashier-performance':
-        exportToCsv(
-          'cashier-performance.csv',
-          (data.cashierPerformance || []) as unknown as Record<string, unknown>[],
-          [
-            { key: 'cashier_name', label: t('dashboard.cashierName') },
-            { key: 'total_sales', label: t('dashboard.salesCount') },
-            { key: 'total_revenue', label: t('dashboard.revenue') },
-            { key: 'avg_order_value', label: t('dashboard.avgOrder') },
-            { key: 'total_items', label: t('dashboard.itemsSold') },
-          ]
-        );
-        break;
-      case 'sales-by-category':
-        exportToCsv(
-          'sales-by-category.csv',
-          (data.categorySales || []) as unknown as Record<string, unknown>[],
-          [
-            { key: 'category_name', label: t('inventory.categoryCol') },
-            { key: 'total_sold', label: t('dashboard.itemsSold') },
             { key: 'revenue', label: t('dashboard.revenue') },
-          ]
-        );
-        break;
-      case 'sales-by-distributor':
-        exportToCsv(
-          'sales-by-distributor.csv',
-          (data.distributorSales || []) as unknown as Record<string, unknown>[],
-          [
-            { key: 'distributor_name', label: t('inventory.distributor') },
-            { key: 'total_sold', label: t('dashboard.itemsSold') },
-            { key: 'revenue', label: t('dashboard.revenue') },
-          ]
-        );
-        break;
-    }
-    toast.success(t('export.csvExported'));
-  };
+          ]);
+          break;
+        case 'top-products':
+          exportToCsv(
+            'top-products.csv',
+            (data.topProducts || []) as unknown as Record<string, unknown>[],
+            [
+              { key: 'name', label: t('common.name') },
+              { key: 'total_sold', label: t('dashboard.itemsSold') },
+            ]
+          );
+          break;
+        case 'payment-methods':
+          exportToCsv(
+            'payment-methods.csv',
+            (data.paymentMethods || []) as unknown as Record<string, unknown>[],
+            [
+              { key: 'payment_method', label: t('cart.paymentMethod') },
+              { key: 'count', label: t('dashboard.salesCount') },
+              { key: 'revenue', label: t('dashboard.revenue') },
+            ]
+          );
+          break;
+        case 'orders-per-day':
+          exportToCsv(
+            'orders-per-day.csv',
+            (data.ordersPerDay || []) as unknown as Record<string, unknown>[],
+            [
+              { key: 'date', label: t('sales.dateTime') },
+              { key: 'orders', label: t('charts.orders') },
+            ]
+          );
+          break;
+        case 'cashier-performance':
+          exportToCsv(
+            'cashier-performance.csv',
+            (data.cashierPerformance || []) as unknown as Record<string, unknown>[],
+            [
+              { key: 'cashier_name', label: t('dashboard.cashierName') },
+              { key: 'total_sales', label: t('dashboard.salesCount') },
+              { key: 'total_revenue', label: t('dashboard.revenue') },
+              { key: 'avg_order_value', label: t('dashboard.avgOrder') },
+              { key: 'total_items', label: t('dashboard.itemsSold') },
+            ]
+          );
+          break;
+        case 'sales-by-category':
+          exportToCsv(
+            'sales-by-category.csv',
+            (data.categorySales || []) as unknown as Record<string, unknown>[],
+            [
+              { key: 'category_name', label: t('inventory.categoryCol') },
+              { key: 'total_sold', label: t('dashboard.itemsSold') },
+              { key: 'revenue', label: t('dashboard.revenue') },
+            ]
+          );
+          break;
+        case 'sales-by-distributor':
+          exportToCsv(
+            'sales-by-distributor.csv',
+            (data.distributorSales || []) as unknown as Record<string, unknown>[],
+            [
+              { key: 'distributor_name', label: t('inventory.distributor') },
+              { key: 'total_sold', label: t('dashboard.itemsSold') },
+              { key: 'revenue', label: t('dashboard.revenue') },
+            ]
+          );
+          break;
+      }
+      toast.success(t('export.csvExported'));
+    },
+    [data, t]
+  );
 
   const handleExportPdf = async () => {
     setExporting(true);

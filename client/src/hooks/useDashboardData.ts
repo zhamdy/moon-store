@@ -52,86 +52,43 @@ export interface DistributorSales {
   revenue: number;
 }
 
+interface DashboardAllData {
+  kpis: KpiData;
+  revenue: RevenueDataPoint[];
+  topProducts: TopProduct[];
+  paymentMethods: PaymentMethod[];
+  ordersPerDay: OrdersPerDay[];
+  cashierPerformance: CashierPerformance[];
+  categorySales: CategorySales[];
+  distributorSales: DistributorSales[];
+}
+
 export function useDashboardData(dateParams: Record<string, string>) {
-  const staleTime = 5 * 60 * 1000;
-
-  const kpisQuery = useQuery<KpiData>({
-    queryKey: ['dashboard-kpis'],
-    queryFn: () => api.get('/api/v1/analytics/dashboard').then((r) => r.data.data),
-    staleTime,
-  });
-
-  const revenueQuery = useQuery<RevenueDataPoint[]>({
-    queryKey: ['revenue', dateParams],
+  const query = useQuery<DashboardAllData>({
+    queryKey: ['dashboard-all', dateParams],
     queryFn: () =>
-      api.get('/api/v1/analytics/revenue', { params: dateParams }).then((r) => r.data.data),
-    staleTime,
+      api.get('/api/v1/analytics/dashboard-all', { params: dateParams }).then((r) => r.data.data),
+    staleTime: 10 * 60 * 1000,
   });
 
-  const topProductsQuery = useQuery<TopProduct[]>({
-    queryKey: ['top-products', dateParams],
-    queryFn: () =>
-      api.get('/api/v1/analytics/top-products', { params: dateParams }).then((r) => r.data.data),
-    staleTime,
-  });
-
-  const paymentMethodsQuery = useQuery<PaymentMethod[]>({
-    queryKey: ['payment-methods', dateParams],
-    queryFn: () =>
-      api.get('/api/v1/analytics/payment-methods', { params: dateParams }).then((r) => r.data.data),
-    staleTime,
-  });
-
-  const ordersPerDayQuery = useQuery<OrdersPerDay[]>({
-    queryKey: ['orders-per-day', dateParams],
-    queryFn: () =>
-      api.get('/api/v1/analytics/orders-per-day', { params: dateParams }).then((r) => r.data.data),
-    staleTime,
-  });
-
-  const cashierQuery = useQuery<CashierPerformance[]>({
-    queryKey: ['cashier-performance', dateParams],
-    queryFn: () =>
-      api
-        .get('/api/v1/analytics/cashier-performance', { params: dateParams })
-        .then((r) => r.data.data),
-    staleTime,
-  });
-
-  const categoryQuery = useQuery<CategorySales[]>({
-    queryKey: ['sales-by-category', dateParams],
-    queryFn: () =>
-      api
-        .get('/api/v1/analytics/sales-by-category', { params: dateParams })
-        .then((r) => r.data.data),
-    staleTime,
-  });
-
-  const distributorQuery = useQuery<DistributorSales[]>({
-    queryKey: ['sales-by-distributor', dateParams],
-    queryFn: () =>
-      api
-        .get('/api/v1/analytics/sales-by-distributor', { params: dateParams })
-        .then((r) => r.data.data),
-    staleTime,
-  });
+  const d = query.data;
 
   return {
-    kpis: kpisQuery.data,
-    kpisLoading: kpisQuery.isLoading,
-    revenue: revenueQuery.data,
-    revenueLoading: revenueQuery.isLoading,
-    topProducts: topProductsQuery.data,
-    topLoading: topProductsQuery.isLoading,
-    paymentMethods: paymentMethodsQuery.data,
-    paymentLoading: paymentMethodsQuery.isLoading,
-    ordersPerDay: ordersPerDayQuery.data,
-    ordersLoading: ordersPerDayQuery.isLoading,
-    cashierPerformance: cashierQuery.data,
-    cashierLoading: cashierQuery.isLoading,
-    categorySales: categoryQuery.data,
-    categoryLoading: categoryQuery.isLoading,
-    distributorSales: distributorQuery.data,
-    distributorLoading: distributorQuery.isLoading,
+    kpis: d?.kpis,
+    kpisLoading: query.isLoading,
+    revenue: d?.revenue,
+    revenueLoading: query.isLoading,
+    topProducts: d?.topProducts,
+    topLoading: query.isLoading,
+    paymentMethods: d?.paymentMethods,
+    paymentLoading: query.isLoading,
+    ordersPerDay: d?.ordersPerDay,
+    ordersLoading: query.isLoading,
+    cashierPerformance: d?.cashierPerformance,
+    cashierLoading: query.isLoading,
+    categorySales: d?.categorySales,
+    categoryLoading: query.isLoading,
+    distributorSales: d?.distributorSales,
+    distributorLoading: query.isLoading,
   };
 }

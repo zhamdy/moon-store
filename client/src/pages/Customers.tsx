@@ -66,7 +66,8 @@ export default function CustomersPage() {
 
   const { data: customers, isLoading } = useQuery<CustomerRecord[]>({
     queryKey: ['customers'],
-    queryFn: () => api.get('/api/v1/customers').then((r) => r.data.data),
+    queryFn: () =>
+      api.get('/api/v1/customers', { params: { limit: 1000 } }).then((r) => r.data.data),
   });
 
   const {

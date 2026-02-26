@@ -7,6 +7,7 @@ import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { productSchema, productStatusSchema, variantSchema } from '../validators/productSchema';
 import { logAuditFromReq } from '../middleware/auditLogger';
 import { createUpload, validateMagic, uploadRateLimit } from '../middleware/upload';
+import { cacheControl } from '../middleware/cache';
 import {
   generateSku,
   generateBarcode,
@@ -106,14 +107,19 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
 });
 
 // GET /api/products/categories — return full category objects
-router.get('/categories', verifyToken, async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const result = await db.query('SELECT id, name, code FROM categories ORDER BY name');
-    res.json({ success: true, data: result.rows });
-  } catch (err) {
-    next(err);
+router.get(
+  '/categories',
+  verifyToken,
+  cacheControl(300),
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await db.query('SELECT id, name, code FROM categories ORDER BY name');
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 // GET /api/products/generate-sku/:categoryId — auto-generate next SKU
 router.get(
