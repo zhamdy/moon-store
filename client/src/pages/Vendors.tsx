@@ -237,6 +237,7 @@ export default function VendorsPage() {
                         size="icon"
                         className="h-7 w-7"
                         onClick={() => openEdit(v)}
+                        aria-label={t('common.edit')}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -246,6 +247,7 @@ export default function VendorsPage() {
                           size="icon"
                           className="h-7 w-7 text-green-500"
                           onClick={() => updateStatus.mutate({ id: v.id, status: 'active' })}
+                          aria-label={t('common.confirm')}
                         >
                           <CheckCircle className="h-3.5 w-3.5" />
                         </Button>
@@ -259,6 +261,7 @@ export default function VendorsPage() {
                             setSelectedVendor(v);
                             setPayoutOpen(true);
                           }}
+                          aria-label={t('vendors.createPayout')}
                         >
                           <DollarSign className="h-3.5 w-3.5" />
                         </Button>
@@ -269,6 +272,7 @@ export default function VendorsPage() {
                           size="icon"
                           className="h-7 w-7 text-red-500"
                           onClick={() => updateStatus.mutate({ id: v.id, status: 'suspended' })}
+                          aria-label={t('common.delete')}
                         >
                           <Ban className="h-3.5 w-3.5" />
                         </Button>

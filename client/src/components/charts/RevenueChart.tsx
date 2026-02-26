@@ -93,6 +93,8 @@ export default function RevenueChart({ data }: RevenueChartProps) {
             stroke="#C9A96E"
             strokeWidth={2}
             fill="url(#goldGradient)"
+            animationDuration={800}
+            animationBegin={200}
           />
         </AreaChart>
       </ResponsiveContainer>

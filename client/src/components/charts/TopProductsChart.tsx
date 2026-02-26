@@ -83,6 +83,8 @@ export default function TopProductsChart({ data }: TopProductsChartProps) {
             fill="#C9A96E"
             radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
             barSize={20}
+            animationDuration={800}
+            animationBegin={200}
           />
         </BarChart>
       </ResponsiveContainer>

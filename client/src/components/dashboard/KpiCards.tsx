@@ -24,6 +24,16 @@ function KpiCard({
   variant = 'default',
 }: KpiCardProps) {
   const isWarning = variant === 'warning' && !isLoading && Number(value) > 0;
+
+  const handleKeyDown = onClick
+    ? (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }
+    : undefined;
+
   return (
     <Card
       className={
@@ -34,6 +44,9 @@ function KpiCard({
             : ''
       }
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={handleKeyDown}
     >
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
@@ -70,7 +83,10 @@ export default function KpiCards({ kpis, isLoading, onLowStockClick }: KpiCardsP
   const { t } = useTranslation();
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children"
+      aria-busy={isLoading}
+    >
       <KpiCard
         title={t('dashboard.todayRevenue')}
         value={formatCurrency(kpis?.today_revenue || 0)}

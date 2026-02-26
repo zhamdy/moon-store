@@ -92,6 +92,8 @@ export default function OrdersAreaChart({ data }: OrdersAreaChartProps) {
             stroke="#E8B4C8"
             strokeWidth={2}
             fill="url(#blushGradient)"
+            animationDuration={800}
+            animationBegin={200}
           />
         </AreaChart>
       </ResponsiveContainer>

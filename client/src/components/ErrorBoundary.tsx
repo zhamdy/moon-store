@@ -35,14 +35,25 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             {t('error.title')}
           </h2>
           <p className="text-muted text-sm">{this.state.error?.message || t('error.title')}</p>
-          <Button
-            onClick={() => {
-              this.setState({ hasError: false, error: null });
-              window.location.reload();
-            }}
-          >
-            {t('error.tryAgain')}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.href = '/';
+              }}
+            >
+              {t('error.goHome')}
+            </Button>
+            <Button
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+            >
+              {t('error.tryAgain')}
+            </Button>
+          </div>
         </div>
       );
     }

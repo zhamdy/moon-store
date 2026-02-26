@@ -1294,5 +1294,15 @@
   "aiInsights.question": "Question",
   "aiInsights.answer": "Answer",
   "aiInsights.keywords": "Keywords",
-  "aiInsights.kbAdded": "Knowledge base entry added"
+  "aiInsights.kbAdded": "Knowledge base entry added",
+
+  "nav.mobileNav": "Mobile navigation",
+  "nav.mainNav": "Main navigation",
+  "nav.more": "More",
+  "nav.moreDesc": "All navigation items",
+  "nav.moreNav": "Additional navigation",
+  "common.noResultsDesc": "Try adjusting your search or filters",
+  "charts.noData": "No data available",
+  "charts.noDataDesc": "Data will appear once there are transactions",
+  "error.goHome": "Go to Dashboard"
 }

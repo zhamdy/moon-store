@@ -226,6 +226,7 @@ export default function ExpensesPage() {
                             size="icon"
                             className="h-7 w-7"
                             onClick={() => openEdit(exp)}
+                            aria-label={t('common.edit')}
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -237,6 +238,7 @@ export default function ExpensesPage() {
                               if (window.confirm(t('expenses.deleteConfirm')))
                                 deleteMutation.mutate(exp.id);
                             }}
+                            aria-label={t('common.delete')}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>

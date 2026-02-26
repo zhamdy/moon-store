@@ -332,6 +332,7 @@ export default function BranchesPage() {
                         setSelectedBranch(b.id);
                         setSettingsOpen(true);
                       }}
+                      aria-label={t('branches.storeSettings')}
                     >
                       <Settings2 className="h-3.5 w-3.5" />
                     </Button>
@@ -340,6 +341,7 @@ export default function BranchesPage() {
                       size="icon"
                       className="h-7 w-7"
                       onClick={() => openEdit(b)}
+                      aria-label={t('common.edit')}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -351,6 +353,7 @@ export default function BranchesPage() {
                         onClick={() => {
                           if (confirm(t('branches.deleteConfirm'))) deleteBranch.mutate(b.id);
                         }}
+                        aria-label={t('common.delete')}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

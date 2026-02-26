@@ -92,6 +92,8 @@ export default function CashierPerformanceChart({ data }: CashierPerformanceChar
             fill="#C9A96E"
             radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
             barSize={20}
+            animationDuration={800}
+            animationBegin={200}
           />
         </BarChart>
       </ResponsiveContainer>

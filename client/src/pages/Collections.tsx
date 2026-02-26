@@ -196,6 +196,7 @@ export default function CollectionsPage() {
                     size="icon"
                     className="h-6 w-6 text-destructive shrink-0"
                     onClick={() => removeProductMutation.mutate(p.id)}
+                    aria-label={t('common.delete')}
                   >
                     <X className="h-3 w-3" />
                   </Button>
@@ -308,6 +309,7 @@ export default function CollectionsPage() {
                       });
                       setDialogOpen(true);
                     }}
+                    aria-label={t('common.edit')}
                   >
                     <Pencil className="h-3 w-3" />
                   </Button>
@@ -316,6 +318,7 @@ export default function CollectionsPage() {
                     size="icon"
                     className="h-7 w-7 text-destructive"
                     onClick={() => deleteMutation.mutate(col.id)}
+                    aria-label={t('common.delete')}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>

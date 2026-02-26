@@ -1,7 +1,17 @@
-import { Download } from 'lucide-react';
+import {
+  Download,
+  BarChart3,
+  TrendingUp,
+  CreditCard,
+  CalendarDays,
+  Users,
+  Layers,
+  Building2,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
+import EmptyState from '../EmptyState';
 import RevenueChart from '../charts/RevenueChart';
 import TopProductsChart from '../charts/TopProductsChart';
 import PaymentPieChart from '../charts/PaymentPieChart';
@@ -71,15 +81,22 @@ export default function DashboardCharts({
               className="h-7 w-7"
               onClick={() => onExportCsv('revenue')}
               title={t('export.csv')}
+              aria-label={t('export.csv')}
             >
               <Download className="h-3.5 w-3.5 text-muted" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent aria-busy={revenueLoading}>
             {revenueLoading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton variant="chart" />
+            ) : !revenue || revenue.length === 0 ? (
+              <EmptyState
+                icon={TrendingUp}
+                title={t('charts.noData')}
+                description={t('charts.noDataDesc')}
+              />
             ) : (
-              <RevenueChart data={revenue || []} />
+              <RevenueChart data={revenue} />
             )}
           </CardContent>
         </Card>
@@ -93,15 +110,22 @@ export default function DashboardCharts({
               className="h-7 w-7"
               onClick={() => onExportCsv('top-products')}
               title={t('export.csv')}
+              aria-label={t('export.csv')}
             >
               <Download className="h-3.5 w-3.5 text-muted" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent aria-busy={topLoading}>
             {topLoading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton variant="chart" />
+            ) : !topProducts || topProducts.length === 0 ? (
+              <EmptyState
+                icon={BarChart3}
+                title={t('charts.noData')}
+                description={t('charts.noDataDesc')}
+              />
             ) : (
-              <TopProductsChart data={topProducts || []} />
+              <TopProductsChart data={topProducts} />
             )}
           </CardContent>
         </Card>
@@ -115,15 +139,22 @@ export default function DashboardCharts({
               className="h-7 w-7"
               onClick={() => onExportCsv('payment-methods')}
               title={t('export.csv')}
+              aria-label={t('export.csv')}
             >
               <Download className="h-3.5 w-3.5 text-muted" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent aria-busy={paymentLoading}>
             {paymentLoading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton variant="chart" />
+            ) : !paymentMethods || paymentMethods.length === 0 ? (
+              <EmptyState
+                icon={CreditCard}
+                title={t('charts.noData')}
+                description={t('charts.noDataDesc')}
+              />
             ) : (
-              <PaymentPieChart data={paymentMethods || []} />
+              <PaymentPieChart data={paymentMethods} />
             )}
           </CardContent>
         </Card>
@@ -137,15 +168,22 @@ export default function DashboardCharts({
               className="h-7 w-7"
               onClick={() => onExportCsv('orders-per-day')}
               title={t('export.csv')}
+              aria-label={t('export.csv')}
             >
               <Download className="h-3.5 w-3.5 text-muted" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent aria-busy={ordersLoading}>
             {ordersLoading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton variant="chart" />
+            ) : !ordersPerDay || ordersPerDay.length === 0 ? (
+              <EmptyState
+                icon={CalendarDays}
+                title={t('charts.noData')}
+                description={t('charts.noDataDesc')}
+              />
             ) : (
-              <OrdersAreaChart data={ordersPerDay || []} />
+              <OrdersAreaChart data={ordersPerDay} />
             )}
           </CardContent>
         </Card>
@@ -162,15 +200,22 @@ export default function DashboardCharts({
               className="h-7 w-7"
               onClick={() => onExportCsv('cashier-performance')}
               title={t('export.csv')}
+              aria-label={t('export.csv')}
             >
               <Download className="h-3.5 w-3.5 text-muted" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent aria-busy={cashierLoading}>
             {cashierLoading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton variant="chart" />
+            ) : !cashierPerformance || cashierPerformance.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title={t('charts.noData')}
+                description={t('charts.noDataDesc')}
+              />
             ) : (
-              <CashierPerformanceChart data={cashierPerformance || []} />
+              <CashierPerformanceChart data={cashierPerformance} />
             )}
           </CardContent>
         </Card>
@@ -184,13 +229,14 @@ export default function DashboardCharts({
               className="h-7 w-7"
               onClick={() => onExportCsv('cashier-performance')}
               title={t('export.csv')}
+              aria-label={t('export.csv')}
             >
               <Download className="h-3.5 w-3.5 text-muted" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent aria-busy={cashierLoading}>
             {cashierLoading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton variant="chart" />
             ) : (
               <div className="overflow-auto">
                 <table className="w-full text-sm">
@@ -219,7 +265,12 @@ export default function DashboardCharts({
                     ))}
                     {(!cashierPerformance || cashierPerformance.length === 0) && (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-muted">
+                        <td
+                          colSpan={5}
+                          className="py-8 text-center text-muted"
+                          role="status"
+                          aria-live="polite"
+                        >
                           {t('common.noResults')}
                         </td>
                       </tr>
@@ -243,15 +294,22 @@ export default function DashboardCharts({
               className="h-7 w-7"
               onClick={() => onExportCsv('sales-by-category')}
               title={t('export.csv')}
+              aria-label={t('export.csv')}
             >
               <Download className="h-3.5 w-3.5 text-muted" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent aria-busy={categoryLoading}>
             {categoryLoading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton variant="chart" />
+            ) : !categorySales || categorySales.length === 0 ? (
+              <EmptyState
+                icon={Layers}
+                title={t('charts.noData')}
+                description={t('charts.noDataDesc')}
+              />
             ) : (
-              <CategorySalesChart data={categorySales || []} />
+              <CategorySalesChart data={categorySales} />
             )}
           </CardContent>
         </Card>
@@ -265,15 +323,22 @@ export default function DashboardCharts({
               className="h-7 w-7"
               onClick={() => onExportCsv('sales-by-distributor')}
               title={t('export.csv')}
+              aria-label={t('export.csv')}
             >
               <Download className="h-3.5 w-3.5 text-muted" />
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent aria-busy={distributorLoading}>
             {distributorLoading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton variant="chart" />
+            ) : !distributorSales || distributorSales.length === 0 ? (
+              <EmptyState
+                icon={Building2}
+                title={t('charts.noData')}
+                description={t('charts.noDataDesc')}
+              />
             ) : (
-              <DistributorSalesChart data={distributorSales || []} />
+              <DistributorSalesChart data={distributorSales} />
             )}
           </CardContent>
         </Card>

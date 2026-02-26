@@ -1294,5 +1294,15 @@
   "aiInsights.question": "السؤال",
   "aiInsights.answer": "الإجابة",
   "aiInsights.keywords": "الكلمات المفتاحية",
-  "aiInsights.kbAdded": "تم إضافة المدخل المعرفي"
+  "aiInsights.kbAdded": "تم إضافة المدخل المعرفي",
+
+  "nav.mobileNav": "تنقل الجوال",
+  "nav.mainNav": "التنقل الرئيسي",
+  "nav.more": "المزيد",
+  "nav.moreDesc": "جميع عناصر التنقل",
+  "nav.moreNav": "تنقل إضافي",
+  "common.noResultsDesc": "حاول تعديل البحث أو الفلاتر",
+  "charts.noData": "لا تتوفر بيانات",
+  "charts.noDataDesc": "ستظهر البيانات بمجرد وجود معاملات",
+  "error.goHome": "الذهاب إلى لوحة التحكم"
 }

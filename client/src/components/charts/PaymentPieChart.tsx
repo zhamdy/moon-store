@@ -72,6 +72,8 @@ export default function PaymentPieChart({ data }: PaymentPieChartProps) {
             nameKey="payment_method"
             label={({ percent }: PieLabelProps) => `${(percent * 100).toFixed(0)}%`}
             labelLine={false}
+            animationDuration={800}
+            animationBegin={200}
           >
             {data?.map((_: PaymentDataPoint, index: number) => (
               <Cell key={index} fill={COLORS[index % COLORS.length]} />

@@ -17,6 +17,7 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Skeleton } from './ui/skeleton';
+import EmptyState from './EmptyState';
 import { useTranslation } from '../i18n';
 
 interface DataTableProps<TData> {
@@ -70,8 +71,8 @@ export default function DataTable<TData>({
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        {enableSearch && <Skeleton className="h-10 w-72" />}
+      <div className="space-y-3" aria-busy="true">
+        {enableSearch && <Skeleton className="h-10 w-full sm:w-72" />}
         <Skeleton className="h-10 w-full" />
         {[...Array(5)].map((_, i) => (
           <Skeleton key={i} className="h-12 w-full" />
@@ -83,88 +84,110 @@ export default function DataTable<TData>({
   return (
     <div className="space-y-4">
       {enableSearch && (
-        <div className="relative w-72">
+        <div className="relative w-full sm:w-72">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
           <Input
             placeholder={searchPlaceholder || t('common.search')}
             value={globalFilter}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGlobalFilter(e.target.value)}
             className="ps-9"
+            aria-label={searchPlaceholder || t('common.search')}
           />
         </div>
       )}
 
-      <div className="rounded-md border border-border overflow-hidden shadow-sm">
-        <table className="w-full text-sm font-data">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr
-                key={headerGroup.id}
-                className="bg-table-header border-b border-border sticky top-0 z-10"
-              >
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="px-4 py-3 text-start font-semibold text-muted tracking-widest uppercase text-[11px]"
-                  >
-                    {header.isPlaceholder ? null : (
-                      <div
-                        className={`flex items-center gap-2 ${
-                          header.column.getCanSort() ? 'cursor-pointer select-none' : ''
-                        }`}
-                        onClick={header.column.getToggleSortingHandler()}
+      <div className="rounded-md border border-border overflow-hidden shadow-sm relative">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px] text-sm font-data">
+            <thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr
+                  key={headerGroup.id}
+                  className="bg-table-header border-b border-border sticky top-0 z-10"
+                >
+                  {headerGroup.headers.map((header) => {
+                    const sorted = header.column.getIsSorted();
+                    return (
+                      <th
+                        key={header.id}
+                        className="px-4 py-3 text-start font-semibold text-muted tracking-widest uppercase text-[11px]"
+                        aria-sort={
+                          header.column.getCanSort()
+                            ? sorted === 'asc'
+                              ? 'ascending'
+                              : sorted === 'desc'
+                                ? 'descending'
+                                : 'none'
+                            : undefined
+                        }
                       >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() && (
-                          <span className="text-gold">
-                            {header.column.getIsSorted() === 'asc' ? (
-                              <ArrowUp className="h-3.5 w-3.5" />
-                            ) : header.column.getIsSorted() === 'desc' ? (
-                              <ArrowDown className="h-3.5 w-3.5" />
-                            ) : (
-                              <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
-                            )}
-                          </span>
+                        {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 cursor-pointer select-none"
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            <span className="text-gold">
+                              {sorted === 'asc' ? (
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              ) : sorted === 'desc' ? (
+                                <ArrowDown className="h-3.5 w-3.5" />
+                              ) : (
+                                <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                              )}
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </div>
                         )}
-                      </div>
-                    )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody ref={animateParent}>
-            {table.getRowModel().rows.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} className="px-4 py-12 text-center text-muted">
-                  {t('common.noResults')}
-                </td>
-              </tr>
-            ) : (
-              table.getRowModel().rows.map((row) => {
-                const subContent = renderSubComponent ? renderSubComponent(row.original) : null;
-                return (
-                  <Fragment key={row.id}>
-                    <tr className="group border-b border-border hover:bg-surface/50 transition-colors">
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-4 py-3.5 text-foreground">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      ))}
-                    </tr>
-                    {subContent && (
-                      <tr className="bg-surface/30">
-                        <td colSpan={columns.length} className="px-6 py-3">
-                          {subContent}
-                        </td>
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody ref={animateParent}>
+              {table.getRowModel().rows.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} role="status" aria-live="polite">
+                    <EmptyState
+                      icon={Search}
+                      title={t('common.noResults')}
+                      description={t('common.noResultsDesc')}
+                    />
+                  </td>
+                </tr>
+              ) : (
+                table.getRowModel().rows.map((row) => {
+                  const subContent = renderSubComponent ? renderSubComponent(row.original) : null;
+                  return (
+                    <Fragment key={row.id}>
+                      <tr className="group border-b border-border hover:bg-surface/50 transition-colors">
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-4 py-3.5 text-foreground">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
                       </tr>
-                    )}
-                  </Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      {subContent && (
+                        <tr className="bg-surface/30">
+                          <td colSpan={columns.length} className="px-6 py-3">
+                            {subContent}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        {/* Fade gradient for horizontal scroll on mobile */}
+        <div className="pointer-events-none absolute inset-y-0 end-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
       </div>
 
       {/* Pagination */}

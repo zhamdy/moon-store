@@ -148,6 +148,7 @@ export default function CategoriesPage() {
             size="icon"
             className="h-8 w-8"
             onClick={() => openEditDialog(row.original)}
+            aria-label={t('common.edit')}
           >
             <Pencil className="h-3.5 w-3.5 text-gold" />
           </Button>
@@ -156,6 +157,7 @@ export default function CategoriesPage() {
             size="icon"
             className="h-8 w-8"
             onClick={() => setDeleteId(row.original.id)}
+            aria-label={t('common.delete')}
           >
             <Trash2 className="h-3.5 w-3.5 text-destructive" />
           </Button>

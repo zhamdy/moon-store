@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -35,12 +36,14 @@ import {
   Store,
   Zap,
   Brain,
+  MoreHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n';
 import api from '../services/api';
 import moonLogo from '../assets/moon-logo.svg';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from './ui/sheet';
 
 interface NavItem {
   to: string;
@@ -94,8 +97,11 @@ export default function Sidebar(): React.JSX.Element {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const filteredNav = navItems.filter((item) => item.roles.includes(user?.role ?? ''));
+  const mobileMainItems = filteredNav.slice(0, 4);
+  const mobileMoreItems = filteredNav.slice(4);
 
   const handleLogout = async (): Promise<void> => {
     try {
@@ -117,7 +123,7 @@ export default function Sidebar(): React.JSX.Element {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto" aria-label={t('nav.mainNav')}>
           {filteredNav.map((item) => (
             <NavLink
               key={item.to}
@@ -150,8 +156,11 @@ export default function Sidebar(): React.JSX.Element {
       </aside>
 
       {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 flex items-center justify-around py-2 px-1">
-        {filteredNav.slice(0, 5).map((item) => (
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 flex items-center justify-around py-2 px-1"
+        aria-label={t('nav.mobileNav')}
+      >
+        {mobileMainItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -166,7 +175,47 @@ export default function Sidebar(): React.JSX.Element {
             <span>{t(item.labelKey).split(' ')[0]}</span>
           </NavLink>
         ))}
+        {mobileMoreItems.length > 0 && (
+          <button
+            onClick={() => setMoreOpen(true)}
+            className="flex flex-col items-center gap-1 px-2 py-1 text-[10px] text-muted transition-colors"
+            aria-label={t('nav.more')}
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            <span>{t('nav.more')}</span>
+          </button>
+        )}
       </nav>
+
+      {/* Mobile "More" bottom sheet */}
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto pb-24">
+          <SheetHeader>
+            <SheetTitle>{t('nav.more')}</SheetTitle>
+            <SheetDescription>{t('nav.moreDesc')}</SheetDescription>
+          </SheetHeader>
+          <nav className="grid grid-cols-4 gap-3 mt-4" aria-label={t('nav.moreNav')}>
+            {mobileMoreItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                onClick={() => setMoreOpen(false)}
+                className={({ isActive }) =>
+                  `flex flex-col items-center gap-1.5 rounded-lg p-3 text-center transition-colors ${
+                    isActive
+                      ? 'text-gold bg-gold/5'
+                      : 'text-muted hover:text-foreground hover:bg-surface'
+                  }`
+                }
+              >
+                <item.icon className="h-5 w-5" />
+                <span className="text-[10px] leading-tight">{t(item.labelKey)}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

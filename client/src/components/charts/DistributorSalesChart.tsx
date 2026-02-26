@@ -85,6 +85,8 @@ export default function DistributorSalesChart({ data }: DistributorSalesChartPro
             fill="#8B7355"
             radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
             barSize={20}
+            animationDuration={800}
+            animationBegin={200}
           />
         </BarChart>
       </ResponsiveContainer>

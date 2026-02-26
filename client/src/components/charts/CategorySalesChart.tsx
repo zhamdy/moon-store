@@ -73,6 +73,8 @@ export default function CategorySalesChart({ data }: CategorySalesChartProps) {
               return `${pct.toFixed(0)}%`;
             }}
             labelLine={false}
+            animationDuration={800}
+            animationBegin={200}
           >
             {data.map((_entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
