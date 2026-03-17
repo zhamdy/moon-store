@@ -43,6 +43,7 @@ const ReportBuilderPage = lazy(() => import('./pages/ReportBuilder'));
 const VendorsPage = lazy(() => import('./pages/Vendors'));
 const SmartPricingPage = lazy(() => import('./pages/SmartPricing'));
 const AiInsightsPage = lazy(() => import('./pages/AiInsights'));
+const AdvancedAnalyticsPage = lazy(() => import('./pages/AdvancedAnalytics'));
 
 type UserRole = 'Admin' | 'Cashier' | 'Delivery';
 
@@ -85,6 +86,7 @@ const routes: RouteConfig[] = [
   { path: '/vendors', component: VendorsPage, roles: ['Admin'] },
   { path: '/smart-pricing', component: SmartPricingPage, roles: ['Admin'] },
   { path: '/ai-insights', component: AiInsightsPage, roles: ['Admin'] },
+  { path: '/analytics', component: AdvancedAnalyticsPage, roles: ['Admin'] },
 ];
 
 const LazyFallback = <div className="p-8 text-center text-muted">Loading...</div>;

@@ -28,12 +28,12 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https?:\/\/localhost:3001\/api\/products/,
+            urlPattern: /\/api\/v1\/products/,
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'products-cache', expiration: { maxEntries: 200, maxAgeSeconds: 86400 } }
           },
           {
-            urlPattern: /^https?:\/\/localhost:3001\/api\/sales/,
+            urlPattern: /\/api\/v1\/sales/,
             handler: 'NetworkFirst',
             options: { cacheName: 'sales-cache', expiration: { maxEntries: 50, maxAgeSeconds: 3600 } }
           }

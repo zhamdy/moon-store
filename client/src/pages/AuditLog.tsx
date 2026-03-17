@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Barcode,
   Activity,
+  X,
 } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
@@ -305,6 +306,29 @@ export default function AuditLog() {
             className="w-48"
           />
         </div>
+
+        {(actionFilter !== 'all' ||
+          entityFilter !== 'all' ||
+          userFilter !== 'all' ||
+          dateFrom ||
+          dateTo ||
+          search) && (
+          <button
+            onClick={() => {
+              setActionFilter('all');
+              setEntityFilter('all');
+              setUserFilter('all');
+              setDateFrom('');
+              setDateTo('');
+              setSearch('');
+              setPage(1);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm text-muted hover:text-foreground border border-border hover:border-gold/50 transition-colors self-end"
+          >
+            <X className="h-3.5 w-3.5" />
+            {t('common.clearFilters')}
+          </button>
+        )}
       </div>
 
       {/* Log entries */}
@@ -354,20 +378,29 @@ export default function AuditLog() {
                     ))}
                 </button>
                 {isExpanded && hasDetails && (
-                  <div className="px-4 pb-3 border-t border-border/50">
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                  <div className="px-4 pb-4 border-t border-border/50">
+                    <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 mt-3">
                       {details.map((d) => (
-                        <span key={d.key} className="text-xs text-muted">
-                          <span className="text-muted/70">{d.label}:</span>{' '}
-                          <span className="font-data text-foreground">{d.value}</span>
-                        </span>
+                        <>
+                          <span key={`${d.key}-label`} className="text-sm text-muted">
+                            {d.label}
+                          </span>
+                          <span
+                            key={`${d.key}-value`}
+                            className="text-sm font-data text-foreground font-medium"
+                          >
+                            {d.value}
+                          </span>
+                        </>
                       ))}
                     </div>
                     {entry.ip_address && (
-                      <p className="text-xs text-muted mt-1.5">
-                        {t('audit.ipAddress')}:{' '}
-                        <span className="font-data">{entry.ip_address}</span>
-                      </p>
+                      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border/30">
+                        <span className="text-sm text-muted">{t('audit.ipAddress')}</span>
+                        <span className="text-sm font-data text-foreground">
+                          {entry.ip_address}
+                        </span>
+                      </div>
                     )}
                   </div>
                 )}

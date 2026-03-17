@@ -33,6 +33,7 @@ import {
   Store,
   Zap,
   Brain,
+  TrendingUp,
   MoreHorizontal,
   type LucideIcon,
 } from 'lucide-react';
@@ -113,6 +114,7 @@ const navSections: NavSection[] = [
       { to: '/vendors', icon: Store, labelKey: 'nav.vendors', roles: ['Admin'] },
       { to: '/smart-pricing', icon: Zap, labelKey: 'nav.smartPricing', roles: ['Admin'] },
       { to: '/ai-insights', icon: Brain, labelKey: 'nav.aiInsights', roles: ['Admin'] },
+      { to: '/analytics', icon: TrendingUp, labelKey: 'nav.advancedAnalytics', roles: ['Admin'] },
       { to: '/audit-log', icon: ScrollText, labelKey: 'nav.auditLog', roles: ['Admin'] },
       { to: '/settings', icon: Settings, labelKey: 'nav.settings', roles: ['Admin'] },
     ],

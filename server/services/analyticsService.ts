@@ -430,6 +430,151 @@ export function createInventorySnapshot(): Record<string, unknown> {
   return snapshot;
 }
 
+// --- Dead Stock ---
+
+interface DeadStockProduct {
+  id: number;
+  name: string;
+  sku: string;
+  category: string;
+  stock: number;
+  price: number;
+  cost_price: number;
+  tied_up_capital: number;
+  last_sold_date: string | null;
+  days_inactive: number;
+}
+
+interface DeadStockResult {
+  products: DeadStockProduct[];
+  summary: {
+    total_products: number;
+    total_tied_up_capital: number;
+  };
+}
+
+export async function getDeadStock(days: number = 90): Promise<DeadStockResult> {
+  const result = await db.query<DeadStockProduct>(
+    `SELECT p.id, p.name, p.sku,
+            COALESCE(c.name, p.category, 'Uncategorized') as category,
+            p.stock, p.price, COALESCE(p.cost_price, 0) as cost_price,
+            (p.stock * COALESCE(p.cost_price, 0)) as tied_up_capital,
+            MAX(s.created_at) as last_sold_date,
+            CAST(JULIANDAY('now') - JULIANDAY(COALESCE(MAX(s.created_at), p.created_at)) AS INTEGER) as days_inactive
+     FROM products p
+     LEFT JOIN categories c ON p.category_id = c.id
+     LEFT JOIN sale_items si ON si.product_id = p.id
+     LEFT JOIN sales s ON si.sale_id = s.id
+     WHERE p.status = 'active' AND p.stock > 0
+     GROUP BY p.id
+     HAVING days_inactive >= ?
+     ORDER BY tied_up_capital DESC`,
+    [days]
+  );
+
+  const products = result.rows;
+  const totalTiedUp = products.reduce((sum, p) => sum + p.tied_up_capital, 0);
+
+  return {
+    products,
+    summary: {
+      total_products: products.length,
+      total_tied_up_capital: Math.round(totalTiedUp * 100) / 100,
+    },
+  };
+}
+
+// --- Customer Lifetime Value ---
+
+interface CustomerLtvRow {
+  id: number;
+  name: string;
+  phone: string;
+  order_count: number;
+  lifetime_revenue: number;
+  avg_order_value: number;
+  first_purchase: string;
+  last_purchase: string;
+  tenure_days: number;
+  recency_days: number;
+}
+
+interface CustomerLtvResult {
+  customers: CustomerLtvRow[];
+  summary: {
+    total_customers: number;
+    avg_ltv: number;
+    top10_revenue_share: number;
+  };
+}
+
+export async function getCustomerLtv(from?: unknown, to?: unknown): Promise<CustomerLtvResult> {
+  let dateFilter = '';
+  const params: unknown[] = [];
+
+  if (from && to) {
+    dateFilter = 'AND s.created_at >= ? AND s.created_at <= ?';
+    params.push(from, to + ' 23:59:59');
+  }
+
+  const result = await db.query<CustomerLtvRow>(
+    `SELECT c.id, c.name, COALESCE(c.phone, '') as phone,
+            COUNT(DISTINCT s.id) as order_count,
+            COALESCE(SUM(s.total - COALESCE(s.refunded_amount, 0)), 0) as lifetime_revenue,
+            ROUND(COALESCE(AVG(s.total), 0), 2) as avg_order_value,
+            MIN(s.created_at) as first_purchase,
+            MAX(s.created_at) as last_purchase,
+            CAST(JULIANDAY('now') - JULIANDAY(MIN(s.created_at)) AS INTEGER) as tenure_days,
+            CAST(JULIANDAY('now') - JULIANDAY(MAX(s.created_at)) AS INTEGER) as recency_days
+     FROM customers c
+     INNER JOIN sales s ON c.id = s.customer_id
+     WHERE 1=1 ${dateFilter}
+     GROUP BY c.id
+     ORDER BY lifetime_revenue DESC`,
+    params
+  );
+
+  const customers = result.rows;
+  const totalRevenue = customers.reduce((sum, c) => sum + c.lifetime_revenue, 0);
+  const top10Revenue = customers.slice(0, 10).reduce((sum, c) => sum + c.lifetime_revenue, 0);
+
+  return {
+    customers,
+    summary: {
+      total_customers: customers.length,
+      avg_ltv: customers.length > 0 ? Math.round((totalRevenue / customers.length) * 100) / 100 : 0,
+      top10_revenue_share:
+        totalRevenue > 0 ? Math.round((top10Revenue / totalRevenue) * 10000) / 100 : 0,
+    },
+  };
+}
+
+// --- Hourly Heatmap ---
+
+interface HourlyHeatmapRow {
+  day_of_week: number;
+  hour: number;
+  order_count: number;
+  revenue: number;
+}
+
+export async function getHourlyHeatmap(days: number = 30): Promise<HourlyHeatmapRow[]> {
+  const result = await db.query<HourlyHeatmapRow>(
+    `SELECT
+       CAST(STRFTIME('%w', created_at) AS INTEGER) as day_of_week,
+       CAST(STRFTIME('%H', created_at) AS INTEGER) as hour,
+       COUNT(*) as order_count,
+       COALESCE(SUM(total), 0) as revenue
+     FROM sales
+     WHERE created_at >= date('now', '-' || ? || ' days')
+     GROUP BY day_of_week, hour
+     ORDER BY day_of_week, hour`,
+    [days]
+  );
+
+  return result.rows;
+}
+
 export async function getInventorySnapshots(): Promise<Omit<InventorySnapshot, 'snapshot_data'>[]> {
   const result = await db.query<Omit<InventorySnapshot, 'snapshot_data'>>(
     `SELECT id, total_products, total_units, total_cost_value, total_retail_value, created_at

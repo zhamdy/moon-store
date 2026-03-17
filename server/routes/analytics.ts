@@ -13,6 +13,9 @@ import {
   getReorderSuggestions,
   createInventorySnapshot,
   getInventorySnapshots,
+  getDeadStock,
+  getCustomerLtv,
+  getHourlyHeatmap,
 } from '../services/analyticsService';
 
 const router: Router = Router();
@@ -183,6 +186,54 @@ router.get(
     try {
       const { from, to } = req.query;
       const data = await getSalesByDistributor(from, to);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/analytics/dead-stock — Products with no sales in X days
+router.get(
+  '/dead-stock',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const days = parseInt(req.query.days as string, 10) || 90;
+      const data = await getDeadStock(days);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/analytics/customer-ltv — Customer lifetime value
+router.get(
+  '/customer-ltv',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { from, to } = req.query;
+      const data = await getCustomerLtv(from, to);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// GET /api/analytics/hourly-heatmap — Sales by day-of-week and hour
+router.get(
+  '/hourly-heatmap',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const days = parseInt(req.query.days as string, 10) || 30;
+      const data = await getHourlyHeatmap(days);
       res.json({ success: true, data });
     } catch (err) {
       next(err);
