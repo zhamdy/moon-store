@@ -48,6 +48,12 @@ app.use(
     ) {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
+      } else if (
+        origin.endsWith('.vercel.app') &&
+        allowedOrigins.some((o) => o.endsWith('.vercel.app'))
+      ) {
+        // Allow all Vercel preview/branch URLs when any Vercel domain is whitelisted
+        callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));
       }
