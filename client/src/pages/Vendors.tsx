@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Pencil, DollarSign, CheckCircle, Ban } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { formatCurrency } from '../lib/utils';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -15,9 +13,7 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
-import api from '../services/api';
+import { resource } from '../lib/resource';
 
 interface Vendor {
   id: number;
@@ -33,6 +29,16 @@ interface Vendor {
   created_at: string;
 }
 
+/** GET vendors/dashboard/stats */
+interface VendorStats {
+  active_vendors: number;
+  pending_vendors: number;
+  total_unpaid: number;
+  pending_commissions: number;
+}
+
+const vendorsResource = resource<Vendor>('vendors');
+
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/20 text-yellow-600',
   active: 'bg-green-500/20 text-green-600',
@@ -42,7 +48,6 @@ const statusColors: Record<string, string> = {
 
 export default function VendorsPage() {
   const { t } = useTranslation();
-  const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
@@ -68,48 +73,25 @@ export default function VendorsPage() {
     notes: '',
   });
 
-  const { data: vendors } = useQuery<Vendor[]>({
-    queryKey: ['vendors', statusFilter],
-    queryFn: () =>
-      api
-        .get('/api/v1/vendors', { params: { status: statusFilter || undefined } })
-        .then((r) => r.data.data),
-  });
-  const { data: stats } = useQuery<Record<string, unknown>>({
-    queryKey: ['vendor-stats'],
-    queryFn: () => api.get('/api/v1/vendors/dashboard/stats').then((r) => r.data.data),
-  });
+  const { data: vendors } = vendorsResource.useList({ status: statusFilter || undefined });
+  const { data: stats } = vendorsResource.useRead<VendorStats>('dashboard/stats');
 
-  const saveVendor = useMutation({
-    mutationFn: (data: typeof form) =>
-      editingId ? api.put(`/api/v1/vendors/${editingId}`, data) : api.post('/api/v1/vendors', data),
-    onSuccess: () => {
-      toast.success(t('vendors.saved'));
-      qc.invalidateQueries({ queryKey: ['vendors'] });
+  const saveVendor = vendorsResource.useSave({
+    message: t('vendors.saved'),
+    onDone: () => {
       setDialogOpen(false);
       setEditingId(null);
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
   });
 
-  const updateStatus = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) =>
-      api.put(`/api/v1/vendors/${id}/status`, { status }),
-    onSuccess: () => {
-      toast.success(t('vendors.statusUpdated'));
-      qc.invalidateQueries({ queryKey: ['vendors'] });
-    },
+  const updateStatus = vendorsResource.useAction('status', {
+    method: 'PUT',
+    message: t('vendors.statusUpdated'),
   });
 
-  const createPayout = useMutation({
-    mutationFn: (data: typeof payoutForm) =>
-      api.post(`/api/v1/vendors/${selectedVendor?.id}/payouts`, data),
-    onSuccess: () => {
-      toast.success(t('vendors.payoutCreated'));
-      qc.invalidateQueries({ queryKey: ['vendors'] });
-      setPayoutOpen(false);
-    },
+  const createPayout = vendorsResource.useAction('payouts', {
+    message: t('vendors.payoutCreated'),
+    onDone: () => setPayoutOpen(false),
   });
 
   const openEdit = (v: Vendor) => {
@@ -246,7 +228,7 @@ export default function VendorsPage() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-green-500"
-                          onClick={() => updateStatus.mutate({ id: v.id, status: 'active' })}
+                          onClick={() => updateStatus.run({ id: v.id, body: { status: 'active' } })}
                           aria-label={t('common.confirm')}
                         >
                           <CheckCircle className="h-3.5 w-3.5" />
@@ -271,7 +253,9 @@ export default function VendorsPage() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-red-500"
-                          onClick={() => updateStatus.mutate({ id: v.id, status: 'suspended' })}
+                          onClick={() =>
+                            updateStatus.run({ id: v.id, body: { status: 'suspended' } })
+                          }
                           aria-label={t('common.delete')}
                         >
                           <Ban className="h-3.5 w-3.5" />
@@ -298,7 +282,7 @@ export default function VendorsPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              saveVendor.mutate(form);
+              saveVendor.save({ id: editingId, ...form });
             }}
             className="space-y-3"
           >
@@ -378,8 +362,8 @@ export default function VendorsPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={saveVendor.isPending}>
-              {saveVendor.isPending ? t('common.saving') : t('common.save')}
+            <Button type="submit" className="w-full" disabled={saveVendor.isSaving}>
+              {saveVendor.isSaving ? t('common.saving') : t('common.save')}
             </Button>
           </form>
         </DialogContent>
@@ -397,7 +381,7 @@ export default function VendorsPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              createPayout.mutate(payoutForm);
+              createPayout.run({ id: selectedVendor!.id, body: payoutForm });
             }}
             className="space-y-3"
           >
@@ -431,8 +415,8 @@ export default function VendorsPage() {
                 onChange={(e) => setPayoutForm({ ...payoutForm, notes: e.target.value })}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={createPayout.isPending}>
-              {createPayout.isPending ? t('common.saving') : t('vendors.processPayout')}
+            <Button type="submit" className="w-full" disabled={createPayout.isRunning}>
+              {createPayout.isRunning ? t('common.saving') : t('vendors.processPayout')}
             </Button>
           </form>
         </DialogContent>

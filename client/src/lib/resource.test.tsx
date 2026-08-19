@@ -137,6 +137,50 @@ describe('resource', () => {
     await waitFor(() => expect(transport.peek('vendors')[0]).toMatchObject({ status: 'active' }));
   });
 
+  it('runs a sub-action with the method that action requires', async () => {
+    const transport = createMemoryTransport({
+      vendors: [{ id: 7, name: 'Acme', status: 'pending' }],
+    });
+    const vendors = resource<{ id: number; status: string }>('vendors');
+
+    const { result } = renderHook(() => vendors.useAction('status', { method: 'PUT' }), {
+      wrapper: wrapperFor(transport),
+    });
+
+    result.current.run({ id: 7, body: { status: 'active' } });
+
+    await waitFor(() => expect(transport.peek('vendors')[0]).toMatchObject({ status: 'active' }));
+    expect(transport.calls()).toContainEqual(
+      expect.objectContaining({ method: 'PUT', path: 'vendors/7/status' })
+    );
+  });
+
+  it('creates a payout against one vendor', async () => {
+    const transport = createMemoryTransport({
+      vendors: [{ id: 7, name: 'Acme', status: 'active', balance: 5000 }],
+    });
+    const vendors = resource<{ id: number; balance: number }>('vendors');
+
+    const { result } = renderHook(() => vendors.useAction('payouts'), {
+      wrapper: wrapperFor(transport),
+    });
+
+    result.current.run({
+      id: 7,
+      body: { amount: 1200, method: 'bank_transfer', reference: 'TRX-1' },
+    });
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'POST',
+          path: 'vendors/7/payouts',
+          body: { amount: 1200, method: 'bank_transfer', reference: 'TRX-1' },
+        })
+      )
+    );
+  });
+
   it('reads a named sub-path of the collection', async () => {
     const transport = createMemoryTransport(
       { expenses: [RENT] },

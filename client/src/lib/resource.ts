@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { t } from '../i18n';
-import { useTransport, type TransportRequest } from './transport';
+import { useTransport, type TransportMethod, type TransportRequest } from './transport';
 
 /** A record being saved. An `id` means update; its absence means create. */
 export type Draft = Record<string, unknown> & { id?: number | null };
@@ -13,6 +13,11 @@ export interface WriteOptions {
   message?: string;
   /** Toasted on failure when the server offers no message of its own. */
   fallbackMessage?: string;
+}
+
+export interface ActionOptions extends WriteOptions {
+  /** The verb this sub-action is served by. Defaults to POST. */
+  method?: TransportMethod;
 }
 
 /**
@@ -122,14 +127,17 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
     },
 
     /**
-     * A named sub-action on one record, e.g. `useAction('status')` posting to
-     * `vendors/7/status`. The record is named per call rather than bound here,
-     * so one hook serves every row in a list.
+     * A named sub-action on one record, e.g. `useAction('status', { method: 'PUT' })`
+     * for `vendors/7/status`. The record is named per call rather than bound
+     * here, so one hook serves every row in a list.
+     *
+     * The verb is part of the action: the same page can carry a PUT status
+     * change beside a POST payout, and the server decides which is which.
      */
-    useAction(action: string, options: WriteOptions = {}) {
+    useAction(action: string, { method = 'POST', ...options }: ActionOptions = {}) {
       const mutation = useWrite<{ id: number; body?: unknown }>(
         all,
-        ({ id, body }) => ({ method: 'POST', path: `${name}/${id}/${action}`, body }),
+        ({ id, body }) => ({ method, path: `${name}/${id}/${action}`, body }),
         options
       );
 
