@@ -50,6 +50,9 @@ Server routes:    verifyToken + requireRole('Admin') middleware
 DB queries:       db.query(sql, params) → { rows }  (pg-compat over SQLite)
 Transactions:     const rawDb = db.db; rawDb.transaction(...)()
 Pages:            React Query + react-hot-toast + shadcn Dialog/Sheet
+                  (migrating to resource() — see docs/CONVENTIONS.md)
+Client data:      resource<Row, Meta>('name') → useList/useOne/useRead/useSave/useRemove/useAction
+Transport seam:   client/src/lib/transport — http (axios) + memory (tests)
 i18n:             useTranslation() → { t, locale, isRtl }
 Stores:           Zustand with persist middleware
 Route ordering:   Specific routes BEFORE /:id params (Express matches first)

@@ -15,7 +15,7 @@ moon-store/
 │       ├── services/          # Axios API client with interceptors
 │       ├── hooks/             # useOffline, useScanner, usePosShortcuts, useDebouncedValue
 │       ├── i18n/              # AR/EN translations + useTranslation hook
-│       ├── lib/               # utils.ts, queryClient.ts
+│       ├── lib/               # utils.ts, queryClient.ts, resource.ts, transport/
 │       ├── App.tsx            # Router + route config
 │       ├── main.tsx           # Entry: providers + Toaster
 │       └── index.css          # Tailwind + CSS variables (light/dark)

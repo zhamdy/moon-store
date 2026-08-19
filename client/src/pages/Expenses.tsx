@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Receipt, Plus, Pencil, Trash2, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -16,9 +14,7 @@ import {
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
-import api from '../services/api';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
+import { resource } from '../lib/resource';
 
 interface Expense {
   id: number;
@@ -43,9 +39,10 @@ interface PnLData {
 const categories = ['rent', 'salaries', 'utilities', 'marketing', 'supplies', 'other'] as const;
 const recurrences = ['one_time', 'daily', 'weekly', 'monthly', 'yearly'] as const;
 
+const expenses = resource<Expense, { total: number; total_amount: number }>('expenses');
+
 export default function ExpensesPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState<'list' | 'pnl'>('list');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -57,44 +54,21 @@ export default function ExpensesPage() {
     recurring: 'one_time',
   });
 
-  const { data: expensesData } = useQuery<{
-    data: Expense[];
-    meta: { total: number; total_amount: number };
-  }>({
-    queryKey: ['expenses'],
-    queryFn: () =>
-      api.get('/api/v1/expenses?limit=100').then((r) => ({ data: r.data.data, meta: r.data.meta })),
-  });
+  const { data: rows, meta } = expenses.useList({ limit: 100 });
+  const { data: pnl } = expenses.useRead<PnLData>('pnl', undefined, tab === 'pnl');
 
-  const { data: pnl } = useQuery<PnLData>({
-    queryKey: ['expenses', 'pnl'],
-    queryFn: () => api.get('/api/v1/expenses/pnl').then((r) => r.data.data),
-    enabled: tab === 'pnl',
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => {
-      if (editingId) return api.put(`/api/v1/expenses/${editingId}`, data);
-      return api.post('/api/v1/expenses', data);
-    },
-    onSuccess: () => {
-      toast.success(editingId ? t('expenses.updated') : t('expenses.created'));
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+  const saver = expenses.useSave({
+    message: editingId ? t('expenses.updated') : t('expenses.created'),
+    fallbackMessage: t('expenses.saveFailed'),
+    onDone: () => {
       setDialogOpen(false);
       resetForm();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/expenses/${id}`),
-    onSuccess: () => {
-      toast.success(t('expenses.deleted'));
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
+  const remover = expenses.useRemove({
+    message: t('expenses.deleted'),
+    fallbackMessage: t('expenses.deleteFailed'),
   });
 
   const resetForm = () => {
@@ -168,7 +142,7 @@ export default function ExpensesPage() {
                   {t('expenses.totalExpenses')}
                 </span>
                 <p className="text-2xl font-data font-bold text-red-500">
-                  {formatCurrency(expensesData?.meta.total_amount || 0)}
+                  {formatCurrency(meta?.total_amount ?? 0)}
                 </p>
               </div>
               <Receipt className="h-8 w-8 text-gold/40" />
@@ -195,14 +169,14 @@ export default function ExpensesPage() {
                 </tr>
               </thead>
               <tbody>
-                {!expensesData?.data.length ? (
+                {!rows?.length ? (
                   <tr>
                     <td colSpan={6} className="text-center py-12 text-muted">
                       {t('common.noResults')}
                     </td>
                   </tr>
                 ) : (
-                  expensesData.data.map((exp) => (
+                  rows.map((exp) => (
                     <tr key={exp.id} className="border-b border-border hover:bg-surface/50">
                       <td className="p-3 font-data text-xs">{exp.date}</td>
                       <td className="p-3">
@@ -236,7 +210,7 @@ export default function ExpensesPage() {
                             className="h-7 w-7 text-destructive"
                             onClick={() => {
                               if (window.confirm(t('expenses.deleteConfirm')))
-                                deleteMutation.mutate(exp.id);
+                                remover.remove(exp.id);
                             }}
                             aria-label={t('common.delete')}
                           >
@@ -348,7 +322,8 @@ export default function ExpensesPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              saveMutation.mutate({
+              saver.save({
+                id: editingId,
                 category: form.category,
                 amount: Number(form.amount),
                 description: form.description || undefined,
@@ -416,8 +391,8 @@ export default function ExpensesPage() {
                 </select>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? t('common.loading') : t('common.save')}
+            <Button type="submit" className="w-full" disabled={saver.isSaving}>
+              {saver.isSaving ? t('common.loading') : t('common.save')}
             </Button>
           </form>
         </DialogContent>
