@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BarChart3, Plus, Play, Trash2, Clock, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../lib/utils';
@@ -15,7 +15,10 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
+import { resource } from '../lib/resource';
+import { useTransport } from '../lib/transport';
+
+type ReportRow = Record<string, unknown>;
 
 interface SavedReport {
   id: number;
@@ -39,12 +42,15 @@ const reportTypeColors: Record<string, string> = {
   custom: 'bg-gray-500/20 text-gray-600',
 };
 
+const reports = resource<SavedReport>('reports');
+
 export default function ReportBuilderPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const transport = useTransport();
   const [tab, setTab] = useState<'saved' | 'builder' | 'quick'>('saved');
   const [createOpen, setCreateOpen] = useState(false);
-  const [resultData, setResultData] = useState<Record<string, unknown>[] | null>(null);
+  const [resultData, setResultData] = useState<ReportRow[] | null>(null);
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -59,30 +65,20 @@ export default function ReportBuilderPage() {
     date_to: '',
   });
 
-  const { data: reports } = useQuery<SavedReport[]>({
-    queryKey: ['reports'],
-    queryFn: () => api.get('/api/v1/reports').then((r) => r.data.data),
+  const { data: savedReports } = reports.useList();
+
+  const createReport = reports.useSave({
+    message: t('reportBuilder.created'),
+    onDone: () => setCreateOpen(false),
   });
 
-  const createReport = useMutation({
-    mutationFn: (data: typeof form) => api.post('/api/v1/reports', data),
-    onSuccess: () => {
-      toast.success(t('reportBuilder.created'));
-      qc.invalidateQueries({ queryKey: ['reports'] });
-      setCreateOpen(false);
-    },
-  });
-
-  const deleteReport = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/reports/${id}`),
-    onSuccess: () => {
-      toast.success(t('reportBuilder.deleted'));
-      qc.invalidateQueries({ queryKey: ['reports'] });
-    },
-  });
+  const deleteReport = reports.useRemove({ message: t('reportBuilder.deleted') });
 
   const runReport = useMutation({
-    mutationFn: (id: number) => api.post(`/api/v1/reports/${id}/run`).then((r) => r.data.data),
+    mutationFn: (id: number) =>
+      transport
+        .request<ReportRow[]>({ method: 'POST', path: `reports/${id}/run` })
+        .then((r) => r.data),
     onSuccess: (data) => {
       setResultData(data);
       toast.success(t('reportBuilder.runSuccess'));
@@ -92,7 +88,9 @@ export default function ReportBuilderPage() {
 
   const runQuick = useMutation({
     mutationFn: (data: typeof quickForm) =>
-      api.post('/api/v1/reports/quick', data).then((r) => r.data.data),
+      transport
+        .request<ReportRow[]>({ method: 'POST', path: 'reports/quick', body: data })
+        .then((r) => r.data),
     onSuccess: (data) => {
       setResultData(data);
       toast.success(t('reportBuilder.runSuccess'));
@@ -133,13 +131,13 @@ export default function ReportBuilderPage() {
 
       {tab === 'saved' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {!reports?.length ? (
+          {!savedReports?.length ? (
             <div className="col-span-full text-center py-16">
               <BarChart3 className="h-12 w-12 text-gold/40 mx-auto mb-3" />
               <p className="text-muted">{t('reportBuilder.noReports')}</p>
             </div>
           ) : (
-            reports.map((r) => (
+            savedReports.map((r) => (
               <div
                 key={r.id}
                 className="p-4 rounded-md border border-border bg-card hover:border-gold/50 transition-colors"
@@ -159,7 +157,7 @@ export default function ReportBuilderPage() {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-destructive"
-                      onClick={() => deleteReport.mutate(r.id)}
+                      onClick={() => deleteReport.remove(r.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -257,7 +255,7 @@ export default function ReportBuilderPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              createReport.mutate(form);
+              createReport.save(form);
             }}
             className="space-y-3"
           >
@@ -304,8 +302,8 @@ export default function ReportBuilderPage() {
                 </select>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={createReport.isPending}>
-              {createReport.isPending ? t('common.saving') : t('common.save')}
+            <Button type="submit" className="w-full" disabled={createReport.isSaving}>
+              {createReport.isSaving ? t('common.saving') : t('common.save')}
             </Button>
           </form>
         </DialogContent>

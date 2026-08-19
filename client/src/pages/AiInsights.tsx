@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Brain, TrendingUp, RefreshCw, BookOpen, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../lib/utils';
@@ -15,36 +15,64 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
+
+/** GET ai/predictions — sales_predictions joined onto its product */
+interface SalesPrediction {
+  id: number;
+  product_id: number | null;
+  product_name: string | null;
+  sku: string | null;
+  category: string | null;
+  period: string;
+  predicted_units: number;
+  predicted_revenue: number;
+  confidence: number;
+}
+
+/** GET ai/knowledge-base */
+interface KnowledgeEntry {
+  id: number;
+  category: string;
+  question: string;
+  answer: string;
+  keywords: string | null;
+}
 
 export default function AiInsightsPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const transport = useTransport();
   const [tab, setTab] = useState<'predictions' | 'chatbot' | 'knowledge'>('predictions');
   const [kbOpen, setKbOpen] = useState(false);
   const [kbForm, setKbForm] = useState({ category: '', question: '', answer: '', keywords: '' });
 
-  const { data: predictions } = useQuery<Record<string, unknown>[]>({
-    queryKey: ['predictions'],
-    queryFn: () => api.get('/api/v1/ai/predictions').then((r) => r.data.data),
-    enabled: tab === 'predictions',
-  });
-  const { data: knowledgeBase } = useQuery<Record<string, unknown>[]>({
-    queryKey: ['knowledge-base'],
-    queryFn: () => api.get('/api/v1/ai/knowledge-base').then((r) => r.data.data),
-    enabled: tab === 'knowledge',
-  });
+  const { data: predictions } = useApiQuery<SalesPrediction[]>(
+    ['predictions'],
+    'ai/predictions',
+    undefined,
+    { enabled: tab === 'predictions' }
+  );
+  const { data: knowledgeBase } = useApiQuery<KnowledgeEntry[]>(
+    ['knowledge-base'],
+    'ai/knowledge-base',
+    undefined,
+    { enabled: tab === 'knowledge' }
+  );
 
   const generatePredictions = useMutation({
-    mutationFn: () => api.post('/api/v1/ai/predictions/generate'),
+    mutationFn: () =>
+      transport.request<SalesPrediction[]>({ method: 'POST', path: 'ai/predictions/generate' }),
     onSuccess: (res) => {
-      toast.success(`${res.data.data.length} ${t('aiInsights.predictionsGenerated')}`);
+      toast.success(`${res.data.length} ${t('aiInsights.predictionsGenerated')}`);
       qc.invalidateQueries({ queryKey: ['predictions'] });
     },
   });
 
   const addKbEntry = useMutation({
-    mutationFn: (data: typeof kbForm) => api.post('/api/v1/ai/knowledge-base', data),
+    mutationFn: (data: typeof kbForm) =>
+      transport.request({ method: 'POST', path: 'ai/knowledge-base', body: data }),
     onSuccess: () => {
       toast.success(t('aiInsights.kbAdded'));
       qc.invalidateQueries({ queryKey: ['knowledge-base'] });
@@ -124,7 +152,7 @@ export default function AiInsightsPage() {
                     </td>
                   </tr>
                 ) : (
-                  predictions.map((p: Record<string, unknown>) => (
+                  predictions.map((p) => (
                     <tr key={p.id} className="border-b border-border hover:bg-surface/50">
                       <td className="p-3">
                         <div className="font-medium">{p.product_name}</div>
@@ -156,7 +184,7 @@ export default function AiInsightsPage() {
             <Plus className="h-4 w-4" /> {t('aiInsights.addEntry')}
           </Button>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {knowledgeBase?.map((entry: Record<string, unknown>) => (
+            {knowledgeBase?.map((entry) => (
               <div key={entry.id} className="p-4 rounded-md border border-border bg-card">
                 <Badge variant="gold" className="text-[10px] mb-2">
                   {entry.category}

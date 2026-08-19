@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import api from '../services/api';
+import { useApiQuery } from '../lib/apiQuery';
 
 export interface KpiData {
   today_revenue: number;
@@ -64,12 +63,12 @@ interface DashboardAllData {
 }
 
 export function useDashboardData(dateParams: Record<string, string>) {
-  const query = useQuery<DashboardAllData>({
-    queryKey: ['dashboard-all', dateParams],
-    queryFn: () =>
-      api.get('/api/v1/analytics/dashboard-all', { params: dateParams }).then((r) => r.data.data),
-    staleTime: 10 * 60 * 1000,
-  });
+  const query = useApiQuery<DashboardAllData>(
+    ['dashboard-all', dateParams],
+    'analytics/dashboard-all',
+    dateParams,
+    { staleTime: 10 * 60 * 1000 }
+  );
 
   const d = query.data;
 

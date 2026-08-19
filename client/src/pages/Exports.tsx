@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
@@ -7,9 +7,8 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { useTranslation } from '../i18n';
 import { exportToExcel } from '../lib/exportUtils';
-import type { AxiosError } from 'axios';
-import api from '../services/api';
-import type { ApiErrorResponse } from '@/types';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
 
 interface ExportRecord {
   id: number;
@@ -20,32 +19,42 @@ interface ExportRecord {
   created_at: string;
 }
 
+/** POST exports/generate */
+interface ExportPayload {
+  module: string;
+  columns: string[];
+  rows: Record<string, unknown>[];
+}
+
 const MODULES = ['products', 'sales', 'customers', 'inventory', 'deliveries'] as const;
 
 export default function ExportsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const transport = useTransport();
   const [selectedModule, setSelectedModule] = useState<string>('products');
 
-  const { data: history } = useQuery<ExportRecord[]>({
-    queryKey: ['exports'],
-    queryFn: () => api.get('/api/v1/exports').then((r) => r.data.data),
-  });
+  const { data: history } = useApiQuery<ExportRecord[]>(['exports'], 'exports');
 
   const generateMutation = useMutation({
     mutationFn: () =>
-      api.post('/api/v1/exports/generate', { module: selectedModule, format: 'xlsx' }),
+      transport.request<ExportPayload>({
+        method: 'POST',
+        path: 'exports/generate',
+        body: { module: selectedModule, format: 'xlsx' },
+      }),
     onSuccess: (res) => {
-      const { columns, rows, module: mod } = res.data.data;
-      const exportData = rows as Record<string, unknown>[];
-      const cols = (columns as string[]).map((c) => ({ key: c, label: c }));
+      const { columns, rows, module: mod } = res.data;
+      const exportData = rows;
+      const cols = columns.map((c) => ({ key: c, label: c }));
       const filename = `moon-${mod}-${new Date().toISOString().slice(0, 10)}.xlsx`;
       exportToExcel(filename, exportData, cols);
       toast.success(t('exports.downloaded', { count: String(rows.length) }));
       queryClient.invalidateQueries({ queryKey: ['exports'] });
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Export failed'),
+    // ApiError carries the server's wording, and nothing when the failure was
+    // the transport's own — so the page keeps its own fallback.
+    onError: (err: Error) => toast.error(err.message || 'Export failed'),
   });
 
   const moduleLabels: Record<string, string> = {
