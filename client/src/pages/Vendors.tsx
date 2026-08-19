@@ -14,6 +14,7 @@ import {
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
 import { resource } from '../lib/resource';
+import { useEditorDialog } from '../lib/editorDialog';
 
 interface Vendor {
   id: number;
@@ -39,6 +40,31 @@ interface VendorStats {
 
 const vendorsResource = resource<Vendor>('vendors');
 
+const emptyVendor = {
+  name: '',
+  slug: '',
+  email: '',
+  phone: '',
+  description: '',
+  address: '',
+  city: '',
+  commission_rate: 15,
+  bank_name: '',
+  bank_account: '',
+  bank_iban: '',
+};
+
+// The list endpoint carries no address or bank detail, so those stay blank
+// until the vendor is saved with them.
+const vendorToForm = (v: Vendor) => ({
+  ...emptyVendor,
+  name: v.name,
+  slug: v.slug,
+  email: v.email,
+  phone: v.phone || '',
+  commission_rate: v.commission_rate,
+});
+
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/20 text-yellow-600',
   active: 'bg-green-500/20 text-green-600',
@@ -48,24 +74,11 @@ const statusColors: Record<string, string> = {
 
 export default function VendorsPage() {
   const { t } = useTranslation();
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const [form, setForm] = useState({
-    name: '',
-    slug: '',
-    email: '',
-    phone: '',
-    description: '',
-    address: '',
-    city: '',
-    commission_rate: 15,
-    bank_name: '',
-    bank_account: '',
-    bank_iban: '',
-  });
+  const editor = useEditorDialog(emptyVendor, vendorToForm);
+  const form = editor.values;
   const [payoutForm, setPayoutForm] = useState({
     amount: 0,
     method: 'bank_transfer',
@@ -78,10 +91,7 @@ export default function VendorsPage() {
 
   const saveVendor = vendorsResource.useSave({
     message: t('vendors.saved'),
-    onDone: () => {
-      setDialogOpen(false);
-      setEditingId(null);
-    },
+    onDone: editor.close,
   });
 
   const updateStatus = vendorsResource.useAction('status', {
@@ -94,24 +104,6 @@ export default function VendorsPage() {
     onDone: () => setPayoutOpen(false),
   });
 
-  const openEdit = (v: Vendor) => {
-    setEditingId(v.id);
-    setForm({
-      name: v.name,
-      slug: v.slug,
-      email: v.email,
-      phone: v.phone || '',
-      description: '',
-      address: '',
-      city: '',
-      commission_rate: v.commission_rate,
-      bank_name: '',
-      bank_account: '',
-      bank_iban: '',
-    });
-    setDialogOpen(true);
-  };
-
   const fmt = (n: number) => formatCurrency(n);
 
   return (
@@ -123,26 +115,7 @@ export default function VendorsPage() {
           </h1>
           <div className="gold-divider mt-2" />
         </div>
-        <Button
-          onClick={() => {
-            setEditingId(null);
-            setForm({
-              name: '',
-              slug: '',
-              email: '',
-              phone: '',
-              description: '',
-              address: '',
-              city: '',
-              commission_rate: 15,
-              bank_name: '',
-              bank_account: '',
-              bank_iban: '',
-            });
-            setDialogOpen(true);
-          }}
-          className="gap-2"
-        >
+        <Button onClick={editor.openNew} className="gap-2">
           <Plus className="h-4 w-4" /> {t('vendors.addVendor')}
         </Button>
       </div>
@@ -218,7 +191,7 @@ export default function VendorsPage() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={() => openEdit(v)}
+                        onClick={() => editor.openEdit(v)}
                         aria-label={t('common.edit')}
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -271,18 +244,18 @@ export default function VendorsPage() {
       </div>
 
       {/* Vendor dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingId ? t('vendors.editVendor') : t('vendors.addVendor')}
+              {editor.isEditing ? t('vendors.editVendor') : t('vendors.addVendor')}
             </DialogTitle>
             <DialogDescription>{t('vendors.vendorDetails')}</DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              saveVendor.save({ id: editingId, ...form });
+              saveVendor.save({ id: editor.editingId, ...form });
             }}
             className="space-y-3"
           >
@@ -291,13 +264,10 @@ export default function VendorsPage() {
                 <Label>{t('vendors.name')}</Label>
                 <Input
                   value={form.name}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      name: e.target.value,
-                      slug: e.target.value.toLowerCase().replace(/\s+/g, '-'),
-                    })
-                  }
+                  onChange={(e) => {
+                    editor.set('name', e.target.value);
+                    editor.set('slug', e.target.value.toLowerCase().replace(/\s+/g, '-'));
+                  }}
                   required
                 />
               </div>
@@ -305,7 +275,7 @@ export default function VendorsPage() {
                 <Label>{t('vendors.slug')}</Label>
                 <Input
                   value={form.slug}
-                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  onChange={(e) => editor.set('slug', e.target.value)}
                   required
                 />
               </div>
@@ -316,16 +286,13 @@ export default function VendorsPage() {
                 <Input
                   type="email"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  onChange={(e) => editor.set('email', e.target.value)}
                   required
                 />
               </div>
               <div className="space-y-1">
                 <Label>{t('vendors.phone')}</Label>
-                <Input
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
+                <Input value={form.phone} onChange={(e) => editor.set('phone', e.target.value)} />
               </div>
             </div>
             <div className="space-y-1">
@@ -334,9 +301,7 @@ export default function VendorsPage() {
                 type="number"
                 step="0.5"
                 value={form.commission_rate}
-                onChange={(e) =>
-                  setForm({ ...form, commission_rate: parseFloat(e.target.value) || 0 })
-                }
+                onChange={(e) => editor.set('commission_rate', parseFloat(e.target.value) || 0)}
               />
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -344,21 +309,21 @@ export default function VendorsPage() {
                 <Label>{t('vendors.bankName')}</Label>
                 <Input
                   value={form.bank_name}
-                  onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+                  onChange={(e) => editor.set('bank_name', e.target.value)}
                 />
               </div>
               <div className="space-y-1">
                 <Label>{t('vendors.bankAccount')}</Label>
                 <Input
                   value={form.bank_account}
-                  onChange={(e) => setForm({ ...form, bank_account: e.target.value })}
+                  onChange={(e) => editor.set('bank_account', e.target.value)}
                 />
               </div>
               <div className="space-y-1">
                 <Label>IBAN</Label>
                 <Input
                   value={form.bank_iban}
-                  onChange={(e) => setForm({ ...form, bank_iban: e.target.value })}
+                  onChange={(e) => editor.set('bank_iban', e.target.value)}
                 />
               </div>
             </div>
