@@ -15,7 +15,51 @@
 ## Component Patterns
 
 ### Page Components
-Every page follows this pattern:
+
+> **Migration in progress.** New and migrated pages use `resource()` (below).
+> The legacy pattern that follows still describes most pages and stays valid
+> until they are migrated. See issue #4 for the seam and #13 for the cutover.
+
+#### Current pattern — `resource()`
+
+A page names its server collection once and gets reads and writes back. It
+never constructs a URL, unwraps the `{ success, data, meta }` envelope, learns
+the error shape, or decides what to invalidate:
+
+```tsx
+import { resource } from '../lib/resource';
+
+const expenses = resource<Expense, { total_amount: number }>('expenses');
+
+export default function ExpensesPage() {
+  const { data: rows, meta } = expenses.useList({ limit: 100 });
+  const pnl = expenses.useRead<PnLData>('pnl', undefined, tab === 'pnl');
+
+  const saver = expenses.useSave({
+    message: t('expenses.created'),        // toasted on success
+    fallbackMessage: t('expenses.saveFailed'),  // used when the server says nothing
+    onDone: () => setDialogOpen(false),
+  });
+
+  const remover = expenses.useRemove({ message: t('expenses.deleted') });
+
+  saver.save({ id: editingId, ...form });  // no id → create, id → update
+}
+```
+
+Hooks: `useList(params)`, `useOne(id)`, `useRead(segment, params, enabled)`,
+`useSave(opts)`, `useRemove(opts)`, `useAction(name, opts)`. Writes invalidate
+the resource's own reads automatically — never call `invalidateQueries` in a page.
+
+Endpoints that are not CRUD collections (analytics, AI, reports, exports) should
+use the transport adapter directly rather than widening `resource`.
+
+In tests, inject `createMemoryTransport()` via `<TransportProvider>` — no axios
+stubbing and no request-mocking library.
+
+#### Legacy pattern — being migrated away from
+
+Pages not yet migrated follow this:
 
 ```tsx
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

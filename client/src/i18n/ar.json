@@ -40,6 +40,7 @@
   "common.clearFilters": "مسح الفلاتر",
   "common.all": "الكل",
   "common.loading": "جاري التحميل...",
+  "common.error": "حدث خطأ ما",
 
   "theme.light": "فاتح",
   "theme.dark": "داكن",
@@ -926,6 +927,8 @@
   "expenses.updated": "تم تحديث المصروف",
   "expenses.deleted": "تم حذف المصروف",
   "expenses.deleteConfirm": "هل تريد حذف هذا المصروف؟",
+  "expenses.saveFailed": "تعذر حفظ المصروف",
+  "expenses.deleteFailed": "تعذر حذف المصروف",
   "expenses.pnl": "الأرباح والخسائر",
   "expenses.revenue": "الإيرادات",
   "expenses.cogs": "تكلفة البضاعة المباعة",

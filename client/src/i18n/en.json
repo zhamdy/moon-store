@@ -40,6 +40,7 @@
   "common.clearFilters": "Clear filters",
   "common.all": "All",
   "common.loading": "Loading...",
+  "common.error": "Something went wrong",
 
   "theme.light": "Light",
   "theme.dark": "Dark",
@@ -926,6 +927,8 @@
   "expenses.updated": "Expense updated",
   "expenses.deleted": "Expense deleted",
   "expenses.deleteConfirm": "Delete this expense?",
+  "expenses.saveFailed": "Could not save the expense",
+  "expenses.deleteFailed": "Could not delete the expense",
   "expenses.pnl": "Profit & Loss",
   "expenses.revenue": "Revenue",
   "expenses.cogs": "Cost of Goods Sold",
