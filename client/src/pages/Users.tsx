@@ -34,18 +34,7 @@ import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
-
-type UserRole = 'Admin' | 'Cashier' | 'Delivery';
-
-interface UserRecord {
-  id: number;
-  name: string;
-  email: string;
-  role: UserRole;
-  last_login: string | null;
-  created_at: string;
-}
+import type { ApiErrorResponse, User, UserRole } from '@/types';
 
 const getCreateSchema = () =>
   z.object({
@@ -79,9 +68,9 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  const { data: users, isLoading } = useQuery<UserRecord[]>({
+  const { data: users, isLoading } = useQuery<User[]>({
     queryKey: ['users'],
     queryFn: () => api.get('/api/v1/users').then((r) => r.data.data),
   });
@@ -143,7 +132,7 @@ export default function UsersPage() {
     }
   };
 
-  const openEditDialog = (user: UserRecord) => {
+  const openEditDialog = (user: User) => {
     setEditingUser(user);
     reset({ name: user.name, email: user.email, password: '', role: user.role });
     setDialogOpen(true);
@@ -155,7 +144,7 @@ export default function UsersPage() {
     setDialogOpen(true);
   };
 
-  const columns: ColumnDef<UserRecord>[] = [
+  const columns: ColumnDef<User>[] = [
     { accessorKey: 'name', header: t('common.name') },
     {
       accessorKey: 'email',

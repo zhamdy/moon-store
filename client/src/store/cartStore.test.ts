@@ -62,7 +62,9 @@ describe('Cart - Add Items', () => {
   });
 
   it('should parse string prices correctly', () => {
-    useCartStore.getState().addItem({ ...mockProduct, price: '499.99' });
+    // The API types price as a number; the cast guards the parseFloat fallback
+    // against legacy string payloads still sitting in the persisted cart.
+    useCartStore.getState().addItem({ ...mockProduct, price: '499.99' as unknown as number });
     expect(useCartStore.getState().items[0].unit_price).toBe(499.99);
   });
 });

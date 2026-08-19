@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Product as ServerProduct } from '../types';
 
 export interface CartItem {
   product_id: number;
@@ -11,14 +12,11 @@ export interface CartItem {
   memo?: string;
 }
 
-export interface Product {
-  id: number;
-  name: string;
-  price: string | number;
-  stock: number;
+/** addItem input: the product columns the cart needs, plus POS-side variant selection */
+export type Product = Pick<ServerProduct, 'id' | 'name' | 'price' | 'stock'> & {
   variant_id?: number | null;
   variant_attributes?: Record<string, string>;
-}
+};
 
 export interface BundleForCart {
   name: string;

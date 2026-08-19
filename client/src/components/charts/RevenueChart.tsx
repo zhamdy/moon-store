@@ -13,11 +13,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { useTranslation } from '../../i18n';
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
-
-interface RevenueDataPoint {
-  date: string;
-  revenue: number;
-}
+import type { RevenueDataPoint } from '../../hooks/useDashboardData';
 
 interface CustomTooltipProps extends TooltipProps<ValueType, NameType> {
   isDark: boolean;

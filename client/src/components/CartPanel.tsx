@@ -36,10 +36,12 @@ import HeldCartsDialog from './HeldCartsDialog';
 import api from '../services/api';
 import type { AxiosError } from 'axios';
 import type { ReceiptData } from './Receipt';
+import type { ApiErrorResponse, AppSettings, Customer } from '@/types';
 
 type PaymentMethod = 'Cash' | 'Card' | 'Other';
 
-interface SaleItem {
+/** Write payload for POST /api/v1/sales — not the read shape returned by GET /api/sales/:id */
+interface SaleItemInput {
   product_id: number;
   variant_id?: number | null;
   quantity: number;
@@ -53,7 +55,7 @@ interface PaymentEntry {
 }
 
 interface SaleData {
-  items: SaleItem[];
+  items: SaleItemInput[];
   discount: number;
   discount_type: string;
   payment_method: PaymentMethod;
@@ -66,28 +68,8 @@ interface SaleData {
   coupon_code?: string;
 }
 
-interface AppSettings {
-  tax_enabled: string;
-  tax_rate: string;
-  tax_mode: string;
-  loyalty_enabled: string;
-  loyalty_earn_rate: string;
-  loyalty_redeem_value: string;
-}
-
 interface CustomerLoyalty {
   points: number;
-}
-
-interface ApiErrorResponse {
-  error?: string;
-}
-
-interface CustomerRecord {
-  id: number;
-  name: string;
-  phone: string;
-  address: string | null;
 }
 
 interface CartPanelProps {
@@ -128,7 +110,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const [splitPayment, setSplitPayment] = useState(false);
   const [payments, setPayments] = useState<PaymentEntry[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
@@ -205,7 +187,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     };
   }, [checkoutTriggerRef]);
 
-  const { data: customers } = useQuery<CustomerRecord[]>({
+  const { data: customers } = useQuery<Customer[]>({
     queryKey: ['customers', { search: debouncedCustomerSearch }],
     queryFn: () =>
       api
@@ -346,7 +328,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     }
   };
 
-  const handleSelectCustomer = (customer: CustomerRecord) => {
+  const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setCustomerSearch('');
     setShowCustomerDropdown(false);

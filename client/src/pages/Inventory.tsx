@@ -47,7 +47,7 @@ import {
 import { Checkbox } from '../components/ui/checkbox';
 import DataTable from '../components/DataTable';
 import AdjustStockDialog from '../components/AdjustStockDialog';
-import ProductFormDialog, { type ProductFormData } from '../components/inventory/ProductFormDialog';
+import ProductFormDialog from '../components/inventory/ProductFormDialog';
 import BulkOperationDialogs from '../components/inventory/BulkOperationDialogs';
 import VariantManagerDialog from '../components/inventory/VariantManagerDialog';
 import { useInventoryData, type CsvProduct, type LowStockProduct } from '../hooks/useInventoryData';
@@ -58,7 +58,7 @@ import { useAuthStore } from '../store/authStore';
 import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
-import type { Product } from '@/types';
+import type { Product, ProductFormData } from '@/types';
 
 const getProductSchema = () =>
   z.object({

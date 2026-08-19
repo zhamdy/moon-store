@@ -4,7 +4,7 @@ import api from '../services/api';
 import { useTranslation } from '../i18n';
 
 import type { AxiosError, AxiosResponse } from 'axios';
-import type { ApiErrorResponse, Product } from '@/types';
+import type { ApiErrorResponse, Customer, Product } from '@/types';
 
 export type DeliveryStatus = 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
 
@@ -31,13 +31,6 @@ export interface DeliveryOrder {
   estimated_delivery: string | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface Customer {
-  id: number;
-  name: string;
-  phone: string;
-  address: string | null;
 }
 
 export interface StatusHistoryEntry {

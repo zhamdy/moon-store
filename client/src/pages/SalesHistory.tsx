@@ -40,6 +40,7 @@ import { useTranslation } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { DateRange } from '../components/ui/calendar';
 import type { ReceiptData } from '../components/Receipt';
+import type { SaleItem } from '@/types';
 
 interface Sale {
   id: number;
@@ -55,13 +56,6 @@ interface Sale {
   refunded_amount: number | null;
   customer_id: number | null;
   customer_name: string | null;
-}
-
-interface SaleItem {
-  product_id: number;
-  product_name: string;
-  quantity: number;
-  unit_price: number;
 }
 
 interface Refund {
