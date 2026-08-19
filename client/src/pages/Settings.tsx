@@ -16,15 +16,7 @@ import {
 import { useTranslation } from '../i18n';
 import api from '../services/api';
 import type { AxiosError } from 'axios';
-
-interface AllSettings {
-  tax_enabled: string;
-  tax_rate: string;
-  tax_mode: string;
-  loyalty_enabled: string;
-  loyalty_earn_rate: string;
-  loyalty_redeem_value: string;
-}
+import type { AppSettings } from '@/types';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -38,7 +30,7 @@ export default function Settings() {
   const [loyaltyEarnRate, setLoyaltyEarnRate] = useState('1');
   const [loyaltyRedeemValue, setLoyaltyRedeemValue] = useState('5');
 
-  const { data: settings, isLoading } = useQuery<AllSettings>({
+  const { data: settings, isLoading } = useQuery<AppSettings>({
     queryKey: ['settings'],
     queryFn: () => api.get('/api/v1/settings').then((r) => r.data.data),
   });

@@ -11,12 +11,11 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { useAuthStore } from '../store/authStore';
-import type { User } from '../store/authStore';
 import api from '../services/api';
 import moonLogo from '../assets/moon-logo.svg';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
+import type { ApiErrorResponse, AuthResponseData } from '@/types';
 
 const getLoginSchema = () =>
   z.object({
@@ -25,13 +24,6 @@ const getLoginSchema = () =>
   });
 
 type LoginFormData = z.infer<ReturnType<typeof getLoginSchema>>;
-
-interface LoginResponseData {
-  data: {
-    accessToken: string;
-    user: User;
-  };
-}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -52,7 +44,7 @@ export default function Login() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      const response = await api.post<LoginResponseData>('/api/v1/auth/login', data);
+      const response = await api.post<AuthResponseData>('/api/v1/auth/login', data);
       const { accessToken, user } = response.data.data;
       login(user, accessToken);
       toast.success(t('login.welcomeBack', { name: user.name }));

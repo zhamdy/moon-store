@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 import type { AxiosError, AxiosResponse } from 'axios';
-import type { ApiErrorResponse, Product, Category, Distributor } from '@/types';
+import type { ApiErrorResponse, Product, ProductFormData, Category, Distributor } from '@/types';
 
 export interface ImportResult {
   imported: number;
@@ -23,18 +23,6 @@ export interface CsvProduct {
 
 export interface LowStockProduct extends Product {
   deficit: number;
-}
-
-export interface ProductFormData {
-  name: string;
-  sku: string;
-  barcode?: string;
-  price: number;
-  cost_price: number;
-  stock: number;
-  category_id?: number | null;
-  distributor_id?: number | null;
-  min_stock: number;
 }
 
 interface UseInventoryDataOptions {

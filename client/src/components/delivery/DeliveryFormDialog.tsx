@@ -17,13 +17,8 @@ import {
 } from '../ui/dialog';
 import { useTranslation, t as tStandalone } from '../../i18n';
 
-import type { Product } from '@/types';
-import type {
-  DeliveryOrder,
-  Customer,
-  ShippingCompany,
-  DeliveryPayload,
-} from '../../hooks/useDeliveryData';
+import type { Customer, Product } from '@/types';
+import type { DeliveryOrder, ShippingCompany, DeliveryPayload } from '../../hooks/useDeliveryData';
 
 const getDeliverySchema = () =>
   z.object({

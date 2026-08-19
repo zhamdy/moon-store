@@ -16,20 +16,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n';
-import type { Product, Category, Distributor } from '@/types';
+import type { Product, ProductFormData, Category, Distributor } from '@/types';
 import type { z } from 'zod';
-
-export interface ProductFormData {
-  name: string;
-  sku: string;
-  barcode?: string;
-  price: number;
-  cost_price: number;
-  stock: number;
-  category_id?: number | null;
-  distributor_id?: number | null;
-  min_stock: number;
-}
 
 interface ProductFormDialogProps {
   open: boolean;

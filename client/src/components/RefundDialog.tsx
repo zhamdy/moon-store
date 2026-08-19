@@ -10,13 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { formatCurrency } from '../lib/utils';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
-
-interface SaleItem {
-  product_id: number;
-  product_name: string;
-  quantity: number;
-  unit_price: number;
-}
+import type { SaleItem } from '@/types';
 
 interface RefundDialogProps {
   open: boolean;

@@ -31,19 +31,7 @@ import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
-
-interface DistributorRecord {
-  id: number;
-  name: string;
-  contact_person: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
+import type { ApiErrorResponse, Distributor } from '@/types';
 
 const getDistributorFormSchema = () =>
   z.object({
@@ -62,9 +50,9 @@ export default function DistributorsPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [editingDistributor, setEditingDistributor] = useState<DistributorRecord | null>(null);
+  const [editingDistributor, setEditingDistributor] = useState<Distributor | null>(null);
 
-  const { data: distributors, isLoading } = useQuery<DistributorRecord[]>({
+  const { data: distributors, isLoading } = useQuery<Distributor[]>({
     queryKey: ['distributors'],
     queryFn: () => api.get('/api/v1/distributors').then((r) => r.data.data),
   });
@@ -123,7 +111,7 @@ export default function DistributorsPage() {
     }
   };
 
-  const openEditDialog = (distributor: DistributorRecord) => {
+  const openEditDialog = (distributor: Distributor) => {
     setEditingDistributor(distributor);
     reset({
       name: distributor.name,
@@ -142,7 +130,7 @@ export default function DistributorsPage() {
     setDialogOpen(true);
   };
 
-  const columns: ColumnDef<DistributorRecord>[] = [
+  const columns: ColumnDef<Distributor>[] = [
     { accessorKey: 'name', header: t('common.name') },
     {
       accessorKey: 'contact_person',

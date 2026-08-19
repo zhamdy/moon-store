@@ -25,13 +25,7 @@ import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
 import api from '../services/api';
 import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, Product } from '@/types';
-
-interface Customer {
-  id: number;
-  name: string;
-  phone: string | null;
-}
+import type { ApiErrorResponse, Customer, Product } from '@/types';
 
 interface LayawayItem {
   product_id: number;

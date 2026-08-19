@@ -1,16 +1,10 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { useAuthStore, type User } from '../store/authStore';
+import { useAuthStore } from '../store/authStore';
+import type { AuthResponseData } from '../types';
 
 interface QueueItem {
   resolve: (token: string) => void;
   reject: (error: AxiosError) => void;
-}
-
-interface RefreshResponseData {
-  data: {
-    accessToken: string;
-    user: User;
-  };
 }
 
 const api = axios.create({
@@ -71,7 +65,7 @@ const setupRefreshInterceptor = () => {
         isRefreshing = true;
 
         try {
-          const response = await axios.post<RefreshResponseData>(
+          const response = await axios.post<AuthResponseData>(
             `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/v1/auth/refresh`,
             {},
             { withCredentials: true }

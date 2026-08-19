@@ -2,16 +2,11 @@ import { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import { useSettingsStore } from '../store/settingsStore';
 import { formatCurrency } from '../lib/utils';
-
-interface Product {
-  name: string;
-  sku: string;
-  price: string | number;
-}
+import type { Product } from '@/types';
 
 interface BarcodeGeneratorProps {
   value: string;
-  product?: Product | null;
+  product?: Pick<Product, 'name' | 'sku' | 'price'> | null;
 }
 
 export default function BarcodeGenerator({ value, product }: BarcodeGeneratorProps) {

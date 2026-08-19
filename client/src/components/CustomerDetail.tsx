@@ -29,6 +29,7 @@ import { formatCurrency, formatDateTime, formatRelative } from '../lib/utils';
 import api from '../services/api';
 import { useTranslation } from '../i18n';
 import type { AxiosError } from 'axios';
+import type { AppSettings } from '@/types';
 
 interface CustomerDetailProps {
   customerId: number;
@@ -65,10 +66,6 @@ interface LoyaltyTransaction {
 interface LoyaltyData {
   points: number;
   transactions: LoyaltyTransaction[];
-}
-
-interface AppSettings {
-  loyalty_enabled: string;
 }
 
 export default function CustomerDetail({ customerId, customerName, onBack }: CustomerDetailProps) {

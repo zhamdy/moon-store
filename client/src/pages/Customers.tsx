@@ -33,18 +33,7 @@ import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
-
-interface CustomerRecord {
-  id: number;
-  name: string;
-  phone: string;
-  address: string | null;
-  notes: string | null;
-  loyalty_points: number;
-  created_at: string;
-  updated_at: string;
-}
+import type { ApiErrorResponse, Customer } from '@/types';
 
 const getCustomerFormSchema = () =>
   z.object({
@@ -61,10 +50,10 @@ export default function CustomersPage() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [editingCustomer, setEditingCustomer] = useState<CustomerRecord | null>(null);
-  const [viewingCustomer, setViewingCustomer] = useState<CustomerRecord | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
 
-  const { data: customers, isLoading } = useQuery<CustomerRecord[]>({
+  const { data: customers, isLoading } = useQuery<Customer[]>({
     queryKey: ['customers'],
     queryFn: () =>
       api.get('/api/v1/customers', { params: { limit: 1000 } }).then((r) => r.data.data),
@@ -124,7 +113,7 @@ export default function CustomersPage() {
     }
   };
 
-  const openEditDialog = (customer: CustomerRecord) => {
+  const openEditDialog = (customer: Customer) => {
     setEditingCustomer(customer);
     reset({
       name: customer.name,
@@ -141,7 +130,7 @@ export default function CustomersPage() {
     setDialogOpen(true);
   };
 
-  const columns: ColumnDef<CustomerRecord>[] = [
+  const columns: ColumnDef<Customer>[] = [
     { accessorKey: 'name', header: t('common.name') },
     {
       accessorKey: 'phone',

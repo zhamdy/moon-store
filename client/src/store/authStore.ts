@@ -3,22 +3,16 @@ import { persist } from 'zustand/middleware';
 import { queryClient } from '../lib/queryClient';
 import { useOfflineStore } from './offlineStore';
 import { useCartStore } from './cartStore';
-
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: 'Admin' | 'Cashier' | 'Delivery';
-}
+import type { AuthUser } from '../types';
 
 interface AuthState {
-  user: User | null;
+  user: AuthUser | null;
   accessToken: string | null;
   isAuthenticated: boolean;
-  login: (user: User, accessToken: string) => void;
+  login: (user: AuthUser, accessToken: string) => void;
   setAccessToken: (accessToken: string) => void;
   logout: () => void;
-  updateUser: (updates: Partial<User>) => void;
+  updateUser: (updates: Partial<AuthUser>) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
