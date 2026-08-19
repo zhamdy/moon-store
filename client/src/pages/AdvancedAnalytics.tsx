@@ -1,14 +1,79 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from '../i18n';
 import { formatCurrency, formatDate } from '../lib/utils';
-import api from '../services/api';
+import { useApiQuery } from '../lib/apiQuery';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import AbcChart from '../components/charts/AbcChart';
 import HeatmapChart from '../components/charts/HeatmapChart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useSettingsStore } from '../store/settingsStore';
+
+// --- Server payloads ---
+
+/** GET analytics/abc-classification */
+interface AbcResponse {
+  products: Array<{
+    id: number;
+    name: string;
+    sku: string;
+    stock: number;
+    price: number;
+    abc_class: string;
+    revenue: number;
+    units_sold: number;
+    revenue_pct: number;
+    cumulative_pct: number;
+  }>;
+  summary: {
+    total_revenue: number;
+    a_count: number;
+    b_count: number;
+    c_count: number;
+  };
+}
+
+/** GET analytics/dead-stock */
+interface DeadStockResponse {
+  products: Array<{
+    id: number;
+    name: string;
+    sku: string;
+    category: string;
+    stock: number;
+    price: number;
+    cost_price: number;
+    tied_up_capital: number;
+    last_sold_date: string | null;
+    days_inactive: number;
+  }>;
+  summary: { total_products: number; total_tied_up_capital: number };
+}
+
+/** GET analytics/customer-ltv */
+interface CustomerLtvResponse {
+  customers: Array<{
+    id: number;
+    name: string;
+    phone: string;
+    order_count: number;
+    lifetime_revenue: number;
+    avg_order_value: number;
+    first_purchase: string;
+    last_purchase: string;
+    tenure_days: number;
+    recency_days: number;
+  }>;
+  summary: { total_customers: number; avg_ltv: number; top10_revenue_share: number };
+}
+
+/** GET analytics/hourly-heatmap */
+type HourlyHeatmapResponse = Array<{
+  day_of_week: number;
+  hour: number;
+  order_count: number;
+  revenue: number;
+}>;
 
 // --- Tab Button ---
 
@@ -96,32 +161,10 @@ function DaysSelector({
 function AbcTab() {
   const { t } = useTranslation();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['analytics', 'abc-classification'],
-    queryFn: async () => {
-      const res = await api.get('/api/v1/analytics/abc-classification');
-      return res.data.data as {
-        products: Array<{
-          id: number;
-          name: string;
-          sku: string;
-          stock: number;
-          price: number;
-          abc_class: string;
-          revenue: number;
-          units_sold: number;
-          revenue_pct: number;
-          cumulative_pct: number;
-        }>;
-        summary: {
-          total_revenue: number;
-          a_count: number;
-          b_count: number;
-          c_count: number;
-        };
-      };
-    },
-  });
+  const { data, isLoading } = useApiQuery<AbcResponse>(
+    ['analytics', 'abc-classification'],
+    'analytics/abc-classification'
+  );
 
   if (isLoading) return <div className="p-8 text-center text-muted">{t('common.loading')}</div>;
   if (!data) return null;
@@ -202,27 +245,11 @@ function DeadStockTab() {
   const { t } = useTranslation();
   const [days, setDays] = useState(90);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['analytics', 'dead-stock', days],
-    queryFn: async () => {
-      const res = await api.get(`/api/v1/analytics/dead-stock?days=${days}`);
-      return res.data.data as {
-        products: Array<{
-          id: number;
-          name: string;
-          sku: string;
-          category: string;
-          stock: number;
-          price: number;
-          cost_price: number;
-          tied_up_capital: number;
-          last_sold_date: string | null;
-          days_inactive: number;
-        }>;
-        summary: { total_products: number; total_tied_up_capital: number };
-      };
-    },
-  });
+  const { data, isLoading } = useApiQuery<DeadStockResponse>(
+    ['analytics', 'dead-stock', days],
+    'analytics/dead-stock',
+    { days }
+  );
 
   return (
     <div className="space-y-6">
@@ -307,27 +334,10 @@ function ClvTab() {
   const theme = useSettingsStore((s) => s.theme);
   const isDark = theme === 'dark';
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['analytics', 'customer-ltv'],
-    queryFn: async () => {
-      const res = await api.get('/api/v1/analytics/customer-ltv');
-      return res.data.data as {
-        customers: Array<{
-          id: number;
-          name: string;
-          phone: string;
-          order_count: number;
-          lifetime_revenue: number;
-          avg_order_value: number;
-          first_purchase: string;
-          last_purchase: string;
-          tenure_days: number;
-          recency_days: number;
-        }>;
-        summary: { total_customers: number; avg_ltv: number; top10_revenue_share: number };
-      };
-    },
-  });
+  const { data, isLoading } = useApiQuery<CustomerLtvResponse>(
+    ['analytics', 'customer-ltv'],
+    'analytics/customer-ltv'
+  );
 
   if (isLoading) return <div className="p-8 text-center text-muted">{t('common.loading')}</div>;
   if (!data) return null;
@@ -488,18 +498,11 @@ function HeatmapTab() {
   const { t } = useTranslation();
   const [days, setDays] = useState(30);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['analytics', 'hourly-heatmap', days],
-    queryFn: async () => {
-      const res = await api.get(`/api/v1/analytics/hourly-heatmap?days=${days}`);
-      return res.data.data as Array<{
-        day_of_week: number;
-        hour: number;
-        order_count: number;
-        revenue: number;
-      }>;
-    },
-  });
+  const { data, isLoading } = useApiQuery<HourlyHeatmapResponse>(
+    ['analytics', 'hourly-heatmap', days],
+    'analytics/hourly-heatmap',
+    { days }
+  );
 
   // Calculate peaks
   const peakHour = data?.reduce((best, cur) => (cur.revenue > best.revenue ? cur : best), {
