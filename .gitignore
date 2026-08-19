@@ -4,6 +4,8 @@ dist/
 *.log
 .DS_Store
 *.db
+*.db-wal
+*.db-shm
 *.png
 *.jpeg
 *.jpg

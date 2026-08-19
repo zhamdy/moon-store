@@ -15,6 +15,7 @@ import {
 import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
 import { resource } from '../lib/resource';
+import { useEditorDialog } from '../lib/editorDialog';
 
 interface Expense {
   id: number;
@@ -41,58 +42,41 @@ const recurrences = ['one_time', 'daily', 'weekly', 'monthly', 'yearly'] as cons
 
 const expenses = resource<Expense, { total: number; total_amount: number }>('expenses');
 
+const emptyExpense = () => ({
+  category: 'other' as string,
+  amount: '',
+  description: '',
+  date: new Date().toISOString().split('T')[0],
+  recurring: 'one_time',
+});
+
+const expenseToForm = (exp: Expense) => ({
+  category: exp.category,
+  amount: String(exp.amount),
+  description: exp.description || '',
+  date: exp.date,
+  recurring: exp.recurring,
+});
+
 export default function ExpensesPage() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<'list' | 'pnl'>('list');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({
-    category: 'other' as string,
-    amount: '',
-    description: '',
-    date: new Date().toISOString().split('T')[0],
-    recurring: 'one_time',
-  });
+  const editor = useEditorDialog(emptyExpense, expenseToForm);
+  const form = editor.values;
 
   const { data: rows, meta } = expenses.useList({ limit: 100 });
   const { data: pnl } = expenses.useRead<PnLData>('pnl', undefined, tab === 'pnl');
 
   const saver = expenses.useSave({
-    message: editingId ? t('expenses.updated') : t('expenses.created'),
+    message: editor.isEditing ? t('expenses.updated') : t('expenses.created'),
     fallbackMessage: t('expenses.saveFailed'),
-    onDone: () => {
-      setDialogOpen(false);
-      resetForm();
-    },
+    onDone: editor.close,
   });
 
   const remover = expenses.useRemove({
     message: t('expenses.deleted'),
     fallbackMessage: t('expenses.deleteFailed'),
   });
-
-  const resetForm = () => {
-    setEditingId(null);
-    setForm({
-      category: 'other',
-      amount: '',
-      description: '',
-      date: new Date().toISOString().split('T')[0],
-      recurring: 'one_time',
-    });
-  };
-
-  const openEdit = (exp: Expense) => {
-    setEditingId(exp.id);
-    setForm({
-      category: exp.category,
-      amount: String(exp.amount),
-      description: exp.description || '',
-      date: exp.date,
-      recurring: exp.recurring,
-    });
-    setDialogOpen(true);
-  };
 
   const categoryKey = (cat: string) => `expenses.${cat}` as const;
 
@@ -105,13 +89,7 @@ export default function ExpensesPage() {
           </h1>
           <div className="gold-divider mt-2" />
         </div>
-        <Button
-          onClick={() => {
-            resetForm();
-            setDialogOpen(true);
-          }}
-          className="gap-2"
-        >
+        <Button onClick={editor.openNew} className="gap-2">
           <Plus className="h-4 w-4" /> {t('expenses.addExpense')}
         </Button>
       </div>
@@ -199,7 +177,7 @@ export default function ExpensesPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => openEdit(exp)}
+                            onClick={() => editor.openEdit(exp)}
                             aria-label={t('common.edit')}
                           >
                             <Pencil className="h-3 w-3" />
@@ -311,11 +289,11 @@ export default function ExpensesPage() {
       )}
 
       {/* Add/Edit Expense Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingId ? t('expenses.editExpense') : t('expenses.addExpense')}
+              {editor.isEditing ? t('expenses.editExpense') : t('expenses.addExpense')}
             </DialogTitle>
             <DialogDescription>{t('expenses.title')}</DialogDescription>
           </DialogHeader>
@@ -323,7 +301,7 @@ export default function ExpensesPage() {
             onSubmit={(e) => {
               e.preventDefault();
               saver.save({
-                id: editingId,
+                id: editor.editingId,
                 category: form.category,
                 amount: Number(form.amount),
                 description: form.description || undefined,
@@ -339,7 +317,7 @@ export default function ExpensesPage() {
                 <select
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  onChange={(e) => editor.set('category', e.target.value)}
                 >
                   {categories.map((c) => (
                     <option key={c} value={c}>
@@ -355,7 +333,7 @@ export default function ExpensesPage() {
                   min="0.01"
                   step="0.01"
                   value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  onChange={(e) => editor.set('amount', e.target.value)}
                   required
                 />
               </div>
@@ -364,7 +342,7 @@ export default function ExpensesPage() {
               <Label>{t('expenses.description')}</Label>
               <Input
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) => editor.set('description', e.target.value)}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -373,7 +351,7 @@ export default function ExpensesPage() {
                 <Input
                   type="date"
                   value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  onChange={(e) => editor.set('date', e.target.value)}
                 />
               </div>
               <div className="space-y-1">
@@ -381,7 +359,7 @@ export default function ExpensesPage() {
                 <select
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.recurring}
-                  onChange={(e) => setForm({ ...form, recurring: e.target.value })}
+                  onChange={(e) => editor.set('recurring', e.target.value)}
                 >
                   {recurrences.map((r) => (
                     <option key={r} value={r}>
