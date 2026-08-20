@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Eye, Truck, XCircle, CheckCircle, Package } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { formatCurrency } from '../lib/utils';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -13,26 +11,10 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
+import { resource } from '../lib/resource';
+import type { OnlineOrder } from '@/types';
 
-interface OnlineOrder {
-  id: number;
-  order_number: string;
-  customer_name: string;
-  status: string;
-  payment_status: string;
-  total: number;
-  shipping_method: string;
-  tracking_number: string | null;
-  created_at: string;
-  items?: {
-    id: number;
-    product_name: string;
-    quantity: number;
-    unit_price: number;
-    total: number;
-  }[];
-}
+const onlineOrders = resource<OnlineOrder>('online-orders');
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-500/20 text-yellow-600',
@@ -46,39 +28,22 @@ const statusColors: Record<string, string> = {
 
 export default function OnlineOrdersPage() {
   const { t } = useTranslation();
-  const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<OnlineOrder | null>(null);
+  const [detailId, setDetailId] = useState<number | null>(null);
 
-  const { data } = useQuery<{ data: OnlineOrder[]; meta: Record<string, unknown> }>({
-    queryKey: ['online-orders', statusFilter],
-    queryFn: () =>
-      api
-        .get('/api/v1/online-orders', { params: { status: statusFilter || undefined } })
-        .then((r) => r.data),
+  const { data: orders } = onlineOrders.useList({ status: statusFilter || undefined });
+  // The single read carries the order's lines, which the list rows leave out.
+  const { data: selectedOrder } = onlineOrders.useOne(detailOpen ? detailId : null);
+
+  const updateStatus = onlineOrders.useAction('status', {
+    method: 'PUT',
+    message: t('onlineOrders.statusUpdated'),
+    onDone: () => setDetailOpen(false),
   });
 
-  const updateStatus = useMutation({
-    mutationFn: ({
-      id,
-      status,
-      tracking_number,
-    }: {
-      id: number;
-      status: string;
-      tracking_number?: string;
-    }) => api.put(`/api/v1/online-orders/${id}/status`, { status, tracking_number }),
-    onSuccess: () => {
-      toast.success(t('onlineOrders.statusUpdated'));
-      qc.invalidateQueries({ queryKey: ['online-orders'] });
-      setDetailOpen(false);
-    },
-  });
-
-  const viewOrder = async (id: number) => {
-    const res = await api.get(`/api/v1/online-orders/${id}`);
-    setSelectedOrder(res.data.data);
+  const viewOrder = (id: number) => {
+    setDetailId(id);
     setDetailOpen(true);
   };
 
@@ -127,14 +92,14 @@ export default function OnlineOrdersPage() {
             </tr>
           </thead>
           <tbody>
-            {!data?.data?.length ? (
+            {!orders?.length ? (
               <tr>
                 <td colSpan={7} className="p-8 text-center text-muted">
                   {t('onlineOrders.noOrders')}
                 </td>
               </tr>
             ) : (
-              data.data.map((o) => (
+              orders.map((o) => (
                 <tr key={o.id} className="border-b border-border hover:bg-surface/50">
                   <td className="p-3 font-medium font-data">{o.order_number}</td>
                   <td className="p-3">{o.customer_name || '—'}</td>
@@ -197,7 +162,7 @@ export default function OnlineOrdersPage() {
                   <Button
                     size="sm"
                     onClick={() =>
-                      updateStatus.mutate({ id: selectedOrder.id, status: 'confirmed' })
+                      updateStatus.run({ id: selectedOrder.id, body: { status: 'confirmed' } })
                     }
                     className="gap-1"
                   >
@@ -209,7 +174,7 @@ export default function OnlineOrdersPage() {
                   <Button
                     size="sm"
                     onClick={() =>
-                      updateStatus.mutate({ id: selectedOrder.id, status: 'processing' })
+                      updateStatus.run({ id: selectedOrder.id, body: { status: 'processing' } })
                     }
                     className="gap-1"
                   >
@@ -220,7 +185,9 @@ export default function OnlineOrdersPage() {
                 {selectedOrder.status === 'processing' && (
                   <Button
                     size="sm"
-                    onClick={() => updateStatus.mutate({ id: selectedOrder.id, status: 'shipped' })}
+                    onClick={() =>
+                      updateStatus.run({ id: selectedOrder.id, body: { status: 'shipped' } })
+                    }
                     className="gap-1"
                   >
                     <Truck className="w-3 h-3" />
@@ -231,7 +198,7 @@ export default function OnlineOrdersPage() {
                   <Button
                     size="sm"
                     onClick={() =>
-                      updateStatus.mutate({ id: selectedOrder.id, status: 'delivered' })
+                      updateStatus.run({ id: selectedOrder.id, body: { status: 'delivered' } })
                     }
                     className="gap-1"
                   >
@@ -244,7 +211,7 @@ export default function OnlineOrdersPage() {
                     size="sm"
                     variant="destructive"
                     onClick={() =>
-                      updateStatus.mutate({ id: selectedOrder.id, status: 'cancelled' })
+                      updateStatus.run({ id: selectedOrder.id, body: { status: 'cancelled' } })
                     }
                     className="gap-1"
                   >

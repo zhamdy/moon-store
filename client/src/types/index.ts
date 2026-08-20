@@ -526,3 +526,245 @@ export interface TimesheetEntry {
   total_hours: number;
   total_break_minutes: number;
 }
+
+/** One recorded action from GET /api/v1/audit-log */
+export interface AuditEntry {
+  id: number;
+  user_id: number | null;
+  user_name: string | null;
+  user_display_name: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  details: string;
+  ip_address: string | null;
+  created_at: string;
+}
+
+/** Branch (store or warehouse) from GET /api/v1/branches */
+export interface Branch {
+  id: number;
+  name: string;
+  address: string | null;
+  type: string;
+  status: string;
+  phone: string | null;
+  email: string | null;
+  manager_name: string | null;
+  manager_id: number | null;
+  currency: string;
+  tax_rate: number;
+  is_primary: number;
+  product_count: number;
+  total_stock: number;
+  opening_hours: string | null;
+}
+
+/** One stock movement between branches, from GET /api/v1/branches/transfers */
+export interface BranchTransfer {
+  id: number;
+  from_location_name: string;
+  to_location_name: string;
+  user_name: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+}
+
+/** GET /api/v1/branches/dashboard/consolidated */
+export interface ConsolidatedBranches {
+  stores: {
+    id: number;
+    name: string;
+    today_sales: number;
+    today_revenue: number;
+    total_stock: number;
+    low_stock_count: number;
+  }[];
+  totals: { total_today_sales: number; total_today_revenue: number; store_count: number };
+}
+
+/** A line being composed in the layaway form, before it is sent */
+export interface LayawayLine {
+  product_id: number;
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+}
+
+/** Layaway order row from GET /api/v1/layaway */
+export interface LayawayOrder {
+  id: number;
+  customer_id: number;
+  customer_name: string;
+  customer_phone: string | null;
+  total: number;
+  deposit: number;
+  balance: number;
+  due_date: string;
+  status: string;
+  created_at: string;
+}
+
+/** GET /api/v1/layaway/:id — the list row plus its lines and payments */
+export interface LayawayDetail extends LayawayOrder {
+  items: { id: number; product_name: string; quantity: number; unit_price: number }[];
+  payments: {
+    id: number;
+    amount: number;
+    payment_method: string;
+    cashier_name: string;
+    created_at: string;
+  }[];
+}
+
+/** A sale row from GET /api/v1/sales. */
+export interface Sale {
+  id: number;
+  total: number;
+  discount: number | null;
+  discount_type: 'fixed' | 'percentage' | null;
+  payment_method: string;
+  cashier_id: number;
+  cashier_name: string;
+  items_count: number;
+  created_at: string;
+  refund_status: 'partial' | 'full' | null;
+  refunded_amount: number | null;
+  customer_id: number | null;
+  customer_name: string | null;
+}
+
+/** The aggregate figures GET /api/v1/sales returns beside the rows. */
+export interface SalesMeta {
+  total: number;
+  total_revenue: number;
+  page: number;
+  limit: number;
+}
+
+/** GET /api/v1/sales/:id — the same sale, with its lines attached. */
+export interface SaleDetail {
+  id: number;
+  total: number;
+  discount: number | null;
+  discount_type: string | null;
+  payment_method: string;
+  cashier_name: string | null;
+  created_at: string;
+  items: SaleItem[];
+}
+
+/** One refund against a sale, from GET /api/v1/sales/:id/refunds. */
+export interface SaleRefund {
+  id: number;
+  amount: number;
+  reason: string;
+  cashier_name: string | null;
+  created_at: string;
+  items: SaleItem[];
+}
+
+/** A line on an online order, from GET /api/v1/online-orders/:id. */
+export interface OnlineOrderItem {
+  id: number;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+}
+
+/** An order from GET /api/v1/online-orders; `items` only on the single read. */
+export interface OnlineOrder {
+  id: number;
+  order_number: string;
+  customer_name: string;
+  status: string;
+  payment_status: string;
+  total: number;
+  shipping_method: string;
+  tracking_number: string | null;
+  created_at: string;
+  items?: OnlineOrderItem[];
+}
+
+/** A pending price change from GET /api/v1/ai/pricing/suggestions. */
+export interface PriceSuggestion {
+  id: number;
+  product_id: number;
+  product_name: string;
+  sku: string;
+  current_price: number;
+  suggested_price: number;
+  reason: string;
+  confidence: number;
+  status: string;
+}
+
+/** A standing rule from GET /api/v1/ai/pricing/rules. */
+export interface PricingRule {
+  id: number;
+  name: string;
+  rule_type: string;
+  config: string;
+  priority: number;
+  is_active: number;
+  applies_to: string;
+}
+
+/** A stock count row from GET /api/v1/stock-counts, with its progress totals. */
+export interface StockCountSummary {
+  id: number;
+  status: string;
+  category_name: string | null;
+  notes: string | null;
+  started_by_name: string;
+  started_at: string;
+  item_count: number;
+  counted: number;
+}
+
+/** One product being counted, from GET /api/v1/stock-counts/:id. */
+export interface StockCountItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_sku: string;
+  expected_qty: number;
+  actual_qty: number | null;
+  approved: number;
+}
+
+/** GET /api/v1/stock-counts/:id — the count with every item it covers. */
+export interface StockCountDetail extends StockCountSummary {
+  items: StockCountItem[];
+}
+
+/**
+ * Storefront settings from GET /api/v1/storefront/config. The route folds the
+ * `storefront_config` key/value rows into one object, so the keys present
+ * depend on what has been saved rather than on a fixed schema.
+ */
+export type StorefrontConfig = Record<string, string>;
+
+/** A promo banner from GET /api/v1/storefront/banners (migration 053). */
+export interface StorefrontBanner {
+  id: number;
+  title: string;
+  subtitle: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  position: number;
+  is_active: number;
+  created_at: string;
+}
+
+/**
+ * A catalog row from GET /api/v1/storefront/products: the product itself plus
+ * the three aggregates that route computes over reviews and sales.
+ */
+export interface StorefrontProduct extends Product {
+  avg_rating: number;
+  review_count: number;
+  sold_count: number;
+}

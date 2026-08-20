@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   Download,
@@ -35,60 +34,23 @@ import RefundDialog from '../components/RefundDialog';
 import { formatCurrency, formatDateTime, formatDate } from '../lib/utils';
 import { exportToExcel } from '../lib/exportUtils';
 
-import api from '../services/api';
 import { useTranslation } from '../i18n';
+import { resource } from '../lib/resource';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { DateRange } from '../components/ui/calendar';
 import type { ReceiptData } from '../components/Receipt';
-import type { SaleItem } from '@/types';
+import type { Sale, SaleDetail, SaleRefund, SalesMeta } from '@/types';
 
-interface Sale {
-  id: number;
-  total: number;
-  discount: number | null;
-  discount_type: 'fixed' | 'percentage' | null;
-  payment_method: string;
-  cashier_id: number;
-  cashier_name: string;
-  items_count: number;
-  created_at: string;
-  refund_status: 'partial' | 'full' | null;
-  refunded_amount: number | null;
-  customer_id: number | null;
-  customer_name: string | null;
-}
-
-interface Refund {
-  id: number;
-  amount: number;
-  reason: string;
-  cashier_name: string | null;
-  created_at: string;
-  items: { product_id: number; product_name: string; quantity: number; unit_price: number }[];
-}
-
-interface SaleDetail {
-  id: number;
-  total: number;
-  discount: number | null;
-  discount_type: string | null;
-  payment_method: string;
-  items: SaleItem[];
-}
-
-interface SalesResponse {
-  success: boolean;
-  data: Sale[];
-  meta: {
-    total: number;
-    total_revenue: number;
-    page: number;
-    limit: number;
-  };
-}
+const sales = resource<Sale, SalesMeta>('sales');
+// The same collection read one record at a time: that response carries the
+// sale's lines, which the list rows only count.
+const saleDetails = resource<SaleDetail>('sales');
 
 export default function SalesHistory() {
   const { t } = useTranslation();
+  const transport = useTransport();
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
@@ -107,29 +69,24 @@ export default function SalesHistory() {
   if (dateRange.to) params.to = format(dateRange.to, 'yyyy-MM-dd');
   if (paymentFilter !== 'all') params.payment_method = paymentFilter;
 
-  const { data: salesData, isLoading } = useQuery<SalesResponse>({
-    queryKey: ['sales', params],
-    queryFn: () =>
-      api.get('/api/v1/sales', { params: { ...params, limit: 200 } }).then((r) => r.data),
-  });
+  const { data: rows, meta, isLoading } = sales.useList({ ...params, limit: 200 });
 
-  const { data: saleDetail } = useQuery<SaleDetail>({
-    queryKey: ['sale-detail', expandedRow],
-    queryFn: () => api.get(`/api/v1/sales/${expandedRow}`).then((r) => r.data.data),
-    enabled: !!expandedRow,
-  });
+  const { data: saleDetail } = saleDetails.useOne(expandedRow);
 
-  const { data: saleRefunds } = useQuery<Refund[]>({
-    queryKey: ['sale-refunds', expandedRow],
-    queryFn: () => api.get(`/api/v1/sales/${expandedRow}/refunds`).then((r) => r.data.data),
-    enabled: !!expandedRow,
-  });
+  // Refunds hang off one sale rather than off the collection, which is the one
+  // read shape `resource` does not name.
+  const { data: saleRefunds } = useApiQuery<SaleRefund[]>(
+    ['sale-refunds', expandedRow],
+    `sales/${expandedRow}/refunds`,
+    undefined,
+    { enabled: !!expandedRow }
+  );
 
   const handleExportCSV = () => {
-    const sales = salesData?.data || [];
-    if (sales.length === 0) return;
+    const exported = rows || [];
+    if (exported.length === 0) return;
 
-    const exportData = sales.map((s) => ({
+    const exportData = exported.map((s) => ({
       id: s.id,
       date: formatDateTime(s.created_at),
       items_count: s.items_count,
@@ -150,22 +107,20 @@ export default function SalesHistory() {
     ]);
   };
 
+  // Two one-shot reads taken on a menu press rather than held in the cache: the
+  // sale is consumed into dialog state and never rendered from the query itself.
+  const readSale = (saleId: number) =>
+    transport.request<SaleDetail>({ method: 'GET', path: `sales/${saleId}` });
+
   const handlePrintReceipt = async (saleId: number) => {
     try {
-      const response = await api.get(`/api/v1/sales/${saleId}`);
-      const sale = response.data.data;
-      const items = (sale.items || []).map(
-        (item: { product_name: string; quantity: number; unit_price: number }) => ({
-          name: item.product_name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-        })
-      );
-      const subtotal = items.reduce(
-        (sum: number, item: { unit_price: number; quantity: number }) =>
-          sum + item.unit_price * item.quantity,
-        0
-      );
+      const { data: sale } = await readSale(saleId);
+      const items = (sale.items || []).map((item) => ({
+        name: item.product_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      }));
+      const subtotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
 
       setReceiptData({
         saleId: sale.id,
@@ -186,8 +141,7 @@ export default function SalesHistory() {
 
   const handleRefund = async (sale: Sale) => {
     try {
-      const response = await api.get(`/api/v1/sales/${sale.id}`);
-      const detail = response.data.data;
+      const { data: detail } = await readSale(sale.id);
       setRefundSale({
         id: sale.id,
         total: sale.total,
@@ -351,7 +305,7 @@ export default function SalesHistory() {
       </div>
 
       {/* Revenue summary */}
-      {salesData?.meta && (
+      {meta && (
         <Card>
           <CardContent className="p-4 flex items-center gap-6">
             <div>
@@ -359,16 +313,14 @@ export default function SalesHistory() {
                 {t('sales.totalRevenue')}
               </p>
               <p className="text-2xl font-semibold text-gold font-data">
-                {formatCurrency(salesData.meta.total_revenue)}
+                {formatCurrency(meta.total_revenue)}
               </p>
             </div>
             <div>
               <p className="text-xs text-muted uppercase tracking-widest font-body">
                 {t('sales.totalSales')}
               </p>
-              <p className="text-2xl font-semibold text-foreground font-data">
-                {salesData.meta.total}
-              </p>
+              <p className="text-2xl font-semibold text-foreground font-data">{meta.total}</p>
             </div>
           </CardContent>
         </Card>
@@ -423,7 +375,7 @@ export default function SalesHistory() {
 
       <DataTable
         columns={columns}
-        data={salesData?.data ?? []}
+        data={rows ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('sales.searchPlaceholder')}
         renderSubComponent={(sale: Sale) => {

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   LogIn,
   Plus,
@@ -37,27 +36,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import api from '../services/api';
 import { useTranslation } from '../i18n';
+import { resource } from '../lib/resource';
+import { useApiQuery } from '../lib/apiQuery';
 import type { LucideIcon } from 'lucide-react';
+import type { AuditEntry, User as UserRecord } from '@/types';
 
-interface AuditEntry {
-  id: number;
-  user_id: number | null;
-  user_name: string | null;
-  user_display_name: string | null;
-  action: string;
-  entity_type: string;
-  entity_id: string | null;
-  details: string;
-  ip_address: string | null;
-  created_at: string;
+/** Pagination figures the audit-log list carries beside its rows. */
+interface AuditMeta {
+  total: number;
 }
 
-interface UserEntry {
-  id: number;
-  name: string;
-}
+const auditLog = resource<AuditEntry, AuditMeta>('audit-log');
 
 const ACTION_CONFIG: Record<string, { color: string; icon: LucideIcon }> = {
   create: { color: 'text-emerald-400', icon: Plus },
@@ -146,45 +136,26 @@ export default function AuditLog() {
   const tAction = (action: string) => t(`activity.action.${action}`) || action;
   const tEntity = (entity: string) => t(`activity.entity.${entity}`) || entity;
 
-  const { data, isLoading } = useQuery<{ data: AuditEntry[]; meta: { total: number } }>({
-    queryKey: [
-      'audit-log',
-      { page, actionFilter, entityFilter, userFilter, dateFrom, dateTo, search },
-    ],
-    queryFn: () =>
-      api
-        .get('/api/v1/audit-log', {
-          params: {
-            page,
-            limit: 50,
-            action: actionFilter === 'all' ? undefined : actionFilter,
-            entity_type: entityFilter === 'all' ? undefined : entityFilter,
-            user_id: userFilter === 'all' ? undefined : userFilter,
-            date_from: dateFrom || undefined,
-            date_to: dateTo || undefined,
-            search: search || undefined,
-          },
-        })
-        .then((r) => ({ data: r.data.data, meta: r.data.meta })),
+  const {
+    data: entries = [],
+    isLoading,
+    meta,
+  } = auditLog.useList({
+    page,
+    limit: 50,
+    action: actionFilter === 'all' ? undefined : actionFilter,
+    entity_type: entityFilter === 'all' ? undefined : entityFilter,
+    user_id: userFilter === 'all' ? undefined : userFilter,
+    date_from: dateFrom || undefined,
+    date_to: dateTo || undefined,
+    search: search || undefined,
   });
 
-  const { data: actions } = useQuery<string[]>({
-    queryKey: ['audit-actions'],
-    queryFn: () => api.get('/api/v1/audit-log/actions').then((r) => r.data.data),
-  });
+  const { data: actions } = auditLog.useRead<string[]>('actions');
+  const { data: entityTypes } = auditLog.useRead<string[]>('entity-types');
+  const { data: users } = useApiQuery<Pick<UserRecord, 'id' | 'name'>[]>(['users-list'], 'users');
 
-  const { data: entityTypes } = useQuery<string[]>({
-    queryKey: ['audit-entity-types'],
-    queryFn: () => api.get('/api/v1/audit-log/entity-types').then((r) => r.data.data),
-  });
-
-  const { data: users } = useQuery<UserEntry[]>({
-    queryKey: ['users-list'],
-    queryFn: () => api.get('/api/v1/users').then((r) => r.data.data),
-  });
-
-  const entries = data?.data ?? [];
-  const total = data?.meta?.total ?? 0;
+  const total = meta?.total ?? 0;
   const totalPages = Math.ceil(total / 50);
 
   const getActionConfig = (action: string) =>

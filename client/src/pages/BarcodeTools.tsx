@@ -1,5 +1,4 @@
 import { useState, useCallback, type ChangeEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -13,7 +12,8 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import BarcodeGenerator from '../components/BarcodeGenerator';
 import { formatCurrency } from '../lib/utils';
 import { useCartStore } from '../store/cartStore';
-import api from '../services/api';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
 import { useTranslation } from '../i18n';
 import type { Product } from '@/types';
 
@@ -21,14 +21,14 @@ export default function BarcodeTools() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { addItem } = useCartStore();
+  const transport = useTransport();
   const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [selectedForPrint, setSelectedForPrint] = useState<Set<number>>(new Set());
 
-  const { data: products } = useQuery<Product[]>({
-    queryKey: ['products', { limit: 200 }],
-    queryFn: () => api.get('/api/v1/products', { params: { limit: 200 } }).then((r) => r.data.data),
+  const { data: products } = useApiQuery<Product[]>(['products', { limit: 200 }], 'products', {
+    limit: 200,
   });
 
   const selectedProduct = products?.find((p) => p.id === selectedProductId);
@@ -41,15 +41,18 @@ export default function BarcodeTools() {
   const handleBarcodeDetected = useCallback(
     async (barcode: string) => {
       try {
-        const response = await api.get(`/api/v1/products/barcode/${barcode}`);
-        setScannedProduct(response.data.data as Product);
+        const response = await transport.request<Product>({
+          method: 'GET',
+          path: `products/barcode/${barcode}`,
+        });
+        setScannedProduct(response.data);
         toast.success(t('barcode.productFound'));
       } catch {
         toast.error(t('barcode.productNotFound'));
         setScannedProduct(null);
       }
     },
-    [t]
+    [t, transport]
   );
 
   const handleAddToCart = (product: Product) => {

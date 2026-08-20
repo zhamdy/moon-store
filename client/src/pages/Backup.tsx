@@ -5,16 +5,23 @@ import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
+import { useTransport } from '../lib/transport';
 
 export default function BackupPage() {
   const { t } = useTranslation();
+  const transport = useTransport();
   const [lastBackup, setLastBackup] = useState<string | null>(null);
 
   const backupMutation = useMutation({
-    mutationFn: () => api.get('/api/v1/exports/backup', { responseType: 'blob' }),
-    onSuccess: (res) => {
-      const url = URL.createObjectURL(res.data);
+    // `exports/backup` streams the SQLite file rather than an envelope, which
+    // is why it asks for a blob. Going through the seam rather than around it
+    // keeps the token-refresh retry a plain fetch would have lost.
+    mutationFn: () =>
+      transport
+        .request<Blob>({ method: 'GET', path: 'exports/backup', responseType: 'blob' })
+        .then((r) => r.data),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `moon-backup-${new Date().toISOString().split('T')[0]}.db`;

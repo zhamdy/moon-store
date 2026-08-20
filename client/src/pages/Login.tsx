@@ -11,11 +11,10 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { useAuthStore } from '../store/authStore';
-import api from '../services/api';
+import { useTransport } from '../lib/transport';
 import moonLogo from '../assets/moon-logo.svg';
 import { useTranslation, t as tStandalone } from '../i18n';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, AuthResponseData } from '@/types';
+import type { AuthResponseData } from '@/types';
 
 const getLoginSchema = () =>
   z.object({
@@ -28,6 +27,9 @@ type LoginFormData = z.infer<ReturnType<typeof getLoginSchema>>;
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuthStore();
+  // The same axios instance the refresh interceptor is installed on, reached
+  // through the seam so this page holds no HTTP knowledge of its own.
+  const transport = useTransport();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useTranslation();
@@ -44,8 +46,14 @@ export default function Login() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      const response = await api.post<AuthResponseData>('/api/v1/auth/login', data);
-      const { accessToken, user } = response.data.data;
+      // The transport unwraps the `{ data: ... }` envelope, so what comes back
+      // here is what `response.data.data` used to be.
+      const response = await transport.request<AuthResponseData['data']>({
+        method: 'POST',
+        path: 'auth/login',
+        body: data,
+      });
+      const { accessToken, user } = response.data;
       login(user, accessToken);
       toast.success(t('login.welcomeBack', { name: user.name }));
 
@@ -58,8 +66,9 @@ export default function Login() {
         navigate('/deliveries');
       }
     } catch (err) {
-      const axiosError = err as AxiosError<ApiErrorResponse>;
-      toast.error(axiosError.response?.data?.error || t('login.failed'));
+      // ApiError carries the server's own wording, and nothing when the failure
+      // was the transport's own — so the page keeps its own fallback.
+      toast.error((err instanceof Error && err.message) || t('login.failed'));
     } finally {
       setIsLoading(false);
     }

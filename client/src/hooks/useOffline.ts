@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import api from '../services/api';
+import { useTransport } from '../lib/transport';
 import { useOfflineStore } from '../store/offlineStore';
 import { t } from '../i18n';
 
@@ -13,6 +13,11 @@ interface UseOfflineReturn {
 export function useOffline(): UseOfflineReturn {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { queue, removeFromQueue, setSyncing, isSyncing } = useOfflineStore();
+  // Taken here, at the top of the hook, so the replay below runs on the same
+  // transport CartPanel posted the sale on. The replay itself happens in a
+  // callback long after render, but the transport it closes over is stable for
+  // the life of the component, so nothing has to reach for it at call time.
+  const transport = useTransport();
 
   useEffect(() => {
     const handleOnline = () => {
@@ -41,7 +46,10 @@ export function useOffline(): UseOfflineReturn {
     for (const item of queue) {
       try {
         if (item.type === 'sale') {
-          await api.post('/api/v1/sales', item.payload);
+          // The queued payload goes up untouched — it is the body the till
+          // already composed, and a replay that reshaped it would post a
+          // different sale than the one the cashier rang up.
+          await transport.request({ method: 'POST', path: 'sales', body: item.payload });
           removeFromQueue(item.id);
           synced++;
         }
@@ -54,7 +62,7 @@ export function useOffline(): UseOfflineReturn {
     if (synced > 0) {
       toast.success(t('offline.synced', { count: synced }));
     }
-  }, [isOnline, isSyncing, queue, removeFromQueue, setSyncing]);
+  }, [isOnline, isSyncing, queue, removeFromQueue, setSyncing, transport]);
 
   // Auto-sync when coming back online
   useEffect(() => {

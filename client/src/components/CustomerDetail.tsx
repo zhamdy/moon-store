@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -10,7 +10,6 @@ import {
   Plus,
   Minus,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -26,10 +25,13 @@ import {
   DialogDescription,
 } from './ui/dialog';
 import { formatCurrency, formatDateTime, formatRelative } from '../lib/utils';
-import api from '../services/api';
+import { useApiQuery } from '../lib/apiQuery';
+import { resource } from '../lib/resource';
 import { useTranslation } from '../i18n';
-import type { AxiosError } from 'axios';
 import type { AppSettings } from '@/types';
+
+/** Reached only for reads hanging off one customer and the points adjustment. */
+const customers = resource<{ id: number }>('customers');
 
 interface CustomerDetailProps {
   customerId: number;
@@ -75,49 +77,41 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
   const [adjustPoints, setAdjustPoints] = useState(0);
   const [adjustNote, setAdjustNote] = useState('');
 
-  const { data: appSettings } = useQuery<AppSettings>({
-    queryKey: ['settings'],
-    queryFn: () => api.get('/api/v1/settings').then((r) => r.data.data),
+  // Settings.tsx writes this key and CartPanel.tsx reads it, so the cache entry
+  // stays shared with them rather than moving under a resource-scoped key.
+  const { data: appSettings } = useApiQuery<AppSettings>(['settings'], 'settings', undefined, {
     staleTime: 5 * 60 * 1000,
   });
 
   const loyaltyEnabled = appSettings?.loyalty_enabled === 'true';
 
-  const { data: stats } = useQuery<CustomerStats>({
-    queryKey: ['customer-stats', customerId],
-    queryFn: () => api.get(`/api/v1/customers/${customerId}/stats`).then((r) => r.data.data),
+  const { data: stats } = customers.useRead<CustomerStats>(`${customerId}/stats`);
+
+  const { data: sales = [], isLoading } = customers.useRead<CustomerSale[]>(`${customerId}/sales`, {
+    limit: 100,
   });
 
-  const { data: salesData, isLoading } = useQuery<{ data: CustomerSale[] }>({
-    queryKey: ['customer-sales', customerId],
-    queryFn: () =>
-      api
-        .get(`/api/v1/customers/${customerId}/sales`, { params: { limit: 100 } })
-        .then((r) => r.data),
-  });
+  // Same story as settings: CartPanel.tsx reads ['customer-loyalty', id] and
+  // the adjustment below invalidates it, so both have to keep meeting here.
+  const { data: loyaltyData } = useApiQuery<LoyaltyData>(
+    ['customer-loyalty', customerId],
+    `customers/${customerId}/loyalty`,
+    undefined,
+    { enabled: loyaltyEnabled }
+  );
 
-  const { data: loyaltyData } = useQuery<LoyaltyData>({
-    queryKey: ['customer-loyalty', customerId],
-    queryFn: () => api.get(`/api/v1/customers/${customerId}/loyalty`).then((r) => r.data.data),
-    enabled: loyaltyEnabled,
-  });
-
-  const adjustMutation = useMutation({
-    mutationFn: (data: { points: number; note: string }) =>
-      api.post(`/api/v1/customers/${customerId}/loyalty/adjust`, data),
-    onSuccess: () => {
-      toast.success(t('loyalty.adjustSuccess'));
+  // `useAction` refreshes the customers collection itself; the loyalty read
+  // lives under its own shared key, so that one is still invalidated by hand.
+  const adjustMutation = customers.useAction('loyalty/adjust', {
+    message: t('loyalty.adjustSuccess'),
+    fallbackMessage: t('loyalty.adjustFailed'),
+    onDone: () => {
       queryClient.invalidateQueries({ queryKey: ['customer-loyalty', customerId] });
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
       setAdjustDialogOpen(false);
       setAdjustPoints(0);
       setAdjustNote('');
     },
-    onError: (err: AxiosError<{ error?: string }>) =>
-      toast.error(err.response?.data?.error || t('loyalty.adjustFailed')),
   });
-
-  const sales = salesData?.data || [];
 
   const typeLabel = (type: string) => {
     switch (type) {
@@ -393,8 +387,13 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
           </div>
           <DialogFooter>
             <Button
-              onClick={() => adjustMutation.mutate({ points: adjustPoints, note: adjustNote })}
-              disabled={adjustPoints === 0 || !adjustNote || adjustMutation.isPending}
+              onClick={() =>
+                adjustMutation.run({
+                  id: customerId,
+                  body: { points: adjustPoints, note: adjustNote },
+                })
+              }
+              disabled={adjustPoints === 0 || !adjustNote || adjustMutation.isRunning}
             >
               {t('common.confirm')}
             </Button>

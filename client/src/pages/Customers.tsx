@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2, History, Star } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -29,11 +27,12 @@ import {
 } from '../components/ui/alert-dialog';
 import DataTable from '../components/DataTable';
 import CustomerDetail from '../components/CustomerDetail';
-import api from '../services/api';
 import { useTranslation, t as tStandalone } from '../i18n';
+import { resource } from '../lib/resource';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, Customer } from '@/types';
+import type { Customer } from '@/types';
+
+const customersResource = resource<Customer>('customers');
 
 const getCustomerFormSchema = () =>
   z.object({
@@ -47,17 +46,12 @@ type CustomerFormData = z.infer<ReturnType<typeof getCustomerFormSchema>>;
 
 export default function CustomersPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
 
-  const { data: customers, isLoading } = useQuery<Customer[]>({
-    queryKey: ['customers'],
-    queryFn: () =>
-      api.get('/api/v1/customers', { params: { limit: 1000 } }).then((r) => r.data.data),
-  });
+  const { data: customers, isLoading } = customersResource.useList({ limit: 1000 });
 
   const {
     register,
@@ -68,48 +62,38 @@ export default function CustomersPage() {
     resolver: zodResolver(getCustomerFormSchema()),
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: CustomerFormData) => api.post('/api/v1/customers', data),
-    onSuccess: () => {
-      toast.success(t('customers.customerCreated'));
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
+  // Creating and updating are the same write to the server, but each says
+  // something different when it lands, so they stay two hooks.
+  const creator = customersResource.useSave({
+    message: t('customers.customerCreated'),
+    fallbackMessage: t('customers.createFailed'),
+    onDone: () => {
       setDialogOpen(false);
       reset();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('customers.createFailed')),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: CustomerFormData }) =>
-      api.put(`/api/v1/customers/${id}`, data),
-    onSuccess: () => {
-      toast.success(t('customers.customerUpdated'));
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
+  const updater = customersResource.useSave({
+    message: t('customers.customerUpdated'),
+    fallbackMessage: t('customers.updateFailed'),
+    onDone: () => {
       setDialogOpen(false);
       setEditingCustomer(null);
       reset();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('customers.updateFailed')),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/customers/${id}`),
-    onSuccess: () => {
-      toast.success(t('customers.customerDeleted'));
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      setDeleteId(null);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('customers.deleteFailed')),
+  const remover = customersResource.useRemove({
+    message: t('customers.customerDeleted'),
+    fallbackMessage: t('customers.deleteFailed'),
+    onDone: () => setDeleteId(null),
   });
 
   const onSubmit = (data: CustomerFormData) => {
     if (editingCustomer) {
-      updateMutation.mutate({ id: editingCustomer.id, data });
+      updater.save({ id: editingCustomer.id, ...data });
     } else {
-      createMutation.mutate(data);
+      creator.save(data);
     }
   };
 
@@ -258,7 +242,7 @@ export default function CustomersPage() {
               <Textarea {...register('notes')} />
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button type="submit" disabled={creator.isSaving || updater.isSaving}>
                 {editingCustomer ? t('common.update') : t('common.create')}
               </Button>
             </DialogFooter>
@@ -276,7 +260,7 @@ export default function CustomersPage() {
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              onClick={() => deleteId && remover.remove(deleteId)}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
               {t('common.delete')}
