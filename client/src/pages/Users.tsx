@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -30,11 +29,10 @@ import {
 import DataTable from '../components/DataTable';
 import { formatDateTime, formatDate } from '../lib/utils';
 import { useAuthStore } from '../store/authStore';
-import api from '../services/api';
+import { resource } from '../lib/resource';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, User, UserRole } from '@/types';
+import type { User, UserRole } from '@/types';
 
 const getCreateSchema = () =>
   z.object({
@@ -56,6 +54,8 @@ type CreateUserFormData = z.infer<ReturnType<typeof getCreateSchema>>;
 type EditUserFormData = z.infer<ReturnType<typeof getEditSchema>>;
 type UserFormData = CreateUserFormData | EditUserFormData;
 
+const users = resource<User>('users');
+
 const roleBadgeVariant: Record<UserRole, 'gold' | 'blush' | 'secondary'> = {
   Admin: 'gold',
   Cashier: 'blush',
@@ -65,15 +65,11 @@ const roleBadgeVariant: Record<UserRole, 'gold' | 'blush' | 'secondary'> = {
 export default function UsersPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
-  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  const { data: users, isLoading } = useQuery<User[]>({
-    queryKey: ['users'],
-    queryFn: () => api.get('/api/v1/users').then((r) => r.data.data),
-  });
+  const { data: rows, isLoading } = users.useList();
 
   const schema = editingUser ? getEditSchema() : getCreateSchema();
   const {
@@ -86,49 +82,31 @@ export default function UsersPage() {
     defaultValues: { name: '', email: '', password: '', role: 'Cashier' },
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: UserFormData) => api.post('/api/v1/users', data),
-    onSuccess: () => {
-      toast.success(t('users.userCreated'));
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+  // One save serves both verbs: `resource` reads the presence of an id to
+  // decide create from update, so the page only has to say which it means.
+  const saver = users.useSave({
+    message: editingUser ? t('users.userUpdated') : t('users.userCreated'),
+    fallbackMessage: editingUser ? t('users.updateFailed') : t('users.createFailed'),
+    onDone: () => {
       setDialogOpen(false);
-      reset();
+      if (editingUser) setEditingUser(null);
+      else reset();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('users.createFailed')),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<UserFormData> }) =>
-      api.put(`/api/v1/users/${id}`, data),
-    onSuccess: () => {
-      toast.success(t('users.userUpdated'));
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      setDialogOpen(false);
-      setEditingUser(null);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('users.updateFailed')),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/users/${id}`),
-    onSuccess: () => {
-      toast.success(t('users.userDeleted'));
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      setDeleteId(null);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('users.deleteFailed')),
+  const remover = users.useRemove({
+    message: t('users.userDeleted'),
+    fallbackMessage: t('users.deleteFailed'),
+    onDone: () => setDeleteId(null),
   });
 
   const onSubmit = (data: UserFormData) => {
     if (editingUser) {
       const payload = { ...data };
       if (!payload.password) delete (payload as Partial<UserFormData>).password;
-      updateMutation.mutate({ id: editingUser.id, data: payload });
+      saver.save({ id: editingUser.id, ...payload });
     } else {
-      createMutation.mutate(data);
+      saver.save({ ...data });
     }
   };
 
@@ -228,7 +206,7 @@ export default function UsersPage() {
 
       <DataTable
         columns={columns}
-        data={users ?? []}
+        data={rows ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('users.searchPlaceholder')}
       />
@@ -273,7 +251,7 @@ export default function UsersPage() {
               {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button type="submit" disabled={saver.isSaving}>
                 {editingUser ? t('common.update') : t('common.create')}
               </Button>
             </DialogFooter>
@@ -291,7 +269,7 @@ export default function UsersPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              onClick={() => deleteId && remover.remove(deleteId)}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
               {t('common.delete')}

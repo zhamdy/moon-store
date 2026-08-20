@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { TrendingUp, Zap, Check, X, RefreshCw, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../lib/utils';
@@ -15,33 +15,19 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
+import { resource } from '../lib/resource';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
+import type { PriceSuggestion, PricingRule } from '@/types';
 
-interface PriceSuggestion {
-  id: number;
-  product_id: number;
-  product_name: string;
-  sku: string;
-  current_price: number;
-  suggested_price: number;
-  reason: string;
-  confidence: number;
-  status: string;
-}
-
-interface PricingRule {
-  id: number;
-  name: string;
-  rule_type: string;
-  config: string;
-  priority: number;
-  is_active: number;
-  applies_to: string;
-}
+// Two nested collections under the AI route, each with its own CRUD surface.
+const priceSuggestions = resource<PriceSuggestion>('ai/pricing/suggestions');
+const pricingRules = resource<PricingRule>('ai/pricing/rules');
 
 export default function SmartPricingPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const transport = useTransport();
   const [tab, setTab] = useState<'suggestions' | 'rules'>('suggestions');
   const [ruleOpen, setRuleOpen] = useState(false);
   const [ruleForm, setRuleForm] = useState({
@@ -52,37 +38,34 @@ export default function SmartPricingPage() {
     applies_to: 'all',
   });
 
-  const { data: suggestions } = useQuery<PriceSuggestion[]>({
-    queryKey: ['price-suggestions'],
-    queryFn: () => api.get('/api/v1/ai/pricing/suggestions').then((r) => r.data.data),
-  });
-  const { data: rules } = useQuery<PricingRule[]>({
-    queryKey: ['pricing-rules'],
-    queryFn: () => api.get('/api/v1/ai/pricing/rules').then((r) => r.data.data),
-    enabled: tab === 'rules',
-  });
+  const { data: suggestions } = priceSuggestions.useList();
+  // Rules are only worth fetching once their tab is showing, and `useList` has
+  // no way to say that.
+  const { data: rules } = useApiQuery<PricingRule[]>(
+    ['pricing-rules'],
+    'ai/pricing/rules',
+    undefined,
+    { enabled: tab === 'rules' }
+  );
 
+  // The toast counts what came back, which no `resource` write reports, so the
+  // generate run is taken straight off the transport.
   const generate = useMutation({
-    mutationFn: () => api.post('/api/v1/ai/pricing/generate'),
-    onSuccess: (res) => {
-      toast.success(`${res.data.data.length} ${t('smartPricing.suggestionsGenerated')}`);
-      qc.invalidateQueries({ queryKey: ['price-suggestions'] });
+    mutationFn: () =>
+      transport.request<PriceSuggestion[]>({ method: 'POST', path: 'ai/pricing/generate' }),
+    onSuccess: ({ data }) => {
+      toast.success(`${data.length} ${t('smartPricing.suggestionsGenerated')}`);
+      qc.invalidateQueries({ queryKey: ['ai/pricing/suggestions'] });
     },
+    onError: (error: Error) => toast.error(error.message || t('common.error')),
   });
 
-  const handleSuggestion = useMutation({
-    mutationFn: ({ id, action }: { id: number; action: string }) =>
-      api.put(`/api/v1/ai/pricing/suggestions/${id}`, { action }),
-    onSuccess: () => {
-      toast.success(t('smartPricing.updated'));
-      qc.invalidateQueries({ queryKey: ['price-suggestions'] });
-    },
-  });
+  const handleSuggestion = priceSuggestions.useSave({ message: t('smartPricing.updated') });
 
-  const createRule = useMutation({
-    mutationFn: (data: typeof ruleForm) => api.post('/api/v1/ai/pricing/rules', data),
-    onSuccess: () => {
-      toast.success(t('smartPricing.ruleCreated'));
+  const createRule = pricingRules.useSave({
+    message: t('smartPricing.ruleCreated'),
+    onDone: () => {
+      // The tab-gated read lives under its own key, so `useSave` cannot reach it.
       qc.invalidateQueries({ queryKey: ['pricing-rules'] });
       setRuleOpen(false);
     },
@@ -198,7 +181,7 @@ export default function SmartPricingPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-green-500"
-                            onClick={() => handleSuggestion.mutate({ id: s.id, action: 'accept' })}
+                            onClick={() => handleSuggestion.save({ id: s.id, action: 'accept' })}
                           >
                             <Check className="h-3.5 w-3.5" />
                           </Button>
@@ -206,7 +189,7 @@ export default function SmartPricingPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-red-500"
-                            onClick={() => handleSuggestion.mutate({ id: s.id, action: 'reject' })}
+                            onClick={() => handleSuggestion.save({ id: s.id, action: 'reject' })}
                           >
                             <X className="h-3.5 w-3.5" />
                           </Button>
@@ -259,7 +242,7 @@ export default function SmartPricingPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              createRule.mutate(ruleForm);
+              createRule.save({ ...ruleForm });
             }}
             className="space-y-3"
           >
@@ -294,8 +277,8 @@ export default function SmartPricingPage() {
                 }
               />
             </div>
-            <Button type="submit" className="w-full" disabled={createRule.isPending}>
-              {createRule.isPending ? t('common.saving') : t('common.save')}
+            <Button type="submit" className="w-full" disabled={createRule.isSaving}>
+              {createRule.isSaving ? t('common.saving') : t('common.save')}
             </Button>
           </form>
         </DialogContent>
