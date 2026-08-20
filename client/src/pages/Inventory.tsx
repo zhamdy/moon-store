@@ -57,7 +57,6 @@ import { exportToExcel } from '../lib/exportUtils';
 import { resource } from '../lib/resource';
 import { useTransport, type TransportMethod } from '../lib/transport';
 import { useAuthStore } from '../store/authStore';
-import { uploadProductImage } from '../services/productImages';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import type {
@@ -258,13 +257,16 @@ export default function Inventory() {
     }
   };
 
-  // Handlers. Only the multipart upload needs a query client of its own; every
-  // other write on this page refreshes the products reads by itself.
+  // Handlers. Only the multipart upload needs a transport and query client of
+  // its own; every other write on this page refreshes the products reads itself.
   const queryClient = useQueryClient();
+  const transport = useTransport();
 
   const handleImageUpload = async (productId: number, file: File) => {
     try {
-      await uploadProductImage(productId, file);
+      const form = new FormData();
+      form.append('image', file);
+      await transport.request({ method: 'POST', path: `products/${productId}/image`, body: form });
       toast.success(t('inventory.imageUploaded'));
       queryClient.invalidateQueries({ queryKey: ['products'] });
     } catch {

@@ -32,6 +32,11 @@ export function createHttpTransport(client: AxiosInstance = api): Transport {
           url: `${API_PREFIX}/${path}`,
           params,
           data: body,
+          // The shared client pins JSON, which makes axios serialise a FormData
+          // body to "{}" instead of uploading it. Clearing the header lets the
+          // browser set multipart/form-data with its own boundary. Encoding is
+          // this adapter's business, so callers still just hand over a body.
+          ...(body instanceof FormData ? { headers: { 'Content-Type': undefined } } : {}),
         });
         return { data: response.data.data, meta: response.data.meta };
       } catch (caught) {
