@@ -10,7 +10,7 @@
  * transport before `setAuthPort` has run (e.g. a test rendering in
  * isolation) behaves like an unauthenticated client instead of throwing.
  */
-import type { AuthUser } from '../../../types/index';
+import type { AuthUser } from '../../types/index';
 
 export interface AuthPort {
   getAccessToken: () => string | null;

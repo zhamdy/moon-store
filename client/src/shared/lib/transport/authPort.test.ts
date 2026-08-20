@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AuthUser } from '../../../types/index';
+import type { AuthUser } from '../../types/index';
 
 const USER: AuthUser = {
   id: 1,

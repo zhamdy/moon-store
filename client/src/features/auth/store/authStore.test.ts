@@ -4,7 +4,7 @@ import { useOfflineStore } from '../../../shared/store/offlineStore';
 import { useCartStore, useHeldCartsStore } from '../../pos';
 import { onSessionEvent } from '../../../shared/lib/session';
 import { queryClient } from '../../../shared/lib/queryClient';
-import type { AuthUser } from '../../../types/index';
+import type { AuthUser } from '../../../shared/types/index';
 
 const mockUser: AuthUser = {
   id: 1,

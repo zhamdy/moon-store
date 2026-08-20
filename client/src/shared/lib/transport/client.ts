@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { getAccessToken, onAuthFailure, onTokenRefreshed } from './authPort';
-import type { AuthResponseData } from '../../../types/index';
+import type { AuthResponseData } from '../../types/index';
 
 interface QueueItem {
   resolve: (token: string) => void;
