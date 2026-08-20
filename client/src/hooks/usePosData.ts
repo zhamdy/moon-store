@@ -1,7 +1,11 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../services/api';
+import { useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useApiQuery } from '../lib/apiQuery';
+import { resource } from '../lib/resource';
+import { useTransport } from '../lib/transport';
 import type { Category, Product, ProductVariant } from '@/types';
+
+const products = resource<Product>('products');
 
 interface UsePosDataParams {
   debouncedSearch: string;
@@ -45,20 +49,30 @@ export function usePosData({
   selectedCategory,
 }: UsePosDataParams): UsePosDataReturn {
   const queryClient = useQueryClient();
+  const transport = useTransport();
 
   // We manage variant state here because queries depend on it
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
   const [variantProduct, setVariantProduct] = useState<Product | null>(null);
 
-  // Favorites
-  const { data: favorites } = useQuery<number[]>({
-    queryKey: ['favorites'],
-    queryFn: () => api.get('/api/v1/users/me/favorites').then((r) => r.data.data),
-    staleTime: 0,
-  });
+  // Every read on this screen keeps `staleTime: 0`. A till shows stock, and
+  // stock a few minutes old is wrong in the one place being wrong costs money,
+  // so these stay on `useApiQuery`, which takes a staleTime, rather than
+  // `resource.useList`, which always inherits the app's five-minute default.
 
+  // Favorites
+  const { data: favorites } = useApiQuery<number[]>(
+    ['favorites'],
+    'users/me/favorites',
+    undefined,
+    { staleTime: 0 }
+  );
+
+  // `me` is not a record id, so this write has no `resource` verb to hang off
+  // and goes straight to the transport.
   const favMutation = useMutation({
-    mutationFn: (favs: number[]) => api.put('/api/v1/users/me/favorites', { favorites: favs }),
+    mutationFn: (favs: number[]) =>
+      transport.request({ method: 'PUT', path: 'users/me/favorites', body: { favorites: favs } }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['favorites'] }),
   });
 
@@ -71,25 +85,25 @@ export function usePosData({
   };
 
   // Categories
-  const { data: categories } = useQuery<Category[]>({
-    queryKey: ['categories'],
-    queryFn: () => api.get('/api/v1/products/categories').then((r) => r.data.data),
-    staleTime: 0,
-  });
+  const { data: categories } = useApiQuery<Category[]>(
+    ['categories'],
+    'products/categories',
+    undefined,
+    { staleTime: 0 }
+  );
 
   // Active bundles for POS
-  const { data: bundles } = useQuery<PosBundle[]>({
-    queryKey: ['bundles-pos'],
-    queryFn: () =>
-      api
-        .get('/api/v1/bundles')
-        .then((r) => (r.data.data as PosBundle[]).filter((b) => b.status === 'active')),
+  const { data: allBundles } = useApiQuery<PosBundle[]>(['bundles-pos'], 'bundles', undefined, {
     staleTime: 0,
   });
+  const bundles = useMemo(
+    () => allBundles?.filter((bundle) => bundle.status === 'active'),
+    [allBundles]
+  );
 
   // Products with debounced search and category filter
-  const { data: products, isLoading: isLoadingProducts } = useQuery<Product[]>({
-    queryKey: [
+  const { data: productRows, isLoading: isLoadingProducts } = useApiQuery<Product[]>(
+    [
       'products',
       {
         search: debouncedSearch,
@@ -97,33 +111,28 @@ export function usePosData({
         limit: 100,
       },
     ],
-    queryFn: () =>
-      api
-        .get('/api/v1/products', {
-          params: {
-            search: debouncedSearch || undefined,
-            category_id: selectedCategory || undefined,
-            limit: 100,
-          },
-        })
-        .then((r) => r.data.data),
-    staleTime: 0,
-  });
+    'products',
+    {
+      search: debouncedSearch || undefined,
+      category_id: selectedCategory || undefined,
+      limit: 100,
+    },
+    { staleTime: 0 }
+  );
 
   // Variants for selected product
-  const { data: variants } = useQuery<ProductVariant[]>({
-    queryKey: ['product-variants', variantProduct?.id],
-    queryFn: () =>
-      api.get(`/api/v1/products/${variantProduct!.id}/variants`).then((r) => r.data.data),
-    enabled: !!variantProduct && variantDialogOpen,
-  });
+  const { data: variants } = products.useRead<ProductVariant[]>(
+    `${variantProduct?.id}/variants`,
+    undefined,
+    !!variantProduct && variantDialogOpen
+  );
 
   return {
     favorites,
     favMutation,
     toggleFavorite,
     categories,
-    products,
+    products: productRows,
     isLoadingProducts,
     bundles,
     variants,
