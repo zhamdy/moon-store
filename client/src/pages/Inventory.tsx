@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, type ChangeEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import {
@@ -50,15 +51,58 @@ import AdjustStockDialog from '../components/AdjustStockDialog';
 import ProductFormDialog from '../components/inventory/ProductFormDialog';
 import BulkOperationDialogs from '../components/inventory/BulkOperationDialogs';
 import VariantManagerDialog from '../components/inventory/VariantManagerDialog';
-import { useInventoryData, type CsvProduct, type LowStockProduct } from '../hooks/useInventoryData';
 import { useVariantManagement } from '../hooks/useVariantManagement';
 import { formatCurrency } from '../lib/utils';
 import { exportToExcel } from '../lib/exportUtils';
+import { resource } from '../lib/resource';
+import { useTransport, type TransportMethod } from '../lib/transport';
 import { useAuthStore } from '../store/authStore';
-import api from '../services/api';
+import { uploadProductImage } from '../services/productImages';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
-import type { Product, ProductFormData } from '@/types';
+import type {
+  BulkDiscontinueResult,
+  Category,
+  CsvProduct,
+  Distributor,
+  LowStockProduct,
+  Product,
+  ProductFormData,
+  ProductImportResult,
+} from '@/types';
+
+const products = resource<Product>('products');
+const distributors = resource<Distributor>('distributors');
+
+/** Where the server serves uploaded product images from. */
+const assetBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+/**
+ * Bulk update, bulk discontinue and CSV import address the whole collection, not
+ * one record, so `products.useAction` — which always builds `products/{id}/{action}` —
+ * cannot express them. They go through the transport directly instead of the
+ * `resource` module growing a second shape of action. That also lets each toast
+ * quote the count the server reports back, which a fixed `message` cannot.
+ */
+function useCollectionAction<Body, Result>(
+  action: string,
+  method: TransportMethod,
+  onDone: (result: Result) => void,
+  fallbackMessage: string
+) {
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: Body) =>
+      transport.request<Result>({ method, path: `products/${action}`, body }),
+    onSuccess: ({ data }) => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      onDone(data);
+    },
+    onError: (error: Error) => toast.error(error.message || fallbackMessage),
+  });
+}
 
 const getProductSchema = () =>
   z.object({
@@ -107,42 +151,90 @@ export default function Inventory() {
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState('');
 
-  // Data & mutations
-  const {
-    currentData,
-    isLoading,
-    categories,
-    distributors,
-    createMutation,
-    updateMutation,
-    discontinueMutation,
-    statusMutation,
-    importMutation,
-    bulkDeleteMutation,
-    bulkUpdateMutation,
-    queryClient,
-  } = useInventoryData({
-    categoryFilter,
-    statusFilter,
-    lowStockFilter,
-    onCreateSuccess: () => setDialogOpen(false),
-    onUpdateSuccess: () => {
+  // Reads. The two product lists are separate server endpoints rather than one
+  // filtered read, so the page picks between them rather than merging them.
+  const list = products.useList({
+    limit: 200,
+    category_id: categoryFilter === 'all' ? undefined : categoryFilter,
+    status: statusFilter,
+  });
+  const lowStock = products.useRead<LowStockProduct[]>('low-stock', undefined, lowStockFilter);
+  const { data: categories } = products.useRead<Category[]>('categories');
+  const { data: distributorRows } = distributors.useList();
+
+  const currentData: Product[] = (lowStockFilter ? lowStock.data : list.data) ?? [];
+  const isLoading = lowStockFilter ? lowStock.isLoading : list.isLoading;
+
+  // Writes. One save covers create and update: an id in the draft is what makes
+  // it an update, so the page does not branch on which mutation to reach for.
+  const saver = products.useSave({
+    message: editingProduct ? t('inventory.productUpdated') : t('inventory.productCreated'),
+    fallbackMessage: editingProduct
+      ? t('inventory.failedToUpdateProduct')
+      : t('inventory.failedToCreateProduct'),
+    onDone: () => {
       setDialogOpen(false);
       setEditingProduct(null);
     },
-    onBulkDeleteSuccess: () => {
+  });
+
+  const discontinuer = products.useRemove({
+    message: t('inventory.productDiscontinued'),
+    fallbackMessage: t('bulk.deleteFailed'),
+    onDone: () => setDiscontinueId(null),
+  });
+
+  const statusChanger = products.useAction('status', {
+    method: 'PUT',
+    message: t('inventory.statusChanged'),
+    fallbackMessage: t('bulk.updateFailed'),
+    onDone: () => setReactivateId(null),
+  });
+
+  const imageRemover = products.useAction('image', {
+    method: 'DELETE',
+    message: t('inventory.imageRemoved'),
+    fallbackMessage: t('inventory.imageRemoveFailed'),
+  });
+
+  const importer = useCollectionAction<{ products: CsvProduct[] }, ProductImportResult>(
+    'import',
+    'POST',
+    ({ imported, errors }) => {
+      toast.success(`${imported} ${t('inventory.productsImported')}`);
+      if (errors.length > 0) {
+        toast.error(`${errors.length} ${t('inventory.rowsHadErrors')}`);
+      }
+    },
+    t('inventory.importFailed')
+  );
+
+  const bulkDiscontinuer = useCollectionAction<{ ids: number[] }, BulkDiscontinueResult>(
+    'bulk-delete',
+    'POST',
+    ({ deleted }) => {
+      toast.success(t('bulk.discontinueSuccess', { count: String(deleted) }));
       setRowSelection({});
       setBulkDeleteOpen(false);
     },
-    onBulkUpdateSuccess: () => {
+    t('bulk.deleteFailed')
+  );
+
+  const bulkUpdater = useCollectionAction<
+    { ids: number[]; updates: Record<string, unknown> },
+    unknown
+  >(
+    'bulk-update',
+    'PUT',
+    () => {
+      toast.success(t('bulk.updateSuccess'));
       setRowSelection({});
       setBulkCategoryOpen(false);
       setBulkDistributorOpen(false);
       setBulkPriceOpen(false);
     },
-    onDiscontinueSuccess: () => setDiscontinueId(null),
-    onReactivateSuccess: () => setReactivateId(null),
-  });
+    t('bulk.updateFailed')
+  );
 
   // Variant management
   const vm = useVariantManagement();
@@ -166,14 +258,13 @@ export default function Inventory() {
     }
   };
 
-  // Handlers
+  // Handlers. Only the multipart upload needs a query client of its own; every
+  // other write on this page refreshes the products reads by itself.
+  const queryClient = useQueryClient();
+
   const handleImageUpload = async (productId: number, file: File) => {
-    const formData = new FormData();
-    formData.append('image', file);
     try {
-      await api.post(`/api/v1/products/${productId}/image`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await uploadProductImage(productId, file);
       toast.success(t('inventory.imageUploaded'));
       queryClient.invalidateQueries({ queryKey: ['products'] });
     } catch {
@@ -181,23 +272,10 @@ export default function Inventory() {
     }
   };
 
-  const handleRemoveImage = async (productId: number) => {
-    try {
-      await api.delete(`/api/v1/products/${productId}/image`);
-      toast.success(t('inventory.imageRemoved'));
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-    } catch {
-      toast.error(t('inventory.imageRemoveFailed'));
-    }
-  };
+  const handleRemoveImage = (productId: number) => imageRemover.run({ id: productId });
 
-  const onSubmit = (data: ProductFormData) => {
-    if (editingProduct) {
-      updateMutation.mutate({ id: editingProduct.id, data });
-    } else {
-      createMutation.mutate(data);
-    }
-  };
+  const onSubmit = (data: ProductFormData) =>
+    saver.save({ id: editingProduct?.id ?? null, ...data });
 
   const openEditDialog = (product: Product) => {
     setEditingProduct(product);
@@ -248,7 +326,7 @@ export default function Inventory() {
       const lines = text.split('\n').filter(Boolean);
       const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
 
-      const products: CsvProduct[] = lines.slice(1).map((line) => {
+      const parsed: CsvProduct[] = lines.slice(1).map((line) => {
         const values = line.split(',').map((v) => v.trim());
         const obj: Record<string, string> = {};
         headers.forEach((h, i) => {
@@ -266,7 +344,7 @@ export default function Inventory() {
         };
       });
 
-      importMutation.mutate(products);
+      importer.mutate({ products: parsed });
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -301,7 +379,7 @@ export default function Inventory() {
         <div className="flex items-center gap-2">
           {row.original.image_url ? (
             <img
-              src={`${api.defaults.baseURL}${row.original.image_url}`}
+              src={`${assetBase}${row.original.image_url}`}
               alt={row.original.name}
               className="h-8 w-8 rounded object-cover shrink-0"
               loading="lazy"
@@ -668,9 +746,9 @@ export default function Inventory() {
         onOpenChange={setDialogOpen}
         editingProduct={editingProduct}
         categories={categories}
-        distributors={distributors}
+        distributors={distributorRows}
         onSubmit={onSubmit}
-        isSubmitting={createMutation.isPending || updateMutation.isPending}
+        isSubmitting={saver.isSaving}
         getProductSchema={getProductSchema}
         onImageUpload={handleImageUpload}
         onImageRemove={handleRemoveImage}
@@ -686,7 +764,7 @@ export default function Inventory() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => discontinueId && discontinueMutation.mutate(discontinueId)}
+              onClick={() => discontinueId && discontinuer.remove(discontinueId)}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
               {t('common.confirm')}
@@ -706,7 +784,7 @@ export default function Inventory() {
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
-                reactivateId && statusMutation.mutate({ id: reactivateId, status: 'active' })
+                reactivateId && statusChanger.run({ id: reactivateId, body: { status: 'active' } })
               }
             >
               {t('common.confirm')}
@@ -729,39 +807,37 @@ export default function Inventory() {
         selectedCount={selectedCount}
         selectedIds={selectedIds}
         categories={categories}
-        distributors={distributors}
+        distributors={distributorRows}
         bulkDeleteOpen={bulkDeleteOpen}
         setBulkDeleteOpen={setBulkDeleteOpen}
-        onBulkDelete={(ids) => bulkDeleteMutation.mutate(ids)}
+        onBulkDelete={(ids) => bulkDiscontinuer.mutate({ ids })}
         bulkCategoryOpen={bulkCategoryOpen}
         setBulkCategoryOpen={setBulkCategoryOpen}
         bulkCategory={bulkCategory}
         setBulkCategory={setBulkCategory}
         onBulkCategoryUpdate={(ids, categoryId) =>
-          bulkUpdateMutation.mutate({ ids, updates: { category_id: categoryId } })
+          bulkUpdater.mutate({ ids, updates: { category_id: categoryId } })
         }
-        bulkUpdatePending={bulkUpdateMutation.isPending}
+        bulkUpdatePending={bulkUpdater.isPending}
         bulkDistributorOpen={bulkDistributorOpen}
         setBulkDistributorOpen={setBulkDistributorOpen}
         bulkDistributor={bulkDistributor}
         setBulkDistributor={setBulkDistributor}
         onBulkDistributorUpdate={(ids, distributorId) =>
-          bulkUpdateMutation.mutate({ ids, updates: { distributor_id: distributorId } })
+          bulkUpdater.mutate({ ids, updates: { distributor_id: distributorId } })
         }
         bulkPriceOpen={bulkPriceOpen}
         setBulkPriceOpen={setBulkPriceOpen}
         bulkPricePercent={bulkPricePercent}
         setBulkPricePercent={setBulkPricePercent}
         onBulkPriceUpdate={(ids, pricePercent) =>
-          bulkUpdateMutation.mutate({ ids, updates: { price_percent: pricePercent } })
+          bulkUpdater.mutate({ ids, updates: { price_percent: pricePercent } })
         }
         bulkStatusOpen={bulkStatusOpen}
         setBulkStatusOpen={setBulkStatusOpen}
         bulkStatusValue={bulkStatusValue}
         setBulkStatusValue={setBulkStatusValue}
-        onBulkStatusUpdate={(ids, status) =>
-          bulkUpdateMutation.mutate({ ids, updates: { status } })
-        }
+        onBulkStatusUpdate={(ids, status) => bulkUpdater.mutate({ ids, updates: { status } })}
       />
 
       {/* Variant Manager Dialog */}
@@ -794,9 +870,9 @@ export default function Inventory() {
         onOpenEditVariant={vm.openEditVariant}
         onVariantSubmit={vm.handleVariantSubmit}
         onResetVariantForm={vm.resetVariantForm}
-        onDeleteVariant={(data) => vm.deleteVariantMutation.mutate(data)}
-        createVariantPending={vm.createVariantMutation.isPending}
-        updateVariantPending={vm.updateVariantMutation.isPending}
+        onDeleteVariant={vm.deleteVariant}
+        createVariantPending={vm.createVariantPending}
+        updateVariantPending={vm.updateVariantPending}
       />
     </div>
   );
