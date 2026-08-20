@@ -27,9 +27,15 @@ import { formatCurrency } from '../lib/utils';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { usePosShortcuts } from '../hooks/usePosShortcuts';
 import { usePosData, type PosBundle } from '../hooks/usePosData';
-import api from '../services/api';
+import { useTransport } from '../lib/transport';
 import { useTranslation } from '../i18n';
 import type { Product, ProductVariant } from '@/types';
+
+/**
+ * Where uploaded product images are served from. The transport owns request
+ * paths, not `<img src>`, so this reads the same env var the HTTP client does.
+ */
+const ASSET_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function POS() {
   const [searchInput, setSearchInput] = useState('');
@@ -50,6 +56,7 @@ export default function POS() {
   } = useCartStore();
   const { holdCart, carts: heldCarts } = useHeldCartsStore();
   const { t } = useTranslation();
+  const transport = useTransport();
   const [animateGrid] = useAutoAnimate();
 
   const debouncedSearch = useDebouncedValue(searchInput, 300);
@@ -151,8 +158,12 @@ export default function POS() {
   const handleBarcodeDetected = useCallback(
     async (barcode: string) => {
       try {
-        const response = await api.get(`/api/v1/products/barcode/${barcode}`);
-        const product = response.data.data as Product;
+        // A one-shot lookup fired from a scanner callback rather than a render,
+        // so it goes through the transport directly instead of a query hook.
+        const { data: product } = await transport.request<Product>({
+          method: 'GET',
+          path: `products/barcode/${barcode}`,
+        });
         if (product) {
           addItem(product);
           setShowScanner(false);
@@ -162,7 +173,7 @@ export default function POS() {
         toast.error(t('pos.barcodeNotFound'));
       }
     },
-    [addItem, t]
+    [addItem, t, transport]
   );
 
   const handleProductClick = (product: Product) => {
@@ -424,7 +435,7 @@ export default function POS() {
                     <div className="flex items-start justify-between mb-2">
                       {product.image_url ? (
                         <img
-                          src={`${api.defaults.baseURL}${product.image_url}`}
+                          src={`${ASSET_BASE_URL}${product.image_url}`}
                           alt={product.name}
                           className="h-10 w-10 rounded object-cover"
                           loading="lazy"

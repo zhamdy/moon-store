@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { RotateCcw } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
@@ -8,9 +7,12 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { formatCurrency } from '../lib/utils';
-import api from '../services/api';
+import { resource } from '../lib/resource';
 import { useTranslation } from '../i18n';
 import type { SaleItem } from '@/types';
+
+/** Only the refund sub-action is reached from here, so no row shape surfaces. */
+const sales = resource<{ id: number }>('sales');
 
 interface RefundDialogProps {
   open: boolean;
@@ -58,25 +60,21 @@ export default function RefundDialog({
 
   const maxRefundable = saleTotal - refundedAmount;
 
-  const mutation = useMutation({
-    mutationFn: (data: {
-      items: { product_id: number; quantity: number; unit_price: number }[];
-      reason: string;
-      restock: boolean;
-    }) => api.post(`/api/v1/sales/${saleId}/refund`, data).then((r) => r.data),
-    onSuccess: () => {
-      toast.success(t('sales.refundSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['sales'] });
+  // `useAction` refreshes the sales list itself; the open sale's detail row
+  // lives under its own key, so that one is still invalidated by hand.
+  const refunder = sales.useAction('refund', {
+    message: t('sales.refundSuccess'),
+    fallbackMessage: t('sales.refundFailed'),
+    onDone: () => {
       queryClient.invalidateQueries({ queryKey: ['sale-detail'] });
       onOpenChange(false);
       resetForm();
     },
-    onError: () => {
-      toast.error(t('sales.refundFailed'));
-    },
   });
 
   const handleSubmit = () => {
+    if (saleId === null) return;
+
     const refundItems = items
       .filter((item) => {
         const sel = selectedItems[item.product_id];
@@ -90,7 +88,7 @@ export default function RefundDialog({
 
     if (refundItems.length === 0) return;
 
-    mutation.mutate({ items: refundItems, reason, restock });
+    refunder.run({ id: saleId, body: { items: refundItems, reason, restock } });
   };
 
   const toggleItem = (productId: number, maxQty: number) => {
@@ -124,7 +122,7 @@ export default function RefundDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-display tracking-wider">
             <RotateCcw className="h-5 w-5 text-gold" />
-            {t('sales.refundSale', { id: saleId })}
+            {t('sales.refundSale', { id: saleId ?? '' })}
           </DialogTitle>
           <DialogDescription>{t('sales.refundDesc')}</DialogDescription>
         </DialogHeader>
@@ -231,13 +229,13 @@ export default function RefundDialog({
             onClick={handleSubmit}
             disabled={
               !hasSelection ||
-              mutation.isPending ||
+              refunder.isRunning ||
               refundAmount > maxRefundable ||
               refundAmount <= 0
             }
             className="w-full"
           >
-            {mutation.isPending ? t('sales.refundProcessing') : t('sales.refundSubmit')}
+            {refunder.isRunning ? t('sales.refundProcessing') : t('sales.refundSubmit')}
           </Button>
         </div>
       </DialogContent>

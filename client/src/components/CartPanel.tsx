@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, type MutableRefObject } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Minus,
   Plus,
@@ -33,10 +33,13 @@ import { useTranslation } from '../i18n';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import ReceiptDialog from './ReceiptDialog';
 import HeldCartsDialog from './HeldCartsDialog';
-import api from '../services/api';
-import type { AxiosError } from 'axios';
+import { useApiQuery } from '../lib/apiQuery';
+import { resource } from '../lib/resource';
+import { useTransport } from '../lib/transport';
 import type { ReceiptData } from './Receipt';
-import type { ApiErrorResponse, AppSettings, Customer } from '@/types';
+import type { AppSettings, Customer } from '@/types';
+
+const customers = resource<Customer>('customers');
 
 type PaymentMethod = 'Cash' | 'Card' | 'Other';
 
@@ -72,6 +75,25 @@ interface CustomerLoyalty {
   points: number;
 }
 
+/** What POST /api/v1/sales hands back, as far as the receipt needs it. */
+interface SaleResponse {
+  id: number;
+  items?: { product_name: string; quantity: number; unit_price: number }[];
+  discount?: number;
+  discount_type?: string;
+  total: number;
+  tax_amount?: number;
+  payment_method: string;
+  cashier_name?: string;
+  created_at: string;
+}
+
+/** What POST /api/v1/coupons/validate hands back, as far as the cart needs it. */
+interface CouponValidation {
+  code: string;
+  discount: number;
+}
+
 interface CartPanelProps {
   checkoutTriggerRef?: MutableRefObject<(() => void) | null>;
 }
@@ -101,6 +123,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const { addToQueue } = useOfflineStore();
   const { carts: heldCarts, holdCart } = useHeldCartsStore();
   const queryClient = useQueryClient();
+  const transport = useTransport();
   const { t, isRtl } = useTranslation();
   const [animateParent] = useAutoAnimate();
 
@@ -125,21 +148,25 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const [redeemPoints, setRedeemPoints] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
-  // App settings (tax + loyalty)
-  const { data: appSettings } = useQuery<AppSettings>({
-    queryKey: ['settings'],
-    queryFn: () => api.get('/api/v1/settings').then((r) => r.data.data),
+  // App settings (tax + loyalty). Settings.tsx writes this key and
+  // CustomerDetail.tsx reads it, so the cache entry stays shared with them
+  // rather than moving under a resource-scoped key of its own.
+  const { data: appSettings } = useApiQuery<AppSettings>(['settings'], 'settings', undefined, {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Customer loyalty points
-  const { data: customerLoyalty } = useQuery<CustomerLoyalty>({
-    queryKey: ['customer-loyalty', selectedCustomer?.id],
-    queryFn: () =>
-      api.get(`/api/v1/customers/${selectedCustomer!.id}/loyalty`).then((r) => r.data.data),
-    enabled: !!selectedCustomer && appSettings?.loyalty_enabled === 'true',
-    staleTime: 30 * 1000,
-  });
+  // Customer loyalty points. Same story: CustomerDetail.tsx invalidates
+  // ['customer-loyalty', id] after adjusting points, and that has to keep
+  // reaching this copy.
+  const { data: customerLoyalty } = useApiQuery<CustomerLoyalty>(
+    ['customer-loyalty', selectedCustomer?.id],
+    `customers/${selectedCustomer?.id}/loyalty`,
+    undefined,
+    {
+      enabled: !!selectedCustomer && appSettings?.loyalty_enabled === 'true',
+      staleTime: 30 * 1000,
+    }
+  );
 
   const loyaltyInfo = useMemo(() => {
     const enabled = appSettings?.loyalty_enabled === 'true';
@@ -187,36 +214,45 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     };
   }, [checkoutTriggerRef]);
 
-  const { data: customers } = useQuery<Customer[]>({
-    queryKey: ['customers', { search: debouncedCustomerSearch }],
-    queryFn: () =>
-      api
-        .get('/api/v1/customers', { params: { search: debouncedCustomerSearch || undefined } })
-        .then((r) => r.data.data),
-    enabled: checkoutOpen && debouncedCustomerSearch.length > 0,
-    staleTime: 30 * 1000,
+  const { data: customerMatches } = useApiQuery<Customer[]>(
+    ['customers', { search: debouncedCustomerSearch }],
+    'customers',
+    { search: debouncedCustomerSearch || undefined },
+    {
+      enabled: checkoutOpen && debouncedCustomerSearch.length > 0,
+      staleTime: 30 * 1000,
+    }
+  );
+
+  // The created row is needed here to select it, so the caller reads it off
+  // this one write rather than the hook publishing it for everyone.
+  const customerCreator = customers.useSave({
+    message: t('cart.customerCreated'),
+    fallbackMessage: t('cart.customerCreateError'),
   });
 
-  const createCustomerMutation = useMutation({
-    mutationFn: (data: { name: string; phone: string }) => api.post('/api/v1/customers', data),
-    onSuccess: (response) => {
-      const customer = response.data.data;
-      setSelectedCustomer(customer);
-      setShowNewCustomer(false);
-      setNewCustomerName('');
-      setNewCustomerPhone('');
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      toast.success(t('cart.customerCreated'));
-    },
-    onError: () => {
-      toast.error(t('cart.customerCreateError'));
-    },
-  });
+  const handleCreateCustomer = () => {
+    customerCreator.save(
+      { name: newCustomerName.trim(), phone: newCustomerPhone.trim() },
+      {
+        onSuccess: (result) => {
+          setSelectedCustomer(result.data as Customer);
+          setShowNewCustomer(false);
+          setNewCustomerName('');
+          setNewCustomerPhone('');
+        },
+      }
+    );
+  };
 
+  // The sale POST stays on the transport rather than `resource`: its failure
+  // path is not a toast but the offline queue, and `resource` toasts every
+  // failure it sees.
   const checkoutMutation = useMutation({
-    mutationFn: (saleData: SaleData) => api.post('/api/v1/sales', saleData),
+    mutationFn: (saleData: SaleData) =>
+      transport.request<SaleResponse>({ method: 'POST', path: 'sales', body: saleData }),
     onSuccess: (response) => {
-      const sale = response.data.data;
+      const sale = response.data;
       const receiptItems = (sale.items || []).map(
         (item: { product_name: string; quantity: number; unit_price: number }) => ({
           name: item.product_name,
@@ -259,7 +295,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       setReceiptData(newReceipt);
       setReceiptOpen(true);
     },
-    onError: (err: AxiosError<ApiErrorResponse>) => {
+    onError: (error: Error) => {
       if (!navigator.onLine) {
         const saleData: SaleData = {
           items: items.map((i) => ({
@@ -280,7 +316,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         setSelectedCustomer(null);
         setCustomerSearch('');
       } else {
-        toast.error(err.response?.data?.error || t('cart.saleFailed'));
+        toast.error(error.message || t('cart.saleFailed'));
       }
     },
   });
@@ -313,18 +349,22 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
     try {
-      const res = await api.post('/api/v1/coupons/validate', {
-        code: couponInput.trim(),
-        subtotal: getSubtotal(),
-        ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
-        item_product_ids: items.map((i) => i.product_id),
+      // Validation is a question about a code, not a write to one, so there is
+      // no record for `resource` to hang it off.
+      const { data } = await transport.request<CouponValidation>({
+        method: 'POST',
+        path: 'coupons/validate',
+        body: {
+          code: couponInput.trim(),
+          subtotal: getSubtotal(),
+          ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
+          item_product_ids: items.map((i) => i.product_id),
+        },
       });
-      const data = res.data.data;
       setCoupon(data.code, data.discount);
       toast.success(t('cart.couponApplied'));
     } catch (err: unknown) {
-      const axiosErr = err as AxiosError<ApiErrorResponse>;
-      toast.error(axiosErr.response?.data?.error || t('cart.couponInvalid'));
+      toast.error((err as Error).message || t('cart.couponInvalid'));
     }
   };
 
@@ -770,16 +810,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                       disabled={
                         !newCustomerName.trim() ||
                         !newCustomerPhone.trim() ||
-                        createCustomerMutation.isPending
+                        customerCreator.isSaving
                       }
-                      onClick={() =>
-                        createCustomerMutation.mutate({
-                          name: newCustomerName.trim(),
-                          phone: newCustomerPhone.trim(),
-                        })
-                      }
+                      onClick={handleCreateCustomer}
                     >
-                      {createCustomerMutation.isPending ? '...' : t('cart.saveCustomer')}
+                      {customerCreator.isSaving ? '...' : t('cart.saveCustomer')}
                     </Button>
                     <Button
                       variant="ghost"
@@ -811,8 +846,8 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                     />
                     {showCustomerDropdown && customerSearch.length > 0 && (
                       <div className="absolute z-20 top-full mt-1 w-full bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
-                        {customers && customers.length > 0 ? (
-                          customers.map((c) => (
+                        {customerMatches && customerMatches.length > 0 ? (
+                          customerMatches.map((c) => (
                             <button
                               key={c.id}
                               className="w-full text-start px-3 py-2 text-sm hover:bg-surface transition-colors"
