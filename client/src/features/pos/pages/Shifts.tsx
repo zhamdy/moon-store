@@ -6,7 +6,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card, CardContent } from '../../../shared/ui/card';
 import { Badge } from '../../../shared/ui/badge';
 import { useTranslation } from '../../../shared/i18n/index';
-import { useAuthStore } from '../../auth/store/authStore';
+import { useAuthStore } from '../../auth';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
 import type { Shift, TimesheetEntry } from '../types';

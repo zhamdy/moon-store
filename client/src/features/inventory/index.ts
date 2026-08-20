@@ -6,4 +6,11 @@
 // inside another slice's internals (features/inventory/pages/..., etc.) is a
 // boundaries lint violation.
 //
-// Empty on purpose: no files have moved into this slice yet.
+// Collections is unrouted and intentionally not exported here.
+
+export { default as Inventory } from './pages/Inventory';
+export { default as Categories } from './pages/Categories';
+export { default as StockCount } from './pages/StockCount';
+export { default as Bundles } from './pages/Bundles';
+export { default as SmartPricing } from './pages/SmartPricing';
+export { default as BarcodeGenerator } from './components/BarcodeGenerator';

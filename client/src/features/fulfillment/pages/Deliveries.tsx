@@ -31,7 +31,7 @@ import DeliveryFormDialog from '../components/delivery/DeliveryFormDialog';
 import DeliveryTimelineDialog from '../components/delivery/DeliveryTimelineDialog';
 import ShippingCompaniesDialog from '../components/delivery/ShippingCompaniesDialog';
 import { formatDateTime, formatCurrency } from '../../../shared/lib/utils';
-import { useAuthStore } from '../../auth/store/authStore';
+import { useAuthStore } from '../../auth';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';

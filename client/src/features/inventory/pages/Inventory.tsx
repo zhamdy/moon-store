@@ -56,7 +56,7 @@ import { formatCurrency } from '../../../shared/lib/utils';
 import { exportToExcel } from '../../../shared/lib/exportUtils';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport, type TransportMethod } from '../../../shared/lib/transport/index';
-import { useAuthStore } from '../../auth/store/authStore';
+import { useAuthStore } from '../../auth';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import type { Category, Distributor, Product } from '../../../shared/types/index';

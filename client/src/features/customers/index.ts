@@ -6,4 +6,8 @@
 // inside another slice's internals (features/customers/pages/..., etc.) is a
 // boundaries lint violation.
 //
-// Empty on purpose: no files have moved into this slice yet.
+// Warranty is unrouted and intentionally not exported here.
+
+export { default as Customers } from './pages/Customers';
+export { default as Feedback } from './pages/Feedback';
+export { default as Segments } from './pages/Segments';

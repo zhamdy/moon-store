@@ -5,5 +5,9 @@
 // R7: cross-slice imports must go through this barrel only; importing a path
 // inside another slice's internals (features/admin/pages/..., etc.) is a
 // boundaries lint violation.
-//
-// Empty on purpose: no files have moved into this slice yet.
+
+export { default as Users } from './pages/Users';
+export { default as Settings } from './pages/Settings';
+export { default as AuditLog } from './pages/AuditLog';
+export { default as Backup } from './pages/Backup';
+export { default as Branches } from './pages/Branches';

@@ -1,16 +1,14 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './Layout';
-import ProtectedRoute from '../features/auth/components/ProtectedRoute';
 import ErrorBoundary from '../shared/components/ErrorBoundary';
-import Login from '../features/auth/pages/Login';
 import PWAInstallPrompt from '../shared/components/PWAInstallPrompt';
-import { useAuthStore } from '../features/auth/store/authStore';
+import { ProtectedRoute, Login, useAuthStore } from '../features/auth';
 
 // Eagerly loaded (critical path)
-import Dashboard from '../features/analytics/pages/Dashboard';
-import POS from '../features/pos/pages/POS';
-import Inventory from '../features/inventory/pages/Inventory';
+import { Dashboard } from '../features/analytics';
+import { POS } from '../features/pos';
+import { Inventory } from '../features/inventory';
 
 // Lazy loaded
 const BarcodeTools = lazy(() => import('../features/pos/pages/BarcodeTools'));

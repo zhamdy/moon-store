@@ -9,7 +9,7 @@ import { Input } from '../../../shared/ui/input';
 import { Badge } from '../../../shared/ui/badge';
 import { Checkbox } from '../../../shared/ui/checkbox';
 import BarcodeScanner from '../../../shared/components/BarcodeScanner';
-import BarcodeGenerator from '../../inventory/components/BarcodeGenerator';
+import { BarcodeGenerator } from '../../inventory';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useCartStore } from '../store/cartStore';
 import { useApiQuery } from '../../../shared/lib/apiQuery';

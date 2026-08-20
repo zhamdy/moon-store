@@ -11,9 +11,9 @@
 import { queryClient } from '../shared/lib/queryClient';
 import { setAuthPort } from '../shared/lib/transport/index';
 import { onSessionEvent } from '../shared/lib/session';
-import { useAuthStore } from '../features/auth/store/authStore';
+import { useAuthStore } from '../features/auth';
 import { useOfflineStore } from '../shared/store/offlineStore';
-import { useCartStore } from '../features/pos/store/cartStore';
+import { useCartStore } from '../features/pos';
 
 setAuthPort({
   getAccessToken: () => useAuthStore.getState().accessToken,

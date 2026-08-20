@@ -1,10 +1,10 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
-import StartupPrompt from '../features/pos/components/StartupPrompt';
+import { StartupPrompt } from '../features/pos';
 import { useOffline } from '../shared/hooks/useOffline';
 import { useTranslation } from '../shared/i18n/index';
-import { useAuthStore } from '../features/auth/store/authStore';
+import { useAuthStore } from '../features/auth';
 import { useSettingsStore } from '../shared/store/settingsStore';
 import { WifiOff, Languages, Moon, Sun } from 'lucide-react';
 

@@ -5,5 +5,7 @@
 // R7: cross-slice imports must go through this barrel only; importing a path
 // inside another slice's internals (features/fulfillment/pages/..., etc.) is a
 // boundaries lint violation.
-//
-// Empty on purpose: no files have moved into this slice yet.
+
+export { default as Deliveries } from './pages/Deliveries';
+export { default as OnlineOrders } from './pages/OnlineOrders';
+export { default as Storefront } from './pages/Storefront';
