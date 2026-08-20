@@ -34,6 +34,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import ReceiptDialog from './ReceiptDialog';
 import HeldCartsDialog from './HeldCartsDialog';
 import { useApiQuery } from '../lib/apiQuery';
+import { calculateTotals, allocateSplit, type TaxMode } from '../lib/checkout';
 import { resource } from '../lib/resource';
 import { useTransport } from '../lib/transport';
 import type { ReceiptData } from './Receipt';
@@ -176,33 +177,45 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     return { enabled, earnRate, redeemValue, customerPoints };
   }, [appSettings, customerLoyalty]);
 
-  const cartTotal = getTotal();
   const taxInfo = useMemo(() => {
     const enabled = appSettings?.tax_enabled === 'true';
     const rate = parseFloat(appSettings?.tax_rate || '0');
-    const mode = appSettings?.tax_mode || 'exclusive';
-    if (!enabled || rate <= 0)
-      return { enabled: false, rate: 0, mode, amount: 0, totalWithTax: cartTotal };
+    const mode: TaxMode = appSettings?.tax_mode === 'inclusive' ? 'inclusive' : 'exclusive';
+    return { enabled: enabled && rate > 0, rate, mode };
+  }, [appSettings]);
 
-    const afterDiscount = cartTotal;
-    let taxAmount = 0;
-    let totalWithTax = afterDiscount;
+  // Every figure the sale is worth, decided in one place. What the footer, the
+  // checkout sheet and the split-payment allocation each show is now the same
+  // arithmetic rather than three near-misses.
+  const totals = useMemo(
+    () =>
+      calculateTotals({
+        items,
+        discount,
+        discountType,
+        couponDiscount,
+        tax: taxInfo,
+        pointsToRedeem: redeemPoints && loyaltyInfo.enabled ? pointsToRedeem : 0,
+        redeemValue: loyaltyInfo.redeemValue,
+        tip,
+      }),
+    [
+      items,
+      discount,
+      discountType,
+      couponDiscount,
+      taxInfo,
+      redeemPoints,
+      pointsToRedeem,
+      loyaltyInfo,
+      tip,
+    ]
+  );
 
-    if (mode === 'exclusive') {
-      taxAmount = Math.round(afterDiscount * (rate / 100) * 100) / 100;
-      totalWithTax = afterDiscount + taxAmount;
-    } else {
-      taxAmount = Math.round((afterDiscount - afterDiscount / (1 + rate / 100)) * 100) / 100;
-      totalWithTax = afterDiscount;
-    }
-
-    return { enabled: true, rate, mode, amount: taxAmount, totalWithTax };
-  }, [appSettings, cartTotal]);
-
-  const pointsDiscountAmount = useMemo(() => {
-    if (!redeemPoints || pointsToRedeem <= 0 || !loyaltyInfo.enabled) return 0;
-    return Math.round((pointsToRedeem / 100) * loyaltyInfo.redeemValue * 100) / 100;
-  }, [redeemPoints, pointsToRedeem, loyaltyInfo]);
+  // Split payments are balanced against what the customer actually owes, which
+  // includes tax and any points redeemed. Comparing against the bare cart total
+  // let a split under-collect whenever tax was switched on.
+  const split = useMemo(() => allocateSplit(payments, totals.amountDue), [payments, totals]);
 
   // Expose checkout trigger for keyboard shortcuts
   useEffect(() => {
@@ -652,12 +665,12 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                 {t('tax.vat')}
                 <span className="text-sm ms-1 opacity-70">({taxInfo.rate}%)</span>
               </span>
-              <span>{formatCurrency(taxInfo.amount)}</span>
+              <span>{formatCurrency(totals.taxAmount)}</span>
             </div>
           )}
           <div className="flex justify-between text-xl font-semibold font-data text-foreground">
             <span>{t('cart.total')}</span>
-            <span className="text-gold">{formatCurrency(taxInfo.totalWithTax)}</span>
+            <span className="text-gold">{formatCurrency(totals.totalWithTax)}</span>
           </div>
         </div>
 
@@ -721,7 +734,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   <span>
                     {t('tax.vat')} ({taxInfo.rate}%)
                   </span>
-                  <span>{formatCurrency(taxInfo.amount)}</span>
+                  <span>{formatCurrency(totals.taxAmount)}</span>
                 </div>
               )}
               {couponDiscount > 0 && (
@@ -732,10 +745,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   <span>-{formatCurrency(couponDiscount)}</span>
                 </div>
               )}
-              {pointsDiscountAmount > 0 && (
+              {totals.pointsDiscount > 0 && (
                 <div className="flex justify-between text-base text-gold font-data">
                   <span>{t('loyalty.pointsDiscount')}</span>
-                  <span>-{formatCurrency(pointsDiscountAmount)}</span>
+                  <span>-{formatCurrency(totals.pointsDiscount)}</span>
                 </div>
               )}
               {tip > 0 && (
@@ -746,9 +759,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               )}
               <div className="flex justify-between text-lg font-semibold font-data">
                 <span>{t('cart.total')}</span>
-                <span className="text-gold">
-                  {formatCurrency(Math.max(0, taxInfo.totalWithTax - pointsDiscountAmount - tip))}
-                </span>
+                <span className="text-gold">{formatCurrency(totals.amountDue)}</span>
               </div>
             </div>
 
@@ -925,9 +936,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                         }}
                         className="h-8 text-sm font-data w-32"
                       />
-                      {pointsDiscountAmount > 0 && (
+                      {totals.pointsDiscount > 0 && (
                         <p className="text-xs text-gold font-data">
-                          = -{formatCurrency(pointsDiscountAmount)} {t('loyalty.pointsDiscount')}
+                          = -{formatCurrency(totals.pointsDiscount)} {t('loyalty.pointsDiscount')}
                         </p>
                       )}
                     </div>
@@ -1132,10 +1143,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                       <Plus className="h-3 w-3 me-1" /> {t('cart.addPayment')}
                     </Button>
                     <span
-                      className={`font-data ${Math.abs(payments.reduce((s, p) => s + p.amount, 0) - Math.max(0, getTotal() - tip)) < 0.01 ? 'text-green-500' : 'text-red-500'}`}
+                      className={`font-data ${split.isBalanced ? 'text-green-500' : 'text-red-500'}`}
                     >
-                      {formatCurrency(payments.reduce((s, p) => s + p.amount, 0))} /{' '}
-                      {formatCurrency(Math.max(0, getTotal() - tip))}
+                      {formatCurrency(split.allocated)} / {formatCurrency(totals.amountDue)}
                     </span>
                   </div>
                 </div>
@@ -1145,7 +1155,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
             <Button
               className="w-full"
               onClick={handleCheckout}
-              disabled={checkoutMutation.isPending}
+              // An unbalanced split used to submit, collecting whatever had been
+              // keyed in rather than what the sale was worth.
+              disabled={checkoutMutation.isPending || (splitPayment && !split.isBalanced)}
             >
               {checkoutMutation.isPending ? t('cart.processing') : t('cart.confirmSale')}
             </Button>
