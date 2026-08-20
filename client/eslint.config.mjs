@@ -1,8 +1,16 @@
+import path from 'node:path';
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import boundaries from 'eslint-plugin-boundaries';
 import eslintConfigPrettier from 'eslint-config-prettier';
+
+// `.husky/pre-commit` runs `npx lint-staged`, which invokes
+// `eslint --config client/eslint.config.mjs` with the repo root as cwd, not `client/`.
+// Anchor the tsconfig path to this config file's own directory (import.meta.dirname)
+// so the TypeScript resolver finds `tsconfig.json` regardless of the invoking cwd.
+const tsconfigPath = path.resolve(import.meta.dirname, 'tsconfig.json');
 
 export default tseslint.config(
   { ignores: ['dist/', 'node_modules/', 'tailwind.config.js', 'postcss.config.js'] },
@@ -14,6 +22,14 @@ export default tseslint.config(
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
+      boundaries,
+    },
+    settings: {
+      'import/resolver': {
+        typescript: {
+          project: tsconfigPath,
+        },
+      },
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
