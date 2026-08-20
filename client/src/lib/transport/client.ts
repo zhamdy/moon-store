@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { useAuthStore } from '../../store/authStore';
+import { getAccessToken, onAuthFailure, onTokenRefreshed } from './authPort';
 import type { AuthResponseData } from '../../types';
 
 interface QueueItem {
@@ -18,7 +18,7 @@ const api = axios.create({
 // Request interceptor - add auth token
 api.interceptors.request.use(
   (config) => {
-    const { accessToken } = useAuthStore.getState();
+    const accessToken = getAccessToken();
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
@@ -72,7 +72,7 @@ const setupRefreshInterceptor = () => {
           );
 
           const { accessToken, user } = response.data.data;
-          useAuthStore.getState().login(user, accessToken);
+          onTokenRefreshed(user, accessToken);
 
           processQueue(null, accessToken);
 
@@ -80,8 +80,7 @@ const setupRefreshInterceptor = () => {
           return api(originalRequest);
         } catch (refreshError) {
           processQueue(refreshError as AxiosError, null);
-          useAuthStore.getState().logout();
-          window.location.href = '/login';
+          onAuthFailure();
           return Promise.reject(refreshError);
         } finally {
           isRefreshing = false;

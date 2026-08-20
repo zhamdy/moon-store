@@ -5,8 +5,23 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import { queryClient } from './lib/queryClient';
+import { setAuthPort } from './lib/transport';
+import { useAuthStore } from './store/authStore';
 import { useSettingsStore } from './store/settingsStore';
 import './index.css';
+
+// Installs the real auth port before anything in the transport layer can run
+// a request. This is the one place `shared/`-equivalent transport code is
+// wired to `features/auth`-equivalent state; see docs/plans auth-port
+// inversion (Unit 2). Moves into app/session.ts in Unit 6.
+setAuthPort({
+  getAccessToken: () => useAuthStore.getState().accessToken,
+  onTokenRefreshed: (user, accessToken) => useAuthStore.getState().login(user, accessToken),
+  onAuthFailure: () => {
+    useAuthStore.getState().logout();
+    window.location.href = '/login';
+  },
+});
 
 function ThemedToaster(): React.ReactElement {
   const theme = useSettingsStore((s) => s.theme);
