@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Globe, Settings2, Image, Eye, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '../shared/lib/utils';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Badge } from '../shared/ui/badge';
-import { useTranslation } from '../shared/i18n/index';
-import { useApiQuery } from '../shared/lib/apiQuery';
-import { useTransport } from '../shared/lib/transport/index';
+import { formatCurrency } from '../../../shared/lib/utils';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Badge } from '../../../shared/ui/badge';
+import { useTranslation } from '../../../shared/i18n/index';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useTransport } from '../../../shared/lib/transport/index';
 import type { StorefrontBanner, StorefrontConfig, StorefrontProduct } from '@/types';
 
 export default function StorefrontPage() {

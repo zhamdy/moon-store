@@ -3,10 +3,10 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Trash2, Search, UserPlus, Check } from 'lucide-react';
-import { Button } from '../../shared/ui/button';
-import { Input } from '../../shared/ui/input';
-import { Label } from '../../shared/ui/label';
-import { Textarea } from '../../shared/ui/textarea';
+import { Button } from '../../../../shared/ui/button';
+import { Input } from '../../../../shared/ui/input';
+import { Label } from '../../../../shared/ui/label';
+import { Textarea } from '../../../../shared/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -14,8 +14,8 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from '../../shared/ui/dialog';
-import { useTranslation, t as tStandalone } from '../../shared/i18n/index';
+} from '../../../../shared/ui/dialog';
+import { useTranslation, t as tStandalone } from '../../../../shared/i18n/index';
 
 import type { Customer, DeliveryOrder, DeliveryPayload, Product, ShippingCompany } from '@/types';
 

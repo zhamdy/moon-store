@@ -14,7 +14,7 @@ import Inventory from '../pages/Inventory';
 
 // Lazy loaded
 const BarcodeTools = lazy(() => import('../pages/BarcodeTools'));
-const Deliveries = lazy(() => import('../pages/Deliveries'));
+const Deliveries = lazy(() => import('../features/fulfillment/pages/Deliveries'));
 const SalesHistory = lazy(() => import('../features/sales/pages/SalesHistory'));
 const UsersPage = lazy(() => import('../features/admin/pages/Users'));
 const CustomersPage = lazy(() => import('../features/customers/pages/Customers'));
@@ -37,8 +37,8 @@ const BundlesPage = lazy(() => import('../pages/Bundles'));
 const FeedbackPage = lazy(() => import('../features/customers/pages/Feedback'));
 const BackupPage = lazy(() => import('../features/admin/pages/Backup'));
 const BranchesPage = lazy(() => import('../features/admin/pages/Branches'));
-const StorefrontPage = lazy(() => import('../pages/Storefront'));
-const OnlineOrdersPage = lazy(() => import('../pages/OnlineOrders'));
+const StorefrontPage = lazy(() => import('../features/fulfillment/pages/Storefront'));
+const OnlineOrdersPage = lazy(() => import('../features/fulfillment/pages/OnlineOrders'));
 const ReportBuilderPage = lazy(() => import('../pages/ReportBuilder'));
 const VendorsPage = lazy(() => import('../features/purchasing/pages/Vendors'));
 const SmartPricingPage = lazy(() => import('../pages/SmartPricing'));

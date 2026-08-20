@@ -1,5 +1,5 @@
 {
-  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers), Unit 7.4 (features/sales) and Unit 7.5 (features/purchasing) entries.",
+  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers), Unit 7.4 (features/sales), Unit 7.5 (features/purchasing) and Unit 7.6 (features/fulfillment) entries.",
   "moves": [
     { "from": "src/components/ui/alert-dialog.tsx", "to": "src/shared/ui/alert-dialog.tsx" },
     { "from": "src/components/ui/badge.tsx", "to": "src/shared/ui/badge.tsx" },
@@ -107,6 +107,14 @@
     { "from": "src/pages/Distributors.tsx", "to": "src/features/purchasing/pages/Distributors.tsx" },
     { "from": "src/pages/Expenses.tsx", "to": "src/features/purchasing/pages/Expenses.tsx" },
     { "from": "src/components/purchase-orders/POFormDialog.tsx", "to": "src/features/purchasing/components/purchase-orders/POFormDialog.tsx" },
-    { "from": "src/components/purchase-orders/PODetailDialog.tsx", "to": "src/features/purchasing/components/purchase-orders/PODetailDialog.tsx" }
+    { "from": "src/components/purchase-orders/PODetailDialog.tsx", "to": "src/features/purchasing/components/purchase-orders/PODetailDialog.tsx" },
+
+    { "from": "src/pages/Deliveries.tsx", "to": "src/features/fulfillment/pages/Deliveries.tsx" },
+    { "from": "src/pages/Deliveries.test.tsx", "to": "src/features/fulfillment/pages/Deliveries.test.tsx" },
+    { "from": "src/pages/OnlineOrders.tsx", "to": "src/features/fulfillment/pages/OnlineOrders.tsx" },
+    { "from": "src/pages/Storefront.tsx", "to": "src/features/fulfillment/pages/Storefront.tsx" },
+    { "from": "src/components/delivery/DeliveryFormDialog.tsx", "to": "src/features/fulfillment/components/delivery/DeliveryFormDialog.tsx" },
+    { "from": "src/components/delivery/DeliveryTimelineDialog.tsx", "to": "src/features/fulfillment/components/delivery/DeliveryTimelineDialog.tsx" },
+    { "from": "src/components/delivery/ShippingCompaniesDialog.tsx", "to": "src/features/fulfillment/components/delivery/ShippingCompaniesDialog.tsx" }
   ]
 }

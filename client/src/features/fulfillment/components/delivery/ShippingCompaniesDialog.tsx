@@ -1,17 +1,17 @@
 import { Plus, Trash2, Phone, Globe, Building2, Pencil } from 'lucide-react';
-import { Button } from '../../shared/ui/button';
-import { Input } from '../../shared/ui/input';
-import { Label } from '../../shared/ui/label';
+import { Button } from '../../../../shared/ui/button';
+import { Input } from '../../../../shared/ui/input';
+import { Label } from '../../../../shared/ui/label';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../../shared/ui/dialog';
-import { useTranslation } from '../../shared/i18n/index';
-import { resource } from '../../shared/lib/resource';
-import { useEditorDialog } from '../../shared/lib/editorDialog';
+} from '../../../../shared/ui/dialog';
+import { useTranslation } from '../../../../shared/i18n/index';
+import { resource } from '../../../../shared/lib/resource';
+import { useEditorDialog } from '../../../../shared/lib/editorDialog';
 
 import type { ShippingCompany } from '@/types';
 
