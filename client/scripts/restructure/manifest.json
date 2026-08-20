@@ -1,5 +1,5 @@
 {
-  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/) and Unit 7.1 (features/auth) entries.",
+  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth) and Unit 7.2 (features/admin) entries.",
   "moves": [
     { "from": "src/components/ui/alert-dialog.tsx", "to": "src/shared/ui/alert-dialog.tsx" },
     { "from": "src/components/ui/badge.tsx", "to": "src/shared/ui/badge.tsx" },
@@ -80,6 +80,12 @@
     { "from": "src/pages/Login.tsx", "to": "src/features/auth/pages/Login.tsx" },
     { "from": "src/components/ProtectedRoute.tsx", "to": "src/features/auth/components/ProtectedRoute.tsx" },
     { "from": "src/store/authStore.ts", "to": "src/features/auth/store/authStore.ts" },
-    { "from": "src/store/authStore.test.ts", "to": "src/features/auth/store/authStore.test.ts" }
+    { "from": "src/store/authStore.test.ts", "to": "src/features/auth/store/authStore.test.ts" },
+
+    { "from": "src/pages/AuditLog.tsx", "to": "src/features/admin/pages/AuditLog.tsx" },
+    { "from": "src/pages/Backup.tsx", "to": "src/features/admin/pages/Backup.tsx" },
+    { "from": "src/pages/Branches.tsx", "to": "src/features/admin/pages/Branches.tsx" },
+    { "from": "src/pages/Settings.tsx", "to": "src/features/admin/pages/Settings.tsx" },
+    { "from": "src/pages/Users.tsx", "to": "src/features/admin/pages/Users.tsx" }
   ]
 }

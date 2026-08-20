@@ -4,10 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Badge } from '../shared/ui/badge';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Badge } from '../../../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from '../shared/ui/dialog';
+} from '../../../shared/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,12 +25,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../shared/ui/alert-dialog';
-import DataTable from '../shared/components/DataTable';
-import { formatDateTime, formatDate } from '../shared/lib/utils';
-import { useAuthStore } from '../features/auth/store/authStore';
-import { resource } from '../shared/lib/resource';
-import { useTranslation, t as tStandalone } from '../shared/i18n/index';
+} from '../../../shared/ui/alert-dialog';
+import DataTable from '../../../shared/components/DataTable';
+import { formatDateTime, formatDate } from '../../../shared/lib/utils';
+import { useAuthStore } from '../../auth/store/authStore';
+import { resource } from '../../../shared/lib/resource';
+import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { User, UserRole } from '@/types';
 
