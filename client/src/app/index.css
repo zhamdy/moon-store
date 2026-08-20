@@ -5,62 +5,62 @@
 @layer base {
   /* Light mode (default) */
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    --background: 0 0% 98%;
+    --foreground: 0 0% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 0 0% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 215 25% 47%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 215 25% 47%;
-    --radius: 0.75rem;
+    --popover-foreground: 0 0% 12%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 93%;
+    --secondary-foreground: 0 0% 12%;
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 42%;
+    --accent: 0 0% 81%;
+    --accent-foreground: 0 0% 12%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 0 0% 0%;
+    --radius: 0.375rem;
 
-    --surface: 210 40% 98%;
-    --gold: 215 25% 47%; /* Remapped to primary (slate) to avoid breaking existing classes */
-    --gold-light: 215 25% 65%;
-    --gold-dark: 215 25% 35%;
-    --table-header: 210 40% 96%;
+    --surface: 0 0% 96%;
+    --gold: 0 0% 50%;
+    --gold-light: 0 0% 65%;
+    --gold-dark: 0 0% 40%;
+    --table-header: 0 0% 95%;
   }
 
   /* Dark mode */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 215 25% 47%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 215 25% 47%;
-    --radius: 0.75rem;
+    --background: 0 0% 5%;
+    --foreground: 0 0% 93%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 93%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 93%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 93%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 42%;
+    --accent: 0 0% 81%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 93%;
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+    --ring: 0 0% 100%;
+    --radius: 0.375rem;
 
-    --surface: 222 84% 8%;
-    --gold: 215 25% 60%;
-    --gold-light: 215 25% 70%;
-    --gold-dark: 215 25% 45%;
-    --table-header: 222 84% 7%;
+    --surface: 0 0% 8%;
+    --gold: 0 0% 61%;
+    --gold-light: 0 0% 72%;
+    --gold-dark: 0 0% 45%;
+    --table-header: 0 0% 10%;
   }
 }
 
