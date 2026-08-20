@@ -311,8 +311,6 @@
   "deliveries.totalOrders": "Total",
   "deliveries.deliveredCount": "Delivered",
   "deliveries.cancelledCount": "Cancelled",
-  "deliveries.shippingCompany": "Shipping Company",
-  "deliveries.trackingNumber": "Tracking #",
   "deliveries.shippingCost": "Shipping Cost",
   "deliveries.manageCompanies": "Manage Companies",
   "deliveries.addCompany": "Add Company",
