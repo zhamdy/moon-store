@@ -2,22 +2,22 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { TrendingUp, Zap, Check, X, RefreshCw, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '../shared/lib/utils';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Badge } from '../shared/ui/badge';
+import { formatCurrency } from '../../../shared/lib/utils';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Badge } from '../../../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../shared/ui/dialog';
-import { useTranslation } from '../shared/i18n/index';
-import { resource } from '../shared/lib/resource';
-import { useApiQuery } from '../shared/lib/apiQuery';
-import { useTransport } from '../shared/lib/transport/index';
+} from '../../../shared/ui/dialog';
+import { useTranslation } from '../../../shared/i18n/index';
+import { resource } from '../../../shared/lib/resource';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useTransport } from '../../../shared/lib/transport/index';
 import type { PriceSuggestion, PricingRule } from '@/types';
 
 // Two nested collections under the AI route, each with its own CRUD surface.

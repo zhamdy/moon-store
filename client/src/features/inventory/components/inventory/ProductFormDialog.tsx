@@ -2,9 +2,9 @@ import { useRef, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Upload, Trash2, ImagePlus } from 'lucide-react';
-import { Button } from '../../shared/ui/button';
-import { Input } from '../../shared/ui/input';
-import { Label } from '../../shared/ui/label';
+import { Button } from '../../../../shared/ui/button';
+import { Input } from '../../../../shared/ui/input';
+import { Label } from '../../../../shared/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -12,16 +12,16 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from '../../shared/ui/dialog';
+} from '../../../../shared/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../shared/ui/select';
-import { useTransport } from '../../shared/lib/transport/index';
-import { useTranslation } from '../../shared/i18n/index';
+} from '../../../../shared/ui/select';
+import { useTransport } from '../../../../shared/lib/transport/index';
+import { useTranslation } from '../../../../shared/i18n/index';
 import type { Product, ProductFormData, Category, Distributor } from '@/types';
 import type { z } from 'zod';
 

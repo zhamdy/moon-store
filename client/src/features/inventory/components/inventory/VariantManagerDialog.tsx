@@ -1,15 +1,15 @@
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
-import { Button } from '../../shared/ui/button';
-import { Input } from '../../shared/ui/input';
-import { Label } from '../../shared/ui/label';
-import { Badge } from '../../shared/ui/badge';
+import { Button } from '../../../../shared/ui/button';
+import { Input } from '../../../../shared/ui/input';
+import { Label } from '../../../../shared/ui/label';
+import { Badge } from '../../../../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../../shared/ui/dialog';
+} from '../../../../shared/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,9 +19,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../../shared/ui/alert-dialog';
-import { formatCurrency } from '../../shared/lib/utils';
-import { useTranslation } from '../../shared/i18n/index';
+} from '../../../../shared/ui/alert-dialog';
+import { formatCurrency } from '../../../../shared/lib/utils';
+import { useTranslation } from '../../../../shared/i18n/index';
 import type { Product, ProductVariant } from '@/types';
 
 interface VariantManagerDialogProps {

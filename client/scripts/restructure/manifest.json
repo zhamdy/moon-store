@@ -1,5 +1,5 @@
 {
-  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers), Unit 7.4 (features/sales), Unit 7.5 (features/purchasing) and Unit 7.6 (features/fulfillment) entries.",
+  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers), Unit 7.4 (features/sales), Unit 7.5 (features/purchasing), Unit 7.6 (features/fulfillment) and Unit 7.7 (features/inventory) entries.",
   "moves": [
     { "from": "src/components/ui/alert-dialog.tsx", "to": "src/shared/ui/alert-dialog.tsx" },
     { "from": "src/components/ui/badge.tsx", "to": "src/shared/ui/badge.tsx" },
@@ -115,6 +115,20 @@
     { "from": "src/pages/Storefront.tsx", "to": "src/features/fulfillment/pages/Storefront.tsx" },
     { "from": "src/components/delivery/DeliveryFormDialog.tsx", "to": "src/features/fulfillment/components/delivery/DeliveryFormDialog.tsx" },
     { "from": "src/components/delivery/DeliveryTimelineDialog.tsx", "to": "src/features/fulfillment/components/delivery/DeliveryTimelineDialog.tsx" },
-    { "from": "src/components/delivery/ShippingCompaniesDialog.tsx", "to": "src/features/fulfillment/components/delivery/ShippingCompaniesDialog.tsx" }
+    { "from": "src/components/delivery/ShippingCompaniesDialog.tsx", "to": "src/features/fulfillment/components/delivery/ShippingCompaniesDialog.tsx" },
+
+    { "from": "src/pages/Inventory.tsx", "to": "src/features/inventory/pages/Inventory.tsx" },
+    { "from": "src/pages/Inventory.test.tsx", "to": "src/features/inventory/pages/Inventory.test.tsx" },
+    { "from": "src/pages/Categories.tsx", "to": "src/features/inventory/pages/Categories.tsx" },
+    { "from": "src/pages/StockCount.tsx", "to": "src/features/inventory/pages/StockCount.tsx" },
+    { "from": "src/pages/Bundles.tsx", "to": "src/features/inventory/pages/Bundles.tsx" },
+    { "from": "src/pages/Collections.tsx", "to": "src/features/inventory/pages/Collections.tsx" },
+    { "from": "src/pages/SmartPricing.tsx", "to": "src/features/inventory/pages/SmartPricing.tsx" },
+    { "from": "src/components/inventory/ProductFormDialog.tsx", "to": "src/features/inventory/components/inventory/ProductFormDialog.tsx" },
+    { "from": "src/components/inventory/BulkOperationDialogs.tsx", "to": "src/features/inventory/components/inventory/BulkOperationDialogs.tsx" },
+    { "from": "src/components/inventory/VariantManagerDialog.tsx", "to": "src/features/inventory/components/inventory/VariantManagerDialog.tsx" },
+    { "from": "src/components/AdjustStockDialog.tsx", "to": "src/features/inventory/components/AdjustStockDialog.tsx" },
+    { "from": "src/components/BarcodeGenerator.tsx", "to": "src/features/inventory/components/BarcodeGenerator.tsx" },
+    { "from": "src/hooks/useVariantManagement.ts", "to": "src/features/inventory/hooks/useVariantManagement.ts" }
   ]
 }

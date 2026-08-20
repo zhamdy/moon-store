@@ -10,7 +10,7 @@ import { useAuthStore } from '../features/auth/store/authStore';
 // Eagerly loaded (critical path)
 import Dashboard from '../pages/Dashboard';
 import POS from '../pages/POS';
-import Inventory from '../pages/Inventory';
+import Inventory from '../features/inventory/pages/Inventory';
 
 // Lazy loaded
 const BarcodeTools = lazy(() => import('../pages/BarcodeTools'));
@@ -19,13 +19,13 @@ const SalesHistory = lazy(() => import('../features/sales/pages/SalesHistory'));
 const UsersPage = lazy(() => import('../features/admin/pages/Users'));
 const CustomersPage = lazy(() => import('../features/customers/pages/Customers'));
 const DistributorsPage = lazy(() => import('../features/purchasing/pages/Distributors'));
-const CategoriesPage = lazy(() => import('../pages/Categories'));
+const CategoriesPage = lazy(() => import('../features/inventory/pages/Categories'));
 const SettingsPage = lazy(() => import('../features/admin/pages/Settings'));
 const PurchaseOrdersPage = lazy(() => import('../features/purchasing/pages/PurchaseOrders'));
 const AuditLogPage = lazy(() => import('../features/admin/pages/AuditLog'));
 const PromotionsPage = lazy(() => import('../features/sales/pages/Promotions'));
 const GiftCardsPage = lazy(() => import('../features/sales/pages/GiftCards'));
-const StockCountPage = lazy(() => import('../pages/StockCount'));
+const StockCountPage = lazy(() => import('../features/inventory/pages/StockCount'));
 const ExportsPage = lazy(() => import('../pages/Exports'));
 const CustomerDisplay = lazy(() => import('../pages/CustomerDisplay'));
 const RegisterPage = lazy(() => import('../pages/Register'));
@@ -33,7 +33,7 @@ const ShiftsPage = lazy(() => import('../pages/Shifts'));
 const ExpensesPage = lazy(() => import('../features/purchasing/pages/Expenses'));
 const SegmentsPage = lazy(() => import('../features/customers/pages/Segments'));
 const LayawayPage = lazy(() => import('../features/sales/pages/Layaway'));
-const BundlesPage = lazy(() => import('../pages/Bundles'));
+const BundlesPage = lazy(() => import('../features/inventory/pages/Bundles'));
 const FeedbackPage = lazy(() => import('../features/customers/pages/Feedback'));
 const BackupPage = lazy(() => import('../features/admin/pages/Backup'));
 const BranchesPage = lazy(() => import('../features/admin/pages/Branches'));
@@ -41,7 +41,7 @@ const StorefrontPage = lazy(() => import('../features/fulfillment/pages/Storefro
 const OnlineOrdersPage = lazy(() => import('../features/fulfillment/pages/OnlineOrders'));
 const ReportBuilderPage = lazy(() => import('../pages/ReportBuilder'));
 const VendorsPage = lazy(() => import('../features/purchasing/pages/Vendors'));
-const SmartPricingPage = lazy(() => import('../pages/SmartPricing'));
+const SmartPricingPage = lazy(() => import('../features/inventory/pages/SmartPricing'));
 const AiInsightsPage = lazy(() => import('../pages/AiInsights'));
 const AdvancedAnalyticsPage = lazy(() => import('../pages/AdvancedAnalytics'));
 

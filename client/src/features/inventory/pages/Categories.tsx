@@ -3,9 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from '../shared/ui/dialog';
+} from '../../../shared/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,10 +23,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../shared/ui/alert-dialog';
-import DataTable from '../shared/components/DataTable';
-import { resource } from '../shared/lib/resource';
-import { useTranslation, t as tStandalone } from '../shared/i18n/index';
+} from '../../../shared/ui/alert-dialog';
+import DataTable from '../../../shared/components/DataTable';
+import { resource } from '../../../shared/lib/resource';
+import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { CategoryRecord } from '@/types';
 
