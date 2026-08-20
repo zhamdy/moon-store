@@ -53,32 +53,44 @@ export default {
         DEFAULT: '0.375rem',
       },
       boxShadow: {
-        glow: '0 0 12px rgba(201, 169, 110, 0.2)',
-        'glow-strong': '0 0 20px rgba(201, 169, 110, 0.3)',
+        glow: 'none',
+        'glow-strong': 'none',
       },
     },
   },
   plugins: [
     tailwindcssAnimate,
     heroui({
+      layout: {
+        radius: {
+          small: '0.25rem',
+          medium: '0.375rem',
+          large: '0.5rem',
+        },
+        boxShadow: {
+          small: 'none',
+          medium: 'none',
+          large: 'none',
+        },
+      },
       themes: {
         dark: {
           colors: {
             primary: {
-              DEFAULT: '#C9A96E',
-              foreground: '#0D0D0D',
+              DEFAULT: '#FFFFFF',
+              foreground: '#000000',
             },
-            focus: '#C9A96E',
+            focus: '#FFFFFF',
             background: '#0D0D0D',
           },
         },
         light: {
           colors: {
             primary: {
-              DEFAULT: '#C9A96E',
+              DEFAULT: '#000000',
               foreground: '#FFFFFF',
             },
-            focus: '#C9A96E',
+            focus: '#000000',
           },
         },
       },
