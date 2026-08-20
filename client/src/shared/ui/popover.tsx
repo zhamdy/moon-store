@@ -1,27 +1,51 @@
 import * as React from 'react';
-import * as PopoverPrimitive from '@radix-ui/react-popover';
+import {
+  Popover as HeroUIPopover,
+  PopoverTrigger as HeroUIPopoverTrigger,
+  PopoverContent as HeroUIPopoverContent,
+} from '@heroui/react';
 import { cn } from '@/shared/lib/utils';
 
-const Popover = PopoverPrimitive.Root;
-const PopoverTrigger = PopoverPrimitive.Trigger;
+export interface PopoverProps {
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+  children?: React.ReactNode;
+}
 
-const PopoverContent = React.forwardRef<
-  React.ElementRef<typeof PopoverPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
->(({ className, align = 'center', sideOffset = 4, ...props }, ref) => (
-  <PopoverPrimitive.Portal>
-    <PopoverPrimitive.Content
-      ref={ref}
-      align={align}
-      sideOffset={sideOffset}
+const Popover: React.FC<PopoverProps> = ({ open, defaultOpen, onOpenChange, children }) => {
+  return (
+    <HeroUIPopover
+      isOpen={open}
+      defaultOpen={defaultOpen}
+      onOpenChange={onOpenChange}
+      placement="bottom"
+    >
+      {children}
+    </HeroUIPopover>
+  );
+};
+
+const PopoverTrigger = HeroUIPopoverTrigger;
+
+export interface PopoverContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  align?: 'start' | 'center' | 'end';
+  sideOffset?: number;
+}
+
+const PopoverContent = React.forwardRef<HTMLDivElement, PopoverContentProps>(
+  ({ className, children, ...props }, _ref) => (
+    <HeroUIPopoverContent
       className={cn(
-        'z-50 w-72 rounded-md border border-card-border bg-card p-4 text-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+        'z-50 w-72 rounded-md border border-card-border bg-card p-4 text-foreground shadow-md outline-none',
         className
       )}
       {...props}
-    />
-  </PopoverPrimitive.Portal>
-));
-PopoverContent.displayName = PopoverPrimitive.Content.displayName;
+    >
+      {children}
+    </HeroUIPopoverContent>
+  )
+);
+PopoverContent.displayName = 'PopoverContent';
 
 export { Popover, PopoverTrigger, PopoverContent };

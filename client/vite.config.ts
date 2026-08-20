@@ -60,7 +60,6 @@ export default defineConfig({
           'vendor-router': ['@tanstack/react-router'],
           'vendor-query': ['@tanstack/react-query', '@tanstack/react-table'],
           'vendor-charts': ['recharts'],
-          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-dropdown-menu'],
           'vendor-ui-hero': ['@heroui/react'],
           'vendor-motion': ['framer-motion'],
           'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],

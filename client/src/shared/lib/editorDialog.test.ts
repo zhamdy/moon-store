@@ -108,4 +108,15 @@ describe('editor dialog state machine', () => {
     expect(state.editingId).toBe(0);
     expect(state.editingId !== null).toBe(true);
   });
+
+  it('resumes an existing edit without erasing values or editingId', () => {
+    const state = run([
+      { type: 'openEdit', id: 7, values: { name: 'Zahra', email: 'z@x.com', commission_rate: 20 } },
+      { type: 'resume' },
+    ]);
+
+    expect(state.open).toBe(true);
+    expect(state.editingId).toBe(7);
+    expect(state.values.name).toBe('Zahra');
+  });
 });

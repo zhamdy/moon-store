@@ -14,6 +14,7 @@ export type EditorEvent<Values> =
   | { type: 'openNew' }
   | { type: 'openEdit'; id: number; values: Values }
   | { type: 'set'; field: keyof Values; value: Values[keyof Values] }
+  | { type: 'resume' }
   | { type: 'close' };
 
 /** Anything the dialog can be opened onto. */
@@ -40,6 +41,8 @@ export function reduceEditor<Values>(
       return { open: true, editingId: event.id, values: event.values };
     case 'set':
       return { ...state, values: { ...state.values, [event.field]: event.value } };
+    case 'resume':
+      return { ...state, open: true };
     case 'close':
       return { open: false, editingId: null, values: empty };
   }
@@ -112,7 +115,7 @@ export function useEditorDialog<Values extends object, Row extends Editable = Ed
         dispatch({ type: 'openEdit', id: row.id, values: mapped });
       },
       close: () => dispatch({ type: 'close' }),
-      setOpen: (next: boolean) => dispatch(next ? { type: 'openNew' } : { type: 'close' }),
+      setOpen: (next: boolean) => dispatch(next ? { type: 'resume' } : { type: 'close' }),
     }),
     []
   );

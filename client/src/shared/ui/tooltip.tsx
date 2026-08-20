@@ -1,25 +1,67 @@
 import * as React from 'react';
-import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { Tooltip as HeroUITooltip } from '@heroui/react';
 import { cn } from '@/shared/lib/utils';
 
-const TooltipProvider = TooltipPrimitive.Provider;
-const Tooltip = TooltipPrimitive.Root;
-const TooltipTrigger = TooltipPrimitive.Trigger;
+const TooltipProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => <>{children}</>;
 
-const TooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <TooltipPrimitive.Content
-    ref={ref}
-    sideOffset={sideOffset}
-    className={cn(
-      'z-50 overflow-hidden rounded-md border border-card-border bg-card px-3 py-1.5 text-sm text-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-      className
-    )}
-    {...props}
-  />
-));
-TooltipContent.displayName = TooltipPrimitive.Content.displayName;
+export interface TooltipProps {
+  children?: React.ReactNode;
+}
+
+const Tooltip: React.FC<TooltipProps> = ({ children }) => {
+  let triggerChild: React.ReactElement | null = null;
+  let contentChild: React.ReactNode = null;
+
+  React.Children.forEach(children, (child) => {
+    if (React.isValidElement(child)) {
+      if (child.type === TooltipTrigger) {
+        triggerChild = child.props.children;
+      } else if (child.type === TooltipContent) {
+        contentChild = child.props.children;
+      }
+    }
+  });
+
+  if (triggerChild && contentChild) {
+    return (
+      <HeroUITooltip
+        content={contentChild}
+        placement="top"
+        classNames={{
+          content:
+            'rounded-md border border-card-border bg-card px-3 py-1.5 text-sm text-foreground shadow-md',
+        }}
+      >
+        {triggerChild}
+      </HeroUITooltip>
+    );
+  }
+
+  return <>{children}</>;
+};
+
+const TooltipTrigger: React.FC<{ asChild?: boolean; children: React.ReactNode }> = ({
+  children,
+}) => <>{children}</>;
+
+export interface TooltipContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  sideOffset?: number;
+}
+
+const TooltipContent = React.forwardRef<HTMLDivElement, TooltipContentProps>(
+  ({ className, children, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        'z-50 overflow-hidden rounded-md border border-card-border bg-card px-3 py-1.5 text-sm text-foreground shadow-md',
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+);
+TooltipContent.displayName = 'TooltipContent';
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };

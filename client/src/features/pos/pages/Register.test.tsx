@@ -116,7 +116,7 @@ describe('Register', () => {
 
     // The in-memory transport models CRUD only, so `register/close` fails there
     // and the dialog stays up; dismiss it to get back to the page underneath.
-    fireEvent.keyDown(document.body, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     // The report is a read hanging off the session, taken when it is asked for.
     fireEvent.click(await screen.findByRole('button', { name: /X-Report/i }));

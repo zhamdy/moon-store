@@ -1,3 +1,5 @@
+import * as React from 'react';
+import { Skeleton as HeroUISkeleton } from '@heroui/react';
 import { cn } from '@/shared/lib/utils';
 
 const variantClasses = {
@@ -7,16 +9,20 @@ const variantClasses = {
   chart: 'h-[300px] w-full',
 } as const;
 
-interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: keyof typeof variantClasses;
+  isLoaded?: boolean;
 }
 
-function Skeleton({ className, variant = 'default', ...props }: SkeletonProps) {
+function Skeleton({ className, variant = 'default', isLoaded, children, ...props }: SkeletonProps) {
   return (
-    <div
-      className={cn('animate-shimmer rounded-md', variantClasses[variant], className)}
+    <HeroUISkeleton
+      isLoaded={isLoaded}
+      className={cn('rounded-md', variantClasses[variant], className)}
       {...props}
-    />
+    >
+      {children}
+    </HeroUISkeleton>
   );
 }
 

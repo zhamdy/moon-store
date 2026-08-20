@@ -1,8 +1,24 @@
 import * as React from 'react';
-import { Slot } from '@radix-ui/react-slot';
 import { Button as HeroUIButton } from '@heroui/react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/shared/lib/utils';
+
+const Slot = React.forwardRef<
+  HTMLElement,
+  React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }
+>(({ children, className, ...props }, ref) => {
+  if (React.isValidElement(children)) {
+    const child = children as React.ReactElement<React.HTMLAttributes<HTMLElement>>;
+    return React.cloneElement(child, {
+      ...props,
+      ...child.props,
+      className: cn(className, child.props?.className),
+      ref,
+    });
+  }
+  return null;
+});
+Slot.displayName = 'Slot';
 
 const buttonVariants = cva(
   'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 font-data',
