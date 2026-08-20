@@ -14,10 +14,10 @@ cd client && npm run dev
 
 ## Default Logins
 
-| Email | Password | Role |
-|-------|----------|------|
-| admin@moon.com | admin123 | Admin |
-| sarah@moon.com | cashier123 | Cashier |
+| Email          | Password    | Role     |
+| -------------- | ----------- | -------- |
+| admin@moon.com | admin123    | Admin    |
+| sarah@moon.com | cashier123  | Cashier  |
 | james@moon.com | delivery123 | Delivery |
 
 ## Git Workflow
@@ -33,15 +33,15 @@ Chunk size warning (>500KB) is expected for SPA bundle — safe to ignore.
 
 ## Documentation
 
-| Doc | Path | When to Read |
-|-----|------|-------------|
-| **Architecture** | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Understanding project structure, stack, stores, pages, routing, theming, i18n, PWA |
-| **API Reference** | [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Working with endpoints, DB schema, auth flow, env vars, rate limits |
-| **Conventions** | [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | Writing new code — component patterns, naming, SQLite gotchas, feature checklist |
-| **Smoke Test** | [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md) | Manual QA after deployments or major changes |
-| **Offline & PWA** | [`docs/OFFLINE_PWA.md`](docs/OFFLINE_PWA.md) | Understanding offline queue, service worker, caching strategies, PWA install |
-| **Integrations** | [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) | Twilio SMS/WhatsApp, notification system, barcode scanning, PDF/CSV export |
-| **Feature Roadmap** | [`FEATURES_ROADMAP.md`](FEATURES_ROADMAP.md) | 63 completed features across 3 waves — full specs and implementation details |
+| Doc                 | Path                                             | When to Read                                                                       |
+| ------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| **Architecture**    | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)   | Understanding project structure, stack, stores, pages, routing, theming, i18n, PWA |
+| **API Reference**   | [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Working with endpoints, DB schema, auth flow, env vars, rate limits                |
+| **Conventions**     | [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)     | Writing new code — component patterns, naming, SQLite gotchas, feature checklist   |
+| **Smoke Test**      | [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md)       | Manual QA after deployments or major changes                                       |
+| **Offline & PWA**   | [`docs/OFFLINE_PWA.md`](docs/OFFLINE_PWA.md)     | Understanding offline queue, service worker, caching strategies, PWA install       |
+| **Integrations**    | [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md)   | Twilio SMS/WhatsApp, notification system, barcode scanning, PDF/CSV export         |
+| **Feature Roadmap** | [`FEATURES_ROADMAP.md`](FEATURES_ROADMAP.md)     | 63 completed features across 3 waves — full specs and implementation details       |
 
 ## Key Patterns (Quick Reference)
 
