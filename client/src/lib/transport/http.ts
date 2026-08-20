@@ -1,5 +1,5 @@
 import type { AxiosError, AxiosInstance } from 'axios';
-import api from '../../services/api';
+import api from './client';
 import { ApiError, type Transport, type TransportRequest, type TransportResult } from './types';
 
 const API_PREFIX = '/api/v1';

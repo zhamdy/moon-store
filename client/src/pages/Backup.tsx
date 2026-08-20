@@ -5,32 +5,21 @@ import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { useTranslation } from '../i18n';
-import { useAuthStore } from '../store/authStore';
-
-/**
- * `GET exports/backup` streams the SQLite file itself, not a JSON envelope, so
- * it is the one call on this page the transport cannot carry — everything above
- * that seam deals in rows. It is fetched directly instead, reading the same env
- * var and bearer token the HTTP client does.
- */
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-async function downloadBackup(): Promise<Blob> {
-  const { accessToken } = useAuthStore.getState();
-  const response = await fetch(`${API_BASE_URL}/api/v1/exports/backup`, {
-    credentials: 'include',
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-  });
-  if (!response.ok) throw new Error(`Backup request failed (${response.status})`);
-  return response.blob();
-}
+import { useTransport } from '../lib/transport';
 
 export default function BackupPage() {
   const { t } = useTranslation();
+  const transport = useTransport();
   const [lastBackup, setLastBackup] = useState<string | null>(null);
 
   const backupMutation = useMutation({
-    mutationFn: downloadBackup,
+    // `exports/backup` streams the SQLite file rather than an envelope, which
+    // is why it asks for a blob. Going through the seam rather than around it
+    // keeps the token-refresh retry a plain fetch would have lost.
+    mutationFn: () =>
+      transport
+        .request<Blob>({ method: 'GET', path: 'exports/backup', responseType: 'blob' })
+        .then((r) => r.data),
     onSuccess: (blob) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

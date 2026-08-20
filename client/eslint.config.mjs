@@ -24,5 +24,34 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
     },
+  },
+  {
+    // The contract half of the transport seam. Everything above it deals in
+    // rows and errors; only the HTTP adapter is allowed to know about axios,
+    // the /api/v1 prefix or the response envelope. Without this rule the next
+    // page written quietly reintroduces the pattern this seam removed.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/lib/transport/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'axios',
+              message:
+                'Reach the server through the transport seam: useTransport(), resource() or useApiQuery(). Only src/lib/transport may import axios.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['**/services/api', '**/lib/transport/client'],
+              message:
+                'The axios instance is internal to the transport adapter. Use useTransport(), resource() or useApiQuery() instead.',
+            },
+          ],
+        },
+      ],
+    },
   }
 );
