@@ -1,32 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
 import { Star, TrendingUp, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
-
-interface FeedbackEntry {
-  id: number;
-  sale_id: number | null;
-  customer_name: string | null;
-  rating: number | null;
-  nps_score: number | null;
-  comment: string | null;
-  created_at: string;
-}
-interface FeedbackStats {
-  avg_rating: number | null;
-  total_responses: number;
-  nps_score: number | null;
-}
+import { useApiQuery } from '../lib/apiQuery';
+import type { FeedbackResponse } from '@/types';
 
 export default function FeedbackPage() {
   const { t } = useTranslation();
 
-  const { data } = useQuery<{ feedback: FeedbackEntry[]; stats: FeedbackStats }>({
-    queryKey: ['feedback'],
-    queryFn: () => api.get('/api/v1/feedback').then((r) => r.data.data),
-  });
+  // Not a CRUD collection: the list and its aggregate scores arrive together.
+  const { data } = useApiQuery<FeedbackResponse>(['feedback'], 'feedback');
 
   return (
     <div className="p-6 animate-fade-in">

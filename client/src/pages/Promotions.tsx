@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ticket, Plus, Search, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -22,28 +20,11 @@ import {
 } from '../components/ui/dialog';
 import { formatCurrency } from '../lib/utils';
 import { useTranslation } from '../i18n';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
-import api from '../services/api';
+import { resource } from '../lib/resource';
+import { useEditorDialog } from '../lib/editorDialog';
+import type { Coupon } from '@/types';
 
-interface Coupon {
-  id: number;
-  code: string;
-  type: 'percentage' | 'fixed';
-  value: number;
-  min_purchase: number | null;
-  max_discount: number | null;
-  starts_at: string | null;
-  expires_at: string | null;
-  max_uses: number | null;
-  max_uses_per_customer: number | null;
-  scope: 'all' | 'category' | 'product';
-  scope_ids: number[] | null;
-  stackable: number;
-  status: string;
-  usage_count: number;
-  created_at: string;
-}
+const coupons = resource<Coupon>('coupons');
 
 const emptyCoupon = {
   code: '',
@@ -58,66 +39,36 @@ const emptyCoupon = {
   stackable: false,
 };
 
+const couponToForm = (c: Coupon) => ({
+  code: c.code,
+  type: c.type,
+  value: c.value,
+  min_purchase: c.min_purchase,
+  max_discount: c.max_discount,
+  starts_at: c.starts_at,
+  expires_at: c.expires_at,
+  max_uses: c.max_uses,
+  scope: c.scope,
+  stackable: !!c.stackable,
+});
+
 export default function Promotions() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState(emptyCoupon);
+  const editor = useEditorDialog(emptyCoupon, couponToForm);
+  const form = editor.values;
 
-  const { data: coupons, isLoading } = useQuery<Coupon[]>({
-    queryKey: ['coupons', search],
-    queryFn: () =>
-      api
-        .get('/api/v1/coupons', { params: { search: search || undefined } })
-        .then((r) => r.data.data),
+  const { data: rows, isLoading } = coupons.useList({ search: search || undefined });
+
+  const saver = coupons.useSave({
+    message: editor.isEditing ? t('promotions.updated') : t('promotions.created'),
+    fallbackMessage: 'Error',
+    onDone: editor.close,
   });
 
-  const saveMutation = useMutation({
-    mutationFn: (data: typeof form) => {
-      if (editingId) return api.put(`/api/v1/coupons/${editingId}`, data);
-      return api.post('/api/v1/coupons', data);
-    },
-    onSuccess: () => {
-      toast.success(editingId ? t('promotions.updated') : t('promotions.created'));
-      queryClient.invalidateQueries({ queryKey: ['coupons'] });
-      setDialogOpen(false);
-      resetForm();
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
+  const remover = coupons.useRemove({
+    message: t('promotions.deactivated'),
   });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/coupons/${id}`),
-    onSuccess: () => {
-      toast.success(t('promotions.deactivated'));
-      queryClient.invalidateQueries({ queryKey: ['coupons'] });
-    },
-  });
-
-  const resetForm = () => {
-    setForm(emptyCoupon);
-    setEditingId(null);
-  };
-
-  const openEdit = (c: Coupon) => {
-    setEditingId(c.id);
-    setForm({
-      code: c.code,
-      type: c.type,
-      value: c.value,
-      min_purchase: c.min_purchase,
-      max_discount: c.max_discount,
-      starts_at: c.starts_at,
-      expires_at: c.expires_at,
-      max_uses: c.max_uses,
-      scope: c.scope,
-      stackable: !!c.stackable,
-    });
-    setDialogOpen(true);
-  };
 
   return (
     <div className="p-6 animate-fade-in">
@@ -128,13 +79,7 @@ export default function Promotions() {
           </h1>
           <div className="gold-divider mt-2" />
         </div>
-        <Button
-          onClick={() => {
-            resetForm();
-            setDialogOpen(true);
-          }}
-          className="gap-2"
-        >
+        <Button onClick={editor.openNew} className="gap-2">
           <Plus className="h-4 w-4" /> {t('promotions.addCoupon')}
         </Button>
       </div>
@@ -151,7 +96,7 @@ export default function Promotions() {
 
       {isLoading ? (
         <p className="text-muted text-sm">{t('common.loading')}</p>
-      ) : !coupons?.length ? (
+      ) : !rows?.length ? (
         <div className="text-center py-16">
           <Ticket className="h-12 w-12 text-gold/40 mx-auto mb-3" />
           <p className="text-muted">{t('promotions.noCoupons')}</p>
@@ -173,7 +118,7 @@ export default function Promotions() {
               </tr>
             </thead>
             <tbody>
-              {coupons.map((c) => (
+              {rows.map((c) => (
                 <tr key={c.id} className="border-b border-border hover:bg-surface/50">
                   <td className="p-3 font-data font-semibold">{c.code}</td>
                   <td className="p-3">
@@ -201,7 +146,7 @@ export default function Promotions() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(c)}>
+                        <DropdownMenuItem onClick={() => editor.openEdit(c)}>
                           <Pencil className="h-4 w-4 me-2 text-gold" />
                           {t('common.edit')}
                         </DropdownMenuItem>
@@ -210,7 +155,7 @@ export default function Promotions() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => deleteMutation.mutate(c.id)}
+                              onClick={() => remover.remove(c.id)}
                             >
                               <Trash2 className="h-4 w-4 me-2" />
                               {t('common.delete')}
@@ -227,18 +172,18 @@ export default function Promotions() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingId ? t('promotions.edit') : t('promotions.addCoupon')}
+              {editor.isEditing ? t('promotions.edit') : t('promotions.addCoupon')}
             </DialogTitle>
             <DialogDescription>{t('promotions.couponDetails')}</DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              saveMutation.mutate(form);
+              saver.save({ id: editor.editingId, ...form });
             }}
             className="space-y-4"
           >
@@ -247,7 +192,7 @@ export default function Promotions() {
                 <Label>{t('promotions.code')}</Label>
                 <Input
                   value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  onChange={(e) => editor.set('code', e.target.value)}
                   required
                 />
               </div>
@@ -256,9 +201,7 @@ export default function Promotions() {
                 <select
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.type}
-                  onChange={(e) =>
-                    setForm({ ...form, type: e.target.value as 'percentage' | 'fixed' })
-                  }
+                  onChange={(e) => editor.set('type', e.target.value as 'percentage' | 'fixed')}
                 >
                   <option value="percentage">{t('promotions.percentage')}</option>
                   <option value="fixed">{t('promotions.fixed')}</option>
@@ -271,7 +214,7 @@ export default function Promotions() {
                   min="0"
                   step="0.01"
                   value={form.value || ''}
-                  onChange={(e) => setForm({ ...form, value: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => editor.set('value', parseFloat(e.target.value) || 0)}
                   required
                 />
               </div>
@@ -282,9 +225,7 @@ export default function Promotions() {
                   min="0"
                   step="0.01"
                   value={form.min_purchase || ''}
-                  onChange={(e) =>
-                    setForm({ ...form, min_purchase: parseFloat(e.target.value) || null })
-                  }
+                  onChange={(e) => editor.set('min_purchase', parseFloat(e.target.value) || null)}
                 />
               </div>
               <div className="space-y-1">
@@ -294,9 +235,7 @@ export default function Promotions() {
                   min="0"
                   step="0.01"
                   value={form.max_discount || ''}
-                  onChange={(e) =>
-                    setForm({ ...form, max_discount: parseFloat(e.target.value) || null })
-                  }
+                  onChange={(e) => editor.set('max_discount', parseFloat(e.target.value) || null)}
                 />
               </div>
               <div className="space-y-1">
@@ -305,7 +244,7 @@ export default function Promotions() {
                   type="number"
                   min="1"
                   value={form.max_uses || ''}
-                  onChange={(e) => setForm({ ...form, max_uses: parseInt(e.target.value) || null })}
+                  onChange={(e) => editor.set('max_uses', parseInt(e.target.value) || null)}
                 />
               </div>
               <div className="space-y-1">
@@ -313,7 +252,7 @@ export default function Promotions() {
                 <Input
                   type="datetime-local"
                   value={form.starts_at || ''}
-                  onChange={(e) => setForm({ ...form, starts_at: e.target.value || null })}
+                  onChange={(e) => editor.set('starts_at', e.target.value || null)}
                 />
               </div>
               <div className="space-y-1">
@@ -321,7 +260,7 @@ export default function Promotions() {
                 <Input
                   type="datetime-local"
                   value={form.expires_at || ''}
-                  onChange={(e) => setForm({ ...form, expires_at: e.target.value || null })}
+                  onChange={(e) => editor.set('expires_at', e.target.value || null)}
                 />
               </div>
             </div>
@@ -330,15 +269,15 @@ export default function Promotions() {
                 type="checkbox"
                 id="stackable"
                 checked={form.stackable}
-                onChange={(e) => setForm({ ...form, stackable: e.target.checked })}
+                onChange={(e) => editor.set('stackable', e.target.checked)}
                 className="accent-gold h-4 w-4"
               />
               <Label htmlFor="stackable">{t('promotions.stackable')}</Label>
             </div>
-            <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
-              {saveMutation.isPending
+            <Button type="submit" className="w-full" disabled={saver.isSaving}>
+              {saver.isSaving
                 ? t('common.saving')
-                : editingId
+                : editor.isEditing
                   ? t('common.save')
                   : t('promotions.addCoupon')}
             </Button>

@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -27,11 +25,12 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import DataTable from '../components/DataTable';
-import api from '../services/api';
+import { resource } from '../lib/resource';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, Distributor } from '@/types';
+import type { Distributor } from '@/types';
+
+const distributorsResource = resource<Distributor>('distributors');
 
 const getDistributorFormSchema = () =>
   z.object({
@@ -47,15 +46,11 @@ type DistributorFormData = z.infer<ReturnType<typeof getDistributorFormSchema>>;
 
 export default function DistributorsPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingDistributor, setEditingDistributor] = useState<Distributor | null>(null);
 
-  const { data: distributors, isLoading } = useQuery<Distributor[]>({
-    queryKey: ['distributors'],
-    queryFn: () => api.get('/api/v1/distributors').then((r) => r.data.data),
-  });
+  const { data: distributors, isLoading } = distributorsResource.useList();
 
   const {
     register,
@@ -66,50 +61,28 @@ export default function DistributorsPage() {
     resolver: zodResolver(getDistributorFormSchema()),
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: DistributorFormData) => api.post('/api/v1/distributors', data),
-    onSuccess: () => {
-      toast.success(t('distributors.distributorCreated'));
-      queryClient.invalidateQueries({ queryKey: ['distributors'] });
-      setDialogOpen(false);
-      reset();
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('distributors.createFailed')),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: DistributorFormData }) =>
-      api.put(`/api/v1/distributors/${id}`, data),
-    onSuccess: () => {
-      toast.success(t('distributors.distributorUpdated'));
-      queryClient.invalidateQueries({ queryKey: ['distributors'] });
+  const saver = distributorsResource.useSave({
+    message: editingDistributor
+      ? t('distributors.distributorUpdated')
+      : t('distributors.distributorCreated'),
+    fallbackMessage: editingDistributor
+      ? t('distributors.updateFailed')
+      : t('distributors.createFailed'),
+    onDone: () => {
       setDialogOpen(false);
       setEditingDistributor(null);
       reset();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('distributors.updateFailed')),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/distributors/${id}`),
-    onSuccess: () => {
-      toast.success(t('distributors.distributorDeleted'));
-      queryClient.invalidateQueries({ queryKey: ['distributors'] });
-      setDeleteId(null);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('distributors.deleteFailed')),
+  const remover = distributorsResource.useRemove({
+    message: t('distributors.distributorDeleted'),
+    fallbackMessage: t('distributors.deleteFailed'),
+    onDone: () => setDeleteId(null),
   });
 
-  const onSubmit = (data: DistributorFormData) => {
-    if (editingDistributor) {
-      updateMutation.mutate({ id: editingDistributor.id, data });
-    } else {
-      createMutation.mutate(data);
-    }
-  };
+  const onSubmit = (data: DistributorFormData) =>
+    saver.save({ id: editingDistributor?.id, ...data });
 
   const openEditDialog = (distributor: Distributor) => {
     setEditingDistributor(distributor);
@@ -240,7 +213,7 @@ export default function DistributorsPage() {
               <Input {...register('notes')} />
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button type="submit" disabled={saver.isSaving}>
                 {editingDistributor ? t('common.update') : t('common.create')}
               </Button>
             </DialogFooter>
@@ -258,7 +231,7 @@ export default function DistributorsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              onClick={() => deleteId && remover.remove(deleteId)}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
               {t('common.delete')}

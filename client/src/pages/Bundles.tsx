@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Gift, Plus, Pencil, Trash2, Package, ArrowRight, X, Percent } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -15,91 +13,51 @@ import {
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
-import api from '../services/api';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, Product } from '@/types';
+import { resource } from '../lib/resource';
+import { useEditorDialog } from '../lib/editorDialog';
+import { useApiQuery } from '../lib/apiQuery';
+import type { Bundle, BundleItem, Product } from '@/types';
 
-interface BundleItem {
-  id?: number;
-  product_id: number;
-  product_name: string;
-  product_price: number;
-  quantity: number;
-}
+const bundles = resource<Bundle>('bundles');
 
-interface Bundle {
-  id: number;
-  name: string;
-  description: string | null;
-  price: number;
-  status: string;
-  items: BundleItem[];
-  original_price: number;
-  savings: number;
-  savings_percent: number;
-  created_at: string;
-}
+const emptyBundle = { name: '', description: '', price: '', status: 'active' };
+
+const bundleToForm = (bundle: Bundle) => ({
+  name: bundle.name,
+  description: bundle.description || '',
+  price: String(bundle.price),
+  status: bundle.status,
+});
 
 export default function BundlesPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    price: '',
-    status: 'active',
-  });
+  const editor = useEditorDialog(emptyBundle, bundleToForm);
+  const form = editor.values;
+  // The lines being composed beside the form, not a field of it.
   const [bundleItems, setBundleItems] = useState<BundleItem[]>([]);
   const [selectedBundle, setSelectedBundle] = useState<number | null>(null);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [productSearch, setProductSearch] = useState('');
 
-  const { data: bundles } = useQuery<Bundle[]>({
-    queryKey: ['bundles'],
-    queryFn: () => api.get('/api/v1/bundles').then((r) => r.data.data),
+  const { data: rows } = bundles.useList();
+  const { data: detail } = bundles.useOne(selectedBundle);
+
+  const { data: allProducts } = useApiQuery<Product[]>(
+    ['products-for-bundle', productSearch],
+    'products',
+    { search: productSearch, limit: 20 },
+    { enabled: addProductOpen }
+  );
+
+  const saver = bundles.useSave({
+    message: editor.isEditing ? t('bundles.updated') : t('bundles.created'),
+    fallbackMessage: 'Error',
+    onDone: editor.close,
   });
 
-  const { data: detail } = useQuery<Bundle>({
-    queryKey: ['bundle-detail', selectedBundle],
-    queryFn: () => api.get(`/api/v1/bundles/${selectedBundle}`).then((r) => r.data.data),
-    enabled: !!selectedBundle,
-  });
-
-  const { data: allProducts } = useQuery<Product[]>({
-    queryKey: ['products-for-bundle', productSearch],
-    queryFn: () =>
-      api
-        .get('/api/v1/products', { params: { search: productSearch, limit: 20 } })
-        .then((r) => r.data.data),
-    enabled: addProductOpen,
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => {
-      if (editingId) return api.put(`/api/v1/bundles/${editingId}`, data);
-      return api.post('/api/v1/bundles', data);
-    },
-    onSuccess: () => {
-      toast.success(editingId ? t('bundles.updated') : t('bundles.created'));
-      queryClient.invalidateQueries({ queryKey: ['bundles'] });
-      if (selectedBundle) {
-        queryClient.invalidateQueries({ queryKey: ['bundle-detail', selectedBundle] });
-      }
-      setDialogOpen(false);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/bundles/${id}`),
-    onSuccess: () => {
-      toast.success(t('bundles.deleted'));
-      queryClient.invalidateQueries({ queryKey: ['bundles'] });
-      setSelectedBundle(null);
-    },
+  const remover = bundles.useRemove({
+    message: t('bundles.deleted'),
+    onDone: () => setSelectedBundle(null),
   });
 
   const originalPrice = bundleItems.reduce(
@@ -112,20 +70,12 @@ export default function BundlesPage() {
     originalPrice > 0 ? Math.round((formSavings / originalPrice) * 100) : 0;
 
   const openCreateDialog = () => {
-    setEditingId(null);
-    setForm({ name: '', description: '', price: '', status: 'active' });
+    editor.openNew();
     setBundleItems([]);
-    setDialogOpen(true);
   };
 
   const openEditDialog = (bundle: Bundle) => {
-    setEditingId(bundle.id);
-    setForm({
-      name: bundle.name,
-      description: bundle.description || '',
-      price: String(bundle.price),
-      status: bundle.status,
-    });
+    editor.openEdit(bundle);
     setBundleItems(
       bundle.items.map((item) => ({
         product_id: item.product_id,
@@ -134,12 +84,12 @@ export default function BundlesPage() {
         quantity: item.quantity,
       }))
     );
-    setDialogOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    saveMutation.mutate({
+    saver.save({
+      id: editor.editingId,
       name: form.name,
       description: form.description || null,
       price: parseFloat(form.price),
@@ -281,13 +231,13 @@ export default function BundlesPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {!bundles?.length ? (
+        {!rows?.length ? (
           <div className="col-span-full text-center py-16">
             <Gift className="h-12 w-12 text-gold/40 mx-auto mb-3" />
             <p className="text-muted">{t('bundles.noBundles')}</p>
           </div>
         ) : (
-          bundles.map((bundle) => (
+          rows.map((bundle) => (
             <div
               key={bundle.id}
               className="p-4 rounded-md border border-border bg-card hover:border-gold/50 transition-colors cursor-pointer"
@@ -309,7 +259,7 @@ export default function BundlesPage() {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-destructive"
-                    onClick={() => deleteMutation.mutate(bundle.id)}
+                    onClick={() => remover.remove(bundle.id)}
                     aria-label={t('common.delete')}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -348,10 +298,10 @@ export default function BundlesPage() {
       </div>
 
       {/* Create / Edit dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? t('bundles.edit') : t('bundles.create')}</DialogTitle>
+            <DialogTitle>{editor.isEditing ? t('bundles.edit') : t('bundles.create')}</DialogTitle>
             <DialogDescription>{t('bundles.title')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -359,7 +309,7 @@ export default function BundlesPage() {
               <Label>{t('bundles.name')}</Label>
               <Input
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => editor.set('name', e.target.value)}
                 required
               />
             </div>
@@ -367,7 +317,7 @@ export default function BundlesPage() {
               <Label>{t('bundles.description')}</Label>
               <Input
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) => editor.set('description', e.target.value)}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -378,7 +328,7 @@ export default function BundlesPage() {
                   step="0.01"
                   min="0"
                   value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  onChange={(e) => editor.set('price', e.target.value)}
                   required
                 />
               </div>
@@ -387,7 +337,7 @@ export default function BundlesPage() {
                 <select
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  onChange={(e) => editor.set('status', e.target.value)}
                 >
                   <option value="active">{t('bundles.active')}</option>
                   <option value="inactive">{t('bundles.inactive')}</option>
@@ -476,9 +426,9 @@ export default function BundlesPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={saveMutation.isPending || bundleItems.length === 0}
+              disabled={saver.isSaving || bundleItems.length === 0}
             >
-              {saveMutation.isPending ? t('common.loading') : t('common.save')}
+              {saver.isSaving ? t('common.loading') : t('common.save')}
             </Button>
           </form>
         </DialogContent>

@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -27,19 +25,12 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import DataTable from '../components/DataTable';
-import api from '../services/api';
+import { resource } from '../lib/resource';
 import { useTranslation, t as tStandalone } from '../i18n';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
+import type { CategoryRecord } from '@/types';
 
-interface CategoryRecord {
-  id: number;
-  name: string;
-  code: string;
-  created_at: string;
-  updated_at: string;
-}
+const categoriesResource = resource<CategoryRecord>('categories');
 
 const getCategoryFormSchema = () =>
   z.object({
@@ -51,15 +42,11 @@ type CategoryFormData = z.infer<ReturnType<typeof getCategoryFormSchema>>;
 
 export default function CategoriesPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingCategory, setEditingCategory] = useState<CategoryRecord | null>(null);
 
-  const { data: categories, isLoading } = useQuery<CategoryRecord[]>({
-    queryKey: ['categories'],
-    queryFn: () => api.get('/api/v1/categories').then((r) => r.data.data),
-  });
+  const { data: categories, isLoading } = categoriesResource.useList();
 
   const {
     register,
@@ -70,50 +57,23 @@ export default function CategoriesPage() {
     resolver: zodResolver(getCategoryFormSchema()),
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: CategoryFormData) => api.post('/api/v1/categories', data),
-    onSuccess: () => {
-      toast.success(t('categories.categoryCreated'));
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      setDialogOpen(false);
-      reset();
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('categories.createFailed')),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: CategoryFormData }) =>
-      api.put(`/api/v1/categories/${id}`, data),
-    onSuccess: () => {
-      toast.success(t('categories.categoryUpdated'));
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+  const saver = categoriesResource.useSave({
+    message: editingCategory ? t('categories.categoryUpdated') : t('categories.categoryCreated'),
+    fallbackMessage: editingCategory ? t('categories.updateFailed') : t('categories.createFailed'),
+    onDone: () => {
       setDialogOpen(false);
       setEditingCategory(null);
       reset();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('categories.updateFailed')),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/categories/${id}`),
-    onSuccess: () => {
-      toast.success(t('categories.categoryDeleted'));
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      setDeleteId(null);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('categories.deleteFailed')),
+  const remover = categoriesResource.useRemove({
+    message: t('categories.categoryDeleted'),
+    fallbackMessage: t('categories.deleteFailed'),
+    onDone: () => setDeleteId(null),
   });
 
-  const onSubmit = (data: CategoryFormData) => {
-    if (editingCategory) {
-      updateMutation.mutate({ id: editingCategory.id, data });
-    } else {
-      createMutation.mutate(data);
-    }
-  };
+  const onSubmit = (data: CategoryFormData) => saver.save({ id: editingCategory?.id, ...data });
 
   const openEditDialog = (category: CategoryRecord) => {
     setEditingCategory(category);
@@ -213,7 +173,7 @@ export default function CategoriesPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+              <Button type="submit" disabled={saver.isSaving}>
                 {editingCategory ? t('common.update') : t('common.create')}
               </Button>
             </DialogFooter>
@@ -231,7 +191,7 @@ export default function CategoriesPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              onClick={() => deleteId && remover.remove(deleteId)}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
               {t('common.delete')}

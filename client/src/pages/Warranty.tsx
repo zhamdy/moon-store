@@ -1,7 +1,4 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, Plus } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -14,20 +11,13 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
+import { resource } from '../lib/resource';
+import { useEditorDialog } from '../lib/editorDialog';
+import type { WarrantyClaim } from '@/types';
 
-interface Claim {
-  id: number;
-  sale_id: number;
-  product_name: string;
-  customer_name: string | null;
-  issue: string;
-  status: string;
-  resolution: string | null;
-  created_at: string;
-}
+const warranty = resource<WarrantyClaim>('warranty');
+
+const emptyClaim = { sale_id: '', product_id: '', issue: '' };
 
 const statusColors: Record<string, string> = {
   submitted: 'bg-blue-500/10 text-blue-600',
@@ -40,34 +30,18 @@ const statusColors: Record<string, string> = {
 
 export default function WarrantyPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({ sale_id: '', product_id: '', issue: '' });
+  const editor = useEditorDialog(emptyClaim);
+  const form = editor.values;
 
-  const { data: claims } = useQuery<Claim[]>({
-    queryKey: ['warranty'],
-    queryFn: () => api.get('/api/v1/warranty').then((r) => r.data.data),
+  const { data: claims } = warranty.useList();
+
+  const saver = warranty.useSave({
+    message: t('warranty.create'),
+    fallbackMessage: 'Error',
+    onDone: editor.close,
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: { sale_id: number; product_id: number; issue: string }) =>
-      api.post('/api/v1/warranty', data),
-    onSuccess: () => {
-      toast.success(t('warranty.create'));
-      queryClient.invalidateQueries({ queryKey: ['warranty'] });
-      setCreateOpen(false);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  const updateStatus = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) =>
-      api.put(`/api/v1/warranty/${id}/status`, { status }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['warranty'] });
-    },
-  });
+  const updateStatus = warranty.useAction('status', { method: 'PUT' });
 
   const statusKey = (s: string) => {
     const map: Record<string, string> = {
@@ -90,7 +64,7 @@ export default function WarrantyPage() {
           </h1>
           <div className="gold-divider mt-2" />
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2">
+        <Button onClick={editor.openNew} className="gap-2">
           <Plus className="h-4 w-4" /> {t('warranty.create')}
         </Button>
       </div>
@@ -135,7 +109,9 @@ export default function WarrantyPage() {
                     <select
                       className="h-7 text-xs rounded border border-border bg-background px-2"
                       value={c.status}
-                      onChange={(e) => updateStatus.mutate({ id: c.id, status: e.target.value })}
+                      onChange={(e) =>
+                        updateStatus.run({ id: c.id, body: { status: e.target.value } })
+                      }
                     >
                       {[
                         'submitted',
@@ -158,7 +134,7 @@ export default function WarrantyPage() {
         </table>
       </div>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('warranty.create')}</DialogTitle>
@@ -167,7 +143,8 @@ export default function WarrantyPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              createMutation.mutate({
+              saver.save({
+                id: editor.editingId,
                 sale_id: Number(form.sale_id),
                 product_id: Number(form.product_id),
                 issue: form.issue,
@@ -181,7 +158,7 @@ export default function WarrantyPage() {
                 <Input
                   type="number"
                   value={form.sale_id}
-                  onChange={(e) => setForm({ ...form, sale_id: e.target.value })}
+                  onChange={(e) => editor.set('sale_id', e.target.value)}
                   required
                 />
               </div>
@@ -190,7 +167,7 @@ export default function WarrantyPage() {
                 <Input
                   type="number"
                   value={form.product_id}
-                  onChange={(e) => setForm({ ...form, product_id: e.target.value })}
+                  onChange={(e) => editor.set('product_id', e.target.value)}
                   required
                 />
               </div>
@@ -199,12 +176,12 @@ export default function WarrantyPage() {
               <Label>{t('warranty.issue')}</Label>
               <Input
                 value={form.issue}
-                onChange={(e) => setForm({ ...form, issue: e.target.value })}
+                onChange={(e) => editor.set('issue', e.target.value)}
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={createMutation.isPending}>
-              {createMutation.isPending ? t('common.loading') : t('common.save')}
+            <Button type="submit" className="w-full" disabled={saver.isSaving}>
+              {saver.isSaving ? t('common.loading') : t('common.save')}
             </Button>
           </form>
         </DialogContent>
