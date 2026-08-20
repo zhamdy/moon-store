@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from '@tanstack/react-router';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -144,7 +144,7 @@ export default function Sidebar(): React.JSX.Element {
       // Continue logout even if API fails
     }
     logout();
-    navigate('/login');
+    navigate({ to: '/login' });
   };
 
   return (
@@ -171,21 +171,21 @@ export default function Sidebar(): React.JSX.Element {
                   <div className="gold-divider mt-1.5" />
                 </div>
                 {visibleItems.map((item) => (
-                  <NavLink
+                  <Link
                     key={item.to}
                     to={item.to}
-                    end={item.to === '/'}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-md text-sm font-data tracking-wider transition-all ${
-                        isActive
-                          ? 'text-gold border-s-2 border-gold bg-gold/5 shadow-glow'
-                          : 'text-muted hover:text-foreground hover:bg-surface'
-                      }`
-                    }
+                    activeOptions={{ exact: item.to === '/' }}
+                    activeProps={{
+                      className: 'text-gold border-s-2 border-gold bg-gold/5 shadow-glow',
+                    }}
+                    inactiveProps={{
+                      className: 'text-muted hover:text-foreground hover:bg-surface',
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-md text-sm font-data tracking-wider transition-all"
                   >
                     <item.icon className="h-5 w-5 text-gold" />
                     {t(item.labelKey)}
-                  </NavLink>
+                  </Link>
                 ))}
               </div>
             );
@@ -210,19 +210,21 @@ export default function Sidebar(): React.JSX.Element {
         aria-label={t('nav.mobileNav')}
       >
         {mobileMainItems.map((item) => (
-          <NavLink
+          <Link
             key={item.to}
             to={item.to}
-            end={item.to === '/'}
-            className={({ isActive }) =>
-              `flex flex-col items-center gap-1 px-2 py-1 text-[10px] transition-colors ${
-                isActive ? 'text-gold' : 'text-muted'
-              }`
-            }
+            activeOptions={{ exact: item.to === '/' }}
+            activeProps={{
+              className: 'text-gold',
+            }}
+            inactiveProps={{
+              className: 'text-muted',
+            }}
+            className="flex flex-col items-center gap-1 px-2 py-1 text-[10px] transition-colors"
           >
             <item.icon className="h-5 w-5" />
             <span>{t(item.labelKey).split(' ')[0]}</span>
-          </NavLink>
+          </Link>
         ))}
         {mobileMoreItems.length > 0 && (
           <button
@@ -245,22 +247,22 @@ export default function Sidebar(): React.JSX.Element {
           </SheetHeader>
           <nav className="grid grid-cols-4 gap-3 mt-4" aria-label={t('nav.moreNav')}>
             {mobileMoreItems.map((item) => (
-              <NavLink
+              <Link
                 key={item.to}
                 to={item.to}
-                end={item.to === '/'}
+                activeOptions={{ exact: item.to === '/' }}
                 onClick={() => setMoreOpen(false)}
-                className={({ isActive }) =>
-                  `flex flex-col items-center gap-1.5 rounded-lg p-3 text-center transition-colors ${
-                    isActive
-                      ? 'text-gold bg-gold/5'
-                      : 'text-muted hover:text-foreground hover:bg-surface'
-                  }`
-                }
+                activeProps={{
+                  className: 'text-gold bg-gold/5',
+                }}
+                inactiveProps={{
+                  className: 'text-muted hover:text-foreground hover:bg-surface',
+                }}
+                className="flex flex-col items-center gap-1.5 rounded-lg p-3 text-center transition-colors"
               >
                 <item.icon className="h-5 w-5" />
                 <span className="text-[10px] leading-tight">{t(item.labelKey)}</span>
-              </NavLink>
+              </Link>
             ))}
           </nav>
         </SheetContent>

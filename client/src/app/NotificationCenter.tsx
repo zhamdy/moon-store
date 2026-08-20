@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Check, CheckCheck, Package, ShoppingCart, Truck, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import toast from 'react-hot-toast';
 import { useTranslation } from '../shared/i18n/index';
 import { cn } from '../shared/lib/utils';
@@ -146,7 +146,11 @@ export default function NotificationCenter(): React.JSX.Element {
       markReadMutation.run({ id: notif.id });
     }
     if (notif.link) {
-      navigate(notif.link);
+      try {
+        navigate({ to: notif.link as never });
+      } catch {
+        navigate({ to: '/' });
+      }
       setOpen(false);
     }
   };

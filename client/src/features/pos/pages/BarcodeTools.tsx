@@ -1,5 +1,5 @@
 import { useState, useCallback, type ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../shared/ui/tabs';
@@ -70,7 +70,7 @@ export default function BarcodeTools() {
   const handleAddToCart = (product: Product) => {
     addItem(product);
     toast.success(t('barcode.addedToCart'));
-    navigate('/pos');
+    navigate({ to: '/pos' });
   };
 
   const togglePrintSelection = (productId: number) => {
@@ -176,7 +176,11 @@ export default function BarcodeTools() {
                         <Button size="sm" onClick={() => handleAddToCart(scannedProduct)}>
                           {t('barcode.addToCart')}
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => navigate('/inventory')}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate({ to: '/inventory' })}
+                        >
                           {t('barcode.viewProduct')}
                         </Button>
                       </div>

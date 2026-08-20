@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { ReactNode } from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
 import { TransportProvider } from '../../../shared/lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
 import { useSettingsStore } from '../../../shared/store/settingsStore';
 import { useAuthStore } from '../../auth';
 import type { Product } from '../../../shared/types/index';
+import { renderWithRouter } from '../../../shared/tests/routerTestUtils';
 import Inventory from './Inventory';
 
 const SILK_DRESS: Product = {
@@ -52,16 +51,22 @@ function transportWithProducts() {
   );
 }
 
-function wrapperFor(transport: MemoryTransport) {
+function renderInventory(transport: MemoryTransport) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <TransportProvider transport={transport}>
-        <MemoryRouter>{children}</MemoryRouter>
-      </TransportProvider>
-    </QueryClientProvider>
+  return renderWithRouter(
+    <TransportProvider transport={transport}>
+      <Inventory />
+    </TransportProvider>,
+    {
+      queryClient,
+      initialRoute: '/inventory',
+      authState: {
+        isAuthenticated: true,
+        user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+      },
+    }
   );
 }
 
@@ -84,7 +89,7 @@ describe('Inventory bulk operations', () => {
   it('sends the selected ids to the bulk discontinue endpoint', async () => {
     const transport = transportWithProducts();
 
-    render(<Inventory />, { wrapper: wrapperFor(transport) });
+    renderInventory(transport);
     await screen.findByText('Silk Dress');
 
     selectRow(1);
@@ -110,7 +115,7 @@ describe('Inventory bulk operations', () => {
   it('sends the selected ids and the change to the bulk update endpoint', async () => {
     const transport = transportWithProducts();
 
-    render(<Inventory />, { wrapper: wrapperFor(transport) });
+    renderInventory(transport);
     await screen.findByText('Silk Dress');
 
     selectRow(2);
@@ -140,7 +145,7 @@ describe('Inventory bulk operations', () => {
       }
     );
 
-    render(<Inventory />, { wrapper: wrapperFor(transport) });
+    renderInventory(transport);
     await screen.findByText('Cashmere Coat');
 
     fireEvent.click(screen.getByRole('button', { name: /Low Stock Only/i }));

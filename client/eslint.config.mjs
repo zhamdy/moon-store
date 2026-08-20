@@ -126,7 +126,7 @@ export default tseslint.config(
             {
               from: { element: { type: 'routes' } },
               allow: [
-                { to: { element: { type: 'feature' }, file: { categories: 'barrel' } } },
+                { to: { element: { type: 'feature' } } },
                 { to: { element: { type: 'shared' } } },
                 { to: { element: { type: 'app' } } },
                 { to: { element: { type: 'routes' } } },

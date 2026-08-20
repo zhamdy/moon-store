@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, type ChangeEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearch, useNavigate } from '@tanstack/react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
@@ -118,7 +118,8 @@ export default function Inventory() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'Admin';
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const search = useSearch({ strict: false }) as { lowStock?: string | boolean } | undefined;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // UI state
@@ -128,7 +129,9 @@ export default function Inventory() {
   const [reactivateId, setReactivateId] = useState<number | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [lowStockFilter, setLowStockFilter] = useState(searchParams.get('lowStock') === 'true');
+  const [lowStockFilter, setLowStockFilter] = useState(
+    search?.lowStock === 'true' || search?.lowStock === true
+  );
   const [adjustStockOpen, setAdjustStockOpen] = useState(false);
   const [adjustProduct, setAdjustProduct] = useState<{
     id: number;
@@ -248,11 +251,12 @@ export default function Inventory() {
 
   const toggleLowStock = (on: boolean) => {
     setLowStockFilter(on);
-    if (on) {
-      setSearchParams({ lowStock: 'true' });
-    } else {
-      setSearchParams({});
-    }
+    navigate({
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        lowStock: on ? 'true' : undefined,
+      }),
+    });
   };
 
   // Handlers. Only the multipart upload needs a transport and query client of

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../../../shared/ui/button';
@@ -239,7 +239,9 @@ export default function Dashboard() {
         <KpiCards
           kpis={data.kpis}
           isLoading={data.kpisLoading}
-          onLowStockClick={() => navigate('/inventory?lowStock=true')}
+          onLowStockClick={() =>
+            navigate({ to: '/inventory', search: { lowStock: 'true' } as never })
+          }
         />
         <DashboardCharts
           revenue={data.revenue}

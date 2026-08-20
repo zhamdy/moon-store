@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -59,11 +59,11 @@ export default function Login() {
 
       // Route based on role
       if (user.role === 'Admin') {
-        navigate('/');
+        navigate({ to: '/' });
       } else if (user.role === 'Cashier') {
-        navigate('/pos');
+        navigate({ to: '/pos' });
       } else {
-        navigate('/deliveries');
+        navigate({ to: '/deliveries' });
       }
     } catch (err) {
       // ApiError carries the server's own wording, and nothing when the failure

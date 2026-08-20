@@ -11,5 +11,4 @@
 // here because this barrel only re-exports (no local component defined),
 // but useAuthStore is a store hook, not a component, by design.
 export { useAuthStore } from './store/authStore';
-export { default as ProtectedRoute } from './components/ProtectedRoute';
 export { default as Login } from './pages/Login';
