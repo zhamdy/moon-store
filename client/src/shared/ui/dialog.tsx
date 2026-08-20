@@ -106,13 +106,10 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
           backdrop: 'bg-black/80 backdrop-blur-sm z-50',
           wrapper: 'z-50',
           base: cn(
-            'border border-card-border bg-card text-foreground shadow-lg rounded-md font-sans max-w-lg',
+            'border border-card-border bg-card text-foreground shadow-lg rounded-md font-sans max-w-lg p-6 grid gap-4',
             className
           ),
           closeButton: 'hover:bg-surface text-gold end-4 top-4 p-1.5',
-          body: 'p-6 py-2',
-          header: 'p-6 pb-2',
-          footer: 'p-6 pt-2',
         }}
         {...props}
       >
@@ -123,16 +120,25 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
 );
 DialogContent.displayName = 'DialogContent';
 
-const DialogHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
-  <ModalHeader className={cn('flex flex-col space-y-1.5 p-0', className)} {...props} />
+const DialogHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn('flex flex-col space-y-1.5 text-center sm:text-start', className)}
+      {...props}
+    />
+  )
 );
 DialogHeader.displayName = 'DialogHeader';
 
-const DialogFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
-  <ModalFooter
-    className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-0', className)}
-    {...props}
-  />
+const DialogFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2', className)}
+      {...props}
+    />
+  )
 );
 DialogFooter.displayName = 'DialogFooter';
 

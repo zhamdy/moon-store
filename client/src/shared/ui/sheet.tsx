@@ -116,16 +116,25 @@ const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
 );
 SheetContent.displayName = 'SheetContent';
 
-const SheetHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
-  <DrawerHeader className={cn('flex flex-col space-y-2 p-0 text-start', className)} {...props} />
+const SheetHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn('flex flex-col space-y-2 text-center sm:text-start', className)}
+      {...props}
+    />
+  )
 );
 SheetHeader.displayName = 'SheetHeader';
 
-const SheetFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
-  <DrawerFooter
-    className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-0', className)}
-    {...props}
-  />
+const SheetFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2', className)}
+      {...props}
+    />
+  )
 );
 SheetFooter.displayName = 'SheetFooter';
 

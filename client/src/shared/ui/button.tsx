@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Button as HeroUIButton } from '@heroui/react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/shared/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 const Slot = React.forwardRef<
   HTMLElement,
@@ -54,22 +54,25 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, isLoading, disabled, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, isLoading, disabled, children, ...props }, ref) => {
     if (asChild) {
       return (
-        <Slot className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+        <Slot className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props}>
+          {children}
+        </Slot>
       );
     }
 
     return (
-      <HeroUIButton
+      <button
         ref={ref}
-        disableRipple
-        isLoading={isLoading}
-        isDisabled={disabled || isLoading}
+        disabled={disabled || isLoading}
         className={cn(buttonVariants({ variant, size, className }))}
         {...props}
-      />
+      >
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {children}
+      </button>
     );
   }
 );

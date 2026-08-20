@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Modal, ModalContent, ModalHeader, ModalFooter, useDisclosure } from '@heroui/react';
+import { Modal, ModalContent, useDisclosure } from '@heroui/react';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/ui/button';
 
@@ -77,12 +77,9 @@ const AlertDialogContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes
           backdrop: 'bg-black/80 backdrop-blur-sm z-50',
           wrapper: 'z-50',
           base: cn(
-            'border border-card-border bg-card text-foreground shadow-lg rounded-md font-sans max-w-lg p-6',
+            'border border-card-border bg-card text-foreground shadow-lg rounded-md font-sans max-w-lg p-6 grid gap-4',
             className
           ),
-          body: 'p-0 my-4',
-          header: 'p-0',
-          footer: 'p-0 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2',
         }}
         {...props}
       >
@@ -93,22 +90,25 @@ const AlertDialogContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes
 );
 AlertDialogContent.displayName = 'AlertDialogContent';
 
-const AlertDialogHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
-  className,
-  ...props
-}) => (
-  <ModalHeader className={cn('flex flex-col space-y-2 p-0 text-start', className)} {...props} />
+const AlertDialogHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn('flex flex-col space-y-2 text-center sm:text-start', className)}
+      {...props}
+    />
+  )
 );
 AlertDialogHeader.displayName = 'AlertDialogHeader';
 
-const AlertDialogFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
-  className,
-  ...props
-}) => (
-  <ModalFooter
-    className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-0', className)}
-    {...props}
-  />
+const AlertDialogFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2', className)}
+      {...props}
+    />
+  )
 );
 AlertDialogFooter.displayName = 'AlertDialogFooter';
 

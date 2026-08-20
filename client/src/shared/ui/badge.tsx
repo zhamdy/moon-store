@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { Chip as HeroUIChip } from '@heroui/react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/shared/lib/utils';
 
@@ -28,20 +27,8 @@ const badgeVariants = cva(
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, children, ...props }: BadgeProps) {
-  return (
-    <HeroUIChip
-      as="div"
-      className={cn(badgeVariants({ variant }), className)}
-      classNames={{
-        base: 'border-none h-auto min-h-0',
-        content: 'p-0 text-inherit font-inherit',
-      }}
-      {...props}
-    >
-      {children}
-    </HeroUIChip>
-  );
+function Badge({ className, variant, ...props }: BadgeProps) {
+  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };
