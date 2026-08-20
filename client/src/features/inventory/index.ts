@@ -13,4 +13,12 @@ export { default as Categories } from './pages/Categories';
 export { default as StockCount } from './pages/StockCount';
 export { default as Bundles } from './pages/Bundles';
 export { default as SmartPricing } from './pages/SmartPricing';
-export { default as BarcodeGenerator } from './components/BarcodeGenerator';
+// BarcodeGenerator is deliberately NOT re-exported here: the only consumer
+// (features/pos/pages/BarcodeTools.tsx) imports it via a documented deep
+// import instead of the barrel. Keeping this export line, even unused by
+// any other slice, was enough for Rollup to pull BarcodeGenerator (and its
+// jsbarcode dependency) into the eager entry chunk -- because App.tsx's
+// eager `import { Inventory } from '../features/inventory'` makes this
+// entire barrel module part of the eager module graph, and an unused named
+// re-export was still deemed reachable rather than tree-shaken. See
+// BarcodeTools.tsx's import for the other half of this fix.
