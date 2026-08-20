@@ -4,13 +4,13 @@ import StatusBadge from '../StatusBadge';
 import { formatDateTime } from '../../lib/utils';
 import { useTranslation } from '../../i18n';
 
-import type { StatusHistoryEntry } from '../../hooks/useDeliveryData';
+import type { DeliveryStatusHistoryEntry } from '@/types';
 
 interface DeliveryTimelineDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderNumber: string;
-  history: StatusHistoryEntry[] | undefined;
+  history: DeliveryStatusHistoryEntry[] | undefined;
 }
 
 export default function DeliveryTimelineDialog({

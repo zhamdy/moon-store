@@ -25,11 +25,25 @@ import DataTable from '../components/DataTable';
 import POFormDialog from '../components/purchase-orders/POFormDialog';
 import PODetailDialog from '../components/purchase-orders/PODetailDialog';
 import { formatCurrency } from '../lib/utils';
-import api from '../services/api';
 import { useTranslation } from '../i18n';
-import { usePurchaseOrderData } from '../hooks/usePurchaseOrderData';
+import { resource } from '../lib/resource';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { PurchaseOrder, LineItem, LowStockSuggestion } from '../hooks/usePurchaseOrderData';
+import type {
+  Distributor,
+  LowStockSuggestion,
+  Product,
+  PurchaseOrder,
+  PurchaseOrderDetail,
+  PurchaseOrderLine,
+} from '@/types';
+
+const purchaseOrders = resource<PurchaseOrder>('purchase-orders');
+// The same collection, read one record at a time: that response carries the
+// ordered lines the list rows leave out.
+const purchaseOrderDetails = resource<PurchaseOrderDetail>('purchase-orders');
+const distributorsResource = resource<Distributor>('distributors');
 
 const STATUS_COLORS: Record<string, string> = {
   Draft: 'secondary',
@@ -41,6 +55,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function PurchaseOrders() {
   const { t } = useTranslation();
+  const transport = useTransport();
 
   const [statusFilter, setStatusFilter] = useState('All');
   const [distributorFilter, setDistributorFilter] = useState('all');
@@ -48,7 +63,7 @@ export default function PurchaseOrders() {
   // Create PO state
   const [createOpen, setCreateOpen] = useState(false);
   const [autoDistributorId, setAutoDistributorId] = useState('');
-  const [autoLineItems, setAutoLineItems] = useState<LineItem[] | undefined>(undefined);
+  const [autoLineItems, setAutoLineItems] = useState<PurchaseOrderLine[] | undefined>(undefined);
   // Key forces POFormDialog remount when auto-generate populates initial data
   const [formKey, setFormKey] = useState(0);
 
@@ -61,39 +76,59 @@ export default function PurchaseOrders() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [cancelId, setCancelId] = useState<number | null>(null);
 
-  const {
-    orders,
-    isLoading,
-    detail,
-    distributors,
-    products,
-    createMutation,
-    statusMutation,
-    receiveMutation,
-    deleteMutation,
-  } = usePurchaseOrderData({
-    statusFilter,
-    distributorFilter,
-    detailId,
-    detailOpen,
-    createOpen,
-    onCreateSuccess: () => {
+  const { data: orders, isLoading } = purchaseOrders.useList({
+    limit: 200,
+    status: statusFilter === 'All' ? undefined : statusFilter,
+    distributor_id: distributorFilter === 'all' ? undefined : distributorFilter,
+  });
+
+  const { data: detail } = purchaseOrderDetails.useOne(detailOpen ? detailId : null);
+  const { data: distributors } = distributorsResource.useList();
+
+  // Five hundred products are only worth fetching once the form asking for them
+  // is on screen, and `useList` has no way to say that.
+  const { data: products } = useApiQuery<Product[]>(
+    ['products-all'],
+    'products',
+    { limit: 500 },
+    { enabled: createOpen }
+  );
+
+  const createOrder = purchaseOrders.useSave({
+    message: t('po.created'),
+    fallbackMessage: t('po.createFailed'),
+    onDone: () => {
       setCreateOpen(false);
       setAutoDistributorId('');
       setAutoLineItems(undefined);
     },
-    onReceiveSuccess: () => {
-      setInitialReceiveMode(false);
-    },
-    onDeleteSuccess: () => {
-      setDeleteId(null);
-    },
   });
 
+  const changeStatus = purchaseOrders.useAction('status', {
+    method: 'PUT',
+    message: t('po.statusUpdated'),
+  });
+
+  const receiveItems = purchaseOrders.useAction('receive', {
+    message: t('po.received_success'),
+    fallbackMessage: t('po.receiveFailed'),
+    onDone: () => setInitialReceiveMode(false),
+  });
+
+  const deleteOrder = purchaseOrders.useRemove({
+    message: t('po.deleted'),
+    fallbackMessage: t('po.deleteFailed'),
+    onDone: () => setDeleteId(null),
+  });
+
+  // A one-shot read taken on a button press rather than held in the cache: the
+  // suggestions are consumed into form state and never rendered on their own.
   const handleAutoGenerate = async () => {
     try {
-      const res = await api.get('/api/v1/purchase-orders/auto-generate');
-      const suggestions: LowStockSuggestion[] = res.data.data;
+      const { data: suggestions } = await transport.request<LowStockSuggestion[]>({
+        method: 'GET',
+        path: 'purchase-orders/auto-generate',
+      });
       if (suggestions.length === 0) {
         toast.error(t('po.autoGenerateEmpty'));
         return;
@@ -218,7 +253,7 @@ export default function PurchaseOrders() {
                 size="icon"
                 className="h-8 w-8"
                 title={t('po.markSent')}
-                onClick={() => statusMutation.mutate({ id: po.id, status: 'Sent' })}
+                onClick={() => changeStatus.run({ id: po.id, body: { status: 'Sent' } })}
               >
                 <Send className="h-3.5 w-3.5 text-blue-400" />
               </Button>
@@ -334,8 +369,8 @@ export default function PurchaseOrders() {
         onOpenChange={setCreateOpen}
         distributors={distributors}
         products={products}
-        onSubmit={(data) => createMutation.mutate(data)}
-        isSubmitting={createMutation.isPending}
+        onSubmit={(data) => createOrder.save(data)}
+        isSubmitting={createOrder.isSaving}
         initialDistributorId={autoDistributorId}
         initialLineItems={autoLineItems}
       />
@@ -353,9 +388,9 @@ export default function PurchaseOrders() {
         detail={detail}
         onReceive={(items) => {
           if (!detailId) return;
-          receiveMutation.mutate({ id: detailId, items });
+          receiveItems.run({ id: detailId, body: { items } });
         }}
-        isReceiving={receiveMutation.isPending}
+        isReceiving={receiveItems.isRunning}
         initialReceiveMode={initialReceiveMode}
       />
 
@@ -369,7 +404,7 @@ export default function PurchaseOrders() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              onClick={() => deleteId && deleteOrder.remove(deleteId)}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
               {t('common.delete')}
@@ -390,7 +425,7 @@ export default function PurchaseOrders() {
             <AlertDialogAction
               onClick={() => {
                 if (cancelId) {
-                  statusMutation.mutate({ id: cancelId, status: 'Cancelled' });
+                  changeStatus.run({ id: cancelId, body: { status: 'Cancelled' } });
                   setCancelId(null);
                 }
               }}

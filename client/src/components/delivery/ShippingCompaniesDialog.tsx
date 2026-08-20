@@ -1,63 +1,64 @@
-import { useState } from 'react';
 import { Plus, Trash2, Phone, Globe, Building2, Pencil } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { useTranslation } from '../../i18n';
+import { resource } from '../../lib/resource';
+import { useEditorDialog } from '../../lib/editorDialog';
 
-import type { UseMutationResult } from '@tanstack/react-query';
-import type { AxiosResponse } from 'axios';
-import type { ShippingCompany } from '../../hooks/useDeliveryData';
+import type { ShippingCompany } from '@/types';
+
+const shippingCompanies = resource<ShippingCompany>('shipping-companies');
+
+const emptyCompany = { name: '', phone: '', website: '' };
+
+const companyToForm = (company: ShippingCompany) => ({
+  name: company.name,
+  phone: company.phone || '',
+  website: company.website || '',
+});
 
 interface ShippingCompaniesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companies: ShippingCompany[] | undefined;
-  companyCreateMutation: UseMutationResult<
-    AxiosResponse,
-    Error,
-    { name: string; phone?: string; website?: string }
-  >;
-  companyUpdateMutation: UseMutationResult<
-    AxiosResponse,
-    Error,
-    { id: number; data: { name: string; phone?: string; website?: string } }
-  >;
-  companyDeleteMutation: UseMutationResult<AxiosResponse, Error, number>;
 }
 
+/**
+ * Shipping companies are edited from inside the delivery page rather than on a
+ * page of their own, so this dialog owns its own writes: the delivery page has
+ * no reason to carry three mutations it never calls.
+ */
 export default function ShippingCompaniesDialog({
   open,
   onOpenChange,
   companies,
-  companyCreateMutation,
-  companyUpdateMutation,
-  companyDeleteMutation,
 }: ShippingCompaniesDialogProps) {
   const { t } = useTranslation();
-  const [editingCompany, setEditingCompany] = useState<ShippingCompany | null>(null);
-  const [companyFormOpen, setCompanyFormOpen] = useState(false);
+  const editor = useEditorDialog(emptyCompany, companyToForm);
+  const form = editor.values;
 
-  const handleSave = (data: { name: string; phone?: string; website?: string }) => {
-    if (editingCompany) {
-      companyUpdateMutation.mutate(
-        { id: editingCompany.id, data },
-        {
-          onSuccess: () => {
-            setCompanyFormOpen(false);
-            setEditingCompany(null);
-          },
-        }
-      );
-    } else {
-      companyCreateMutation.mutate(data, {
-        onSuccess: () => {
-          setCompanyFormOpen(false);
-          setEditingCompany(null);
-        },
-      });
-    }
+  const saver = shippingCompanies.useSave({
+    message: t('deliveries.companySaved'),
+    fallbackMessage: editor.isEditing ? t('deliveries.updateFailed') : t('deliveries.createFailed'),
+    onDone: editor.close,
+  });
+
+  const remover = shippingCompanies.useRemove({
+    message: t('deliveries.companyDeleted'),
+    fallbackMessage: t('deliveries.companyDeleteFailed'),
+  });
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.name.trim()) return;
+    saver.save({
+      id: editor.editingId,
+      name: form.name.trim(),
+      phone: form.phone.trim() || undefined,
+      website: form.website.trim() || undefined,
+    });
   };
 
   return (
@@ -71,27 +72,36 @@ export default function ShippingCompaniesDialog({
           <DialogDescription>{t('deliveries.manageCompanies')}</DialogDescription>
         </DialogHeader>
 
-        {companyFormOpen ? (
-          <CompanyForm
-            company={editingCompany}
-            onSave={handleSave}
-            onCancel={() => {
-              setCompanyFormOpen(false);
-              setEditingCompany(null);
-            }}
-            isPending={companyCreateMutation.isPending || companyUpdateMutation.isPending}
-            t={t}
-          />
+        {editor.open ? (
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="space-y-2">
+              <Label>{t('deliveries.companyName')}</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => editor.set('name', e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('deliveries.companyPhone')}</Label>
+              <Input value={form.phone} onChange={(e) => editor.set('phone', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('deliveries.companyWebsite')}</Label>
+              <Input value={form.website} onChange={(e) => editor.set('website', e.target.value)} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" size="sm" onClick={editor.close}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" size="sm" disabled={saver.isSaving}>
+                {t('common.save')}
+              </Button>
+            </div>
+          </form>
         ) : (
           <div className="space-y-2">
-            <Button
-              size="sm"
-              className="gap-1 w-full"
-              onClick={() => {
-                setEditingCompany(null);
-                setCompanyFormOpen(true);
-              }}
-            >
+            <Button size="sm" className="gap-1 w-full" onClick={editor.openNew}>
               <Plus className="h-3.5 w-3.5" />
               {t('deliveries.addCompany')}
             </Button>
@@ -121,10 +131,8 @@ export default function ShippingCompaniesDialog({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
-                      onClick={() => {
-                        setEditingCompany(sc);
-                        setCompanyFormOpen(true);
-                      }}
+                      onClick={() => editor.openEdit(sc)}
+                      aria-label={t('common.edit')}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -132,7 +140,8 @@ export default function ShippingCompaniesDialog({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-destructive"
-                      onClick={() => companyDeleteMutation.mutate(sc.id)}
+                      onClick={() => remover.remove(sc.id)}
+                      aria-label={t('common.delete')}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -148,59 +157,5 @@ export default function ShippingCompaniesDialog({
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-// Sub-component for company add/edit form
-function CompanyForm({
-  company,
-  onSave,
-  onCancel,
-  isPending,
-  t,
-}: {
-  company: ShippingCompany | null;
-  onSave: (data: { name: string; phone?: string; website?: string }) => void;
-  onCancel: () => void;
-  isPending: boolean;
-  t: (key: string) => string;
-}) {
-  const [name, setName] = useState(company?.name || '');
-  const [phone, setPhone] = useState(company?.phone || '');
-  const [website, setWebsite] = useState(company?.website || '');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    onSave({
-      name: name.trim(),
-      phone: phone.trim() || undefined,
-      website: website.trim() || undefined,
-    });
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="space-y-2">
-        <Label>{t('deliveries.companyName')}</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} required />
-      </div>
-      <div className="space-y-2">
-        <Label>{t('deliveries.companyPhone')}</Label>
-        <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-      </div>
-      <div className="space-y-2">
-        <Label>{t('deliveries.companyWebsite')}</Label>
-        <Input value={website} onChange={(e) => setWebsite(e.target.value)} />
-      </div>
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
-          {t('common.cancel')}
-        </Button>
-        <Button type="submit" size="sm" disabled={isPending}>
-          {t('common.save')}
-        </Button>
-      </div>
-    </form>
   );
 }

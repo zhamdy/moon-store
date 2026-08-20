@@ -14,8 +14,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { formatCurrency } from '../../lib/utils';
 import { useTranslation } from '../../i18n';
-import type { Product, Distributor } from '@/types';
-import type { LineItem } from '../../hooks/usePurchaseOrderData';
+import type { Distributor, Product, PurchaseOrderLine } from '@/types';
 
 interface POFormDialogProps {
   open: boolean;
@@ -31,7 +30,7 @@ interface POFormDialogProps {
   /** Pre-filled distributor id (e.g. from auto-generate) */
   initialDistributorId?: string;
   /** Pre-filled line items (e.g. from auto-generate) */
-  initialLineItems?: LineItem[];
+  initialLineItems?: PurchaseOrderLine[];
 }
 
 export default function POFormDialog({
@@ -48,7 +47,7 @@ export default function POFormDialog({
 
   const [distributorId, setDistributorId] = useState(initialDistributorId);
   const [notes, setNotes] = useState('');
-  const [lineItems, setLineItems] = useState<LineItem[]>(initialLineItems ?? []);
+  const [lineItems, setLineItems] = useState<PurchaseOrderLine[]>(initialLineItems ?? []);
   const [addProductId, setAddProductId] = useState('');
 
   // Sync initial values when dialog opens with pre-filled data

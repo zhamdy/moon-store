@@ -2,7 +2,7 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { useTranslation } from '../../i18n';
 import { formatCurrency } from '../../lib/utils';
-import type { RegisterReportData } from '../../hooks/useRegisterData';
+import type { RegisterReportData } from '@/types';
 
 interface RegisterReportProps {
   open: boolean;

@@ -33,10 +33,23 @@ import ShippingCompaniesDialog from '../components/delivery/ShippingCompaniesDia
 import { formatDateTime, formatCurrency } from '../lib/utils';
 import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n';
-import { useDeliveryData } from '../hooks/useDeliveryData';
+import { resource } from '../lib/resource';
+import { useApiQuery } from '../lib/apiQuery';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import type { DeliveryOrder, DeliveryPayload } from '../hooks/useDeliveryData';
+import type {
+  Customer,
+  DeliveryOrder,
+  DeliveryPayload,
+  DeliveryPerformance,
+  DeliveryStatusHistoryEntry,
+  Product,
+  ShippingCompany,
+} from '@/types';
+
+const deliveries = resource<DeliveryOrder>('delivery');
+
+const statuses = ['All', 'Pending', 'Shipped', 'Delivered', 'Cancelled'];
 
 export default function Deliveries() {
   const { t } = useTranslation();
@@ -52,46 +65,55 @@ export default function Deliveries() {
   const [timelineOrderNumber, setTimelineOrderNumber] = useState('');
   const [companiesDialogOpen, setCompaniesDialogOpen] = useState(false);
 
-  const {
-    orders,
-    isLoading,
-    products,
-    shippingCompanies,
-    customers,
-    performance,
-    statusHistory,
-    createMutation,
-    updateMutation,
-    statusMutation,
-    companyCreateMutation,
-    companyUpdateMutation,
-    companyDeleteMutation,
-  } = useDeliveryData({
-    statusFilter,
-    customerSearch,
-    dialogOpen,
-    timelineOrderId,
-    timelineDialogOpen,
-    isAdmin,
-    onCreateSuccess: () => {
-      setDialogOpen(false);
-    },
-    onUpdateSuccess: () => {
+  const { data: orders, isLoading } = deliveries.useList({
+    limit: 100,
+    status: statusFilter === 'All' ? undefined : statusFilter,
+  });
+
+  // Both hang off the delivery collection, so any write to it refreshes them
+  // without the page naming what to invalidate.
+  const { data: performance } = deliveries.useRead<DeliveryPerformance>(
+    'analytics/performance',
+    undefined,
+    isAdmin
+  );
+  const { data: statusHistory } = deliveries.useRead<DeliveryStatusHistoryEntry[]>(
+    `${timelineOrderId}/history`,
+    undefined,
+    timelineOrderId !== null && timelineDialogOpen
+  );
+
+  // Reads belonging to other collections, held back until the form that needs
+  // them is showing. `useList` has no such gate, and should not grow one.
+  const { data: products } = useApiQuery<Product[]>(['products', { limit: 200 }], 'products', {
+    limit: 200,
+  });
+  const { data: customers } = useApiQuery<Customer[]>(
+    ['customers', { search: customerSearch }],
+    'customers',
+    { search: customerSearch || undefined },
+    { enabled: isAdmin && dialogOpen }
+  );
+  const { data: shippingCompanies } = useApiQuery<ShippingCompany[]>(
+    ['shipping-companies'],
+    'shipping-companies',
+    undefined,
+    { enabled: isAdmin }
+  );
+
+  const saveOrder = deliveries.useSave({
+    message: editingOrder ? t('deliveries.orderUpdated') : t('deliveries.orderCreated'),
+    fallbackMessage: editingOrder ? t('deliveries.updateFailed') : t('deliveries.createFailed'),
+    onDone: () => {
       setDialogOpen(false);
       setEditingOrder(null);
     },
-    onCompanyFormClose: () => {
-      // Handled inside ShippingCompaniesDialog now
-    },
   });
 
-  const handleFormSubmit = (payload: DeliveryPayload, editing: DeliveryOrder | null) => {
-    if (editing) {
-      updateMutation.mutate({ id: editing.id, data: payload });
-    } else {
-      createMutation.mutate(payload);
-    }
-  };
+  const changeStatus = deliveries.useAction('status', {
+    method: 'PUT',
+    fallbackMessage: t('deliveries.statusFailed'),
+  });
 
   const openCreateDialog = () => {
     setEditingOrder(null);
@@ -109,8 +131,6 @@ export default function Deliveries() {
     navigator.clipboard.writeText(tracking);
     toast.success(t('deliveries.copyTracking'));
   };
-
-  const statuses = ['All', 'Pending', 'Shipped', 'Delivered', 'Cancelled'];
 
   const statusLabelMap: Record<string, string> = {
     All: t('common.all'),
@@ -143,7 +163,14 @@ export default function Deliveries() {
             row.original.status !== 'Cancelled' && (
               <Select
                 value={row.original.status}
-                onValueChange={(val) => statusMutation.mutate({ id: row.original.id, status: val })}
+                onValueChange={(status) =>
+                  changeStatus.run(
+                    { id: row.original.id, body: { status } },
+                    // The wording names the status, which only the call site
+                    // knows, so it is toasted here rather than by the hook.
+                    { onSuccess: () => toast.success(t('deliveries.statusUpdated', { status })) }
+                  )
+                }
               >
                 <SelectTrigger className="h-7 w-[120px] text-xs">
                   <SelectValue />
@@ -375,9 +402,6 @@ export default function Deliveries() {
         open={companiesDialogOpen}
         onOpenChange={setCompaniesDialogOpen}
         companies={shippingCompanies}
-        companyCreateMutation={companyCreateMutation}
-        companyUpdateMutation={companyUpdateMutation}
-        companyDeleteMutation={companyDeleteMutation}
       />
 
       {/* Create/Edit Dialog */}
@@ -388,8 +412,10 @@ export default function Deliveries() {
         products={products}
         customers={customers}
         shippingCompanies={shippingCompanies}
-        onSubmit={handleFormSubmit}
-        isSubmitting={createMutation.isPending || updateMutation.isPending}
+        onSubmit={(payload: DeliveryPayload) =>
+          saveOrder.save({ id: editingOrder?.id ?? null, ...payload })
+        }
+        isSubmitting={saveOrder.isSaving}
         customerSearch={customerSearch}
         onCustomerSearchChange={setCustomerSearch}
         onOpenCompaniesDialog={() => setCompaniesDialogOpen(true)}

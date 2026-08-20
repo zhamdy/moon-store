@@ -17,8 +17,7 @@ import {
 } from '../ui/dialog';
 import { useTranslation, t as tStandalone } from '../../i18n';
 
-import type { Customer, Product } from '@/types';
-import type { DeliveryOrder, ShippingCompany, DeliveryPayload } from '../../hooks/useDeliveryData';
+import type { Customer, DeliveryOrder, DeliveryPayload, Product, ShippingCompany } from '@/types';
 
 const getDeliverySchema = () =>
   z.object({
@@ -50,7 +49,7 @@ interface DeliveryFormDialogProps {
   products: Product[] | undefined;
   customers: Customer[] | undefined;
   shippingCompanies: ShippingCompany[] | undefined;
-  onSubmit: (payload: DeliveryPayload, editingOrder: DeliveryOrder | null) => void;
+  onSubmit: (payload: DeliveryPayload) => void;
   isSubmitting: boolean;
   customerSearch: string;
   onCustomerSearchChange: (search: string) => void;
@@ -150,7 +149,7 @@ export default function DeliveryFormDialog({
       })),
     };
 
-    onSubmit(payload, editingOrder);
+    onSubmit(payload);
   };
 
   const selectCustomer = (customer: Customer) => {

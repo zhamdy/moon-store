@@ -334,3 +334,195 @@ export interface GiftCardTransaction {
   reference_id: number | null;
   created_at: string;
 }
+
+/** A delivery order's lifecycle state, exactly as PUT /api/v1/delivery/:id/status accepts it */
+export type DeliveryStatus = 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
+
+/** Shipping company from GET /api/v1/shipping-companies */
+export interface ShippingCompany {
+  id: number;
+  name: string;
+  phone: string | null;
+  website: string | null;
+  created_at: string;
+}
+
+/** Delivery order row from GET /api/v1/delivery */
+export interface DeliveryOrder {
+  id: number;
+  order_number: string;
+  customer_name: string;
+  phone: string;
+  address: string;
+  notes: string | null;
+  status: DeliveryStatus;
+  shipping_company_id: number | null;
+  shipping_company_name: string | null;
+  tracking_number: string | null;
+  shipping_cost: number;
+  estimated_delivery: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One entry of GET /api/v1/delivery/:id/history */
+export interface DeliveryStatusHistoryEntry {
+  id: number;
+  order_id: number;
+  status: string;
+  notes: string | null;
+  changed_by_name: string | null;
+  created_at: string;
+}
+
+/** GET /api/v1/delivery/analytics/performance */
+export interface DeliveryPerformance {
+  totalDelivered: number;
+  avgDeliveryDays: number;
+  pendingCount: number;
+  shippedCount: number;
+  companyStats: Array<{
+    id: number;
+    name: string;
+    total_orders: number;
+    delivered: number;
+    cancelled: number;
+    avg_days: number | null;
+  }>;
+}
+
+/** Body of POST /api/v1/delivery and PUT /api/v1/delivery/:id */
+export interface DeliveryPayload {
+  customer_id: number | null;
+  customer_name: string;
+  phone: string;
+  address: string;
+  notes?: string;
+  estimated_delivery: string | null;
+  shipping_company_id: number | null;
+  tracking_number: string | null;
+  shipping_cost: number | null;
+  items: Array<{ product_id: number; quantity: number }>;
+}
+
+/** Purchase order row from GET /api/v1/purchase-orders */
+export interface PurchaseOrder {
+  id: number;
+  po_number: string;
+  distributor_id: number;
+  distributor_name: string;
+  status: string;
+  total: number;
+  notes: string | null;
+  item_count: number;
+  created_by_name: string;
+  created_at: string;
+}
+
+/** One ordered line of GET /api/v1/purchase-orders/:id */
+export interface PurchaseOrderItem {
+  id: number;
+  po_id: number;
+  product_id: number;
+  variant_id: number | null;
+  quantity: number;
+  received_quantity: number;
+  cost_price: number;
+  product_name: string;
+  product_sku: string;
+  variant_sku: string | null;
+  variant_attributes: Record<string, string> | null;
+}
+
+/** GET /api/v1/purchase-orders/:id — the list row plus its lines */
+export interface PurchaseOrderDetail extends PurchaseOrder {
+  items: PurchaseOrderItem[];
+}
+
+/** One suggestion from GET /api/v1/purchase-orders/auto-generate */
+export interface LowStockSuggestion {
+  product_id: number;
+  name: string;
+  sku: string;
+  cost_price: number;
+  stock: number;
+  min_stock: number;
+  distributor_id: number;
+  distributor_name: string;
+  suggested_qty: number;
+}
+
+/** A line being composed in the purchase-order form, before it is sent */
+export interface PurchaseOrderLine {
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  cost_price: number;
+}
+
+/** Register session from GET /api/v1/register/current and /history */
+export interface RegisterSession {
+  id: number;
+  cashier_id: number;
+  cashier_name: string;
+  opened_at: string;
+  closed_at: string | null;
+  opening_float: number;
+  expected_cash: number;
+  counted_cash: number | null;
+  variance: number | null;
+  status: 'open' | 'closed';
+  notes: string | null;
+  sale_count?: number;
+  total_in?: number;
+  total_out?: number;
+  total_sales?: number;
+}
+
+/** One cash movement inside a register session */
+export interface RegisterMovement {
+  id: number;
+  session_id: number;
+  type: 'sale' | 'refund' | 'cash_in' | 'cash_out';
+  amount: number;
+  sale_id: number | null;
+  note: string | null;
+  created_at: string;
+}
+
+/** GET /api/v1/register/:id/report */
+export interface RegisterReportData {
+  session: RegisterSession;
+  movements: RegisterMovement[];
+  summary: {
+    total_sales: number;
+    total_refunds: number;
+    total_cash_in: number;
+    total_cash_out: number;
+    sale_count: number;
+    refund_count: number;
+  };
+}
+
+/** Shift from GET /api/v1/shifts/current, /active and /history */
+export interface Shift {
+  id: number;
+  user_id: number;
+  user_name: string;
+  role?: string;
+  clock_in: string;
+  clock_out: string | null;
+  status: 'active' | 'on_break' | 'completed';
+  total_hours: number | null;
+  break_minutes: number;
+}
+
+/** One person's totals from GET /api/v1/shifts/timesheet */
+export interface TimesheetEntry {
+  id: number;
+  name: string;
+  role: string;
+  shift_count: number;
+  total_hours: number;
+  total_break_minutes: number;
+}

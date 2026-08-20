@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import {
   Vault,
   DollarSign,
@@ -22,10 +24,34 @@ import {
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
-import { useRegisterData } from '../hooks/useRegisterData';
+import { resource } from '../lib/resource';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
 import CashMovementDialog from '../components/register/CashMovementDialog';
 import RegisterReport from '../components/register/RegisterReport';
-import type { RegisterReportData } from '../hooks/useRegisterData';
+import type { RegisterReportData, RegisterSession } from '@/types';
+
+const register = resource<RegisterSession>('register');
+
+/**
+ * `register/open`, `register/close` and `register/movement` act on the drawer
+ * rather than on a session, and `resource` only knows actions that hang off a
+ * record id. Three endpoints are not worth widening it for, so they reach the
+ * transport directly and say what they refresh.
+ */
+function useRegisterWrite<Body>(path: string, message: string) {
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: Body) => transport.request({ method: 'POST', path, body }),
+    onSuccess: () => {
+      toast.success(message);
+      queryClient.invalidateQueries({ queryKey: ['register'] });
+    },
+    onError: (error: Error) => toast.error(error.message || 'Error'),
+  });
+}
 
 export default function RegisterPage() {
   const { t } = useTranslation();
@@ -33,38 +59,52 @@ export default function RegisterPage() {
   const [openDialogOpen, setOpenDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [movementDialogOpen, setMovementDialogOpen] = useState(false);
-  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  // The session whose report is showing; null means the report is closed.
+  const [reportSessionId, setReportSessionId] = useState<number | null>(null);
 
   const [openingFloat, setOpeningFloat] = useState('');
   const [countedCash, setCountedCash] = useState('');
   const [closeNotes, setCloseNotes] = useState('');
   const [movementType, setMovementType] = useState<'cash_in' | 'cash_out'>('cash_in');
 
-  const [reportData, setReportData] = useState<RegisterReportData | null>(null);
+  const { data: currentSession, isLoading } = register.useRead<RegisterSession | null>('current');
 
-  const {
-    currentSession,
-    isLoading,
-    historyData,
-    openMutation,
-    closeMutation,
-    movementMutation,
-    forceCloseMutation,
-    loadReport,
-  } = useRegisterData(historyDialogOpen);
+  const { data: reportData } = register.useRead<RegisterReportData>(
+    `${reportSessionId}/report`,
+    undefined,
+    reportSessionId !== null
+  );
 
-  const handleLoadReport = async (sessionId: number) => {
-    const data = await loadReport(sessionId);
-    if (data) {
-      setReportData(data);
-      setReportDialogOpen(true);
-    }
-  };
+  // History carries its own pagination totals beside the rows, which is meta
+  // rather than a resource list, and it waits for the dialog that shows it.
+  const { data: historySessions, meta: historyMeta } = useApiQuery<RegisterSession[]>(
+    ['register', 'history'],
+    'register/history',
+    undefined,
+    { enabled: historyDialogOpen }
+  );
+
+  const openRegister = useRegisterWrite<{ opening_float: number }>(
+    'register/open',
+    t('register.registerOpen')
+  );
+  const closeRegister = useRegisterWrite<{ counted_cash: number; notes?: string }>(
+    'register/close',
+    t('register.registerClosed')
+  );
+  const recordMovement = useRegisterWrite<{ type: string; amount: number; note?: string }>(
+    'register/movement',
+    t('register.movementRecorded')
+  );
+
+  const forceClose = register.useAction('force-close', {
+    message: t('register.registerClosed'),
+  });
 
   const handleOpenRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    openMutation.mutate(
+    openRegister.mutate(
       { opening_float: Number(openingFloat) || 0 },
       {
         onSuccess: () => {
@@ -77,7 +117,7 @@ export default function RegisterPage() {
 
   const handleCloseRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    closeMutation.mutate(
+    closeRegister.mutate(
       {
         counted_cash: Number(countedCash) || 0,
         notes: closeNotes || undefined,
@@ -93,7 +133,7 @@ export default function RegisterPage() {
   };
 
   const handleMovement = (type: 'cash_in' | 'cash_out', amount: number, note?: string) => {
-    movementMutation.mutate(
+    recordMovement.mutate(
       { type, amount, note },
       {
         onSuccess: () => {
@@ -243,7 +283,7 @@ export default function RegisterPage() {
             <Button
               variant="outline"
               className="h-20 flex-col gap-2"
-              onClick={() => handleLoadReport(currentSession.id)}
+              onClick={() => setReportSessionId(currentSession.id)}
             >
               <FileText className="h-6 w-6 text-gold" />
               <span>{t('register.xReport')}</span>
@@ -295,8 +335,8 @@ export default function RegisterPage() {
                 autoFocus
               />
             </div>
-            <Button type="submit" className="w-full" disabled={openMutation.isPending}>
-              {openMutation.isPending ? t('common.loading') : t('register.openRegister')}
+            <Button type="submit" className="w-full" disabled={openRegister.isPending}>
+              {openRegister.isPending ? t('common.loading') : t('register.openRegister')}
             </Button>
           </form>
         </DialogContent>
@@ -343,8 +383,8 @@ export default function RegisterPage() {
                 placeholder={t('register.notePlaceholder')}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={closeMutation.isPending}>
-              {closeMutation.isPending ? t('common.loading') : t('register.closeRegister')}
+            <Button type="submit" className="w-full" disabled={closeRegister.isPending}>
+              {closeRegister.isPending ? t('common.loading') : t('register.closeRegister')}
             </Button>
           </form>
         </DialogContent>
@@ -355,15 +395,17 @@ export default function RegisterPage() {
         open={movementDialogOpen}
         onOpenChange={setMovementDialogOpen}
         onSubmit={handleMovement}
-        isSubmitting={movementMutation.isPending}
+        isSubmitting={recordMovement.isPending}
         movementType={movementType}
       />
 
       {/* Report Dialog */}
       <RegisterReport
-        open={reportDialogOpen}
-        onOpenChange={setReportDialogOpen}
-        reportData={reportData}
+        open={reportSessionId !== null}
+        onOpenChange={(open) => {
+          if (!open) setReportSessionId(null);
+        }}
+        reportData={reportData ?? null}
       />
 
       {/* History Dialog */}
@@ -372,10 +414,10 @@ export default function RegisterPage() {
           <DialogHeader>
             <DialogTitle>{t('register.history')}</DialogTitle>
             <DialogDescription>
-              {historyData?.meta.total || 0} {t('register.history').toLowerCase()}
+              {Number(historyMeta?.total ?? 0)} {t('register.history').toLowerCase()}
             </DialogDescription>
           </DialogHeader>
-          {historyData && historyData.data.length > 0 ? (
+          {historySessions && historySessions.length > 0 ? (
             <div className="max-h-96 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="bg-surface border-b border-border sticky top-0">
@@ -399,14 +441,14 @@ export default function RegisterPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {historyData.data.map((s) => (
+                  {historySessions.map((s) => (
                     <tr key={s.id} className="border-b border-border">
                       <td className="p-2">{s.cashier_name}</td>
                       <td className="p-2 font-data text-xs">
                         {new Date(s.opened_at).toLocaleString()}
                       </td>
                       <td className="p-2 font-data text-xs">
-                        {s.closed_at ? new Date(s.closed_at).toLocaleString() : '\u2014'}
+                        {s.closed_at ? new Date(s.closed_at).toLocaleString() : '—'}
                       </td>
                       <td className="p-2 text-end font-data">
                         {formatCurrency(s.total_sales || 0)}
@@ -417,7 +459,7 @@ export default function RegisterPage() {
                             {formatCurrency(Math.abs(s.variance))}
                           </span>
                         ) : (
-                          '\u2014'
+                          '—'
                         )}
                       </td>
                       <td className="p-2">
@@ -426,7 +468,7 @@ export default function RegisterPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 text-xs"
-                            onClick={() => handleLoadReport(s.id)}
+                            onClick={() => setReportSessionId(s.id)}
                           >
                             <FileText className="h-3 w-3" />
                           </Button>
@@ -437,7 +479,7 @@ export default function RegisterPage() {
                               className="h-7 text-xs text-destructive"
                               onClick={() => {
                                 if (window.confirm(t('register.forceCloseConfirm'))) {
-                                  forceCloseMutation.mutate(s.id);
+                                  forceClose.run({ id: s.id });
                                 }
                               }}
                             >
