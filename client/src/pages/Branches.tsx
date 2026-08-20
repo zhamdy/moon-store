@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   Plus,
@@ -27,169 +27,102 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
-import api from '../services/api';
+import { resource } from '../lib/resource';
+import { useApiQuery } from '../lib/apiQuery';
+import { useEditorDialog } from '../lib/editorDialog';
+import { useTransport } from '../lib/transport';
+import type { Branch, BranchTransfer, ConsolidatedBranches, User } from '@/types';
 
-interface Branch {
-  id: number;
-  name: string;
-  address: string | null;
-  type: string;
-  status: string;
-  phone: string | null;
-  email: string | null;
-  manager_name: string | null;
-  manager_id: number | null;
-  currency: string;
-  tax_rate: number;
-  is_primary: number;
-  product_count: number;
-  total_stock: number;
-  opening_hours: string | null;
-}
-interface Transfer {
-  id: number;
-  from_location_name: string;
-  to_location_name: string;
-  user_name: string;
-  status: string;
-  notes: string | null;
-  created_at: string;
-}
-interface ConsolidatedData {
-  stores: {
-    id: number;
-    name: string;
-    today_sales: number;
-    today_revenue: number;
-    total_stock: number;
-    low_stock_count: number;
-  }[];
-  totals: { total_today_sales: number; total_today_revenue: number; store_count: number };
-}
+const branches = resource<Branch>('branches');
+
+const emptyBranch = {
+  name: '',
+  address: '',
+  type: 'Store',
+  phone: '',
+  email: '',
+  manager_id: '',
+  opening_hours: '',
+  currency: 'EGP',
+  tax_rate: 15,
+};
+
+const branchToForm = (b: Branch) => ({
+  name: b.name,
+  address: b.address || '',
+  type: b.type,
+  phone: b.phone || '',
+  email: b.email || '',
+  manager_id: b.manager_id?.toString() || '',
+  opening_hours: b.opening_hours || '',
+  currency: b.currency,
+  tax_rate: b.tax_rate,
+});
+
+const emptyTransfer = {
+  from_location_id: 0,
+  to_location_id: 0,
+  items: [{ product_id: 0, quantity: 1 }],
+  notes: '',
+};
 
 export default function BranchesPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const transport = useTransport();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<number | null>(null);
   const [tab, setTab] = useState<'branches' | 'dashboard' | 'transfers'>('branches');
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
-  const [transferForm, setTransferForm] = useState({
-    from_location_id: 0,
-    to_location_id: 0,
-    items: [{ product_id: 0, quantity: 1 }],
-    notes: '',
-  });
-  const [form, setForm] = useState({
-    name: '',
-    address: '',
-    type: 'Store',
-    phone: '',
-    email: '',
-    manager_id: '',
-    opening_hours: '',
-    currency: 'EGP',
-    tax_rate: 15,
-  });
+  const [transferForm, setTransferForm] = useState(emptyTransfer);
+  const editor = useEditorDialog(emptyBranch, branchToForm);
+  const form = editor.values;
   const [settingForm, setSettingForm] = useState({ setting_key: '', setting_value: '' });
 
-  const { data: branches } = useQuery<Branch[]>({
-    queryKey: ['branches'],
-    queryFn: () => api.get('/api/v1/branches').then((r) => r.data.data),
-  });
-  const { data: consolidated } = useQuery<ConsolidatedData>({
-    queryKey: ['branches-dashboard'],
-    queryFn: () => api.get('/api/v1/branches/dashboard/consolidated').then((r) => r.data.data),
-    enabled: tab === 'dashboard',
-  });
-  const { data: users } = useQuery<{ id: number; name: string }[]>({
-    queryKey: ['users-list'],
-    queryFn: () => api.get('/api/v1/users').then((r) => r.data.data),
-  });
-  const { data: transfers } = useQuery<Transfer[]>({
-    queryKey: ['branch-transfers'],
-    queryFn: () => api.get('/api/v1/branches/transfers').then((r) => r.data.data),
-    enabled: tab === 'transfers',
+  const { data: branchList } = branches.useList();
+  const { data: consolidated } = branches.useRead<ConsolidatedBranches>(
+    'dashboard/consolidated',
+    undefined,
+    tab === 'dashboard'
+  );
+  const { data: users } = useApiQuery<Pick<User, 'id' | 'name'>[]>(['users-list'], 'users');
+  const { data: transfers } = branches.useRead<BranchTransfer[]>(
+    'transfers',
+    undefined,
+    tab === 'transfers'
+  );
+
+  const saveBranch = branches.useSave({
+    message: t('branches.saved'),
+    fallbackMessage: 'Error',
+    onDone: editor.close,
   });
 
-  const saveBranch = useMutation({
-    mutationFn: (data: typeof form) => {
-      const payload = {
-        ...data,
-        manager_id: data.manager_id ? Number(data.manager_id) : null,
-        tax_rate: Number(data.tax_rate),
-      };
-      return editingId
-        ? api.put(`/api/v1/branches/${editingId}`, payload)
-        : api.post('/api/v1/branches', payload);
-    },
-    onSuccess: () => {
-      toast.success(t('branches.saved'));
-      qc.invalidateQueries({ queryKey: ['branches'] });
-      setDialogOpen(false);
-      setEditingId(null);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
+  const deleteBranch = branches.useRemove({
+    message: t('branches.deleted'),
+    fallbackMessage: 'Error',
   });
 
-  const deleteBranch = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/branches/${id}`),
-    onSuccess: () => {
-      toast.success(t('branches.deleted'));
-      qc.invalidateQueries({ queryKey: ['branches'] });
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
+  const saveSetting = branches.useAction('settings', {
+    method: 'PUT',
+    message: t('settings.saved'),
+    fallbackMessage: 'Error',
+    onDone: () => setSettingForm({ setting_key: '', setting_value: '' }),
   });
 
-  const saveSetting = useMutation({
-    mutationFn: (data: typeof settingForm) =>
-      api.put(`/api/v1/branches/${selectedBranch}/settings`, data),
-    onSuccess: () => {
-      toast.success(t('settings.saved'));
-      setSettingForm({ setting_key: '', setting_value: '' });
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
+  // A transfer belongs to no single branch, so it is a POST on the collection
+  // rather than a sub-action on a record — outside what `resource` covers.
   const createTransfer = useMutation({
-    mutationFn: (data: typeof transferForm) => api.post('/api/v1/branches/transfers', data),
+    mutationFn: (data: typeof transferForm) =>
+      transport.request({ method: 'POST', path: 'branches/transfers', body: data }),
     onSuccess: () => {
       toast.success(t('locations.transferCreated'));
-      qc.invalidateQueries({ queryKey: ['branch-transfers'] });
+      qc.invalidateQueries({ queryKey: ['branches'] });
       setTransferDialogOpen(false);
-      setTransferForm({
-        from_location_id: 0,
-        to_location_id: 0,
-        items: [{ product_id: 0, quantity: 1 }],
-        notes: '',
-      });
+      setTransferForm(emptyTransfer);
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
+    onError: (err: Error) => toast.error(err.message || 'Error'),
   });
-
-  const openEdit = (b: Branch) => {
-    setEditingId(b.id);
-    setForm({
-      name: b.name,
-      address: b.address || '',
-      type: b.type,
-      phone: b.phone || '',
-      email: b.email || '',
-      manager_id: b.manager_id?.toString() || '',
-      opening_hours: b.opening_hours || '',
-      currency: b.currency,
-      tax_rate: b.tax_rate,
-    });
-    setDialogOpen(true);
-  };
 
   const fmt = (n: number) => formatCurrency(n);
 
@@ -224,24 +157,7 @@ export default function BranchesPage() {
           >
             <ArrowRightLeft className="h-4 w-4" /> {t('locations.transfers')}
           </Button>
-          <Button
-            onClick={() => {
-              setEditingId(null);
-              setForm({
-                name: '',
-                address: '',
-                type: 'Store',
-                phone: '',
-                email: '',
-                manager_id: '',
-                opening_hours: '',
-                currency: 'EGP',
-                tax_rate: 15,
-              });
-              setDialogOpen(true);
-            }}
-            className="gap-2"
-          >
+          <Button onClick={editor.openNew} className="gap-2">
             <Plus className="h-4 w-4" /> {t('branches.addBranch')}
           </Button>
         </div>
@@ -310,13 +226,13 @@ export default function BranchesPage() {
 
       {tab === 'branches' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {!branches?.length ? (
+          {!branchList?.length ? (
             <div className="col-span-full text-center py-16">
               <Building2 className="h-12 w-12 text-gold/40 mx-auto mb-3" />
               <p className="text-muted">{t('branches.noBranches')}</p>
             </div>
           ) : (
-            branches.map((b) => (
+            branchList.map((b) => (
               <div
                 key={b.id}
                 className="p-4 rounded-md border border-border bg-card hover:border-gold/50 transition-colors"
@@ -340,7 +256,7 @@ export default function BranchesPage() {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
-                      onClick={() => openEdit(b)}
+                      onClick={() => editor.openEdit(b)}
                       aria-label={t('common.edit')}
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -351,7 +267,7 @@ export default function BranchesPage() {
                         size="icon"
                         className="h-7 w-7 text-destructive"
                         onClick={() => {
-                          if (confirm(t('branches.deleteConfirm'))) deleteBranch.mutate(b.id);
+                          if (confirm(t('branches.deleteConfirm'))) deleteBranch.remove(b.id);
                         }}
                         aria-label={t('common.delete')}
                       >
@@ -467,7 +383,7 @@ export default function BranchesPage() {
                   required
                 >
                   <option value={0}>—</option>
-                  {branches?.map((l) => (
+                  {branchList?.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
                     </option>
@@ -485,7 +401,7 @@ export default function BranchesPage() {
                   required
                 >
                   <option value={0}>—</option>
-                  {branches?.map((l) => (
+                  {branchList?.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
                     </option>
@@ -553,18 +469,23 @@ export default function BranchesPage() {
       </Dialog>
 
       {/* Branch dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingId ? t('branches.editBranch') : t('branches.addBranch')}
+              {editor.isEditing ? t('branches.editBranch') : t('branches.addBranch')}
             </DialogTitle>
             <DialogDescription>{t('branches.branchDetails')}</DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              saveBranch.mutate(form);
+              saveBranch.save({
+                id: editor.editingId,
+                ...form,
+                manager_id: form.manager_id ? Number(form.manager_id) : null,
+                tax_rate: Number(form.tax_rate),
+              });
             }}
             className="space-y-3"
           >
@@ -573,7 +494,7 @@ export default function BranchesPage() {
                 <Label>{t('branches.name')}</Label>
                 <Input
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(e) => editor.set('name', e.target.value)}
                   required
                 />
               </div>
@@ -582,7 +503,7 @@ export default function BranchesPage() {
                 <select
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  onChange={(e) => editor.set('type', e.target.value)}
                 >
                   <option value="Store">{t('locations.store')}</option>
                   <option value="Warehouse">{t('locations.warehouse')}</option>
@@ -591,25 +512,19 @@ export default function BranchesPage() {
             </div>
             <div className="space-y-1">
               <Label>{t('branches.address')}</Label>
-              <Input
-                value={form.address}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-              />
+              <Input value={form.address} onChange={(e) => editor.set('address', e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>{t('branches.phone')}</Label>
-                <Input
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
+                <Input value={form.phone} onChange={(e) => editor.set('phone', e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label>{t('branches.email')}</Label>
                 <Input
                   type="email"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  onChange={(e) => editor.set('email', e.target.value)}
                 />
               </div>
             </div>
@@ -619,7 +534,7 @@ export default function BranchesPage() {
                 <select
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.manager_id}
-                  onChange={(e) => setForm({ ...form, manager_id: e.target.value })}
+                  onChange={(e) => editor.set('manager_id', e.target.value)}
                 >
                   <option value="">—</option>
                   {users?.map((u) => (
@@ -633,7 +548,7 @@ export default function BranchesPage() {
                 <Label>{t('branches.currency')}</Label>
                 <Input
                   value={form.currency}
-                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                  onChange={(e) => editor.set('currency', e.target.value)}
                 />
               </div>
             </div>
@@ -643,11 +558,11 @@ export default function BranchesPage() {
                 type="number"
                 step="0.1"
                 value={form.tax_rate}
-                onChange={(e) => setForm({ ...form, tax_rate: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => editor.set('tax_rate', parseFloat(e.target.value) || 0)}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={saveBranch.isPending}>
-              {saveBranch.isPending ? t('common.saving') : t('common.save')}
+            <Button type="submit" className="w-full" disabled={saveBranch.isSaving}>
+              {saveBranch.isSaving ? t('common.saving') : t('common.save')}
             </Button>
           </form>
         </DialogContent>
@@ -663,7 +578,7 @@ export default function BranchesPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              saveSetting.mutate(settingForm);
+              if (selectedBranch) saveSetting.run({ id: selectedBranch, body: settingForm });
             }}
             className="space-y-3"
           >
@@ -690,8 +605,8 @@ export default function BranchesPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={saveSetting.isPending}>
-              {saveSetting.isPending ? t('common.saving') : t('common.save')}
+            <Button type="submit" className="w-full" disabled={saveSetting.isRunning}>
+              {saveSetting.isRunning ? t('common.saving') : t('common.save')}
             </Button>
           </form>
         </DialogContent>
