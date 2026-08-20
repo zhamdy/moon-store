@@ -1,5 +1,5 @@
 {
-  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers) and Unit 7.4 (features/sales) entries.",
+  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers), Unit 7.4 (features/sales) and Unit 7.5 (features/purchasing) entries.",
   "moves": [
     { "from": "src/components/ui/alert-dialog.tsx", "to": "src/shared/ui/alert-dialog.tsx" },
     { "from": "src/components/ui/badge.tsx", "to": "src/shared/ui/badge.tsx" },
@@ -99,6 +99,14 @@
     { "from": "src/pages/GiftCards.tsx", "to": "src/features/sales/pages/GiftCards.tsx" },
     { "from": "src/pages/Promotions.tsx", "to": "src/features/sales/pages/Promotions.tsx" },
     { "from": "src/pages/Promotions.test.tsx", "to": "src/features/sales/pages/Promotions.test.tsx" },
-    { "from": "src/components/RefundDialog.tsx", "to": "src/features/sales/components/RefundDialog.tsx" }
+    { "from": "src/components/RefundDialog.tsx", "to": "src/features/sales/components/RefundDialog.tsx" },
+
+    { "from": "src/pages/PurchaseOrders.tsx", "to": "src/features/purchasing/pages/PurchaseOrders.tsx" },
+    { "from": "src/pages/PurchaseOrders.test.tsx", "to": "src/features/purchasing/pages/PurchaseOrders.test.tsx" },
+    { "from": "src/pages/Vendors.tsx", "to": "src/features/purchasing/pages/Vendors.tsx" },
+    { "from": "src/pages/Distributors.tsx", "to": "src/features/purchasing/pages/Distributors.tsx" },
+    { "from": "src/pages/Expenses.tsx", "to": "src/features/purchasing/pages/Expenses.tsx" },
+    { "from": "src/components/purchase-orders/POFormDialog.tsx", "to": "src/features/purchasing/components/purchase-orders/POFormDialog.tsx" },
+    { "from": "src/components/purchase-orders/PODetailDialog.tsx", "to": "src/features/purchasing/components/purchase-orders/PODetailDialog.tsx" }
   ]
 }

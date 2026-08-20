@@ -1,21 +1,21 @@
 import { useState } from 'react';
 import { Receipt, Plus, Pencil, Trash2, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Badge } from '../shared/ui/badge';
-import { Card, CardContent } from '../shared/ui/card';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Badge } from '../../../shared/ui/badge';
+import { Card, CardContent } from '../../../shared/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../shared/ui/dialog';
-import { useTranslation } from '../shared/i18n/index';
-import { formatCurrency } from '../shared/lib/utils';
-import { resource } from '../shared/lib/resource';
-import { useEditorDialog } from '../shared/lib/editorDialog';
+} from '../../../shared/ui/dialog';
+import { useTranslation } from '../../../shared/i18n/index';
+import { formatCurrency } from '../../../shared/lib/utils';
+import { resource } from '../../../shared/lib/resource';
+import { useEditorDialog } from '../../../shared/lib/editorDialog';
 
 interface Expense {
   id: number;

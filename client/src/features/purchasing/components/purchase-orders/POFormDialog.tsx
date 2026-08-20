@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { Button } from '../../shared/ui/button';
-import { Input } from '../../shared/ui/input';
-import { Label } from '../../shared/ui/label';
+import { Button } from '../../../../shared/ui/button';
+import { Input } from '../../../../shared/ui/input';
+import { Label } from '../../../../shared/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -10,16 +10,16 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from '../../shared/ui/dialog';
+} from '../../../../shared/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../shared/ui/select';
-import { formatCurrency } from '../../shared/lib/utils';
-import { useTranslation } from '../../shared/i18n/index';
+} from '../../../../shared/ui/select';
+import { formatCurrency } from '../../../../shared/lib/utils';
+import { useTranslation } from '../../../../shared/i18n/index';
 import type { Distributor, Product, PurchaseOrderLine } from '@/types';
 
 interface POFormDialogProps {
