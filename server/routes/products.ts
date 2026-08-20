@@ -277,6 +277,42 @@ router.post(
 );
 
 // PUT /api/products/:id
+// Declared before PUT /:id: Express matches in order, and a bare /:id would
+// otherwise capture "bulk-update" as an id and reject the body.
+// PUT /api/products/bulk-update
+const bulkUpdateSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1),
+  updates: z.object({
+    category_id: z.number().int().positive().optional(),
+    distributor_id: z.number().int().positive().nullable().optional(),
+    price_percent: z.number().min(-99).max(1000).optional(),
+    status: z.enum(['active', 'inactive', 'discontinued']).optional(),
+  }),
+});
+
+router.put(
+  '/bulk-update',
+  verifyToken,
+  requireRole('Admin'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const parsed = bulkUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
+      }
+
+      const { ids, updates } = parsed.data;
+      const updated = bulkUpdateProducts(ids, updates);
+      res.json({ success: true, data: { updated } });
+    } catch (err: any) {
+      if (err.message === 'Category not found') {
+        return res.status(404).json({ success: false, error: err.message });
+      }
+      next(err);
+    }
+  }
+);
+
 router.put(
   '/:id',
   verifyToken,
@@ -380,40 +416,6 @@ router.post(
       const deleted = await bulkDeleteProducts(parsed.data.ids);
       res.json({ success: true, data: { deleted } });
     } catch (err) {
-      next(err);
-    }
-  }
-);
-
-// PUT /api/products/bulk-update
-const bulkUpdateSchema = z.object({
-  ids: z.array(z.number().int().positive()).min(1),
-  updates: z.object({
-    category_id: z.number().int().positive().optional(),
-    distributor_id: z.number().int().positive().nullable().optional(),
-    price_percent: z.number().min(-99).max(1000).optional(),
-    status: z.enum(['active', 'inactive', 'discontinued']).optional(),
-  }),
-});
-
-router.put(
-  '/bulk-update',
-  verifyToken,
-  requireRole('Admin'),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const parsed = bulkUpdateSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-      }
-
-      const { ids, updates } = parsed.data;
-      const updated = bulkUpdateProducts(ids, updates);
-      res.json({ success: true, data: { updated } });
-    } catch (err: any) {
-      if (err.message === 'Category not found') {
-        return res.status(404).json({ success: false, error: err.message });
-      }
       next(err);
     }
   }
