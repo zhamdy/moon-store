@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet } from '@tanstack/react-router';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
 import { StartupPrompt } from '../features/pos';

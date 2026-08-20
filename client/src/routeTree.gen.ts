@@ -9,27 +9,154 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root';
+import { Route as SplatRouteImport } from './routes/$';
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated';
+import { Route as CustomerDisplayRouteImport } from './routes/customer-display';
+import { Route as LocationsRouteImport } from './routes/locations';
+import { Route as LoginRouteImport } from './routes/login';
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/_admin';
 
-export interface FileRoutesByFullPath {}
-export interface FileRoutesByTo {}
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const CustomerDisplayRoute = CustomerDisplayRouteImport.update({
+  id: '/customer-display',
+  path: '/customer-display',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const LocationsRoute = LocationsRouteImport.update({
+  id: '/locations',
+  path: '/locations',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/_admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any);
+
+export interface FileRoutesByFullPath {
+  '/$': typeof SplatRoute;
+  '/': typeof AuthenticatedAdminRoute;
+  '/customer-display': typeof CustomerDisplayRoute;
+  '/locations': typeof LocationsRoute;
+  '/login': typeof LoginRoute;
+}
+export interface FileRoutesByTo {
+  '/$': typeof SplatRoute;
+  '/': typeof AuthenticatedAdminRoute;
+  '/customer-display': typeof CustomerDisplayRoute;
+  '/locations': typeof LocationsRoute;
+  '/login': typeof LoginRoute;
+}
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
+  '/$': typeof SplatRoute;
+  '/_authenticated': typeof AuthenticatedRouteWithChildren;
+  '/customer-display': typeof CustomerDisplayRoute;
+  '/locations': typeof LocationsRoute;
+  '/login': typeof LoginRoute;
+  '/_authenticated/_admin': typeof AuthenticatedAdminRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: never;
+  fullPaths: '/$' | '/' | '/customer-display' | '/locations' | '/login';
   fileRoutesByTo: FileRoutesByTo;
-  to: never;
-  id: '__root__';
+  to: '/$' | '/' | '/customer-display' | '/locations' | '/login';
+  id:
+    | '__root__'
+    | '/$'
+    | '/_authenticated'
+    | '/customer-display'
+    | '/locations'
+    | '/login'
+    | '/_authenticated/_admin';
   fileRoutesById: FileRoutesById;
 }
-export interface RootRouteChildren {}
-
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {}
+export interface RootRouteChildren {
+  SplatRoute: typeof SplatRoute;
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren;
+  CustomerDisplayRoute: typeof CustomerDisplayRoute;
+  LocationsRoute: typeof LocationsRoute;
+  LoginRoute: typeof LoginRoute;
 }
 
-const rootRouteChildren: RootRouteChildren = {};
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/$': {
+      id: '/$';
+      path: '/$';
+      fullPath: '/$';
+      preLoaderRoute: typeof SplatRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/_authenticated': {
+      id: '/_authenticated';
+      path: '';
+      fullPath: '/';
+      preLoaderRoute: typeof AuthenticatedRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/customer-display': {
+      id: '/customer-display';
+      path: '/customer-display';
+      fullPath: '/customer-display';
+      preLoaderRoute: typeof CustomerDisplayRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/locations': {
+      id: '/locations';
+      path: '/locations';
+      fullPath: '/locations';
+      preLoaderRoute: typeof LocationsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/login': {
+      id: '/login';
+      path: '/login';
+      fullPath: '/login';
+      preLoaderRoute: typeof LoginRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    '/_authenticated/_admin': {
+      id: '/_authenticated/_admin';
+      path: '';
+      fullPath: '/';
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport;
+      parentRoute: typeof AuthenticatedRoute;
+    };
+  }
+}
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute;
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+};
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren
+);
+
+const rootRouteChildren: RootRouteChildren = {
+  SplatRoute: SplatRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  CustomerDisplayRoute: CustomerDisplayRoute,
+  LocationsRoute: LocationsRoute,
+  LoginRoute: LoginRoute,
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>();
