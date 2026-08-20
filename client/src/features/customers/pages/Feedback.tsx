@@ -3,7 +3,7 @@ import { Card, CardContent } from '../../../shared/ui/card';
 import { Badge } from '../../../shared/ui/badge';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import type { FeedbackResponse } from '@/types';
+import type { FeedbackResponse } from '../types';
 
 export default function FeedbackPage() {
   const { t } = useTranslation();

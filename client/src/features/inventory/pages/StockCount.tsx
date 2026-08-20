@@ -16,7 +16,7 @@ import {
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { CategoryRecord, StockCountDetail, StockCountSummary } from '@/types';
+import type { CategoryRecord, StockCountDetail, StockCountSummary } from '../types';
 
 const stockCounts = resource<StockCountSummary>('stock-counts');
 // The same collection read one record at a time: that response carries the

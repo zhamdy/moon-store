@@ -41,7 +41,7 @@ import { useTransport } from '../../../shared/lib/transport/index';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { DateRange } from '../../../shared/ui/calendar';
 import type { ReceiptData } from '../../../shared/components/Receipt';
-import type { Sale, SaleDetail, SaleRefund, SalesMeta } from '@/types';
+import type { Sale, SaleDetail, SaleRefund, SalesMeta } from '../types';
 
 const sales = resource<Sale, SalesMeta>('sales');
 // The same collection read one record at a time: that response carries the

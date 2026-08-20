@@ -22,7 +22,7 @@ import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
-import type { Coupon } from '@/types';
+import type { Coupon } from '../types';
 
 const coupons = resource<Coupon>('coupons');
 

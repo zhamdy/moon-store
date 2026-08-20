@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import { useSettingsStore } from '../../../shared/store/settingsStore';
 import { formatCurrency } from '../../../shared/lib/utils';
-import type { Product } from '@/types';
+import type { Product } from '../../../shared/types/index';
 
 interface BarcodeGeneratorProps {
   value: string;

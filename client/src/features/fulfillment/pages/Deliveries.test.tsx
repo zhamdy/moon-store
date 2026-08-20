@@ -6,7 +6,7 @@ import { TransportProvider } from '../../../shared/lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
 import { useSettingsStore } from '../../../shared/store/settingsStore';
 import { useAuthStore } from '../../auth/store/authStore';
-import type { DeliveryOrder, DeliveryPerformance } from '@/types';
+import type { DeliveryOrder, DeliveryPerformance } from '../types';
 import Deliveries from './Deliveries';
 
 const PENDING_ORDER: DeliveryOrder = {

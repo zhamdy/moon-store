@@ -26,7 +26,8 @@ import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { Customer, LayawayDetail, LayawayLine, LayawayOrder, Product } from '@/types';
+import type { Customer, Product } from '../../../shared/types/index';
+import type { LayawayDetail, LayawayLine, LayawayOrder } from '../types';
 
 const layaway = resource<LayawayOrder>('layaway');
 

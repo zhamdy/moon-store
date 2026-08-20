@@ -44,7 +44,7 @@ import { calculateTotals, allocateSplit, type TaxMode } from '../../../shared/li
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
 import type { ReceiptData } from '../../../shared/components/Receipt';
-import type { AppSettings, Customer } from '@/types';
+import type { AppSettings, Customer } from '../../../shared/types/index';
 
 const customers = resource<Customer>('customers');
 

@@ -10,7 +10,7 @@ import StatusBadge from '../../../../shared/components/StatusBadge';
 import { formatDateTime } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
 
-import type { DeliveryStatusHistoryEntry } from '@/types';
+import type { DeliveryStatusHistoryEntry } from '../../types';
 
 interface DeliveryTimelineDialogProps {
   open: boolean;

@@ -40,7 +40,8 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import type { LucideIcon } from 'lucide-react';
-import type { AuditEntry, User as UserRecord } from '@/types';
+import type { User as UserRecord } from '../../../shared/types/index';
+import type { AuditEntry } from '../types';
 
 /** Pagination figures the audit-log list carries beside its rows. */
 interface AuditMeta {

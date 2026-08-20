@@ -20,7 +20,8 @@ import {
 } from '../../../../shared/ui/select';
 import { formatCurrency } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
-import type { Distributor, Product, PurchaseOrderLine } from '@/types';
+import type { Distributor, Product } from '../../../../shared/types/index';
+import type { PurchaseOrderLine } from '../../types';
 
 interface POFormDialogProps {
   open: boolean;

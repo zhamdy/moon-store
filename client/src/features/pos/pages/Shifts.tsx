@@ -9,7 +9,7 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { useAuthStore } from '../../auth/store/authStore';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { Shift, TimesheetEntry } from '@/types';
+import type { Shift, TimesheetEntry } from '../types';
 
 const shifts = resource<Shift>('shifts');
 

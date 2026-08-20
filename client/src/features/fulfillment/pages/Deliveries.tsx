@@ -37,15 +37,14 @@ import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 
 import type { ColumnDef } from '@tanstack/react-table';
+import type { Customer, Product } from '../../../shared/types/index';
 import type {
-  Customer,
   DeliveryOrder,
   DeliveryPayload,
   DeliveryPerformance,
   DeliveryStatusHistoryEntry,
-  Product,
   ShippingCompany,
-} from '@/types';
+} from '../types';
 
 const deliveries = resource<DeliveryOrder>('delivery');
 

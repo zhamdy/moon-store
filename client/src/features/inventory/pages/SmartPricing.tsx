@@ -18,7 +18,7 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { PriceSuggestion, PricingRule } from '@/types';
+import type { PriceSuggestion, PricingRule } from '../types';
 
 // Two nested collections under the AI route, each with its own CRUD surface.
 const priceSuggestions = resource<PriceSuggestion>('ai/pricing/suggestions');

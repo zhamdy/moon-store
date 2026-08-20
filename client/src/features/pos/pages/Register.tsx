@@ -29,7 +29,7 @@ import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
 import CashMovementDialog from '../components/register/CashMovementDialog';
 import RegisterReport from '../components/register/RegisterReport';
-import type { RegisterReportData, RegisterSession } from '@/types';
+import type { RegisterReportData, RegisterSession } from '../types';
 
 const register = resource<RegisterSession>('register');
 

@@ -15,7 +15,7 @@ import { useAuthStore } from '../../auth/store/authStore';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { RegisterSession, Shift } from '@/types';
+import type { RegisterSession, Shift } from '../types';
 
 const SESSION_KEY = 'moon-startup-dismissed';
 

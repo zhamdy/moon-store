@@ -13,7 +13,7 @@ import {
 } from '../../../../shared/ui/dialog';
 import { formatCurrency } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
-import type { PurchaseOrderDetail } from '@/types';
+import type { PurchaseOrderDetail } from '../../types';
 
 const STATUS_COLORS: Record<string, string> = {
   Draft: 'secondary',

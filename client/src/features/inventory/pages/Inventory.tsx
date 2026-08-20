@@ -59,16 +59,14 @@ import { useTransport, type TransportMethod } from '../../../shared/lib/transpor
 import { useAuthStore } from '../../auth/store/authStore';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
+import type { Category, Distributor, Product } from '../../../shared/types/index';
 import type {
   BulkDiscontinueResult,
-  Category,
   CsvProduct,
-  Distributor,
   LowStockProduct,
-  Product,
   ProductFormData,
   ProductImportResult,
-} from '@/types';
+} from '../types';
 
 const products = resource<Product>('products');
 const distributors = resource<Distributor>('distributors');

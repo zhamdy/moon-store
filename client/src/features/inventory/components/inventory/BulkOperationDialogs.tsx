@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '../../../../shared/ui/select';
 import { useTranslation } from '../../../../shared/i18n/index';
-import type { Category, Distributor } from '@/types';
+import type { Category, Distributor } from '../../../../shared/types/index';
 
 interface BulkOperationDialogsProps {
   selectedCount: number;

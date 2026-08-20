@@ -14,7 +14,7 @@ import { useAuthStore } from '../store/authStore';
 import { useTransport } from '../../../shared/lib/transport/index';
 import moonLogo from '../../../shared/assets/moon-logo.svg';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
-import type { AuthResponseData } from '@/types';
+import type { AuthResponseData } from '../../../shared/types/index';
 
 const getLoginSchema = () =>
   z.object({

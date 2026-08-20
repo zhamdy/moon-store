@@ -16,7 +16,8 @@ import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import type { Bundle, BundleItem, Product } from '@/types';
+import type { Product } from '../../../shared/types/index';
+import type { Bundle, BundleItem } from '../types';
 
 const bundles = resource<Bundle>('bundles');
 

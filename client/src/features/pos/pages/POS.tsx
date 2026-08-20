@@ -29,7 +29,7 @@ import { usePosShortcuts } from '../hooks/usePosShortcuts';
 import { usePosData, type PosBundle } from '../hooks/usePosData';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useTranslation } from '../../../shared/i18n/index';
-import type { Product, ProductVariant } from '@/types';
+import type { Product, ProductVariant } from '../../../shared/types/index';
 
 /**
  * Where uploaded product images are served from. The transport owns request

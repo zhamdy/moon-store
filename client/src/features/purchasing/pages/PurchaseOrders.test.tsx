@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransportProvider } from '../../../shared/lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
 import { useSettingsStore } from '../../../shared/store/settingsStore';
-import type { PurchaseOrder } from '@/types';
+import type { PurchaseOrder } from '../types';
 import PurchaseOrders from './PurchaseOrders';
 
 const DRAFT_ORDER: PurchaseOrder = {

@@ -32,7 +32,7 @@ import { useAuthStore } from '../../auth/store/authStore';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { User, UserRole } from '@/types';
+import type { User, UserRole } from '../../../shared/types/index';
 
 const getCreateSchema = () =>
   z.object({

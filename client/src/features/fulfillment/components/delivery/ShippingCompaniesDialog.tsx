@@ -13,7 +13,7 @@ import { useTranslation } from '../../../../shared/i18n/index';
 import { resource } from '../../../../shared/lib/resource';
 import { useEditorDialog } from '../../../../shared/lib/editorDialog';
 
-import type { ShippingCompany } from '@/types';
+import type { ShippingCompany } from '../../types';
 
 const shippingCompanies = resource<ShippingCompany>('shipping-companies');
 

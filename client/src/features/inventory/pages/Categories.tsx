@@ -28,7 +28,7 @@ import DataTable from '../../../shared/components/DataTable';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { CategoryRecord } from '@/types';
+import type { CategoryRecord } from '../types';
 
 const categoriesResource = resource<CategoryRecord>('categories');
 

@@ -15,7 +15,7 @@ import { useCartStore } from '../store/cartStore';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useTranslation } from '../../../shared/i18n/index';
-import type { Product } from '@/types';
+import type { Product } from '../../../shared/types/index';
 
 export default function BarcodeTools() {
   const { t } = useTranslation();

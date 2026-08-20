@@ -2,7 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import type { Product, ProductVariant } from '@/types';
+import type { Product, ProductVariant } from '../../../shared/types/index';
 
 const products = resource<Product>('products');
 

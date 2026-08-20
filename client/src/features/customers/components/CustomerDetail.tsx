@@ -28,7 +28,7 @@ import { formatCurrency, formatDateTime, formatRelative } from '../../../shared/
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation } from '../../../shared/i18n/index';
-import type { AppSettings } from '@/types';
+import type { AppSettings } from '../../../shared/types/index';
 
 /** Reached only for reads hanging off one customer and the points adjustment. */
 const customers = resource<{ id: number }>('customers');

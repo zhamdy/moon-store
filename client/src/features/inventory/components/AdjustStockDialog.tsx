@@ -19,7 +19,7 @@ import {
 } from '../../../shared/ui/select';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation } from '../../../shared/i18n/index';
-import type { Product } from '@/types';
+import type { Product } from '../../../shared/types/index';
 
 const products = resource<Product>('products');
 

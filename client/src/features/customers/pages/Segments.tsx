@@ -4,7 +4,7 @@ import { Badge } from '../../../shared/ui/badge';
 import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import type { SegmentsResponse } from '@/types';
+import type { SegmentsResponse } from '../types';
 
 const segmentIcons: Record<string, React.ReactNode> = {
   champions: <Crown className="h-5 w-5 text-yellow-500" />,

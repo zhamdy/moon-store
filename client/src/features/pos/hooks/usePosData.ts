@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { Category, Product, ProductVariant } from '@/types';
+import type { Category, Product, ProductVariant } from '../../../shared/types/index';
 
 const products = resource<Product>('products');
 

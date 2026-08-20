@@ -30,7 +30,7 @@ import CustomerDetail from '../components/CustomerDetail';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { Customer } from '@/types';
+import type { Customer } from '../../../shared/types/index';
 
 const customersResource = resource<Customer>('customers');
 

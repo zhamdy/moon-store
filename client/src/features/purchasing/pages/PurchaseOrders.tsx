@@ -30,14 +30,13 @@ import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
 import type { ColumnDef } from '@tanstack/react-table';
+import type { Distributor, Product } from '../../../shared/types/index';
 import type {
-  Distributor,
   LowStockSuggestion,
-  Product,
   PurchaseOrder,
   PurchaseOrderDetail,
   PurchaseOrderLine,
-} from '@/types';
+} from '../types';
 
 const purchaseOrders = resource<PurchaseOrder>('purchase-orders');
 // The same collection, read one record at a time: that response carries the

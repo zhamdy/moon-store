@@ -28,7 +28,7 @@ import DataTable from '../../../shared/components/DataTable';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { Distributor } from '@/types';
+import type { Distributor } from '../../../shared/types/index';
 
 const distributorsResource = resource<Distributor>('distributors');
 

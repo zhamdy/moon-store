@@ -22,7 +22,7 @@ import {
 } from '../../../../shared/ui/alert-dialog';
 import { formatCurrency } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
-import type { Product, ProductVariant } from '@/types';
+import type { Product, ProductVariant } from '../../../../shared/types/index';
 
 interface VariantManagerDialogProps {
   variantsDialogOpen: boolean;

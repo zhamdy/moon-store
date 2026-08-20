@@ -22,7 +22,8 @@ import {
 } from '../../../../shared/ui/select';
 import { useTransport } from '../../../../shared/lib/transport/index';
 import { useTranslation } from '../../../../shared/i18n/index';
-import type { Product, ProductFormData, Category, Distributor } from '@/types';
+import type { Product, Category, Distributor } from '../../../../shared/types/index';
+import type { ProductFormData } from '../../types';
 import type { z } from 'zod';
 
 /** Where the server serves uploaded product images from. */

@@ -17,7 +17,8 @@ import {
 } from '../../../../shared/ui/dialog';
 import { useTranslation, t as tStandalone } from '../../../../shared/i18n/index';
 
-import type { Customer, DeliveryOrder, DeliveryPayload, Product, ShippingCompany } from '@/types';
+import type { Customer, Product } from '../../../../shared/types/index';
+import type { DeliveryOrder, DeliveryPayload, ShippingCompany } from '../../types';
 
 const getDeliverySchema = () =>
   z.object({

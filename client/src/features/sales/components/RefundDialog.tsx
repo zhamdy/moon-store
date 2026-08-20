@@ -21,7 +21,7 @@ import {
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation } from '../../../shared/i18n/index';
-import type { SaleItem } from '@/types';
+import type { SaleItem } from '../types';
 
 /** Only the refund sub-action is reached from here, so no row shape surfaces. */
 const sales = resource<{ id: number }>('sales');

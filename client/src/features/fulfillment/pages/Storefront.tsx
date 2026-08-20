@@ -10,7 +10,7 @@ import { Badge } from '../../../shared/ui/badge';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { StorefrontBanner, StorefrontConfig, StorefrontProduct } from '@/types';
+import type { StorefrontBanner, StorefrontConfig, StorefrontProduct } from '../types';
 
 export default function StorefrontPage() {
   const { t } = useTranslation();

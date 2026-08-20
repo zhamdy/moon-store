@@ -7,7 +7,7 @@ import { TransportProvider } from '../../../shared/lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
 import { useSettingsStore } from '../../../shared/store/settingsStore';
 import { useAuthStore } from '../../auth/store/authStore';
-import type { Product } from '@/types';
+import type { Product } from '../../../shared/types/index';
 import Inventory from './Inventory';
 
 const SILK_DRESS: Product = {

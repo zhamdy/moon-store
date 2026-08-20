@@ -16,7 +16,7 @@ import {
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { AppSettings } from '@/types';
+import type { AppSettings } from '../../../shared/types/index';
 
 export default function Settings() {
   const { t } = useTranslation();

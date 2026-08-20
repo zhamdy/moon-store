@@ -12,7 +12,7 @@ import {
 } from '../../../shared/ui/dialog';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import type { OnlineOrder } from '@/types';
+import type { OnlineOrder } from '../types';
 
 const onlineOrders = resource<OnlineOrder>('online-orders');
 

@@ -31,7 +31,8 @@ import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { Branch, BranchTransfer, ConsolidatedBranches, User } from '@/types';
+import type { User } from '../../../shared/types/index';
+import type { Branch, BranchTransfer, ConsolidatedBranches } from '../types';
 
 const branches = resource<Branch>('branches');
 

@@ -8,7 +8,7 @@ import {
 } from '../../../../shared/ui/dialog';
 import { useTranslation } from '../../../../shared/i18n/index';
 import { formatCurrency } from '../../../../shared/lib/utils';
-import type { RegisterReportData } from '@/types';
+import type { RegisterReportData } from '../../types';
 
 interface RegisterReportProps {
   open: boolean;

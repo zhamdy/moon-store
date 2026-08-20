@@ -36,7 +36,7 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { GiftCard, GiftCardTransaction } from '@/types';
+import type { GiftCard, GiftCardTransaction } from '../types';
 
 const giftCards = resource<GiftCard>('gift-cards');
 
