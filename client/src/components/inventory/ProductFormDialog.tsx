@@ -14,10 +14,13 @@ import {
   DialogDescription,
 } from '../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import api from '../../services/api';
+import { useTransport } from '../../lib/transport';
 import { useTranslation } from '../../i18n';
 import type { Product, ProductFormData, Category, Distributor } from '@/types';
 import type { z } from 'zod';
+
+/** Where the server serves uploaded product images from. */
+const assetBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface ProductFormDialogProps {
   open: boolean;
@@ -46,6 +49,10 @@ export default function ProductFormDialog({
 }: ProductFormDialogProps) {
   const { t } = useTranslation();
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // The SKU and barcode generators are one-shot reads whose whole point is a
+  // fresh value per call, so they go to the transport directly rather than
+  // through a query hook that would hand the next product a cached barcode.
+  const transport = useTransport();
 
   const {
     register,
@@ -89,23 +96,26 @@ export default function ProductFormDialog({
           min_stock: 5,
         });
         // Auto-generate barcode for new products
-        api
-          .get('/api/v1/products/generate-barcode')
-          .then((r) => setValue('barcode', r.data.data.barcode))
+        transport
+          .request<{ barcode: string }>({ method: 'GET', path: 'products/generate-barcode' })
+          .then(({ data }) => setValue('barcode', data.barcode))
           .catch(() => {});
       }
     }
-  }, [open, editingProduct, reset, setValue]);
+  }, [open, editingProduct, reset, setValue, transport]);
 
   // Auto-generate SKU when category changes (only for new products)
   useEffect(() => {
     if (!editingProduct && watchCategoryId && open) {
-      api
-        .get(`/api/v1/products/generate-sku/${watchCategoryId}`)
-        .then((r) => setValue('sku', r.data.data.sku))
+      transport
+        .request<{ sku: string }>({
+          method: 'GET',
+          path: `products/generate-sku/${watchCategoryId}`,
+        })
+        .then(({ data }) => setValue('sku', data.sku))
         .catch(() => {});
     }
-  }, [watchCategoryId, editingProduct, open, setValue]);
+  }, [watchCategoryId, editingProduct, open, setValue, transport]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -231,7 +241,7 @@ export default function ProductFormDialog({
               <div className="flex items-center gap-3">
                 {editingProduct.image_url ? (
                   <img
-                    src={`${api.defaults.baseURL}${editingProduct.image_url}`}
+                    src={`${assetBase}${editingProduct.image_url}`}
                     alt={editingProduct.name}
                     className="h-16 w-16 rounded object-cover border border-border"
                   />

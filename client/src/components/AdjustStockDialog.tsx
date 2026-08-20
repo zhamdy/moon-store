@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
 import { Package } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import api from '../services/api';
+import { resource } from '../lib/resource';
 import { useTranslation } from '../i18n';
+import type { Product } from '@/types';
+
+const products = resource<Product>('products');
 
 interface AdjustStockDialogProps {
   open: boolean;
@@ -28,7 +29,6 @@ export default function AdjustStockDialog({
   currentStock,
 }: AdjustStockDialogProps) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
 
   const [delta, setDelta] = useState(0);
   const [reason, setReason] = useState<AdjustReason>('Manual Adjustment');
@@ -38,24 +38,18 @@ export default function AdjustStockDialog({
     setReason('Manual Adjustment');
   };
 
-  const mutation = useMutation({
-    mutationFn: (data: { delta: number; reason: string }) =>
-      api.post(`/api/v1/products/${productId}/adjust-stock`, data).then((r) => r.data),
-    onSuccess: () => {
-      toast.success(t('stock.adjustSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['products-low-stock'] });
+  const adjuster = products.useAction('adjust-stock', {
+    message: t('stock.adjustSuccess'),
+    fallbackMessage: t('stock.adjustFailed'),
+    onDone: () => {
       onOpenChange(false);
       resetForm();
-    },
-    onError: () => {
-      toast.error(t('stock.adjustFailed'));
     },
   });
 
   const handleSubmit = () => {
-    if (delta === 0) return;
-    mutation.mutate({ delta, reason });
+    if (delta === 0 || productId === null) return;
+    adjuster.run({ id: productId, body: { delta, reason } });
   };
 
   const newStock = currentStock + delta;
@@ -115,10 +109,10 @@ export default function AdjustStockDialog({
 
           <Button
             onClick={handleSubmit}
-            disabled={delta === 0 || mutation.isPending || newStock < 0}
+            disabled={delta === 0 || adjuster.isRunning || newStock < 0}
             className="w-full"
           >
-            {mutation.isPending ? t('common.loading') : t('stock.adjustSubmit')}
+            {adjuster.isRunning ? t('common.loading') : t('stock.adjustSubmit')}
           </Button>
         </div>
       </DialogContent>

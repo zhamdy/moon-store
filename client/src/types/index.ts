@@ -30,6 +30,38 @@ export interface Product {
   updated_at: string;
 }
 
+/**
+ * A row from GET products/low-stock: a product plus how far under its floor it
+ * sits. The server computes the deficit, so the client never has to guess which
+ * of two subtractions it meant.
+ */
+export interface LowStockProduct extends Product {
+  deficit: number;
+}
+
+/** One parsed line of the CSV the inventory page imports. */
+export interface CsvProduct {
+  name: string;
+  sku: string;
+  barcode: string;
+  price: number;
+  cost_price: number;
+  stock: number;
+  category: string;
+  min_stock: number;
+}
+
+/** What POST products/import reports back, per file. */
+export interface ProductImportResult {
+  imported: number;
+  errors: Array<{ row: number; error: string }>;
+}
+
+/** What POST products/bulk-delete reports back. */
+export interface BulkDiscontinueResult {
+  deleted: number;
+}
+
 /** Product variant from GET /api/products/:id/variants */
 export interface ProductVariant {
   id: number;

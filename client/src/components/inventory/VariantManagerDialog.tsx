@@ -50,7 +50,8 @@ interface VariantManagerDialogProps {
   onOpenEditVariant: (variant: ProductVariant) => void;
   onVariantSubmit: () => void;
   onResetVariantForm: () => void;
-  onDeleteVariant: (data: { productId: number; variantId: number }) => void;
+  /** The variant being deleted is already named by `variantDeleteId`. */
+  onDeleteVariant: () => void;
 
   // Mutation states
   createVariantPending: boolean;
@@ -303,14 +304,7 @@ export default function VariantManagerDialog({
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (variantDeleteId && variantsProduct) {
-                  onDeleteVariant({
-                    productId: variantsProduct.id,
-                    variantId: variantDeleteId,
-                  });
-                }
-              }}
+              onClick={onDeleteVariant}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
               {t('common.delete')}

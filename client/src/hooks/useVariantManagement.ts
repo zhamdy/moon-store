@@ -1,13 +1,19 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import api from '../services/api';
 import { useTranslation } from '../i18n';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, Product, ProductVariant } from '@/types';
+import { resource } from '../lib/resource';
+import type { Product, ProductVariant } from '@/types';
 
+const products = resource<Product>('products');
+
+/**
+ * A product's variants live under the product, so every read and write here is
+ * a sub-path of one product record rather than a collection of its own. The
+ * record being addressed is chosen per call; the segment beneath it is fixed at
+ * hook creation, which is why the variant being edited or deleted has to be in
+ * state before its action hook can name it.
+ */
 export function useVariantManagement() {
-  const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   // Variant dialog state
@@ -27,13 +33,11 @@ export function useVariantManagement() {
   const [variantCostPrice, setVariantCostPrice] = useState('');
   const [variantStock, setVariantStock] = useState('0');
 
-  // Variants query
-  const { data: variants, isLoading: variantsLoading } = useQuery<ProductVariant[]>({
-    queryKey: ['product-variants', variantsProduct?.id],
-    queryFn: () =>
-      api.get(`/api/v1/products/${variantsProduct!.id}/variants`).then((r) => r.data.data),
-    enabled: !!variantsProduct && variantsDialogOpen,
-  });
+  const { data: variants, isLoading: variantsLoading } = products.useRead<ProductVariant[]>(
+    `${variantsProduct?.id}/variants`,
+    undefined,
+    !!variantsProduct && variantsDialogOpen
+  );
 
   const resetVariantForm = () => {
     setVariantFormOpen(false);
@@ -46,46 +50,26 @@ export function useVariantManagement() {
     setVariantStock('0');
   };
 
-  const createVariantMutation = useMutation({
-    mutationFn: (data: { productId: number; variant: Record<string, unknown> }) =>
-      api.post(`/api/v1/products/${data.productId}/variants`, data.variant),
-    onSuccess: () => {
-      toast.success(t('variants.created'));
-      queryClient.invalidateQueries({ queryKey: ['product-variants', variantsProduct?.id] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      resetVariantForm();
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('variants.createFailed')),
+  // Writing a variant refreshes every products read, which is both the variant
+  // list on screen and the variant counts in the inventory table.
+  const creator = products.useAction('variants', {
+    message: t('variants.created'),
+    fallbackMessage: t('variants.createFailed'),
+    onDone: resetVariantForm,
   });
 
-  const updateVariantMutation = useMutation({
-    mutationFn: (data: {
-      productId: number;
-      variantId: number;
-      variant: Record<string, unknown>;
-    }) => api.put(`/api/v1/products/${data.productId}/variants/${data.variantId}`, data.variant),
-    onSuccess: () => {
-      toast.success(t('variants.updated'));
-      queryClient.invalidateQueries({ queryKey: ['product-variants', variantsProduct?.id] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      resetVariantForm();
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('variants.updateFailed')),
+  const updater = products.useAction(`variants/${editingVariant?.id}`, {
+    method: 'PUT',
+    message: t('variants.updated'),
+    fallbackMessage: t('variants.updateFailed'),
+    onDone: resetVariantForm,
   });
 
-  const deleteVariantMutation = useMutation({
-    mutationFn: (data: { productId: number; variantId: number }) =>
-      api.delete(`/api/v1/products/${data.productId}/variants/${data.variantId}`),
-    onSuccess: () => {
-      toast.success(t('variants.deleted'));
-      queryClient.invalidateQueries({ queryKey: ['product-variants', variantsProduct?.id] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      setVariantDeleteId(null);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('variants.deleteFailed')),
+  const deleter = products.useAction(`variants/${variantDeleteId}`, {
+    method: 'DELETE',
+    message: t('variants.deleted'),
+    fallbackMessage: t('variants.deleteFailed'),
+    onDone: () => setVariantDeleteId(null),
   });
 
   const openEditVariant = (variant: ProductVariant) => {
@@ -100,6 +84,7 @@ export function useVariantManagement() {
   };
 
   const handleVariantSubmit = () => {
+    if (!variantsProduct) return;
     const attributes: Record<string, string> = {};
     for (const attr of variantAttrs) {
       if (attr.key.trim() && attr.value.trim()) {
@@ -110,7 +95,7 @@ export function useVariantManagement() {
       toast.error(t('variants.attributes') + ' required');
       return;
     }
-    const payload = {
+    const body = {
       sku: variantSku,
       barcode: variantBarcode || null,
       price: variantPrice ? Number(variantPrice) : null,
@@ -118,15 +103,14 @@ export function useVariantManagement() {
       stock: Number(variantStock) || 0,
       attributes,
     };
-    if (editingVariant && variantsProduct) {
-      updateVariantMutation.mutate({
-        productId: variantsProduct.id,
-        variantId: editingVariant.id,
-        variant: payload,
-      });
-    } else if (variantsProduct) {
-      createVariantMutation.mutate({ productId: variantsProduct.id, variant: payload });
-    }
+    const write = editingVariant ? updater : creator;
+    write.run({ id: variantsProduct.id, body });
+  };
+
+  // The variant is already named by the hook, so the caller only has to confirm.
+  const deleteVariant = () => {
+    if (!variantsProduct || !variantDeleteId) return;
+    deleter.run({ id: variantsProduct.id });
   };
 
   const openVariantsDialog = (product: Product) => {
@@ -170,16 +154,14 @@ export function useVariantManagement() {
     variants,
     variantsLoading,
 
-    // Mutations
-    createVariantMutation,
-    updateVariantMutation,
-    deleteVariantMutation,
-
     // Actions
     resetVariantForm,
     openEditVariant,
     handleVariantSubmit,
+    deleteVariant,
     openVariantsDialog,
     closeVariantsDialog,
+    createVariantPending: creator.isRunning,
+    updateVariantPending: updater.isRunning,
   };
 }
