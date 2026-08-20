@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { queryClient } from '../lib/queryClient';
-import { useOfflineStore } from './offlineStore';
-import { useCartStore } from './cartStore';
+import { emitSessionEvent } from '../lib/session';
 import type { AuthUser } from '../types';
 
 interface AuthState {
@@ -28,9 +26,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         set({ user: null, accessToken: null, isAuthenticated: false });
-        queryClient.clear();
-        useOfflineStore.getState().clearQueue();
-        useCartStore.getState().clearCart();
+        emitSessionEvent('logout');
       },
 
       updateUser: (updates) =>
