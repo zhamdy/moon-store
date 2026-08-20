@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Plus, Gift, XCircle, Eye, CreditCard, MoreHorizontal } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -33,106 +32,57 @@ import {
 } from '../components/ui/alert-dialog';
 import DataTable from '../components/DataTable';
 import { formatCurrency, formatDate } from '../lib/utils';
-import api from '../services/api';
 import { useTranslation } from '../i18n';
+import { resource } from '../lib/resource';
+import { useEditorDialog } from '../lib/editorDialog';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
+import type { GiftCard, GiftCardTransaction } from '@/types';
 
-interface GiftCard {
-  id: number;
-  code: string;
-  barcode: string | null;
-  initial_value: number;
-  balance: number;
-  status: 'active' | 'used' | 'cancelled';
-  customer_id: number | null;
-  customer_name: string | null;
-  expires_at: string | null;
-  created_at: string;
-}
+const giftCards = resource<GiftCard>('gift-cards');
 
-interface GiftCardTransaction {
-  id: number;
-  gift_card_id: number;
-  type: string;
-  amount: number;
-  reference_id: number | null;
-  created_at: string;
-}
+const emptyGiftCard = { initial_value: '', customer_id: '', expires_at: '' };
 
 export default function GiftCards() {
-  const queryClient = useQueryClient();
   const { t } = useTranslation();
 
-  const [createOpen, setCreateOpen] = useState(false);
+  // Neither of these holds form values: one names the card a confirmation is
+  // about, the other the card whose ledger is on screen.
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [transactionsCard, setTransactionsCard] = useState<GiftCard | null>(null);
 
-  // Form state
-  const [initialValue, setInitialValue] = useState('');
-  const [customerId, setCustomerId] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
+  const editor = useEditorDialog(emptyGiftCard);
+  const form = editor.values;
 
-  // Queries
-  const { data: giftCards, isLoading } = useQuery<GiftCard[]>({
-    queryKey: ['gift-cards'],
-    queryFn: () =>
-      api.get('/api/v1/gift-cards', { params: { limit: 200 } }).then((r) => r.data.data),
+  const { data: cards, isLoading } = giftCards.useList({ limit: 200 });
+
+  const { data: transactions, isLoading: transactionsLoading } = giftCards.useRead<
+    GiftCardTransaction[]
+  >(`${transactionsCard?.id}/transactions`, undefined, !!transactionsCard);
+
+  const creator = giftCards.useSave({
+    message: t('giftCards.created'),
+    fallbackMessage: t('giftCards.createFailed'),
+    onDone: editor.close,
   });
 
-  const { data: transactions, isLoading: transactionsLoading } = useQuery<GiftCardTransaction[]>({
-    queryKey: ['gift-card-transactions', transactionsCard?.id],
-    queryFn: () =>
-      api.get(`/api/v1/gift-cards/${transactionsCard!.id}/transactions`).then((r) => r.data.data),
-    enabled: !!transactionsCard,
+  // Cancelling a card is a status change on it, so it goes through the same save.
+  const canceller = giftCards.useSave({
+    message: t('giftCards.cancelSuccess'),
+    fallbackMessage: t('giftCards.cancelFailed'),
+    onDone: () => setCancelId(null),
   });
-
-  // Mutations
-  const createMutation = useMutation({
-    mutationFn: (data: { initial_value: number; customer_id?: number; expires_at?: string }) =>
-      api.post('/api/v1/gift-cards', data),
-    onSuccess: () => {
-      toast.success(t('giftCards.created'));
-      queryClient.invalidateQueries({ queryKey: ['gift-cards'] });
-      resetForm();
-      setCreateOpen(false);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('giftCards.createFailed')),
-  });
-
-  const cancelMutation = useMutation({
-    mutationFn: (id: number) => api.put(`/api/v1/gift-cards/${id}`, { status: 'cancelled' }),
-    onSuccess: () => {
-      toast.success(t('giftCards.cancelSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['gift-cards'] });
-      setCancelId(null);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || t('giftCards.cancelFailed')),
-  });
-
-  const resetForm = () => {
-    setInitialValue('');
-    setCustomerId('');
-    setExpiresAt('');
-  };
 
   const handleCreate = () => {
-    const value = parseFloat(initialValue);
+    const value = parseFloat(form.initial_value);
     if (!value || value <= 0) {
       toast.error(t('validation.pricePositive'));
       return;
     }
-    const payload: {
-      initial_value: number;
-      customer_id?: number;
-      expires_at?: string;
-    } = { initial_value: value };
-    if (customerId) payload.customer_id = Number(customerId);
-    if (expiresAt) payload.expires_at = expiresAt;
-    createMutation.mutate(payload);
+    creator.save({
+      initial_value: value,
+      customer_id: form.customer_id ? Number(form.customer_id) : undefined,
+      expires_at: form.expires_at || undefined,
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -260,7 +210,7 @@ export default function GiftCards() {
           </h1>
           <div className="gold-divider mt-2" />
         </div>
-        <Button className="gap-2" onClick={() => setCreateOpen(true)}>
+        <Button className="gap-2" onClick={editor.openNew}>
           <Plus className="h-4 w-4" />
           {t('giftCards.create')}
         </Button>
@@ -269,19 +219,13 @@ export default function GiftCards() {
       {/* Table */}
       <DataTable
         columns={columns}
-        data={giftCards ?? []}
+        data={cards ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('giftCards.searchPlaceholder')}
       />
 
       {/* Create Dialog */}
-      <Dialog
-        open={createOpen}
-        onOpenChange={(open) => {
-          setCreateOpen(open);
-          if (!open) resetForm();
-        }}
-      >
+      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('giftCards.create')}</DialogTitle>
@@ -294,8 +238,8 @@ export default function GiftCards() {
                 type="number"
                 step="0.01"
                 min="0"
-                value={initialValue}
-                onChange={(e) => setInitialValue(e.target.value)}
+                value={form.initial_value}
+                onChange={(e) => editor.set('initial_value', e.target.value)}
                 placeholder="0.00"
               />
             </div>
@@ -306,8 +250,8 @@ export default function GiftCards() {
               </Label>
               <Input
                 type="number"
-                value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
+                value={form.customer_id}
+                onChange={(e) => editor.set('customer_id', e.target.value)}
                 placeholder={t('giftCards.customerIdPlaceholder')}
               />
             </div>
@@ -316,11 +260,15 @@ export default function GiftCards() {
                 {t('giftCards.expiresAt')}{' '}
                 <span className="text-muted text-xs">({t('giftCards.optional')})</span>
               </Label>
-              <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+              <Input
+                type="date"
+                value={form.expires_at}
+                onChange={(e) => editor.set('expires_at', e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleCreate} disabled={createMutation.isPending || !initialValue}>
+            <Button onClick={handleCreate} disabled={creator.isSaving || !form.initial_value}>
               <CreditCard className="h-4 w-4 me-2" />
               {t('common.create')}
             </Button>
@@ -338,7 +286,7 @@ export default function GiftCards() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => cancelId && cancelMutation.mutate(cancelId)}
+              onClick={() => cancelId && canceller.save({ id: cancelId, status: 'cancelled' })}
               className="bg-destructive text-foreground hover:bg-destructive/90"
             >
               {t('common.confirm')}

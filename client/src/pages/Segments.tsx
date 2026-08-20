@@ -1,29 +1,10 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Crown, Heart, Star, AlertTriangle, Moon, UserX, UserPlus } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
-import api from '../services/api';
-
-interface SegmentSummary {
-  segment: string;
-  count: number;
-  total_revenue: number;
-  avg_frequency: number;
-}
-
-interface CustomerRFM {
-  id: number;
-  name: string;
-  phone: string | null;
-  email: string | null;
-  recency_days: number;
-  frequency: number;
-  monetary: number;
-  segment: string;
-  loyalty_points: number;
-}
+import { useApiQuery } from '../lib/apiQuery';
+import type { SegmentsResponse } from '@/types';
 
 const segmentIcons: Record<string, React.ReactNode> = {
   champions: <Crown className="h-5 w-5 text-yellow-500" />,
@@ -58,10 +39,9 @@ const segmentKeys: Record<string, string> = {
 export default function SegmentsPage() {
   const { t } = useTranslation();
 
-  const { data, isLoading } = useQuery<{ customers: CustomerRFM[]; summary: SegmentSummary[] }>({
-    queryKey: ['segments'],
-    queryFn: () => api.get('/api/v1/segments').then((r) => r.data.data),
-  });
+  // Not a CRUD collection: one read returns the roll-up and the scored
+  // customers together, so it goes through the transport without `resource`.
+  const { data, isLoading } = useApiQuery<SegmentsResponse>(['segments'], 'segments');
 
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
 

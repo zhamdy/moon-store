@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Palette, Plus, Pencil, Trash2, Package, ArrowRight, X } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -15,138 +13,87 @@ import {
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
-import api from '../services/api';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, Product } from '@/types';
+import { resource } from '../lib/resource';
+import { useEditorDialog } from '../lib/editorDialog';
+import { useApiQuery } from '../lib/apiQuery';
+import type { Collection, CollectionDetail, Product } from '@/types';
 
-interface Collection {
-  id: number;
-  name: string;
-  season: string | null;
-  year: number | null;
-  status: string;
-  description: string | null;
-  product_count: number;
-}
+const collections = resource<Collection>('collections');
 
-interface CollectionDetail extends Collection {
-  products: {
-    id: number;
-    name: string;
-    sku: string;
-    price: number;
-    stock: number;
-    image_url: string | null;
-  }[];
-}
+// One record of the same collection, read through its own type: the detail
+// endpoint hands back the products too, which the list rows never carry.
+const collectionDetail = resource<CollectionDetail>('collections');
 
 const seasons = ['Spring', 'Summer', 'Fall', 'Winter'] as const;
 const statuses = ['upcoming', 'active', 'on_sale', 'archived'] as const;
 
+// A factory, so a collection created next January defaults to next January.
+const emptyCollection = () => ({
+  name: '',
+  season: '',
+  year: String(new Date().getFullYear()),
+  status: 'upcoming',
+  description: '',
+});
+
+const collectionToForm = (col: Collection) => ({
+  name: col.name,
+  season: col.season || '',
+  year: String(col.year || ''),
+  status: col.status,
+  description: col.description || '',
+});
+
+// Membership has no endpoint of its own: a collection gains or loses a product
+// by being saved back with a different product list.
+const withProducts = (detail: CollectionDetail, productIds: number[]) => ({
+  id: detail.id,
+  name: detail.name,
+  season: detail.season || undefined,
+  year: detail.year || undefined,
+  status: detail.status,
+  description: detail.description || undefined,
+  product_ids: productIds,
+});
+
+const statusColors: Record<string, string> = {
+  upcoming: 'bg-blue-500/10 text-blue-600',
+  active: 'bg-emerald-500/10 text-emerald-600',
+  on_sale: 'bg-orange-500/10 text-orange-600',
+  archived: 'bg-gray-500/10 text-gray-600',
+};
+
 export default function CollectionsPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({
-    name: '',
-    season: '',
-    year: String(new Date().getFullYear()),
-    status: 'upcoming',
-    description: '',
-  });
+  const editor = useEditorDialog(emptyCollection, collectionToForm);
+  const form = editor.values;
   const [selectedCol, setSelectedCol] = useState<number | null>(null);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [productSearch, setProductSearch] = useState('');
 
-  const { data: collections } = useQuery<Collection[]>({
-    queryKey: ['collections'],
-    queryFn: () => api.get('/api/v1/collections').then((r) => r.data.data),
+  const { data: rows } = collections.useList();
+  const { data: detail } = collectionDetail.useOne(selectedCol);
+
+  const { data: allProducts } = useApiQuery<Product[]>(
+    ['products-for-collection', productSearch],
+    'products',
+    { search: productSearch, limit: 20 },
+    { enabled: addProductOpen }
+  );
+
+  const saver = collections.useSave({
+    message: t('collections.created'),
+    fallbackMessage: 'Error',
+    onDone: editor.close,
   });
 
-  const { data: detail } = useQuery<CollectionDetail>({
-    queryKey: ['collection-detail', selectedCol],
-    queryFn: () => api.get(`/api/v1/collections/${selectedCol}`).then((r) => r.data.data),
-    enabled: !!selectedCol,
+  const remover = collections.useRemove({
+    message: t('common.delete'),
+    onDone: () => setSelectedCol(null),
   });
 
-  const { data: allProducts } = useQuery<Product[]>({
-    queryKey: ['products-for-collection', productSearch],
-    queryFn: () =>
-      api
-        .get('/api/v1/products', { params: { search: productSearch, limit: 20 } })
-        .then((r) => r.data.data),
-    enabled: addProductOpen,
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => {
-      if (editingId) return api.put(`/api/v1/collections/${editingId}`, data);
-      return api.post('/api/v1/collections', data);
-    },
-    onSuccess: () => {
-      toast.success(t('collections.created'));
-      queryClient.invalidateQueries({ queryKey: ['collections'] });
-      setDialogOpen(false);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/v1/collections/${id}`),
-    onSuccess: () => {
-      toast.success(t('common.delete'));
-      queryClient.invalidateQueries({ queryKey: ['collections'] });
-      setSelectedCol(null);
-    },
-  });
-
-  const addProductMutation = useMutation({
-    mutationFn: (productId: number) => {
-      if (!detail) return Promise.reject();
-      const currentIds = detail.products.map((p) => p.id);
-      return api.put(`/api/v1/collections/${selectedCol}`, {
-        name: detail.name,
-        season: detail.season || undefined,
-        year: detail.year || undefined,
-        status: detail.status,
-        description: detail.description || undefined,
-        product_ids: [...currentIds, productId],
-      });
-    },
-    onSuccess: () => {
-      toast.success(t('common.save'));
-      queryClient.invalidateQueries({ queryKey: ['collection-detail', selectedCol] });
-      queryClient.invalidateQueries({ queryKey: ['collections'] });
-    },
-  });
-
-  const removeProductMutation = useMutation({
-    mutationFn: (productId: number) => {
-      if (!detail) return Promise.reject();
-      const currentIds = detail.products.map((p) => p.id).filter((id) => id !== productId);
-      return api.put(`/api/v1/collections/${selectedCol}`, {
-        name: detail.name,
-        season: detail.season || undefined,
-        year: detail.year || undefined,
-        status: detail.status,
-        description: detail.description || undefined,
-        product_ids: currentIds,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['collection-detail', selectedCol] });
-      queryClient.invalidateQueries({ queryKey: ['collections'] });
-    },
-  });
-
-  const statusColors: Record<string, string> = {
-    upcoming: 'bg-blue-500/10 text-blue-600',
-    active: 'bg-emerald-500/10 text-emerald-600',
-    on_sale: 'bg-orange-500/10 text-orange-600',
-    archived: 'bg-gray-500/10 text-gray-600',
-  };
+  const addProduct = collections.useSave({ message: t('common.save') });
+  const removeProduct = collections.useSave();
 
   // Detail view
   if (selectedCol && detail) {
@@ -195,7 +142,14 @@ export default function CollectionsPage() {
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6 text-destructive shrink-0"
-                    onClick={() => removeProductMutation.mutate(p.id)}
+                    onClick={() =>
+                      removeProduct.save(
+                        withProducts(
+                          detail,
+                          detail.products.map((dp) => dp.id).filter((id) => id !== p.id)
+                        )
+                      )
+                    }
                     aria-label={t('common.delete')}
                   >
                     <X className="h-3 w-3" />
@@ -232,9 +186,11 @@ export default function CollectionsPage() {
                   <button
                     key={p.id}
                     className="w-full flex items-center justify-between p-2 rounded hover:bg-surface text-start"
-                    onClick={() => {
-                      addProductMutation.mutate(p.id);
-                    }}
+                    onClick={() =>
+                      addProduct.save(
+                        withProducts(detail, [...detail.products.map((dp) => dp.id), p.id])
+                      )
+                    }
                   >
                     <div>
                       <span className="text-sm font-medium">{p.name}</span>
@@ -260,32 +216,19 @@ export default function CollectionsPage() {
           </h1>
           <div className="gold-divider mt-2" />
         </div>
-        <Button
-          onClick={() => {
-            setEditingId(null);
-            setForm({
-              name: '',
-              season: '',
-              year: String(new Date().getFullYear()),
-              status: 'upcoming',
-              description: '',
-            });
-            setDialogOpen(true);
-          }}
-          className="gap-2"
-        >
+        <Button onClick={editor.openNew} className="gap-2">
           <Plus className="h-4 w-4" /> {t('collections.create')}
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {!collections?.length ? (
+        {!rows?.length ? (
           <div className="col-span-full text-center py-16">
             <Palette className="h-12 w-12 text-gold/40 mx-auto mb-3" />
             <p className="text-muted">{t('collections.noCollections')}</p>
           </div>
         ) : (
-          collections.map((col) => (
+          rows.map((col) => (
             <div
               key={col.id}
               className="p-4 rounded-md border border-border bg-card hover:border-gold/50 transition-colors cursor-pointer"
@@ -298,17 +241,7 @@ export default function CollectionsPage() {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
-                    onClick={() => {
-                      setEditingId(col.id);
-                      setForm({
-                        name: col.name,
-                        season: col.season || '',
-                        year: String(col.year || ''),
-                        status: col.status,
-                        description: col.description || '',
-                      });
-                      setDialogOpen(true);
-                    }}
+                    onClick={() => editor.openEdit(col)}
                     aria-label={t('common.edit')}
                   >
                     <Pencil className="h-3 w-3" />
@@ -317,7 +250,7 @@ export default function CollectionsPage() {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-destructive"
-                    onClick={() => deleteMutation.mutate(col.id)}
+                    onClick={() => remover.remove(col.id)}
                     aria-label={t('common.delete')}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -349,16 +282,19 @@ export default function CollectionsPage() {
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingId ? t('common.edit') : t('collections.create')}</DialogTitle>
+            <DialogTitle>
+              {editor.isEditing ? t('common.edit') : t('collections.create')}
+            </DialogTitle>
             <DialogDescription>{t('collections.title')}</DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              saveMutation.mutate({
+              saver.save({
+                id: editor.editingId,
                 name: form.name,
                 season: form.season || undefined,
                 year: Number(form.year) || undefined,
@@ -372,7 +308,7 @@ export default function CollectionsPage() {
               <Label>{t('common.name')}</Label>
               <Input
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => editor.set('name', e.target.value)}
                 required
               />
             </div>
@@ -380,7 +316,7 @@ export default function CollectionsPage() {
               <Label>{t('collections.description')}</Label>
               <Input
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) => editor.set('description', e.target.value)}
               />
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -389,7 +325,7 @@ export default function CollectionsPage() {
                 <select
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.season}
-                  onChange={(e) => setForm({ ...form, season: e.target.value })}
+                  onChange={(e) => editor.set('season', e.target.value)}
                 >
                   <option value="">—</option>
                   {seasons.map((s) => (
@@ -404,7 +340,7 @@ export default function CollectionsPage() {
                 <Input
                   type="number"
                   value={form.year}
-                  onChange={(e) => setForm({ ...form, year: e.target.value })}
+                  onChange={(e) => editor.set('year', e.target.value)}
                 />
               </div>
               <div className="space-y-1">
@@ -412,7 +348,7 @@ export default function CollectionsPage() {
                 <select
                   className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  onChange={(e) => editor.set('status', e.target.value)}
                 >
                   {statuses.map((s) => (
                     <option key={s} value={s}>
@@ -422,8 +358,8 @@ export default function CollectionsPage() {
                 </select>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? t('common.loading') : t('common.save')}
+            <Button type="submit" className="w-full" disabled={saver.isSaving}>
+              {saver.isSaving ? t('common.loading') : t('common.save')}
             </Button>
           </form>
         </DialogContent>
