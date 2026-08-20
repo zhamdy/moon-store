@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Crown, Heart, Star, AlertTriangle, Moon, UserX, UserPlus } from 'lucide-react';
-import { Badge } from '../shared/ui/badge';
-import { useTranslation } from '../shared/i18n/index';
-import { formatCurrency } from '../shared/lib/utils';
-import { useApiQuery } from '../shared/lib/apiQuery';
+import { Badge } from '../../../shared/ui/badge';
+import { useTranslation } from '../../../shared/i18n/index';
+import { formatCurrency } from '../../../shared/lib/utils';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
 import type { SegmentsResponse } from '@/types';
 
 const segmentIcons: Record<string, React.ReactNode> = {

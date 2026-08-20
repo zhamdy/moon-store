@@ -1,18 +1,18 @@
 import { ShieldCheck, Plus } from 'lucide-react';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Badge } from '../shared/ui/badge';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Badge } from '../../../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../shared/ui/dialog';
-import { useTranslation } from '../shared/i18n/index';
-import { resource } from '../shared/lib/resource';
-import { useEditorDialog } from '../shared/lib/editorDialog';
+} from '../../../shared/ui/dialog';
+import { useTranslation } from '../../../shared/i18n/index';
+import { resource } from '../../../shared/lib/resource';
+import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import type { WarrantyClaim } from '@/types';
 
 const warranty = resource<WarrantyClaim>('warranty');

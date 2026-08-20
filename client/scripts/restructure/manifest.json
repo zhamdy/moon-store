@@ -1,5 +1,5 @@
 {
-  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth) and Unit 7.2 (features/admin) entries.",
+  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin) and Unit 7.3 (features/customers) entries.",
   "moves": [
     { "from": "src/components/ui/alert-dialog.tsx", "to": "src/shared/ui/alert-dialog.tsx" },
     { "from": "src/components/ui/badge.tsx", "to": "src/shared/ui/badge.tsx" },
@@ -86,6 +86,12 @@
     { "from": "src/pages/Backup.tsx", "to": "src/features/admin/pages/Backup.tsx" },
     { "from": "src/pages/Branches.tsx", "to": "src/features/admin/pages/Branches.tsx" },
     { "from": "src/pages/Settings.tsx", "to": "src/features/admin/pages/Settings.tsx" },
-    { "from": "src/pages/Users.tsx", "to": "src/features/admin/pages/Users.tsx" }
+    { "from": "src/pages/Users.tsx", "to": "src/features/admin/pages/Users.tsx" },
+
+    { "from": "src/pages/Customers.tsx", "to": "src/features/customers/pages/Customers.tsx" },
+    { "from": "src/pages/Feedback.tsx", "to": "src/features/customers/pages/Feedback.tsx" },
+    { "from": "src/pages/Segments.tsx", "to": "src/features/customers/pages/Segments.tsx" },
+    { "from": "src/pages/Warranty.tsx", "to": "src/features/customers/pages/Warranty.tsx" },
+    { "from": "src/components/CustomerDetail.tsx", "to": "src/features/customers/components/CustomerDetail.tsx" }
   ]
 }

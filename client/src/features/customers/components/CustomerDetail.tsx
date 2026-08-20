@@ -10,12 +10,12 @@ import {
   Plus,
   Minus,
 } from 'lucide-react';
-import { Button } from '../shared/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../shared/ui/card';
-import { Badge } from '../shared/ui/badge';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Textarea } from '../shared/ui/textarea';
+import { Button } from '../../../shared/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
+import { Badge } from '../../../shared/ui/badge';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Textarea } from '../../../shared/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -23,11 +23,11 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from '../shared/ui/dialog';
-import { formatCurrency, formatDateTime, formatRelative } from '../shared/lib/utils';
-import { useApiQuery } from '../shared/lib/apiQuery';
-import { resource } from '../shared/lib/resource';
-import { useTranslation } from '../shared/i18n/index';
+} from '../../../shared/ui/dialog';
+import { formatCurrency, formatDateTime, formatRelative } from '../../../shared/lib/utils';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { resource } from '../../../shared/lib/resource';
+import { useTranslation } from '../../../shared/i18n/index';
 import type { AppSettings } from '@/types';
 
 /** Reached only for reads hanging off one customer and the points adjustment. */
