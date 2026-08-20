@@ -1,4 +1,4 @@
-import { Outlet } from '@tanstack/react-router';
+import { Outlet, useRouterState } from '@tanstack/react-router';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
 import { StartupPrompt } from '../features/pos';
@@ -6,13 +6,47 @@ import { useOffline } from '../shared/hooks/useOffline';
 import { useTranslation } from '../shared/i18n/index';
 import { useAuthStore } from '../features/auth';
 import { useSettingsStore } from '../shared/store/settingsStore';
-import { WifiOff, Languages, Moon, Sun } from 'lucide-react';
+import { WifiOff, Languages, Moon, Sun, ArrowLeft } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 
 export default function Layout(): React.JSX.Element {
+  const router = useRouterState();
+  const isPos = router.location.pathname.startsWith('/pos');
+
   const { isOnline, queueLength } = useOffline();
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const { toggleLocale, toggleTheme, theme } = useSettingsStore();
+
+  if (isPos) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        {/* Minimal POS Header */}
+        <header className="sticky top-0 z-30 bg-surface border-b border-border px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link to="/" className="text-muted hover:text-foreground flex items-center gap-2">
+              <ArrowLeft className="h-5 w-5" />
+              <span className="text-sm font-medium">Dashboard</span>
+            </Link>
+            <div className="h-4 w-px bg-border" />
+            <span className="font-semibold text-primary">Point of Sale</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {!isOnline && (
+              <span className="text-destructive text-xs font-medium flex items-center gap-1 bg-destructive/10 px-2 py-1 rounded-md">
+                <WifiOff className="h-3 w-3" /> Offline
+              </span>
+            )}
+            <div className="text-sm text-foreground">{user?.name}</div>
+          </div>
+        </header>
+        <main className="flex-1 overflow-hidden relative">
+          <Outlet />
+        </main>
+        <StartupPrompt />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

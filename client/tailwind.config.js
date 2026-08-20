@@ -50,11 +50,11 @@ export default {
         widest: '0.1em',
       },
       borderRadius: {
-        DEFAULT: '0.375rem',
+        DEFAULT: '0.75rem',
       },
       boxShadow: {
-        glow: 'none',
-        'glow-strong': 'none',
+        glow: '0 0 20px rgba(0, 0, 0, 0.05)',
+        'glow-strong': '0 0 30px rgba(0, 0, 0, 0.08)',
       },
     },
   },
@@ -63,34 +63,34 @@ export default {
     heroui({
       layout: {
         radius: {
-          small: '0.25rem',
-          medium: '0.375rem',
-          large: '0.5rem',
+          small: '0.375rem',
+          medium: '0.5rem',
+          large: '0.75rem',
         },
         boxShadow: {
-          small: 'none',
-          medium: 'none',
-          large: 'none',
+          small: '0px 2px 8px 0px rgba(0,0,0,0.04)',
+          medium: '0px 4px 16px 0px rgba(0,0,0,0.06)',
+          large: '0px 8px 24px 0px rgba(0,0,0,0.08)',
         },
       },
       themes: {
         dark: {
           colors: {
             primary: {
-              DEFAULT: '#FFFFFF',
-              foreground: '#000000',
+              DEFAULT: 'hsl(var(--primary))',
+              foreground: 'hsl(var(--primary-foreground))',
             },
-            focus: '#FFFFFF',
-            background: '#0D0D0D',
+            focus: 'hsl(var(--primary))',
+            background: '#0F1115',
           },
         },
         light: {
           colors: {
             primary: {
-              DEFAULT: '#000000',
-              foreground: '#FFFFFF',
+              DEFAULT: 'hsl(var(--primary))',
+              foreground: 'hsl(var(--primary-foreground))',
             },
-            focus: '#000000',
+            focus: 'hsl(var(--primary))',
           },
         },
       },
