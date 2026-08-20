@@ -9,16 +9,19 @@ import { Input } from '../../../shared/ui/input';
 import { Badge } from '../../../shared/ui/badge';
 import { Checkbox } from '../../../shared/ui/checkbox';
 import BarcodeScanner from '../../../shared/components/BarcodeScanner';
-// Deliberate deep, non-barrel import (bypasses boundaries/element-types and
-// no-restricted-imports' cross-slice-escape rule): importing BarcodeGenerator
-// via the inventory barrel makes it statically reachable through App.tsx's
-// eager `import { Inventory } from '../features/inventory'`, which caused
-// Rollup to hoist BarcodeGenerator (and jsbarcode) into the eager entry
-// chunk instead of keeping it exclusive to this lazy-routed page's chunk
-// (~68KB regression, found by Unit 11 bundle verification). Same class of
-// documented exception as App.tsx's lazy() specifiers staying deep.
+// Deliberate deep, non-barrel import (bypasses boundaries/element-types;
+// the "@/" alias form sidesteps no-restricted-imports' relative-escape
+// pattern, which only matches "../../<slice>/*" specifiers, not aliased
+// ones -- so only one rule needs suppressing here): importing
+// BarcodeGenerator via the inventory barrel makes it statically reachable
+// through App.tsx's eager `import { Inventory } from '../features/inventory'`,
+// which caused Rollup to hoist BarcodeGenerator (and jsbarcode) into the
+// eager entry chunk instead of keeping it exclusive to this lazy-routed
+// page's chunk (~68KB regression, found by Unit 11 bundle verification).
+// Same class of documented exception as App.tsx's lazy() specifiers
+// staying deep.
 // eslint-disable-next-line boundaries/element-types
-import BarcodeGenerator from '../../inventory/components/BarcodeGenerator';
+import BarcodeGenerator from '@/features/inventory/components/BarcodeGenerator';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useCartStore } from '../store/cartStore';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
