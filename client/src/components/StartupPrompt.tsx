@@ -11,7 +11,7 @@ import {
 } from '../shared/ui/dialog';
 import { Button } from '../shared/ui/button';
 import { Input } from '../shared/ui/input';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../features/auth/store/authStore';
 import { useTranslation } from '../shared/i18n/index';
 import { resource } from '../shared/lib/resource';
 import { useTransport } from '../shared/lib/transport/index';

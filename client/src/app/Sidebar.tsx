@@ -37,7 +37,7 @@ import {
   MoreHorizontal,
   type LucideIcon,
 } from 'lucide-react';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../features/auth/store/authStore';
 import { useTranslation } from '../shared/i18n/index';
 import { useTransport } from '../shared/lib/transport/index';
 import moonLogo from '../shared/assets/moon-logo.svg';

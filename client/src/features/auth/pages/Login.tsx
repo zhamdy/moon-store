@@ -5,15 +5,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../shared/ui/card';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Checkbox } from '../shared/ui/checkbox';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../shared/ui/card';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Checkbox } from '../../../shared/ui/checkbox';
 import { useAuthStore } from '../store/authStore';
-import { useTransport } from '../shared/lib/transport/index';
-import moonLogo from '../shared/assets/moon-logo.svg';
-import { useTranslation, t as tStandalone } from '../shared/i18n/index';
+import { useTransport } from '../../../shared/lib/transport/index';
+import moonLogo from '../../../shared/assets/moon-logo.svg';
+import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { AuthResponseData } from '@/types';
 
 const getLoginSchema = () =>

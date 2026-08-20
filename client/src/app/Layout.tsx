@@ -4,7 +4,7 @@ import NotificationCenter from './NotificationCenter';
 import StartupPrompt from '../components/StartupPrompt';
 import { useOffline } from '../shared/hooks/useOffline';
 import { useTranslation } from '../shared/i18n/index';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../features/auth/store/authStore';
 import { useSettingsStore } from '../shared/store/settingsStore';
 import { WifiOff, Languages, Moon, Sun } from 'lucide-react';
 

@@ -11,7 +11,7 @@
 import { queryClient } from '../shared/lib/queryClient';
 import { setAuthPort } from '../shared/lib/transport/index';
 import { onSessionEvent } from '../shared/lib/session';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../features/auth/store/authStore';
 import { useOfflineStore } from '../shared/store/offlineStore';
 import { useCartStore } from '../store/cartStore';
 

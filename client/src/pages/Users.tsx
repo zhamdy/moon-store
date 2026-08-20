@@ -28,7 +28,7 @@ import {
 } from '../shared/ui/alert-dialog';
 import DataTable from '../shared/components/DataTable';
 import { formatDateTime, formatDate } from '../shared/lib/utils';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../features/auth/store/authStore';
 import { resource } from '../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../shared/i18n/index';
 import type { ColumnDef } from '@tanstack/react-table';

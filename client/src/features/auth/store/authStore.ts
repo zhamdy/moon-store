@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { emitSessionEvent } from '../shared/lib/session';
-import { AUTH_STORAGE_KEY } from '../shared/lib/storageKeys';
-import type { AuthUser } from '../types';
+import { emitSessionEvent } from '../../../shared/lib/session';
+import { AUTH_STORAGE_KEY } from '../../../shared/lib/storageKeys';
+import type { AuthUser } from '../../../types/index';
 
 interface AuthState {
   user: AuthUser | null;

@@ -1,11 +1,11 @@
 import { lazy, Suspense, type ComponentType } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './Layout';
-import ProtectedRoute from '../components/ProtectedRoute';
+import ProtectedRoute from '../features/auth/components/ProtectedRoute';
 import ErrorBoundary from '../shared/components/ErrorBoundary';
-import Login from '../pages/Login';
+import Login from '../features/auth/pages/Login';
 import PWAInstallPrompt from '../shared/components/PWAInstallPrompt';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../features/auth/store/authStore';
 
 // Eagerly loaded (critical path)
 import Dashboard from '../pages/Dashboard';

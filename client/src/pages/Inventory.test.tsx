@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransportProvider } from '../shared/lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../shared/lib/transport/memory';
 import { useSettingsStore } from '../shared/store/settingsStore';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../features/auth/store/authStore';
 import type { Product } from '@/types';
 import Inventory from './Inventory';
 
