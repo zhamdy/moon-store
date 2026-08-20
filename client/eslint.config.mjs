@@ -65,11 +65,12 @@ export default tseslint.config(
       // matching for the root-cwd invocation. Anchor to this config file's
       // own directory so both invocations resolve identically.
       'boundaries/root-path': import.meta.dirname,
-      // Three architectural layers, matched by path. `feature` captures the
+      // Architectural layers, matched by path. `feature` captures the
       // slice name (the `*` segment) so same-slice imports can be allowed at
       // any depth while cross-slice imports are restricted to the barrel.
       'boundaries/elements': [
         { type: 'app', pattern: 'src/app/**' },
+        { type: 'routes', pattern: 'src/routes/**' },
         { type: 'feature', pattern: 'src/features/*/**', capture: ['slice'] },
         { type: 'shared', pattern: 'src/shared/**' },
       ],
@@ -83,7 +84,12 @@ export default tseslint.config(
       // src/vite-env.d.ts is a Vite ambient-types file at the src/ root, and
       // vite.config.ts / vitest.config.ts are root-level Node tooling config
       // -- none of the three belong to app/feature/shared application code.
-      'boundaries/ignore': ['src/vite-env.d.ts', 'vite.config.ts', 'vitest.config.ts'],
+      'boundaries/ignore': [
+        'src/vite-env.d.ts',
+        'src/routeTree.gen.ts',
+        'vite.config.ts',
+        'vitest.config.ts',
+      ],
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -98,8 +104,9 @@ export default tseslint.config(
       // rather than silently unconstrained.
       'boundaries/no-unknown-dependencies': 'error',
       'boundaries/no-unknown-files': 'error',
-      // R7/R8/R16: the dependency direction rules for the three layers.
-      //   app     -> feature (any depth, so lazy() stays deep) and shared
+      // R7/R8/R16: the dependency direction rules for the architectural layers.
+      //   app     -> feature, shared, and routes
+      //   routes  -> feature (at barrel), shared, app, and routes
       //   feature -> shared, itself (same slice, any depth), and other
       //              features only at their barrel (@/features/<name>)
       //   shared  -> shared only (this is R16; it also blocks shared -> app)
@@ -113,6 +120,16 @@ export default tseslint.config(
               allow: [
                 { to: { element: { type: 'feature' } } },
                 { to: { element: { type: 'shared' } } },
+                { to: { element: { type: 'routes' } } },
+              ],
+            },
+            {
+              from: { element: { type: 'routes' } },
+              allow: [
+                { to: { element: { type: 'feature' }, file: { categories: 'barrel' } } },
+                { to: { element: { type: 'shared' } } },
+                { to: { element: { type: 'app' } } },
+                { to: { element: { type: 'routes' } } },
               ],
             },
             {
