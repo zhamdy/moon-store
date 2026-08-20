@@ -4,10 +4,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../../shared/ui/dialog';
-import { Badge } from '../../shared/ui/badge';
-import { formatCurrency } from '../../shared/lib/utils';
-import { useTranslation } from '../../shared/i18n/index';
+} from '../../../../shared/ui/dialog';
+import { Badge } from '../../../../shared/ui/badge';
+import { formatCurrency } from '../../../../shared/lib/utils';
+import { useTranslation } from '../../../../shared/i18n/index';
 import type { Product, ProductVariant } from '@/types';
 
 interface VariantPickerDialogProps {

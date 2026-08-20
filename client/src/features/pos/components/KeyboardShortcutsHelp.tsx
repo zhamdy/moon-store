@@ -4,8 +4,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../shared/ui/dialog';
-import { useTranslation } from '../shared/i18n/index';
+} from '../../../shared/ui/dialog';
+import { useTranslation } from '../../../shared/i18n/index';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { HELD_CARTS_STORAGE_KEY } from '../shared/lib/storageKeys';
+import { HELD_CARTS_STORAGE_KEY } from '../../../shared/lib/storageKeys';
 import type { CartItem, DiscountType } from './cartStore';
 
 export interface HeldCart {

@@ -1,5 +1,5 @@
 {
-  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers), Unit 7.4 (features/sales), Unit 7.5 (features/purchasing), Unit 7.6 (features/fulfillment), Unit 7.7 (features/inventory) and Unit 7.8 (features/analytics) entries.",
+  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers), Unit 7.4 (features/sales), Unit 7.5 (features/purchasing), Unit 7.6 (features/fulfillment), Unit 7.7 (features/inventory), Unit 7.8 (features/analytics) and Unit 7.9 (features/pos) entries. This completes Unit 7.",
   "moves": [
     { "from": "src/components/ui/alert-dialog.tsx", "to": "src/shared/ui/alert-dialog.tsx" },
     { "from": "src/components/ui/badge.tsx", "to": "src/shared/ui/badge.tsx" },
@@ -147,6 +147,27 @@
     { "from": "src/components/charts/PaymentPieChart.tsx", "to": "src/features/analytics/components/charts/PaymentPieChart.tsx" },
     { "from": "src/components/charts/RevenueChart.tsx", "to": "src/features/analytics/components/charts/RevenueChart.tsx" },
     { "from": "src/components/charts/TopProductsChart.tsx", "to": "src/features/analytics/components/charts/TopProductsChart.tsx" },
-    { "from": "src/hooks/useDashboardData.ts", "to": "src/features/analytics/hooks/useDashboardData.ts" }
+    { "from": "src/hooks/useDashboardData.ts", "to": "src/features/analytics/hooks/useDashboardData.ts" },
+
+    { "from": "src/pages/POS.tsx", "to": "src/features/pos/pages/POS.tsx" },
+    { "from": "src/pages/Register.tsx", "to": "src/features/pos/pages/Register.tsx" },
+    { "from": "src/pages/Register.test.tsx", "to": "src/features/pos/pages/Register.test.tsx" },
+    { "from": "src/pages/Shifts.tsx", "to": "src/features/pos/pages/Shifts.tsx" },
+    { "from": "src/pages/Shifts.test.tsx", "to": "src/features/pos/pages/Shifts.test.tsx" },
+    { "from": "src/pages/CustomerDisplay.tsx", "to": "src/features/pos/pages/CustomerDisplay.tsx" },
+    { "from": "src/pages/BarcodeTools.tsx", "to": "src/features/pos/pages/BarcodeTools.tsx" },
+    { "from": "src/components/CartPanel.tsx", "to": "src/features/pos/components/CartPanel.tsx" },
+    { "from": "src/components/CartPanel.test.tsx", "to": "src/features/pos/components/CartPanel.test.tsx" },
+    { "from": "src/components/HeldCartsDialog.tsx", "to": "src/features/pos/components/HeldCartsDialog.tsx" },
+    { "from": "src/components/KeyboardShortcutsHelp.tsx", "to": "src/features/pos/components/KeyboardShortcutsHelp.tsx" },
+    { "from": "src/components/StartupPrompt.tsx", "to": "src/features/pos/components/StartupPrompt.tsx" },
+    { "from": "src/components/pos/VariantPickerDialog.tsx", "to": "src/features/pos/components/pos/VariantPickerDialog.tsx" },
+    { "from": "src/components/register/CashMovementDialog.tsx", "to": "src/features/pos/components/register/CashMovementDialog.tsx" },
+    { "from": "src/components/register/RegisterReport.tsx", "to": "src/features/pos/components/register/RegisterReport.tsx" },
+    { "from": "src/hooks/usePosData.ts", "to": "src/features/pos/hooks/usePosData.ts" },
+    { "from": "src/hooks/usePosShortcuts.ts", "to": "src/features/pos/hooks/usePosShortcuts.ts" },
+    { "from": "src/store/cartStore.ts", "to": "src/features/pos/store/cartStore.ts" },
+    { "from": "src/store/cartStore.test.ts", "to": "src/features/pos/store/cartStore.test.ts" },
+    { "from": "src/store/heldCartsStore.ts", "to": "src/features/pos/store/heldCartsStore.ts" }
   ]
 }

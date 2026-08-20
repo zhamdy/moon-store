@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { TransportProvider } from '../shared/lib/transport/index';
-import type { TransportRequest, TransportResult } from '../shared/lib/transport/index';
-import { createMemoryTransport, type MemoryTransport } from '../shared/lib/transport/memory';
-import { useSettingsStore } from '../shared/store/settingsStore';
+import { TransportProvider } from '../../../shared/lib/transport/index';
+import type { TransportRequest, TransportResult } from '../../../shared/lib/transport/index';
+import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
+import { useSettingsStore } from '../../../shared/store/settingsStore';
 import { useCartStore } from '../store/cartStore';
-import { useOfflineStore } from '../shared/store/offlineStore';
+import { useOfflineStore } from '../../../shared/store/offlineStore';
 import CartPanel from './CartPanel';
 
 const SILK_DRESS = {

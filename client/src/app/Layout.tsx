@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
-import StartupPrompt from '../components/StartupPrompt';
+import StartupPrompt from '../features/pos/components/StartupPrompt';
 import { useOffline } from '../shared/hooks/useOffline';
 import { useTranslation } from '../shared/i18n/index';
 import { useAuthStore } from '../features/auth/store/authStore';

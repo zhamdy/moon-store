@@ -1,13 +1,13 @@
-import { Badge } from '../../shared/ui/badge';
+import { Badge } from '../../../../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../../shared/ui/dialog';
-import { useTranslation } from '../../shared/i18n/index';
-import { formatCurrency } from '../../shared/lib/utils';
+} from '../../../../shared/ui/dialog';
+import { useTranslation } from '../../../../shared/i18n/index';
+import { formatCurrency } from '../../../../shared/lib/utils';
 import type { RegisterReportData } from '@/types';
 
 interface RegisterReportProps {

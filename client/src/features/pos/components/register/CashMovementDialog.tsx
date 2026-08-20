@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { Button } from '../../shared/ui/button';
-import { Input } from '../../shared/ui/input';
-import { Label } from '../../shared/ui/label';
+import { Button } from '../../../../shared/ui/button';
+import { Input } from '../../../../shared/ui/input';
+import { Label } from '../../../../shared/ui/label';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../../shared/ui/dialog';
-import { useTranslation } from '../../shared/i18n/index';
+} from '../../../../shared/ui/dialog';
+import { useTranslation } from '../../../../shared/i18n/index';
 
 interface CashMovementDialogProps {
   open: boolean;

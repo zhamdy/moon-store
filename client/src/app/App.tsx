@@ -9,11 +9,11 @@ import { useAuthStore } from '../features/auth/store/authStore';
 
 // Eagerly loaded (critical path)
 import Dashboard from '../features/analytics/pages/Dashboard';
-import POS from '../pages/POS';
+import POS from '../features/pos/pages/POS';
 import Inventory from '../features/inventory/pages/Inventory';
 
 // Lazy loaded
-const BarcodeTools = lazy(() => import('../pages/BarcodeTools'));
+const BarcodeTools = lazy(() => import('../features/pos/pages/BarcodeTools'));
 const Deliveries = lazy(() => import('../features/fulfillment/pages/Deliveries'));
 const SalesHistory = lazy(() => import('../features/sales/pages/SalesHistory'));
 const UsersPage = lazy(() => import('../features/admin/pages/Users'));
@@ -27,9 +27,9 @@ const PromotionsPage = lazy(() => import('../features/sales/pages/Promotions'));
 const GiftCardsPage = lazy(() => import('../features/sales/pages/GiftCards'));
 const StockCountPage = lazy(() => import('../features/inventory/pages/StockCount'));
 const ExportsPage = lazy(() => import('../features/analytics/pages/Exports'));
-const CustomerDisplay = lazy(() => import('../pages/CustomerDisplay'));
-const RegisterPage = lazy(() => import('../pages/Register'));
-const ShiftsPage = lazy(() => import('../pages/Shifts'));
+const CustomerDisplay = lazy(() => import('../features/pos/pages/CustomerDisplay'));
+const RegisterPage = lazy(() => import('../features/pos/pages/Register'));
+const ShiftsPage = lazy(() => import('../features/pos/pages/Shifts'));
 const ExpensesPage = lazy(() => import('../features/purchasing/pages/Expenses'));
 const SegmentsPage = lazy(() => import('../features/customers/pages/Segments'));
 const LayawayPage = lazy(() => import('../features/sales/pages/Layaway'));

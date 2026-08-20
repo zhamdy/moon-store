@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAuthStore } from './authStore';
 import { useOfflineStore } from '../../../shared/store/offlineStore';
-import { useCartStore } from '../../../store/cartStore';
-import { useHeldCartsStore } from '../../../store/heldCartsStore';
+import { useCartStore } from '../../pos/store/cartStore';
+import { useHeldCartsStore } from '../../pos/store/heldCartsStore';
 import { onSessionEvent } from '../../../shared/lib/session';
 import { queryClient } from '../../../shared/lib/queryClient';
 import type { AuthUser } from '../../../types/index';

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { CART_RECOVERY_STORAGE_KEY } from '../shared/lib/storageKeys';
-import type { Product as ServerProduct } from '../types';
+import { CART_RECOVERY_STORAGE_KEY } from '../../../shared/lib/storageKeys';
+import type { Product as ServerProduct } from '../../../types/index';
 
 export interface CartItem {
   product_id: number;

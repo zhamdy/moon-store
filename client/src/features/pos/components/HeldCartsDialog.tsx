@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Archive, Trash2, RotateCcw, ShoppingBag } from 'lucide-react';
-import { Button } from '../shared/ui/button';
+import { Button } from '../../../shared/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../shared/ui/dialog';
+} from '../../../shared/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,11 +18,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../shared/ui/alert-dialog';
+} from '../../../shared/ui/alert-dialog';
 import { useHeldCartsStore, type HeldCart } from '../store/heldCartsStore';
 import { useCartStore } from '../store/cartStore';
-import { formatCurrency, formatRelative } from '../shared/lib/utils';
-import { useTranslation } from '../shared/i18n/index';
+import { formatCurrency, formatRelative } from '../../../shared/lib/utils';
+import { useTranslation } from '../../../shared/i18n/index';
 import toast from 'react-hot-toast';
 
 interface HeldCartsDialogProps {

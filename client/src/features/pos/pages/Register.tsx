@@ -11,22 +11,22 @@ import {
   X,
   AlertTriangle,
 } from 'lucide-react';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Card, CardContent } from '../shared/ui/card';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Card, CardContent } from '../../../shared/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../shared/ui/dialog';
-import { useTranslation } from '../shared/i18n/index';
-import { formatCurrency } from '../shared/lib/utils';
-import { resource } from '../shared/lib/resource';
-import { useApiQuery } from '../shared/lib/apiQuery';
-import { useTransport } from '../shared/lib/transport/index';
+} from '../../../shared/ui/dialog';
+import { useTranslation } from '../../../shared/i18n/index';
+import { formatCurrency } from '../../../shared/lib/utils';
+import { resource } from '../../../shared/lib/resource';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useTransport } from '../../../shared/lib/transport/index';
 import CashMovementDialog from '../components/register/CashMovementDialog';
 import RegisterReport from '../components/register/RegisterReport';
 import type { RegisterReportData, RegisterSession } from '@/types';

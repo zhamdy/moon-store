@@ -13,7 +13,7 @@ import { setAuthPort } from '../shared/lib/transport/index';
 import { onSessionEvent } from '../shared/lib/session';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { useOfflineStore } from '../shared/store/offlineStore';
-import { useCartStore } from '../store/cartStore';
+import { useCartStore } from '../features/pos/store/cartStore';
 
 setAuthPort({
   getAccessToken: () => useAuthStore.getState().accessToken,

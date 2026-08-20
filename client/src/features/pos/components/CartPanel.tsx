@@ -18,26 +18,32 @@ import {
   Percent,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Badge } from '../shared/ui/badge';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../shared/ui/sheet';
-import { RadioGroup, RadioGroupItem } from '../shared/ui/radio-group';
-import { Separator } from '../shared/ui/separator';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Badge } from '../../../shared/ui/badge';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '../../../shared/ui/sheet';
+import { RadioGroup, RadioGroupItem } from '../../../shared/ui/radio-group';
+import { Separator } from '../../../shared/ui/separator';
 import { useCartStore } from '../store/cartStore';
-import { useOfflineStore } from '../shared/store/offlineStore';
+import { useOfflineStore } from '../../../shared/store/offlineStore';
 import { useHeldCartsStore } from '../store/heldCartsStore';
-import { formatCurrency } from '../shared/lib/utils';
-import { useTranslation } from '../shared/i18n/index';
-import { useDebouncedValue } from '../shared/hooks/useDebouncedValue';
-import ReceiptDialog from '../shared/components/ReceiptDialog';
+import { formatCurrency } from '../../../shared/lib/utils';
+import { useTranslation } from '../../../shared/i18n/index';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import HeldCartsDialog from './HeldCartsDialog';
-import { useApiQuery } from '../shared/lib/apiQuery';
-import { calculateTotals, allocateSplit, type TaxMode } from '../shared/lib/checkout';
-import { resource } from '../shared/lib/resource';
-import { useTransport } from '../shared/lib/transport/index';
-import type { ReceiptData } from '../shared/components/Receipt';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { calculateTotals, allocateSplit, type TaxMode } from '../../../shared/lib/checkout';
+import { resource } from '../../../shared/lib/resource';
+import { useTransport } from '../../../shared/lib/transport/index';
+import type { ReceiptData } from '../../../shared/components/Receipt';
 import type { AppSettings, Customer } from '@/types';
 
 const customers = resource<Customer>('customers');
