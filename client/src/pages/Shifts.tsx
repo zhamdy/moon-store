@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogIn, LogOut, Coffee, Play } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
@@ -7,108 +7,60 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { useTranslation } from '../i18n';
 import { useAuthStore } from '../store/authStore';
-import api from '../services/api';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse } from '@/types';
+import { resource } from '../lib/resource';
+import { useTransport } from '../lib/transport';
+import type { Shift, TimesheetEntry } from '@/types';
 
-interface Shift {
-  id: number;
-  user_id: number;
-  user_name: string;
-  role?: string;
-  clock_in: string;
-  clock_out: string | null;
-  status: 'active' | 'on_break' | 'completed';
-  total_hours: number | null;
-  break_minutes: number;
-}
+const shifts = resource<Shift>('shifts');
 
-interface TimesheetEntry {
-  id: number;
-  name: string;
-  role: string;
-  shift_count: number;
-  total_hours: number;
-  total_break_minutes: number;
+/**
+ * Clocking in and out acts on the shift collection rather than on one shift,
+ * which `resource` has no shape for: its actions all hang off a record id.
+ * Four bodiless endpoints are not worth widening it for, so they reach the
+ * transport directly and say what they refresh.
+ */
+function useShiftAction(path: string, message: string) {
+  const transport = useTransport();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => transport.request({ method: 'POST', path }),
+    onSuccess: () => {
+      toast.success(message);
+      queryClient.invalidateQueries({ queryKey: ['shifts'] });
+    },
+    onError: (error: Error) => toast.error(error.message || 'Error'),
+  });
 }
 
 export default function ShiftsPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState<'active' | 'history' | 'timesheet'>('active');
 
   const isAdmin = user?.role === 'Admin';
 
-  // Current shift
-  const { data: currentShift } = useQuery<Shift | null>({
-    queryKey: ['shifts', 'current'],
-    queryFn: () => api.get('/api/v1/shifts/current').then((r) => r.data.data),
-  });
+  const { data: currentShift } = shifts.useRead<Shift | null>('current');
+  const { data: activeShifts } = shifts.useRead<Shift[]>(
+    'active',
+    undefined,
+    isAdmin && tab === 'active'
+  );
+  const { data: history } = shifts.useRead<Shift[]>(
+    'history',
+    { limit: 50 },
+    isAdmin && tab === 'history'
+  );
+  const { data: timesheet } = shifts.useRead<TimesheetEntry[]>(
+    'timesheet',
+    undefined,
+    isAdmin && tab === 'timesheet'
+  );
 
-  // Active shifts (admin)
-  const { data: activeShifts } = useQuery<Shift[]>({
-    queryKey: ['shifts', 'active'],
-    queryFn: () => api.get('/api/v1/shifts/active').then((r) => r.data.data),
-    enabled: isAdmin && tab === 'active',
-  });
-
-  // History (admin)
-  const { data: historyData } = useQuery<{ data: Shift[]; meta: { total: number } }>({
-    queryKey: ['shifts', 'history'],
-    queryFn: () =>
-      api
-        .get('/api/v1/shifts/history?limit=50')
-        .then((r) => ({ data: r.data.data, meta: r.data.meta })),
-    enabled: isAdmin && tab === 'history',
-  });
-
-  // Timesheet (admin)
-  const { data: timesheet } = useQuery<TimesheetEntry[]>({
-    queryKey: ['shifts', 'timesheet'],
-    queryFn: () => api.get('/api/v1/shifts/timesheet').then((r) => r.data.data),
-    enabled: isAdmin && tab === 'timesheet',
-  });
-
-  const clockIn = useMutation({
-    mutationFn: () => api.post('/api/v1/shifts/clock-in'),
-    onSuccess: () => {
-      toast.success(t('shifts.clockedIn'));
-      queryClient.invalidateQueries({ queryKey: ['shifts'] });
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  const clockOut = useMutation({
-    mutationFn: () => api.post('/api/v1/shifts/clock-out'),
-    onSuccess: () => {
-      toast.success(t('shifts.clockedOut'));
-      queryClient.invalidateQueries({ queryKey: ['shifts'] });
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  const startBreak = useMutation({
-    mutationFn: () => api.post('/api/v1/shifts/start-break'),
-    onSuccess: () => {
-      toast.success(t('shifts.onBreak'));
-      queryClient.invalidateQueries({ queryKey: ['shifts'] });
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
-
-  const endBreak = useMutation({
-    mutationFn: () => api.post('/api/v1/shifts/end-break'),
-    onSuccess: () => {
-      toast.success(t('shifts.breakEnded'));
-      queryClient.invalidateQueries({ queryKey: ['shifts'] });
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
-  });
+  const clockIn = useShiftAction('shifts/clock-in', t('shifts.clockedIn'));
+  const clockOut = useShiftAction('shifts/clock-out', t('shifts.clockedOut'));
+  const startBreak = useShiftAction('shifts/start-break', t('shifts.onBreak'));
+  const endBreak = useShiftAction('shifts/end-break', t('shifts.breakEnded'));
 
   const formatHours = (h: number | null) => {
     if (h === null || h === undefined) return '—';
@@ -266,7 +218,7 @@ export default function ShiftsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {historyData?.data.map((s) => (
+                  {history?.map((s) => (
                     <tr key={s.id} className="border-b border-border">
                       <td className="p-3">{s.user_name}</td>
                       <td className="p-3 font-data text-xs">

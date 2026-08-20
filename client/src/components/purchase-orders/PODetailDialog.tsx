@@ -13,7 +13,7 @@ import {
 } from '../ui/dialog';
 import { formatCurrency } from '../../lib/utils';
 import { useTranslation } from '../../i18n';
-import type { PODetail } from '../../hooks/usePurchaseOrderData';
+import type { PurchaseOrderDetail } from '@/types';
 
 const STATUS_COLORS: Record<string, string> = {
   Draft: 'secondary',
@@ -26,7 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
 interface PODetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  detail: PODetail | undefined;
+  detail: PurchaseOrderDetail | undefined;
   onReceive: (items: Array<{ item_id: number; quantity: number }>) => void;
   isReceiving: boolean;
   /** When true, opens directly in receive mode */
