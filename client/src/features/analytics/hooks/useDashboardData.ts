@@ -1,4 +1,4 @@
-import { useApiQuery } from '../shared/lib/apiQuery';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
 
 export interface KpiData {
   today_revenue: number;

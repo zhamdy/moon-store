@@ -1,21 +1,23 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useSettingsStore } from '../../shared/store/settingsStore';
-import { useTranslation } from '../../shared/i18n/index';
+import { useSettingsStore } from '../../../../shared/store/settingsStore';
+import { useTranslation } from '../../../../shared/i18n/index';
+import { formatCurrency } from '../../../../shared/lib/utils';
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 
-interface TopProductDataPoint {
-  name: string;
+interface DistributorDataPoint {
+  distributor_name: string;
   total_sold: number;
+  revenue: number;
 }
 
 interface CustomTooltipProps extends TooltipProps<ValueType, NameType> {
   isDark: boolean;
-  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-const CustomTooltip = ({ active, payload, isDark, t }: CustomTooltipProps) => {
+const CustomTooltip = ({ active, payload, isDark }: CustomTooltipProps) => {
   if (!active || !payload?.length) return null;
+  const data = payload[0].payload as DistributorDataPoint;
   return (
     <div
       style={{
@@ -25,26 +27,25 @@ const CustomTooltip = ({ active, payload, isDark, t }: CustomTooltipProps) => {
         borderWidth: 1,
         borderStyle: 'solid',
       }}
-      className="rounded-md p-3 shadow-lg"
+      className="rounded-md p-3 shadow-lg space-y-1"
     >
-      <p className="text-xs font-data" style={{ color: isDark ? '#F5F0E8' : '#1E1E1E' }}>
-        {(payload[0].payload as TopProductDataPoint).name}
-      </p>
-      <p className="text-sm font-semibold text-gold font-data">
-        {payload[0].value} {t('charts.sold')}
+      <p className="text-xs font-semibold font-data">{data.distributor_name}</p>
+      <p className="text-sm font-data text-gold">{formatCurrency(data.revenue)}</p>
+      <p className="text-xs font-data" style={{ color: isDark ? '#6B6B6B' : '#888888' }}>
+        {data.total_sold} items sold
       </p>
     </div>
   );
 };
 
-interface TopProductsChartProps {
-  data: TopProductDataPoint[];
+interface DistributorSalesChartProps {
+  data: DistributorDataPoint[];
 }
 
-export default function TopProductsChart({ data }: TopProductsChartProps) {
+export default function DistributorSalesChart({ data }: DistributorSalesChartProps) {
   const theme = useSettingsStore((s) => s.theme);
   const isDark = theme === 'dark';
-  const { t, isRtl } = useTranslation();
+  const { isRtl } = useTranslation();
 
   return (
     <div dir="ltr">
@@ -67,20 +68,21 @@ export default function TopProductsChart({ data }: TopProductsChartProps) {
             type="number"
             tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
             stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
+            tickFormatter={(v) => formatCurrency(v)}
             reversed={isRtl}
           />
           <YAxis
-            dataKey="name"
+            dataKey="distributor_name"
             type="category"
             tick={{ fill: isDark ? '#F5F0E8' : '#333333', fontSize: 11 }}
             stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
             width={isRtl ? 130 : 90}
             orientation={isRtl ? 'right' : 'left'}
           />
-          <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
+          <Tooltip content={<CustomTooltip isDark={isDark} />} />
           <Bar
-            dataKey="total_sold"
-            fill="#C9A96E"
+            dataKey="revenue"
+            fill="#8B7355"
             radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
             barSize={20}
             animationDuration={800}

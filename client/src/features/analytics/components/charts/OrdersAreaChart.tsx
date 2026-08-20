@@ -1,25 +1,29 @@
 import {
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Area,
-  AreaChart,
 } from 'recharts';
 import { format } from 'date-fns';
-import { formatCurrency } from '../../shared/lib/utils';
-import { useSettingsStore } from '../../shared/store/settingsStore';
-import { useTranslation } from '../../shared/i18n/index';
+import { useSettingsStore } from '../../../../shared/store/settingsStore';
+import { useTranslation } from '../../../../shared/i18n/index';
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
-import type { RevenueDataPoint } from '../../hooks/useDashboardData';
+
+interface OrdersDataPoint {
+  date: string;
+  orders: number;
+}
 
 interface CustomTooltipProps extends TooltipProps<ValueType, NameType> {
   isDark: boolean;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-const CustomTooltip = ({ active, payload, label, isDark }: CustomTooltipProps) => {
+const CustomTooltip = ({ active, payload, label, isDark, t }: CustomTooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
     <div
@@ -35,21 +39,21 @@ const CustomTooltip = ({ active, payload, label, isDark }: CustomTooltipProps) =
       <p className="text-xs font-data" style={{ color: isDark ? '#6B6B6B' : '#888888' }}>
         {format(new Date(label as string), 'MMM dd, yyyy')}
       </p>
-      <p className="text-sm font-semibold text-gold font-data">
-        {formatCurrency(payload[0].value as number)}
+      <p className="text-sm font-semibold text-blush font-data">
+        {payload[0].value} {t('charts.orders')}
       </p>
     </div>
   );
 };
 
-interface RevenueChartProps {
-  data: RevenueDataPoint[];
+interface OrdersAreaChartProps {
+  data: OrdersDataPoint[];
 }
 
-export default function RevenueChart({ data }: RevenueChartProps) {
+export default function OrdersAreaChart({ data }: OrdersAreaChartProps) {
   const theme = useSettingsStore((s) => s.theme);
   const isDark = theme === 'dark';
-  const { isRtl } = useTranslation();
+  const { t, isRtl } = useTranslation();
 
   return (
     <div dir="ltr">
@@ -63,9 +67,9 @@ export default function RevenueChart({ data }: RevenueChartProps) {
           }
         >
           <defs>
-            <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#C9A96E" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#C9A96E" stopOpacity={0} />
+            <linearGradient id="blushGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#E8B4C8" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#E8B4C8" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#1E1E1E' : '#E5E5E5'} />
@@ -78,17 +82,16 @@ export default function RevenueChart({ data }: RevenueChartProps) {
           />
           <YAxis
             tick={{ fill: isDark ? '#6B6B6B' : '#888888', fontSize: 12 }}
-            tickFormatter={(val: number) => `$${val}`}
             stroke={isDark ? '#1E1E1E' : '#E5E5E5'}
             orientation={isRtl ? 'right' : 'left'}
           />
-          <Tooltip content={<CustomTooltip isDark={isDark} />} />
+          <Tooltip content={<CustomTooltip isDark={isDark} t={t} />} />
           <Area
             type="monotone"
-            dataKey="revenue"
-            stroke="#C9A96E"
+            dataKey="orders"
+            stroke="#E8B4C8"
             strokeWidth={2}
-            fill="url(#goldGradient)"
+            fill="url(#blushGradient)"
             animationDuration={800}
             animationBegin={200}
           />

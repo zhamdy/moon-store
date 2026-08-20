@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { useTranslation } from '../shared/i18n/index';
-import { formatCurrency, formatDate } from '../shared/lib/utils';
-import { useApiQuery } from '../shared/lib/apiQuery';
-import { Card, CardContent } from '../shared/ui/card';
-import { Badge } from '../shared/ui/badge';
+import { useTranslation } from '../../../shared/i18n/index';
+import { formatCurrency, formatDate } from '../../../shared/lib/utils';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { Card, CardContent } from '../../../shared/ui/card';
+import { Badge } from '../../../shared/ui/badge';
 import AbcChart from '../components/charts/AbcChart';
 import HeatmapChart from '../components/charts/HeatmapChart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useSettingsStore } from '../shared/store/settingsStore';
+import { useSettingsStore } from '../../../shared/store/settingsStore';
 
 // --- Server payloads ---
 

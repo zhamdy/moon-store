@@ -8,7 +8,7 @@ import PWAInstallPrompt from '../shared/components/PWAInstallPrompt';
 import { useAuthStore } from '../features/auth/store/authStore';
 
 // Eagerly loaded (critical path)
-import Dashboard from '../pages/Dashboard';
+import Dashboard from '../features/analytics/pages/Dashboard';
 import POS from '../pages/POS';
 import Inventory from '../features/inventory/pages/Inventory';
 
@@ -26,7 +26,7 @@ const AuditLogPage = lazy(() => import('../features/admin/pages/AuditLog'));
 const PromotionsPage = lazy(() => import('../features/sales/pages/Promotions'));
 const GiftCardsPage = lazy(() => import('../features/sales/pages/GiftCards'));
 const StockCountPage = lazy(() => import('../features/inventory/pages/StockCount'));
-const ExportsPage = lazy(() => import('../pages/Exports'));
+const ExportsPage = lazy(() => import('../features/analytics/pages/Exports'));
 const CustomerDisplay = lazy(() => import('../pages/CustomerDisplay'));
 const RegisterPage = lazy(() => import('../pages/Register'));
 const ShiftsPage = lazy(() => import('../pages/Shifts'));
@@ -39,11 +39,11 @@ const BackupPage = lazy(() => import('../features/admin/pages/Backup'));
 const BranchesPage = lazy(() => import('../features/admin/pages/Branches'));
 const StorefrontPage = lazy(() => import('../features/fulfillment/pages/Storefront'));
 const OnlineOrdersPage = lazy(() => import('../features/fulfillment/pages/OnlineOrders'));
-const ReportBuilderPage = lazy(() => import('../pages/ReportBuilder'));
+const ReportBuilderPage = lazy(() => import('../features/analytics/pages/ReportBuilder'));
 const VendorsPage = lazy(() => import('../features/purchasing/pages/Vendors'));
 const SmartPricingPage = lazy(() => import('../features/inventory/pages/SmartPricing'));
-const AiInsightsPage = lazy(() => import('../pages/AiInsights'));
-const AdvancedAnalyticsPage = lazy(() => import('../pages/AdvancedAnalytics'));
+const AiInsightsPage = lazy(() => import('../features/analytics/pages/AiInsights'));
+const AdvancedAnalyticsPage = lazy(() => import('../features/analytics/pages/AdvancedAnalytics'));
 
 type UserRole = 'Admin' | 'Cashier' | 'Delivery';
 

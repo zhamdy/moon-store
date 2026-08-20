@@ -2,21 +2,21 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BarChart3, Plus, Play, Trash2, Clock, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '../shared/lib/utils';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Badge } from '../shared/ui/badge';
+import { formatCurrency } from '../../../shared/lib/utils';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Badge } from '../../../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../shared/ui/dialog';
-import { useTranslation } from '../shared/i18n/index';
-import { resource } from '../shared/lib/resource';
-import { useTransport } from '../shared/lib/transport/index';
+} from '../../../shared/ui/dialog';
+import { useTranslation } from '../../../shared/i18n/index';
+import { resource } from '../../../shared/lib/resource';
+import { useTransport } from '../../../shared/lib/transport/index';
 
 type ReportRow = Record<string, unknown>;
 

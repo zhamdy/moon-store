@@ -1,9 +1,9 @@
 import { DollarSign, ShoppingBag, Truck, AlertTriangle, TrendingUp } from 'lucide-react';
-import { Card, CardContent } from '../../shared/ui/card';
-import { Skeleton } from '../../shared/ui/skeleton';
-import { formatCurrency } from '../../shared/lib/utils';
-import { useTranslation } from '../../shared/i18n/index';
-import type { KpiData } from '../../hooks/useDashboardData';
+import { Card, CardContent } from '../../../shared/ui/card';
+import { Skeleton } from '../../../shared/ui/skeleton';
+import { formatCurrency } from '../../../shared/lib/utils';
+import { useTranslation } from '../../../shared/i18n/index';
+import type { KpiData } from '../hooks/useDashboardData';
 import type { LucideIcon } from 'lucide-react';
 
 interface KpiCardProps {

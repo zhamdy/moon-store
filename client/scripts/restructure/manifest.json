@@ -1,5 +1,5 @@
 {
-  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers), Unit 7.4 (features/sales), Unit 7.5 (features/purchasing), Unit 7.6 (features/fulfillment) and Unit 7.7 (features/inventory) entries.",
+  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers), Unit 7.4 (features/sales), Unit 7.5 (features/purchasing), Unit 7.6 (features/fulfillment), Unit 7.7 (features/inventory) and Unit 7.8 (features/analytics) entries.",
   "moves": [
     { "from": "src/components/ui/alert-dialog.tsx", "to": "src/shared/ui/alert-dialog.tsx" },
     { "from": "src/components/ui/badge.tsx", "to": "src/shared/ui/badge.tsx" },
@@ -129,6 +129,24 @@
     { "from": "src/components/inventory/VariantManagerDialog.tsx", "to": "src/features/inventory/components/inventory/VariantManagerDialog.tsx" },
     { "from": "src/components/AdjustStockDialog.tsx", "to": "src/features/inventory/components/AdjustStockDialog.tsx" },
     { "from": "src/components/BarcodeGenerator.tsx", "to": "src/features/inventory/components/BarcodeGenerator.tsx" },
-    { "from": "src/hooks/useVariantManagement.ts", "to": "src/features/inventory/hooks/useVariantManagement.ts" }
+    { "from": "src/hooks/useVariantManagement.ts", "to": "src/features/inventory/hooks/useVariantManagement.ts" },
+
+    { "from": "src/pages/Dashboard.tsx", "to": "src/features/analytics/pages/Dashboard.tsx" },
+    { "from": "src/pages/AdvancedAnalytics.tsx", "to": "src/features/analytics/pages/AdvancedAnalytics.tsx" },
+    { "from": "src/pages/AiInsights.tsx", "to": "src/features/analytics/pages/AiInsights.tsx" },
+    { "from": "src/pages/ReportBuilder.tsx", "to": "src/features/analytics/pages/ReportBuilder.tsx" },
+    { "from": "src/pages/Exports.tsx", "to": "src/features/analytics/pages/Exports.tsx" },
+    { "from": "src/components/dashboard/DashboardCharts.tsx", "to": "src/features/analytics/components/DashboardCharts.tsx" },
+    { "from": "src/components/dashboard/KpiCards.tsx", "to": "src/features/analytics/components/KpiCards.tsx" },
+    { "from": "src/components/charts/AbcChart.tsx", "to": "src/features/analytics/components/charts/AbcChart.tsx" },
+    { "from": "src/components/charts/CashierPerformanceChart.tsx", "to": "src/features/analytics/components/charts/CashierPerformanceChart.tsx" },
+    { "from": "src/components/charts/CategorySalesChart.tsx", "to": "src/features/analytics/components/charts/CategorySalesChart.tsx" },
+    { "from": "src/components/charts/DistributorSalesChart.tsx", "to": "src/features/analytics/components/charts/DistributorSalesChart.tsx" },
+    { "from": "src/components/charts/HeatmapChart.tsx", "to": "src/features/analytics/components/charts/HeatmapChart.tsx" },
+    { "from": "src/components/charts/OrdersAreaChart.tsx", "to": "src/features/analytics/components/charts/OrdersAreaChart.tsx" },
+    { "from": "src/components/charts/PaymentPieChart.tsx", "to": "src/features/analytics/components/charts/PaymentPieChart.tsx" },
+    { "from": "src/components/charts/RevenueChart.tsx", "to": "src/features/analytics/components/charts/RevenueChart.tsx" },
+    { "from": "src/components/charts/TopProductsChart.tsx", "to": "src/features/analytics/components/charts/TopProductsChart.tsx" },
+    { "from": "src/hooks/useDashboardData.ts", "to": "src/features/analytics/hooks/useDashboardData.ts" }
   ]
 }

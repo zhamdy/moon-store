@@ -1,6 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useSettingsStore } from '../../shared/store/settingsStore';
-import { formatCurrency } from '../../shared/lib/utils';
+import { useSettingsStore } from '../../../../shared/store/settingsStore';
+import { formatCurrency } from '../../../../shared/lib/utils';
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 
