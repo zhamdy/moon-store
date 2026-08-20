@@ -17,6 +17,7 @@
   "dependencies": {
     "@ericblade/quagga2": "^1.8.4",
     "@formkit/auto-animate": "^0.9.0",
+    "@heroui/react": "^2.6.14",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-alert-dialog": "^1.1.2",
     "@radix-ui/react-avatar": "^1.1.1",
@@ -42,6 +43,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^4.1.0",
+    "framer-motion": "^11.11.17",
     "idb": "^8.0.0",
     "jsbarcode": "^3.11.6",
     "lucide-react": "^0.447.0",

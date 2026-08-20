@@ -1,6 +1,7 @@
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/router-devtools';
 import PWAInstallPrompt from '@/shared/components/PWAInstallPrompt';
+import { UIProvider } from '@/app/providers/UIProvider';
 import type { AuthUser } from '@/shared/types';
 
 export interface RouterContext {
@@ -23,10 +24,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootComponent() {
   return (
-    <>
+    <UIProvider>
       <Outlet />
       <PWAInstallPrompt />
       {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
-    </>
+    </UIProvider>
   );
 }
