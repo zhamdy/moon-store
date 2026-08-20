@@ -8,7 +8,7 @@
  * should not self-register a subscriber in their own module — that only
  * runs once the module has been imported somewhere, which a persisted
  * store cannot guarantee. Instead the composition root subscribes eagerly
- * once at startup; see app/session.ts (client/src/main.tsx for now).
+ * once at startup; see client/src/app/session.ts.
  */
 
 export interface SessionEvents {

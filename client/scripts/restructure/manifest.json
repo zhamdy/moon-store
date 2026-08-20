@@ -1,5 +1,5 @@
 {
-  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds only Unit 4 (shared/) entries.",
+  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/) and Unit 6 (app/) entries.",
   "moves": [
     { "from": "src/components/ui/alert-dialog.tsx", "to": "src/shared/ui/alert-dialog.tsx" },
     { "from": "src/components/ui/badge.tsx", "to": "src/shared/ui/badge.tsx" },
@@ -69,6 +69,12 @@
 
     { "from": "src/assets/moon-logo.svg", "to": "src/shared/assets/moon-logo.svg" },
 
-    { "from": "src/tests/setup.ts", "to": "src/shared/tests/setup.ts" }
+    { "from": "src/tests/setup.ts", "to": "src/shared/tests/setup.ts" },
+
+    { "from": "src/App.tsx", "to": "src/app/App.tsx" },
+    { "from": "src/main.tsx", "to": "src/app/main.tsx" },
+    { "from": "src/components/Layout.tsx", "to": "src/app/Layout.tsx" },
+    { "from": "src/components/Sidebar.tsx", "to": "src/app/Sidebar.tsx" },
+    { "from": "src/components/NotificationCenter.tsx", "to": "src/app/NotificationCenter.tsx" }
   ]
 }
