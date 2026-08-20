@@ -1,12 +1,18 @@
 import * as React from 'react';
+import {
+  Card as HeroUICard,
+  CardHeader as HeroUICardHeader,
+  CardBody as HeroUICardBody,
+  CardFooter as HeroUICardFooter,
+} from '@heroui/react';
 import { cn } from '@/shared/lib/utils';
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div
+    <HeroUICard
       ref={ref}
       className={cn(
-        'rounded-md border border-card-border bg-card text-foreground shadow-sm',
+        'rounded-md border border-card-border bg-card text-foreground shadow-sm p-0',
         className
       )}
       {...props}
@@ -17,7 +23,11 @@ Card.displayName = 'Card';
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />
+    <HeroUICardHeader
+      ref={ref}
+      className={cn('flex flex-col space-y-1.5 p-6 items-start', className)}
+      {...props}
+    />
   )
 );
 CardHeader.displayName = 'CardHeader';
@@ -43,14 +53,18 @@ CardDescription.displayName = 'CardDescription';
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
+    <HeroUICardBody ref={ref} className={cn('p-6 pt-0', className)} {...props} />
   )
 );
 CardContent.displayName = 'CardContent';
 
 const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex items-center p-6 pt-0', className)} {...props} />
+    <HeroUICardFooter
+      ref={ref}
+      className={cn('flex items-center p-6 pt-0', className)}
+      {...props}
+    />
   )
 );
 CardFooter.displayName = 'CardFooter';
