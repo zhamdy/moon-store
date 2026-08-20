@@ -526,3 +526,94 @@ export interface TimesheetEntry {
   total_hours: number;
   total_break_minutes: number;
 }
+
+/** One recorded action from GET /api/v1/audit-log */
+export interface AuditEntry {
+  id: number;
+  user_id: number | null;
+  user_name: string | null;
+  user_display_name: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  details: string;
+  ip_address: string | null;
+  created_at: string;
+}
+
+/** Branch (store or warehouse) from GET /api/v1/branches */
+export interface Branch {
+  id: number;
+  name: string;
+  address: string | null;
+  type: string;
+  status: string;
+  phone: string | null;
+  email: string | null;
+  manager_name: string | null;
+  manager_id: number | null;
+  currency: string;
+  tax_rate: number;
+  is_primary: number;
+  product_count: number;
+  total_stock: number;
+  opening_hours: string | null;
+}
+
+/** One stock movement between branches, from GET /api/v1/branches/transfers */
+export interface BranchTransfer {
+  id: number;
+  from_location_name: string;
+  to_location_name: string;
+  user_name: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+}
+
+/** GET /api/v1/branches/dashboard/consolidated */
+export interface ConsolidatedBranches {
+  stores: {
+    id: number;
+    name: string;
+    today_sales: number;
+    today_revenue: number;
+    total_stock: number;
+    low_stock_count: number;
+  }[];
+  totals: { total_today_sales: number; total_today_revenue: number; store_count: number };
+}
+
+/** A line being composed in the layaway form, before it is sent */
+export interface LayawayLine {
+  product_id: number;
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+}
+
+/** Layaway order row from GET /api/v1/layaway */
+export interface LayawayOrder {
+  id: number;
+  customer_id: number;
+  customer_name: string;
+  customer_phone: string | null;
+  total: number;
+  deposit: number;
+  balance: number;
+  due_date: string;
+  status: string;
+  created_at: string;
+}
+
+/** GET /api/v1/layaway/:id — the list row plus its lines and payments */
+export interface LayawayDetail extends LayawayOrder {
+  items: { id: number; product_name: string; quantity: number; unit_price: number }[];
+  payments: {
+    id: number;
+    amount: number;
+    payment_method: string;
+    cashier_name: string;
+    created_at: string;
+  }[];
+}

@@ -5,16 +5,34 @@ import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
+import { useAuthStore } from '../store/authStore';
+
+/**
+ * `GET exports/backup` streams the SQLite file itself, not a JSON envelope, so
+ * it is the one call on this page the transport cannot carry — everything above
+ * that seam deals in rows. It is fetched directly instead, reading the same env
+ * var and bearer token the HTTP client does.
+ */
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+async function downloadBackup(): Promise<Blob> {
+  const { accessToken } = useAuthStore.getState();
+  const response = await fetch(`${API_BASE_URL}/api/v1/exports/backup`, {
+    credentials: 'include',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  });
+  if (!response.ok) throw new Error(`Backup request failed (${response.status})`);
+  return response.blob();
+}
 
 export default function BackupPage() {
   const { t } = useTranslation();
   const [lastBackup, setLastBackup] = useState<string | null>(null);
 
   const backupMutation = useMutation({
-    mutationFn: () => api.get('/api/v1/exports/backup', { responseType: 'blob' }),
-    onSuccess: (res) => {
-      const url = URL.createObjectURL(res.data);
+    mutationFn: downloadBackup,
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `moon-backup-${new Date().toISOString().split('T')[0]}.db`;

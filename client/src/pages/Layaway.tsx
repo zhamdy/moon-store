@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DollarSign, Ban, Eye, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
@@ -23,40 +23,12 @@ import {
 } from '../components/ui/select';
 import { useTranslation } from '../i18n';
 import { formatCurrency } from '../lib/utils';
-import api from '../services/api';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, Customer, Product } from '@/types';
+import { resource } from '../lib/resource';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
+import type { Customer, LayawayDetail, LayawayLine, LayawayOrder, Product } from '@/types';
 
-interface LayawayItem {
-  product_id: number;
-  product_name: string;
-  unit_price: number;
-  quantity: number;
-}
-
-interface LayawayOrder {
-  id: number;
-  customer_id: number;
-  customer_name: string;
-  customer_phone: string | null;
-  total: number;
-  deposit: number;
-  balance: number;
-  due_date: string;
-  status: string;
-  created_at: string;
-}
-
-interface LayawayDetail extends LayawayOrder {
-  items: { id: number; product_name: string; quantity: number; unit_price: number }[];
-  payments: {
-    id: number;
-    amount: number;
-    payment_method: string;
-    cashier_name: string;
-    created_at: string;
-  }[];
-}
+const layaway = resource<LayawayOrder>('layaway');
 
 const statusColors: Record<string, string> = {
   active: 'bg-blue-500/10 text-blue-600',
@@ -69,13 +41,14 @@ const statusColors: Record<string, string> = {
 export default function LayawayPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const transport = useTransport();
   const [createOpen, setCreateOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [customerId, setCustomerId] = useState('');
-  const [createItems, setCreateItems] = useState<LayawayItem[]>([]);
+  const [createItems, setCreateItems] = useState<LayawayLine[]>([]);
   const [deposit, setDeposit] = useState('');
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
@@ -87,48 +60,46 @@ export default function LayawayPage() {
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
 
-  const { data: layaways } = useQuery<{ data: LayawayOrder[]; meta: { total: number } }>({
-    queryKey: ['layaway'],
-    queryFn: () =>
-      api.get('/api/v1/layaway?limit=100').then((r) => ({ data: r.data.data, meta: r.data.meta })),
-  });
+  const { data: layaways } = layaway.useList({ limit: 100 });
 
-  const { data: customers } = useQuery<Customer[]>({
-    queryKey: ['customers-list'],
-    queryFn: () => api.get('/api/v1/customers?limit=200').then((r) => r.data.data),
-    enabled: createOpen,
-  });
+  const { data: customers } = useApiQuery<Customer[]>(
+    ['customers-list'],
+    'customers',
+    { limit: 200 },
+    { enabled: createOpen }
+  );
 
-  const { data: products } = useQuery<Product[]>({
-    queryKey: ['products-layaway'],
-    queryFn: () => api.get('/api/v1/products?limit=200').then((r) => r.data.data),
-    enabled: createOpen,
-  });
+  const { data: products } = useApiQuery<Product[]>(
+    ['products-layaway'],
+    'products',
+    { limit: 200 },
+    { enabled: createOpen }
+  );
 
-  const { data: detail } = useQuery<LayawayDetail>({
-    queryKey: ['layaway', selectedId],
-    queryFn: () => api.get(`/api/v1/layaway/${selectedId}`).then((r) => r.data.data),
-    enabled: detailDialogOpen && !!selectedId,
-  });
+  // Read as a named segment rather than `useOne`, because `selectedId` is also
+  // set by the payment dialog and only the detail dialog wants the fetch.
+  const { data: detail } = layaway.useRead<LayawayDetail>(
+    String(selectedId),
+    undefined,
+    detailDialogOpen && !!selectedId
+  );
 
-  const payMutation = useMutation({
-    mutationFn: (data: { id: number; amount: number }) =>
-      api.post(`/api/v1/layaway/${data.id}/payment`, { amount: data.amount }),
-    onSuccess: () => {
-      toast.success(t('layaway.paymentSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['layaway'] });
+  const payMutation = layaway.useAction('payment', {
+    message: t('layaway.paymentSuccess'),
+    fallbackMessage: 'Error',
+    onDone: () => {
       setPaymentDialogOpen(false);
       setPaymentAmount('');
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
   });
 
+  // Not `resource('customers').useSave`: the new customer's id is needed here
+  // to select them, and the list this page reads is keyed 'customers-list'.
   const createCustomerMutation = useMutation({
-    mutationFn: (data: { name: string; phone: string }) => api.post('/api/v1/customers', data),
+    mutationFn: (data: { name: string; phone: string }) =>
+      transport.request<Customer>({ method: 'POST', path: 'customers', body: data }),
     onSuccess: (response) => {
-      const customer = response.data.data;
-      setCustomerId(String(customer.id));
+      setCustomerId(String(response.data.id));
       setShowNewCustomer(false);
       setNewCustName('');
       setNewCustPhone('');
@@ -138,31 +109,18 @@ export default function LayawayPage() {
     onError: () => toast.error(t('cart.customerCreateError')),
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: {
-      customer_id: number;
-      items: { product_id: number; quantity: number; unit_price: number }[];
-      deposit: number;
-      due_date: string;
-    }) => api.post('/api/v1/layaway', data),
-    onSuccess: () => {
-      toast.success(t('layaway.created'));
-      queryClient.invalidateQueries({ queryKey: ['layaway'] });
+  const createMutation = layaway.useSave({
+    message: t('layaway.created'),
+    fallbackMessage: 'Error',
+    onDone: () => {
       setCreateOpen(false);
       resetCreateForm();
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
   });
 
-  const cancelMutation = useMutation({
-    mutationFn: (id: number) => api.post(`/api/v1/layaway/${id}/cancel`),
-    onSuccess: () => {
-      toast.success(t('layaway.cancelled'));
-      queryClient.invalidateQueries({ queryKey: ['layaway'] });
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
+  const cancelMutation = layaway.useAction('cancel', {
+    message: t('layaway.cancelled'),
+    fallbackMessage: 'Error',
   });
 
   const defaultDueDate = () => {
@@ -203,7 +161,7 @@ export default function LayawayPage() {
 
   const handleCreate = () => {
     if (!customerId || createItems.length === 0 || !dueDate) return;
-    createMutation.mutate({
+    createMutation.save({
       customer_id: Number(customerId),
       items: createItems.map((i) => ({
         product_id: i.product_id,
@@ -250,14 +208,14 @@ export default function LayawayPage() {
             </tr>
           </thead>
           <tbody>
-            {!layaways?.data.length ? (
+            {!layaways?.length ? (
               <tr>
                 <td colSpan={7} className="text-center py-12 text-muted">
                   {t('layaway.noLayaways')}
                 </td>
               </tr>
             ) : (
-              layaways.data.map((lo) => (
+              layaways.map((lo) => (
                 <tr key={lo.id} className="border-b border-border hover:bg-surface/50">
                   <td className="p-3 font-data text-muted">#{lo.id}</td>
                   <td className="p-3">
@@ -305,7 +263,7 @@ export default function LayawayPage() {
                             className="h-7 w-7 text-destructive"
                             onClick={() => {
                               if (window.confirm(t('layaway.cancel') + '?'))
-                                cancelMutation.mutate(lo.id);
+                                cancelMutation.run({ id: lo.id });
                             }}
                           >
                             <Ban className="h-3 w-3" />
@@ -331,7 +289,8 @@ export default function LayawayPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (selectedId) payMutation.mutate({ id: selectedId, amount: Number(paymentAmount) });
+              if (selectedId)
+                payMutation.run({ id: selectedId, body: { amount: Number(paymentAmount) } });
             }}
             className="space-y-4"
           >
@@ -347,8 +306,8 @@ export default function LayawayPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={payMutation.isPending}>
-              {payMutation.isPending ? t('common.loading') : t('layaway.makePayment')}
+            <Button type="submit" className="w-full" disabled={payMutation.isRunning}>
+              {payMutation.isRunning ? t('common.loading') : t('layaway.makePayment')}
             </Button>
           </form>
         </DialogContent>
@@ -513,10 +472,10 @@ export default function LayawayPage() {
               className="w-full"
               onClick={handleCreate}
               disabled={
-                createMutation.isPending || !customerId || createItems.length === 0 || !dueDate
+                createMutation.isSaving || !customerId || createItems.length === 0 || !dueDate
               }
             >
-              {createMutation.isPending ? t('common.loading') : t('layaway.create')}
+              {createMutation.isSaving ? t('common.loading') : t('layaway.create')}
             </Button>
           </div>
         </DialogContent>
