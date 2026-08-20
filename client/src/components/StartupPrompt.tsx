@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Clock, Landmark } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -7,55 +7,63 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
+import { resource } from '../lib/resource';
+import { useTransport } from '../lib/transport';
+import type { RegisterSession, Shift } from '@/types';
 
 const SESSION_KEY = 'moon-startup-dismissed';
+
+// The same two collections the Shifts and Register pages own. Reading them
+// through `resource` puts this prompt on their cache entries rather than on a
+// private pair of keys, so clocking in from either place refreshes both.
+const shifts = resource<Shift>('shifts');
+const register = resource<RegisterSession>('register');
 
 export default function StartupPrompt() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
+  const transport = useTransport();
   const [openingFloat, setOpeningFloat] = useState('');
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1');
 
   const role = user?.role;
   const isEligible = role === 'Admin' || role === 'Cashier';
 
-  const { data: shiftData, isLoading: shiftLoading } = useQuery({
-    queryKey: ['shift-current'],
-    queryFn: () => api.get('/api/v1/shifts/current').then((r) => r.data),
-    enabled: isEligible && !dismissed,
-    retry: false,
-  });
+  const { data: currentShift, isLoading: shiftLoading } = shifts.useRead<Shift | null>(
+    'current',
+    undefined,
+    isEligible && !dismissed
+  );
 
-  const { data: registerData, isLoading: registerLoading } = useQuery({
-    queryKey: ['register-current'],
-    queryFn: () => api.get('/api/v1/register/current').then((r) => r.data),
-    enabled: isEligible && !dismissed,
-    retry: false,
-  });
+  const { data: currentSession, isLoading: registerLoading } =
+    register.useRead<RegisterSession | null>('current', undefined, isEligible && !dismissed);
 
+  // Clocking in and opening the drawer act on the collection, not on a record,
+  // and `resource` only knows actions that hang off a record id — the same
+  // reason the Shifts and Register pages reach the transport for these two.
   const clockInMutation = useMutation({
-    mutationFn: () => api.post('/api/v1/shifts/clock-in'),
+    mutationFn: () => transport.request({ method: 'POST', path: 'shifts/clock-in' }),
     onSuccess: () => {
       toast.success(t('startup.shiftStarted'));
-      queryClient.invalidateQueries({ queryKey: ['shift-current'] });
+      queryClient.invalidateQueries({ queryKey: ['shifts'] });
     },
   });
 
   const openRegisterMutation = useMutation({
-    mutationFn: (float: number) => api.post('/api/v1/register/open', { opening_float: float }),
+    mutationFn: (float: number) =>
+      transport.request({ method: 'POST', path: 'register/open', body: { opening_float: float } }),
     onSuccess: () => {
       toast.success(t('startup.registerOpened'));
-      queryClient.invalidateQueries({ queryKey: ['register-current'] });
+      queryClient.invalidateQueries({ queryKey: ['register'] });
     },
   });
 
   if (!isEligible || dismissed) return null;
   if (shiftLoading || registerLoading) return null;
 
-  const hasShift = !!shiftData?.data;
-  const hasRegister = !!registerData?.data;
+  const hasShift = !!currentShift;
+  const hasRegister = !!currentSession;
 
   if (hasShift && hasRegister) return null;
 

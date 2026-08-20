@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
+import { useTransport } from '../lib/transport';
 import moonLogo from '../assets/moon-logo.svg';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from './ui/sheet';
 
@@ -125,6 +125,7 @@ export default function Sidebar(): React.JSX.Element {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const transport = useTransport();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const userRole = user?.role ?? '';
@@ -138,7 +139,7 @@ export default function Sidebar(): React.JSX.Element {
 
   const handleLogout = async (): Promise<void> => {
     try {
-      await api.post('/api/v1/auth/logout');
+      await transport.request({ method: 'POST', path: 'auth/logout' });
     } catch {
       // Continue logout even if API fails
     }

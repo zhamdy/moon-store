@@ -3,9 +3,11 @@ import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Check, CheckCheck, Package, ShoppingCart, Truck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import toast from 'react-hot-toast';
 import { useTranslation } from '../i18n';
 import { cn } from '../lib/utils';
+import { resource } from '../lib/resource';
+import { useTransport } from '../lib/transport';
 
 interface Notification {
   id: number;
@@ -19,6 +21,9 @@ interface Notification {
   read: number;
   created_at: string;
 }
+
+/** Only the per-notification read action hangs off a record, so no row surfaces. */
+const notifications = resource<Notification>('notifications');
 
 function timeAgo(
   dateStr: string,
@@ -58,39 +63,55 @@ export default function NotificationCenter(): React.JSX.Element {
   const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const transport = useTransport();
+
+  // Both reads poll: the badge has to notice a new notification without the
+  // reader navigating, and the open panel has to keep up with it. Polling is
+  // the whole point of these two, and `useApiQuery` deliberately carries no
+  // `refetchInterval`, so they stay on the transport with a query of their own
+  // rather than widening it for a case only this component has.
   const { data: unreadData } = useQuery({
     queryKey: ['notifications-unread-count'],
-    queryFn: async () => {
-      const res = await api.get('/api/v1/notifications/unread-count');
-      return res.data.data as { count: number };
-    },
+    queryFn: async () =>
+      (
+        await transport.request<{ count: number }>({
+          method: 'GET',
+          path: 'notifications/unread-count',
+        })
+      ).data,
     refetchInterval: 30000,
   });
 
-  const { data: notifications } = useQuery({
+  const { data: notificationList } = useQuery({
     queryKey: ['notifications'],
-    queryFn: async () => {
-      const res = await api.get('/api/v1/notifications?limit=20');
-      return res.data.data as Notification[];
-    },
+    queryFn: async () =>
+      (
+        await transport.request<Notification[]>({
+          method: 'GET',
+          path: 'notifications',
+          params: { limit: 20 },
+        })
+      ).data,
     enabled: open,
     refetchInterval: open ? 15000 : false,
   });
 
-  const markReadMutation = useMutation({
-    mutationFn: (id: number) => api.put(`/api/v1/notifications/${id}/read`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
-    },
+  // `useAction` refreshes ['notifications'] itself; the badge's count lives
+  // under a key of its own, so that one is still invalidated by hand.
+  const markReadMutation = notifications.useAction('read', {
+    method: 'PUT',
+    onDone: () => queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] }),
   });
 
+  // Marking everything read acts on the collection rather than on one
+  // notification, which `resource` has no shape for.
   const markAllReadMutation = useMutation({
-    mutationFn: () => api.put('/api/v1/notifications/read-all'),
+    mutationFn: () => transport.request({ method: 'PUT', path: 'notifications/read-all' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     },
+    onError: (error: Error) => toast.error(error.message || t('common.error')),
   });
 
   const unreadCount = unreadData?.count || 0;
@@ -122,7 +143,7 @@ export default function NotificationCenter(): React.JSX.Element {
 
   const handleNotificationClick = (notif: Notification) => {
     if (!notif.read) {
-      markReadMutation.mutate(notif.id);
+      markReadMutation.run({ id: notif.id });
     }
     if (notif.link) {
       navigate(notif.link);
@@ -173,13 +194,13 @@ export default function NotificationCenter(): React.JSX.Element {
 
           {/* Notification list */}
           <div ref={animateParent} className="max-h-96 overflow-y-auto">
-            {!notifications || notifications.length === 0 ? (
+            {!notificationList || notificationList.length === 0 ? (
               <div className="p-8 text-center text-muted text-sm">
                 <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 {t('notifications.noNotifications')}
               </div>
             ) : (
-              notifications.map((notif) => (
+              notificationList.map((notif) => (
                 <button
                   key={notif.id}
                   onClick={() => handleNotificationClick(notif)}
@@ -210,7 +231,7 @@ export default function NotificationCenter(): React.JSX.Element {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        markReadMutation.mutate(notif.id);
+                        markReadMutation.run({ id: notif.id });
                       }}
                       className="shrink-0 mt-0.5 p-1 text-muted hover:text-foreground rounded hover:bg-background transition-colors"
                       title="Mark as read"
