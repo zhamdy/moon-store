@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Gift, XCircle, Eye, CreditCard, MoreHorizontal } from 'lucide-react';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Badge } from '../shared/ui/badge';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Badge } from '../../../shared/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../shared/ui/dropdown-menu';
+} from '../../../shared/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from '../shared/ui/dialog';
+} from '../../../shared/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,12 +29,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../shared/ui/alert-dialog';
-import DataTable from '../shared/components/DataTable';
-import { formatCurrency, formatDate } from '../shared/lib/utils';
-import { useTranslation } from '../shared/i18n/index';
-import { resource } from '../shared/lib/resource';
-import { useEditorDialog } from '../shared/lib/editorDialog';
+} from '../../../shared/ui/alert-dialog';
+import DataTable from '../../../shared/components/DataTable';
+import { formatCurrency, formatDate } from '../../../shared/lib/utils';
+import { useTranslation } from '../../../shared/i18n/index';
+import { resource } from '../../../shared/lib/resource';
+import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { GiftCard, GiftCardTransaction } from '@/types';
 

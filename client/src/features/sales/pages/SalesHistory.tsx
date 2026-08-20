@@ -10,31 +10,37 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../shared/ui/button';
-import { Card, CardContent } from '../shared/ui/card';
-import { Badge } from '../shared/ui/badge';
+import { Button } from '../../../shared/ui/button';
+import { Card, CardContent } from '../../../shared/ui/card';
+import { Badge } from '../../../shared/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../shared/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '../shared/ui/popover';
-import { Calendar } from '../shared/ui/calendar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../shared/ui/select';
-import DataTable from '../shared/components/DataTable';
-import ReceiptDialog from '../shared/components/ReceiptDialog';
+} from '../../../shared/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../shared/ui/popover';
+import { Calendar } from '../../../shared/ui/calendar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../shared/ui/select';
+import DataTable from '../../../shared/components/DataTable';
+import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import RefundDialog from '../components/RefundDialog';
-import { formatCurrency, formatDateTime, formatDate } from '../shared/lib/utils';
-import { exportToExcel } from '../shared/lib/exportUtils';
+import { formatCurrency, formatDateTime, formatDate } from '../../../shared/lib/utils';
+import { exportToExcel } from '../../../shared/lib/exportUtils';
 
-import { useTranslation } from '../shared/i18n/index';
-import { resource } from '../shared/lib/resource';
-import { useApiQuery } from '../shared/lib/apiQuery';
-import { useTransport } from '../shared/lib/transport/index';
+import { useTranslation } from '../../../shared/i18n/index';
+import { resource } from '../../../shared/lib/resource';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useTransport } from '../../../shared/lib/transport/index';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { DateRange } from '../shared/ui/calendar';
-import type { ReceiptData } from '../shared/components/Receipt';
+import type { DateRange } from '../../../shared/ui/calendar';
+import type { ReceiptData } from '../../../shared/components/Receipt';
 import type { Sale, SaleDetail, SaleRefund, SalesMeta } from '@/types';
 
 const sales = resource<Sale, SalesMeta>('sales');

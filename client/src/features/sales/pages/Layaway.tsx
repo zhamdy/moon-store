@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DollarSign, Ban, Eye, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../shared/ui/button';
-import { Input } from '../shared/ui/input';
-import { Label } from '../shared/ui/label';
-import { Badge } from '../shared/ui/badge';
+import { Button } from '../../../shared/ui/button';
+import { Input } from '../../../shared/ui/input';
+import { Label } from '../../../shared/ui/label';
+import { Badge } from '../../../shared/ui/badge';
 
 import {
   Dialog,
@@ -13,13 +13,19 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../shared/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../shared/ui/select';
-import { useTranslation } from '../shared/i18n/index';
-import { formatCurrency } from '../shared/lib/utils';
-import { resource } from '../shared/lib/resource';
-import { useApiQuery } from '../shared/lib/apiQuery';
-import { useTransport } from '../shared/lib/transport/index';
+} from '../../../shared/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../shared/ui/select';
+import { useTranslation } from '../../../shared/i18n/index';
+import { formatCurrency } from '../../../shared/lib/utils';
+import { resource } from '../../../shared/lib/resource';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useTransport } from '../../../shared/lib/transport/index';
 import type { Customer, LayawayDetail, LayawayLine, LayawayOrder, Product } from '@/types';
 
 const layaway = resource<LayawayOrder>('layaway');

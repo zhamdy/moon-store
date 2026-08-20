@@ -1,5 +1,5 @@
 {
-  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin) and Unit 7.3 (features/customers) entries.",
+  "_comment": "old path -> new path, relative to client/. Single source of truth for the U4-U7 file moves. Grows unit by unit; this revision holds Unit 4 (shared/), Unit 6 (app/), Unit 7.1 (features/auth), Unit 7.2 (features/admin), Unit 7.3 (features/customers) and Unit 7.4 (features/sales) entries.",
   "moves": [
     { "from": "src/components/ui/alert-dialog.tsx", "to": "src/shared/ui/alert-dialog.tsx" },
     { "from": "src/components/ui/badge.tsx", "to": "src/shared/ui/badge.tsx" },
@@ -92,6 +92,13 @@
     { "from": "src/pages/Feedback.tsx", "to": "src/features/customers/pages/Feedback.tsx" },
     { "from": "src/pages/Segments.tsx", "to": "src/features/customers/pages/Segments.tsx" },
     { "from": "src/pages/Warranty.tsx", "to": "src/features/customers/pages/Warranty.tsx" },
-    { "from": "src/components/CustomerDetail.tsx", "to": "src/features/customers/components/CustomerDetail.tsx" }
+    { "from": "src/components/CustomerDetail.tsx", "to": "src/features/customers/components/CustomerDetail.tsx" },
+
+    { "from": "src/pages/SalesHistory.tsx", "to": "src/features/sales/pages/SalesHistory.tsx" },
+    { "from": "src/pages/Layaway.tsx", "to": "src/features/sales/pages/Layaway.tsx" },
+    { "from": "src/pages/GiftCards.tsx", "to": "src/features/sales/pages/GiftCards.tsx" },
+    { "from": "src/pages/Promotions.tsx", "to": "src/features/sales/pages/Promotions.tsx" },
+    { "from": "src/pages/Promotions.test.tsx", "to": "src/features/sales/pages/Promotions.test.tsx" },
+    { "from": "src/components/RefundDialog.tsx", "to": "src/features/sales/components/RefundDialog.tsx" }
   ]
 }
