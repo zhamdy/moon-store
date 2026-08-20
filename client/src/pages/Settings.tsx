@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -14,13 +14,14 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
-import type { AxiosError } from 'axios';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
 import type { AppSettings } from '@/types';
 
 export default function Settings() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const transport = useTransport();
 
   const [taxEnabled, setTaxEnabled] = useState(false);
   const [taxRate, setTaxRate] = useState('15');
@@ -30,10 +31,9 @@ export default function Settings() {
   const [loyaltyEarnRate, setLoyaltyEarnRate] = useState('1');
   const [loyaltyRedeemValue, setLoyaltyRedeemValue] = useState('5');
 
-  const { data: settings, isLoading } = useQuery<AppSettings>({
-    queryKey: ['settings'],
-    queryFn: () => api.get('/api/v1/settings').then((r) => r.data.data),
-  });
+  // `['settings']` is shared with CartPanel and CustomerDetail — the key is the
+  // contract that lets a save here refresh the tax rate they read.
+  const { data: settings, isLoading } = useApiQuery<AppSettings>(['settings'], 'settings');
 
   useEffect(() => {
     if (settings) {
@@ -46,22 +46,24 @@ export default function Settings() {
     }
   }, [settings]);
 
+  // The settings map is written whole by a collection-level PUT, which is not a
+  // shape `resource` serves, so this one goes straight to the transport.
   const saveMutation = useMutation({
-    mutationFn: (data: Record<string, string>) => api.put('/api/v1/settings', data),
+    mutationFn: (values: AppSettings) =>
+      transport.request({ method: 'PUT', path: 'settings', body: values }),
     onSuccess: () => {
       toast.success(t('settings.saved'));
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
-    onError: (err: AxiosError<{ error?: string }>) =>
-      toast.error(err.response?.data?.error || t('settings.saveFailed')),
+    onError: (error: Error) => toast.error(error.message || t('settings.saveFailed')),
   });
 
   const handleSave = () => {
     saveMutation.mutate({
-      tax_enabled: String(taxEnabled),
+      tax_enabled: taxEnabled ? 'true' : 'false',
       tax_rate: taxRate,
-      tax_mode: taxMode,
-      loyalty_enabled: String(loyaltyEnabled),
+      tax_mode: taxMode === 'inclusive' ? 'inclusive' : 'exclusive',
+      loyalty_enabled: loyaltyEnabled ? 'true' : 'false',
       loyalty_earn_rate: loyaltyEarnRate,
       loyalty_redeem_value: loyaltyRedeemValue,
     });

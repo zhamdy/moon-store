@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Globe, Settings2, Image, Eye, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../lib/utils';
@@ -8,34 +8,42 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { useTranslation } from '../i18n';
-import api from '../services/api';
+import { useApiQuery } from '../lib/apiQuery';
+import { useTransport } from '../lib/transport';
+import type { StorefrontBanner, StorefrontConfig, StorefrontProduct } from '@/types';
 
 export default function StorefrontPage() {
   const { t } = useTranslation();
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+  const transport = useTransport();
   const [tab, setTab] = useState<'config' | 'banners' | 'preview'>('config');
 
-  const { data: config } = useQuery<Record<string, string>>({
-    queryKey: ['storefront-config'],
-    queryFn: () => api.get('/api/v1/storefront/config').then((r) => r.data.data),
-  });
-  const { data: banners } = useQuery<Record<string, unknown>[]>({
-    queryKey: ['storefront-banners'],
-    queryFn: () => api.get('/api/v1/storefront/banners').then((r) => r.data.data),
-  });
-  const { data: products } = useQuery<Record<string, unknown>[]>({
-    queryKey: ['storefront-products'],
-    queryFn: () => api.get('/api/v1/storefront/products?limit=8').then((r) => r.data.data),
-    enabled: tab === 'preview',
-  });
+  const { data: config } = useApiQuery<StorefrontConfig>(
+    ['storefront-config'],
+    'storefront/config'
+  );
+  const { data: banners } = useApiQuery<StorefrontBanner[]>(
+    ['storefront-banners'],
+    'storefront/banners'
+  );
+  const { data: products } = useApiQuery<StorefrontProduct[]>(
+    ['storefront-products'],
+    'storefront/products',
+    { limit: 8 },
+    { enabled: tab === 'preview' }
+  );
 
-  const [configForm, setConfigForm] = useState<Record<string, string>>({});
+  const [configForm, setConfigForm] = useState<StorefrontConfig>({});
+  // The config is a key/value map rather than a row, so it is saved by a
+  // collection-level PUT that `resource` has no shape for.
   const saveConfig = useMutation({
-    mutationFn: (data: Record<string, string>) => api.put('/api/v1/storefront/config', data),
+    mutationFn: (values: StorefrontConfig) =>
+      transport.request({ method: 'PUT', path: 'storefront/config', body: values }),
     onSuccess: () => {
       toast.success(t('settings.saved'));
-      qc.invalidateQueries({ queryKey: ['storefront-config'] });
+      queryClient.invalidateQueries({ queryKey: ['storefront-config'] });
     },
+    onError: (error: Error) => toast.error(error.message || t('common.error')),
   });
 
   const configFields = [
@@ -124,7 +132,7 @@ export default function StorefrontPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {banners.map((b: Record<string, unknown>) => (
+              {banners.map((b) => (
                 <div key={b.id} className="p-4 rounded-md border border-border bg-card">
                   <h3 className="font-medium">{b.title}</h3>
                   {b.subtitle && <p className="text-sm text-muted">{b.subtitle}</p>}
@@ -149,7 +157,7 @@ export default function StorefrontPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {products?.map((p: Record<string, unknown>) => (
+            {products?.map((p) => (
               <div key={p.id} className="rounded-md border border-border bg-card overflow-hidden">
                 <div className="h-40 bg-surface flex items-center justify-center">
                   {p.image_url ? (

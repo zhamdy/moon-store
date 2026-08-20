@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PackageCheck, Plus, ArrowLeft, ArrowRight, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '../components/ui/button';
@@ -14,106 +14,79 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { useTranslation } from '../i18n';
-import type { AxiosError } from 'axios';
-import type { ApiErrorResponse, Category } from '@/types';
-import api from '../services/api';
+import { resource } from '../lib/resource';
+import { useTransport } from '../lib/transport';
+import type { CategoryRecord, StockCountDetail, StockCountSummary } from '@/types';
 
-interface StockCount {
-  id: number;
-  status: string;
-  category_name: string | null;
-  notes: string | null;
-  started_by_name: string;
-  started_at: string;
-  item_count: number;
-  counted: number;
-}
-
-interface CountItem {
-  id: number;
-  product_id: number;
-  product_name: string;
-  product_sku: string;
-  expected_qty: number;
-  actual_qty: number | null;
-  approved: number;
-}
-
-interface CountDetail extends StockCount {
-  items: CountItem[];
-}
+const stockCounts = resource<StockCountSummary>('stock-counts');
+// The same collection read one record at a time: that response carries the
+// counted items the list rows leave out.
+const stockCountDetails = resource<StockCountDetail>('stock-counts');
+const categoriesResource = resource<CategoryRecord>('categories');
 
 export default function StockCountPage() {
   const { t, isRtl } = useTranslation();
   const queryClient = useQueryClient();
+  const transport = useTransport();
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedCount, setSelectedCount] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
 
-  const { data: counts, isLoading } = useQuery<StockCount[]>({
-    queryKey: ['stock-counts'],
-    queryFn: () => api.get('/api/v1/stock-counts').then((r) => r.data.data),
-  });
+  const { data: counts, isLoading } = stockCounts.useList();
+  const { data: detail } = stockCountDetails.useOne(selectedCount);
+  const { data: categories } = categoriesResource.useList();
 
-  const { data: detail } = useQuery<CountDetail>({
-    queryKey: ['stock-count', selectedCount],
-    queryFn: () => api.get(`/api/v1/stock-counts/${selectedCount}`).then((r) => r.data.data),
-    enabled: !!selectedCount,
-  });
-
-  const { data: categories } = useQuery<Category[]>({
-    queryKey: ['categories'],
-    queryFn: () => api.get('/api/v1/categories').then((r) => r.data.data),
-    staleTime: 5 * 60 * 1000,
-  });
-
+  // The page jumps straight into the count it just started, so this write needs
+  // the created row back — something no `resource` write hands over.
   const createMutation = useMutation({
     mutationFn: () =>
-      api.post('/api/v1/stock-counts', { category_id: categoryId, notes: notes || undefined }),
-    onSuccess: (res) => {
+      transport.request<StockCountSummary>({
+        method: 'POST',
+        path: 'stock-counts',
+        body: { category_id: categoryId, notes: notes || undefined },
+      }),
+    onSuccess: ({ data }) => {
       toast.success(t('stockCount.created'));
       queryClient.invalidateQueries({ queryKey: ['stock-counts'] });
       setCreateOpen(false);
-      setSelectedCount(res.data.data.id);
+      setSelectedCount(data.id);
       setCategoryId(null);
       setNotes('');
     },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
+    onError: (error: Error) => toast.error(error.message || 'Error'),
   });
 
+  // Count items hang two levels down (`stock-counts/:id/items/:itemId`), which
+  // `useAction` cannot address: it names the sub-action once, not per row.
   const updateItemMutation = useMutation({
     mutationFn: ({ itemId, actual_qty }: { itemId: number; actual_qty: number }) =>
-      api.put(`/api/v1/stock-counts/${selectedCount}/items/${itemId}`, { actual_qty }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-count', selectedCount] }),
+      transport.request({
+        method: 'PUT',
+        path: `stock-counts/${selectedCount}/items/${itemId}`,
+        body: { actual_qty },
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-counts'] }),
   });
 
   const toggleApproveMutation = useMutation({
     mutationFn: (itemId: number) =>
-      api.put(`/api/v1/stock-counts/${selectedCount}/items/${itemId}/approve`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-count', selectedCount] }),
+      transport.request({
+        method: 'PUT',
+        path: `stock-counts/${selectedCount}/items/${itemId}/approve`,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-counts'] }),
   });
 
-  const approveCountMutation = useMutation({
-    mutationFn: () => api.post(`/api/v1/stock-counts/${selectedCount}/approve`),
-    onSuccess: () => {
-      toast.success(t('stockCount.approved'));
-      queryClient.invalidateQueries({ queryKey: ['stock-counts'] });
-      queryClient.invalidateQueries({ queryKey: ['stock-count', selectedCount] });
-      setSelectedCount(null);
-    },
-    onError: (err: AxiosError<ApiErrorResponse>) =>
-      toast.error(err.response?.data?.error || 'Error'),
+  const approveCountMutation = stockCounts.useAction('approve', {
+    message: t('stockCount.approved'),
+    fallbackMessage: 'Error',
+    onDone: () => setSelectedCount(null),
   });
 
-  const cancelMutation = useMutation({
-    mutationFn: () => api.delete(`/api/v1/stock-counts/${selectedCount}`),
-    onSuccess: () => {
-      toast.success(t('stockCount.cancelled'));
-      queryClient.invalidateQueries({ queryKey: ['stock-counts'] });
-      setSelectedCount(null);
-    },
+  const cancelMutation = stockCounts.useRemove({
+    message: t('stockCount.cancelled'),
+    onDone: () => setSelectedCount(null),
   });
 
   const statusBadge = (status: string) => {
@@ -234,14 +207,14 @@ export default function StockCountPage() {
         {detail.status === 'in_progress' && (
           <div className="flex gap-2">
             <Button
-              onClick={() => approveCountMutation.mutate()}
-              disabled={approveCountMutation.isPending}
+              onClick={() => selectedCount && approveCountMutation.run({ id: selectedCount })}
+              disabled={approveCountMutation.isRunning}
             >
               <Check className="h-4 w-4 me-2" /> {t('stockCount.approveCount')}
             </Button>
             <Button
               variant="outline"
-              onClick={() => cancelMutation.mutate()}
+              onClick={() => selectedCount && cancelMutation.remove(selectedCount)}
               className="text-destructive"
             >
               <X className="h-4 w-4 me-2" /> {t('stockCount.cancel')}
