@@ -1,8 +1,14 @@
 import { History } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import StatusBadge from '../StatusBadge';
-import { formatDateTime } from '../../lib/utils';
-import { useTranslation } from '../../i18n';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../../shared/ui/dialog';
+import StatusBadge from '../../shared/components/StatusBadge';
+import { formatDateTime } from '../../shared/lib/utils';
+import { useTranslation } from '../../shared/i18n/index';
 
 import type { DeliveryStatusHistoryEntry } from '@/types';
 

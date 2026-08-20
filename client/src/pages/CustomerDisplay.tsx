@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { formatCurrency } from '../lib/utils';
-import { useTranslation } from '../i18n';
-import moonLogo from '../assets/moon-logo.svg';
+import { formatCurrency } from '../shared/lib/utils';
+import { useTranslation } from '../shared/i18n/index';
+import moonLogo from '../shared/assets/moon-logo.svg';
 
 interface DisplayItem {
   name: string;

@@ -1,14 +1,20 @@
 import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RotateCcw } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { Checkbox } from './ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { formatCurrency } from '../lib/utils';
-import { resource } from '../lib/resource';
-import { useTranslation } from '../i18n';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../shared/ui/dialog';
+import { Button } from '../shared/ui/button';
+import { Label } from '../shared/ui/label';
+import { Checkbox } from '../shared/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../shared/ui/select';
+import { formatCurrency } from '../shared/lib/utils';
+import { resource } from '../shared/lib/resource';
+import { useTranslation } from '../shared/i18n/index';
 import type { SaleItem } from '@/types';
 
 /** Only the refund sub-action is reached from here, so no row shape surfaces. */

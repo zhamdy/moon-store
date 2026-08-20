@@ -2,18 +2,18 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
-import { Calendar } from '../components/ui/calendar';
-import { exportToExcel, exportMultiSheetExcel } from '../lib/exportUtils';
+import { Button } from '../shared/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '../shared/ui/popover';
+import { Calendar } from '../shared/ui/calendar';
+import { exportToExcel, exportMultiSheetExcel } from '../shared/lib/exportUtils';
 import KpiCards from '../components/dashboard/KpiCards';
 import DashboardCharts from '../components/dashboard/DashboardCharts';
 import { useDashboardData } from '../hooks/useDashboardData';
-import { formatDate } from '../lib/utils';
+import { formatDate } from '../shared/lib/utils';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
-import { useTranslation } from '../i18n';
-import type { DateRange } from '../components/ui/calendar';
+import { useTranslation } from '../shared/i18n/index';
+import type { DateRange } from '../shared/ui/calendar';
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });

@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Database, Download, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
-import { useTranslation } from '../i18n';
-import { useTransport } from '../lib/transport';
+import { Button } from '../shared/ui/button';
+import { Card, CardContent } from '../shared/ui/card';
+import { useTranslation } from '../shared/i18n/index';
+import { useTransport } from '../shared/lib/transport/index';
 
 export default function BackupPage() {
   const { t } = useTranslation();

@@ -1,6 +1,6 @@
-import { useSettingsStore } from '../../store/settingsStore';
-import { useTranslation } from '../../i18n';
-import { formatCurrency } from '../../lib/utils';
+import { useSettingsStore } from '../../shared/store/settingsStore';
+import { useTranslation } from '../../shared/i18n/index';
+import { formatCurrency } from '../../shared/lib/utils';
 import { useState } from 'react';
 
 interface HeatmapDataPoint {

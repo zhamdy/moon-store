@@ -2,9 +2,9 @@ import { lazy, Suspense, type ComponentType } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import ErrorBoundary from './components/ErrorBoundary';
+import ErrorBoundary from './shared/components/ErrorBoundary';
 import Login from './pages/Login';
-import PWAInstallPrompt from './components/PWAInstallPrompt';
+import PWAInstallPrompt from './shared/components/PWAInstallPrompt';
 import { useAuthStore } from './store/authStore';
 
 // Eagerly loaded (critical path)

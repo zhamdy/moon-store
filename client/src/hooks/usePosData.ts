@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useApiQuery } from '../lib/apiQuery';
-import { resource } from '../lib/resource';
-import { useTransport } from '../lib/transport';
+import { useApiQuery } from '../shared/lib/apiQuery';
+import { resource } from '../shared/lib/resource';
+import { useTransport } from '../shared/lib/transport/index';
 import type { Category, Product, ProductVariant } from '@/types';
 
 const products = resource<Product>('products');

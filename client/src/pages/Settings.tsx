@@ -1,21 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Switch } from '../components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import { useTranslation } from '../i18n';
-import { useApiQuery } from '../lib/apiQuery';
-import { useTransport } from '../lib/transport';
+import { Card, CardContent, CardHeader, CardTitle } from '../shared/ui/card';
+import { Button } from '../shared/ui/button';
+import { Input } from '../shared/ui/input';
+import { Label } from '../shared/ui/label';
+import { Switch } from '../shared/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../shared/ui/select';
+import { useTranslation } from '../shared/i18n/index';
+import { useApiQuery } from '../shared/lib/apiQuery';
+import { useTransport } from '../shared/lib/transport/index';
 import type { AppSettings } from '@/types';
 
 export default function Settings() {

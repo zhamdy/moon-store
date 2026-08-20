@@ -8,9 +8,9 @@ import {
   AreaChart,
 } from 'recharts';
 import { format } from 'date-fns';
-import { formatCurrency } from '../../lib/utils';
-import { useSettingsStore } from '../../store/settingsStore';
-import { useTranslation } from '../../i18n';
+import { formatCurrency } from '../../shared/lib/utils';
+import { useSettingsStore } from '../../shared/store/settingsStore';
+import { useTranslation } from '../../shared/i18n/index';
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 import type { RevenueDataPoint } from '../../hooks/useDashboardData';

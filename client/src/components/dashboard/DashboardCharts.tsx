@@ -8,10 +8,10 @@ import {
   Layers,
   Building2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Skeleton } from '../ui/skeleton';
-import EmptyState from '../EmptyState';
+import { Card, CardContent, CardHeader, CardTitle } from '../../shared/ui/card';
+import { Button } from '../../shared/ui/button';
+import { Skeleton } from '../../shared/ui/skeleton';
+import EmptyState from '../../shared/components/EmptyState';
 import RevenueChart from '../charts/RevenueChart';
 import TopProductsChart from '../charts/TopProductsChart';
 import PaymentPieChart from '../charts/PaymentPieChart';
@@ -19,8 +19,8 @@ import OrdersAreaChart from '../charts/OrdersAreaChart';
 import CashierPerformanceChart from '../charts/CashierPerformanceChart';
 import CategorySalesChart from '../charts/CategorySalesChart';
 import DistributorSalesChart from '../charts/DistributorSalesChart';
-import { formatCurrency } from '../../lib/utils';
-import { useTranslation } from '../../i18n';
+import { formatCurrency } from '../../shared/lib/utils';
+import { useTranslation } from '../../shared/i18n/index';
 import type {
   RevenueDataPoint,
   TopProduct,

@@ -10,31 +10,25 @@ import {
   Package,
   Copy,
 } from 'lucide-react';
-import { Button } from '../components/ui/button';
+import { Button } from '../shared/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import { Card, CardContent } from '../components/ui/card';
-import DataTable from '../components/DataTable';
-import StatusBadge from '../components/StatusBadge';
+} from '../shared/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../shared/ui/select';
+import { Card, CardContent } from '../shared/ui/card';
+import DataTable from '../shared/components/DataTable';
+import StatusBadge from '../shared/components/StatusBadge';
 import DeliveryFormDialog from '../components/delivery/DeliveryFormDialog';
 import DeliveryTimelineDialog from '../components/delivery/DeliveryTimelineDialog';
 import ShippingCompaniesDialog from '../components/delivery/ShippingCompaniesDialog';
-import { formatDateTime, formatCurrency } from '../lib/utils';
+import { formatDateTime, formatCurrency } from '../shared/lib/utils';
 import { useAuthStore } from '../store/authStore';
-import { useTranslation } from '../i18n';
-import { resource } from '../lib/resource';
-import { useApiQuery } from '../lib/apiQuery';
+import { useTranslation } from '../shared/i18n/index';
+import { resource } from '../shared/lib/resource';
+import { useApiQuery } from '../shared/lib/apiQuery';
 
 import type { ColumnDef } from '@tanstack/react-table';
 import type {

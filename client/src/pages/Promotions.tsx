@@ -1,27 +1,27 @@
 import { useState } from 'react';
 import { Ticket, Plus, Search, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
+import { Button } from '../shared/ui/button';
+import { Input } from '../shared/ui/input';
+import { Label } from '../shared/ui/label';
+import { Badge } from '../shared/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
+} from '../shared/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../components/ui/dialog';
-import { formatCurrency } from '../lib/utils';
-import { useTranslation } from '../i18n';
-import { resource } from '../lib/resource';
-import { useEditorDialog } from '../lib/editorDialog';
+} from '../shared/ui/dialog';
+import { formatCurrency } from '../shared/lib/utils';
+import { useTranslation } from '../shared/i18n/index';
+import { resource } from '../shared/lib/resource';
+import { useEditorDialog } from '../shared/lib/editorDialog';
 import type { Coupon } from '@/types';
 
 const coupons = resource<Coupon>('coupons');

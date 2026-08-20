@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../components/ui/button';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
-import { useTranslation } from '../i18n';
-import { exportToExcel } from '../lib/exportUtils';
-import { useApiQuery } from '../lib/apiQuery';
-import { useTransport } from '../lib/transport';
+import { Button } from '../shared/ui/button';
+import { Label } from '../shared/ui/label';
+import { Badge } from '../shared/ui/badge';
+import { useTranslation } from '../shared/i18n/index';
+import { exportToExcel } from '../shared/lib/exportUtils';
+import { useApiQuery } from '../shared/lib/apiQuery';
+import { useTransport } from '../shared/lib/transport/index';
 
 interface ExportRecord {
   id: number;

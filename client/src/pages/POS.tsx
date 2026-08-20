@@ -12,23 +12,23 @@ import {
   Percent,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Input } from '../components/ui/input';
-import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Skeleton } from '../components/ui/skeleton';
+import { Input } from '../shared/ui/input';
+import { Button } from '../shared/ui/button';
+import { Card, CardContent } from '../shared/ui/card';
+import { Badge } from '../shared/ui/badge';
+import { Skeleton } from '../shared/ui/skeleton';
 import CartPanel from '../components/CartPanel';
-import BarcodeScanner from '../components/BarcodeScanner';
+import BarcodeScanner from '../shared/components/BarcodeScanner';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
 import VariantPickerDialog from '../components/pos/VariantPickerDialog';
 import { useCartStore } from '../store/cartStore';
 import { useHeldCartsStore } from '../store/heldCartsStore';
-import { formatCurrency } from '../lib/utils';
-import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { formatCurrency } from '../shared/lib/utils';
+import { useDebouncedValue } from '../shared/hooks/useDebouncedValue';
 import { usePosShortcuts } from '../hooks/usePosShortcuts';
 import { usePosData, type PosBundle } from '../hooks/usePosData';
-import { useTransport } from '../lib/transport';
-import { useTranslation } from '../i18n';
+import { useTransport } from '../shared/lib/transport/index';
+import { useTranslation } from '../shared/i18n/index';
 import type { Product, ProductVariant } from '@/types';
 
 /**

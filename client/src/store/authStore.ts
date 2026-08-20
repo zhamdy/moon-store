@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { emitSessionEvent } from '../lib/session';
+import { emitSessionEvent } from '../shared/lib/session';
+import { AUTH_STORAGE_KEY } from '../shared/lib/storageKeys';
 import type { AuthUser } from '../types';
 
 interface AuthState {
@@ -35,7 +36,7 @@ export const useAuthStore = create<AuthState>()(
         })),
     }),
     {
-      name: 'moon-auth',
+      name: AUTH_STORAGE_KEY,
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,

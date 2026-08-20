@@ -2,21 +2,21 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BarChart3, Plus, Play, Trash2, Clock, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '../lib/utils';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
+import { formatCurrency } from '../shared/lib/utils';
+import { Button } from '../shared/ui/button';
+import { Input } from '../shared/ui/input';
+import { Label } from '../shared/ui/label';
+import { Badge } from '../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../components/ui/dialog';
-import { useTranslation } from '../i18n';
-import { resource } from '../lib/resource';
-import { useTransport } from '../lib/transport';
+} from '../shared/ui/dialog';
+import { useTranslation } from '../shared/i18n/index';
+import { resource } from '../shared/lib/resource';
+import { useTransport } from '../shared/lib/transport/index';
 
 type ReportRow = Record<string, unknown>;
 

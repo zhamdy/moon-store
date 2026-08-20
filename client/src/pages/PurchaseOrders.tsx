@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Send, PackageCheck, Trash2, X, Eye, Wand2 } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
+import { Button } from '../shared/ui/button';
+import { Label } from '../shared/ui/label';
+import { Badge } from '../shared/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,22 +13,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import DataTable from '../components/DataTable';
+} from '../shared/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../shared/ui/select';
+import DataTable from '../shared/components/DataTable';
 import POFormDialog from '../components/purchase-orders/POFormDialog';
 import PODetailDialog from '../components/purchase-orders/PODetailDialog';
-import { formatCurrency } from '../lib/utils';
-import { useTranslation } from '../i18n';
-import { resource } from '../lib/resource';
-import { useApiQuery } from '../lib/apiQuery';
-import { useTransport } from '../lib/transport';
+import { formatCurrency } from '../shared/lib/utils';
+import { useTranslation } from '../shared/i18n/index';
+import { resource } from '../shared/lib/resource';
+import { useApiQuery } from '../shared/lib/apiQuery';
+import { useTransport } from '../shared/lib/transport/index';
 import type { ColumnDef } from '@tanstack/react-table';
 import type {
   Distributor,

@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { Eye, Truck, XCircle, CheckCircle, Package } from 'lucide-react';
-import { formatCurrency } from '../lib/utils';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
+import { formatCurrency } from '../shared/lib/utils';
+import { Button } from '../shared/ui/button';
+import { Badge } from '../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../components/ui/dialog';
-import { useTranslation } from '../i18n';
-import { resource } from '../lib/resource';
+} from '../shared/ui/dialog';
+import { useTranslation } from '../shared/i18n/index';
+import { resource } from '../shared/lib/resource';
 import type { OnlineOrder } from '@/types';
 
 const onlineOrders = resource<OnlineOrder>('online-orders');

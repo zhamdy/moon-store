@@ -38,10 +38,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { useTranslation } from '../i18n';
-import { useTransport } from '../lib/transport';
-import moonLogo from '../assets/moon-logo.svg';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from './ui/sheet';
+import { useTranslation } from '../shared/i18n/index';
+import { useTransport } from '../shared/lib/transport/index';
+import moonLogo from '../shared/assets/moon-logo.svg';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../shared/ui/sheet';
 
 interface NavItem {
   to: string;

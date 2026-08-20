@@ -18,16 +18,16 @@ import {
   MoreHorizontal,
   Pencil,
 } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
+import { Button } from '../shared/ui/button';
+import { Label } from '../shared/ui/label';
+import { Badge } from '../shared/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
+} from '../shared/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,27 +37,21 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import { Checkbox } from '../components/ui/checkbox';
-import DataTable from '../components/DataTable';
+} from '../shared/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../shared/ui/select';
+import { Checkbox } from '../shared/ui/checkbox';
+import DataTable from '../shared/components/DataTable';
 import AdjustStockDialog from '../components/AdjustStockDialog';
 import ProductFormDialog from '../components/inventory/ProductFormDialog';
 import BulkOperationDialogs from '../components/inventory/BulkOperationDialogs';
 import VariantManagerDialog from '../components/inventory/VariantManagerDialog';
 import { useVariantManagement } from '../hooks/useVariantManagement';
-import { formatCurrency } from '../lib/utils';
-import { exportToExcel } from '../lib/exportUtils';
-import { resource } from '../lib/resource';
-import { useTransport, type TransportMethod } from '../lib/transport';
+import { formatCurrency } from '../shared/lib/utils';
+import { exportToExcel } from '../shared/lib/exportUtils';
+import { resource } from '../shared/lib/resource';
+import { useTransport, type TransportMethod } from '../shared/lib/transport/index';
 import { useAuthStore } from '../store/authStore';
-import { useTranslation, t as tStandalone } from '../i18n';
+import { useTranslation, t as tStandalone } from '../shared/i18n/index';
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
 import type {
   BulkDiscontinueResult,

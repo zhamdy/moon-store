@@ -2,13 +2,19 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Clock, Landmark } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../shared/ui/dialog';
+import { Button } from '../shared/ui/button';
+import { Input } from '../shared/ui/input';
 import { useAuthStore } from '../store/authStore';
-import { useTranslation } from '../i18n';
-import { resource } from '../lib/resource';
-import { useTransport } from '../lib/transport';
+import { useTranslation } from '../shared/i18n/index';
+import { resource } from '../shared/lib/resource';
+import { useTransport } from '../shared/lib/transport/index';
 import type { RegisterSession, Shift } from '@/types';
 
 const SESSION_KEY = 'moon-startup-dismissed';

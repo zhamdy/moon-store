@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import { Package } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { resource } from '../lib/resource';
-import { useTranslation } from '../i18n';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../shared/ui/dialog';
+import { Button } from '../shared/ui/button';
+import { Input } from '../shared/ui/input';
+import { Label } from '../shared/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../shared/ui/select';
+import { resource } from '../shared/lib/resource';
+import { useTranslation } from '../shared/i18n/index';
 import type { Product } from '@/types';
 
 const products = resource<Product>('products');

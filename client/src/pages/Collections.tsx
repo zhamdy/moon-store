@@ -1,21 +1,21 @@
 import { useState } from 'react';
 import { Palette, Plus, Pencil, Trash2, Package, ArrowRight, X } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
+import { Button } from '../shared/ui/button';
+import { Input } from '../shared/ui/input';
+import { Label } from '../shared/ui/label';
+import { Badge } from '../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../components/ui/dialog';
-import { useTranslation } from '../i18n';
-import { formatCurrency } from '../lib/utils';
-import { resource } from '../lib/resource';
-import { useEditorDialog } from '../lib/editorDialog';
-import { useApiQuery } from '../lib/apiQuery';
+} from '../shared/ui/dialog';
+import { useTranslation } from '../shared/i18n/index';
+import { formatCurrency } from '../shared/lib/utils';
+import { resource } from '../shared/lib/resource';
+import { useEditorDialog } from '../shared/lib/editorDialog';
+import { useApiQuery } from '../shared/lib/apiQuery';
 import type { Collection, CollectionDetail, Product } from '@/types';
 
 const collections = resource<Collection>('collections');

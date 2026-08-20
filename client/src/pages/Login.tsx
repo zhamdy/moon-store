@@ -5,15 +5,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Checkbox } from '../components/ui/checkbox';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../shared/ui/card';
+import { Button } from '../shared/ui/button';
+import { Input } from '../shared/ui/input';
+import { Label } from '../shared/ui/label';
+import { Checkbox } from '../shared/ui/checkbox';
 import { useAuthStore } from '../store/authStore';
-import { useTransport } from '../lib/transport';
-import moonLogo from '../assets/moon-logo.svg';
-import { useTranslation, t as tStandalone } from '../i18n';
+import { useTransport } from '../shared/lib/transport/index';
+import moonLogo from '../shared/assets/moon-logo.svg';
+import { useTranslation, t as tStandalone } from '../shared/i18n/index';
 import type { AuthResponseData } from '@/types';
 
 const getLoginSchema = () =>

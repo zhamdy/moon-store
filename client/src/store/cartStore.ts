@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { CART_RECOVERY_STORAGE_KEY } from '../shared/lib/storageKeys';
 import type { Product as ServerProduct } from '../types';
 
 export interface CartItem {
@@ -208,7 +209,7 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: 'moon-cart-recovery',
+      name: CART_RECOVERY_STORAGE_KEY,
       partialize: (state) => ({
         items: state.items,
         discount: state.discount,

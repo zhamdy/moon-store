@@ -2,10 +2,10 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import NotificationCenter from './NotificationCenter';
 import StartupPrompt from './StartupPrompt';
-import { useOffline } from '../hooks/useOffline';
-import { useTranslation } from '../i18n';
+import { useOffline } from '../shared/hooks/useOffline';
+import { useTranslation } from '../shared/i18n/index';
 import { useAuthStore } from '../store/authStore';
-import { useSettingsStore } from '../store/settingsStore';
+import { useSettingsStore } from '../shared/store/settingsStore';
 import { WifiOff, Languages, Moon, Sun } from 'lucide-react';
 
 export default function Layout(): React.JSX.Element {

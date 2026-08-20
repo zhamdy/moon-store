@@ -14,23 +14,23 @@ import {
   ArrowRightLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '../lib/utils';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
+import { formatCurrency } from '../shared/lib/utils';
+import { Button } from '../shared/ui/button';
+import { Input } from '../shared/ui/input';
+import { Label } from '../shared/ui/label';
+import { Badge } from '../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '../components/ui/dialog';
-import { useTranslation } from '../i18n';
-import { resource } from '../lib/resource';
-import { useApiQuery } from '../lib/apiQuery';
-import { useEditorDialog } from '../lib/editorDialog';
-import { useTransport } from '../lib/transport';
+} from '../shared/ui/dialog';
+import { useTranslation } from '../shared/i18n/index';
+import { resource } from '../shared/lib/resource';
+import { useApiQuery } from '../shared/lib/apiQuery';
+import { useEditorDialog } from '../shared/lib/editorDialog';
+import { useTransport } from '../shared/lib/transport/index';
 import type { Branch, BranchTransfer, ConsolidatedBranches, User } from '@/types';
 
 const branches = resource<Branch>('branches');

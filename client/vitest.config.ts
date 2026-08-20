@@ -6,7 +6,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     include: ['src/**/*.test.{ts,tsx}'],
-    setupFiles: ['./src/tests/setup.ts'],
+    setupFiles: ['./src/shared/tests/setup.ts'],
     // Page-level tests render a whole page against the in-memory transport and
     // take seconds each. Vitest's 5s default is fine for one file and too tight
     // once several run concurrently, which showed up as flaky timeouts rather

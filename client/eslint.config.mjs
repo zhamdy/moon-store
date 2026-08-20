@@ -13,7 +13,12 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 const tsconfigPath = path.resolve(import.meta.dirname, 'tsconfig.json');
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', 'tailwind.config.js', 'postcss.config.js'] },
+  {
+    // scripts/restructure/ is temporary Node tooling for the feature-slice
+    // migration codemods (deleted in Unit 12), not application source -- it
+    // runs under Node, not the browser/React lint ruleset below.
+    ignores: ['dist/', 'node_modules/', 'tailwind.config.js', 'postcss.config.js', 'scripts/'],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   eslintConfigPrettier,
@@ -47,7 +52,7 @@ export default tseslint.config(
     // the /api/v1 prefix or the response envelope. Without this rule the next
     // page written quietly reintroduces the pattern this seam removed.
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/lib/transport/**'],
+    ignores: ['src/shared/lib/transport/**'],
     rules: {
       'no-restricted-imports': [
         'error',

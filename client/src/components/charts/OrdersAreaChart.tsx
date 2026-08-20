@@ -8,8 +8,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { format } from 'date-fns';
-import { useSettingsStore } from '../../store/settingsStore';
-import { useTranslation } from '../../i18n';
+import { useSettingsStore } from '../../shared/store/settingsStore';
+import { useTranslation } from '../../shared/i18n/index';
 import type { TooltipProps } from 'recharts';
 import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 

@@ -26,19 +26,13 @@ import {
   Activity,
   X,
 } from 'lucide-react';
-import { Badge } from '../components/ui/badge';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import { useTranslation } from '../i18n';
-import { resource } from '../lib/resource';
-import { useApiQuery } from '../lib/apiQuery';
+import { Badge } from '../shared/ui/badge';
+import { Input } from '../shared/ui/input';
+import { Label } from '../shared/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../shared/ui/select';
+import { useTranslation } from '../shared/i18n/index';
+import { resource } from '../shared/lib/resource';
+import { useApiQuery } from '../shared/lib/apiQuery';
 import type { LucideIcon } from 'lucide-react';
 import type { AuditEntry, User as UserRecord } from '@/types';
 

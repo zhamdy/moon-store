@@ -1,5 +1,11 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { useTranslation } from '../i18n';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../shared/ui/dialog';
+import { useTranslation } from '../shared/i18n/index';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;

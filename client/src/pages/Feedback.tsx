@@ -1,8 +1,8 @@
 import { Star, TrendingUp, MessageSquare } from 'lucide-react';
-import { Card, CardContent } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { useTranslation } from '../i18n';
-import { useApiQuery } from '../lib/apiQuery';
+import { Card, CardContent } from '../shared/ui/card';
+import { Badge } from '../shared/ui/badge';
+import { useTranslation } from '../shared/i18n/index';
+import { useApiQuery } from '../shared/lib/apiQuery';
 import type { FeedbackResponse } from '@/types';
 
 export default function FeedbackPage() {

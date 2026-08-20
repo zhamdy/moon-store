@@ -1,7 +1,13 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import { Badge } from '../ui/badge';
-import { formatCurrency } from '../../lib/utils';
-import { useTranslation } from '../../i18n';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../../shared/ui/dialog';
+import { Badge } from '../../shared/ui/badge';
+import { formatCurrency } from '../../shared/lib/utils';
+import { useTranslation } from '../../shared/i18n/index';
 import type { Product, ProductVariant } from '@/types';
 
 interface VariantPickerDialogProps {

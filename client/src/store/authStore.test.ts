@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAuthStore } from './authStore';
-import { useOfflineStore } from './offlineStore';
+import { useOfflineStore } from '../shared/store/offlineStore';
 import { useCartStore } from './cartStore';
 import { useHeldCartsStore } from './heldCartsStore';
-import { onSessionEvent } from '../lib/session';
-import { queryClient } from '../lib/queryClient';
+import { onSessionEvent } from '../shared/lib/session';
+import { queryClient } from '../shared/lib/queryClient';
 import type { AuthUser } from '../types';
 
 const mockUser: AuthUser = {

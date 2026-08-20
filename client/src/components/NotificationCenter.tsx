@@ -4,10 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Check, CheckCheck, Package, ShoppingCart, Truck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useTranslation } from '../i18n';
-import { cn } from '../lib/utils';
-import { resource } from '../lib/resource';
-import { useTransport } from '../lib/transport';
+import { useTranslation } from '../shared/i18n/index';
+import { cn } from '../shared/lib/utils';
+import { resource } from '../shared/lib/resource';
+import { useTransport } from '../shared/lib/transport/index';
 
 interface Notification {
   id: number;

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { PackageCheck } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Badge } from '../ui/badge';
+import { Button } from '../../shared/ui/button';
+import { Input } from '../../shared/ui/input';
+import { Badge } from '../../shared/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -10,9 +10,9 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from '../ui/dialog';
-import { formatCurrency } from '../../lib/utils';
-import { useTranslation } from '../../i18n';
+} from '../../shared/ui/dialog';
+import { formatCurrency } from '../../shared/lib/utils';
+import { useTranslation } from '../../shared/i18n/index';
 import type { PurchaseOrderDetail } from '@/types';
 
 const STATUS_COLORS: Record<string, string> = {
