@@ -11,14 +11,14 @@ export class AuthService {
     const user = await this.repo.findUserByEmail(email);
     if (!user) {
       const err = new Error('Invalid email or password');
-      (err as any).statusCode = 401;
+      (err as Error & { statusCode: number }).statusCode = 401;
       throw err;
     }
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
       const err = new Error('Invalid email or password');
-      (err as any).statusCode = 401;
+      (err as Error & { statusCode: number }).statusCode = 401;
       throw err;
     }
 
@@ -57,21 +57,21 @@ export class AuthService {
       };
     } catch {
       const err = new Error('Invalid refresh token');
-      (err as any).statusCode = 401;
+      (err as Error & { statusCode: number }).statusCode = 401;
       throw err;
     }
 
     const tokenRecord = await this.repo.findValidRefreshToken(refreshToken);
     if (!tokenRecord) {
       const err = new Error('Refresh token expired or revoked');
-      (err as any).statusCode = 401;
+      (err as Error & { statusCode: number }).statusCode = 401;
       throw err;
     }
 
     const user = await this.repo.findUserById(decoded.id);
     if (!user) {
       const err = new Error('User not found');
-      (err as any).statusCode = 401;
+      (err as Error & { statusCode: number }).statusCode = 401;
       throw err;
     }
 
