@@ -1,35 +1,22 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Gift, XCircle, Eye, CreditCard, MoreHorizontal } from 'lucide-react';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
 import {
+  Button,
+  Input,
+  Dropdown,
+  DropdownTrigger,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../../../shared/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../shared/ui/alert-dialog';
+  DropdownItem,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
+import ConfirmDialog from '../../../shared/components/ConfirmDialog';
 import DataTable from '../../../shared/components/DataTable';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
@@ -45,8 +32,6 @@ const emptyGiftCard = { initial_value: '', customer_id: '', expires_at: '' };
 export default function GiftCards() {
   const { t } = useTranslation();
 
-  // Neither of these holds form values: one names the card a confirmation is
-  // about, the other the card whose ledger is on screen.
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [transactionsCard, setTransactionsCard] = useState<GiftCard | null>(null);
 
@@ -65,7 +50,6 @@ export default function GiftCards() {
     onDone: editor.close,
   });
 
-  // Cancelling a card is a status change on it, so it goes through the same save.
   const canceller = giftCards.useSave({
     message: t('giftCards.cancelSuccess'),
     fallbackMessage: t('giftCards.cancelFailed'),
@@ -85,16 +69,32 @@ export default function GiftCards() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusChip = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge variant="success">{t('giftCards.active')}</Badge>;
+        return (
+          <Badge size="sm" variant="success">
+            {t('giftCards.active')}
+          </Badge>
+        );
       case 'used':
-        return <Badge variant="secondary">{t('giftCards.used')}</Badge>;
+        return (
+          <Badge size="sm" variant="default">
+            {t('giftCards.used')}
+          </Badge>
+        );
       case 'cancelled':
-        return <Badge variant="destructive">{t('giftCards.cancelled')}</Badge>;
+        return (
+          <Badge size="sm" variant="danger">
+            {t('giftCards.cancelled')}
+          </Badge>
+        );
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return (
+          <Badge size="sm" variant="default">
+            {status}
+          </Badge>
+        );
     }
   };
 
@@ -104,8 +104,10 @@ export default function GiftCards() {
       header: t('giftCards.code'),
       cell: ({ getValue }) => (
         <div className="flex items-center gap-2">
-          <Gift className="h-4 w-4 text-gold shrink-0" />
-          <span className="font-data font-semibold tracking-wider">{getValue() as string}</span>
+          <Gift className="h-4 w-4 text-primary shrink-0" />
+          <span className="font-data font-semibold tracking-wider text-foreground">
+            {getValue() as string}
+          </span>
         </div>
       ),
     },
@@ -113,14 +115,14 @@ export default function GiftCards() {
       accessorKey: 'barcode',
       header: t('giftCards.barcode'),
       cell: ({ getValue }) => (
-        <span className="font-data text-muted">{(getValue() as string) || '-'}</span>
+        <span className="font-data text-muted-foreground">{(getValue() as string) || '-'}</span>
       ),
     },
     {
       accessorKey: 'initial_value',
       header: t('giftCards.initialValue'),
       cell: ({ getValue }) => (
-        <span className="font-data">{formatCurrency(Number(getValue()))}</span>
+        <span className="font-data text-foreground">{formatCurrency(Number(getValue()))}</span>
       ),
     },
     {
@@ -131,7 +133,7 @@ export default function GiftCards() {
         const initial = row.original.initial_value;
         const ratio = initial > 0 ? balance / initial : 0;
         const color =
-          ratio > 0.5 ? 'text-emerald-400' : ratio > 0 ? 'text-amber-400' : 'text-muted';
+          ratio > 0.5 ? 'text-success' : ratio > 0 ? 'text-warning' : 'text-muted-foreground';
         return (
           <span className={`font-data font-semibold ${color}`}>{formatCurrency(balance)}</span>
         );
@@ -140,17 +142,19 @@ export default function GiftCards() {
     {
       accessorKey: 'status',
       header: t('giftCards.status'),
-      cell: ({ getValue }) => getStatusBadge(getValue() as string),
+      cell: ({ getValue }) => getStatusChip(getValue() as string),
     },
     {
       accessorKey: 'expires_at',
       header: t('giftCards.expiresAt'),
       cell: ({ getValue }) => {
         const val = getValue() as string | null;
-        if (!val) return <span className="text-muted">-</span>;
+        if (!val) return <span className="text-muted-foreground">-</span>;
         const isExpired = new Date(val) < new Date();
         return (
-          <span className={`font-data text-sm ${isExpired ? 'text-destructive' : 'text-muted'}`}>
+          <span
+            className={`font-data text-sm ${isExpired ? 'text-danger' : 'text-muted-foreground'}`}
+          >
             {formatDate(val)}
           </span>
         );
@@ -160,7 +164,9 @@ export default function GiftCards() {
       accessorKey: 'created_at',
       header: t('giftCards.createdAt'),
       cell: ({ getValue }) => (
-        <span className="font-data text-sm text-muted">{formatDate(getValue() as string)}</span>
+        <span className="font-data text-sm text-muted-foreground">
+          {formatDate(getValue() as string)}
+        </span>
       ),
     },
     {
@@ -170,31 +176,33 @@ export default function GiftCards() {
       cell: ({ row }) => {
         const card = row.original;
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Dropdown>
+            <DropdownTrigger>
+              <Button isIconOnly variant="light" size="sm">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setTransactionsCard(card)}>
-                <Eye className="h-4 w-4 me-2 text-gold" />
+            </DropdownTrigger>
+            <DropdownMenu aria-label="Gift card actions">
+              <DropdownItem
+                key="transactions"
+                startContent={<Eye className="h-4 w-4 text-primary" />}
+                onPress={() => setTransactionsCard(card)}
+              >
                 {t('giftCards.transactions')}
-              </DropdownMenuItem>
-              {card.status === 'active' && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => setCancelId(card.id)}
-                  >
-                    <XCircle className="h-4 w-4 me-2" />
-                    {t('giftCards.cancel')}
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownItem>
+              {card.status === 'active' ? (
+                <DropdownItem
+                  key="cancel"
+                  className="text-danger"
+                  color="danger"
+                  startContent={<XCircle className="h-4 w-4" />}
+                  onPress={() => setCancelId(card.id)}
+                >
+                  {t('giftCards.cancel')}
+                </DropdownItem>
+              ) : null}
+            </DropdownMenu>
+          </Dropdown>
         );
       },
     },
@@ -203,18 +211,16 @@ export default function GiftCards() {
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('giftCards.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
-        <Button className="gap-2" onClick={editor.openNew}>
-          <Plus className="h-4 w-4" />
+      <PageHeader title={t('giftCards.title')}>
+        <Button
+          color="primary"
+          size="sm"
+          startContent={<Plus className="h-4 w-4" />}
+          onClick={editor.openNew}
+        >
           {t('giftCards.create')}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Table */}
       <DataTable
@@ -225,154 +231,185 @@ export default function GiftCards() {
       />
 
       {/* Create Dialog */}
-      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('giftCards.create')}</DialogTitle>
-            <DialogDescription>{t('giftCards.createDesc')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('giftCards.initialValue')}</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.initial_value}
-                onChange={(e) => editor.set('initial_value', e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>
-                {t('giftCards.customerId')}{' '}
-                <span className="text-muted text-xs">({t('giftCards.optional')})</span>
-              </Label>
-              <Input
-                type="number"
-                value={form.customer_id}
-                onChange={(e) => editor.set('customer_id', e.target.value)}
-                placeholder={t('giftCards.customerIdPlaceholder')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>
-                {t('giftCards.expiresAt')}{' '}
-                <span className="text-muted text-xs">({t('giftCards.optional')})</span>
-              </Label>
-              <Input
-                type="date"
-                value={form.expires_at}
-                onChange={(e) => editor.set('expires_at', e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={handleCreate} disabled={creator.isSaving || !form.initial_value}>
-              <CreditCard className="h-4 w-4 me-2" />
-              {t('common.create')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        isOpen={editor.open}
+        onOpenChange={editor.setOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <>
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('giftCards.create')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('giftCards.createDesc')}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4 space-y-4">
+                <Input
+                  type="number"
+                  label={t('giftCards.initialValue')}
+                  size="sm"
+                  variant="bordered"
+                  step="0.01"
+                  min="0"
+                  value={form.initial_value}
+                  onValueChange={(val) => editor.set('initial_value', val)}
+                  placeholder="0.00"
+                  isRequired
+                />
+                <Input
+                  type="number"
+                  label={`${t('giftCards.customerId')} (${t('giftCards.optional')})`}
+                  size="sm"
+                  variant="bordered"
+                  value={form.customer_id}
+                  onValueChange={(val) => editor.set('customer_id', val)}
+                  placeholder={t('giftCards.customerIdPlaceholder')}
+                />
+                <Input
+                  type="date"
+                  label={`${t('giftCards.expiresAt')} (${t('giftCards.optional')})`}
+                  size="sm"
+                  variant="bordered"
+                  value={form.expires_at}
+                  onValueChange={(val) => editor.set('expires_at', val)}
+                />
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={editor.close}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  color="primary"
+                  size="sm"
+                  onClick={handleCreate}
+                  isLoading={creator.isSaving}
+                  isDisabled={!form.initial_value}
+                  startContent={<CreditCard className="h-4 w-4" />}
+                >
+                  {t('common.create')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
 
       {/* Cancel Confirmation */}
-      <AlertDialog open={!!cancelId} onOpenChange={() => setCancelId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('giftCards.cancelCard')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('giftCards.cancelConfirm')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => cancelId && canceller.save({ id: cancelId, status: 'cancelled' })}
-              className="bg-destructive text-foreground hover:bg-destructive/90"
-            >
-              {t('common.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!cancelId}
+        onOpenChange={(open) => !open && setCancelId(null)}
+        title={t('giftCards.cancelCard')}
+        description={t('giftCards.cancelConfirm')}
+        confirmText={t('common.confirm')}
+        confirmColor="danger"
+        isLoading={canceller.isSaving}
+        onConfirm={() => cancelId && canceller.save({ id: cancelId, status: 'cancelled' })}
+      />
 
       {/* Transactions Dialog */}
-      <Dialog
-        open={!!transactionsCard}
+      <Modal
+        isOpen={!!transactionsCard}
         onOpenChange={(open) => {
           if (!open) setTransactionsCard(null);
         }}
+        backdrop="blur"
+        placement="center"
+        size="2xl"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {t('giftCards.transactions')} — {transactionsCard?.code}
-            </DialogTitle>
-            <DialogDescription>
-              {t('giftCards.balance')}: {formatCurrency(transactionsCard?.balance ?? 0)} /{' '}
-              {formatCurrency(transactionsCard?.initial_value ?? 0)}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {transactionsLoading ? (
-              <p className="text-sm text-muted text-center py-4">{t('common.loading')}</p>
-            ) : transactions && transactions.length > 0 ? (
-              <div className="rounded-md border border-border overflow-hidden">
-                <table className="w-full text-sm font-data">
-                  <thead>
-                    <tr className="bg-table-header border-b border-border">
-                      <th className="px-4 py-2 text-start text-xs font-medium uppercase tracking-wider text-foreground">
-                        {t('giftCards.transactionType')}
-                      </th>
-                      <th className="px-4 py-2 text-start text-xs font-medium uppercase tracking-wider text-foreground">
-                        {t('giftCards.transactionAmount')}
-                      </th>
-                      <th className="px-4 py-2 text-start text-xs font-medium uppercase tracking-wider text-foreground">
-                        {t('giftCards.transactionDate')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((txn) => (
-                      <tr
-                        key={txn.id}
-                        className="border-b border-border hover:bg-surface/50 transition-colors"
-                      >
-                        <td className="px-4 py-2 text-foreground">
-                          <Badge
-                            variant={
-                              txn.type === 'credit'
-                                ? 'success'
-                                : txn.type === 'debit'
-                                  ? 'warning'
-                                  : 'secondary'
-                            }
-                            className="text-[10px]"
-                          >
-                            {txn.type}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-2">
-                          <span
-                            className={`font-semibold ${
-                              txn.type === 'credit' ? 'text-emerald-400' : 'text-destructive'
-                            }`}
-                          >
-                            {txn.type === 'credit' ? '+' : '-'}
-                            {formatCurrency(Math.abs(txn.amount))}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-muted">{formatDate(txn.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-sm text-muted text-center py-8">{t('giftCards.noTransactions')}</p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        <ModalContent>
+          {() => (
+            <>
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">
+                    {t('giftCards.transactions')} — {transactionsCard?.code}
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('giftCards.balance')}: {formatCurrency(transactionsCard?.balance ?? 0)} /{' '}
+                    {formatCurrency(transactionsCard?.initial_value ?? 0)}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4">
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {transactionsLoading ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      {t('common.loading')}
+                    </p>
+                  ) : transactions && transactions.length > 0 ? (
+                    <div className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
+                      <table className="w-full text-sm font-data">
+                        <thead>
+                          <tr className="bg-muted/40 border-b border-border text-muted-foreground">
+                            <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider">
+                              {t('giftCards.transactionType')}
+                            </th>
+                            <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider">
+                              {t('giftCards.transactionAmount')}
+                            </th>
+                            <th className="px-4 py-2.5 text-start text-xs font-semibold uppercase tracking-wider">
+                              {t('giftCards.transactionDate')}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                          {transactions.map((txn) => (
+                            <tr key={txn.id} className="hover:bg-muted/30 transition-colors">
+                              <td className="px-4 py-2.5 text-foreground">
+                                <Badge
+                                  size="sm"
+                                  variant={
+                                    txn.type === 'credit'
+                                      ? 'success'
+                                      : txn.type === 'debit'
+                                        ? 'warning'
+                                        : 'default'
+                                  }
+                                >
+                                  {txn.type}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <span
+                                  className={`font-semibold ${
+                                    txn.type === 'credit' ? 'text-success' : 'text-danger'
+                                  }`}
+                                >
+                                  {txn.type === 'credit' ? '+' : '-'}
+                                  {formatCurrency(Math.abs(txn.amount))}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-muted-foreground">
+                                {formatDate(txn.created_at)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      {t('giftCards.noTransactions')}
+                    </p>
+                  )}
+                </div>
+              </ModalBody>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

@@ -1,24 +1,8 @@
 import { useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Archive, Trash2, RotateCcw, ShoppingBag } from 'lucide-react';
-import { Button } from '../../../shared/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../shared/ui/alert-dialog';
+import { Button, Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
+import ConfirmDialog from '../../../shared/components/ConfirmDialog';
 import { useHeldCartsStore, type HeldCart } from '../store/heldCartsStore';
 import { useCartStore } from '../store/cartStore';
 import { formatCurrency, formatRelative } from '../../../shared/lib/utils';
@@ -86,111 +70,119 @@ export default function HeldCartsDialog({ open, onOpenChange }: HeldCartsDialogP
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Archive className="h-5 w-5 text-gold" />
-              {t('cart.heldCarts')}
-            </DialogTitle>
-            <DialogDescription>{t('cart.heldCartsDesc')}</DialogDescription>
-          </DialogHeader>
-
-          <div ref={animateParent} className="space-y-3 max-h-[60vh] overflow-y-auto">
-            {carts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <ShoppingBag className="h-10 w-10 text-muted/40 mb-3" />
-                <p className="text-sm text-muted">{t('cart.noHeldCarts')}</p>
-              </div>
-            ) : (
-              carts.map((cart) => (
-                <div
-                  key={cart.id}
-                  className="p-3 bg-surface rounded-md border border-border space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground truncate">{cart.name}</p>
-                      <p className="text-xs text-muted">
-                        {t('cart.itemCount', { count: String(cart.items.length) })} &middot;{' '}
-                        {formatCurrency(getCartTotal(cart))}
-                      </p>
-                      <p className="text-xs text-muted/70">
-                        {t('cart.heldAt', { time: formatRelative(cart.createdAt) })}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-gold hover:text-gold/80"
-                        onClick={() => handleRetrieve(cart.id)}
-                        title={t('cart.retrieve')}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive/80"
-                        onClick={() => handleDelete(cart.id)}
-                        title={t('cart.deleteHeld')}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+      <Modal
+        isOpen={open}
+        onOpenChange={onOpenChange}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <>
+              <ModalHeader className="border-b border-border/50">
+                <div className="flex items-center gap-2">
+                  <Archive className="h-5 w-5 text-primary" />
+                  <div>
+                    <h3 className="text-base font-semibold">{t('cart.heldCarts')}</h3>
+                    <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                      {t('cart.heldCartsDesc')}
+                    </p>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+              </ModalHeader>
+
+              <ModalBody className="py-4">
+                <div ref={animateParent} className="space-y-3 max-h-[60vh] overflow-y-auto">
+                  {carts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <ShoppingBag className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                      <p className="text-sm text-muted-foreground">{t('cart.noHeldCarts')}</p>
+                    </div>
+                  ) : (
+                    carts.map((cart) => (
+                      <div
+                        key={cart.id}
+                        className="p-3 bg-muted/20 hover:bg-muted/40 transition-colors rounded-xl border border-border/50 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-foreground truncate">
+                              {cart.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-data">
+                              {t('cart.itemCount', { count: String(cart.items.length) })} &middot;{' '}
+                              {formatCurrency(getCartTotal(cart))}
+                            </p>
+                            <p className="text-xs text-muted-foreground/70">
+                              {t('cart.heldAt', { time: formatRelative(cart.createdAt) })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              isIconOnly
+                              variant="light"
+                              color="primary"
+                              size="sm"
+                              className="h-8 w-8"
+                              onClick={() => handleRetrieve(cart.id)}
+                              title={t('cart.retrieve')}
+                              aria-label={t('cart.retrieve')}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              isIconOnly
+                              variant="light"
+                              color="danger"
+                              size="sm"
+                              className="h-8 w-8"
+                              onClick={() => handleDelete(cart.id)}
+                              title={t('cart.deleteHeld')}
+                              aria-label={t('cart.deleteHeld')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ModalBody>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
 
       {/* Confirm replace cart */}
-      <AlertDialog
+      <ConfirmDialog
         open={confirmRetrieveId !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmRetrieveId(null);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('cart.replaceCart')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('cart.replaceCartConfirm')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmRetrieveId && doRetrieve(confirmRetrieveId)}>
-              {t('cart.replaceCart')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={t('cart.replaceCart')}
+        description={t('cart.replaceCartConfirm')}
+        confirmText={t('cart.replaceCart')}
+        confirmColor="primary"
+        onConfirm={() => confirmRetrieveId && doRetrieve(confirmRetrieveId)}
+      />
 
       {/* Confirm delete */}
-      <AlertDialog
+      <ConfirmDialog
         open={confirmDeleteId !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmDeleteId(null);
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('cart.deleteHeld')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('cart.deleteHeldConfirm')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={doDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {t('common.delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={t('cart.deleteHeld')}
+        description={t('cart.deleteHeldConfirm')}
+        confirmText={t('common.delete')}
+        confirmColor="danger"
+        onConfirm={doDelete}
+      />
     </>
   );
 }

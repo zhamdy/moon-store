@@ -3,17 +3,21 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BarChart3, Plus, Play, Trash2, Clock, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../../shared/lib/utils';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
+  Button,
+  Input,
+  Select,
+  SelectItem,
+  Card,
+  CardBody,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
+import { Badge, type BadgeVariant } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
@@ -34,12 +38,12 @@ interface SavedReport {
   created_at: string;
 }
 
-const reportTypeColors: Record<string, string> = {
-  sales: 'bg-green-500/20 text-green-600',
-  inventory: 'bg-blue-500/20 text-blue-600',
-  customers: 'bg-purple-500/20 text-purple-600',
-  financial: 'bg-gold/20 text-gold',
-  custom: 'bg-gray-500/20 text-gray-600',
+const reportTypeVariant: Record<string, BadgeVariant> = {
+  sales: 'success',
+  inventory: 'primary',
+  customers: 'secondary',
+  financial: 'warning',
+  custom: 'default',
 };
 
 const reports = resource<SavedReport>('reports');
@@ -100,132 +104,161 @@ export default function ReportBuilderPage() {
   const fmt = (n: number) => formatCurrency(n);
 
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('reportBuilder.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
-        <div className="flex gap-2">
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('reportBuilder.title')}>
+        <div className="flex items-center gap-2">
           <Button
-            variant={tab === 'saved' ? 'default' : 'outline'}
+            variant={tab === 'saved' ? 'flat' : 'light'}
+            color={tab === 'saved' ? 'primary' : 'default'}
+            size="sm"
             onClick={() => setTab('saved')}
-            className="gap-2"
+            startContent={<FileText className="h-4 w-4" />}
           >
-            <FileText className="h-4 w-4" /> {t('reportBuilder.saved')}
+            {t('reportBuilder.saved')}
           </Button>
           <Button
-            variant={tab === 'quick' ? 'default' : 'outline'}
+            variant={tab === 'quick' ? 'flat' : 'light'}
+            color={tab === 'quick' ? 'primary' : 'default'}
+            size="sm"
             onClick={() => setTab('quick')}
-            className="gap-2"
+            startContent={<Play className="h-4 w-4" />}
           >
-            <Play className="h-4 w-4" /> {t('reportBuilder.quickReport')}
+            {t('reportBuilder.quickReport')}
           </Button>
-          <Button onClick={() => setCreateOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> {t('reportBuilder.create')}
+          <Button
+            color="primary"
+            size="sm"
+            onClick={() => setCreateOpen(true)}
+            startContent={<Plus className="h-4 w-4" />}
+          >
+            {t('reportBuilder.create')}
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       {tab === 'saved' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {!savedReports?.length ? (
             <div className="col-span-full text-center py-16">
-              <BarChart3 className="h-12 w-12 text-gold/40 mx-auto mb-3" />
-              <p className="text-muted">{t('reportBuilder.noReports')}</p>
+              <BarChart3 className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">{t('reportBuilder.noReports')}</p>
             </div>
           ) : (
             savedReports.map((r) => (
-              <div
+              <Card
                 key={r.id}
-                className="p-4 rounded-md border border-border bg-card hover:border-gold/50 transition-colors"
+                className="border border-border bg-card shadow-sm hover:border-border/80 transition-colors"
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium truncate">{r.name}</h3>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => runReport.mutate(r.id)}
-                    >
-                      <Play className="h-3.5 w-3.5 text-green-500" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive"
-                      onClick={() => deleteReport.remove(r.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                <CardBody className="p-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-sm truncate text-foreground">{r.name}</h3>
+                    <div className="flex gap-1">
+                      <Button
+                        isIconOnly
+                        variant="light"
+                        color="success"
+                        size="sm"
+                        className="h-7 w-7"
+                        onClick={() => runReport.mutate(r.id)}
+                        aria-label={t('reportBuilder.run')}
+                      >
+                        <Play className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        isIconOnly
+                        variant="light"
+                        color="danger"
+                        size="sm"
+                        className="h-7 w-7"
+                        onClick={() => deleteReport.remove(r.id)}
+                        aria-label={t('common.delete')}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <Badge className={reportTypeColors[r.report_type]}>{r.report_type}</Badge>
-                {r.description && <p className="text-xs text-muted mt-2">{r.description}</p>}
-                <div className="flex items-center gap-2 mt-2 text-xs text-muted">
-                  <Clock className="h-3 w-3" />
-                  {r.last_run_at
-                    ? new Date(r.last_run_at).toLocaleDateString()
-                    : t('reportBuilder.neverRun')}
-                </div>
-              </div>
+                  <Badge size="sm" variant={reportTypeVariant[r.report_type] || 'default'}>
+                    {r.report_type}
+                  </Badge>
+                  {r.description && (
+                    <p className="text-xs text-muted-foreground mt-2">{r.description}</p>
+                  )}
+                  <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>
+                      {r.last_run_at
+                        ? new Date(r.last_run_at).toLocaleDateString()
+                        : t('reportBuilder.neverRun')}
+                    </span>
+                  </div>
+                </CardBody>
+              </Card>
             ))
           )}
         </div>
       )}
 
       {tab === 'quick' && (
-        <div className="max-w-2xl space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <Label>{t('reportBuilder.reportType')}</Label>
-              <select
-                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-                value={quickForm.type}
+        <Card className="max-w-2xl border border-border bg-card shadow-sm">
+          <CardBody className="p-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Select
+                label={t('reportBuilder.reportType')}
+                size="sm"
+                variant="bordered"
+                selectedKeys={[quickForm.type]}
                 onChange={(e) => setQuickForm({ ...quickForm, type: e.target.value })}
               >
-                <option value="revenue_by_date">{t('reportBuilder.revenueByDate')}</option>
-                <option value="revenue_by_category">{t('reportBuilder.revenueByCategory')}</option>
-                <option value="top_products">{t('reportBuilder.topProducts')}</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label>{t('reportBuilder.dateFrom')}</Label>
+                <SelectItem key="revenue_by_date" textValue={t('reportBuilder.revenueByDate')}>
+                  {t('reportBuilder.revenueByDate')}
+                </SelectItem>
+                <SelectItem
+                  key="revenue_by_category"
+                  textValue={t('reportBuilder.revenueByCategory')}
+                >
+                  {t('reportBuilder.revenueByCategory')}
+                </SelectItem>
+                <SelectItem key="top_products" textValue={t('reportBuilder.topProducts')}>
+                  {t('reportBuilder.topProducts')}
+                </SelectItem>
+              </Select>
               <Input
                 type="date"
+                label={t('reportBuilder.dateFrom')}
+                size="sm"
+                variant="bordered"
                 value={quickForm.date_from}
-                onChange={(e) => setQuickForm({ ...quickForm, date_from: e.target.value })}
+                onValueChange={(val) => setQuickForm({ ...quickForm, date_from: val })}
               />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('reportBuilder.dateTo')}</Label>
               <Input
                 type="date"
+                label={t('reportBuilder.dateTo')}
+                size="sm"
+                variant="bordered"
                 value={quickForm.date_to}
-                onChange={(e) => setQuickForm({ ...quickForm, date_to: e.target.value })}
+                onValueChange={(val) => setQuickForm({ ...quickForm, date_to: val })}
               />
             </div>
-          </div>
-          <Button
-            onClick={() => runQuick.mutate(quickForm)}
-            disabled={runQuick.isPending}
-            className="gap-2"
-          >
-            <Play className="h-4 w-4" /> {t('reportBuilder.run')}
-          </Button>
-        </div>
+            <Button
+              color="primary"
+              size="sm"
+              onClick={() => runQuick.mutate(quickForm)}
+              isLoading={runQuick.isPending}
+              startContent={!runQuick.isPending && <Play className="h-4 w-4" />}
+            >
+              {t('reportBuilder.run')}
+            </Button>
+          </CardBody>
+        </Card>
       )}
 
       {resultData && resultData.length > 0 && (
-        <div className="mt-6 overflow-x-auto border border-border rounded-md">
+        <div className="mt-6 overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
           <table className="w-full text-sm">
-            <thead className="bg-surface border-b border-border">
+            <thead className="border-b border-border text-muted-foreground">
               <tr>
                 {Object.keys(resultData[0]).map((k) => (
-                  <th key={k} className="text-start p-3 font-medium text-muted">
+                  <th key={k} className="text-start p-3 font-medium">
                     {k}
                   </th>
                 ))}
@@ -233,7 +266,7 @@ export default function ReportBuilderPage() {
             </thead>
             <tbody>
               {resultData.map((row, i) => (
-                <tr key={i} className="border-b border-border">
+                <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
                   {Object.values(row).map((v, j) => (
                     <td key={j} className="p-3 font-data">
                       {typeof v === 'number' && v > 100 ? fmt(v) : String(v ?? '—')}
@@ -246,68 +279,103 @@ export default function ReportBuilderPage() {
         </div>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('reportBuilder.create')}</DialogTitle>
-            <DialogDescription>{t('reportBuilder.createDesc')}</DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              createReport.save(form);
-            }}
-            className="space-y-3"
-          >
-            <div className="space-y-1">
-              <Label>{t('reportBuilder.name')}</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('reportBuilder.description')}</Label>
-              <Input
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>{t('reportBuilder.reportType')}</Label>
-                <select
-                  className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-                  value={form.report_type}
-                  onChange={(e) => setForm({ ...form, report_type: e.target.value })}
-                >
-                  <option value="sales">{t('reportBuilder.sales')}</option>
-                  <option value="inventory">{t('reportBuilder.inventory')}</option>
-                  <option value="customers">{t('reportBuilder.customers')}</option>
-                  <option value="financial">{t('reportBuilder.financial')}</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label>{t('reportBuilder.chartType')}</Label>
-                <select
-                  className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-                  value={form.chart_type}
-                  onChange={(e) => setForm({ ...form, chart_type: e.target.value })}
-                >
-                  <option value="table">{t('reportBuilder.table')}</option>
-                  <option value="bar">{t('reportBuilder.bar')}</option>
-                  <option value="line">{t('reportBuilder.line')}</option>
-                  <option value="pie">{t('reportBuilder.pie')}</option>
-                </select>
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={createReport.isSaving}>
-              {createReport.isSaving ? t('common.saving') : t('common.save')}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        isOpen={createOpen}
+        onOpenChange={setCreateOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                createReport.save(form);
+              }}
+            >
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('reportBuilder.create')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('reportBuilder.createDesc')}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4 space-y-4">
+                <Input
+                  label={t('reportBuilder.name')}
+                  size="sm"
+                  variant="bordered"
+                  value={form.name}
+                  onValueChange={(val) => setForm({ ...form, name: val })}
+                  isRequired
+                />
+                <Input
+                  label={t('reportBuilder.description')}
+                  size="sm"
+                  variant="bordered"
+                  value={form.description}
+                  onValueChange={(val) => setForm({ ...form, description: val })}
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <Select
+                    label={t('reportBuilder.reportType')}
+                    size="sm"
+                    variant="bordered"
+                    selectedKeys={[form.report_type]}
+                    onChange={(e) => setForm({ ...form, report_type: e.target.value })}
+                  >
+                    <SelectItem key="sales" textValue={t('reportBuilder.sales')}>
+                      {t('reportBuilder.sales')}
+                    </SelectItem>
+                    <SelectItem key="inventory" textValue={t('reportBuilder.inventory')}>
+                      {t('reportBuilder.inventory')}
+                    </SelectItem>
+                    <SelectItem key="customers" textValue={t('reportBuilder.customers')}>
+                      {t('reportBuilder.customers')}
+                    </SelectItem>
+                    <SelectItem key="financial" textValue={t('reportBuilder.financial')}>
+                      {t('reportBuilder.financial')}
+                    </SelectItem>
+                  </Select>
+                  <Select
+                    label={t('reportBuilder.chartType')}
+                    size="sm"
+                    variant="bordered"
+                    selectedKeys={[form.chart_type]}
+                    onChange={(e) => setForm({ ...form, chart_type: e.target.value })}
+                  >
+                    <SelectItem key="table" textValue={t('reportBuilder.table')}>
+                      {t('reportBuilder.table')}
+                    </SelectItem>
+                    <SelectItem key="bar" textValue={t('reportBuilder.bar')}>
+                      {t('reportBuilder.bar')}
+                    </SelectItem>
+                    <SelectItem key="line" textValue={t('reportBuilder.line')}>
+                      {t('reportBuilder.line')}
+                    </SelectItem>
+                    <SelectItem key="pie" textValue={t('reportBuilder.pie')}>
+                      {t('reportBuilder.pie')}
+                    </SelectItem>
+                  </Select>
+                </div>
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={() => setCreateOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button color="primary" size="sm" type="submit" isLoading={createReport.isSaving}>
+                  {createReport.isSaving ? t('common.saving') : t('common.save')}
+                </Button>
+              </ModalFooter>
+            </form>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

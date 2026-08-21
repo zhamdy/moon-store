@@ -13,10 +13,7 @@ import {
   type OnChangeFn,
 } from '@tanstack/react-table';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Skeleton } from '../ui/skeleton';
+import { Input, Button, Select, SelectItem, Skeleton } from '@heroui/react';
 import EmptyState from './EmptyState';
 import { useTranslation } from '../i18n/index';
 
@@ -72,45 +69,54 @@ export default function DataTable<TData>({
   if (isLoading) {
     return (
       <div className="space-y-3" aria-busy="true">
-        {enableSearch && <Skeleton className="h-10 w-full sm:w-72" />}
-        <Skeleton className="h-10 w-full" />
+        {enableSearch && <Skeleton className="h-10 w-full sm:w-72 rounded-lg" />}
+        <Skeleton className="h-10 w-full rounded-lg" />
         {[...Array(5)].map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
+          <Skeleton key={i} className="h-12 w-full rounded-lg" />
         ))}
       </div>
     );
   }
 
+  const pageSizeOptions = [
+    { key: '10', label: '10' },
+    { key: '25', label: '25' },
+    { key: '50', label: '50' },
+  ];
+
   return (
     <div className="space-y-4">
       {enableSearch && (
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
+        <div className="w-full sm:w-72">
           <Input
+            size="sm"
+            variant="bordered"
             placeholder={searchPlaceholder || t('common.search')}
             value={globalFilter}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGlobalFilter(e.target.value)}
-            className="ps-9"
+            onValueChange={setGlobalFilter}
+            startContent={<Search className="h-4 w-4 text-muted-foreground" />}
+            isClearable
+            onClear={() => setGlobalFilter('')}
             aria-label={searchPlaceholder || t('common.search')}
           />
         </div>
       )}
 
-      <div className="rounded-md border border-border overflow-hidden shadow-sm relative">
+      <div className="rounded-lg border border-border bg-card overflow-hidden shadow-sm relative">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px] text-sm font-data">
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr
                   key={headerGroup.id}
-                  className="bg-table-header border-b border-border sticky top-0 z-10"
+                  className="bg-slate-100 dark:bg-zinc-800/90 border-b border-border sticky top-0 z-10"
                 >
                   {headerGroup.headers.map((header) => {
                     const sorted = header.column.getIsSorted();
                     return (
                       <th
                         key={header.id}
-                        className="px-4 py-3 text-start font-semibold text-muted tracking-widest uppercase text-[11px]"
+                        className="px-4 py-3 text-start font-semibold text-slate-700 dark:text-slate-200 tracking-wider uppercase text-[11px]"
                         aria-sort={
                           header.column.getCanSort()
                             ? sorted === 'asc'
@@ -124,15 +130,15 @@ export default function DataTable<TData>({
                         {header.isPlaceholder ? null : header.column.getCanSort() ? (
                           <button
                             type="button"
-                            className="flex items-center gap-2 cursor-pointer select-none"
+                            className="flex items-center gap-2 cursor-pointer select-none text-slate-700 dark:text-slate-200 hover:text-foreground transition-colors"
                             onClick={header.column.getToggleSortingHandler()}
                           >
                             {flexRender(header.column.columnDef.header, header.getContext())}
-                            <span className="text-gold">
+                            <span>
                               {sorted === 'asc' ? (
-                                <ArrowUp className="h-3.5 w-3.5" />
+                                <ArrowUp className="h-3.5 w-3.5 text-primary" />
                               ) : sorted === 'desc' ? (
-                                <ArrowDown className="h-3.5 w-3.5" />
+                                <ArrowDown className="h-3.5 w-3.5 text-primary" />
                               ) : (
                                 <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
                               )}
@@ -165,15 +171,15 @@ export default function DataTable<TData>({
                   const subContent = renderSubComponent ? renderSubComponent(row.original) : null;
                   return (
                     <Fragment key={row.id}>
-                      <tr className="group border-b border-border hover:bg-surface/50 transition-colors">
+                      <tr className="group border-b border-border/60 hover:bg-muted/40 transition-colors">
                         {row.getVisibleCells().map((cell) => (
-                          <td key={cell.id} className="px-4 py-3.5 text-foreground">
+                          <td key={cell.id} className="px-4 py-3 text-foreground">
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         ))}
                       </tr>
                       {subContent && (
-                        <tr className="bg-surface/30">
+                        <tr className="bg-muted/20 border-b border-border/60">
                           <td colSpan={columns.length} className="px-6 py-3">
                             {subContent}
                           </td>
@@ -191,22 +197,31 @@ export default function DataTable<TData>({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between border-t border-border pt-4">
-        <div className="flex items-center gap-2 text-sm text-muted">
+      <div className="flex items-center justify-between border-t border-border pt-4 flex-wrap gap-3">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>{t('common.rowsPerPage')}</span>
-          <Select
-            value={String(table.getState().pagination.pageSize)}
-            onValueChange={(val: string) => table.setPageSize(Number(val))}
-          >
-            <SelectTrigger className="w-[70px] h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="25">25</SelectItem>
-              <SelectItem value="50">50</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="w-20">
+            <Select
+              size="sm"
+              variant="bordered"
+              aria-label={t('common.rowsPerPage')}
+              selectedKeys={[String(table.getState().pagination.pageSize)]}
+              onChange={(e) => {
+                if (e.target.value) {
+                  table.setPageSize(Number(e.target.value));
+                }
+              }}
+              classNames={{
+                trigger: 'h-8 min-h-8',
+              }}
+            >
+              {pageSizeOptions.map((opt) => (
+                <SelectItem key={opt.key} textValue={opt.label}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </Select>
+          </div>
           <span>
             {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
             {' - '}
@@ -220,18 +235,18 @@ export default function DataTable<TData>({
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="bordered"
             size="sm"
             onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            isDisabled={!table.getCanPreviousPage()}
           >
             {t('common.previous')}
           </Button>
           <Button
-            variant="outline"
+            variant="bordered"
             size="sm"
             onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
+            isDisabled={!table.getCanNextPage()}
           >
             {t('common.next')}
           </Button>

@@ -3,14 +3,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Clock, Landmark } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Input,
+} from '@heroui/react';
 import { useAuthStore } from '../../auth';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
@@ -19,9 +19,6 @@ import type { RegisterSession, Shift } from '../types';
 
 const SESSION_KEY = 'moon-startup-dismissed';
 
-// The same two collections the Shifts and Register pages own. Reading them
-// through `resource` puts this prompt on their cache entries rather than on a
-// private pair of keys, so clocking in from either place refreshes both.
 const shifts = resource<Shift>('shifts');
 const register = resource<RegisterSession>('register');
 
@@ -45,9 +42,6 @@ export default function StartupPrompt() {
   const { data: currentSession, isLoading: registerLoading } =
     register.useRead<RegisterSession | null>('current', undefined, isEligible && !dismissed);
 
-  // Clocking in and opening the drawer act on the collection, not on a record,
-  // and `resource` only knows actions that hang off a record id — the same
-  // reason the Shifts and Register pages reach the transport for these two.
   const clockInMutation = useMutation({
     mutationFn: () => transport.request({ method: 'POST', path: 'shifts/clock-in' }),
     onSuccess: () => {
@@ -91,71 +85,89 @@ export default function StartupPrompt() {
   };
 
   return (
-    <Dialog open onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle className="font-display tracking-wider">{t('startup.title')}</DialogTitle>
-          <DialogDescription className="sr-only">{t('startup.title')}</DialogDescription>
-        </DialogHeader>
+    <Modal
+      isOpen
+      onOpenChange={() => {}}
+      isDismissable={false}
+      hideCloseButton
+      backdrop="blur"
+      placement="center"
+      size="md"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl',
+      }}
+    >
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader className="border-b border-border/50">
+              <h3 className="text-base font-semibold">{t('startup.title')}</h3>
+            </ModalHeader>
 
-        <div className="space-y-6 py-2">
-          {needsShift && (
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 rounded-full bg-gold/20 flex items-center justify-center shrink-0">
-                <Clock className="h-5 w-5 text-gold" />
-              </div>
-              <div className="flex-1 space-y-2">
-                <p className="text-sm text-foreground font-medium">{t('startup.shiftMessage')}</p>
-                <Button
-                  onClick={handleClockIn}
-                  disabled={clockInMutation.isPending}
-                  className="bg-gold hover:bg-gold-dark text-white"
-                >
-                  {t('startup.clockIn')}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {!needsShift && needsRegister && (
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 rounded-full bg-gold/20 flex items-center justify-center shrink-0">
-                <Landmark className="h-5 w-5 text-gold" />
-              </div>
-              <div className="flex-1 space-y-3">
-                <p className="text-sm text-foreground font-medium">
-                  {t('startup.registerMessage')}
-                </p>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted">{t('startup.openingFloat')}</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={openingFloat}
-                    onChange={(e) => setOpeningFloat(e.target.value)}
-                    placeholder="0.00"
-                    className="font-data"
-                  />
+            <ModalBody className="space-y-6 py-4">
+              {needsShift && (
+                <div className="flex items-start gap-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Clock className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <p className="text-sm text-foreground font-medium">
+                      {t('startup.shiftMessage')}
+                    </p>
+                    <Button
+                      color="primary"
+                      size="sm"
+                      onClick={handleClockIn}
+                      isLoading={clockInMutation.isPending}
+                    >
+                      {t('startup.clockIn')}
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  onClick={handleOpenRegister}
-                  disabled={openRegisterMutation.isPending}
-                  className="bg-gold hover:bg-gold-dark text-white"
-                >
-                  {t('startup.openRegister')}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+              )}
 
-        <div className="flex justify-end">
-          <Button variant="ghost" onClick={handleSkip}>
-            {t('startup.skip')}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+              {!needsShift && needsRegister && (
+                <div className="flex items-start gap-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Landmark className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <p className="text-sm text-foreground font-medium">
+                      {t('startup.registerMessage')}
+                    </p>
+                    <Input
+                      type="number"
+                      label={t('startup.openingFloat')}
+                      size="sm"
+                      variant="bordered"
+                      min="0"
+                      step="0.01"
+                      value={openingFloat}
+                      onValueChange={setOpeningFloat}
+                      placeholder="0.00"
+                      className="font-data"
+                    />
+                    <Button
+                      color="primary"
+                      size="sm"
+                      onClick={handleOpenRegister}
+                      isLoading={openRegisterMutation.isPending}
+                    >
+                      {t('startup.openRegister')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </ModalBody>
+
+            <ModalFooter className="border-t border-border/50">
+              <Button variant="light" size="sm" onClick={handleSkip}>
+                {t('startup.skip')}
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

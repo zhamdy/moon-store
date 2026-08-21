@@ -2,24 +2,17 @@ import { useRef, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Upload, Trash2, ImagePlus } from 'lucide-react';
-import { Button } from '../../../../shared/ui/button';
-import { Input } from '../../../../shared/ui/input';
-import { Label } from '../../../../shared/ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '../../../../shared/ui/dialog';
-import {
+  Button,
+  Input,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
   Select,
-  SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../../shared/ui/select';
+} from '@heroui/react';
 import { useTransport } from '../../../../shared/lib/transport/index';
 import { useTranslation } from '../../../../shared/i18n/index';
 import type { Product, Category, Distributor } from '../../../../shared/types/index';
@@ -56,9 +49,6 @@ export default function ProductFormDialog({
 }: ProductFormDialogProps) {
   const { t } = useTranslation();
   const imageInputRef = useRef<HTMLInputElement>(null);
-  // The SKU and barcode generators are one-shot reads whose whole point is a
-  // fresh value per call, so they go to the transport directly rather than
-  // through a query hook that would hand the next product a cached barcode.
   const transport = useTransport();
 
   const {
@@ -136,175 +126,218 @@ export default function ProductFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {editingProduct ? t('inventory.editProduct') : t('inventory.addProductTitle')}
-          </DialogTitle>
-          <DialogDescription>
-            {editingProduct ? t('inventory.updateDetails') : t('inventory.addToInventory')}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{t('common.name')}</Label>
-              <Input {...register('name')} />
-              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>{t('inventory.categoryCol')}</Label>
-              <Controller
-                name="category_id"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ''}
-                    onValueChange={(val) => field.onChange(val ? Number(val) : null)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('inventory.selectCategory')} />
-                    </SelectTrigger>
-                    <SelectContent>
+    <Modal
+      isOpen={open}
+      onOpenChange={handleOpenChange}
+      backdrop="blur"
+      placement="center"
+      size="2xl"
+      scrollBehavior="inside"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl',
+      }}
+    >
+      <ModalContent>
+        {() => (
+          <form onSubmit={handleSubmit(handleFormSubmit)}>
+            <ModalHeader className="border-b border-border/50">
+              <div>
+                <h3 className="text-base font-semibold">
+                  {editingProduct ? t('inventory.editProduct') : t('inventory.addProductTitle')}
+                </h3>
+                <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                  {editingProduct ? t('inventory.updateDetails') : t('inventory.addToInventory')}
+                </p>
+              </div>
+            </ModalHeader>
+            <ModalBody className="py-4 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label={t('common.name')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('name')}
+                  isInvalid={!!errors.name}
+                  errorMessage={errors.name?.message}
+                />
+                <Controller
+                  name="category_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      label={t('inventory.categoryCol')}
+                      size="sm"
+                      variant="bordered"
+                      placeholder={t('inventory.selectCategory')}
+                      selectedKeys={field.value ? [String(field.value)] : []}
+                      onChange={(e) =>
+                        field.onChange(e.target.value ? Number(e.target.value) : null)
+                      }
+                    >
                       {categories?.map((cat) => (
-                        <SelectItem key={cat.id} value={String(cat.id)}>
+                        <SelectItem key={String(cat.id)} textValue={cat.name}>
                           {cat.name}
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            {/* SKU & Barcode: read-only display for edit, hidden for create (auto-generated) */}
-            {editingProduct ? (
-              <div className="space-y-2">
-                <Label>{t('inventory.sku')}</Label>
-                <Input value={editingProduct.sku} readOnly className="bg-muted/20 cursor-default" />
-              </div>
-            ) : null}
-            {editingProduct ? (
-              <div className="space-y-2">
-                <Label>{t('inventory.barcode')}</Label>
-                <Input
-                  value={editingProduct.barcode || '-'}
-                  readOnly
-                  className="bg-muted/20 cursor-default"
+                      )) || []}
+                    </Select>
+                  )}
                 />
-              </div>
-            ) : null}
-            <input type="hidden" {...register('sku')} />
-            <input type="hidden" {...register('barcode')} />
-            <div className="space-y-2">
-              <Label>{t('inventory.price')}</Label>
-              <Input type="number" step="0.01" {...register('price')} />
-              {errors.price && <p className="text-xs text-destructive">{errors.price.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>{t('inventory.costPrice')}</Label>
-              <Input type="number" step="0.01" {...register('cost_price')} />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('inventory.stock')}</Label>
-              <Input type="number" {...register('stock')} />
-              {errors.stock && <p className="text-xs text-destructive">{errors.stock.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>{t('inventory.distributor')}</Label>
-              <Controller
-                name="distributor_id"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : 'none'}
-                    onValueChange={(val) => field.onChange(val === 'none' ? null : Number(val))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('inventory.selectDistributor')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{t('inventory.noDistributor')}</SelectItem>
+
+                {/* SKU & Barcode: read-only display for edit, hidden for create (auto-generated) */}
+                {editingProduct ? (
+                  <Input
+                    label={t('inventory.sku')}
+                    size="sm"
+                    variant="bordered"
+                    value={editingProduct.sku}
+                    isReadOnly
+                    className="cursor-default"
+                  />
+                ) : null}
+                {editingProduct ? (
+                  <Input
+                    label={t('inventory.barcode')}
+                    size="sm"
+                    variant="bordered"
+                    value={editingProduct.barcode || '-'}
+                    isReadOnly
+                    className="cursor-default"
+                  />
+                ) : null}
+                <input type="hidden" {...register('sku')} />
+                <input type="hidden" {...register('barcode')} />
+
+                <Input
+                  type="number"
+                  step="0.01"
+                  label={t('inventory.price')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('price')}
+                  isInvalid={!!errors.price}
+                  errorMessage={errors.price?.message}
+                />
+                <Input
+                  type="number"
+                  step="0.01"
+                  label={t('inventory.costPrice')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('cost_price')}
+                />
+                <Input
+                  type="number"
+                  label={t('inventory.stock')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('stock')}
+                  isInvalid={!!errors.stock}
+                  errorMessage={errors.stock?.message}
+                />
+                <Controller
+                  name="distributor_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      label={t('inventory.distributor')}
+                      size="sm"
+                      variant="bordered"
+                      placeholder={t('inventory.selectDistributor')}
+                      selectedKeys={field.value ? [String(field.value)] : ['none']}
+                      onChange={(e) =>
+                        field.onChange(e.target.value === 'none' ? null : Number(e.target.value))
+                      }
+                    >
+                      <SelectItem key="none" textValue={t('inventory.noDistributor')}>
+                        {t('inventory.noDistributor')}
+                      </SelectItem>
                       {distributors?.map((d) => (
-                        <SelectItem key={d.id} value={String(d.id)}>
+                        <SelectItem key={String(d.id)} textValue={d.name}>
                           {d.name}
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('inventory.minStockAlert')}</Label>
-              <Input type="number" {...register('min_stock')} />
-            </div>
-          </div>
-
-          {/* Image upload (only for existing products) */}
-          {editingProduct && (
-            <div className="space-y-2 border-t border-border pt-4">
-              <Label>{t('inventory.productImage')}</Label>
-              <div className="flex items-center gap-3">
-                {editingProduct.image_url ? (
-                  <img
-                    src={`${assetBase}${editingProduct.image_url}`}
-                    alt={editingProduct.name}
-                    className="h-16 w-16 rounded object-cover border border-border"
-                  />
-                ) : (
-                  <div className="h-16 w-16 rounded bg-muted/30 flex items-center justify-center border border-dashed border-border">
-                    <ImagePlus className="h-6 w-6 text-muted" />
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <input
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.webp"
-                    ref={imageInputRef}
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file && editingProduct) {
-                        onImageUpload(editingProduct.id, file);
-                      }
-                      e.target.value = '';
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => imageInputRef.current?.click()}
-                  >
-                    <Upload className="h-3.5 w-3.5 me-1" />
-                    {t('inventory.uploadImage')}
-                  </Button>
-                  {editingProduct.image_url && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={() => onImageRemove(editingProduct.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 me-1" />
-                      {t('inventory.removeImage')}
-                    </Button>
+                      )) || []}
+                    </Select>
                   )}
-                </div>
+                />
+                <Input
+                  type="number"
+                  label={t('inventory.minStockAlert')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('min_stock')}
+                />
               </div>
-            </div>
-          )}
 
-          <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
-              {editingProduct ? t('common.update') : t('common.create')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              {/* Image upload (only for existing products) */}
+              {editingProduct && (
+                <div className="space-y-2 border-t border-border pt-4">
+                  <p className="text-xs font-medium text-foreground">
+                    {t('inventory.productImage')}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {editingProduct.image_url ? (
+                      <img
+                        src={`${assetBase}${editingProduct.image_url}`}
+                        alt={editingProduct.name}
+                        className="h-16 w-16 rounded-lg object-cover border border-border"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-lg bg-muted/30 flex items-center justify-center border border-dashed border-border">
+                        <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp"
+                        ref={imageInputRef}
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file && editingProduct) {
+                            onImageUpload(editingProduct.id, file);
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="bordered"
+                        size="sm"
+                        startContent={<Upload className="h-3.5 w-3.5" />}
+                        onClick={() => imageInputRef.current?.click()}
+                      >
+                        {t('inventory.uploadImage')}
+                      </Button>
+                      {editingProduct.image_url && (
+                        <Button
+                          type="button"
+                          variant="light"
+                          color="danger"
+                          size="sm"
+                          startContent={<Trash2 className="h-3.5 w-3.5" />}
+                          onClick={() => onImageRemove(editingProduct.id)}
+                        >
+                          {t('inventory.removeImage')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </ModalBody>
+            <ModalFooter className="border-t border-border/50">
+              <Button variant="flat" size="sm" onClick={() => handleOpenChange(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button color="primary" size="sm" type="submit" isLoading={isSubmitting}>
+                {editingProduct ? t('common.update') : t('common.create')}
+              </Button>
+            </ModalFooter>
+          </form>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }
 

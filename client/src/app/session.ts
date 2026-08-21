@@ -14,13 +14,15 @@ import { onSessionEvent } from '../shared/lib/session';
 import { useAuthStore } from '../features/auth';
 import { useOfflineStore } from '../shared/store/offlineStore';
 import { useCartStore } from '../features/pos';
+import { router } from './router';
 
 setAuthPort({
   getAccessToken: () => useAuthStore.getState().accessToken,
   onTokenRefreshed: (user, accessToken) => useAuthStore.getState().login(user, accessToken),
   onAuthFailure: () => {
     useAuthStore.getState().logout();
-    window.location.href = '/login';
+    router.navigate({ to: '/login' });
+    router.invalidate();
   },
 });
 
@@ -33,4 +35,5 @@ onSessionEvent('logout', () => {
   queryClient.clear();
   useOfflineStore.getState().clearQueue();
   useCartStore.getState().clearCart();
+  router.invalidate();
 });

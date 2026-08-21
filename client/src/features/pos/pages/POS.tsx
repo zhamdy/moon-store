@@ -12,11 +12,9 @@ import {
   Percent,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Input } from '../../../shared/ui/input';
-import { Button } from '../../../shared/ui/button';
-import { Card, CardContent } from '../../../shared/ui/card';
-import { Badge } from '../../../shared/ui/badge';
-import { Skeleton } from '../../../shared/ui/skeleton';
+import { Input, Button, Card, CardBody, Skeleton } from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import CartPanel from '../components/CartPanel';
 import BarcodeScanner from '../../../shared/components/BarcodeScanner';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';
@@ -158,8 +156,6 @@ export default function POS() {
   const handleBarcodeDetected = useCallback(
     async (barcode: string) => {
       try {
-        // A one-shot lookup fired from a scanner callback rather than a render,
-        // so it goes through the transport directly instead of a query hook.
         const { data: product } = await transport.request<Product>({
           method: 'GET',
           path: `products/barcode/${barcode}`,
@@ -205,11 +201,11 @@ export default function POS() {
     return product.stock;
   };
 
-  const getStockVariant = (product: Product) => {
+  const getStockColor = (product: Product): 'danger' | 'warning' | 'success' => {
     const stock = getEffectiveStock(product);
-    if (stock === 0) return 'destructive' as const;
-    if (stock <= product.min_stock) return 'warning' as const;
-    return 'success' as const;
+    if (stock === 0) return 'danger';
+    if (stock <= product.min_stock) return 'warning';
+    return 'success';
   };
 
   const isBundleInStock = (bundle: PosBundle) =>
@@ -235,86 +231,85 @@ export default function POS() {
   };
 
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-6">
-        <h1 className="text-3xl font-display tracking-wider text-foreground">{t('pos.title')}</h1>
-        <div className="gold-divider mt-2" />
-      </div>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('pos.title')} />
 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left panel - Products */}
         <div className="flex-1 space-y-4">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <div className="relative flex-1">
-              <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
               <Input
                 ref={searchInputRef}
+                size="sm"
+                variant="bordered"
                 placeholder={t('pos.searchPlaceholder')}
                 value={searchInput}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchInput(e.target.value)}
-                className="ps-9"
+                startContent={<Search className="h-4 w-4 text-primary" />}
               />
             </div>
             <Button
-              variant={showScanner ? 'default' : 'outline'}
+              variant={showScanner ? 'solid' : 'bordered'}
+              color={showScanner ? 'primary' : 'default'}
+              size="sm"
               onClick={() => setShowScanner(!showScanner)}
-              className="gap-2"
+              startContent={<Camera className="h-4 w-4" />}
             >
-              <Camera className="h-4 w-4" />
               {t('pos.scan')}
             </Button>
             <Button
-              variant="ghost"
-              size="icon"
+              isIconOnly
+              variant="light"
+              size="sm"
               onClick={() => setShowShortcuts(true)}
               title={t('pos.shortcuts')}
+              aria-label={t('pos.shortcuts')}
               className="hidden lg:flex"
             >
-              <Keyboard className="h-4 w-4 text-gold" />
+              <Keyboard className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
 
           {/* Category filter chips */}
           {categories && categories.length > 0 && (
-            <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:overflow-x-auto pb-1 scrollbar-thin">
-              <button
+            <div className="flex flex-wrap gap-1.5 sm:flex-nowrap sm:overflow-x-auto pb-1 scrollbar-thin">
+              <Button
+                size="sm"
+                variant={selectedCategory === null ? 'solid' : 'bordered'}
+                color={selectedCategory === null ? 'primary' : 'default'}
+                className="rounded-full text-xs h-7 px-3 min-w-0"
                 onClick={() => setSelectedCategory(null)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  selectedCategory === null
-                    ? 'bg-gold text-primary-foreground'
-                    : 'bg-surface text-muted border border-border hover:border-gold/50'
-                }`}
               >
                 {t('pos.allCategories')}
-              </button>
+              </Button>
               {categories.map((cat) => (
-                <button
+                <Button
                   key={cat.id}
+                  size="sm"
+                  variant={selectedCategory === cat.id ? 'solid' : 'bordered'}
+                  color={selectedCategory === cat.id ? 'primary' : 'default'}
+                  className="rounded-full text-xs h-7 px-3 min-w-0"
                   onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    selectedCategory === cat.id
-                      ? 'bg-gold text-primary-foreground'
-                      : 'bg-surface text-muted border border-border hover:border-gold/50'
-                  }`}
                 >
                   {cat.name}
-                </button>
+                </Button>
               ))}
             </div>
           )}
 
           {/* Cart recovery banner */}
           {showRecoveryBanner && (
-            <div className="flex items-center gap-3 p-3 rounded-md border border-gold/50 bg-gold/5">
-              <AlertCircle className="h-5 w-5 text-gold shrink-0" />
-              <p className="text-sm flex-1">{t('cart.recoveredCart')}</p>
-              <Button size="sm" variant="outline" onClick={() => setShowRecoveryBanner(false)}>
+            <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5">
+              <AlertCircle className="h-5 w-5 text-primary shrink-0" />
+              <p className="text-sm text-foreground flex-1">{t('cart.recoveredCart')}</p>
+              <Button size="sm" variant="bordered" onClick={() => setShowRecoveryBanner(false)}>
                 {t('cart.keepCart')}
               </Button>
               <Button
                 size="sm"
-                variant="ghost"
-                className="text-destructive"
+                variant="light"
+                color="danger"
                 onClick={() => {
                   clearCart();
                   setShowRecoveryBanner(false);
@@ -328,8 +323,8 @@ export default function POS() {
           {/* Favorites grid */}
           {favorites && favorites.length > 0 && products && (
             <div className="space-y-2">
-              <h3 className="text-xs font-medium uppercase tracking-widest text-muted flex items-center gap-1.5">
-                <Star className="h-3 w-3 text-gold" /> {t('pos.favorites')}
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Star className="h-3.5 w-3.5 text-primary" /> {t('pos.favorites')}
               </h3>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {favorites.map((favId) => {
@@ -338,11 +333,14 @@ export default function POS() {
                   return (
                     <button
                       key={favId}
+                      type="button"
                       onClick={() => handleProductClick(product)}
-                      className="shrink-0 px-4 py-2 rounded-md border border-gold/30 bg-gold/5 hover:bg-gold/10 transition-colors"
+                      className="shrink-0 px-3.5 py-2 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors text-start"
                     >
-                      <p className="text-sm font-medium truncate max-w-32">{product.name}</p>
-                      <p className="text-xs text-gold font-data">
+                      <p className="text-sm font-medium text-foreground truncate max-w-32">
+                        {product.name}
+                      </p>
+                      <p className="text-xs text-primary font-data font-semibold">
                         {formatCurrency(Number(product.price))}
                       </p>
                     </button>
@@ -355,8 +353,8 @@ export default function POS() {
           {/* Bundles section */}
           {bundles && bundles.length > 0 && products && (
             <div className="space-y-2">
-              <h3 className="text-xs font-medium uppercase tracking-widest text-muted flex items-center gap-1.5">
-                <Gift className="h-3 w-3 text-gold" /> {t('pos.bundles')}
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Gift className="h-3.5 w-3.5 text-primary" /> {t('pos.bundles')}
               </h3>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {bundles.map((bundle) => {
@@ -364,33 +362,34 @@ export default function POS() {
                   return (
                     <button
                       key={bundle.id}
+                      type="button"
                       onClick={() => handleBundleClick(bundle)}
                       disabled={!inStock}
-                      className={`shrink-0 px-4 py-2 rounded-md border transition-colors text-start ${
+                      className={`shrink-0 px-3.5 py-2 rounded-xl border transition-colors text-start ${
                         inStock
-                          ? 'border-gold/30 bg-gold/5 hover:bg-gold/10'
+                          ? 'border-primary/20 bg-primary/5 hover:bg-primary/10'
                           : 'border-border opacity-50 cursor-not-allowed'
                       }`}
                     >
-                      <p className="text-sm font-medium truncate max-w-40">{bundle.name}</p>
+                      <p className="text-sm font-medium text-foreground truncate max-w-40">
+                        {bundle.name}
+                      </p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted line-through font-data">
+                        <span className="text-xs text-muted-foreground line-through font-data">
                           {formatCurrency(bundle.original_price)}
                         </span>
-                        <span className="text-xs text-gold font-data font-bold">
+                        <span className="text-xs text-primary font-data font-bold">
                           {formatCurrency(bundle.price)}
                         </span>
                         {bundle.savings_percent > 0 && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600">
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-success font-semibold">
                             <Percent className="h-2.5 w-2.5" />
                             {bundle.savings_percent}%
                           </span>
                         )}
                       </div>
                       {!inStock && (
-                        <span className="text-[10px] text-destructive">
-                          {t('bundles.outOfStock')}
-                        </span>
+                        <span className="text-[10px] text-danger">{t('bundles.outOfStock')}</span>
                       )}
                     </button>
                   );
@@ -400,7 +399,7 @@ export default function POS() {
           )}
 
           {showScanner && (
-            <div className="rounded-md border border-border overflow-hidden">
+            <div className="rounded-xl border border-border overflow-hidden bg-card">
               <BarcodeScanner onDetected={handleBarcodeDetected} />
             </div>
           )}
@@ -409,7 +408,7 @@ export default function POS() {
           {isLoadingProducts ? (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
               {[...Array(8)].map((_, i) => (
-                <Skeleton key={i} className="h-36 rounded-md" />
+                <Skeleton key={i} className="h-36 rounded-xl" />
               ))}
             </div>
           ) : (
@@ -417,70 +416,77 @@ export default function POS() {
               {products?.map((product) => (
                 <Card
                   key={product.id}
-                  className={`relative transition-all ${
+                  isPressable={getEffectiveStock(product) > 0}
+                  className={`relative transition-all border border-border bg-card shadow-sm ${
                     getEffectiveStock(product) === 0
                       ? 'opacity-60 cursor-not-allowed'
-                      : 'cursor-pointer hover:border-gold/50 hover:shadow-md'
+                      : 'hover:border-primary/50'
                   }`}
-                  onClick={() => handleProductClick(product)}
+                  onPress={() => handleProductClick(product)}
                 >
                   {getEffectiveStock(product) === 0 && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/60">
-                      <span className="text-xs font-semibold text-destructive uppercase tracking-wider">
+                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/60">
+                      <span className="text-xs font-semibold text-danger uppercase tracking-wider">
                         {t('pos.outOfStock')}
                       </span>
                     </div>
                   )}
-                  <CardContent className="p-4">
+                  <CardBody className="p-3.5">
                     <div className="flex items-start justify-between mb-2">
                       {product.image_url ? (
                         <img
                           src={`${ASSET_BASE_URL}${product.image_url}`}
                           alt={product.name}
-                          className="h-10 w-10 rounded object-cover"
+                          className="h-10 w-10 rounded-lg object-cover border border-border"
                           loading="lazy"
                         />
                       ) : (
-                        <Package className="h-5 w-5 text-gold" />
+                        <div className="h-10 w-10 rounded-lg bg-muted/30 flex items-center justify-center border border-border">
+                          <Package className="h-5 w-5 text-muted-foreground" />
+                        </div>
                       )}
                       <div className="flex items-center gap-1">
                         {product.has_variants > 0 && (
-                          <Badge variant="gold" className="text-[10px] gap-0.5">
-                            <Layers className="h-2.5 w-2.5" />
+                          <Badge size="sm" variant="primary">
+                            <Layers className="h-2.5 w-2.5 inline-block me-0.5" />
                             {product.variant_count}
                           </Badge>
                         )}
-                        <Badge variant={getStockVariant(product)} className="text-[10px]">
+                        <Badge size="sm" variant={getStockColor(product)}>
                           {getEffectiveStock(product)} {t('pos.inStock')}
                         </Badge>
                       </div>
                     </div>
                     {(product.category_name || product.category) && (
-                      <Badge variant="gold" className="text-[10px] mb-1">
+                      <Badge size="sm" variant="default" className="mb-1">
                         {product.category_name || product.category}
                       </Badge>
                     )}
                     <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
-                    <p className="text-[11px] text-muted truncate font-data">
+                    <p className="text-xs text-muted-foreground truncate font-data">
                       {t('pos.sku')}: {product.sku}
                     </p>
                     <div className="flex items-center justify-between mt-1">
-                      <p className="text-lg font-semibold text-gold font-data">
+                      <p className="text-base font-bold text-primary font-data">
                         {formatCurrency(Number(product.price))}
                       </p>
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleFavorite(product.id);
                         }}
-                        className="p-1 rounded hover:bg-surface transition-colors"
+                        className="p-1 rounded hover:bg-muted/40 transition-colors"
+                        aria-label={
+                          favorites?.includes(product.id) ? 'Remove favorite' : 'Add favorite'
+                        }
                       >
                         <Star
-                          className={`h-4 w-4 ${favorites?.includes(product.id) ? 'fill-gold text-gold' : 'text-muted'}`}
+                          className={`h-4 w-4 ${favorites?.includes(product.id) ? 'fill-primary text-primary' : 'text-muted-foreground'}`}
                         />
                       </button>
                     </div>
-                  </CardContent>
+                  </CardBody>
                 </Card>
               ))}
             </div>

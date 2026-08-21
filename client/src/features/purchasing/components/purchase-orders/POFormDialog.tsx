@@ -1,23 +1,16 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { Button } from '../../../../shared/ui/button';
-import { Input } from '../../../../shared/ui/input';
-import { Label } from '../../../../shared/ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '../../../../shared/ui/dialog';
-import {
+  Button,
+  Input,
   Select,
-  SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../../shared/ui/select';
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
 import { formatCurrency } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
 import type { Distributor, Product } from '../../../../shared/types/index';
@@ -57,8 +50,6 @@ export default function POFormDialog({
   const [lineItems, setLineItems] = useState<PurchaseOrderLine[]>(initialLineItems ?? []);
   const [addProductId, setAddProductId] = useState('');
 
-  // Sync initial values when dialog opens with pre-filled data
-  // (React will re-mount when key changes, handled by parent)
   const resetForm = () => {
     setDistributorId('');
     setNotes('');
@@ -106,128 +97,168 @@ export default function POFormDialog({
   const lineTotal = lineItems.reduce((s, li) => s + li.quantity * li.cost_price, 0);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t('po.create')}</DialogTitle>
-          <DialogDescription>{t('po.selectDistributor')}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{t('po.distributor')}</Label>
-              <Select value={distributorId} onValueChange={setDistributorId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('po.selectDistributor')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {distributors?.map((d) => (
-                    <SelectItem key={d.id} value={String(d.id)}>
+    <Modal
+      isOpen={open}
+      onOpenChange={handleOpenChange}
+      backdrop="blur"
+      placement="center"
+      size="2xl"
+      scrollBehavior="inside"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl max-h-[90vh]',
+      }}
+    >
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader className="border-b border-border/50">
+              <div>
+                <h3 className="text-base font-semibold">{t('po.create')}</h3>
+                <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                  {t('po.selectDistributor')}
+                </p>
+              </div>
+            </ModalHeader>
+            <ModalBody className="py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Select
+                  label={t('po.distributor')}
+                  size="sm"
+                  variant="bordered"
+                  selectedKeys={distributorId ? [distributorId] : []}
+                  onChange={(e) => setDistributorId(e.target.value)}
+                >
+                  {(distributors ?? []).map((d) => (
+                    <SelectItem key={String(d.id)} textValue={d.name}>
                       {d.name}
                     </SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>{t('po.notes')}</Label>
-              <Input
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder={t('po.notes')}
-              />
-            </div>
-          </div>
-
-          {/* Add product */}
-          <div className="flex gap-2">
-            <Select value={addProductId} onValueChange={setAddProductId}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder={t('po.selectProduct')} />
-              </SelectTrigger>
-              <SelectContent>
-                {products?.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>
-                    {p.name} ({p.sku})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={handleAddLineItem}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Line items */}
-          {lineItems.length > 0 ? (
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              <div className="grid grid-cols-12 gap-2 text-xs text-muted font-medium px-1">
-                <span className="col-span-5">{t('po.product')}</span>
-                <span className="col-span-2">{t('po.quantity')}</span>
-                <span className="col-span-2">{t('po.costPrice')}</span>
-                <span className="col-span-2">{t('po.total')}</span>
-                <span className="col-span-1" />
+                </Select>
+                <Input
+                  label={t('po.notes')}
+                  size="sm"
+                  variant="bordered"
+                  value={notes}
+                  onValueChange={setNotes}
+                  placeholder={t('po.notes')}
+                />
               </div>
-              {lineItems.map((li, i) => (
-                <div key={li.product_id} className="grid grid-cols-12 gap-2 items-center">
-                  <span className="col-span-5 text-sm truncate">{li.product_name}</span>
-                  <Input
-                    type="number"
-                    className="col-span-2 h-8"
-                    value={li.quantity}
-                    min={1}
-                    onChange={(e) => {
-                      const updated = [...lineItems];
-                      updated[i] = { ...updated[i], quantity: Number(e.target.value) || 1 };
-                      setLineItems(updated);
-                    }}
-                  />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    className="col-span-2 h-8"
-                    value={li.cost_price}
-                    onChange={(e) => {
-                      const updated = [...lineItems];
-                      updated[i] = { ...updated[i], cost_price: Number(e.target.value) || 0 };
-                      setLineItems(updated);
-                    }}
-                  />
-                  <span className="col-span-2 text-sm font-data text-gold">
-                    {formatCurrency(li.quantity * li.cost_price)}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="col-span-1 h-7 w-7"
-                    onClick={() => setLineItems(lineItems.filter((_, j) => j !== i))}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
+
+              {/* Add product */}
+              <div className="flex gap-2 items-center">
+                <Select
+                  label={t('po.selectProduct')}
+                  size="sm"
+                  variant="bordered"
+                  className="flex-1"
+                  selectedKeys={addProductId ? [addProductId] : []}
+                  onChange={(e) => setAddProductId(e.target.value)}
+                >
+                  {(products ?? []).map((p) => (
+                    <SelectItem key={String(p.id)} textValue={`${p.name} (${p.sku})`}>
+                      {p.name} ({p.sku})
+                    </SelectItem>
+                  ))}
+                </Select>
+                <Button
+                  isIconOnly
+                  variant="bordered"
+                  size="sm"
+                  className="h-10 w-10"
+                  onClick={handleAddLineItem}
+                  isDisabled={!addProductId}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Line items */}
+              {lineItems.length > 0 ? (
+                <div className="border border-border rounded-xl divide-y divide-border overflow-hidden bg-card">
+                  <div className="grid grid-cols-12 gap-2 text-xs text-muted-foreground font-semibold uppercase tracking-wider p-2.5 bg-muted/20">
+                    <span className="col-span-5">{t('po.product')}</span>
+                    <span className="col-span-2">{t('po.quantity')}</span>
+                    <span className="col-span-2">{t('po.costPrice')}</span>
+                    <span className="col-span-2">{t('po.total')}</span>
+                    <span className="col-span-1" />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto divide-y divide-border/40">
+                    {lineItems.map((li, i) => (
+                      <div
+                        key={li.product_id}
+                        className="grid grid-cols-12 gap-2 items-center p-2.5"
+                      >
+                        <span className="col-span-5 text-sm font-medium text-foreground truncate">
+                          {li.product_name}
+                        </span>
+                        <input
+                          type="number"
+                          className="col-span-2 h-7 text-sm font-data border border-border rounded-lg bg-background text-foreground text-center"
+                          value={li.quantity}
+                          min={1}
+                          onChange={(e) => {
+                            const updated = [...lineItems];
+                            updated[i] = { ...updated[i], quantity: Number(e.target.value) || 1 };
+                            setLineItems(updated);
+                          }}
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="col-span-2 h-7 text-sm font-data border border-border rounded-lg bg-background text-foreground text-center"
+                          value={li.cost_price}
+                          onChange={(e) => {
+                            const updated = [...lineItems];
+                            updated[i] = { ...updated[i], cost_price: Number(e.target.value) || 0 };
+                            setLineItems(updated);
+                          }}
+                        />
+                        <span className="col-span-2 text-sm font-data font-semibold text-primary">
+                          {formatCurrency(li.quantity * li.cost_price)}
+                        </span>
+                        <Button
+                          isIconOnly
+                          variant="light"
+                          color="danger"
+                          size="sm"
+                          className="col-span-1 h-7 w-7"
+                          onClick={() => setLineItems(lineItems.filter((_, j) => j !== i))}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end p-3 bg-muted/20 border-t border-border">
+                    <span className="text-sm font-semibold text-foreground">
+                      {t('po.total')}:{' '}
+                      <span className="text-primary font-data">{formatCurrency(lineTotal)}</span>
+                    </span>
+                  </div>
                 </div>
-              ))}
-              <div className="flex justify-end pt-2 border-t border-border">
-                <span className="text-sm font-semibold text-gold">
-                  {t('po.total')}: {formatCurrency(lineTotal)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-muted text-center py-4">{t('po.noItems')}</p>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!distributorId || lineItems.length === 0 || isSubmitting}
-          >
-            {t('common.create')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-6 border border-dashed border-border rounded-xl">
+                  {t('po.noItems')}
+                </p>
+              )}
+            </ModalBody>
+            <ModalFooter className="border-t border-border/50">
+              <Button variant="flat" size="sm" onClick={() => handleOpenChange(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                color="primary"
+                size="sm"
+                onClick={handleSubmit}
+                isLoading={isSubmitting}
+                isDisabled={!distributorId || lineItems.length === 0 || isSubmitting}
+              >
+                {t('common.create')}
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

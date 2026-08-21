@@ -10,42 +10,37 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../../../shared/ui/button';
-import { Card, CardContent } from '../../../shared/ui/card';
-import { Badge } from '../../../shared/ui/badge';
 import {
+  Button,
+  Card,
+  CardBody,
+  Dropdown,
+  DropdownTrigger,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../../shared/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../shared/ui/popover';
-import { Calendar } from '../../../shared/ui/calendar';
-import {
+  DropdownItem,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
   Select,
-  SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../shared/ui/select';
+} from '@heroui/react';
+import PageHeader from '../../../shared/components/PageHeader';
+import { Calendar, type DateRange } from '../../../shared/components/Calendar';
 import DataTable from '../../../shared/components/DataTable';
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import RefundDialog from '../components/RefundDialog';
+import { Badge } from '../../../shared/components/StatusBadge';
 import { formatCurrency, formatDateTime, formatDate } from '../../../shared/lib/utils';
 import { exportToExcel } from '../../../shared/lib/exportUtils';
-
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { DateRange } from '../../../shared/ui/calendar';
 import type { ReceiptData } from '../../../shared/components/Receipt';
 import type { Sale, SaleDetail, SaleRefund, SalesMeta } from '../types';
 
 const sales = resource<Sale, SalesMeta>('sales');
-// The same collection read one record at a time: that response carries the
-// sale's lines, which the list rows only count.
 const saleDetails = resource<SaleDetail>('sales');
 
 export default function SalesHistory() {
@@ -73,8 +68,6 @@ export default function SalesHistory() {
 
   const { data: saleDetail } = saleDetails.useOne(expandedRow);
 
-  // Refunds hang off one sale rather than off the collection, which is the one
-  // read shape `resource` does not name.
   const { data: saleRefunds } = useApiQuery<SaleRefund[]>(
     ['sale-refunds', expandedRow],
     `sales/${expandedRow}/refunds`,
@@ -107,8 +100,6 @@ export default function SalesHistory() {
     ]);
   };
 
-  // Two one-shot reads taken on a menu press rather than held in the cache: the
-  // sale is consumed into dialog state and never rendered from the query itself.
   const readSale = (saleId: number) =>
     transport.request<SaleDetail>({ method: 'GET', path: `sales/${saleId}` });
 
@@ -161,8 +152,10 @@ export default function SalesHistory() {
       enableSorting: false,
       cell: ({ row }) => (
         <button
+          type="button"
           onClick={() => setExpandedRow(expandedRow === row.original.id ? null : row.original.id)}
-          className="text-gold"
+          className="text-primary hover:text-primary/80 transition-colors p-1"
+          aria-label="Expand row details"
         >
           {expandedRow === row.original.id ? (
             <ChevronDown className="h-4 w-4" />
@@ -175,13 +168,15 @@ export default function SalesHistory() {
     {
       accessorKey: 'id',
       header: t('sales.saleId'),
-      cell: ({ getValue }) => <span className="font-data text-gold">#{getValue() as number}</span>,
+      cell: ({ getValue }) => (
+        <span className="font-data text-primary font-semibold">#{getValue() as number}</span>
+      ),
     },
     {
       accessorKey: 'created_at',
       header: t('sales.dateTime'),
       cell: ({ getValue }) => (
-        <span className="font-data">{formatDateTime(getValue() as string)}</span>
+        <span className="font-data text-foreground">{formatDateTime(getValue() as string)}</span>
       ),
     },
     { accessorKey: 'items_count', header: t('sales.items') },
@@ -190,9 +185,9 @@ export default function SalesHistory() {
       header: t('sales.discount'),
       cell: ({ row }) => {
         const d = row.original.discount;
-        if (!d || d === 0) return <span className="text-muted">-</span>;
+        if (!d || d === 0) return <span className="text-muted-foreground">-</span>;
         return (
-          <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400 font-data">
+          <Badge variant="success" size="sm" className="font-data">
             {row.original.discount_type === 'percentage' ? `${d}%` : formatCurrency(d)}
           </Badge>
         );
@@ -202,7 +197,9 @@ export default function SalesHistory() {
       accessorKey: 'total',
       header: t('sales.total'),
       cell: ({ getValue }) => (
-        <span className="font-semibold font-data">{formatCurrency(getValue() as number)}</span>
+        <span className="font-semibold font-data text-foreground">
+          {formatCurrency(getValue() as number)}
+        </span>
       ),
     },
     {
@@ -216,7 +213,17 @@ export default function SalesHistory() {
           Other: t('cart.other'),
           'Gift Card': t('cart.giftCard'),
         };
-        return <Badge variant="gold">{labels[method] || method}</Badge>;
+        const variantMap: Record<string, 'default' | 'primary' | 'success' | 'secondary'> = {
+          Cash: 'success',
+          Card: 'primary',
+          'Gift Card': 'secondary',
+          Other: 'default',
+        };
+        return (
+          <Badge variant={variantMap[method] || 'default'} size="sm">
+            {labels[method] || method}
+          </Badge>
+        );
       },
     },
     {
@@ -224,16 +231,9 @@ export default function SalesHistory() {
       header: t('sales.refundStatus'),
       cell: ({ row }) => {
         const status = row.original.refund_status;
-        if (!status) return <span className="text-muted">-</span>;
+        if (!status) return <span className="text-muted-foreground">-</span>;
         return (
-          <Badge
-            variant="outline"
-            className={
-              status === 'full'
-                ? 'border-red-400 text-red-600 dark:text-red-400'
-                : 'border-amber-400 text-amber-600 dark:text-amber-400'
-            }
-          >
+          <Badge variant={status === 'full' ? 'danger' : 'warning'} size="sm">
             {status === 'full' ? t('sales.refundFull') : t('sales.refundPartial')}
           </Badge>
         );
@@ -244,7 +244,9 @@ export default function SalesHistory() {
       id: 'customer_name',
       header: t('sales.customer'),
       cell: ({ row }) => (
-        <span className="text-muted">{row.original.customer_name || t('sales.walkIn')}</span>
+        <span className="text-muted-foreground">
+          {row.original.customer_name || t('sales.walkIn')}
+        </span>
       ),
     },
     {
@@ -252,92 +254,84 @@ export default function SalesHistory() {
       header: '',
       enableSorting: false,
       cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={(e) => e.stopPropagation()}
-            >
+        <Dropdown>
+          <DropdownTrigger>
+            <Button isIconOnly variant="light" size="sm" onClick={(e) => e.stopPropagation()}>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              disabled={row.original.refund_status === 'full'}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRefund(row.original);
-              }}
+          </DropdownTrigger>
+          <DropdownMenu aria-label="Sale actions">
+            <DropdownItem
+              key="refund"
+              isDisabled={row.original.refund_status === 'full'}
+              startContent={<RotateCcw className="h-4 w-4 text-danger" />}
+              onPress={() => handleRefund(row.original)}
             >
-              <RotateCcw className="h-4 w-4 me-2 text-blush" />
               {t('sales.refund')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePrintReceipt(row.original.id);
-              }}
+            </DropdownItem>
+            <DropdownItem
+              key="reprint"
+              startContent={<Printer className="h-4 w-4 text-primary" />}
+              onPress={() => handlePrintReceipt(row.original.id)}
             >
-              <Printer className="h-4 w-4 me-2 text-gold" />
               {t('receipt.reprint')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
       ),
     },
   ];
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('sales.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
-        <Button variant="outline" className="gap-2" onClick={handleExportCSV}>
-          <Download className="h-4 w-4 text-gold" />
+      <PageHeader title={t('sales.title')}>
+        <Button
+          variant="bordered"
+          size="sm"
+          startContent={<Download className="h-4 w-4" />}
+          onClick={handleExportCSV}
+        >
           {t('sales.exportCsv')}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Revenue summary */}
       {meta && (
-        <Card>
-          <CardContent className="p-4 flex items-center gap-6">
+        <Card className="border border-border bg-card shadow-sm">
+          <CardBody className="p-4 flex flex-row items-center gap-8">
             <div>
-              <p className="text-xs text-muted uppercase tracking-widest font-body">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
                 {t('sales.totalRevenue')}
               </p>
-              <p className="text-2xl font-semibold text-gold font-data">
+              <p className="text-2xl font-bold text-primary font-data mt-0.5">
                 {formatCurrency(meta.total_revenue)}
               </p>
             </div>
-            <div>
-              <p className="text-xs text-muted uppercase tracking-widest font-body">
+            <div className="border-s border-border ps-8">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
                 {t('sales.totalSales')}
               </p>
-              <p className="text-2xl font-semibold text-foreground font-data">{meta.total}</p>
+              <p className="text-2xl font-bold text-foreground font-data mt-0.5">{meta.total}</p>
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       )}
 
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <CalendarIcon className="h-4 w-4 text-gold" />
+        <Popover placement="bottom-start">
+          <PopoverTrigger>
+            <Button
+              variant="bordered"
+              size="sm"
+              startContent={<CalendarIcon className="h-4 w-4 text-primary" />}
+            >
               {dateRange.from
                 ? `${formatDate(dateRange.from)} - ${dateRange.to ? formatDate(dateRange.to) : '...'}`
                 : t('sales.dateRange')}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
+          <PopoverContent className="p-3 bg-card border border-border shadow-xl">
             <Calendar
               mode="range"
               selected={dateRange}
@@ -347,21 +341,32 @@ export default function SalesHistory() {
           </PopoverContent>
         </Popover>
 
-        <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Payment" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('sales.allPayments')}</SelectItem>
-            <SelectItem value="Cash">{t('cart.cash')}</SelectItem>
-            <SelectItem value="Card">{t('cart.card')}</SelectItem>
-            <SelectItem value="Other">{t('cart.other')}</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="w-44">
+          <Select
+            size="sm"
+            variant="bordered"
+            aria-label="Payment Filter"
+            selectedKeys={[paymentFilter]}
+            onChange={(e) => setPaymentFilter(e.target.value || 'all')}
+          >
+            <SelectItem key="all" textValue={t('sales.allPayments')}>
+              {t('sales.allPayments')}
+            </SelectItem>
+            <SelectItem key="Cash" textValue={t('cart.cash')}>
+              {t('cart.cash')}
+            </SelectItem>
+            <SelectItem key="Card" textValue={t('cart.card')}>
+              {t('cart.card')}
+            </SelectItem>
+            <SelectItem key="Other" textValue={t('cart.other')}>
+              {t('cart.other')}
+            </SelectItem>
+          </Select>
+        </div>
 
         {(dateRange.from || paymentFilter !== 'all') && (
           <Button
-            variant="ghost"
+            variant="light"
             size="sm"
             onClick={() => {
               setDateRange({ from: null, to: null });
@@ -384,25 +389,26 @@ export default function SalesHistory() {
           return (
             <div className="animate-fade-in space-y-4">
               <div>
-                <h3 className="text-sm font-medium text-gold mb-2 font-display tracking-wider">
+                <h3 className="text-xs font-semibold text-primary mb-2 uppercase tracking-wider">
                   {t('sales.itemBreakdown', { id: sale.id })}
                 </h3>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 border border-border rounded-xl p-3 bg-muted/10">
                   {saleDetail.items?.map((item, i) => (
                     <div key={i} className="flex justify-between text-sm font-data">
-                      <span>
-                        {item.product_name} <span className="text-muted">x{item.quantity}</span>
+                      <span className="text-foreground">
+                        {item.product_name}{' '}
+                        <span className="text-muted-foreground">x{item.quantity}</span>
                       </span>
-                      <span>{formatCurrency(item.unit_price * item.quantity)}</span>
+                      <span className="text-foreground font-medium">
+                        {formatCurrency(item.unit_price * item.quantity)}
+                      </span>
                     </div>
                   ))}
                 </div>
                 {sale.discount && sale.discount > 0 && (
                   <div className="flex justify-between text-sm font-data mt-2 pt-2 border-t border-border">
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      {t('sales.discount')}
-                    </span>
-                    <span className="text-emerald-600 dark:text-emerald-400">
+                    <span className="text-success font-medium">{t('sales.discount')}</span>
+                    <span className="text-success font-medium">
                       {sale.discount_type === 'percentage'
                         ? `${sale.discount}%`
                         : formatCurrency(sale.discount)}
@@ -412,25 +418,25 @@ export default function SalesHistory() {
               </div>
               {refunds.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium text-blush mb-2 font-display tracking-wider">
+                  <h3 className="text-xs font-semibold text-danger mb-2 uppercase tracking-wider">
                     {t('sales.refund')}
                   </h3>
                   <div className="space-y-2">
                     {refunds.map((refund) => (
                       <div
                         key={refund.id}
-                        className="text-sm font-data border border-border rounded-md p-3 bg-surface/50"
+                        className="text-sm font-data border border-border rounded-xl p-3 bg-muted/20"
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-red-600 dark:text-red-400 font-medium">
+                          <span className="text-danger font-bold">
                             {formatCurrency(refund.amount)}
                           </span>
-                          <span className="text-muted text-xs">
+                          <span className="text-muted-foreground text-xs">
                             {formatDateTime(refund.created_at)}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="default" size="sm">
                             {{
                               'Customer Return': t('sales.refundReasonCustomerReturn'),
                               'Cashier Error': t('sales.refundReasonCashierError'),
@@ -439,7 +445,9 @@ export default function SalesHistory() {
                             }[refund.reason] || refund.reason}
                           </Badge>
                           {refund.cashier_name && (
-                            <span className="text-muted text-xs">{refund.cashier_name}</span>
+                            <span className="text-muted-foreground text-xs">
+                              {refund.cashier_name}
+                            </span>
                           )}
                         </div>
                       </div>

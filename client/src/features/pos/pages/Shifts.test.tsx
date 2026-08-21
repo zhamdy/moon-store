@@ -95,7 +95,7 @@ describe('Shifts', () => {
       expect.objectContaining({ path: 'shifts/timesheet' })
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Timesheet' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Timesheet' }));
 
     await waitFor(() =>
       expect(transport.calls()).toContainEqual(

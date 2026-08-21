@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Button } from '../ui/button';
+import { Button } from '@heroui/react';
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -18,17 +18,17 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className="flex flex-col items-center justify-center py-12 animate-scale-in"
+      className="flex flex-col items-center justify-center py-12 text-center"
       role="status"
       aria-live="polite"
     >
-      <div className="h-14 w-14 rounded-full bg-gold/10 flex items-center justify-center mb-4">
-        <Icon className="h-7 w-7 text-gold" />
+      <div className="h-12 w-12 rounded-full bg-accent flex items-center justify-center mb-3 text-muted-foreground">
+        <Icon className="h-6 w-6" />
       </div>
-      <p className="text-sm font-medium text-foreground mb-1">{title}</p>
-      {description && <p className="text-xs text-muted mb-4">{description}</p>}
+      <p className="text-sm font-semibold text-foreground mb-1">{title}</p>
+      {description && <p className="text-xs text-muted-foreground mb-4 max-w-sm">{description}</p>}
       {actionLabel && onAction && (
-        <Button variant="outline" size="sm" onClick={onAction}>
+        <Button variant="flat" size="sm" onClick={onAction}>
           {actionLabel}
         </Button>
       )}

@@ -52,12 +52,6 @@ function wrapperFor(transport: MemoryTransport) {
   );
 }
 
-/** Opens a closed Radix select and returns its options. */
-function openSelect(trigger: HTMLElement) {
-  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
-  return screen.getAllByRole('option');
-}
-
 describe('Deliveries', () => {
   beforeEach(() => {
     useSettingsStore.setState({ locale: 'en' });
@@ -89,16 +83,11 @@ describe('Deliveries', () => {
     render(<Deliveries />, { wrapper: wrapperFor(transport) });
     await screen.findByText('DEL-0007');
 
-    // The row's status select, as opposed to the table's rows-per-page one.
-    const statusTrigger = screen
-      .getAllByRole('combobox')
-      .find((el) => el.textContent?.includes('Pending'));
-    expect(statusTrigger).toBeDefined();
+    const trigger = screen.getByRole('button', { name: /Change status/i });
+    fireEvent.click(trigger);
 
-    const shipped = openSelect(statusTrigger as HTMLElement).find(
-      (option) => option.textContent === 'Shipped'
-    );
-    fireEvent.click(shipped as HTMLElement);
+    const option = await screen.findByRole('option', { name: 'Shipped' });
+    fireEvent.click(option);
 
     // Byte-for-byte what the axios call used to send: the same verb, the same
     // path, and a body of nothing but the new status. The SMS and WhatsApp

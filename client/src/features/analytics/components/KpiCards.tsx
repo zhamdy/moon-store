@@ -1,6 +1,5 @@
 import { DollarSign, ShoppingBag, Truck, AlertTriangle, TrendingUp } from 'lucide-react';
-import { Card, CardContent } from '../../../shared/ui/card';
-import { Skeleton } from '../../../shared/ui/skeleton';
+import { Card, CardBody, Skeleton } from '@heroui/react';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import type { KpiData } from '../hooks/useDashboardData';
@@ -36,39 +35,40 @@ function KpiCard({
 
   return (
     <Card
-      className={
-        onClick
-          ? `cursor-pointer transition-all hover:border-gold/50 hover:shadow-md ${isWarning ? 'border-amber-500/40' : ''}`
-          : isWarning
-            ? 'border-amber-500/40'
-            : ''
-      }
+      isPressable={!!onClick}
+      className={`border border-border bg-card shadow-sm transition-all ${
+        onClick ? 'hover:border-border/80 hover:shadow-md' : ''
+      } ${isWarning ? 'border-warning/50' : ''}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={handleKeyDown}
     >
-      <CardContent className="p-6">
+      <CardBody className="p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-muted uppercase tracking-widest font-body">{title}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              {title}
+            </p>
             {isLoading ? (
-              <Skeleton className="h-8 w-24 mt-1" />
+              <Skeleton className="h-8 w-24 mt-2 rounded-md" />
             ) : (
               <p
-                className={`text-2xl font-semibold font-data mt-1 ${isWarning ? 'text-amber-400' : 'text-foreground'}`}
+                className={`text-2xl font-bold font-data mt-1.5 ${isWarning ? 'text-warning' : 'text-foreground'}`}
               >
                 {value}
               </p>
             )}
           </div>
           <div
-            className={`h-12 w-12 rounded-md flex items-center justify-center ${isWarning ? 'bg-amber-500/10' : 'bg-gold/10'}`}
+            className={`h-11 w-11 rounded-lg flex items-center justify-center ${
+              isWarning ? 'bg-warning/10 text-warning' : 'bg-accent text-foreground'
+            }`}
           >
-            <Icon className={`h-6 w-6 ${isWarning ? 'text-amber-400' : 'text-gold'}`} />
+            <Icon className="h-5 w-5" />
           </div>
         </div>
-      </CardContent>
+      </CardBody>
     </Card>
   );
 }
@@ -83,10 +83,7 @@ export default function KpiCards({ kpis, isLoading, onLowStockClick }: KpiCardsP
   const { t } = useTranslation();
 
   return (
-    <div
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children"
-      aria-busy={isLoading}
-    >
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy={isLoading}>
       <KpiCard
         title={t('dashboard.todayRevenue')}
         value={formatCurrency(kpis?.today_revenue || 0)}

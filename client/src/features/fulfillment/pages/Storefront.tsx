@@ -3,10 +3,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Globe, Settings2, Image, Eye, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../../shared/lib/utils';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
+import { Button, Input, Card, CardBody } from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
@@ -34,8 +33,7 @@ export default function StorefrontPage() {
   );
 
   const [configForm, setConfigForm] = useState<StorefrontConfig>({});
-  // The config is a key/value map rather than a row, so it is saved by a
-  // collection-level PUT that `resource` has no shape for.
+
   const saveConfig = useMutation({
     mutationFn: (values: StorefrontConfig) =>
       transport.request({ method: 'PUT', path: 'storefront/config', body: values }),
@@ -61,85 +59,98 @@ export default function StorefrontPage() {
   const mergedConfig = { ...config, ...configForm };
 
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('storefront.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('storefront.title')}>
         <div className="flex gap-2">
           <Button
-            variant={tab === 'config' ? 'default' : 'outline'}
+            variant={tab === 'config' ? 'solid' : 'bordered'}
+            color={tab === 'config' ? 'primary' : 'default'}
+            size="sm"
             onClick={() => setTab('config')}
-            className="gap-2"
+            startContent={<Settings2 className="h-4 w-4" />}
           >
-            <Settings2 className="h-4 w-4" /> {t('storefront.config')}
+            {t('storefront.config')}
           </Button>
           <Button
-            variant={tab === 'banners' ? 'default' : 'outline'}
+            variant={tab === 'banners' ? 'solid' : 'bordered'}
+            color={tab === 'banners' ? 'primary' : 'default'}
+            size="sm"
             onClick={() => setTab('banners')}
-            className="gap-2"
+            startContent={<Image className="h-4 w-4" />}
           >
-            <Image className="h-4 w-4" /> {t('storefront.banners')}
+            {t('storefront.banners')}
           </Button>
           <Button
-            variant={tab === 'preview' ? 'default' : 'outline'}
+            variant={tab === 'preview' ? 'solid' : 'bordered'}
+            color={tab === 'preview' ? 'primary' : 'default'}
+            size="sm"
             onClick={() => setTab('preview')}
-            className="gap-2"
+            startContent={<Eye className="h-4 w-4" />}
           >
-            <Eye className="h-4 w-4" /> {t('storefront.preview')}
+            {t('storefront.preview')}
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       {tab === 'config' && (
-        <div className="max-w-2xl space-y-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Badge variant={config?.storefront_enabled === 'true' ? 'gold' : 'destructive'}>
-              {config?.storefront_enabled === 'true'
-                ? t('storefront.enabled')
-                : t('storefront.disabled')}
-            </Badge>
-          </div>
-          {configFields.map((f) => (
-            <div key={f.key} className="space-y-1">
-              <Label>{f.label}</Label>
-              <Input
-                value={mergedConfig[f.key] || ''}
-                onChange={(e) => setConfigForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-              />
+        <Card className="max-w-2xl border border-border bg-card shadow-sm">
+          <CardBody className="p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge
+                size="sm"
+                variant={config?.storefront_enabled === 'true' ? 'success' : 'danger'}
+              >
+                {config?.storefront_enabled === 'true'
+                  ? t('storefront.enabled')
+                  : t('storefront.disabled')}
+              </Badge>
             </div>
-          ))}
-          <Button
-            onClick={() => saveConfig.mutate(configForm)}
-            disabled={saveConfig.isPending}
-            className="gap-2"
-          >
-            <Save className="h-4 w-4" />{' '}
-            {saveConfig.isPending ? t('common.saving') : t('common.save')}
-          </Button>
-        </div>
+            {configFields.map((f) => (
+              <Input
+                key={f.key}
+                label={f.label}
+                size="sm"
+                variant="bordered"
+                value={mergedConfig[f.key] || ''}
+                onValueChange={(val) => setConfigForm((prev) => ({ ...prev, [f.key]: val }))}
+              />
+            ))}
+            <div className="pt-2">
+              <Button
+                color="primary"
+                size="sm"
+                onClick={() => saveConfig.mutate(configForm)}
+                isLoading={saveConfig.isPending}
+                startContent={<Save className="h-4 w-4" />}
+              >
+                {saveConfig.isPending ? t('common.saving') : t('common.save')}
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       )}
 
       {tab === 'banners' && (
         <div className="space-y-4">
           {!banners?.length ? (
             <div className="text-center py-16">
-              <Image className="h-12 w-12 text-gold/40 mx-auto mb-3" />
-              <p className="text-muted">{t('storefront.noBanners')}</p>
+              <Image className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">{t('storefront.noBanners')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {banners.map((b) => (
-                <div key={b.id} className="p-4 rounded-md border border-border bg-card">
-                  <h3 className="font-medium">{b.title}</h3>
-                  {b.subtitle && <p className="text-sm text-muted">{b.subtitle}</p>}
-                  <p className="text-xs text-muted mt-1">
-                    {t('storefront.position')}: {b.position}
-                  </p>
-                </div>
+                <Card key={b.id} className="border border-border bg-card shadow-sm">
+                  <CardBody className="p-4">
+                    <h3 className="font-semibold text-foreground">{b.title}</h3>
+                    {b.subtitle && (
+                      <p className="text-sm text-muted-foreground mt-0.5">{b.subtitle}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2 font-data">
+                      {t('storefront.position')}: {b.position}
+                    </p>
+                  </CardBody>
+                </Card>
               ))}
             </div>
           )}
@@ -148,18 +159,18 @@ export default function StorefrontPage() {
 
       {tab === 'preview' && (
         <div className="space-y-6">
-          <div className="bg-gradient-to-r from-gold/10 to-gold/5 p-8 rounded-md border border-gold/20 text-center">
-            <h2 className="text-3xl font-display tracking-wider mb-2">
+          <div className="bg-accent/40 p-8 rounded-xl border border-border text-center">
+            <h2 className="text-3xl font-bold tracking-tight mb-2 text-foreground">
               {mergedConfig.hero_title || 'Discover Your Style'}
             </h2>
-            <p className="text-muted">
+            <p className="text-muted-foreground">
               {mergedConfig.hero_subtitle || 'Premium fashion for the modern you'}
             </p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {products?.map((p) => (
-              <div key={p.id} className="rounded-md border border-border bg-card overflow-hidden">
-                <div className="h-40 bg-surface flex items-center justify-center">
+              <Card key={p.id} className="border border-border bg-card overflow-hidden shadow-sm">
+                <div className="h-40 bg-muted/30 flex items-center justify-center">
                   {p.image_url ? (
                     <img
                       src={`http://localhost:3001${p.image_url}`}
@@ -167,19 +178,21 @@ export default function StorefrontPage() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <Globe className="h-8 w-8 text-muted" />
+                    <Globe className="h-8 w-8 text-muted-foreground/40" />
                   )}
                 </div>
-                <div className="p-3">
-                  <h3 className="text-sm font-medium truncate">{p.name}</h3>
-                  <p className="text-gold font-data">{formatCurrency(p.price)}</p>
+                <CardBody className="p-3">
+                  <h3 className="text-sm font-medium truncate text-foreground">{p.name}</h3>
+                  <p className="text-primary font-data font-semibold mt-0.5">
+                    {formatCurrency(p.price)}
+                  </p>
                   {p.avg_rating > 0 && (
-                    <p className="text-xs text-muted mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {'★'.repeat(Math.round(p.avg_rating))} ({p.review_count})
                     </p>
                   )}
-                </div>
-              </div>
+                </CardBody>
+              </Card>
             ))}
           </div>
         </div>

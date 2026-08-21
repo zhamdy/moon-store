@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogIn, LogOut, Coffee, Play } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../../../shared/ui/button';
-import { Card, CardContent } from '../../../shared/ui/card';
-import { Badge } from '../../../shared/ui/badge';
+import { Button, Card, CardBody, Tabs, Tab } from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useAuthStore } from '../../auth';
 import { resource } from '../../../shared/lib/resource';
@@ -13,12 +13,6 @@ import type { Shift, TimesheetEntry } from '../types';
 
 const shifts = resource<Shift>('shifts');
 
-/**
- * Clocking in and out acts on the shift collection rather than on one shift,
- * which `resource` has no shape for: its actions all hang off a record id.
- * Four bodiless endpoints are not worth widening it for, so they reach the
- * transport directly and say what they refresh.
- */
 function useShiftAction(path: string, message: string) {
   const transport = useTransport();
   const queryClient = useQueryClient();
@@ -70,209 +64,200 @@ export default function ShiftsPage() {
   };
 
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('shifts.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
-      </div>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('shifts.title')} />
 
       {/* My shift status */}
-      <div className="mb-6">
-        <Card className="border-border">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-medium mb-1">{user?.name}</h3>
-                {currentShift ? (
-                  <div className="flex items-center gap-2">
-                    <Badge variant={currentShift.status === 'on_break' ? 'destructive' : 'default'}>
-                      {currentShift.status === 'on_break'
-                        ? t('shifts.onBreak')
-                        : t('shifts.clockedIn')}
-                    </Badge>
-                    <span className="text-sm text-muted font-data">
-                      {new Date(currentShift.clock_in).toLocaleTimeString()}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-muted">{t('shifts.noShifts')}</span>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {!currentShift ? (
-                  <Button
-                    onClick={() => clockIn.mutate()}
-                    disabled={clockIn.isPending}
-                    className="gap-2"
+      <Card className="border border-border bg-card shadow-sm">
+        <CardBody className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">{user?.name}</h3>
+              {currentShift ? (
+                <div className="flex items-center gap-2">
+                  <Badge
+                    size="sm"
+                    variant={currentShift.status === 'on_break' ? 'warning' : 'success'}
                   >
-                    <LogIn className="h-4 w-4" /> {t('shifts.clockIn')}
-                  </Button>
-                ) : (
-                  <>
-                    {currentShift.status === 'active' ? (
-                      <Button
-                        variant="outline"
-                        onClick={() => startBreak.mutate()}
-                        disabled={startBreak.isPending}
-                        className="gap-2"
-                      >
-                        <Coffee className="h-4 w-4" /> {t('shifts.startBreak')}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        onClick={() => endBreak.mutate()}
-                        disabled={endBreak.isPending}
-                        className="gap-2"
-                      >
-                        <Play className="h-4 w-4" /> {t('shifts.endBreak')}
-                      </Button>
-                    )}
-                    <Button
-                      variant="destructive"
-                      onClick={() => clockOut.mutate()}
-                      disabled={clockOut.isPending}
-                      className="gap-2"
-                    >
-                      <LogOut className="h-4 w-4" /> {t('shifts.clockOut')}
-                    </Button>
-                  </>
-                )}
-              </div>
+                    {currentShift.status === 'on_break'
+                      ? t('shifts.onBreak')
+                      : t('shifts.clockedIn')}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground font-data">
+                    {new Date(currentShift.clock_in).toLocaleTimeString()}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground">{t('shifts.noShifts')}</span>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            <div className="flex gap-2">
+              {!currentShift ? (
+                <Button
+                  color="primary"
+                  size="sm"
+                  onClick={() => clockIn.mutate()}
+                  isLoading={clockIn.isPending}
+                  startContent={<LogIn className="h-4 w-4" />}
+                >
+                  {t('shifts.clockIn')}
+                </Button>
+              ) : (
+                <>
+                  {currentShift.status === 'active' ? (
+                    <Button
+                      variant="bordered"
+                      size="sm"
+                      onClick={() => startBreak.mutate()}
+                      isLoading={startBreak.isPending}
+                      startContent={<Coffee className="h-4 w-4" />}
+                    >
+                      {t('shifts.startBreak')}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="bordered"
+                      size="sm"
+                      onClick={() => endBreak.mutate()}
+                      isLoading={endBreak.isPending}
+                      startContent={<Play className="h-4 w-4" />}
+                    >
+                      {t('shifts.endBreak')}
+                    </Button>
+                  )}
+                  <Button
+                    color="danger"
+                    size="sm"
+                    onClick={() => clockOut.mutate()}
+                    isLoading={clockOut.isPending}
+                    startContent={<LogOut className="h-4 w-4" />}
+                  >
+                    {t('shifts.clockOut')}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </CardBody>
+      </Card>
 
       {/* Tabs (admin only) */}
       {isAdmin && (
-        <>
-          <div className="flex gap-2 mb-4 border-b border-border">
-            {(['active', 'history', 'timesheet'] as const).map((t2) => (
-              <button
-                key={t2}
-                onClick={() => setTab(t2)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  tab === t2
-                    ? 'border-gold text-gold'
-                    : 'border-transparent text-muted hover:text-foreground'
-                }`}
-              >
-                {t2 === 'active'
-                  ? t('shifts.activeNow')
-                  : t2 === 'history'
-                    ? t('shifts.history')
-                    : t('shifts.timesheet')}
-              </button>
-            ))}
-          </div>
-
-          {tab === 'active' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {!activeShifts?.length ? (
-                <p className="col-span-full text-center py-12 text-muted">{t('shifts.noShifts')}</p>
-              ) : (
-                activeShifts.map((s) => (
-                  <Card key={s.id} className="border-border">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">{s.user_name}</span>
-                        <Badge
-                          variant={s.status === 'on_break' ? 'destructive' : 'default'}
-                          className="text-[10px]"
-                        >
-                          {s.status === 'on_break' ? t('shifts.onBreak') : t('shifts.clockedIn')}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-muted font-data">{s.role}</span>
-                      <p className="text-xs text-muted mt-1">
-                        {t('shifts.clockIn')}: {new Date(s.clock_in).toLocaleTimeString()}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+        <Tabs
+          selectedKey={tab}
+          onSelectionChange={(k) => setTab(k as 'active' | 'history' | 'timesheet')}
+          color="primary"
+          variant="bordered"
+          aria-label="Shift management tabs"
+        >
+          <Tab key="active" title={t('shifts.activeNow')}>
+            <div className="pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {!activeShifts?.length ? (
+                  <p className="col-span-full text-center py-12 text-muted-foreground">
+                    {t('shifts.noShifts')}
+                  </p>
+                ) : (
+                  activeShifts.map((s) => (
+                    <Card key={s.id} className="border border-border bg-card shadow-sm">
+                      <CardBody className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-foreground">{s.user_name}</span>
+                          <Badge
+                            size="sm"
+                            variant={s.status === 'on_break' ? 'warning' : 'success'}
+                          >
+                            {s.status === 'on_break' ? t('shifts.onBreak') : t('shifts.clockedIn')}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground font-data">{s.role}</span>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t('shifts.clockIn')}: {new Date(s.clock_in).toLocaleTimeString()}
+                        </p>
+                      </CardBody>
+                    </Card>
+                  ))
+                )}
+              </div>
             </div>
-          )}
+          </Tab>
 
-          {tab === 'history' && (
-            <div className="overflow-x-auto border border-border rounded-md">
-              <table className="w-full text-sm">
-                <thead className="bg-surface border-b border-border">
-                  <tr>
-                    <th className="text-start p-3 font-medium text-muted">{t('common.name')}</th>
-                    <th className="text-start p-3 font-medium text-muted">{t('shifts.clockIn')}</th>
-                    <th className="text-start p-3 font-medium text-muted">
-                      {t('shifts.clockOut')}
-                    </th>
-                    <th className="text-end p-3 font-medium text-muted">
-                      {t('shifts.hoursWorked')}
-                    </th>
-                    <th className="text-end p-3 font-medium text-muted">
-                      {t('shifts.breakDuration')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history?.map((s) => (
-                    <tr key={s.id} className="border-b border-border">
-                      <td className="p-3">{s.user_name}</td>
-                      <td className="p-3 font-data text-xs">
-                        {new Date(s.clock_in).toLocaleString()}
-                      </td>
-                      <td className="p-3 font-data text-xs">
-                        {s.clock_out ? new Date(s.clock_out).toLocaleString() : '—'}
-                      </td>
-                      <td className="p-3 text-end font-data">{formatHours(s.total_hours)}</td>
-                      <td className="p-3 text-end font-data text-muted">{s.break_minutes}m</td>
+          <Tab key="history" title={t('shifts.history')}>
+            <div className="pt-4">
+              <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 border-b border-border text-muted-foreground text-xs">
+                    <tr>
+                      <th className="text-start p-3 font-medium">{t('common.name')}</th>
+                      <th className="text-start p-3 font-medium">{t('shifts.clockIn')}</th>
+                      <th className="text-start p-3 font-medium">{t('shifts.clockOut')}</th>
+                      <th className="text-end p-3 font-medium">{t('shifts.hoursWorked')}</th>
+                      <th className="text-end p-3 font-medium">{t('shifts.breakDuration')}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {history?.map((s) => (
+                      <tr key={s.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="p-3 text-foreground font-medium">{s.user_name}</td>
+                        <td className="p-3 font-data text-xs text-muted-foreground">
+                          {new Date(s.clock_in).toLocaleString()}
+                        </td>
+                        <td className="p-3 font-data text-xs text-muted-foreground">
+                          {s.clock_out ? new Date(s.clock_out).toLocaleString() : '—'}
+                        </td>
+                        <td className="p-3 text-end font-data text-foreground">
+                          {formatHours(s.total_hours)}
+                        </td>
+                        <td className="p-3 text-end font-data text-muted-foreground">
+                          {s.break_minutes}m
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
+          </Tab>
 
-          {tab === 'timesheet' && (
-            <div className="overflow-x-auto border border-border rounded-md">
-              <table className="w-full text-sm">
-                <thead className="bg-surface border-b border-border">
-                  <tr>
-                    <th className="text-start p-3 font-medium text-muted">{t('common.name')}</th>
-                    <th className="text-start p-3 font-medium text-muted">{t('common.role')}</th>
-                    <th className="text-end p-3 font-medium text-muted"># {t('shifts.history')}</th>
-                    <th className="text-end p-3 font-medium text-muted">
-                      {t('shifts.totalHours')}
-                    </th>
-                    <th className="text-end p-3 font-medium text-muted">
-                      {t('shifts.breakDuration')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {timesheet?.map((e) => (
-                    <tr key={e.id} className="border-b border-border">
-                      <td className="p-3 font-medium">{e.name}</td>
-                      <td className="p-3">
-                        <Badge variant="gold" className="text-[10px]">
-                          {e.role}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-end font-data">{e.shift_count}</td>
-                      <td className="p-3 text-end font-data">{formatHours(e.total_hours)}</td>
-                      <td className="p-3 text-end font-data text-muted">
-                        {e.total_break_minutes}m
-                      </td>
+          <Tab key="timesheet" title={t('shifts.timesheet')}>
+            <div className="pt-4">
+              <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 border-b border-border text-muted-foreground text-xs">
+                    <tr>
+                      <th className="text-start p-3 font-medium">{t('common.name')}</th>
+                      <th className="text-start p-3 font-medium">{t('common.role')}</th>
+                      <th className="text-end p-3 font-medium"># {t('shifts.history')}</th>
+                      <th className="text-end p-3 font-medium">{t('shifts.totalHours')}</th>
+                      <th className="text-end p-3 font-medium">{t('shifts.breakDuration')}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {timesheet?.map((e) => (
+                      <tr key={e.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="p-3 font-medium text-foreground">{e.name}</td>
+                        <td className="p-3">
+                          <Badge size="sm" variant="primary">
+                            {e.role}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-end font-data text-muted-foreground">
+                          {e.shift_count}
+                        </td>
+                        <td className="p-3 text-end font-data text-foreground font-semibold">
+                          {formatHours(e.total_hours)}
+                        </td>
+                        <td className="p-3 text-end font-data text-muted-foreground">
+                          {e.total_break_minutes}m
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
-        </>
+          </Tab>
+        </Tabs>
       )}
     </div>
   );

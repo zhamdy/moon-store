@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from '@tanstack/react-router';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -34,14 +33,20 @@ import {
   Zap,
   Brain,
   TrendingUp,
-  MoreHorizontal,
   type LucideIcon,
 } from 'lucide-react';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerBody,
+  DrawerHeader,
+  DrawerFooter,
+  Button,
+} from '@heroui/react';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { useTranslation } from '../shared/i18n/index';
 import { useTransport } from '../shared/lib/transport/index';
 import moonLogo from '../shared/assets/moon-logo.svg';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../shared/ui/sheet';
 
 interface NavItem {
   to: string;
@@ -121,21 +126,21 @@ const navSections: NavSection[] = [
   },
 ];
 
-export default function Sidebar(): React.JSX.Element {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileOpenChange?: (open: boolean) => void;
+}
+
+export default function Sidebar({
+  mobileOpen = false,
+  onMobileOpenChange,
+}: SidebarProps): React.JSX.Element {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const transport = useTransport();
-  const [moreOpen, setMoreOpen] = useState(false);
 
   const userRole = user?.role ?? '';
-
-  // Flat filtered list for mobile
-  const filteredNav = navSections.flatMap((section) =>
-    section.items.filter((item) => item.roles.includes(userRole))
-  );
-  const mobileMainItems = filteredNav.slice(0, 4);
-  const mobileMoreItems = filteredNav.slice(4);
 
   const handleLogout = async (): Promise<void> => {
     try {
@@ -144,127 +149,111 @@ export default function Sidebar(): React.JSX.Element {
       // Continue logout even if API fails
     }
     logout();
-    navigate('/login');
+    navigate({ to: '/login' });
   };
+
+  const renderNavContent = (onItemClick?: () => void) => (
+    <nav className="flex-1 p-3 space-y-4 overflow-y-auto" aria-label={t('nav.mainNav')}>
+      {navSections.map((section) => {
+        const visibleItems = section.items.filter((item) => item.roles.includes(userRole));
+        if (visibleItems.length === 0) return null;
+
+        return (
+          <div key={section.labelKey} className="space-y-1">
+            <div className="px-3 py-1">
+              <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+                {t(section.labelKey)}
+              </span>
+            </div>
+            {visibleItems.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={onItemClick}
+                activeOptions={{ exact: item.to === '/' }}
+                activeProps={{
+                  className: 'bg-primary text-primary-foreground font-medium shadow-sm',
+                }}
+                inactiveProps={{
+                  className: 'text-muted-foreground hover:text-foreground hover:bg-accent',
+                }}
+                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                <span>{t(item.labelKey)}</span>
+              </Link>
+            ))}
+          </div>
+        );
+      })}
+    </nav>
+  );
 
   return (
     <>
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 bg-background border-e border-border h-screen fixed start-0 top-0 z-40">
+      {/* Desktop persistent sidebar */}
+      <aside className="hidden lg:flex flex-col w-64 bg-card border-e border-border h-screen fixed start-0 top-0 z-40">
         {/* Logo */}
-        <div className="p-6 border-b border-border">
-          <img src={moonLogo} alt="MOON Fashion & Style" className="h-12" />
+        <div className="h-16 px-6 border-b border-border flex items-center">
+          <img src={moonLogo} alt="MOON Fashion & Style" className="h-9" />
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto" aria-label={t('nav.mainNav')}>
-          {navSections.map((section) => {
-            const visibleItems = section.items.filter((item) => item.roles.includes(userRole));
-            if (visibleItems.length === 0) return null;
-
-            return (
-              <div key={section.labelKey} className="mb-2">
-                <div className="px-4 pt-3 pb-1">
-                  <span className="text-[10px] tracking-widest uppercase text-muted font-data">
-                    {t(section.labelKey)}
-                  </span>
-                  <div className="gold-divider mt-1.5" />
-                </div>
-                {visibleItems.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === '/'}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-3 rounded-md text-sm font-data tracking-wider transition-all ${
-                        isActive
-                          ? 'text-gold border-s-2 border-gold bg-gold/5 shadow-glow'
-                          : 'text-muted hover:text-foreground hover:bg-surface'
-                      }`
-                    }
-                  >
-                    <item.icon className="h-5 w-5 text-gold" />
-                    {t(item.labelKey)}
-                  </NavLink>
-                ))}
-              </div>
-            );
-          })}
-        </nav>
+        {renderNavContent()}
 
         {/* Logout */}
-        <div className="p-4 border-t border-border">
-          <button
+        <div className="p-3 border-t border-border">
+          <Button
+            variant="light"
+            color="danger"
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-2 w-full text-sm text-muted hover:text-destructive transition-colors rounded-md"
+            className="w-full justify-start gap-3 px-3 text-sm"
           >
             <LogOut className="h-4 w-4" />
             {t('nav.logout')}
-          </button>
+          </Button>
         </div>
       </aside>
 
-      {/* Mobile bottom nav */}
-      <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 flex items-center justify-around py-2 px-1"
-        aria-label={t('nav.mobileNav')}
+      {/* Mobile Drawer */}
+      <Drawer
+        isOpen={mobileOpen}
+        onOpenChange={onMobileOpenChange}
+        placement={locale === 'ar' ? 'right' : 'left'}
+        backdrop="blur"
+        size="xs"
+        classNames={{
+          base: 'bg-card text-card-foreground',
+          header: 'border-b border-border p-4 flex items-center justify-between',
+          body: 'p-0 overflow-y-auto',
+          footer: 'border-t border-border p-3',
+        }}
       >
-        {mobileMainItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
-            className={({ isActive }) =>
-              `flex flex-col items-center gap-1 px-2 py-1 text-[10px] transition-colors ${
-                isActive ? 'text-gold' : 'text-muted'
-              }`
-            }
-          >
-            <item.icon className="h-5 w-5" />
-            <span>{t(item.labelKey).split(' ')[0]}</span>
-          </NavLink>
-        ))}
-        {mobileMoreItems.length > 0 && (
-          <button
-            onClick={() => setMoreOpen(true)}
-            className="flex flex-col items-center gap-1 px-2 py-1 text-[10px] text-muted transition-colors"
-            aria-label={t('nav.more')}
-          >
-            <MoreHorizontal className="h-5 w-5" />
-            <span>{t('nav.more')}</span>
-          </button>
-        )}
-      </nav>
-
-      {/* Mobile "More" bottom sheet */}
-      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto pb-24">
-          <SheetHeader>
-            <SheetTitle>{t('nav.more')}</SheetTitle>
-            <SheetDescription>{t('nav.moreDesc')}</SheetDescription>
-          </SheetHeader>
-          <nav className="grid grid-cols-4 gap-3 mt-4" aria-label={t('nav.moreNav')}>
-            {mobileMoreItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                onClick={() => setMoreOpen(false)}
-                className={({ isActive }) =>
-                  `flex flex-col items-center gap-1.5 rounded-lg p-3 text-center transition-colors ${
-                    isActive
-                      ? 'text-gold bg-gold/5'
-                      : 'text-muted hover:text-foreground hover:bg-surface'
-                  }`
-                }
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="text-[10px] leading-tight">{t(item.labelKey)}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </SheetContent>
-      </Sheet>
+        <DrawerContent>
+          {(onClose) => (
+            <>
+              <DrawerHeader>
+                <img src={moonLogo} alt="MOON Fashion & Style" className="h-8" />
+              </DrawerHeader>
+              <DrawerBody>{renderNavContent(onClose)}</DrawerBody>
+              <DrawerFooter>
+                <Button
+                  variant="light"
+                  color="danger"
+                  onClick={() => {
+                    onClose();
+                    handleLogout();
+                  }}
+                  className="w-full justify-start gap-3 px-3 text-sm"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {t('nav.logout')}
+                </Button>
+              </DrawerFooter>
+            </>
+          )}
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

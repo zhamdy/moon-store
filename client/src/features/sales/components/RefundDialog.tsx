@@ -2,22 +2,15 @@ import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RotateCcw } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '../../../shared/ui/dialog';
-import { Button } from '../../../shared/ui/button';
-import { Label } from '../../../shared/ui/label';
-import { Checkbox } from '../../../shared/ui/checkbox';
-import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  Button,
+  Checkbox,
   Select,
-  SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../shared/ui/select';
+} from '@heroui/react';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation } from '../../../shared/i18n/index';
@@ -72,8 +65,6 @@ export default function RefundDialog({
 
   const maxRefundable = saleTotal - refundedAmount;
 
-  // `useAction` refreshes the sales list itself; the open sale's detail row
-  // lives under its own key, so that one is still invalidated by hand.
   const refunder = sales.useAction('refund', {
     message: t('sales.refundSuccess'),
     fallbackMessage: t('sales.refundFailed'),
@@ -123,134 +114,167 @@ export default function RefundDialog({
   const hasSelection = Object.values(selectedItems).some((s) => s.selected && s.quantity > 0);
 
   return (
-    <Dialog
-      open={open}
+    <Modal
+      isOpen={open}
       onOpenChange={(v) => {
         onOpenChange(v);
         if (!v) resetForm();
       }}
+      backdrop="blur"
+      placement="center"
+      size="lg"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl',
+      }}
     >
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-display tracking-wider">
-            <RotateCcw className="h-5 w-5 text-gold" />
-            {t('sales.refundSale', { id: saleId ?? '' })}
-          </DialogTitle>
-          <DialogDescription>{t('sales.refundDesc')}</DialogDescription>
-        </DialogHeader>
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader className="border-b border-border/50">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5 text-primary" />
+                <div>
+                  <h3 className="text-base font-semibold">
+                    {t('sales.refundSale', { id: saleId ?? '' })}
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('sales.refundDesc')}
+                  </p>
+                </div>
+              </div>
+            </ModalHeader>
 
-        <div className="space-y-4">
-          {/* Item selection */}
-          <div>
-            <Label className="text-xs uppercase tracking-widest text-muted font-body mb-2 block">
-              {t('sales.selectItems')}
-            </Label>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {items.map((item) => {
-                const sel = selectedItems[item.product_id];
-                return (
-                  <div
-                    key={item.product_id}
-                    className="flex items-center gap-3 p-2 rounded-md border border-border hover:border-gold/30 transition-colors"
-                  >
-                    <Checkbox
-                      checked={sel?.selected || false}
-                      onCheckedChange={() => toggleItem(item.product_id, item.quantity)}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{item.product_name}</p>
-                      <p className="text-xs text-muted font-data">
-                        {formatCurrency(item.unit_price)} x {item.quantity}
-                      </p>
-                    </div>
-                    {sel?.selected && (
-                      <div className="flex items-center gap-1">
-                        <Label className="text-xs text-muted">{t('sales.qtyToRefund')}</Label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={item.quantity}
-                          value={sel.quantity}
-                          onChange={(e) =>
-                            updateQuantity(
-                              item.product_id,
-                              Math.min(item.quantity, Math.max(1, Number(e.target.value)))
-                            )
-                          }
-                          className="w-14 h-7 text-center text-sm border border-border rounded bg-background font-data"
+            <ModalBody className="py-4 space-y-4">
+              {/* Item selection */}
+              <div>
+                <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 block">
+                  {t('sales.selectItems')}
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {items.map((item) => {
+                    const sel = selectedItems[item.product_id];
+                    return (
+                      <div
+                        key={item.product_id}
+                        className="flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/10 hover:border-primary/40 transition-colors"
+                      >
+                        <Checkbox
+                          isSelected={sel?.selected || false}
+                          onValueChange={() => toggleItem(item.product_id, item.quantity)}
+                          size="sm"
+                          aria-label={`Select ${item.product_name}`}
                         />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {item.product_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-data">
+                            {formatCurrency(item.unit_price)} x {item.quantity}
+                          </p>
+                        </div>
+                        {sel?.selected && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">
+                              {t('sales.qtyToRefund')}
+                            </span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={item.quantity}
+                              value={sel.quantity}
+                              onChange={(e) =>
+                                updateQuantity(
+                                  item.product_id,
+                                  Math.min(item.quantity, Math.max(1, Number(e.target.value)))
+                                )
+                              }
+                              className="w-14 h-8 text-center text-sm border border-border rounded-lg bg-card text-foreground font-data focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                        )}
                       </div>
-                    )}
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <Select
+                  label={t('sales.refundReason')}
+                  size="sm"
+                  variant="bordered"
+                  selectedKeys={[reason]}
+                  onChange={(e) => {
+                    if (e.target.value) setReason(e.target.value as RefundReason);
+                  }}
+                >
+                  <SelectItem
+                    key="Customer Return"
+                    textValue={t('sales.refundReasonCustomerReturn')}
+                  >
+                    {t('sales.refundReasonCustomerReturn')}
+                  </SelectItem>
+                  <SelectItem key="Cashier Error" textValue={t('sales.refundReasonCashierError')}>
+                    {t('sales.refundReasonCashierError')}
+                  </SelectItem>
+                  <SelectItem key="Defective" textValue={t('sales.refundReasonDefective')}>
+                    {t('sales.refundReasonDefective')}
+                  </SelectItem>
+                  <SelectItem key="Other" textValue={t('sales.refundReasonOther')}>
+                    {t('sales.refundReasonOther')}
+                  </SelectItem>
+                </Select>
+              </div>
+
+              {/* Restock toggle */}
+              <div className="flex items-center gap-3">
+                <Checkbox id="restock" isSelected={restock} onValueChange={setRestock} size="sm">
+                  <div>
+                    <span className="text-sm font-medium text-foreground block">
+                      {t('sales.refundRestock')}
+                    </span>
+                    <span className="text-xs text-muted-foreground block font-normal">
+                      {t('sales.refundRestockDesc')}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                </Checkbox>
+              </div>
 
-          {/* Reason */}
-          <div>
-            <Label className="text-xs uppercase tracking-widest text-muted font-body mb-2 block">
-              {t('sales.refundReason')}
-            </Label>
-            <Select value={reason} onValueChange={(v) => setReason(v as RefundReason)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Customer Return">
-                  {t('sales.refundReasonCustomerReturn')}
-                </SelectItem>
-                <SelectItem value="Cashier Error">{t('sales.refundReasonCashierError')}</SelectItem>
-                <SelectItem value="Defective">{t('sales.refundReasonDefective')}</SelectItem>
-                <SelectItem value="Other">{t('sales.refundReasonOther')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              {/* Refund amount summary */}
+              <div className="flex justify-between items-center p-3 rounded-xl bg-muted/20 border border-border">
+                <span className="text-sm text-muted-foreground">{t('sales.refundAmount')}</span>
+                <span className="text-lg font-bold text-primary font-data">
+                  {formatCurrency(refundAmount)}
+                </span>
+              </div>
 
-          {/* Restock toggle */}
-          <div className="flex items-center gap-3">
-            <Checkbox
-              id="restock"
-              checked={restock}
-              onCheckedChange={(v) => setRestock(v === true)}
-            />
-            <div>
-              <Label htmlFor="restock" className="text-sm font-medium cursor-pointer">
-                {t('sales.refundRestock')}
-              </Label>
-              <p className="text-xs text-muted">{t('sales.refundRestockDesc')}</p>
-            </div>
-          </div>
+              {refundAmount > maxRefundable && (
+                <p className="text-xs text-danger">
+                  Refund amount exceeds remaining refundable amount ({formatCurrency(maxRefundable)}
+                  )
+                </p>
+              )}
 
-          {/* Refund amount summary */}
-          <div className="flex justify-between items-center p-3 rounded-md bg-muted/30 border border-border">
-            <span className="text-sm font-body">{t('sales.refundAmount')}</span>
-            <span className="text-lg font-semibold text-blush font-data">
-              {formatCurrency(refundAmount)}
-            </span>
-          </div>
-
-          {refundAmount > maxRefundable && (
-            <p className="text-xs text-destructive">
-              Refund amount exceeds remaining refundable amount ({formatCurrency(maxRefundable)})
-            </p>
-          )}
-
-          {/* Submit */}
-          <Button
-            onClick={handleSubmit}
-            disabled={
-              !hasSelection ||
-              refunder.isRunning ||
-              refundAmount > maxRefundable ||
-              refundAmount <= 0
-            }
-            className="w-full"
-          >
-            {refunder.isRunning ? t('sales.refundProcessing') : t('sales.refundSubmit')}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+              {/* Submit */}
+              <Button
+                color="primary"
+                onClick={handleSubmit}
+                isDisabled={
+                  !hasSelection ||
+                  refunder.isRunning ||
+                  refundAmount > maxRefundable ||
+                  refundAmount <= 0
+                }
+                isLoading={refunder.isRunning}
+                className="w-full font-semibold"
+              >
+                {refunder.isRunning ? t('sales.refundProcessing') : t('sales.refundSubmit')}
+              </Button>
+            </ModalBody>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

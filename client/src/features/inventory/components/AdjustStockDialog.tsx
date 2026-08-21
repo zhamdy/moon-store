@@ -1,22 +1,16 @@
 import { useState } from 'react';
 import { Package } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '../../../shared/ui/dialog';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Input,
   Select,
-  SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../shared/ui/select';
+} from '@heroui/react';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation } from '../../../shared/i18n/index';
 import type { Product } from '../../../shared/types/index';
@@ -67,67 +61,103 @@ export default function AdjustStockDialog({
   const newStock = currentStock + delta;
 
   return (
-    <Dialog
-      open={open}
+    <Modal
+      isOpen={open}
       onOpenChange={(v) => {
         onOpenChange(v);
         if (!v) resetForm();
       }}
+      backdrop="blur"
+      placement="center"
+      size="md"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl',
+      }}
     >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-display tracking-wider">
-            <Package className="h-5 w-5 text-gold" />
-            {t('stock.adjustTitle')}
-          </DialogTitle>
-          <DialogDescription>{productName}</DialogDescription>
-        </DialogHeader>
+      <ModalContent>
+        {() => (
+          <div>
+            <ModalHeader className="border-b border-border/50">
+              <div>
+                <h3 className="text-base font-semibold flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" />
+                  {t('stock.adjustTitle')}
+                </h3>
+                <p className="text-xs text-muted-foreground font-normal mt-0.5">{productName}</p>
+              </div>
+            </ModalHeader>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 rounded-md bg-muted/30 border border-border">
-            <span className="text-sm font-body">{t('stock.currentStock')}</span>
-            <span className="text-lg font-semibold font-data">{currentStock}</span>
+            <ModalBody className="py-4 space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+                <span className="text-sm text-foreground">{t('stock.currentStock')}</span>
+                <span className="text-lg font-semibold font-data">{currentStock}</span>
+              </div>
+
+              <div className="space-y-1">
+                <Input
+                  type="number"
+                  label={t('stock.adjustment')}
+                  size="sm"
+                  variant="bordered"
+                  value={String(delta)}
+                  onValueChange={(val) => setDelta(Number(val) || 0)}
+                  placeholder="+10 or -5"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t('stock.newStock')}:{' '}
+                  <span
+                    className={`font-semibold ${newStock < 0 ? 'text-danger' : 'text-foreground'}`}
+                  >
+                    {newStock}
+                  </span>
+                </p>
+              </div>
+
+              <Select
+                label={t('stock.reason')}
+                size="sm"
+                variant="bordered"
+                selectedKeys={[reason]}
+                onChange={(e) => {
+                  if (e.target.value) setReason(e.target.value as AdjustReason);
+                }}
+              >
+                <SelectItem key="Manual Adjustment" textValue={t('stock.reasonManual')}>
+                  {t('stock.reasonManual')}
+                </SelectItem>
+                <SelectItem key="Damaged" textValue={t('stock.reasonDamaged')}>
+                  {t('stock.reasonDamaged')}
+                </SelectItem>
+                <SelectItem key="Stock Count" textValue={t('stock.reasonStockCount')}>
+                  {t('stock.reasonStockCount')}
+                </SelectItem>
+              </Select>
+            </ModalBody>
+
+            <ModalFooter className="border-t border-border/50">
+              <Button
+                variant="flat"
+                size="sm"
+                onClick={() => {
+                  onOpenChange(false);
+                  resetForm();
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                color="primary"
+                size="sm"
+                onClick={handleSubmit}
+                disabled={delta === 0 || newStock < 0}
+                isLoading={adjuster.isRunning}
+              >
+                {adjuster.isRunning ? t('common.loading') : t('stock.adjustSubmit')}
+              </Button>
+            </ModalFooter>
           </div>
-
-          <div className="space-y-2">
-            <Label>{t('stock.adjustment')}</Label>
-            <Input
-              type="number"
-              value={delta}
-              onChange={(e) => setDelta(Number(e.target.value))}
-              placeholder="+10 or -5"
-            />
-            <p className="text-xs text-muted">
-              {t('stock.newStock')}:{' '}
-              <span className={`font-semibold ${newStock < 0 ? 'text-destructive' : ''}`}>
-                {newStock}
-              </span>
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t('stock.reason')}</Label>
-            <Select value={reason} onValueChange={(v) => setReason(v as AdjustReason)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Manual Adjustment">{t('stock.reasonManual')}</SelectItem>
-                <SelectItem value="Damaged">{t('stock.reasonDamaged')}</SelectItem>
-                <SelectItem value="Stock Count">{t('stock.reasonStockCount')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Button
-            onClick={handleSubmit}
-            disabled={delta === 0 || adjuster.isRunning || newStock < 0}
-            className="w-full"
-          >
-            {adjuster.isRunning ? t('common.loading') : t('stock.adjustSubmit')}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

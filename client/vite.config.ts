@@ -1,10 +1,16 @@
 import { defineConfig } from 'vite';
+import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
 export default defineConfig({
   plugins: [
+    TanStackRouterVite({
+      routesDirectory: './src/routes',
+      generatedRouteTree: './src/routeTree.gen.ts',
+      autoCodeSplitting: true,
+    }),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -50,10 +56,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-router': ['@tanstack/react-router'],
           'vendor-query': ['@tanstack/react-query', '@tanstack/react-table'],
           'vendor-charts': ['recharts'],
-          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-dropdown-menu'],
+          'vendor-ui-hero': ['@heroui/react'],
+          'vendor-motion': ['framer-motion'],
           'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
         },
       },

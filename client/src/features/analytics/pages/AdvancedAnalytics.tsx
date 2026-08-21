@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import { Card, CardContent } from '../../../shared/ui/card';
-import { Badge } from '../../../shared/ui/badge';
+import { Card, CardBody, Button } from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import AbcChart from '../components/charts/AbcChart';
 import HeatmapChart from '../components/charts/HeatmapChart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -75,31 +76,6 @@ type HourlyHeatmapResponse = Array<{
   revenue: number;
 }>;
 
-// --- Tab Button ---
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 text-sm font-data tracking-wider rounded-md transition-all ${
-        active
-          ? 'text-gold bg-gold/10 border border-gold/30'
-          : 'text-muted hover:text-foreground hover:bg-surface'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 // --- Summary Card ---
 
 function SummaryCard({
@@ -112,13 +88,13 @@ function SummaryCard({
   color?: string;
 }) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xs text-muted font-data tracking-wider uppercase">{label}</p>
+    <Card className="border border-border bg-card shadow-sm">
+      <CardBody className="p-4">
+        <p className="text-xs text-muted-foreground font-data tracking-wider uppercase">{label}</p>
         <p className="text-xl font-semibold font-data mt-1" style={color ? { color } : {}}>
           {value}
         </p>
-      </CardContent>
+      </CardBody>
     </Card>
   );
 }
@@ -138,19 +114,18 @@ function DaysSelector({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-muted font-data">{label}:</span>
+      <span className="text-xs text-muted-foreground font-data">{label}:</span>
       {options.map((d) => (
-        <button
+        <Button
           key={d}
+          size="sm"
+          variant={value === d ? 'flat' : 'light'}
+          color={value === d ? 'primary' : 'default'}
+          className="h-7 min-w-8 text-xs font-data px-2"
           onClick={() => onChange(d)}
-          className={`px-3 py-1 text-xs font-data rounded-md transition-all ${
-            value === d
-              ? 'text-gold bg-gold/10 border border-gold/30'
-              : 'text-muted hover:text-foreground bg-surface'
-          }`}
         >
           {d}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -166,14 +141,13 @@ function AbcTab() {
     'analytics/abc-classification'
   );
 
-  if (isLoading) return <div className="p-8 text-center text-muted">{t('common.loading')}</div>;
+  if (isLoading)
+    return <div className="p-8 text-center text-muted-foreground">{t('common.loading')}</div>;
   if (!data) return null;
-
-  const classColors: Record<string, string> = { A: '#C9A96E', B: '#6B8ECF', C: '#888888' };
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted">{t('analytics.abcDesc')}</p>
+      <p className="text-sm text-muted-foreground">{t('analytics.abcDesc')}</p>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -187,19 +161,19 @@ function AbcTab() {
       </div>
 
       {/* Chart */}
-      <Card>
-        <CardContent className="p-4">
+      <Card className="border border-border bg-card shadow-sm">
+        <CardBody className="p-4">
           <AbcChart data={data.products} />
-        </CardContent>
+        </CardBody>
       </Card>
 
       {/* Table */}
-      <Card>
-        <CardContent className="p-0">
+      <Card className="border border-border bg-card shadow-sm">
+        <CardBody className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-muted text-xs font-data tracking-wider uppercase">
+                <tr className="border-b border-border text-muted-foreground text-xs font-data tracking-wider uppercase">
                   <th className="text-start p-3">{t('analytics.products')}</th>
                   <th className="text-start p-3">SKU</th>
                   <th className="text-end p-3">{t('dashboard.revenue')}</th>
@@ -210,20 +184,22 @@ function AbcTab() {
               </thead>
               <tbody>
                 {data.products.map((p) => (
-                  <tr key={p.id} className="border-b border-border/50 hover:bg-surface/50">
+                  <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
                     <td className="p-3 font-data">{p.name}</td>
-                    <td className="p-3 font-data text-muted">{p.sku}</td>
+                    <td className="p-3 font-data text-muted-foreground">{p.sku}</td>
                     <td className="p-3 font-data text-end">{formatCurrency(p.revenue)}</td>
                     <td className="p-3 font-data text-end">{p.revenue_pct}%</td>
                     <td className="p-3 font-data text-end">{p.cumulative_pct}%</td>
                     <td className="p-3 text-center">
                       <Badge
-                        style={{
-                          backgroundColor: `${classColors[p.abc_class]}20`,
-                          color: classColors[p.abc_class],
-                          borderColor: `${classColors[p.abc_class]}40`,
-                        }}
-                        variant="outline"
+                        size="sm"
+                        variant={
+                          p.abc_class === 'A'
+                            ? 'warning'
+                            : p.abc_class === 'B'
+                              ? 'secondary'
+                              : 'default'
+                        }
                       >
                         {p.abc_class}
                       </Badge>
@@ -233,7 +209,7 @@ function AbcTab() {
               </tbody>
             </table>
           </div>
-        </CardContent>
+        </CardBody>
       </Card>
     </div>
   );
@@ -254,7 +230,7 @@ function DeadStockTab() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <p className="text-sm text-muted">{t('analytics.deadStockDesc')}</p>
+        <p className="text-sm text-muted-foreground">{t('analytics.deadStockDesc')}</p>
         <DaysSelector
           value={days}
           onChange={setDays}
@@ -263,7 +239,9 @@ function DeadStockTab() {
         />
       </div>
 
-      {isLoading && <div className="p-8 text-center text-muted">{t('common.loading')}</div>}
+      {isLoading && (
+        <div className="p-8 text-center text-muted-foreground">{t('common.loading')}</div>
+      )}
 
       {data && (
         <>
@@ -276,12 +254,12 @@ function DeadStockTab() {
             />
           </div>
 
-          <Card>
-            <CardContent className="p-0">
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-muted text-xs font-data tracking-wider uppercase">
+                    <tr className="border-b border-border text-muted-foreground text-xs font-data tracking-wider uppercase">
                       <th className="text-start p-3">{t('analytics.products')}</th>
                       <th className="text-start p-3">SKU</th>
                       <th className="text-start p-3">{t('inventory.categoryCol')}</th>
@@ -293,25 +271,25 @@ function DeadStockTab() {
                   </thead>
                   <tbody>
                     {data.products.map((p) => (
-                      <tr key={p.id} className="border-b border-border/50 hover:bg-surface/50">
+                      <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
                         <td className="p-3 font-data">{p.name}</td>
-                        <td className="p-3 font-data text-muted">{p.sku}</td>
-                        <td className="p-3 font-data text-muted">{p.category}</td>
+                        <td className="p-3 font-data text-muted-foreground">{p.sku}</td>
+                        <td className="p-3 font-data text-muted-foreground">{p.category}</td>
                         <td className="p-3 font-data text-end">{p.stock}</td>
-                        <td className="p-3 font-data text-end text-destructive">
+                        <td className="p-3 font-data text-end text-danger">
                           {formatCurrency(p.tied_up_capital)}
                         </td>
                         <td className="p-3 font-data text-end">
                           {t('analytics.days', { count: p.days_inactive })}
                         </td>
-                        <td className="p-3 font-data text-end text-muted">
+                        <td className="p-3 font-data text-end text-muted-foreground">
                           {p.last_sold_date ? formatDate(p.last_sold_date) : t('analytics.never')}
                         </td>
                       </tr>
                     ))}
                     {data.products.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-muted">
+                        <td colSpan={7} className="p-8 text-center text-muted-foreground">
                           {t('common.noResults')}
                         </td>
                       </tr>
@@ -319,7 +297,7 @@ function DeadStockTab() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
         </>
       )}
@@ -339,14 +317,15 @@ function ClvTab() {
     'analytics/customer-ltv'
   );
 
-  if (isLoading) return <div className="p-8 text-center text-muted">{t('common.loading')}</div>;
+  if (isLoading)
+    return <div className="p-8 text-center text-muted-foreground">{t('common.loading')}</div>;
   if (!data) return null;
 
   const top20 = data.customers.slice(0, 20);
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted">{t('analytics.clvDesc')}</p>
+      <p className="text-sm text-muted-foreground">{t('analytics.clvDesc')}</p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <SummaryCard label={t('analytics.totalCustomers')} value={data.summary.total_customers} />
@@ -363,9 +342,9 @@ function ClvTab() {
 
       {/* Top 20 bar chart */}
       {top20.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-sm font-data text-muted tracking-wider uppercase mb-4">
+        <Card className="border border-border bg-card shadow-sm">
+          <CardBody className="p-4">
+            <h3 className="text-sm font-data text-muted-foreground tracking-wider uppercase mb-4">
               {t('analytics.topCustomers')}
             </h3>
             <div dir="ltr">
@@ -417,10 +396,10 @@ function ClvTab() {
                           className="rounded-md p-3 shadow-lg"
                         >
                           <p className="text-xs font-data">{d.name}</p>
-                          <p className="text-sm font-semibold text-gold font-data">
+                          <p className="text-sm font-semibold text-primary font-data">
                             {formatCurrency(d.lifetime_revenue)}
                           </p>
-                          <p className="text-xs font-data text-muted">
+                          <p className="text-xs font-data text-muted-foreground">
                             {d.order_count} {t('analytics.orderCount')}
                           </p>
                         </div>
@@ -437,17 +416,17 @@ function ClvTab() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       )}
 
       {/* Full table */}
-      <Card>
-        <CardContent className="p-0">
+      <Card className="border border-border bg-card shadow-sm">
+        <CardBody className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-muted text-xs font-data tracking-wider uppercase">
+                <tr className="border-b border-border text-muted-foreground text-xs font-data tracking-wider uppercase">
                   <th className="text-start p-3">{t('common.name')}</th>
                   <th className="text-end p-3">{t('analytics.lifetimeRevenue')}</th>
                   <th className="text-end p-3">{t('analytics.orderCount')}</th>
@@ -458,27 +437,27 @@ function ClvTab() {
               </thead>
               <tbody>
                 {data.customers.map((c) => (
-                  <tr key={c.id} className="border-b border-border/50 hover:bg-surface/50">
+                  <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30">
                     <td className="p-3 font-data">
                       <div>{c.name}</div>
-                      {c.phone && <div className="text-xs text-muted">{c.phone}</div>}
+                      {c.phone && <div className="text-xs text-muted-foreground">{c.phone}</div>}
                     </td>
-                    <td className="p-3 font-data text-end text-gold">
+                    <td className="p-3 font-data text-end text-primary font-medium">
                       {formatCurrency(c.lifetime_revenue)}
                     </td>
                     <td className="p-3 font-data text-end">{c.order_count}</td>
                     <td className="p-3 font-data text-end">{formatCurrency(c.avg_order_value)}</td>
-                    <td className="p-3 font-data text-end text-muted">
+                    <td className="p-3 font-data text-end text-muted-foreground">
                       {t('analytics.days', { count: c.tenure_days })}
                     </td>
-                    <td className="p-3 font-data text-end text-muted">
+                    <td className="p-3 font-data text-end text-muted-foreground">
                       {t('analytics.days', { count: c.recency_days })}
                     </td>
                   </tr>
                 ))}
                 {data.customers.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted">
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
                       {t('common.noResults')}
                     </td>
                   </tr>
@@ -486,7 +465,7 @@ function ClvTab() {
               </tbody>
             </table>
           </div>
-        </CardContent>
+        </CardBody>
       </Card>
     </div>
   );
@@ -504,7 +483,6 @@ function HeatmapTab() {
     { days }
   );
 
-  // Calculate peaks
   const peakHour = data?.reduce((best, cur) => (cur.revenue > best.revenue ? cur : best), {
     day_of_week: 0,
     hour: 0,
@@ -512,7 +490,6 @@ function HeatmapTab() {
     revenue: 0,
   });
 
-  // Aggregate by day for peak day
   const dayTotals = new Map<number, number>();
   data?.forEach((d) => {
     dayTotals.set(d.day_of_week, (dayTotals.get(d.day_of_week) || 0) + d.revenue);
@@ -529,7 +506,7 @@ function HeatmapTab() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <p className="text-sm text-muted">{t('analytics.heatmapDesc')}</p>
+        <p className="text-sm text-muted-foreground">{t('analytics.heatmapDesc')}</p>
         <DaysSelector
           value={days}
           onChange={setDays}
@@ -538,7 +515,9 @@ function HeatmapTab() {
         />
       </div>
 
-      {isLoading && <div className="p-8 text-center text-muted">{t('common.loading')}</div>}
+      {isLoading && (
+        <div className="p-8 text-center text-muted-foreground">{t('common.loading')}</div>
+      )}
 
       {data && (
         <>
@@ -559,10 +538,10 @@ function HeatmapTab() {
             />
           </div>
 
-          <Card>
-            <CardContent className="p-4">
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4">
               <HeatmapChart data={data} />
-            </CardContent>
+            </CardBody>
           </Card>
         </>
       )}
@@ -586,22 +565,22 @@ export default function AdvancedAnalytics() {
   ];
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-display text-foreground">{t('analytics.title')}</h1>
-      </div>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('analytics.title')} />
 
       {/* Tabs */}
       <div className="flex gap-2 flex-wrap">
         {tabs.map((tab) => (
-          <TabButton
+          <Button
             key={tab.id}
-            active={activeTab === tab.id}
+            size="sm"
+            variant={activeTab === tab.id ? 'flat' : 'light'}
+            color={activeTab === tab.id ? 'primary' : 'default'}
             onClick={() => setActiveTab(tab.id)}
+            className="font-medium"
           >
             {tab.label}
-          </TabButton>
+          </Button>
         ))}
       </div>
 

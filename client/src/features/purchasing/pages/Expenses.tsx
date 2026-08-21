@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import { Receipt, Plus, Pencil, Trash2, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
-import { Card, CardContent } from '../../../shared/ui/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
+  Button,
+  Input,
+  Select,
+  SelectItem,
+  Card,
+  CardBody,
+  Tabs,
+  Tab,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
@@ -81,118 +86,110 @@ export default function ExpensesPage() {
   const categoryKey = (cat: string) => `expenses.${cat}` as const;
 
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('expenses.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
-        <Button onClick={editor.openNew} className="gap-2">
-          <Plus className="h-4 w-4" /> {t('expenses.addExpense')}
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('expenses.title')}>
+        <Button
+          color="primary"
+          size="sm"
+          startContent={<Plus className="h-4 w-4" />}
+          onClick={editor.openNew}
+        >
+          {t('expenses.addExpense')}
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-border">
-        <button
-          onClick={() => setTab('list')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === 'list' ? 'border-gold text-gold' : 'border-transparent text-muted hover:text-foreground'}`}
-        >
-          {t('expenses.title')}
-        </button>
-        <button
-          onClick={() => setTab('pnl')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === 'pnl' ? 'border-gold text-gold' : 'border-transparent text-muted hover:text-foreground'}`}
-        >
-          {t('expenses.pnl')}
-        </button>
-      </div>
+      <Tabs
+        selectedKey={tab}
+        onSelectionChange={(key) => setTab(key as 'list' | 'pnl')}
+        color="primary"
+        variant="bordered"
+        size="sm"
+      >
+        <Tab key="list" title={t('expenses.title')} />
+        <Tab key="pnl" title={t('expenses.pnl')} />
+      </Tabs>
 
       {tab === 'list' && (
         <>
           {/* Summary card */}
-          <Card className="border-border mb-6">
-            <CardContent className="p-4 flex items-center justify-between">
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 flex flex-row items-center justify-between">
               <div>
-                <span className="text-xs text-muted uppercase tracking-wider">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
                   {t('expenses.totalExpenses')}
                 </span>
-                <p className="text-2xl font-data font-bold text-red-500">
+                <p className="text-2xl font-data font-bold text-danger mt-1">
                   {formatCurrency(meta?.total_amount ?? 0)}
                 </p>
               </div>
-              <Receipt className="h-8 w-8 text-gold/40" />
-            </CardContent>
+              <Receipt className="h-8 w-8 text-primary/30" />
+            </CardBody>
           </Card>
 
           {/* Expense table */}
-          <div className="overflow-x-auto border border-border rounded-md">
+          <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
             <table className="w-full text-sm">
-              <thead className="bg-surface border-b border-border">
+              <thead className="bg-muted/40 border-b border-border text-muted-foreground text-xs">
                 <tr>
-                  <th className="text-start p-3 font-medium text-muted">{t('expenses.date')}</th>
-                  <th className="text-start p-3 font-medium text-muted">
-                    {t('expenses.category')}
-                  </th>
-                  <th className="text-start p-3 font-medium text-muted">
-                    {t('expenses.description')}
-                  </th>
-                  <th className="text-start p-3 font-medium text-muted">
-                    {t('expenses.recurrence')}
-                  </th>
-                  <th className="text-end p-3 font-medium text-muted">{t('expenses.amount')}</th>
+                  <th className="text-start p-3 font-semibold">{t('expenses.date')}</th>
+                  <th className="text-start p-3 font-semibold">{t('expenses.category')}</th>
+                  <th className="text-start p-3 font-semibold">{t('expenses.description')}</th>
+                  <th className="text-start p-3 font-semibold">{t('expenses.recurrence')}</th>
+                  <th className="text-end p-3 font-semibold">{t('expenses.amount')}</th>
                   <th className="p-3"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border/50">
                 {!rows?.length ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-muted">
+                    <td colSpan={6} className="text-center py-12 text-muted-foreground">
                       {t('common.noResults')}
                     </td>
                   </tr>
                 ) : (
                   rows.map((exp) => (
-                    <tr key={exp.id} className="border-b border-border hover:bg-surface/50">
-                      <td className="p-3 font-data text-xs">{exp.date}</td>
+                    <tr key={exp.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="p-3 font-data text-xs text-muted-foreground">{exp.date}</td>
                       <td className="p-3">
-                        <Badge variant="gold" className="text-[10px]">
+                        <Badge size="sm" variant="primary">
                           {t(categoryKey(exp.category))}
                         </Badge>
                       </td>
-                      <td className="p-3 text-muted">{exp.description || '—'}</td>
-                      <td className="p-3 text-xs">
+                      <td className="p-3 text-muted-foreground">{exp.description || '—'}</td>
+                      <td className="p-3 text-xs text-muted-foreground">
                         {t(
                           `expenses.${exp.recurring === 'one_time' ? 'oneTime' : exp.recurring}` as never
                         )}
                       </td>
-                      <td className="p-3 text-end font-data font-medium text-red-500">
+                      <td className="p-3 text-end font-data font-semibold text-danger">
                         {formatCurrency(exp.amount)}
                       </td>
                       <td className="p-3">
                         <div className="flex gap-1 justify-end">
                           <Button
-                            variant="ghost"
-                            size="icon"
+                            isIconOnly
+                            variant="light"
+                            size="sm"
                             className="h-7 w-7"
                             onClick={() => editor.openEdit(exp)}
                             aria-label={t('common.edit')}
                           >
-                            <Pencil className="h-3 w-3" />
+                            <Pencil className="h-3.5 w-3.5 text-primary" />
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive"
+                            isIconOnly
+                            variant="light"
+                            color="danger"
+                            size="sm"
+                            className="h-7 w-7"
                             onClick={() => {
                               if (window.confirm(t('expenses.deleteConfirm')))
                                 remover.remove(exp.id);
                             }}
                             aria-label={t('common.delete')}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </td>
@@ -208,173 +205,199 @@ export default function ExpensesPage() {
       {tab === 'pnl' && pnl && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-border">
-              <CardContent className="p-4">
+            <Card className="border border-border bg-card shadow-sm">
+              <CardBody className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted uppercase tracking-wider">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
                     {t('expenses.revenue')}
                   </span>
-                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  <TrendingUp className="h-4 w-4 text-success" />
                 </div>
-                <p className="text-2xl font-data font-bold text-emerald-500">
+                <p className="text-2xl font-data font-bold text-success">
                   {formatCurrency(pnl.revenue)}
                 </p>
-              </CardContent>
+              </CardBody>
             </Card>
-            <Card className="border-border">
-              <CardContent className="p-4">
+            <Card className="border border-border bg-card shadow-sm">
+              <CardBody className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted uppercase tracking-wider">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
                     {t('expenses.operatingExpenses')}
                   </span>
-                  <TrendingDown className="h-4 w-4 text-red-500" />
+                  <TrendingDown className="h-4 w-4 text-danger" />
                 </div>
-                <p className="text-2xl font-data font-bold text-red-500">
+                <p className="text-2xl font-data font-bold text-danger">
                   {formatCurrency(pnl.operating_expenses)}
                 </p>
-              </CardContent>
+              </CardBody>
             </Card>
-            <Card className="border-border">
-              <CardContent className="p-4">
+            <Card className="border border-border bg-card shadow-sm">
+              <CardBody className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted uppercase tracking-wider">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
                     {t('expenses.netProfit')}
                   </span>
-                  <DollarSign className="h-4 w-4 text-gold" />
+                  <DollarSign className="h-4 w-4 text-primary" />
                 </div>
                 <p
-                  className={`text-2xl font-data font-bold ${pnl.net_profit >= 0 ? 'text-emerald-500' : 'text-red-500'}`}
+                  className={`text-2xl font-data font-bold ${pnl.net_profit >= 0 ? 'text-success' : 'text-danger'}`}
                 >
                   {formatCurrency(pnl.net_profit)}
                 </p>
-              </CardContent>
+              </CardBody>
             </Card>
           </div>
 
           {/* P&L breakdown */}
-          <Card className="border-border">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex justify-between py-2 border-b border-border">
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 space-y-3">
+              <div className="flex justify-between py-2 border-b border-border text-foreground font-semibold">
                 <span>{t('expenses.revenue')}</span>
-                <span className="font-data font-bold">{formatCurrency(pnl.revenue)}</span>
+                <span className="font-data">{formatCurrency(pnl.revenue)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border text-muted">
+              <div className="flex justify-between py-2 border-b border-border text-muted-foreground">
                 <span>- {t('expenses.cogs')}</span>
                 <span className="font-data">{formatCurrency(pnl.cogs)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border font-medium">
+              <div className="flex justify-between py-2 border-b border-border font-semibold text-foreground">
                 <span>{t('expenses.grossProfit')}</span>
                 <span className="font-data">{formatCurrency(pnl.gross_profit)}</span>
               </div>
               {pnl.expenses_by_category.map((cat) => (
                 <div
                   key={cat.category}
-                  className="flex justify-between py-1 text-sm text-muted ps-4"
+                  className="flex justify-between py-1 text-sm text-muted-foreground ps-4"
                 >
                   <span>- {t(categoryKey(cat.category))}</span>
                   <span className="font-data">{formatCurrency(cat.total)}</span>
                 </div>
               ))}
-              <div className="flex justify-between py-2 border-t-2 border-gold font-bold text-lg">
+              <div className="flex justify-between py-3 border-t-2 border-primary font-bold text-lg text-foreground">
                 <span>{t('expenses.netProfit')}</span>
                 <span
-                  className={`font-data ${pnl.net_profit >= 0 ? 'text-emerald-500' : 'text-red-500'}`}
+                  className={`font-data ${pnl.net_profit >= 0 ? 'text-success' : 'text-danger'}`}
                 >
                   {formatCurrency(pnl.net_profit)}
                 </span>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
         </div>
       )}
 
       {/* Add/Edit Expense Dialog */}
-      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editor.isEditing ? t('expenses.editExpense') : t('expenses.addExpense')}
-            </DialogTitle>
-            <DialogDescription>{t('expenses.title')}</DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              saver.save({
-                id: editor.editingId,
-                category: form.category,
-                amount: Number(form.amount),
-                description: form.description || undefined,
-                date: form.date,
-                recurring: form.recurring,
-              });
-            }}
-            className="space-y-4"
-          >
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>{t('expenses.category')}</Label>
-                <select
-                  className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-                  value={form.category}
-                  onChange={(e) => editor.set('category', e.target.value)}
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {t(categoryKey(c))}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label>{t('expenses.amount')}</Label>
+      <Modal
+        isOpen={editor.open}
+        onOpenChange={editor.setOpen}
+        backdrop="blur"
+        placement="center"
+        size="lg"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saver.save({
+                  id: editor.editingId,
+                  category: form.category,
+                  amount: Number(form.amount),
+                  description: form.description || undefined,
+                  date: form.date,
+                  recurring: form.recurring,
+                });
+              }}
+            >
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">
+                    {editor.isEditing ? t('expenses.editExpense') : t('expenses.addExpense')}
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('expenses.title')}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Select
+                    label={t('expenses.category')}
+                    size="sm"
+                    variant="bordered"
+                    selectedKeys={[form.category]}
+                    onChange={(e) => {
+                      if (e.target.value) editor.set('category', e.target.value);
+                    }}
+                  >
+                    {categories.map((c) => (
+                      <SelectItem key={c} textValue={t(categoryKey(c))}>
+                        {t(categoryKey(c))}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                  <Input
+                    type="number"
+                    label={t('expenses.amount')}
+                    size="sm"
+                    variant="bordered"
+                    min="0.01"
+                    step="0.01"
+                    value={form.amount}
+                    onValueChange={(val) => editor.set('amount', val)}
+                    isRequired
+                  />
+                </div>
                 <Input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={(e) => editor.set('amount', e.target.value)}
-                  required
+                  label={t('expenses.description')}
+                  size="sm"
+                  variant="bordered"
+                  value={form.description}
+                  onValueChange={(val) => editor.set('description', val)}
                 />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>{t('expenses.description')}</Label>
-              <Input
-                value={form.description}
-                onChange={(e) => editor.set('description', e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label>{t('expenses.date')}</Label>
-                <Input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => editor.set('date', e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>{t('expenses.recurrence')}</Label>
-                <select
-                  className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-                  value={form.recurring}
-                  onChange={(e) => editor.set('recurring', e.target.value)}
-                >
-                  {recurrences.map((r) => (
-                    <option key={r} value={r}>
-                      {t(`expenses.${r === 'one_time' ? 'oneTime' : r}` as never)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={saver.isSaving}>
-              {saver.isSaving ? t('common.loading') : t('common.save')}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    type="date"
+                    label={t('expenses.date')}
+                    size="sm"
+                    variant="bordered"
+                    value={form.date}
+                    onValueChange={(val) => editor.set('date', val)}
+                  />
+                  <Select
+                    label={t('expenses.recurrence')}
+                    size="sm"
+                    variant="bordered"
+                    selectedKeys={[form.recurring]}
+                    onChange={(e) => {
+                      if (e.target.value) editor.set('recurring', e.target.value);
+                    }}
+                  >
+                    {recurrences.map((r) => (
+                      <SelectItem
+                        key={r}
+                        textValue={t(`expenses.${r === 'one_time' ? 'oneTime' : r}` as never)}
+                      >
+                        {t(`expenses.${r === 'one_time' ? 'oneTime' : r}` as never)}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={editor.close}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit" color="primary" size="sm" isLoading={saver.isSaving}>
+                  {saver.isSaving ? t('common.loading') : t('common.save')}
+                </Button>
+              </ModalFooter>
+            </form>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

@@ -36,3 +36,20 @@ if (!globalThis.ResizeObserver) {
     disconnect() {}
   };
 }
+
+if (!Element.prototype.animate) {
+  Element.prototype.animate = () =>
+    ({
+      finished: Promise.resolve(),
+      cancel: () => {},
+      play: () => {},
+      pause: () => {},
+      reverse: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }) as unknown as Animation;
+}
+
+if (!window.scrollTo) {
+  window.scrollTo = () => {};
+}

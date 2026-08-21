@@ -1,11 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { RouterProvider } from '@tanstack/react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
-import App from './App';
 import { queryClient } from '../shared/lib/queryClient';
 import { useSettingsStore } from '../shared/store/settingsStore';
+import { useAuthStore } from '../features/auth';
+import { router } from './router';
 import './session';
 import './index.css';
 
@@ -33,6 +34,11 @@ function ThemedToaster(): React.ReactElement {
   );
 }
 
+function AppRouterProvider(): React.ReactElement {
+  const { isAuthenticated, user } = useAuthStore();
+  return <RouterProvider router={router} context={{ auth: { isAuthenticated, user } }} />;
+}
+
 // Hydrate settings (theme/locale) synchronously before render to prevent FOUC
 useSettingsStore.getState().hydrate();
 
@@ -44,10 +50,8 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <App />
-        <ThemedToaster />
-      </BrowserRouter>
+      <AppRouterProvider />
+      <ThemedToaster />
     </QueryClientProvider>
   </React.StrictMode>
 );

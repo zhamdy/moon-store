@@ -18,19 +18,17 @@ import {
   Percent,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '../../../shared/ui/sheet';
-import { RadioGroup, RadioGroupItem } from '../../../shared/ui/radio-group';
-import { Separator } from '../../../shared/ui/separator';
+  Button,
+  Input,
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerBody,
+  RadioGroup,
+  Radio,
+  Divider,
+} from '@heroui/react';
 import { useCartStore } from '../store/cartStore';
 import { useOfflineStore } from '../../../shared/store/offlineStore';
 import { useHeldCartsStore } from '../store/heldCartsStore';
@@ -155,16 +153,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const [redeemPoints, setRedeemPoints] = useState(false);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
-  // App settings (tax + loyalty). Settings.tsx writes this key and
-  // CustomerDetail.tsx reads it, so the cache entry stays shared with them
-  // rather than moving under a resource-scoped key of its own.
   const { data: appSettings } = useApiQuery<AppSettings>(['settings'], 'settings', undefined, {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Customer loyalty points. Same story: CustomerDetail.tsx invalidates
-  // ['customer-loyalty', id] after adjusting points, and that has to keep
-  // reaching this copy.
   const { data: customerLoyalty } = useApiQuery<CustomerLoyalty>(
     ['customer-loyalty', selectedCustomer?.id],
     `customers/${selectedCustomer?.id}/loyalty`,
@@ -190,9 +182,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     return { enabled: enabled && rate > 0, rate, mode };
   }, [appSettings]);
 
-  // Every figure the sale is worth, decided in one place. What the footer, the
-  // checkout sheet and the split-payment allocation each show is now the same
-  // arithmetic rather than three near-misses.
   const totals = useMemo(
     () =>
       calculateTotals({
@@ -218,12 +207,8 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     ]
   );
 
-  // Split payments are balanced against what the customer actually owes, which
-  // includes tax and any points redeemed. Comparing against the bare cart total
-  // let a split under-collect whenever tax was switched on.
   const split = useMemo(() => allocateSplit(payments, totals.amountDue), [payments, totals]);
 
-  // Expose checkout trigger for keyboard shortcuts
   useEffect(() => {
     if (checkoutTriggerRef) {
       checkoutTriggerRef.current = () => setCheckoutOpen(true);
@@ -243,8 +228,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     }
   );
 
-  // The created row is needed here to select it, so the caller reads it off
-  // this one write rather than the hook publishing it for everyone.
   const customerCreator = customers.useSave({
     message: t('cart.customerCreated'),
     fallbackMessage: t('cart.customerCreateError'),
@@ -264,9 +247,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     );
   };
 
-  // The sale POST stays on the transport rather than `resource`: its failure
-  // path is not a toast but the offline queue, and `resource` toasts every
-  // failure it sees.
   const checkoutMutation = useMutation({
     mutationFn: (saleData: SaleData) =>
       transport.request<SaleResponse>({ method: 'POST', path: 'sales', body: saleData }),
@@ -368,8 +348,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
     try {
-      // Validation is a question about a code, not a write to one, so there is
-      // no record for `resource` to hang it off.
       const { data } = await transport.request<CouponValidation>({
         method: 'POST',
         path: 'coupons/validate',
@@ -408,81 +386,94 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-300px)] bg-card border border-border rounded-md">
+    <div className="flex flex-col min-h-[calc(100vh-300px)] bg-card border border-border rounded-xl shadow-sm">
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <h2 className="font-display text-lg tracking-wider flex items-center gap-2">
-          <ShoppingBag className="h-5 w-5 text-gold" />
+      <div className="p-4 border-b border-border/50 flex items-center justify-between">
+        <h2 className="font-semibold text-base tracking-tight flex items-center gap-2 text-foreground">
+          <ShoppingBag className="h-4 w-4 text-primary" />
           {t('cart.title')} ({items.length})
         </h2>
         <div className="flex items-center gap-1">
           <Button
-            variant="ghost"
-            size="icon"
+            isIconOnly
+            variant="light"
+            size="sm"
             className="h-8 w-8"
             onClick={handleHoldCart}
-            disabled={items.length === 0}
+            isDisabled={items.length === 0}
             title={t('cart.hold')}
+            aria-label={t('cart.hold')}
           >
-            <Pause className="h-4 w-4 text-gold" />
+            <Pause className="h-4 w-4 text-primary" />
           </Button>
           <Button
-            variant="ghost"
-            size="icon"
+            isIconOnly
+            variant="light"
+            size="sm"
             className="h-8 w-8 relative"
             onClick={() => setHeldCartsOpen(true)}
             title={t('cart.heldCarts')}
+            aria-label={t('cart.heldCarts')}
           >
-            <Archive className="h-4 w-4 text-gold" />
+            <Archive className="h-4 w-4 text-primary" />
             {heldCarts.length > 0 && (
-              <Badge className="absolute -top-1 -end-1 h-4 min-w-4 px-1 text-[10px] leading-none">
+              <span className="absolute -top-1 -end-1 h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center font-bold">
                 {heldCarts.length}
-              </Badge>
+              </span>
             )}
           </Button>
           {items.length > 0 && (
-            <button
+            <Button
+              variant="light"
+              color="danger"
+              size="sm"
+              className="h-8 text-xs ms-1"
               onClick={clearCart}
-              className="text-xs text-destructive hover:text-destructive/80 transition-colors ms-1"
             >
               {t('cart.clearAll')}
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {/* Items */}
-      <div ref={animateParent} className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={animateParent} className="flex-1 overflow-y-auto p-4 space-y-2">
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <ShoppingBag className="h-12 w-12 text-gold/40 mb-3" />
-            <p className="text-sm text-muted">{t('cart.empty')}</p>
+            <ShoppingBag className="h-12 w-12 text-muted-foreground/40 mb-3" />
+            <p className="text-sm text-muted-foreground">{t('cart.empty')}</p>
           </div>
         ) : (
           items.map((item) => (
             <div
               key={`${item.product_id}-${item.variant_id || 0}`}
-              className="flex items-center gap-3 p-3 bg-surface rounded-md border border-border"
+              className="flex items-center gap-3 p-3 bg-muted/20 hover:bg-muted/40 transition-colors rounded-lg border border-border/50"
             >
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <p className="text-base font-medium text-foreground truncate">{item.name}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
                   <button
                     onClick={() => setEditingMemo(`${item.product_id}-${item.variant_id || 0}`)}
                     className="p-0.5 rounded hover:bg-background transition-colors"
                     title={t('cart.addMemo')}
                   >
-                    <Pencil className={`h-3 w-3 ${item.memo ? 'text-gold' : 'text-muted'}`} />
+                    <Pencil
+                      className={`h-3 w-3 ${item.memo ? 'text-primary' : 'text-muted-foreground'}`}
+                    />
                   </button>
                 </div>
-                <p className="text-sm text-muted font-data">{formatCurrency(item.unit_price)}</p>
-                {item.memo && <p className="text-xs text-gold/70 mt-0.5">{item.memo}</p>}
+                <p className="text-xs text-muted-foreground font-data">
+                  {formatCurrency(item.unit_price)}
+                </p>
+                {item.memo && <p className="text-xs text-primary/80 mt-0.5">{item.memo}</p>}
                 {editingMemo === `${item.product_id}-${item.variant_id || 0}` && (
                   <Input
                     autoFocus
+                    size="sm"
+                    variant="bordered"
                     placeholder={t('cart.memoPlaceholder')}
                     defaultValue={item.memo || ''}
-                    className="mt-1 h-7 text-xs"
+                    className="mt-1"
                     onBlur={(e) => {
                       setItemMemo(item.product_id, e.target.value, item.variant_id);
                       setEditingMemo(null);
@@ -502,38 +493,47 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               </div>
               <div className="flex items-center gap-1">
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
+                  isIconOnly
+                  variant="light"
+                  size="sm"
+                  className="h-7 w-7"
                   onClick={() =>
                     updateQuantity(item.product_id, item.quantity - 1, item.variant_id)
                   }
+                  aria-label="Decrease quantity"
                 >
-                  <Minus className="h-3.5 w-3.5 text-gold" />
+                  <Minus className="h-3.5 w-3.5 text-primary" />
                 </Button>
-                <span className="w-8 text-center text-base font-data">{item.quantity}</span>
+                <span className="w-7 text-center text-sm font-data font-medium text-foreground">
+                  {item.quantity}
+                </span>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
+                  isIconOnly
+                  variant="light"
+                  size="sm"
+                  className="h-7 w-7"
                   onClick={() =>
                     updateQuantity(item.product_id, item.quantity + 1, item.variant_id)
                   }
-                  disabled={item.quantity >= item.stock}
+                  isDisabled={item.quantity >= item.stock}
+                  aria-label="Increase quantity"
                 >
-                  <Plus className="h-3.5 w-3.5 text-gold" />
+                  <Plus className="h-3.5 w-3.5 text-primary" />
                 </Button>
               </div>
-              <p className="text-base font-semibold font-data w-20 text-end">
+              <p className="text-sm font-semibold font-data w-20 text-end text-foreground">
                 {formatCurrency(item.unit_price * item.quantity)}
               </p>
               <Button
-                variant="ghost"
-                size="icon"
+                isIconOnly
+                variant="light"
+                color="danger"
+                size="sm"
                 className="h-7 w-7"
                 onClick={() => removeItem(item.product_id, item.variant_id)}
+                aria-label="Remove item"
               >
-                <X className="h-3 w-3 text-destructive" />
+                <X className="h-3.5 w-3.5" />
               </Button>
             </div>
           ))
@@ -541,18 +541,18 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       </div>
 
       {/* Footer */}
-      <div className="border-t border-border p-4 space-y-3">
+      <div className="border-t border-border/50 p-4 space-y-3">
         {/* Discount */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-widest text-muted flex items-center gap-1.5">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Tag className="h-3 w-3" />
               {t('cart.discount')}
             </span>
             {discount > 0 && (
               <button
                 onClick={() => setDiscount(0)}
-                className="text-[10px] text-red-500 hover:text-red-500/80 transition-colors"
+                className="text-[10px] text-danger hover:underline transition-colors"
               >
                 {t('cart.clearDiscount')}
               </button>
@@ -561,12 +561,12 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
 
           {/* Type toggle + input */}
           <div className="flex items-center gap-2">
-            <div className="flex bg-surface border border-border rounded-md overflow-hidden">
+            <div className="flex bg-muted/30 border border-border rounded-lg overflow-hidden p-0.5">
               <button
-                className={`px-3 py-1.5 text-xs font-data font-medium transition-colors ${
+                className={`px-2.5 py-1 text-xs font-data font-medium rounded-md transition-colors ${
                   discountType === 'percentage'
-                    ? 'bg-gold text-primary-foreground'
-                    : 'text-muted hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => {
                   if (discountType === 'fixed' && discount > 0) {
@@ -581,10 +581,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                 %
               </button>
               <button
-                className={`px-3 py-1.5 text-xs font-data font-medium transition-colors ${
+                className={`px-2.5 py-1 text-xs font-data font-medium rounded-md transition-colors ${
                   discountType === 'fixed'
-                    ? 'bg-gold text-primary-foreground'
-                    : 'text-muted hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => {
                   if (discountType === 'percentage' && discount > 0) {
@@ -600,13 +600,13 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
             <Input
               type="number"
               min="0"
+              size="sm"
+              variant="bordered"
               max={discountType === 'percentage' ? 100 : undefined}
               placeholder="0"
-              value={discount || ''}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setDiscount(parseFloat(e.target.value) || 0)
-              }
-              className="flex-1 h-8 text-sm font-data"
+              value={discount ? String(discount) : ''}
+              onValueChange={(val) => setDiscount(parseFloat(val) || 0)}
+              className="flex-1 font-data"
             />
           </div>
 
@@ -614,46 +614,44 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           <div className="flex gap-1.5">
             {discountType === 'percentage'
               ? [5, 10, 15, 20].map((pct) => (
-                  <button
+                  <Button
                     key={pct}
+                    size="sm"
+                    variant={discount === pct ? 'solid' : 'bordered'}
+                    color={discount === pct ? 'primary' : 'default'}
+                    className="flex-1 h-7 min-w-0 px-1 text-[11px] font-data font-medium"
                     onClick={() => setDiscount(pct)}
-                    className={`flex-1 py-1 rounded text-[11px] font-data font-medium transition-colors ${
-                      discount === pct
-                        ? 'bg-gold/20 text-gold border border-gold/40'
-                        : 'bg-surface text-muted border border-border hover:border-gold/30 hover:text-foreground'
-                    }`}
                   >
                     {pct}%
-                  </button>
+                  </Button>
                 ))
               : [5, 10, 25, 50].map((amt) => (
-                  <button
+                  <Button
                     key={amt}
+                    size="sm"
+                    variant={discount === amt ? 'solid' : 'bordered'}
+                    color={discount === amt ? 'primary' : 'default'}
+                    className="flex-1 h-7 min-w-0 px-1 text-[11px] font-data font-medium"
                     onClick={() => setDiscount(amt)}
-                    className={`flex-1 py-1 rounded text-[11px] font-data font-medium transition-colors ${
-                      discount === amt
-                        ? 'bg-gold/20 text-gold border border-gold/40'
-                        : 'bg-surface text-muted border border-border hover:border-gold/30 hover:text-foreground'
-                    }`}
                   >
                     ${amt}
-                  </button>
+                  </Button>
                 ))}
           </div>
         </div>
 
-        <Separator />
+        <Divider />
 
         <div className="space-y-1.5">
-          <div className="flex justify-between text-base text-muted font-data">
+          <div className="flex justify-between text-sm text-muted-foreground font-data">
             <span>{t('cart.subtotal')}</span>
-            <span>{formatCurrency(getSubtotal())}</span>
+            <span className="text-foreground">{formatCurrency(getSubtotal())}</span>
           </div>
           {discount > 0 && (
-            <div className="flex justify-between text-base text-red-500 font-data">
+            <div className="flex justify-between text-sm text-danger font-data">
               <span>
                 {t('cart.discount')}
-                <span className="text-sm ms-1 opacity-70">
+                <span className="text-xs ms-1 opacity-70">
                   ({discountType === 'percentage' ? `${discount}%` : formatCurrency(discount)})
                 </span>
               </span>
@@ -666,24 +664,26 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
             </div>
           )}
           {taxInfo.enabled && (
-            <div className="flex justify-between text-base text-muted font-data">
+            <div className="flex justify-between text-sm text-muted-foreground font-data">
               <span>
                 {t('tax.vat')}
-                <span className="text-sm ms-1 opacity-70">({taxInfo.rate}%)</span>
+                <span className="text-xs ms-1 opacity-70">({taxInfo.rate}%)</span>
               </span>
-              <span>{formatCurrency(totals.taxAmount)}</span>
+              <span className="text-foreground">{formatCurrency(totals.taxAmount)}</span>
             </div>
           )}
-          <div className="flex justify-between text-xl font-semibold font-data text-foreground">
+          <div className="flex justify-between text-lg font-semibold font-data text-foreground">
             <span>{t('cart.total')}</span>
-            <span className="text-gold">{formatCurrency(totals.totalWithTax)}</span>
+            <span className="text-primary font-bold">{formatCurrency(totals.totalWithTax)}</span>
           </div>
         </div>
 
         <Button
-          className="w-full"
+          color="primary"
+          size="md"
+          className="w-full font-semibold shadow-sm"
           onClick={() => setCheckoutOpen(true)}
-          disabled={items.length === 0}
+          isDisabled={items.length === 0}
         >
           {t('cart.checkout')}
         </Button>
@@ -692,484 +692,546 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receiptData} />
       <HeldCartsDialog open={heldCartsOpen} onOpenChange={setHeldCartsOpen} />
 
-      {/* Checkout Sheet */}
-      <Sheet open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-        <SheetContent side={isRtl ? 'left' : 'right'} className="flex flex-col overflow-hidden">
-          <SheetHeader>
-            <SheetTitle>{t('cart.completeSale')}</SheetTitle>
-            <SheetDescription>{t('cart.reviewSale')}</SheetDescription>
-          </SheetHeader>
-
-          <div className="mt-6 space-y-6 flex-1 overflow-y-auto px-3">
-            {/* Order summary */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body">
-                {t('cart.orderSummary')}
-              </h3>
-              {items.map((item) => (
-                <div key={item.product_id} className="flex justify-between text-base font-data">
-                  <span>
-                    {item.name} x{item.quantity}
-                  </span>
-                  <span>{formatCurrency(item.unit_price * item.quantity)}</span>
+      {/* Checkout Drawer */}
+      <Drawer
+        isOpen={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        placement={isRtl ? 'left' : 'right'}
+        backdrop="blur"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border-s border-border shadow-2xl',
+        }}
+      >
+        <DrawerContent>
+          {() => (
+            <>
+              <DrawerHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('cart.completeSale')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('cart.reviewSale')}
+                  </p>
                 </div>
-              ))}
-              <Separator />
-              <div className="flex justify-between text-base text-muted font-data">
-                <span>{t('cart.subtotal')}</span>
-                <span>{formatCurrency(getSubtotal())}</span>
-              </div>
-              {discount > 0 && (
-                <div className="flex justify-between text-base text-red-500 font-data">
-                  <span>
-                    {t('cart.discount')}
-                    <span className="text-sm ms-1 opacity-70">
-                      ({discountType === 'percentage' ? `${discount}%` : formatCurrency(discount)})
-                    </span>
-                  </span>
-                  <span>
-                    -
-                    {formatCurrency(
-                      discountType === 'percentage' ? (getSubtotal() * discount) / 100 : discount
-                    )}
-                  </span>
-                </div>
-              )}
-              {taxInfo.enabled && (
-                <div className="flex justify-between text-base text-muted font-data">
-                  <span>
-                    {t('tax.vat')} ({taxInfo.rate}%)
-                  </span>
-                  <span>{formatCurrency(totals.taxAmount)}</span>
-                </div>
-              )}
-              {couponDiscount > 0 && (
-                <div className="flex justify-between text-base text-gold font-data">
-                  <span>
-                    {t('cart.coupon')} ({couponCode})
-                  </span>
-                  <span>-{formatCurrency(couponDiscount)}</span>
-                </div>
-              )}
-              {totals.pointsDiscount > 0 && (
-                <div className="flex justify-between text-base text-gold font-data">
-                  <span>{t('loyalty.pointsDiscount')}</span>
-                  <span>-{formatCurrency(totals.pointsDiscount)}</span>
-                </div>
-              )}
-              {tip > 0 && (
-                <div className="flex justify-between text-base text-gold font-data">
-                  <span>{t('cart.quickDiscount')}</span>
-                  <span>-{formatCurrency(tip)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-lg font-semibold font-data">
-                <span>{t('cart.total')}</span>
-                <span className="text-gold">{formatCurrency(totals.amountDue)}</span>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Customer selection */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body">
-                {t('cart.selectCustomer')}
-              </h3>
-              {selectedCustomer ? (
-                <div className="flex items-center gap-2 p-2 bg-surface rounded-md border border-border">
-                  <UserRound className="h-4 w-4 text-gold shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{selectedCustomer.name}</p>
-                    <p className="text-xs text-muted">
-                      {selectedCustomer.phone}
-                      {loyaltyInfo.enabled && (
-                        <span className="ms-2 text-gold">
-                          <Star className="h-3 w-3 inline-block" />{' '}
-                          {t('loyalty.pointsBalance', {
-                            points: String(loyaltyInfo.customerPoints),
-                          })}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
-                    onClick={() => {
-                      setSelectedCustomer(null);
-                      setRedeemPoints(false);
-                      setPointsToRedeem(0);
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : showNewCustomer ? (
-                <div className="space-y-2 p-2 bg-surface rounded-md border border-border">
-                  <Input
-                    placeholder={t('cart.customerName')}
-                    value={newCustomerName}
-                    onChange={(e) => setNewCustomerName(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                  <Input
-                    placeholder={t('cart.customerPhone')}
-                    value={newCustomerPhone}
-                    onChange={(e) => setNewCustomerPhone(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="flex-1 h-7 text-xs"
-                      disabled={
-                        !newCustomerName.trim() ||
-                        !newCustomerPhone.trim() ||
-                        customerCreator.isSaving
-                      }
-                      onClick={handleCreateCustomer}
-                    >
-                      {customerCreator.isSaving ? '...' : t('cart.saveCustomer')}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => {
-                        setShowNewCustomer(false);
-                        setNewCustomerName('');
-                        setNewCustomerPhone('');
-                      }}
-                    >
-                      {t('common.cancel')}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
+              </DrawerHeader>
+              <DrawerBody className="py-6 space-y-6 overflow-y-auto">
+                {/* Order summary */}
                 <div className="space-y-2">
-                  <div className="relative">
-                    <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
-                    <Input
-                      placeholder={t('cart.searchCustomer')}
-                      value={customerSearch}
-                      onChange={(e) => {
-                        setCustomerSearch(e.target.value);
-                        setShowCustomerDropdown(true);
-                      }}
-                      onFocus={() => setShowCustomerDropdown(true)}
-                      className="ps-9 h-9 text-sm"
-                    />
-                    {showCustomerDropdown && customerSearch.length > 0 && (
-                      <div className="absolute z-20 top-full mt-1 w-full bg-card border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
-                        {customerMatches && customerMatches.length > 0 ? (
-                          customerMatches.map((c) => (
-                            <button
-                              key={c.id}
-                              className="w-full text-start px-3 py-2 text-sm hover:bg-surface transition-colors"
-                              onClick={() => handleSelectCustomer(c)}
-                            >
-                              <span className="font-medium">{c.name}</span>
-                              <span className="text-muted text-xs ms-2">{c.phone}</span>
-                            </button>
-                          ))
-                        ) : (
-                          <p className="px-3 py-2 text-xs text-muted">{t('cart.noCustomer')}</p>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t('cart.orderSummary')}
+                  </h3>
+                  {items.map((item) => (
+                    <div key={item.product_id} className="flex justify-between text-sm font-data">
+                      <span className="text-foreground">
+                        {item.name} x{item.quantity}
+                      </span>
+                      <span className="text-foreground font-medium">
+                        {formatCurrency(item.unit_price * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
+                  <Divider className="my-2" />
+                  <div className="flex justify-between text-sm text-muted-foreground font-data">
+                    <span>{t('cart.subtotal')}</span>
+                    <span className="text-foreground">{formatCurrency(getSubtotal())}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-sm text-danger font-data">
+                      <span>
+                        {t('cart.discount')}
+                        <span className="text-xs ms-1 opacity-70">
+                          (
+                          {discountType === 'percentage'
+                            ? `${discount}%`
+                            : formatCurrency(discount)}
+                          )
+                        </span>
+                      </span>
+                      <span>
+                        -
+                        {formatCurrency(
+                          discountType === 'percentage'
+                            ? (getSubtotal() * discount) / 100
+                            : discount
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  {taxInfo.enabled && (
+                    <div className="flex justify-between text-sm text-muted-foreground font-data">
+                      <span>
+                        {t('tax.vat')} ({taxInfo.rate}%)
+                      </span>
+                      <span className="text-foreground">{formatCurrency(totals.taxAmount)}</span>
+                    </div>
+                  )}
+                  {couponDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-primary font-data">
+                      <span>
+                        {t('cart.coupon')} ({couponCode})
+                      </span>
+                      <span>-{formatCurrency(couponDiscount)}</span>
+                    </div>
+                  )}
+                  {totals.pointsDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-primary font-data">
+                      <span>{t('loyalty.pointsDiscount')}</span>
+                      <span>-{formatCurrency(totals.pointsDiscount)}</span>
+                    </div>
+                  )}
+                  {tip > 0 && (
+                    <div className="flex justify-between text-sm text-primary font-data">
+                      <span>{t('cart.quickDiscount')}</span>
+                      <span>-{formatCurrency(tip)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-base font-bold font-data text-foreground">
+                    <span>{t('cart.total')}</span>
+                    <span className="text-primary">{formatCurrency(totals.amountDue)}</span>
+                  </div>
+                </div>
+
+                <Divider />
+
+                {/* Customer selection */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t('cart.selectCustomer')}
+                  </h3>
+                  {selectedCustomer ? (
+                    <div className="flex items-center gap-2 p-3 bg-muted/20 rounded-xl border border-border/50">
+                      <UserRound className="h-4 w-4 text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {selectedCustomer.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedCustomer.phone}
+                          {loyaltyInfo.enabled && (
+                            <span className="ms-2 text-primary font-semibold">
+                              <Star className="h-3 w-3 inline-block" />{' '}
+                              {t('loyalty.pointsBalance', {
+                                points: String(loyaltyInfo.customerPoints),
+                              })}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <Button
+                        isIconOnly
+                        variant="light"
+                        size="sm"
+                        className="h-7 w-7 shrink-0"
+                        onClick={() => {
+                          setSelectedCustomer(null);
+                          setRedeemPoints(false);
+                          setPointsToRedeem(0);
+                        }}
+                        aria-label="Remove selected customer"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : showNewCustomer ? (
+                    <div className="space-y-2.5 p-3 bg-muted/20 rounded-xl border border-border/50">
+                      <Input
+                        size="sm"
+                        variant="bordered"
+                        placeholder={t('cart.customerName')}
+                        value={newCustomerName}
+                        onValueChange={setNewCustomerName}
+                      />
+                      <Input
+                        size="sm"
+                        variant="bordered"
+                        placeholder={t('cart.customerPhone')}
+                        value={newCustomerPhone}
+                        onValueChange={setNewCustomerPhone}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          color="primary"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          isDisabled={
+                            !newCustomerName.trim() ||
+                            !newCustomerPhone.trim() ||
+                            customerCreator.isSaving
+                          }
+                          isLoading={customerCreator.isSaving}
+                          onClick={handleCreateCustomer}
+                        >
+                          {t('cart.saveCustomer')}
+                        </Button>
+                        <Button
+                          variant="flat"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => {
+                            setShowNewCustomer(false);
+                            setNewCustomerName('');
+                            setNewCustomerPhone('');
+                          }}
+                        >
+                          {t('common.cancel')}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Input
+                          size="sm"
+                          variant="bordered"
+                          placeholder={t('cart.searchCustomer')}
+                          value={customerSearch}
+                          onValueChange={(val) => {
+                            setCustomerSearch(val);
+                            setShowCustomerDropdown(true);
+                          }}
+                          onFocus={() => setShowCustomerDropdown(true)}
+                          startContent={<Search className="h-3.5 w-3.5 text-muted-foreground" />}
+                        />
+                        {showCustomerDropdown && customerSearch.length > 0 && (
+                          <div className="absolute z-20 top-full mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-40 overflow-y-auto divide-y divide-border/50">
+                            {customerMatches && customerMatches.length > 0 ? (
+                              customerMatches.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  className="w-full text-start px-3 py-2 text-sm hover:bg-muted/40 transition-colors"
+                                  onClick={() => handleSelectCustomer(c)}
+                                >
+                                  <span className="font-medium text-foreground">{c.name}</span>
+                                  <span className="text-muted-foreground text-xs ms-2">
+                                    {c.phone}
+                                  </span>
+                                </button>
+                              ))
+                            ) : (
+                              <p className="px-3 py-2 text-xs text-muted-foreground">
+                                {t('cart.noCustomer')}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setShowNewCustomer(true)}
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-gold hover:text-gold/80 transition-colors"
-                  >
-                    <Plus className="h-3 w-3" />
-                    {t('cart.addNewCustomer')}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Loyalty Points Redemption */}
-            {loyaltyInfo.enabled && selectedCustomer && (
-              <>
-                <Separator />
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body flex items-center gap-1.5">
-                    <Star className="h-3.5 w-3.5 text-gold" />
-                    {t('loyalty.redeemPoints')}
-                  </h3>
-                  <div className="flex items-center justify-between p-2 bg-surface rounded-md border border-border">
-                    <div>
-                      <p className="text-sm font-medium">{t('loyalty.points')}</p>
-                      <p className="text-lg font-semibold text-gold font-data">
-                        {loyaltyInfo.customerPoints}
-                      </p>
-                    </div>
-                    {loyaltyInfo.customerPoints > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="redeem-toggle" className="text-xs text-muted">
-                          {t('loyalty.redeemToggle')}
-                        </Label>
-                        <input
-                          id="redeem-toggle"
-                          type="checkbox"
-                          checked={redeemPoints}
-                          onChange={(e) => {
-                            setRedeemPoints(e.target.checked);
-                            if (!e.target.checked) setPointsToRedeem(0);
-                          }}
-                          className="accent-gold h-4 w-4"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  {redeemPoints && loyaltyInfo.customerPoints > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-xs">{t('loyalty.pointsToRedeem')}</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max={loyaltyInfo.customerPoints}
-                        value={pointsToRedeem || ''}
-                        onChange={(e) => {
-                          const val = Math.min(
-                            Math.max(0, parseInt(e.target.value) || 0),
-                            loyaltyInfo.customerPoints
-                          );
-                          setPointsToRedeem(val);
-                        }}
-                        className="h-8 text-sm font-data w-32"
-                      />
-                      {totals.pointsDiscount > 0 && (
-                        <p className="text-xs text-gold font-data">
-                          = -{formatCurrency(totals.pointsDiscount)} {t('loyalty.pointsDiscount')}
-                        </p>
-                      )}
+                      <Button
+                        variant="light"
+                        color="primary"
+                        size="sm"
+                        className="w-full text-xs"
+                        startContent={<Plus className="h-3 w-3" />}
+                        onClick={() => setShowNewCustomer(true)}
+                      >
+                        {t('cart.addNewCustomer')}
+                      </Button>
                     </div>
                   )}
                 </div>
-              </>
-            )}
 
-            {/* Coupon */}
-            <Separator />
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body flex items-center gap-1.5">
-                <Ticket className="h-3.5 w-3.5 text-gold" />
-                {t('cart.coupon')}
-              </h3>
-              {couponCode ? (
-                <div className="flex items-center justify-between p-2 bg-gold/5 rounded-md border border-gold/30">
-                  <div>
-                    <p className="text-sm font-semibold font-data">{couponCode}</p>
-                    <p className="text-xs text-gold font-data">-{formatCurrency(couponDiscount)}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => {
-                      clearCoupon();
-                      setCouponInput('');
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={t('cart.couponPlaceholder')}
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value)}
-                    className="flex-1 h-8 text-sm"
-                  />
-                  <Button variant="outline" size="sm" onClick={handleApplyCoupon}>
-                    {t('cart.applyCoupon')}
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Quick Discount */}
-            <Separator />
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body flex items-center gap-1.5">
-                <Percent className="h-3.5 w-3.5 text-gold" />
-                {t('cart.quickDiscount')}
-              </h3>
-              <div className="flex gap-1.5">
-                {[5, 10, 15].map((pct) => {
-                  const discAmount = Math.round(((getTotal() * pct) / 100) * 100) / 100;
-                  return (
-                    <button
-                      key={pct}
-                      onClick={() => setTip(discAmount)}
-                      className={`flex-1 py-1.5 rounded text-[11px] font-data font-medium transition-colors ${
-                        tip === discAmount
-                          ? 'bg-gold/20 text-gold border border-gold/40'
-                          : 'bg-surface text-muted border border-border hover:border-gold/30'
-                      }`}
-                    >
-                      {pct}%
-                    </button>
-                  );
-                })}
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder={t('cart.customAmount')}
-                  value={tip || ''}
-                  onChange={(e) => setTip(parseFloat(e.target.value) || 0)}
-                  className="flex-1 h-8 text-xs font-data"
-                />
-              </div>
-            </div>
-
-            {/* Sale Notes */}
-            <Separator />
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body flex items-center gap-1.5">
-                <StickyNote className="h-3.5 w-3.5 text-gold" />
-                {t('cart.notes')}
-              </h3>
-              <textarea
-                placeholder={t('cart.notesPlaceholder')}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none"
-                maxLength={500}
-              />
-            </div>
-
-            <Separator />
-
-            {/* Payment method */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium uppercase tracking-widest text-muted font-body">
-                  {t('cart.paymentMethod')}
-                </h3>
-                <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={splitPayment}
-                    onChange={(e) => {
-                      setSplitPayment(e.target.checked);
-                      if (e.target.checked) {
-                        setPayments([
-                          { method: 'Cash', amount: 0 },
-                          { method: 'Card', amount: 0 },
-                        ]);
-                      } else {
-                        setPayments([]);
-                      }
-                    }}
-                    className="accent-gold h-3.5 w-3.5"
-                  />
-                  {t('cart.splitPayment')}
-                </label>
-              </div>
-
-              {!splitPayment ? (
-                <RadioGroup
-                  value={paymentMethod}
-                  onValueChange={(val: string) => setPaymentMethod(val as PaymentMethod)}
-                  className="space-y-1.5"
-                >
-                  {(['Cash', 'Card', 'Other'] as const).map((method) => (
-                    <div
-                      key={method}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md border transition-colors cursor-pointer ${
-                        paymentMethod === method
-                          ? 'border-gold/50 bg-gold/5'
-                          : 'border-border hover:border-gold/30'
-                      }`}
-                      onClick={() => setPaymentMethod(method)}
-                    >
-                      <RadioGroupItem value={method} id={method} />
-                      <Label htmlFor={method} className="cursor-pointer text-sm font-medium flex-1">
-                        {paymentLabels[method]}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              ) : (
-                <div className="space-y-2">
-                  {payments.map((p, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <select
-                        className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-                        value={p.method}
-                        onChange={(e) => {
-                          const next = [...payments];
-                          next[idx] = { ...next[idx], method: e.target.value as PaymentMethod };
-                          setPayments(next);
-                        }}
-                      >
-                        <option value="Cash">{t('cart.cash')}</option>
-                        <option value="Card">{t('cart.card')}</option>
-                        <option value="Gift Card">{t('cart.giftCard')}</option>
-                        <option value="Other">{t('cart.other')}</option>
-                      </select>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={p.amount || ''}
-                        onChange={(e) => {
-                          const next = [...payments];
-                          next[idx] = { ...next[idx], amount: parseFloat(e.target.value) || 0 };
-                          setPayments(next);
-                        }}
-                        className="flex-1 h-8 text-xs font-data"
-                      />
-                      {payments.length > 2 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => setPayments(payments.filter((_, i) => i !== idx))}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                {/* Loyalty Points Redemption */}
+                {loyaltyInfo.enabled && selectedCustomer && (
+                  <>
+                    <Divider />
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Star className="h-3.5 w-3.5 text-primary" />
+                        {t('loyalty.redeemPoints')}
+                      </h3>
+                      <div className="flex items-center justify-between p-3 bg-muted/20 rounded-xl border border-border/50">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {t('loyalty.points')}
+                          </p>
+                          <p className="text-base font-bold text-primary font-data">
+                            {loyaltyInfo.customerPoints}
+                          </p>
+                        </div>
+                        {loyaltyInfo.customerPoints > 0 && (
+                          <div className="flex items-center gap-2">
+                            <label
+                              htmlFor="redeem-toggle"
+                              className="text-xs text-muted-foreground cursor-pointer"
+                            >
+                              {t('loyalty.redeemToggle')}
+                            </label>
+                            <input
+                              id="redeem-toggle"
+                              type="checkbox"
+                              checked={redeemPoints}
+                              onChange={(e) => {
+                                setRedeemPoints(e.target.checked);
+                                if (!e.target.checked) setPointsToRedeem(0);
+                              }}
+                              className="accent-primary h-4 w-4 rounded"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      {redeemPoints && loyaltyInfo.customerPoints > 0 && (
+                        <div className="space-y-2">
+                          <Input
+                            type="number"
+                            label={t('loyalty.pointsToRedeem')}
+                            min="0"
+                            size="sm"
+                            variant="bordered"
+                            max={loyaltyInfo.customerPoints}
+                            value={pointsToRedeem ? String(pointsToRedeem) : ''}
+                            onValueChange={(val) => {
+                              const v = Math.min(
+                                Math.max(0, parseInt(val) || 0),
+                                loyaltyInfo.customerPoints
+                              );
+                              setPointsToRedeem(v);
+                            }}
+                            className="font-data w-36"
+                          />
+                          {totals.pointsDiscount > 0 && (
+                            <p className="text-xs text-primary font-data font-semibold">
+                              = -{formatCurrency(totals.pointsDiscount)}{' '}
+                              {t('loyalty.pointsDiscount')}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
-                  ))}
-                  <div className="flex items-center justify-between text-xs">
-                    <Button
-                      variant="ghost"
+                  </>
+                )}
+
+                {/* Coupon */}
+                <Divider />
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Ticket className="h-3.5 w-3.5 text-primary" />
+                    {t('cart.coupon')}
+                  </h3>
+                  {couponCode ? (
+                    <div className="flex items-center justify-between p-3 bg-primary/10 rounded-xl border border-primary/30">
+                      <div>
+                        <p className="text-sm font-bold font-data text-foreground">{couponCode}</p>
+                        <p className="text-xs text-primary font-data">
+                          -{formatCurrency(couponDiscount)}
+                        </p>
+                      </div>
+                      <Button
+                        isIconOnly
+                        variant="light"
+                        size="sm"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          clearCoupon();
+                          setCouponInput('');
+                        }}
+                        aria-label="Remove coupon"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        size="sm"
+                        variant="bordered"
+                        placeholder={t('cart.couponPlaceholder')}
+                        value={couponInput}
+                        onValueChange={setCouponInput}
+                        className="flex-1"
+                      />
+                      <Button variant="bordered" size="sm" onClick={handleApplyCoupon}>
+                        {t('cart.applyCoupon')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Discount */}
+                <Divider />
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Percent className="h-3.5 w-3.5 text-primary" />
+                    {t('cart.quickDiscount')}
+                  </h3>
+                  <div className="flex gap-1.5 items-center">
+                    {[5, 10, 15].map((pct) => {
+                      const discAmount = Math.round(((getTotal() * pct) / 100) * 100) / 100;
+                      return (
+                        <Button
+                          key={pct}
+                          size="sm"
+                          variant={tip === discAmount ? 'solid' : 'bordered'}
+                          color={tip === discAmount ? 'primary' : 'default'}
+                          className="flex-1 h-7 min-w-0 text-[11px] font-data font-medium"
+                          onClick={() => setTip(discAmount)}
+                        >
+                          {pct}%
+                        </Button>
+                      );
+                    })}
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
                       size="sm"
-                      onClick={() => setPayments([...payments, { method: 'Cash', amount: 0 }])}
-                    >
-                      <Plus className="h-3 w-3 me-1" /> {t('cart.addPayment')}
-                    </Button>
-                    <span
-                      className={`font-data ${split.isBalanced ? 'text-green-500' : 'text-red-500'}`}
-                    >
-                      {formatCurrency(split.allocated)} / {formatCurrency(totals.amountDue)}
-                    </span>
+                      variant="bordered"
+                      placeholder={t('cart.customAmount')}
+                      value={tip ? String(tip) : ''}
+                      onValueChange={(val) => setTip(parseFloat(val) || 0)}
+                      className="flex-1 font-data"
+                    />
                   </div>
                 </div>
-              )}
-            </div>
 
-            <Button
-              className="w-full"
-              onClick={handleCheckout}
-              // An unbalanced split used to submit, collecting whatever had been
-              // keyed in rather than what the sale was worth.
-              disabled={checkoutMutation.isPending || (splitPayment && !split.isBalanced)}
-            >
-              {checkoutMutation.isPending ? t('cart.processing') : t('cart.confirmSale')}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+                {/* Sale Notes */}
+                <Divider />
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <StickyNote className="h-3.5 w-3.5 text-primary" />
+                    {t('cart.notes')}
+                  </h3>
+                  <textarea
+                    placeholder={t('cart.notesPlaceholder')}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    maxLength={500}
+                  />
+                </div>
+
+                <Divider />
+
+                {/* Payment method */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t('cart.paymentMethod')}
+                    </h3>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={splitPayment}
+                        onChange={(e) => {
+                          setSplitPayment(e.target.checked);
+                          if (e.target.checked) {
+                            setPayments([
+                              { method: 'Cash', amount: 0 },
+                              { method: 'Card', amount: 0 },
+                            ]);
+                          } else {
+                            setPayments([]);
+                          }
+                        }}
+                        className="accent-primary h-3.5 w-3.5 rounded"
+                      />
+                      {t('cart.splitPayment')}
+                    </label>
+                  </div>
+
+                  {!splitPayment ? (
+                    <RadioGroup
+                      value={paymentMethod}
+                      onValueChange={(val: string) => setPaymentMethod(val as PaymentMethod)}
+                      className="space-y-1.5"
+                    >
+                      {(['Cash', 'Card', 'Other'] as const).map((method) => (
+                        <Radio
+                          key={method}
+                          value={method}
+                          classNames={{
+                            base: `flex items-center gap-3 px-3 py-2 rounded-xl border transition-colors cursor-pointer max-w-full m-0 ${
+                              paymentMethod === method
+                                ? 'border-primary/50 bg-primary/5'
+                                : 'border-border hover:border-primary/30'
+                            }`,
+                            label: 'text-sm font-medium text-foreground cursor-pointer',
+                          }}
+                        >
+                          {paymentLabels[method]}
+                        </Radio>
+                      ))}
+                    </RadioGroup>
+                  ) : (
+                    <div className="space-y-2">
+                      {payments.map((p, idx) => (
+                        <div key={idx} className="flex gap-2 items-center">
+                          <select
+                            className="h-8 rounded-lg border border-border bg-card text-foreground px-2 text-xs"
+                            value={p.method}
+                            onChange={(e) => {
+                              const next = [...payments];
+                              next[idx] = { ...next[idx], method: e.target.value as PaymentMethod };
+                              setPayments(next);
+                            }}
+                          >
+                            <option value="Cash">{t('cart.cash')}</option>
+                            <option value="Card">{t('cart.card')}</option>
+                            <option value="Gift Card">{t('cart.giftCard')}</option>
+                            <option value="Other">{t('cart.other')}</option>
+                          </select>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            size="sm"
+                            variant="bordered"
+                            value={p.amount ? String(p.amount) : ''}
+                            onValueChange={(val) => {
+                              const next = [...payments];
+                              next[idx] = { ...next[idx], amount: parseFloat(val) || 0 };
+                              setPayments(next);
+                            }}
+                            className="flex-1 font-data"
+                          />
+                          {payments.length > 2 && (
+                            <Button
+                              isIconOnly
+                              variant="light"
+                              size="sm"
+                              className="h-7 w-7"
+                              onClick={() => setPayments(payments.filter((_, i) => i !== idx))}
+                              aria-label="Remove payment split"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <Button
+                          variant="light"
+                          size="sm"
+                          startContent={<Plus className="h-3 w-3" />}
+                          onClick={() => setPayments([...payments, { method: 'Cash', amount: 0 }])}
+                        >
+                          {t('cart.addPayment')}
+                        </Button>
+                        <span
+                          className={`font-data font-semibold ${split.isBalanced ? 'text-success' : 'text-danger'}`}
+                        >
+                          {formatCurrency(split.allocated)} / {formatCurrency(totals.amountDue)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  color="primary"
+                  size="md"
+                  className="w-full font-semibold shadow-sm"
+                  onClick={handleCheckout}
+                  isDisabled={checkoutMutation.isPending || (splitPayment && !split.isBalanced)}
+                  isLoading={checkoutMutation.isPending}
+                >
+                  {checkoutMutation.isPending ? t('cart.processing') : t('cart.confirmSale')}
+                </Button>
+              </DrawerBody>
+            </>
+          )}
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

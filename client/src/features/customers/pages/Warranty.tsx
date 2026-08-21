@@ -1,15 +1,15 @@
 import { ShieldCheck, Plus } from 'lucide-react';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
+  Button,
+  Input,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
+import { Badge, type BadgeVariant } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
@@ -19,14 +19,23 @@ const warranty = resource<WarrantyClaim>('warranty');
 
 const emptyClaim = { sale_id: '', product_id: '', issue: '' };
 
-const statusColors: Record<string, string> = {
-  submitted: 'bg-blue-500/10 text-blue-600',
-  under_review: 'bg-yellow-500/10 text-yellow-600',
-  approved: 'bg-emerald-500/10 text-emerald-600',
-  in_progress: 'bg-purple-500/10 text-purple-600',
-  resolved: 'bg-green-500/10 text-green-700',
-  rejected: 'bg-red-500/10 text-red-600',
+const statusVariantMap: Record<string, BadgeVariant> = {
+  submitted: 'primary',
+  under_review: 'warning',
+  approved: 'success',
+  in_progress: 'secondary',
+  resolved: 'success',
+  rejected: 'danger',
 };
+
+const STATUSES = [
+  'submitted',
+  'under_review',
+  'approved',
+  'in_progress',
+  'resolved',
+  'rejected',
+] as const;
 
 export default function WarrantyPage() {
   const { t } = useTranslation();
@@ -56,71 +65,63 @@ export default function WarrantyPage() {
   };
 
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('warranty.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
-        <Button onClick={editor.openNew} className="gap-2">
-          <Plus className="h-4 w-4" /> {t('warranty.create')}
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('warranty.title')}>
+        <Button
+          color="primary"
+          size="sm"
+          startContent={<Plus className="h-4 w-4" />}
+          onClick={editor.openNew}
+        >
+          {t('warranty.create')}
         </Button>
-      </div>
+      </PageHeader>
 
-      <div className="overflow-x-auto border border-border rounded-md">
+      <div className="overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-surface border-b border-border">
+          <thead className="border-b border-border text-muted-foreground">
             <tr>
-              <th className="text-start p-3 font-medium text-muted">#</th>
-              <th className="text-start p-3 font-medium text-muted">{t('warranty.saleId')}</th>
-              <th className="text-start p-3 font-medium text-muted">Product</th>
-              <th className="text-start p-3 font-medium text-muted">{t('warranty.issue')}</th>
-              <th className="text-start p-3 font-medium text-muted">{t('warranty.status')}</th>
-              <th className="text-start p-3 font-medium text-muted">{t('common.date')}</th>
+              <th className="text-start p-3 font-medium">#</th>
+              <th className="text-start p-3 font-medium">{t('warranty.saleId')}</th>
+              <th className="text-start p-3 font-medium">Product</th>
+              <th className="text-start p-3 font-medium">{t('warranty.issue')}</th>
+              <th className="text-start p-3 font-medium">{t('warranty.status')}</th>
+              <th className="text-start p-3 font-medium">{t('common.date')}</th>
               <th className="p-3"></th>
             </tr>
           </thead>
           <tbody>
             {!claims?.length ? (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-muted">
-                  <ShieldCheck className="h-8 w-8 mx-auto mb-2 text-gold/40" />
+                <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                  <ShieldCheck className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
                   {t('warranty.noClaims')}
                 </td>
               </tr>
             ) : (
               claims.map((c) => (
-                <tr key={c.id} className="border-b border-border">
-                  <td className="p-3 font-data text-muted">#{c.id}</td>
-                  <td className="p-3 font-data">#{c.sale_id}</td>
-                  <td className="p-3">{c.product_name}</td>
-                  <td className="p-3 text-muted max-w-48 truncate">{c.issue}</td>
+                <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30">
+                  <td className="p-3 font-data text-muted-foreground">#{c.id}</td>
+                  <td className="p-3 font-data font-medium">#{c.sale_id}</td>
+                  <td className="p-3 font-medium text-foreground">{c.product_name}</td>
+                  <td className="p-3 text-muted-foreground max-w-48 truncate">{c.issue}</td>
                   <td className="p-3">
-                    <Badge className={`text-[10px] ${statusColors[c.status] || ''}`}>
+                    <Badge size="sm" variant={statusVariantMap[c.status] || 'default'}>
                       {t(statusKey(c.status) as never)}
                     </Badge>
                   </td>
-                  <td className="p-3 font-data text-xs text-muted">
+                  <td className="p-3 font-data text-xs text-muted-foreground">
                     {new Date(c.created_at).toLocaleDateString()}
                   </td>
-                  <td className="p-3">
+                  <td className="p-3 w-40">
                     <select
-                      className="h-7 text-xs rounded border border-border bg-background px-2"
+                      className="h-8 w-full text-xs rounded-md border border-border bg-background px-2 text-foreground"
                       value={c.status}
                       onChange={(e) =>
                         updateStatus.run({ id: c.id, body: { status: e.target.value } })
                       }
                     >
-                      {[
-                        'submitted',
-                        'under_review',
-                        'approved',
-                        'in_progress',
-                        'resolved',
-                        'rejected',
-                      ].map((s) => (
+                      {STATUSES.map((s) => (
                         <option key={s} value={s}>
                           {t(statusKey(s) as never)}
                         </option>
@@ -134,58 +135,79 @@ export default function WarrantyPage() {
         </table>
       </div>
 
-      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('warranty.create')}</DialogTitle>
-            <DialogDescription>{t('warranty.title')}</DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              saver.save({
-                id: editor.editingId,
-                sale_id: Number(form.sale_id),
-                product_id: Number(form.product_id),
-                issue: form.issue,
-              });
-            }}
-            className="space-y-4"
-          >
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>{t('warranty.saleId')}</Label>
+      <Modal
+        isOpen={editor.open}
+        onOpenChange={editor.setOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saver.save({
+                  id: editor.editingId,
+                  sale_id: Number(form.sale_id),
+                  product_id: Number(form.product_id),
+                  issue: form.issue,
+                });
+              }}
+            >
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('warranty.create')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('warranty.title')}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    type="number"
+                    label={t('warranty.saleId')}
+                    size="sm"
+                    variant="bordered"
+                    value={form.sale_id}
+                    onValueChange={(val) => editor.set('sale_id', val)}
+                    isRequired
+                  />
+                  <Input
+                    type="number"
+                    label="Product ID"
+                    size="sm"
+                    variant="bordered"
+                    value={form.product_id}
+                    onValueChange={(val) => editor.set('product_id', val)}
+                    isRequired
+                  />
+                </div>
                 <Input
-                  type="number"
-                  value={form.sale_id}
-                  onChange={(e) => editor.set('sale_id', e.target.value)}
-                  required
+                  label={t('warranty.issue')}
+                  size="sm"
+                  variant="bordered"
+                  value={form.issue}
+                  onValueChange={(val) => editor.set('issue', val)}
+                  isRequired
                 />
-              </div>
-              <div className="space-y-1">
-                <Label>Product ID</Label>
-                <Input
-                  type="number"
-                  value={form.product_id}
-                  onChange={(e) => editor.set('product_id', e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>{t('warranty.issue')}</Label>
-              <Input
-                value={form.issue}
-                onChange={(e) => editor.set('issue', e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={saver.isSaving}>
-              {saver.isSaving ? t('common.loading') : t('common.save')}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={editor.close}>
+                  {t('common.cancel')}
+                </Button>
+                <Button color="primary" size="sm" type="submit" isLoading={saver.isSaving}>
+                  {saver.isSaving ? t('common.loading') : t('common.save')}
+                </Button>
+              </ModalFooter>
+            </form>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

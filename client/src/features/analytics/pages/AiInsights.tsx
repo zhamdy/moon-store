@@ -3,17 +3,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Brain, TrendingUp, RefreshCw, BookOpen, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../../shared/lib/utils';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
+  Button,
+  Input,
+  Textarea,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
@@ -84,87 +85,76 @@ export default function AiInsightsPage() {
   const fmt = (n: number) => formatCurrency(n);
 
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('aiInsights.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('aiInsights.title')}>
         <div className="flex gap-2">
           <Button
-            variant={tab === 'predictions' ? 'default' : 'outline'}
+            variant={tab === 'predictions' ? 'flat' : 'light'}
+            color={tab === 'predictions' ? 'primary' : 'default'}
+            size="sm"
             onClick={() => setTab('predictions')}
-            className="gap-2"
+            startContent={<TrendingUp className="h-4 w-4" />}
           >
-            <TrendingUp className="h-4 w-4" /> {t('aiInsights.predictions')}
+            {t('aiInsights.predictions')}
           </Button>
           <Button
-            variant={tab === 'knowledge' ? 'default' : 'outline'}
+            variant={tab === 'knowledge' ? 'flat' : 'light'}
+            color={tab === 'knowledge' ? 'primary' : 'default'}
+            size="sm"
             onClick={() => setTab('knowledge')}
-            className="gap-2"
+            startContent={<BookOpen className="h-4 w-4" />}
           >
-            <BookOpen className="h-4 w-4" /> {t('aiInsights.knowledgeBase')}
+            {t('aiInsights.knowledgeBase')}
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       {tab === 'predictions' && (
         <div className="space-y-4">
           <Button
+            color="primary"
+            size="sm"
             onClick={() => generatePredictions.mutate()}
-            disabled={generatePredictions.isPending}
-            className="gap-2"
+            isLoading={generatePredictions.isPending}
+            startContent={!generatePredictions.isPending && <RefreshCw className="h-4 w-4" />}
           >
-            <RefreshCw
-              className={`h-4 w-4 ${generatePredictions.isPending ? 'animate-spin' : ''}`}
-            />{' '}
             {t('aiInsights.generatePredictions')}
           </Button>
-          <div className="overflow-x-auto border border-border rounded-md">
+          <div className="overflow-x-auto border border-border rounded-lg bg-card">
             <table className="w-full text-sm">
-              <thead className="bg-surface border-b border-border">
+              <thead className="border-b border-border text-muted-foreground">
                 <tr>
-                  <th className="text-start p-3 font-medium text-muted">
-                    {t('aiInsights.product')}
-                  </th>
-                  <th className="text-start p-3 font-medium text-muted">
-                    {t('aiInsights.period')}
-                  </th>
-                  <th className="text-start p-3 font-medium text-muted">
-                    {t('aiInsights.predictedUnits')}
-                  </th>
-                  <th className="text-start p-3 font-medium text-muted">
-                    {t('aiInsights.predictedRevenue')}
-                  </th>
-                  <th className="text-start p-3 font-medium text-muted">
-                    {t('aiInsights.confidence')}
-                  </th>
+                  <th className="text-start p-3 font-medium">{t('aiInsights.product')}</th>
+                  <th className="text-start p-3 font-medium">{t('aiInsights.period')}</th>
+                  <th className="text-start p-3 font-medium">{t('aiInsights.predictedUnits')}</th>
+                  <th className="text-start p-3 font-medium">{t('aiInsights.predictedRevenue')}</th>
+                  <th className="text-start p-3 font-medium">{t('aiInsights.confidence')}</th>
                 </tr>
               </thead>
               <tbody>
                 {!predictions?.length ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted">
-                      <Brain className="h-12 w-12 text-gold/40 mx-auto mb-3" />
+                    <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                      <Brain className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
                       <p>{t('aiInsights.noPredictions')}</p>
                     </td>
                   </tr>
                 ) : (
                   predictions.map((p) => (
-                    <tr key={p.id} className="border-b border-border hover:bg-surface/50">
+                    <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
                       <td className="p-3">
                         <div className="font-medium">{p.product_name}</div>
-                        <div className="text-xs text-muted">{p.sku}</div>
+                        <div className="text-xs text-muted-foreground">{p.sku}</div>
                       </td>
                       <td className="p-3 font-data">{p.period}</td>
                       <td className="p-3 font-data">{p.predicted_units}</td>
-                      <td className="p-3 font-data text-gold">{fmt(p.predicted_revenue)}</td>
+                      <td className="p-3 font-data text-primary font-medium">
+                        {fmt(p.predicted_revenue)}
+                      </td>
                       <td className="p-3">
-                        <div className="w-16 h-2 bg-surface rounded-full overflow-hidden">
+                        <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-gold"
+                            className="h-full bg-primary"
                             style={{ width: `${p.confidence * 100}%` }}
                           />
                         </div>
@@ -180,21 +170,26 @@ export default function AiInsightsPage() {
 
       {tab === 'knowledge' && (
         <div className="space-y-4">
-          <Button onClick={() => setKbOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> {t('aiInsights.addEntry')}
+          <Button
+            color="primary"
+            size="sm"
+            onClick={() => setKbOpen(true)}
+            startContent={<Plus className="h-4 w-4" />}
+          >
+            {t('aiInsights.addEntry')}
           </Button>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {knowledgeBase?.map((entry) => (
-              <div key={entry.id} className="p-4 rounded-md border border-border bg-card">
-                <Badge variant="gold" className="text-[10px] mb-2">
+              <div key={entry.id} className="p-5 rounded-lg border border-border bg-card shadow-sm">
+                <Badge size="sm" variant="primary" className="mb-2">
                   {entry.category}
                 </Badge>
-                <h3 className="font-medium text-sm mb-1">{entry.question}</h3>
-                <p className="text-xs text-muted">{entry.answer}</p>
+                <h3 className="font-semibold text-sm mb-1 text-foreground">{entry.question}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{entry.answer}</p>
                 {entry.keywords && (
-                  <div className="flex gap-1 mt-2 flex-wrap">
+                  <div className="flex gap-1.5 mt-3 flex-wrap">
                     {entry.keywords.split(',').map((k: string, i: number) => (
-                      <Badge key={i} variant="outline" className="text-[10px]">
+                      <Badge key={i} size="sm" variant="default" className="text-[11px]">
                         {k.trim()}
                       </Badge>
                     ))}
@@ -206,58 +201,79 @@ export default function AiInsightsPage() {
         </div>
       )}
 
-      <Dialog open={kbOpen} onOpenChange={setKbOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('aiInsights.addEntry')}</DialogTitle>
-            <DialogDescription>{t('aiInsights.addEntryDesc')}</DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              addKbEntry.mutate(kbForm);
-            }}
-            className="space-y-3"
-          >
-            <div className="space-y-1">
-              <Label>{t('aiInsights.category')}</Label>
-              <Input
-                value={kbForm.category}
-                onChange={(e) => setKbForm({ ...kbForm, category: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('aiInsights.question')}</Label>
-              <Input
-                value={kbForm.question}
-                onChange={(e) => setKbForm({ ...kbForm, question: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('aiInsights.answer')}</Label>
-              <textarea
-                className="w-full min-h-20 rounded-md border border-border bg-background p-3 text-sm"
-                value={kbForm.answer}
-                onChange={(e) => setKbForm({ ...kbForm, answer: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('aiInsights.keywords')}</Label>
-              <Input
-                value={kbForm.keywords}
-                onChange={(e) => setKbForm({ ...kbForm, keywords: e.target.value })}
-                placeholder="comma,separated,keywords"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={addKbEntry.isPending}>
-              {addKbEntry.isPending ? t('common.saving') : t('common.save')}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        isOpen={kbOpen}
+        onOpenChange={setKbOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                addKbEntry.mutate(kbForm);
+              }}
+            >
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('aiInsights.addEntry')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('aiInsights.addEntryDesc')}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4 space-y-4">
+                <Input
+                  label={t('aiInsights.category')}
+                  size="sm"
+                  variant="bordered"
+                  value={kbForm.category}
+                  onValueChange={(val) => setKbForm({ ...kbForm, category: val })}
+                  isRequired
+                />
+                <Input
+                  label={t('aiInsights.question')}
+                  size="sm"
+                  variant="bordered"
+                  value={kbForm.question}
+                  onValueChange={(val) => setKbForm({ ...kbForm, question: val })}
+                  isRequired
+                />
+                <Textarea
+                  label={t('aiInsights.answer')}
+                  size="sm"
+                  variant="bordered"
+                  minRows={3}
+                  value={kbForm.answer}
+                  onValueChange={(val) => setKbForm({ ...kbForm, answer: val })}
+                  isRequired
+                />
+                <Input
+                  label={t('aiInsights.keywords')}
+                  size="sm"
+                  variant="bordered"
+                  value={kbForm.keywords}
+                  onValueChange={(val) => setKbForm({ ...kbForm, keywords: val })}
+                  placeholder="comma,separated,keywords"
+                />
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={() => setKbOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button color="primary" size="sm" type="submit" isLoading={addKbEntry.isPending}>
+                  {t('common.save')}
+                </Button>
+              </ModalFooter>
+            </form>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
