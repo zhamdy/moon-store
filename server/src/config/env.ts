@@ -1,0 +1,41 @@
+import dotenv from 'dotenv';
+import { z } from 'zod';
+
+dotenv.config();
+
+const envSchema = z.object({
+  PORT: z.coerce.number().default(3001),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  DATABASE_URL: z
+    .string()
+    .optional()
+    .default('postgresql://postgres:postgres@localhost:5432/moon_store'),
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
+  CLIENT_URL: z.string().optional().default('http://localhost:5173'),
+  ALLOWED_ORIGINS: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE: z.string().optional(),
+  TWILIO_WHATSAPP_FROM: z.string().optional(),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+let parsedEnv: Env | null = null;
+
+export function getEnv(): Env {
+  if (!parsedEnv) {
+    const result = envSchema.safeParse(process.env);
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ');
+      throw new Error(`Environment validation failed: ${issues}`);
+    }
+    parsedEnv = result.data;
+  }
+  return parsedEnv;
+}
+
+export function resetEnvCache(): void {
+  parsedEnv = null;
+}
