@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
-import { recordSaleMovement, recordRefundMovement } from '../../../../services/registerService';
 import { notifySale } from '../../../../services/notifications';
+import { recordSaleMovement, recordRefundMovement } from '../register';
 import { saleSchema, refundSchema } from '../../../../validators/saleSchema';
 import { salesService } from './service';
 import { salesRepository } from './repository';
