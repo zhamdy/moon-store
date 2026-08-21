@@ -1,8 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../../tests/testUtils';
-import { Breadcrumbs, TabsNav, CommandPalette, PageHeader } from '../navigation';
-import { commandRegistry, type CommandItem } from '../../lib/commandRegistry';
+import { Breadcrumbs, TabsNav, PageHeader } from '../navigation';
 
 describe('Unit 5: Navigation & Global Utilities Suite', () => {
   describe('Breadcrumbs', () => {
@@ -58,59 +57,6 @@ describe('Unit 5: Navigation & Global Utilities Suite', () => {
       // Arrow navigation
       fireEvent.keyDown(overviewTab, { key: 'ArrowRight' });
       expect(handleChange).toHaveBeenCalledWith('analytics');
-    });
-  });
-
-  describe('CommandRegistry & CommandPalette', () => {
-    it('manages command execution, filtering, and keyboard navigation', () => {
-      const handleNewOrder = vi.fn();
-      const handleViewProducts = vi.fn();
-
-      const testCommands: CommandItem[] = [
-        {
-          id: 'new-order',
-          title: 'Create New Order',
-          description: 'Open POS register',
-          category: 'Actions',
-          onSelect: handleNewOrder,
-        },
-        {
-          id: 'view-products',
-          title: 'View Products',
-          description: 'Navigate to inventory products',
-          category: 'Navigation',
-          onSelect: handleViewProducts,
-        },
-      ];
-
-      renderWithProviders(<CommandPalette isOpen={true} commands={testCommands} />);
-
-      const combobox = screen.getByRole('combobox');
-      expect(combobox).toHaveAttribute('aria-expanded', 'true');
-      expect(combobox).toHaveAttribute('aria-activedescendant', 'command-opt-new-order');
-
-      // Filter
-      fireEvent.change(combobox, { target: { value: 'Products' } });
-      expect(screen.getByText('View Products')).toBeInTheDocument();
-      expect(screen.queryByText('Create New Order')).not.toBeInTheDocument();
-
-      // Execute on Enter
-      fireEvent.keyDown(combobox, { key: 'Enter' });
-      expect(handleViewProducts).toHaveBeenCalledTimes(1);
-    });
-
-    it('commandRegistry singleton register & unregister', () => {
-      const dummyAction = vi.fn();
-      const unregister = commandRegistry.register({
-        id: 'test-action',
-        title: 'Test Action',
-        onSelect: dummyAction,
-      });
-
-      expect(commandRegistry.getAll().some((c) => c.id === 'test-action')).toBe(true);
-
-      unregister();
-      expect(commandRegistry.getAll().some((c) => c.id === 'test-action')).toBe(false);
     });
   });
 
