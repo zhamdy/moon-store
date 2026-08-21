@@ -1,63 +1,42 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import Database from 'better-sqlite3';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { newDb } from 'pg-mem';
+import { Pool as PgPool } from 'pg';
 import path from 'path';
-import fs from 'fs';
+import { setPool, closePool } from '../src/database/pool';
+import { runMigrationsUp } from '../src/database/migrate';
 
-const TEST_DB_PATH = path.join(__dirname, 'test-auth.db');
 const JWT_SECRET = process.env.JWT_SECRET!;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
 
-let testDb: InstanceType<typeof Database>;
+let testPool: PgPool;
 
 beforeAll(async () => {
-  // Clean up any leftover DB from previous runs
-  for (const ext of ['', '-wal', '-shm']) {
-    const f = TEST_DB_PATH + ext;
-    if (fs.existsSync(f)) fs.unlinkSync(f);
-  }
+  const memDb = newDb({ noAstCoverageCheck: true });
+  const { Pool } = memDb.adapters.createPg();
+  testPool = new Pool() as unknown as PgPool;
+  setPool(testPool);
 
-  testDb = new Database(TEST_DB_PATH);
-  testDb.pragma('journal_mode = WAL');
-  testDb.pragma('foreign_keys = ON');
-
-  testDb.exec(`
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'Cashier',
-      created_at TEXT DEFAULT (datetime('now')),
-      last_login TEXT
-    );
-    CREATE TABLE refresh_tokens (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER REFERENCES users(id),
-      token TEXT NOT NULL,
-      expires_at TEXT NOT NULL
-    );
-  `);
+  const migrationsDir = path.join(__dirname, '../src/database/migrations');
+  await runMigrationsUp(testPool, migrationsDir);
 
   // Seed test users
   const adminHash = await bcrypt.hash('admin123', 10);
-  testDb
-    .prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)')
-    .run('Admin', 'admin@moon.com', adminHash, 'Admin');
+  await testPool.query(
+    'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4)',
+    ['Admin', 'admin@moon.com', adminHash, 'Admin']
+  );
 
   const cashierHash = await bcrypt.hash('cashier123', 10);
-  testDb
-    .prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)')
-    .run('Sarah', 'sarah@moon.com', cashierHash, 'Cashier');
+  await testPool.query(
+    'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4)',
+    ['Sarah', 'sarah@moon.com', cashierHash, 'Cashier']
+  );
 });
 
-afterAll(() => {
-  testDb.close();
-  for (const ext of ['', '-wal', '-shm']) {
-    const f = TEST_DB_PATH + ext;
-    if (fs.existsSync(f)) fs.unlinkSync(f);
-  }
+afterAll(async () => {
+  await closePool();
 });
 
 describe('Auth - JWT Token Generation', () => {
@@ -96,79 +75,85 @@ describe('Auth - JWT Token Generation', () => {
 });
 
 describe('Auth - User Lookup', () => {
-  it('should find user by email', () => {
-    const user = testDb
-      .prepare('SELECT * FROM users WHERE email = ?')
-      .get('admin@moon.com') as Record<string, unknown>;
+  it('should find user by email using PostgreSQL parameterized query', async () => {
+    const result = await testPool.query('SELECT * FROM users WHERE email = $1', ['admin@moon.com']);
+    const user = result.rows[0];
     expect(user).toBeDefined();
     expect(user.name).toBe('Admin');
     expect(user.role).toBe('Admin');
   });
 
-  it('should return undefined for non-existent email', () => {
-    const user = testDb.prepare('SELECT * FROM users WHERE email = ?').get('nobody@moon.com');
-    expect(user).toBeUndefined();
+  it('should return empty for non-existent email', async () => {
+    const result = await testPool.query('SELECT * FROM users WHERE email = $1', [
+      'nobody@moon.com',
+    ]);
+    expect(result.rows).toHaveLength(0);
   });
 
   it('should validate correct password', async () => {
-    const user = testDb
-      .prepare('SELECT * FROM users WHERE email = ?')
-      .get('admin@moon.com') as Record<string, unknown>;
+    const result = await testPool.query('SELECT * FROM users WHERE email = $1', ['admin@moon.com']);
+    const user = result.rows[0];
     expect(await bcrypt.compare('admin123', user.password_hash as string)).toBe(true);
   });
 
   it('should reject incorrect password', async () => {
-    const user = testDb
-      .prepare('SELECT * FROM users WHERE email = ?')
-      .get('admin@moon.com') as Record<string, unknown>;
+    const result = await testPool.query('SELECT * FROM users WHERE email = $1', ['admin@moon.com']);
+    const user = result.rows[0];
     expect(await bcrypt.compare('wrongpass', user.password_hash as string)).toBe(false);
   });
 });
 
 describe('Auth - Refresh Token Storage', () => {
-  it('should store and retrieve refresh tokens', () => {
+  it('should store and retrieve refresh tokens in PostgreSQL', async () => {
     const token = jwt.sign({ id: 1 }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    testDb
-      .prepare('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
-      .run(1, token, expiresAt);
+    await testPool.query(
+      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [1, token, expiresAt]
+    );
 
-    const stored = testDb
-      .prepare("SELECT * FROM refresh_tokens WHERE token = ? AND expires_at > datetime('now')")
-      .get(token) as Record<string, unknown>;
+    const storedResult = await testPool.query(
+      'SELECT * FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
+      [token]
+    );
 
-    expect(stored).toBeDefined();
-    expect(stored.user_id).toBe(1);
+    expect(storedResult.rows).toHaveLength(1);
+    expect(storedResult.rows[0].user_id).toBe(1);
   });
 
-  it('should delete refresh token on logout', () => {
+  it('should delete refresh token on logout', async () => {
     const token = jwt.sign({ id: 2 }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    testDb
-      .prepare('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)')
-      .run(2, token, expiresAt);
+    await testPool.query(
+      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [2, token, expiresAt]
+    );
 
-    testDb.prepare('DELETE FROM refresh_tokens WHERE token = ?').run(token);
+    await testPool.query('DELETE FROM refresh_tokens WHERE token = $1', [token]);
 
-    const stored = testDb.prepare('SELECT * FROM refresh_tokens WHERE token = ?').get(token);
-    expect(stored).toBeUndefined();
+    const storedResult = await testPool.query('SELECT * FROM refresh_tokens WHERE token = $1', [
+      token,
+    ]);
+    expect(storedResult.rows).toHaveLength(0);
   });
 });
 
 describe('Auth - Role Checking', () => {
-  it('should enforce Admin role correctly', () => {
-    const user = testDb
-      .prepare('SELECT role FROM users WHERE email = ?')
-      .get('admin@moon.com') as Record<string, unknown>;
+  it('should enforce Admin role correctly', async () => {
+    const result = await testPool.query('SELECT role FROM users WHERE email = $1', [
+      'admin@moon.com',
+    ]);
+    const user = result.rows[0];
     expect(['Admin'].includes(user.role as string)).toBe(true);
   });
 
-  it('should distinguish Cashier from Admin', () => {
-    const user = testDb
-      .prepare('SELECT role FROM users WHERE email = ?')
-      .get('sarah@moon.com') as Record<string, unknown>;
+  it('should distinguish Cashier from Admin', async () => {
+    const result = await testPool.query('SELECT role FROM users WHERE email = $1', [
+      'sarah@moon.com',
+    ]);
+    const user = result.rows[0];
     expect(user.role).toBe('Cashier');
     expect(['Admin'].includes(user.role as string)).toBe(false);
     expect(['Admin', 'Cashier'].includes(user.role as string)).toBe(true);

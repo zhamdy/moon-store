@@ -1,4 +1,4 @@
-import db from '../db';
+import db from '../src/database/pool';
 import { Request } from 'express';
 import { AuthRequest } from './auth';
 import logger from '../lib/logger';
@@ -14,24 +14,21 @@ interface AuditEntry {
 }
 
 export function logAudit(entry: AuditEntry): void {
-  try {
-    db.db
-      .prepare(
-        `INSERT INTO audit_log (user_id, user_name, action, entity_type, entity_id, details, ip_address)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        entry.userId || null,
-        entry.userName || null,
-        entry.action,
-        entry.entityType,
-        entry.entityId != null ? String(entry.entityId) : null,
-        JSON.stringify(entry.details || {}),
-        entry.ipAddress || null
-      );
-  } catch (err) {
+  db.query(
+    `INSERT INTO audit_log (user_id, user_name, action, entity_type, entity_id, details, ip_address)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      entry.userId || null,
+      entry.userName || null,
+      entry.action,
+      entry.entityType,
+      entry.entityId != null ? String(entry.entityId) : null,
+      JSON.stringify(entry.details || {}),
+      entry.ipAddress || null,
+    ]
+  ).catch((err) => {
     logger.error('Audit log failed', { error: (err as Error).message, action: entry.action });
-  }
+  });
 }
 
 export function logAuditFromReq(
