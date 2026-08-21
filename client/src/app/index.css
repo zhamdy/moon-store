@@ -74,13 +74,22 @@
     @apply bg-background text-foreground;
   }
   table thead {
-    @apply bg-card border-b border-border;
+    background-color: hsl(var(--card));
+    border-bottom: 1px solid hsl(var(--border));
   }
   table thead th {
-    @apply text-muted-foreground font-semibold text-[11px] uppercase tracking-wider;
+    color: hsl(var(--muted-foreground));
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
   table tbody tr {
-    @apply border-b border-border/50 hover:bg-muted/30 transition-colors;
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
+    transition: background-color 150ms ease;
+  }
+  table tbody tr:hover {
+    background-color: hsl(var(--muted) / 0.3);
   }
 }
 
