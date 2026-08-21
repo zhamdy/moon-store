@@ -13,7 +13,6 @@ import {
 } from '@tanstack/react-table';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
 import { TableBulkActions } from './TableBulkActions';
-import { TableColumnVisibility } from './TableColumnVisibility';
 import { Skeleton } from '../data-display/SkeletonLoader';
 import EmptyState from '../EmptyState';
 import { useTranslation } from '../../i18n/index';
@@ -30,7 +29,6 @@ export function DataTable<TData>({
   onRowSelectionChange: setControlledRowSelection,
   getRowId,
   renderSubComponent,
-  enableColumnVisibility = false,
   toolbar,
   bulkActions,
   emptyTitle,
@@ -159,11 +157,7 @@ export function DataTable<TData>({
           </div>
         )}
 
-        <div className="flex items-center gap-2 ms-auto flex-wrap">
-          {toolbar}
-
-          {enableColumnVisibility && <TableColumnVisibility table={table} />}
-        </div>
+        <div className="flex items-center gap-2 ms-auto flex-wrap">{toolbar}</div>
       </div>
 
       {/* Floating Bulk Actions Bar */}

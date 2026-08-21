@@ -20,7 +20,6 @@ export interface BaseDataTableProps<TData> {
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
   getRowId?: (row: TData) => string;
   renderSubComponent?: (row: TData) => ReactNode | null;
-  enableColumnVisibility?: boolean;
   toolbar?: ReactNode;
   bulkActions?: (selectedRows: TData[], clearSelection: () => void) => ReactNode;
   emptyTitle?: string;

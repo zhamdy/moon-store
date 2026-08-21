@@ -714,7 +714,6 @@ export default function Inventory() {
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
         getRowId={(row: Product) => String(row.id)}
-        enableColumnVisibility
         bulkActions={(_selected, clearSelection) => (
           <>
             <Button variant="bordered" size="sm" onClick={() => setBulkCategoryOpen(true)}>
