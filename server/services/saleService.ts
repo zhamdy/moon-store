@@ -56,7 +56,10 @@ export interface SaleTotals {
 // --- Helpers ---
 
 async function loadSetting(queryable: Queryable, key: string): Promise<string | undefined> {
-  const result = await queryable.query<{ value: string }>('SELECT value FROM settings WHERE key = $1', [key]);
+  const result = await queryable.query<{ value: string }>(
+    'SELECT value FROM settings WHERE key = $1',
+    [key]
+  );
   return result.rows[0]?.value;
 }
 
@@ -104,8 +107,10 @@ async function validateAndApplyCoupon(
   if (!coupon) return { couponId: null, couponDiscount: 0 };
 
   const now = new Date();
-  if (coupon.starts_at && new Date(coupon.starts_at) > now) return { couponId: null, couponDiscount: 0 };
-  if (coupon.expires_at && new Date(coupon.expires_at) < now) return { couponId: null, couponDiscount: 0 };
+  if (coupon.starts_at && new Date(coupon.starts_at) > now)
+    return { couponId: null, couponDiscount: 0 };
+  if (coupon.expires_at && new Date(coupon.expires_at) < now)
+    return { couponId: null, couponDiscount: 0 };
 
   if (coupon.max_uses) {
     const usage = await queryable.query<{ c: number }>(
@@ -320,10 +325,10 @@ export async function executeSaleTransaction(
           [sale.id, item.product_id, item.quantity, item.unit_price, costPrice, itemMemo]
         );
 
-        await client.query(
-          'UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2',
-          [newStock, item.product_id]
-        );
+        await client.query('UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2', [
+          newStock,
+          item.product_id,
+        ]);
 
         await client.query(
           'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
@@ -341,7 +346,13 @@ export async function executeSaleTransaction(
         );
         await client.query(
           'INSERT INTO loyalty_transactions (customer_id, sale_id, points, type, note) VALUES ($1, $2, $3, $4, $5)',
-          [input.customer_id, sale.id, -(input.points_redeemed || 0), 'redeemed', `Redeemed on sale #${sale.id}`]
+          [
+            input.customer_id,
+            sale.id,
+            -(input.points_redeemed || 0),
+            'redeemed',
+            `Redeemed on sale #${sale.id}`,
+          ]
         );
       }
 
@@ -376,27 +387,32 @@ export async function executeRefundTransaction(
 ): Promise<{ refund: Record<string, any>; refundStatus: string; newRefundedTotal: number }> {
   return withTransaction(async (client) => {
     // Verify sale
-    const saleRes = await client.query<{ id: number; total: number; refunded_amount: number | null; refund_status: string | null }>(
-      'SELECT id, total, refunded_amount, refund_status FROM sales WHERE id = $1',
-      [saleId]
-    );
+    const saleRes = await client.query<{
+      id: number;
+      total: number;
+      refunded_amount: number | null;
+      refund_status: string | null;
+    }>('SELECT id, total, refunded_amount, refund_status FROM sales WHERE id = $1', [saleId]);
     const sale = saleRes.rows[0];
 
     if (!sale) throw new Error('Sale not found');
     if (sale.refund_status === 'full') throw new Error('Sale already fully refunded');
 
     // Validate items against sale
-    const itemsRes = await client.query<{ product_id: number; quantity: number; unit_price: number }>(
-      'SELECT product_id, quantity, unit_price FROM sale_items WHERE sale_id = $1',
-      [saleId]
-    );
+    const itemsRes = await client.query<{
+      product_id: number;
+      quantity: number;
+      unit_price: number;
+    }>('SELECT product_id, quantity, unit_price FROM sale_items WHERE sale_id = $1', [saleId]);
     const saleItems = itemsRes.rows;
 
     for (const refundItem of input.items) {
       const saleItem = saleItems.find((si) => si.product_id === refundItem.product_id);
       if (!saleItem) throw new Error(`Product ${refundItem.product_id} not in this sale`);
       if (refundItem.quantity > saleItem.quantity) {
-        throw new Error(`Refund quantity exceeds sold quantity for product ${refundItem.product_id}`);
+        throw new Error(
+          `Refund quantity exceeds sold quantity for product ${refundItem.product_id}`
+        );
       }
     }
 
@@ -417,14 +433,22 @@ export async function executeRefundTransaction(
     const refundRes = await client.query<Record<string, any>>(
       `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [saleId, refundAmount, input.reason, JSON.stringify(input.items), input.restock ? 1 : 0, cashierId]
+      [
+        saleId,
+        refundAmount,
+        input.reason,
+        JSON.stringify(input.items),
+        input.restock ? 1 : 0,
+        cashierId,
+      ]
     );
     const refund = refundRes.rows[0];
 
-    await client.query(
-      'UPDATE sales SET refund_status = $1, refunded_amount = $2 WHERE id = $3',
-      [refundStatus, newRefundedTotal, saleId]
-    );
+    await client.query('UPDATE sales SET refund_status = $1, refunded_amount = $2 WHERE id = $3', [
+      refundStatus,
+      newRefundedTotal,
+      saleId,
+    ]);
 
     if (input.restock) {
       for (const item of input.items) {
@@ -433,10 +457,10 @@ export async function executeRefundTransaction(
           [item.product_id]
         );
         const currentStock = prodRes.rows[0]?.stock || 0;
-        await client.query(
-          'UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2',
-          [currentStock + item.quantity, item.product_id]
-        );
+        await client.query('UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2', [
+          currentStock + item.quantity,
+          item.product_id,
+        ]);
       }
     }
 

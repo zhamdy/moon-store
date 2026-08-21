@@ -127,7 +127,10 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
 
     expect(Number(sale.total)).toBe(1000);
 
-    const prod = await testPool.query<{ stock: number }>('SELECT stock FROM products WHERE id = $1', [1]);
+    const prod = await testPool.query<{ stock: number }>(
+      'SELECT stock FROM products WHERE id = $1',
+      [1]
+    );
     expect(prod.rows[0].stock).toBe(8); // 10 - 2
 
     const items = await testPool.query('SELECT * FROM sale_items WHERE sale_id = $1', [sale.id]);
@@ -147,7 +150,10 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
       /Insufficient stock/
     );
 
-    const prod = await testPool.query<{ stock: number }>('SELECT stock FROM products WHERE id = $1', [1]);
+    const prod = await testPool.query<{ stock: number }>(
+      'SELECT stock FROM products WHERE id = $1',
+      [1]
+    );
     expect(prod.rows[0].stock).toBe(10); // unchanged
 
     const sales = await testPool.query('SELECT * FROM sales');
@@ -179,7 +185,10 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
     expect(refundRes.refundStatus).toBe('partial');
     expect(refundRes.newRefundedTotal).toBe(500);
 
-    const prod = await testPool.query<{ stock: number }>('SELECT stock FROM products WHERE id = $1', [1]);
+    const prod = await testPool.query<{ stock: number }>(
+      'SELECT stock FROM products WHERE id = $1',
+      [1]
+    );
     expect(prod.rows[0].stock).toBe(9); // 8 + 1 restocked
   });
 });
