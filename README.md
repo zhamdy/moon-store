@@ -1,15 +1,14 @@
 # MOON Fashion & Style
 
-A full-stack luxury fashion retail management system. Monorepo with React SPA frontend and Express REST API backend, powered by SQLite.
+A full-stack luxury fashion retail management system. Monorepo with React SPA frontend and Express REST API backend, built on PostgreSQL and organized as a clean Modular Monolith.
 
 **63 features** shipped across 3 development waves — from core POS to AI-powered insights.
 
 ## Prerequisites
 
 - **Node.js** 18+
+- **PostgreSQL** 14+
 - **Twilio account** (optional, for SMS/WhatsApp delivery notifications)
-
-No external database required — uses embedded SQLite with WAL mode.
 
 ## Quick Start
 
@@ -28,16 +27,19 @@ cd ../client && npm install
 Create `server/.env`:
 
 ```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/moon_store
 JWT_SECRET=your-access-token-secret-min-32-chars
 JWT_REFRESH_SECRET=your-refresh-token-secret-min-32-chars
+PORT=3001
+CLIENT_URL=http://localhost:5173
 ```
 
 ### 3. Database Setup
 
 ```bash
 cd server
-npm run migrate    # Run all 64 migrations
-npm run seed       # Seed sample data (users, products, sales, customers)
+npm run migrate        # Run PostgreSQL DDL schema migrations
+npm run seed           # Seed sample data (categories, users, products, customers, settings)
 ```
 
 ### 4. Start Development
@@ -136,50 +138,61 @@ cd client && npm run dev
 | Concern | Library |
 |---------|---------|
 | Framework | Express 4 (TypeScript via tsx) |
-| Database | SQLite via better-sqlite3 (WAL mode) |
+| Architecture | Modular Monolith (`server/src/modules/`) |
+| Database | PostgreSQL via `pg` pool with ACID transactions |
 | Auth | JWT (15min access + 7d refresh cookie) + bcrypt |
-| Validation | Zod |
+| Validation | Zod schemas |
 | Messaging | Twilio SDK (SMS/WhatsApp) |
 | Security | helmet, cors, express-rate-limit |
-| Testing | Vitest |
+| Testing | Vitest (in-memory PostgreSQL adapter & pg mock) |
 
-## Project Structure
+## Architecture & Project Structure
 
 ```
 moon-store/
-├── client/                    # React 18 + Vite SPA
+├── client/                     # React 18 + Vite SPA
 │   └── src/
 │       ├── components/
-│       │   ├── ui/            # shadcn/ui primitives
-│       │   └── charts/        # Recharts wrappers (7 chart types)
-│       ├── pages/             # 35+ route-level components
-│       ├── store/             # Zustand stores (auth, cart, settings, offline, heldCarts)
-│       ├── services/          # Axios client with token refresh interceptor
-│       ├── hooks/             # useOffline, useScanner, usePosShortcuts, useDebouncedValue
-│       ├── i18n/              # AR/EN translations (~180 keys per locale)
-│       ├── lib/               # utils.ts, queryClient.ts
-│       ├── App.tsx            # Router + 35+ routes with role guards
-│       └── index.css          # Tailwind + CSS variables (light/dark themes)
-├── server/                    # Express REST API
-│   ├── routes/                # 37 route files
-│   ├── middleware/            # auth.ts, errorHandler.ts, auditLogger.ts
-│   ├── services/              # twilio.ts, notifications.ts
-│   ├── validators/            # 10 Zod schema files
-│   ├── db/
-│   │   ├── migrations/        # 64 SQL migration files
-│   │   ├── index.ts           # SQLite connection + pg-compatible query wrapper
-│   │   ├── migrate.ts         # Migration runner with reconciliation
-│   │   └── seed.ts            # Sample data (users, products, sales, customers)
-│   └── index.ts               # Express app setup
-├── CLAUDE.md                  # AI assistant instructions
-├── FEATURES_ROADMAP.md        # Full feature specs (63 features)
-└── docs/                      # Detailed documentation
-    ├── ARCHITECTURE.md        # Structure, stacks, stores, pages, components
-    ├── API_REFERENCE.md       # All endpoints, DB schema, auth flow
-    ├── CONVENTIONS.md         # Code patterns, naming, gotchas
-    ├── SMOKE_TEST.md          # Manual QA checklist
-    ├── OFFLINE_PWA.md         # Service worker, caching, offline queue
-    └── INTEGRATIONS.md        # Twilio, barcode, exports, AI
+│       │   ├── ui/             # Radix & shadcn/ui primitives
+│       │   └── charts/         # Recharts wrappers
+│       ├── pages/              # 35+ route-level pages
+│       ├── store/              # Zustand stores (auth, cart, settings, offline, heldCarts)
+│       ├── services/           # Axios client with automatic token refresh
+│       ├── hooks/              # useOffline, useScanner, usePosShortcuts
+│       ├── i18n/               # AR/EN translations (Egyptian Arabic default)
+│       ├── App.tsx             # Router + route guards
+│       └── index.css           # Tailwind + CSS variables
+├── server/                     # Express REST API (Modular Monolith)
+│   ├── src/
+│   │   ├── config/             # Zod-validated environment config
+│   │   ├── database/           # Pool, withTransaction helper, migrate runner, seed script
+│   │   │   ├── migrations/     # Idempotent up/down SQL schema files
+│   │   │   ├── pool.ts         # pg.Pool with connection retry & telemetry
+│   │   │   ├── transaction.ts  # withTransaction client wrapper
+│   │   │   ├── migrate.ts      # Migration runner
+│   │   │   └── seed.ts         # Sample database seeder
+│   │   └── modules/            # Domain modules (Types, Repository, Service, Controller, Routes)
+│   │       ├── sales/          # Checkout, server-side price validation, refunds, receipts
+│   │       ├── products/       # Products, variants, barcodes, pricing, stock adjustments
+│   │       ├── customers/      # Customers, stats, loyalty history, points adjustment
+│   │       ├── delivery/       # Orders, performance, status timeline, dispatch
+│   │       ├── auth/           # Login, refresh tokens, audit logging
+│   │       ├── coupons/        # Validation, percentage/fixed discounts, usage tracking
+│   │       ├── giftCards/      # Issuance, redemption, barcode generation, balances
+│   │       ├── expenses/       # Categories, recurring expenses, P&L reporting
+│   │       └── purchaseOrders/ # Procurement, auto-reorder, receiving, stock updates
+│   ├── routes/                 # Backward-compatible Express routers
+│   ├── middleware/             # auth.ts, errorHandler.ts, auditLogger.ts, upload.ts
+│   ├── validators/             # Zod schema definitions
+│   ├── tests/                  # Vitest unit & integration tests
+│   └── index.ts                # Express application bootstrap & shutdown
+├── FEATURES_ROADMAP.md         # Specs for all 63 features
+└── docs/                       # Additional documentation
+    ├── API_REFERENCE.md        # Endpoint documentation & auth flows
+    ├── CONVENTIONS.md          # Code guidelines & naming patterns
+    ├── SMOKE_TEST.md           # QA test plan
+    ├── OFFLINE_PWA.md          # Offline service worker & sync details
+    └── INTEGRATIONS.md         # Twilio, export utilities, and AI endpoints
 ```
 
 ## Available Scripts
@@ -190,7 +203,8 @@ moon-store/
 |--------|-------------|
 | `npm run dev` | Start dev server with auto-reload (tsx watch) |
 | `npm start` | Start production server |
-| `npm run migrate` | Run database migrations |
+| `npm run migrate` | Run PostgreSQL database schema migrations |
+| `npm run migrate:down` | Rollback last migration |
 | `npm run seed` | Seed database with sample data |
 | `npm test` | Run tests (Vitest) |
 | `npm run lint` | Lint TypeScript files |
@@ -250,12 +264,14 @@ Without Twilio configured, notifications are logged to console instead.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | — | PostgreSQL connection URL |
 | `JWT_SECRET` | Yes | — | Access token signing secret (min 32 chars) |
 | `JWT_REFRESH_SECRET` | Yes | — | Refresh token signing secret (min 32 chars) |
 | `PORT` | No | 3001 | Server port |
 | `CLIENT_URL` | No | http://localhost:5173 | CORS origin |
 | `ALLOWED_ORIGINS` | No | — | Additional CORS origins (comma-separated) |
-| `NODE_ENV` | No | — | Set to `production` to hide error stack traces |
+| `NODE_ENV` | No | `development` | Set to `production` for production mode |
+| `FORCE_SEED` | No | `false` | Required when seeding in production (`true`) |
 | `TWILIO_ACCOUNT_SID` | No | — | Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | No | — | Twilio Auth Token |
 | `TWILIO_PHONE` | No | — | Twilio SMS sender number |
@@ -279,15 +295,3 @@ Without Twilio configured, notifications are logged to console instead.
 // Error
 { "success": false, "error": "Human readable message" }
 ```
-
-## Documentation
-
-For detailed documentation, see the [`docs/`](docs/) directory:
-
-- **[Architecture](docs/ARCHITECTURE.md)** — Project structure, stacks, stores, pages, components, theming, i18n, RTL, PWA
-- **[API Reference](docs/API_REFERENCE.md)** — All 37 route groups, database schema, auth flow, rate limits
-- **[Conventions](docs/CONVENTIONS.md)** — Code patterns, naming rules, SQLite gotchas, feature checklist
-- **[Smoke Test](docs/SMOKE_TEST.md)** — Manual QA checklist (16 sections)
-- **[Offline & PWA](docs/OFFLINE_PWA.md)** — Service worker, caching strategies, offline queue
-- **[Integrations](docs/INTEGRATIONS.md)** — Twilio, notifications, barcode, PDF/CSV export, AI features
-- **[Feature Roadmap](FEATURES_ROADMAP.md)** — Full specs for all 63 features across 3 waves
