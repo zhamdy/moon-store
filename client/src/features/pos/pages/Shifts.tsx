@@ -186,7 +186,7 @@ export default function ShiftsPage() {
             <div className="pt-4">
               <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/40 border-b border-border text-muted-foreground text-xs">
+                  <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
                     <tr>
                       <th className="text-start p-3 font-medium">{t('common.name')}</th>
                       <th className="text-start p-3 font-medium">{t('shifts.clockIn')}</th>
@@ -223,7 +223,7 @@ export default function ShiftsPage() {
             <div className="pt-4">
               <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/40 border-b border-border text-muted-foreground text-xs">
+                  <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
                     <tr>
                       <th className="text-start p-3 font-medium">{t('common.name')}</th>
                       <th className="text-start p-3 font-medium">{t('common.role')}</th>

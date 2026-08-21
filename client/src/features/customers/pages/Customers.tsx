@@ -13,9 +13,7 @@ import {
   ModalBody,
   ModalFooter,
 } from '@heroui/react';
-import DataTable from '../../../shared/components/DataTable';
-import ConfirmDialog from '../../../shared/components/ConfirmDialog';
-import PageHeader from '../../../shared/components/PageHeader';
+import { DataTable, ConfirmDialog, PageHeader } from '../../../shared';
 import CustomerDetail from '../components/CustomerDetail';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
@@ -149,6 +147,7 @@ export default function CustomersPage() {
             size="sm"
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
             onClick={() => openEditDialog(row.original)}
+            title={t('common.edit')}
             aria-label={t('common.edit')}
           >
             <Pencil className="h-4 w-4" />
@@ -156,10 +155,10 @@ export default function CustomersPage() {
           <Button
             isIconOnly
             variant="light"
-            color="danger"
             size="sm"
-            className="h-8 w-8"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             onClick={() => setDeleteId(row.original.id)}
+            title={t('common.delete')}
             aria-label={t('common.delete')}
           >
             <Trash2 className="h-4 w-4" />
@@ -183,16 +182,19 @@ export default function CustomersPage() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('customers.title')}>
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<Plus className="h-4 w-4" />}
-          onClick={openCreateDialog}
-        >
-          {t('customers.addCustomer')}
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title={t('customers.title')}
+        actions={
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={openCreateDialog}
+          >
+            {t('customers.addCustomer')}
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}

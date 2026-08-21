@@ -107,13 +107,13 @@ export default function ExportsPage() {
         ) : (
           <div className="overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
             <table className="w-full text-sm">
-              <thead className="border-b border-border text-muted-foreground">
+              <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
                 <tr>
-                  <th className="text-start p-3 font-medium">{t('exports.module')}</th>
-                  <th className="text-start p-3 font-medium">{t('exports.format')}</th>
-                  <th className="text-start p-3 font-medium">{t('exports.recordCount')}</th>
-                  <th className="text-start p-3 font-medium">{t('common.user')}</th>
-                  <th className="text-start p-3 font-medium">{t('common.date')}</th>
+                  <th className="text-start p-3 font-semibold">{t('exports.module')}</th>
+                  <th className="text-start p-3 font-semibold">{t('exports.format')}</th>
+                  <th className="text-start p-3 font-semibold">{t('exports.recordCount')}</th>
+                  <th className="text-start p-3 font-semibold">{t('common.user')}</th>
+                  <th className="text-start p-3 font-semibold">{t('common.date')}</th>
                 </tr>
               </thead>
               <tbody>

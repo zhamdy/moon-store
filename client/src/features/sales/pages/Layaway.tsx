@@ -210,7 +210,7 @@ export default function LayawayPage() {
       {/* Layaway table */}
       <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-muted/40 border-b border-border text-muted-foreground text-xs">
+          <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
             <tr>
               <th className="text-start p-3 font-semibold">#</th>
               <th className="text-start p-3 font-semibold">{t('common.name')}</th>

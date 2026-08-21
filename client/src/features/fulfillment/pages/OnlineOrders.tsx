@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Eye, Truck, XCircle, CheckCircle, Package } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Eye, Truck, XCircle, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { Button, Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
-import { Badge, type BadgeVariant } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, type BadgeVariant, PageHeader, DataTable } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import type { OnlineOrder } from '../types';
@@ -26,7 +26,7 @@ export default function OnlineOrdersPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
 
-  const { data: orders } = onlineOrders.useList({ status: statusFilter || undefined });
+  const { data: orders, isLoading } = onlineOrders.useList({ status: statusFilter || undefined });
   const { data: selectedOrder } = onlineOrders.useOne(detailOpen ? detailId : null);
 
   const updateStatus = onlineOrders.useAction('status', {
@@ -42,6 +42,73 @@ export default function OnlineOrdersPage() {
 
   const fmt = (n: number) => formatCurrency(n);
   const statuses = ['', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+
+  const columns: ColumnDef<OnlineOrder>[] = [
+    {
+      accessorKey: 'order_number',
+      header: t('onlineOrders.orderNumber'),
+      cell: ({ getValue }) => (
+        <span className="font-medium font-data text-primary">#{getValue() as string}</span>
+      ),
+    },
+    {
+      accessorKey: 'customer_name',
+      header: t('onlineOrders.customer'),
+      cell: ({ getValue }) => (
+        <span className="font-medium text-foreground">{(getValue() as string) || '—'}</span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: t('common.status'),
+      cell: ({ row }) => (
+        <Badge size="sm" variant={statusVariantMap[row.original.status] || 'default'}>
+          {t(`onlineOrders.${row.original.status}`)}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'payment_status',
+      header: t('onlineOrders.payment'),
+      cell: ({ getValue }) => (
+        <Badge size="sm" variant={getValue() === 'paid' ? 'success' : 'default'}>
+          {getValue() as string}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'total',
+      header: t('onlineOrders.total'),
+      cell: ({ getValue }) => (
+        <span className="font-data font-semibold text-foreground">{fmt(getValue() as number)}</span>
+      ),
+    },
+    {
+      accessorKey: 'created_at',
+      header: t('common.date'),
+      cell: ({ getValue }) => (
+        <span className="font-data text-muted-foreground text-xs">
+          {new Date(getValue() as string).toLocaleDateString()}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: t('common.actions'),
+      cell: ({ row }) => (
+        <Button
+          isIconOnly
+          variant="light"
+          size="sm"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          onClick={() => viewOrder(row.original.id)}
+          aria-label="View order"
+        >
+          <Eye className="w-4 h-4" />
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -61,63 +128,12 @@ export default function OnlineOrdersPage() {
         ))}
       </div>
 
-      <div className="overflow-x-auto border rounded-lg border-border bg-card shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border text-muted-foreground">
-            <tr>
-              <th className="p-3 font-medium text-start">{t('onlineOrders.orderNumber')}</th>
-              <th className="p-3 font-medium text-start">{t('onlineOrders.customer')}</th>
-              <th className="p-3 font-medium text-start">{t('common.status')}</th>
-              <th className="p-3 font-medium text-start">{t('onlineOrders.payment')}</th>
-              <th className="p-3 font-medium text-start">{t('onlineOrders.total')}</th>
-              <th className="p-3 font-medium text-start">{t('common.date')}</th>
-              <th className="p-3 font-medium text-start">{t('common.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!orders?.length ? (
-              <tr>
-                <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                  {t('onlineOrders.noOrders')}
-                </td>
-              </tr>
-            ) : (
-              orders.map((o) => (
-                <tr key={o.id} className="border-b border-border/50 hover:bg-muted/30">
-                  <td className="p-3 font-medium font-data text-primary">#{o.order_number}</td>
-                  <td className="p-3 font-medium text-foreground">{o.customer_name || '—'}</td>
-                  <td className="p-3">
-                    <Badge size="sm" variant={statusVariantMap[o.status] || 'default'}>
-                      {t(`onlineOrders.${o.status}`)}
-                    </Badge>
-                  </td>
-                  <td className="p-3">
-                    <Badge size="sm" variant={o.payment_status === 'paid' ? 'success' : 'default'}>
-                      {o.payment_status}
-                    </Badge>
-                  </td>
-                  <td className="p-3 font-data font-semibold text-foreground">{fmt(o.total)}</td>
-                  <td className="p-3 font-data text-muted-foreground text-xs">
-                    {new Date(o.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="p-3">
-                    <Button
-                      isIconOnly
-                      variant="light"
-                      size="sm"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      onClick={() => viewOrder(o.id)}
-                      aria-label="View order"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={orders ?? []}
+        isLoading={isLoading}
+        searchPlaceholder={t('common.search')}
+      />
 
       <Modal
         isOpen={detailOpen}
@@ -191,7 +207,7 @@ export default function OnlineOrdersPage() {
                         <Button
                           size="sm"
                           color="primary"
-                          startContent={<Package className="w-4 h-4" />}
+                          startContent={<CheckCircle className="w-4 h-4" />}
                           onClick={() =>
                             updateStatus.run({
                               id: selectedOrder.id,
@@ -226,14 +242,13 @@ export default function OnlineOrdersPage() {
                             })
                           }
                         >
-                          {t('onlineOrders.markDelivered')}
+                          {t('onlineOrders.deliver')}
                         </Button>
                       )}
-                      {!['cancelled', 'delivered', 'refunded'].includes(selectedOrder.status) && (
+                      {!['delivered', 'cancelled', 'refunded'].includes(selectedOrder.status) && (
                         <Button
                           size="sm"
-                          color="danger"
-                          variant="flat"
+                          variant="bordered"
                           startContent={<XCircle className="w-4 h-4" />}
                           onClick={() =>
                             updateStatus.run({
@@ -241,8 +256,9 @@ export default function OnlineOrdersPage() {
                               body: { status: 'cancelled' },
                             })
                           }
+                          className="border-destructive/40 text-destructive hover:bg-destructive/10"
                         >
-                          {t('common.cancel')}
+                          {t('onlineOrders.cancel')}
                         </Button>
                       )}
                     </div>

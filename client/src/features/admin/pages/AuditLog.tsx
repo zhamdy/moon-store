@@ -28,11 +28,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Input, Select, SelectItem, Button, Pagination } from '@heroui/react';
-import { Badge, type BadgeVariant } from '../../../shared/components/StatusBadge';
+import { Badge, type BadgeVariant, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import PageHeader from '../../../shared/components/PageHeader';
 import type { User as UserRecord } from '../../../shared/types/index';
 import type { AuditEntry } from '../types';
 
@@ -352,7 +351,7 @@ export default function AuditLog() {
                     </span>
                   )}
                   <span className="text-sm font-medium text-foreground flex-1 truncate">
-                    {entry.user_name || entry.user_display_name || 'System'}
+                    {entry.user_name || entry.user_display_name || t('audit.system')}
                   </span>
                   <span className="text-xs text-muted-foreground font-data shrink-0">
                     {new Date(entry.created_at).toLocaleString()}

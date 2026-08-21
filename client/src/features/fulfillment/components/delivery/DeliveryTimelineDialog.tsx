@@ -73,7 +73,7 @@ export default function DeliveryTimelineDialog({
                           </div>
                           {entry.changed_by_name && (
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              by {entry.changed_by_name}
+                              {t('deliveries.byUser', { name: entry.changed_by_name })}
                             </p>
                           )}
                           {entry.notes && (

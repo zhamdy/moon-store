@@ -1,7 +1,5 @@
 import { Star, TrendingUp, MessageSquare } from 'lucide-react';
-import { Card, CardBody } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader, StatCard } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import type { FeedbackResponse } from '../types';
@@ -9,7 +7,7 @@ import type { FeedbackResponse } from '../types';
 export default function FeedbackPage() {
   const { t } = useTranslation();
 
-  const { data } = useApiQuery<FeedbackResponse>(['feedback'], 'feedback');
+  const { data, isLoading } = useApiQuery<FeedbackResponse>(['feedback'], 'feedback');
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -17,45 +15,24 @@ export default function FeedbackPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border border-border bg-card shadow-sm">
-          <CardBody className="p-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-                {t('feedback.avgRating')}
-              </span>
-              <Star className="h-4 w-4 text-warning fill-warning" />
-            </div>
-            <p className="text-2xl font-data font-bold text-foreground">
-              {data?.stats.avg_rating?.toFixed(1) || '—'} / 5
-            </p>
-          </CardBody>
-        </Card>
-        <Card className="border border-border bg-card shadow-sm">
-          <CardBody className="p-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-                {t('feedback.npsScore')}
-              </span>
-              <TrendingUp className="h-4 w-4 text-primary" />
-            </div>
-            <p className="text-2xl font-data font-bold text-foreground">
-              {data?.stats.nps_score ?? '—'}
-            </p>
-          </CardBody>
-        </Card>
-        <Card className="border border-border bg-card shadow-sm">
-          <CardBody className="p-5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-                {t('feedback.totalResponses')}
-              </span>
-              <MessageSquare className="h-4 w-4 text-primary" />
-            </div>
-            <p className="text-2xl font-data font-bold text-foreground">
-              {data?.stats.total_responses || 0}
-            </p>
-          </CardBody>
-        </Card>
+        <StatCard
+          title={t('feedback.avgRating')}
+          value={`${data?.stats.avg_rating?.toFixed(1) || '—'} / 5`}
+          icon={Star}
+          isLoading={isLoading}
+        />
+        <StatCard
+          title={t('feedback.npsScore')}
+          value={data?.stats.nps_score ?? '—'}
+          icon={TrendingUp}
+          isLoading={isLoading}
+        />
+        <StatCard
+          title={t('feedback.totalResponses')}
+          value={data?.stats.total_responses || 0}
+          icon={MessageSquare}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Feedback list */}

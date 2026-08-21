@@ -12,9 +12,7 @@ import {
   ModalBody,
   ModalFooter,
 } from '@heroui/react';
-import ConfirmDialog from '../../../shared/components/ConfirmDialog';
-import PageHeader from '../../../shared/components/PageHeader';
-import DataTable from '../../../shared/components/DataTable';
+import { ConfirmDialog, PageHeader, DataTable } from '../../../shared';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -99,20 +97,21 @@ export default function CategoriesPage() {
             size="sm"
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
             onClick={() => openEditDialog(row.original)}
+            title={t('common.edit')}
             aria-label={t('common.edit')}
           >
-            <Pencil className="h-3.5 w-3.5" />
+            <Pencil className="h-4 w-4" />
           </Button>
           <Button
             isIconOnly
             variant="light"
-            color="danger"
             size="sm"
-            className="h-8 w-8"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             onClick={() => setDeleteId(row.original.id)}
+            title={t('common.delete')}
             aria-label={t('common.delete')}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       ),
@@ -121,16 +120,19 @@ export default function CategoriesPage() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('categories.title')}>
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<Plus className="h-4 w-4" />}
-          onClick={openCreateDialog}
-        >
-          {t('categories.addCategory')}
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title={t('categories.title')}
+        actions={
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={openCreateDialog}
+          >
+            {t('categories.addCategory')}
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}

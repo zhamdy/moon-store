@@ -13,8 +13,7 @@ import {
   Select,
   SelectItem,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
@@ -149,24 +148,74 @@ export default function BundlesPage() {
             onClick={() => setSelectedBundle(null)}
             aria-label={t('common.back')}
           >
-            <ArrowRight className="h-4 w-4 rotate-180 rtl:rotate-0" />
+            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
           </Button>
-          <div className="flex-1">
-            <PageHeader title={detail.name}>
-              <Button
-                color="primary"
-                size="sm"
-                startContent={<Pencil className="h-4 w-4" />}
-                onClick={() => openEditDialog(detail)}
-              >
-                {t('common.edit')}
-              </Button>
-            </PageHeader>
+          <PageHeader title={detail.name} />
+          <div className="ms-auto flex gap-2">
+            <Button
+              size="sm"
+              variant="bordered"
+              startContent={<Pencil className="h-4 w-4" />}
+              onClick={() => openEditDialog(detail)}
+            >
+              {t('common.edit')}
+            </Button>
+            <Button
+              size="sm"
+              color="danger"
+              variant="flat"
+              startContent={<Trash2 className="h-4 w-4" />}
+              onClick={() => remover.remove(detail.id)}
+            >
+              {t('common.delete')}
+            </Button>
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                {t('bundles.bundlePrice')}
+              </p>
+              <p className="text-2xl font-bold font-data text-primary mt-1">
+                {formatCurrency(detail.price)}
+              </p>
+            </CardBody>
+          </Card>
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                {t('bundles.itemsIncluded')}
+              </p>
+              <p className="text-2xl font-bold font-data text-foreground mt-1">
+                {detail.items?.length || 0}
+              </p>
+            </CardBody>
+          </Card>
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                {t('common.status')}
+              </p>
+              <div className="mt-1">
+                <Badge variant={detail.status === 'active' ? 'success' : 'danger'}>
+                  {detail.status === 'active' ? t('common.active') : t('common.inactive')}
+                </Badge>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+
         {detail.description && (
-          <p className="text-sm text-muted-foreground">{detail.description}</p>
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">
+                {t('common.description')}
+              </p>
+              <p className="text-sm text-foreground">{detail.description}</p>
+            </CardBody>
+          </Card>
         )}
 
         <div className="flex flex-wrap items-center gap-3">
@@ -231,16 +280,19 @@ export default function BundlesPage() {
   // List view
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('bundles.title')}>
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<Plus className="h-4 w-4" />}
-          onClick={openCreateDialog}
-        >
-          {t('bundles.create')}
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title={t('bundles.title')}
+        actions={
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={openCreateDialog}
+          >
+            {t('bundles.create')}
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {!rows?.length ? (

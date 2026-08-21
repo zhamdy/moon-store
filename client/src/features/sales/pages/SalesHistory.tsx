@@ -2,35 +2,35 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import {
   Download,
-  CalendarIcon,
   ChevronDown,
   ChevronRight,
   Printer,
   RotateCcw,
   MoreHorizontal,
+  DollarSign,
+  ShoppingCart,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   Button,
-  Card,
-  CardBody,
   Dropdown,
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
   Select,
   SelectItem,
 } from '@heroui/react';
-import PageHeader from '../../../shared/components/PageHeader';
-import { Calendar, type DateRange } from '../../../shared/components/Calendar';
-import DataTable from '../../../shared/components/DataTable';
+import {
+  PageHeader,
+  DataTable,
+  StatCard,
+  DateRangePicker,
+  Badge,
+  type DateRange,
+} from '../../../shared';
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import RefundDialog from '../components/RefundDialog';
-import { Badge } from '../../../shared/components/StatusBadge';
-import { formatCurrency, formatDateTime, formatDate } from '../../../shared/lib/utils';
+import { formatCurrency, formatDateTime } from '../../../shared/lib/utils';
 import { exportToExcel } from '../../../shared/lib/exportUtils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
@@ -46,7 +46,7 @@ const saleDetails = resource<SaleDetail>('sales');
 export default function SalesHistory() {
   const { t } = useTranslation();
   const transport = useTransport();
-  const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
+  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -60,8 +60,8 @@ export default function SalesHistory() {
   } | null>(null);
 
   const params: Record<string, string> = {};
-  if (dateRange.from) params.from = format(dateRange.from, 'yyyy-MM-dd');
-  if (dateRange.to) params.to = format(dateRange.to, 'yyyy-MM-dd');
+  if (dateRange.start) params.from = format(dateRange.start, 'yyyy-MM-dd');
+  if (dateRange.end) params.to = format(dateRange.end, 'yyyy-MM-dd');
   if (paymentFilter !== 'all') params.payment_method = paymentFilter;
 
   const { data: rows, meta, isLoading } = sales.useList({ ...params, limit: 200 });
@@ -154,13 +154,13 @@ export default function SalesHistory() {
         <button
           type="button"
           onClick={() => setExpandedRow(expandedRow === row.original.id ? null : row.original.id)}
-          className="text-primary hover:text-primary/80 transition-colors p-1"
+          className="p-1 transition-colors text-primary hover:text-primary/80"
           aria-label="Expand row details"
         >
           {expandedRow === row.original.id ? (
-            <ChevronDown className="h-4 w-4" />
+            <ChevronDown className="w-4 h-4" />
           ) : (
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="w-4 h-4" />
           )}
         </button>
       ),
@@ -169,7 +169,7 @@ export default function SalesHistory() {
       accessorKey: 'id',
       header: t('sales.saleId'),
       cell: ({ getValue }) => (
-        <span className="font-data text-primary font-semibold">#{getValue() as number}</span>
+        <span className="font-semibold font-data text-primary">#{getValue() as number}</span>
       ),
     },
     {
@@ -257,21 +257,21 @@ export default function SalesHistory() {
         <Dropdown>
           <DropdownTrigger>
             <Button isIconOnly variant="light" size="sm" onClick={(e) => e.stopPropagation()}>
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="w-4 h-4" />
             </Button>
           </DropdownTrigger>
           <DropdownMenu aria-label="Sale actions">
             <DropdownItem
               key="refund"
               isDisabled={row.original.refund_status === 'full'}
-              startContent={<RotateCcw className="h-4 w-4 text-danger" />}
+              startContent={<RotateCcw className="w-4 h-4 text-danger" />}
               onPress={() => handleRefund(row.original)}
             >
               {t('sales.refund')}
             </DropdownItem>
             <DropdownItem
               key="reprint"
-              startContent={<Printer className="h-4 w-4 text-primary" />}
+              startContent={<Printer className="w-4 h-4 text-primary" />}
               onPress={() => handlePrintReceipt(row.original.id)}
             >
               {t('receipt.reprint')}
@@ -284,62 +284,41 @@ export default function SalesHistory() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('sales.title')}>
-        <Button
-          variant="bordered"
-          size="sm"
-          startContent={<Download className="h-4 w-4" />}
-          onClick={handleExportCSV}
-        >
-          {t('sales.exportCsv')}
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title={t('sales.title')}
+        actions={
+          <Button
+            variant="bordered"
+            size="sm"
+            startContent={<Download className="w-4 h-4" />}
+            onClick={handleExportCSV}
+          >
+            {t('sales.exportCsv')}
+          </Button>
+        }
+      />
 
-      {/* Revenue summary */}
-      {meta && (
-        <Card className="border border-border bg-card shadow-sm">
-          <CardBody className="p-4 flex flex-row items-center gap-8">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                {t('sales.totalRevenue')}
-              </p>
-              <p className="text-2xl font-bold text-primary font-data mt-0.5">
-                {formatCurrency(meta.total_revenue)}
-              </p>
-            </div>
-            <div className="border-s border-border ps-8">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                {t('sales.totalSales')}
-              </p>
-              <p className="text-2xl font-bold text-foreground font-data mt-0.5">{meta.total}</p>
-            </div>
-          </CardBody>
-        </Card>
-      )}
+      {/* Revenue summary StatCards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title={t('sales.totalRevenue')}
+          value={formatCurrency(meta?.total_revenue || 0)}
+          icon={DollarSign}
+          isLoading={isLoading}
+        />
+        <StatCard
+          title={t('sales.totalSales')}
+          value={meta?.total || 0}
+          icon={ShoppingCart}
+          isLoading={isLoading}
+        />
+      </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <Popover placement="bottom-start">
-          <PopoverTrigger>
-            <Button
-              variant="bordered"
-              size="sm"
-              startContent={<CalendarIcon className="h-4 w-4 text-primary" />}
-            >
-              {dateRange.from
-                ? `${formatDate(dateRange.from)} - ${dateRange.to ? formatDate(dateRange.to) : '...'}`
-                : t('sales.dateRange')}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-3 bg-card border border-border shadow-xl">
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              onSelect={(range) => setDateRange(range || { from: null, to: null })}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="w-72">
+          <DateRangePicker value={dateRange} onChange={(range) => setDateRange(range)} />
+        </div>
 
         <div className="w-44">
           <Select
@@ -364,12 +343,12 @@ export default function SalesHistory() {
           </Select>
         </div>
 
-        {(dateRange.from || paymentFilter !== 'all') && (
+        {(dateRange.start || paymentFilter !== 'all') && (
           <Button
             variant="light"
             size="sm"
             onClick={() => {
-              setDateRange({ from: null, to: null });
+              setDateRange({ start: null, end: null });
               setPaymentFilter('all');
             }}
           >
@@ -382,14 +361,14 @@ export default function SalesHistory() {
         columns={columns}
         data={rows ?? []}
         isLoading={isLoading}
-        searchPlaceholder={t('sales.searchPlaceholder')}
+        searchPlaceholder={t('sales.searchReceipts')}
         renderSubComponent={(sale: Sale) => {
           if (expandedRow !== sale.id || !saleDetail || saleDetail.id !== sale.id) return null;
           const refunds = saleRefunds && expandedRow === sale.id ? saleRefunds : [];
           return (
-            <div className="animate-fade-in space-y-4">
+            <div className="space-y-4 animate-fade-in">
               <div>
-                <h3 className="text-xs font-semibold text-primary mb-2 uppercase tracking-wider">
+                <h3 className="mb-2 text-xs font-semibold tracking-wider uppercase text-primary">
                   {t('sales.itemBreakdown', { id: sale.id })}
                 </h3>
                 <div className="space-y-1.5 border border-border rounded-xl p-3 bg-muted/10">
@@ -399,39 +378,35 @@ export default function SalesHistory() {
                         {item.product_name}{' '}
                         <span className="text-muted-foreground">x{item.quantity}</span>
                       </span>
-                      <span className="text-foreground font-medium">
+                      <span className="font-medium text-foreground">
                         {formatCurrency(item.unit_price * item.quantity)}
                       </span>
                     </div>
                   ))}
                 </div>
                 {sale.discount && sale.discount > 0 && (
-                  <div className="flex justify-between text-sm font-data mt-2 pt-2 border-t border-border">
-                    <span className="text-success font-medium">{t('sales.discount')}</span>
-                    <span className="text-success font-medium">
-                      {sale.discount_type === 'percentage'
-                        ? `${sale.discount}%`
-                        : formatCurrency(sale.discount)}
-                    </span>
+                  <div className="flex justify-between pt-2 mt-2 text-sm border-t font-data border-border">
+                    <span className="font-medium text-success">{t('sales.discount')}</span>
+                    <span className="font-medium text-success"></span>
                   </div>
                 )}
               </div>
               {refunds.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-semibold text-danger mb-2 uppercase tracking-wider">
+                  <h3 className="mb-2 text-xs font-semibold tracking-wider uppercase text-danger">
                     {t('sales.refund')}
                   </h3>
                   <div className="space-y-2">
                     {refunds.map((refund) => (
                       <div
                         key={refund.id}
-                        className="text-sm font-data border border-border rounded-xl p-3 bg-muted/20"
+                        className="p-3 text-sm border font-data border-border rounded-xl bg-muted/20"
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-danger font-bold">
+                          <span className="font-bold text-danger">
                             {formatCurrency(refund.amount)}
                           </span>
-                          <span className="text-muted-foreground text-xs">
+                          <span className="text-xs text-muted-foreground">
                             {formatDateTime(refund.created_at)}
                           </span>
                         </div>
@@ -445,7 +420,7 @@ export default function SalesHistory() {
                             }[refund.reason] || refund.reason}
                           </Badge>
                           {refund.cashier_name && (
-                            <span className="text-muted-foreground text-xs">
+                            <span className="text-xs text-muted-foreground">
                               {refund.cashier_name}
                             </span>
                           )}

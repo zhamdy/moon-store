@@ -83,6 +83,7 @@ export default function Layout(): React.JSX.Element {
           <Outlet />
         </div>
       </main>
+
       <StartupPrompt />
     </div>
   );

@@ -16,8 +16,7 @@ import {
   ModalBody,
   ModalFooter,
 } from '@heroui/react';
-import { Badge, type BadgeVariant } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, type BadgeVariant, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
@@ -58,10 +57,11 @@ export default function ReportBuilderPage() {
   const [form, setForm] = useState({
     name: '',
     description: '',
-    report_type: 'sales' as string,
-    config: '{}',
-    chart_type: 'table' as string,
-    is_public: false,
+    report_type: 'sales',
+    chart_type: 'bar',
+    date_range: 'last_30_days',
+    metrics: ['total_revenue', 'order_count'],
+    group_by: 'date',
   });
   const [quickForm, setQuickForm] = useState({
     type: 'revenue_by_date',
@@ -72,11 +72,17 @@ export default function ReportBuilderPage() {
   const { data: savedReports } = reports.useList();
 
   const createReport = reports.useSave({
-    message: t('reportBuilder.created'),
-    onDone: () => setCreateOpen(false),
+    message: t('reportBuilder.savedSuccess'),
+    onDone: () => {
+      qc.invalidateQueries({ queryKey: ['reports'] });
+      setCreateOpen(false);
+    },
   });
 
-  const deleteReport = reports.useRemove({ message: t('reportBuilder.deleted') });
+  const deleteReport = reports.useRemove({
+    message: t('reportBuilder.deletedSuccess'),
+    onDone: () => qc.invalidateQueries({ queryKey: ['reports'] }),
+  });
 
   const runReport = useMutation({
     mutationFn: (id: number) =>
@@ -105,36 +111,39 @@ export default function ReportBuilderPage() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('reportBuilder.title')}>
-        <div className="flex items-center gap-2">
-          <Button
-            variant={tab === 'saved' ? 'flat' : 'light'}
-            color={tab === 'saved' ? 'primary' : 'default'}
-            size="sm"
-            onClick={() => setTab('saved')}
-            startContent={<FileText className="h-4 w-4" />}
-          >
-            {t('reportBuilder.saved')}
-          </Button>
-          <Button
-            variant={tab === 'quick' ? 'flat' : 'light'}
-            color={tab === 'quick' ? 'primary' : 'default'}
-            size="sm"
-            onClick={() => setTab('quick')}
-            startContent={<Play className="h-4 w-4" />}
-          >
-            {t('reportBuilder.quickReport')}
-          </Button>
-          <Button
-            color="primary"
-            size="sm"
-            onClick={() => setCreateOpen(true)}
-            startContent={<Plus className="h-4 w-4" />}
-          >
-            {t('reportBuilder.create')}
-          </Button>
-        </div>
-      </PageHeader>
+      <PageHeader
+        title={t('reportBuilder.title')}
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant={tab === 'saved' ? 'flat' : 'light'}
+              color={tab === 'saved' ? 'primary' : 'default'}
+              size="sm"
+              onClick={() => setTab('saved')}
+              startContent={<FileText className="h-4 w-4" />}
+            >
+              {t('reportBuilder.saved')}
+            </Button>
+            <Button
+              variant={tab === 'quick' ? 'flat' : 'light'}
+              color={tab === 'quick' ? 'primary' : 'default'}
+              size="sm"
+              onClick={() => setTab('quick')}
+              startContent={<Play className="h-4 w-4" />}
+            >
+              {t('reportBuilder.quickReport')}
+            </Button>
+            <Button
+              color="primary"
+              size="sm"
+              onClick={() => setCreateOpen(true)}
+              startContent={<Plus className="h-4 w-4" />}
+            >
+              {t('reportBuilder.create')}
+            </Button>
+          </div>
+        }
+      />
 
       {tab === 'saved' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -255,10 +264,10 @@ export default function ReportBuilderPage() {
       {resultData && resultData.length > 0 && (
         <div className="mt-6 overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
           <table className="w-full text-sm">
-            <thead className="border-b border-border text-muted-foreground">
+            <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
               <tr>
                 {Object.keys(resultData[0]).map((k) => (
-                  <th key={k} className="text-start p-3 font-medium">
+                  <th key={k} className="text-start p-3 font-semibold">
                     {k}
                   </th>
                 ))}

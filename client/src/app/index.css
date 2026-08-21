@@ -21,6 +21,10 @@
     --accent-foreground: 240 6% 10%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
+    --heroui-danger: 0 72% 51%;
+    --heroui-danger-500: 0 84% 60%;
+    --heroui-danger-600: 0 72% 51%;
+    --heroui-danger-foreground: 0 0% 100%;
     --border: 240 6% 90%;
     --input: 240 6% 90%;
     --ring: 240 6% 10%;
@@ -49,8 +53,12 @@
     --muted-foreground: 240 5% 65%;
     --accent: 240 4% 16%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62% 50%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
+    --heroui-danger: 0 84% 60%;
+    --heroui-danger-500: 0 84% 60%;
+    --heroui-danger-600: 0 72% 51%;
+    --heroui-danger-foreground: 0 0% 100%;
     --border: 240 4% 16%;
     --input: 240 4% 16%;
     --ring: 240 5% 84%;
@@ -64,6 +72,28 @@
   }
 }
 
+/* Explicit True-Red Danger Overrides (0° pure red hue) */
+:root,
+.light,
+[data-theme='light'],
+.dark,
+[data-theme='dark'] {
+  --heroui-danger: 0 84% 60% !important;
+  --heroui-danger-50: 0 86% 97% !important;
+  --heroui-danger-100: 0 93% 94% !important;
+  --heroui-danger-200: 0 96% 89% !important;
+  --heroui-danger-300: 0 94% 82% !important;
+  --heroui-danger-400: 0 91% 71% !important;
+  --heroui-danger-500: 0 84% 60% !important;
+  --heroui-danger-600: 0 72% 51% !important;
+  --heroui-danger-700: 0 74% 42% !important;
+  --heroui-danger-800: 0 70% 35% !important;
+  --heroui-danger-900: 0 63% 31% !important;
+  --heroui-danger-foreground: 0 0% 100% !important;
+  --destructive: 0 84% 60% !important;
+  --destructive-foreground: 0 0% 100% !important;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -74,10 +104,22 @@
     @apply bg-background text-foreground;
   }
   table thead {
-    @apply bg-slate-100 dark:bg-zinc-800/90 border-b border-border;
+    background-color: hsl(var(--card));
+    border-bottom: 1px solid hsl(var(--border));
   }
   table thead th {
-    @apply text-slate-700 dark:text-slate-200 font-semibold;
+    color: hsl(var(--muted-foreground));
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  table tbody tr {
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
+    transition: background-color 150ms ease;
+  }
+  table tbody tr:hover {
+    background-color: hsl(var(--muted) / 0.3);
   }
 }
 

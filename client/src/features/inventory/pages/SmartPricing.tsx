@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { TrendingUp, Zap, Check, X, RefreshCw, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -16,8 +17,7 @@ import {
   Select,
   SelectItem,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader, DataTable } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
@@ -41,7 +41,7 @@ export default function SmartPricingPage() {
     applies_to: 'all',
   });
 
-  const { data: suggestions } = priceSuggestions.useList();
+  const { data: suggestions, isLoading } = priceSuggestions.useList();
   const { data: rules } = useApiQuery<PricingRule[]>(
     ['pricing-rules'],
     'ai/pricing/rules',
@@ -71,130 +71,148 @@ export default function SmartPricingPage() {
 
   const fmt = (n: number) => formatCurrency(n);
 
+  const suggestionColumns: ColumnDef<PriceSuggestion>[] = [
+    {
+      accessorKey: 'product_name',
+      header: t('smartPricing.product'),
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium text-foreground">{row.original.product_name}</div>
+          <div className="text-xs text-muted-foreground">{row.original.sku}</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'current_price',
+      header: t('smartPricing.currentPrice'),
+      cell: ({ getValue }) => (
+        <span className="font-data text-foreground">{fmt(getValue() as number)}</span>
+      ),
+    },
+    {
+      accessorKey: 'suggested_price',
+      header: t('smartPricing.suggestedPrice'),
+      cell: ({ getValue }) => (
+        <span className="font-data font-semibold text-primary">{fmt(getValue() as number)}</span>
+      ),
+    },
+    {
+      id: 'change',
+      header: t('smartPricing.change'),
+      cell: ({ row }) => {
+        const change = (
+          ((row.original.suggested_price - row.original.current_price) /
+            row.original.current_price) *
+          100
+        ).toFixed(1);
+        const isIncrease = row.original.suggested_price > row.original.current_price;
+        return (
+          <Badge size="sm" variant={isIncrease ? 'success' : 'danger'}>
+            {isIncrease ? '+' : ''}
+            {change}%
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: 'reason',
+      header: t('smartPricing.reason'),
+      cell: ({ getValue }) => (
+        <span className="text-xs text-muted-foreground max-w-xs truncate block">
+          {getValue() as string}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'confidence',
+      header: t('smartPricing.confidence'),
+      cell: ({ getValue }) => {
+        const conf = getValue() as number;
+        return (
+          <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full" style={{ width: `${conf * 100}%` }} />
+          </div>
+        );
+      },
+    },
+    {
+      id: 'actions',
+      header: t('common.actions'),
+      cell: ({ row }) => (
+        <div className="flex gap-1">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="flat"
+            color="success"
+            onClick={() => handleSuggestion.save({ id: row.original.id, status: 'applied' })}
+            title={t('smartPricing.apply')}
+            aria-label={t('smartPricing.apply')}
+          >
+            <Check className="h-4 w-4" />
+          </Button>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            onClick={() => handleSuggestion.save({ id: row.original.id, status: 'dismissed' })}
+            title={t('smartPricing.dismiss')}
+            aria-label={t('smartPricing.dismiss')}
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('smartPricing.title')}>
-        <div className="flex gap-2">
-          <Button
-            variant={tab === 'suggestions' ? 'solid' : 'bordered'}
-            color={tab === 'suggestions' ? 'primary' : 'default'}
-            size="sm"
-            onClick={() => setTab('suggestions')}
-            startContent={<Zap className="h-4 w-4" />}
-          >
-            {t('smartPricing.suggestions')}
-          </Button>
-          <Button
-            variant={tab === 'rules' ? 'solid' : 'bordered'}
-            color={tab === 'rules' ? 'primary' : 'default'}
-            size="sm"
-            onClick={() => setTab('rules')}
-            startContent={<TrendingUp className="h-4 w-4" />}
-          >
-            {t('smartPricing.rules')}
-          </Button>
-          <Button
-            color="primary"
-            size="sm"
-            onClick={() => generate.mutate()}
-            isLoading={generate.isPending}
-            startContent={
-              <RefreshCw className={`h-4 w-4 ${generate.isPending ? 'animate-spin' : ''}`} />
-            }
-          >
-            {t('smartPricing.generate')}
-          </Button>
-        </div>
-      </PageHeader>
+      <PageHeader
+        title={t('smartPricing.title')}
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant={tab === 'suggestions' ? 'solid' : 'bordered'}
+              color={tab === 'suggestions' ? 'primary' : 'default'}
+              size="sm"
+              onClick={() => setTab('suggestions')}
+              startContent={<Zap className="h-4 w-4" />}
+            >
+              {t('smartPricing.suggestions')}
+            </Button>
+            <Button
+              variant={tab === 'rules' ? 'solid' : 'bordered'}
+              color={tab === 'rules' ? 'primary' : 'default'}
+              size="sm"
+              onClick={() => setTab('rules')}
+              startContent={<TrendingUp className="h-4 w-4" />}
+            >
+              {t('smartPricing.rules')}
+            </Button>
+            <Button
+              color="primary"
+              size="sm"
+              onClick={() => generate.mutate()}
+              isLoading={generate.isPending}
+              startContent={
+                <RefreshCw className={`h-4 w-4 ${generate.isPending ? 'animate-spin' : ''}`} />
+              }
+            >
+              {t('smartPricing.generate')}
+            </Button>
+          </div>
+        }
+      />
 
       {tab === 'suggestions' && (
-        <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 border-b border-border text-muted-foreground font-medium text-xs">
-              <tr>
-                <th className="text-start p-3">{t('smartPricing.product')}</th>
-                <th className="text-start p-3">{t('smartPricing.currentPrice')}</th>
-                <th className="text-start p-3">{t('smartPricing.suggestedPrice')}</th>
-                <th className="text-start p-3">{t('smartPricing.change')}</th>
-                <th className="text-start p-3">{t('smartPricing.reason')}</th>
-                <th className="text-start p-3">{t('smartPricing.confidence')}</th>
-                <th className="text-start p-3">{t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/50">
-              {!suggestions?.length ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                    {t('smartPricing.noSuggestions')}
-                  </td>
-                </tr>
-              ) : (
-                suggestions.map((s) => {
-                  const change = (
-                    ((s.suggested_price - s.current_price) / s.current_price) *
-                    100
-                  ).toFixed(1);
-                  const isIncrease = s.suggested_price > s.current_price;
-                  return (
-                    <tr key={s.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="p-3">
-                        <div className="font-medium text-foreground">{s.product_name}</div>
-                        <div className="text-xs text-muted-foreground">{s.sku}</div>
-                      </td>
-                      <td className="p-3 font-data text-foreground">{fmt(s.current_price)}</td>
-                      <td className="p-3 font-data font-semibold text-primary">
-                        {fmt(s.suggested_price)}
-                      </td>
-                      <td className="p-3">
-                        <Badge size="sm" variant={isIncrease ? 'success' : 'danger'}>
-                          {isIncrease ? '+' : ''}
-                          {change}%
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-xs text-muted-foreground max-w-xs truncate">
-                        {s.reason}
-                      </td>
-                      <td className="p-3">
-                        <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary rounded-full"
-                            style={{ width: `${s.confidence * 100}%` }}
-                          />
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex gap-1">
-                          <Button
-                            isIconOnly
-                            variant="light"
-                            color="success"
-                            size="sm"
-                            className="h-8 w-8"
-                            onClick={() => handleSuggestion.save({ id: s.id, action: 'accept' })}
-                            aria-label={t('common.confirm')}
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            isIconOnly
-                            variant="light"
-                            color="danger"
-                            size="sm"
-                            className="h-8 w-8"
-                            onClick={() => handleSuggestion.save({ id: s.id, action: 'reject' })}
-                            aria-label={t('common.cancel')}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={suggestionColumns}
+          data={suggestions ?? []}
+          isLoading={isLoading}
+          searchPlaceholder={t('common.search')}
+        />
       )}
 
       {tab === 'rules' && (
@@ -286,8 +304,11 @@ export default function SmartPricingPage() {
                   <SelectItem key="clearance" textValue={t('smartPricing.clearance')}>
                     {t('smartPricing.clearance')}
                   </SelectItem>
-                  <SelectItem key="seasonal" textValue={t('smartPricing.seasonal')}>
-                    {t('smartPricing.seasonal')}
+                  <SelectItem key="competitor" textValue={t('smartPricing.competitor')}>
+                    {t('smartPricing.competitor')}
+                  </SelectItem>
+                  <SelectItem key="bundle" textValue={t('smartPricing.bundleDiscount')}>
+                    {t('smartPricing.bundleDiscount')}
                   </SelectItem>
                 </Select>
                 <Input
@@ -296,16 +317,14 @@ export default function SmartPricingPage() {
                   size="sm"
                   variant="bordered"
                   value={String(ruleForm.priority)}
-                  onValueChange={(val) =>
-                    setRuleForm({ ...ruleForm, priority: parseInt(val) || 0 })
-                  }
+                  onValueChange={(val) => setRuleForm({ ...ruleForm, priority: Number(val) })}
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
                 <Button variant="flat" size="sm" onClick={() => setRuleOpen(false)}>
                   {t('common.cancel')}
                 </Button>
-                <Button type="submit" color="primary" size="sm" isLoading={createRule.isSaving}>
+                <Button color="primary" size="sm" type="submit" isLoading={createRule.isSaving}>
                   {createRule.isSaving ? t('common.saving') : t('common.save')}
                 </Button>
               </ModalFooter>

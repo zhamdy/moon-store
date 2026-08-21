@@ -596,35 +596,38 @@ export default function Inventory() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('inventory.title')}>
-        {isAdmin && (
-          <div className="flex gap-2">
-            <input
-              type="file"
-              accept=".csv"
-              ref={fileInputRef}
-              onChange={handleCSVImport}
-              className="hidden"
-            />
-            <Button
-              variant="bordered"
-              size="sm"
-              startContent={<Upload className="h-4 w-4" />}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {t('inventory.importCsv')}
-            </Button>
-            <Button
-              color="primary"
-              size="sm"
-              startContent={<Plus className="h-4 w-4" />}
-              onClick={openCreateDialog}
-            >
-              {t('inventory.addProduct')}
-            </Button>
-          </div>
-        )}
-      </PageHeader>
+      <PageHeader
+        title={t('inventory.title')}
+        actions={
+          isAdmin ? (
+            <div className="flex gap-2">
+              <input
+                type="file"
+                accept=".csv"
+                ref={fileInputRef}
+                onChange={handleCSVImport}
+                className="hidden"
+              />
+              <Button
+                variant="bordered"
+                size="sm"
+                startContent={<Upload className="h-4 w-4" />}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {t('inventory.importCsv')}
+              </Button>
+              <Button
+                color="primary"
+                size="sm"
+                startContent={<Plus className="h-4 w-4" />}
+                onClick={openCreateDialog}
+              >
+                {t('inventory.addProduct')}
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -702,13 +705,17 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* Bulk action toolbar */}
-      {isAdmin && selectedCount > 0 && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 flex-wrap">
-          <span className="text-sm font-semibold text-primary">
-            {t('bulk.selected', { count: String(selectedCount) })}
-          </span>
-          <div className="flex items-center gap-2 ms-auto flex-wrap">
+      <DataTable
+        columns={columns}
+        data={currentData}
+        isLoading={isLoading}
+        searchPlaceholder={t('inventory.searchPlaceholder')}
+        enableRowSelection={isAdmin}
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
+        getRowId={(row: Product) => String(row.id)}
+        bulkActions={(_selected, clearSelection) => (
+          <>
             <Button variant="bordered" size="sm" onClick={() => setBulkCategoryOpen(true)}>
               {t('bulk.changeCategory')}
             </Button>
@@ -743,22 +750,11 @@ export default function Inventory() {
             >
               {t('bulk.discontinueSelected')}
             </Button>
-            <Button variant="light" size="sm" onClick={() => setRowSelection({})}>
+            <Button variant="light" size="sm" onClick={clearSelection}>
               {t('bulk.clearSelection')}
             </Button>
-          </div>
-        </div>
-      )}
-
-      <DataTable
-        columns={columns}
-        data={currentData}
-        isLoading={isLoading}
-        searchPlaceholder={t('inventory.searchPlaceholder')}
-        enableRowSelection={isAdmin}
-        rowSelection={rowSelection}
-        onRowSelectionChange={setRowSelection}
-        getRowId={(row: Product) => String(row.id)}
+          </>
+        )}
       />
 
       {/* Product Add/Edit Dialog */}

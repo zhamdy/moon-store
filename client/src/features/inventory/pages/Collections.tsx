@@ -13,8 +13,7 @@ import {
   Select,
   SelectItem,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
@@ -107,10 +106,7 @@ export default function CollectionsPage() {
                 color="primary"
                 size="sm"
                 startContent={<Plus className="h-4 w-4" />}
-                onClick={() => {
-                  setAddProductOpen(true);
-                  setProductSearch('');
-                }}
+                onClick={() => setAddProductOpen(true)}
               >
                 {t('collections.addProduct')}
               </Button>
@@ -121,6 +117,17 @@ export default function CollectionsPage() {
         {detail.description && (
           <p className="text-sm text-muted-foreground">{detail.description}</p>
         )}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge size="sm" variant={detail.status === 'active' ? 'success' : 'default'}>
+            {t(`collections.${detail.status}` as never)}
+          </Badge>
+          {detail.season && (
+            <Badge size="sm" variant="secondary">
+              {detail.season} {detail.year}
+            </Badge>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {!detail.products.length ? (
@@ -142,12 +149,12 @@ export default function CollectionsPage() {
                       variant="light"
                       color="danger"
                       size="sm"
-                      className="h-7 w-7 shrink-0"
+                      className="h-6 w-6 text-muted-foreground hover:text-danger"
                       onClick={() =>
                         removeProduct.save(
                           withProducts(
                             detail,
-                            detail.products.map((dp) => dp.id).filter((id) => id !== p.id)
+                            detail.products.filter((dp) => dp.id !== p.id).map((dp) => dp.id)
                           )
                         )
                       }
@@ -158,11 +165,11 @@ export default function CollectionsPage() {
                   </div>
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
                     <span className="font-data font-semibold text-sm text-foreground">
-                      {formatCurrency(p.price)}
+                      {formatCurrency(Number(p.price))}
                     </span>
-                    <Badge size="sm" variant={p.stock > 0 ? 'primary' : 'danger'}>
-                      {t('inventory.stock')}: {p.stock}
-                    </Badge>
+                    <span className="text-xs text-muted-foreground font-data">
+                      {t('collections.stock')}: {p.stock_quantity}
+                    </span>
                   </div>
                 </CardBody>
               </Card>
@@ -170,14 +177,13 @@ export default function CollectionsPage() {
           )}
         </div>
 
-        {/* Add product dialog */}
+        {/* Add Product Modal */}
         <Modal
           isOpen={addProductOpen}
           onOpenChange={setAddProductOpen}
           backdrop="blur"
           placement="center"
           size="md"
-          scrollBehavior="inside"
           classNames={{
             base: 'bg-card text-card-foreground border border-border shadow-xl',
           }}
@@ -238,16 +244,19 @@ export default function CollectionsPage() {
   // List view
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('collections.title')}>
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<Plus className="h-4 w-4" />}
-          onClick={editor.openNew}
-        >
-          {t('collections.create')}
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title={t('collections.title')}
+        actions={
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={editor.openNew}
+          >
+            {t('collections.create')}
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {!rows?.length ? (
