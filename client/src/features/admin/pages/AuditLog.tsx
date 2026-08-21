@@ -351,7 +351,7 @@ export default function AuditLog() {
                     </span>
                   )}
                   <span className="text-sm font-medium text-foreground flex-1 truncate">
-                    {entry.user_name || entry.user_display_name || 'System'}
+                    {entry.user_name || entry.user_display_name || t('audit.system')}
                   </span>
                   <span className="text-xs text-muted-foreground font-data shrink-0">
                     {new Date(entry.created_at).toLocaleString()}

@@ -271,14 +271,14 @@ export default function UsersPage() {
                       isInvalid={!!errors.role}
                       errorMessage={errors.role?.message}
                     >
-                      <SelectItem key="Admin" textValue="Admin">
-                        Admin
+                      <SelectItem key="Admin" textValue={t('users.roles.Admin')}>
+                        {t('users.roles.Admin')}
                       </SelectItem>
-                      <SelectItem key="Cashier" textValue="Cashier">
-                        Cashier
+                      <SelectItem key="Cashier" textValue={t('users.roles.Cashier')}>
+                        {t('users.roles.Cashier')}
                       </SelectItem>
-                      <SelectItem key="Delivery" textValue="Delivery">
-                        Delivery
+                      <SelectItem key="Delivery" textValue={t('users.roles.Delivery')}>
+                        {t('users.roles.Delivery')}
                       </SelectItem>
                     </Select>
                   )}

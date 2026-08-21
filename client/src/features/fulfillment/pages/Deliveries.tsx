@@ -247,7 +247,7 @@ export default function Deliveries() {
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownTrigger>
-          <DropdownMenu aria-label="Delivery actions">
+          <DropdownMenu aria-label={t('common.actions')}>
             <DropdownItem
               key="edit"
               startContent={<MoreHorizontal className="h-4 w-4" />}

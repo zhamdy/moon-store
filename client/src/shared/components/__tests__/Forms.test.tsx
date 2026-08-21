@@ -152,12 +152,12 @@ describe('Unit 1: Forms & Inputs Suite', () => {
       const handleChange = vi.fn();
       renderWithProviders(<DateRangePicker onChange={handleChange} />);
 
-      const toggleBtn = screen.getByRole('button', { name: /Select date range/i });
+      const toggleBtn = screen.getByRole('button', { name: /Select date range|اختر الفترة/i });
       fireEvent.click(toggleBtn);
 
       expect(screen.getByRole('dialog', { name: 'Date range selector' })).toBeInTheDocument();
 
-      const todayPresetBtn = screen.getByRole('button', { name: 'Today' });
+      const todayPresetBtn = screen.getByRole('button', { name: /Today|اليوم/i });
       fireEvent.click(todayPresetBtn);
 
       expect(handleChange).toHaveBeenCalledTimes(1);

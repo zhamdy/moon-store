@@ -13,6 +13,7 @@ import {
   parseISO,
 } from 'date-fns';
 import { FormField } from './FormField';
+import { useTranslation } from '../../i18n/index';
 import type { DateRangePickerProps } from './types';
 
 export interface DatePreset {
@@ -69,6 +70,45 @@ export function DateRangePicker({
   isRequired,
   className = '',
 }: DateRangePickerProps): React.JSX.Element {
+  const { t } = useTranslation();
+
+  const presets: DatePreset[] = [
+    {
+      label: t('datePicker.today'),
+      getRange: () => ({
+        start: startOfDay(new Date()),
+        end: endOfDay(new Date()),
+      }),
+    },
+    {
+      label: t('datePicker.yesterday'),
+      getRange: () => ({
+        start: startOfYesterday(),
+        end: endOfYesterday(),
+      }),
+    },
+    {
+      label: t('datePicker.last7Days'),
+      getRange: () => ({
+        start: startOfDay(subDays(new Date(), 6)),
+        end: endOfDay(new Date()),
+      }),
+    },
+    {
+      label: t('datePicker.last30Days'),
+      getRange: () => ({
+        start: startOfDay(subDays(new Date(), 29)),
+        end: endOfDay(new Date()),
+      }),
+    },
+    {
+      label: t('datePicker.thisMonth'),
+      getRange: () => ({
+        start: startOfMonth(new Date()),
+        end: endOfMonth(new Date()),
+      }),
+    },
+  ];
   const [isOpen, setIsOpen] = useState(false);
   const [startDateStr, setStartDateStr] = useState<string>(
     value?.start && isValid(value.start) ? format(value.start, 'yyyy-MM-dd') : ''
@@ -149,9 +189,9 @@ export function DateRangePicker({
       return `${format(value.start, 'MMM dd, yyyy')} - ${format(value.end, 'MMM dd, yyyy')}`;
     }
     if (value?.start && isValid(value.start)) {
-      return `From ${format(value.start, 'MMM dd, yyyy')}`;
+      return t('datePicker.from', { date: format(value.start, 'MMM dd, yyyy') });
     }
-    return 'Select date range...';
+    return t('datePicker.selectRange');
   };
 
   const pickerContent = (
@@ -183,10 +223,10 @@ export function DateRangePicker({
         >
           <div className="space-y-3">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Presets
+              {t('datePicker.presets')}
             </div>
             <div className="grid grid-cols-2 gap-1.5">
-              {defaultPresets.map((preset) => (
+              {presets.map((preset) => (
                 <button
                   key={preset.label}
                   type="button"
@@ -200,11 +240,13 @@ export function DateRangePicker({
 
             <div className="border-t border-border pt-3 space-y-2">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Custom Range
+                {t('datePicker.customRange')}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[11px] text-muted-foreground block mb-1">Start Date</label>
+                  <label className="text-[11px] text-muted-foreground block mb-1">
+                    {t('datePicker.startDate')}
+                  </label>
                   <input
                     type="date"
                     value={startDateStr}
@@ -213,7 +255,9 @@ export function DateRangePicker({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-muted-foreground block mb-1">End Date</label>
+                  <label className="text-[11px] text-muted-foreground block mb-1">
+                    {t('datePicker.endDate')}
+                  </label>
                   <input
                     type="date"
                     value={endDateStr}
@@ -231,14 +275,14 @@ export function DateRangePicker({
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 <RotateCcw className="h-3 w-3" />
-                Reset
+                {t('datePicker.reset')}
               </button>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="px-3 py-1 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
               >
-                Done
+                {t('datePicker.done')}
               </button>
             </div>
           </div>
