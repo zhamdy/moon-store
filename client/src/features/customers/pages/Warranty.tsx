@@ -155,7 +155,6 @@ export default function WarrantyPage() {
         data={claims ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('common.search')}
-        enableDensityToggle
       />
 
       <Modal

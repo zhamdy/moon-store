@@ -11,13 +11,13 @@ import {
   type VisibilityState,
   type PaginationState,
 } from '@tanstack/react-table';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
 import { TableBulkActions } from './TableBulkActions';
 import { TableColumnVisibility } from './TableColumnVisibility';
 import { Skeleton } from '../data-display/SkeletonLoader';
 import EmptyState from '../EmptyState';
 import { useTranslation } from '../../i18n/index';
-import type { DataTableProps, TableDensity } from './types';
+import type { DataTableProps } from './types';
 
 export function DataTable<TData>({
   columns,
@@ -31,7 +31,6 @@ export function DataTable<TData>({
   getRowId,
   renderSubComponent,
   enableColumnVisibility = false,
-  enableDensityToggle = false,
   toolbar,
   bulkActions,
   emptyTitle,
@@ -47,7 +46,6 @@ export function DataTable<TData>({
   const [internalGlobalFilter, setInternalGlobalFilter] = useState<string>('');
   const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({});
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [density, setDensity] = useState<TableDensity>('standard');
   const [internalPagination, setInternalPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -127,7 +125,7 @@ export function DataTable<TData>({
     table.resetRowSelection();
   };
 
-  const densityPaddingClass = density === 'compact' ? 'px-3 py-2 text-xs' : 'px-4 py-3 text-sm';
+  const densityPaddingClass = 'px-3 py-2 text-xs';
 
   const pageSize = table.getState().pagination.pageSize;
   const pageIndex = table.getState().pagination.pageIndex;
@@ -163,18 +161,6 @@ export function DataTable<TData>({
 
         <div className="flex items-center gap-2 ms-auto flex-wrap">
           {toolbar}
-
-          {enableDensityToggle && (
-            <button
-              type="button"
-              onClick={() => setDensity(density === 'standard' ? 'compact' : 'standard')}
-              aria-label={`Switch to ${density === 'standard' ? 'compact' : 'standard'} density`}
-              className="flex items-center gap-1.5 h-9 px-3 text-xs font-medium rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-              <span className="capitalize">{density}</span>
-            </button>
-          )}
 
           {enableColumnVisibility && <TableColumnVisibility table={table} />}
         </div>

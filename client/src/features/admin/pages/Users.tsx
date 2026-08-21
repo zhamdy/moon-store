@@ -205,7 +205,6 @@ export default function UsersPage() {
         data={rows ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('users.searchPlaceholder')}
-        enableDensityToggle
       />
 
       {/* Add/Edit Dialog */}

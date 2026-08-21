@@ -139,7 +139,6 @@ export default function CategoriesPage() {
         data={categories ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('categories.searchPlaceholder')}
-        enableDensityToggle
       />
 
       {/* Add/Edit Dialog */}

@@ -361,8 +361,7 @@ export default function SalesHistory() {
         columns={columns}
         data={rows ?? []}
         isLoading={isLoading}
-        searchPlaceholder={t('sales.searchPlaceholder')}
-        enableDensityToggle
+        searchPlaceholder={t('sales.searchReceipts')}
         renderSubComponent={(sale: Sale) => {
           if (expandedRow !== sale.id || !saleDetail || saleDetail.id !== sale.id) return null;
           const refunds = saleRefunds && expandedRow === sale.id ? saleRefunds : [];

@@ -141,7 +141,6 @@ export default function SegmentsPage() {
         data={filteredCustomers}
         isLoading={isLoading}
         searchPlaceholder={t('common.search')}
-        enableDensityToggle
       />
     </div>
   );

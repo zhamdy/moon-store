@@ -201,7 +201,6 @@ export default function CustomersPage() {
         data={customers ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('customers.searchPlaceholder')}
-        enableDensityToggle
       />
 
       {/* Add/Edit Dialog */}

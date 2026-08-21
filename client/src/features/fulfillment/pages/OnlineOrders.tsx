@@ -133,7 +133,6 @@ export default function OnlineOrdersPage() {
         data={orders ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('common.search')}
-        enableDensityToggle
       />
 
       <Modal

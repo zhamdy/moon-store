@@ -21,7 +21,6 @@ export interface BaseDataTableProps<TData> {
   getRowId?: (row: TData) => string;
   renderSubComponent?: (row: TData) => ReactNode | null;
   enableColumnVisibility?: boolean;
-  enableDensityToggle?: boolean;
   toolbar?: ReactNode;
   bulkActions?: (selectedRows: TData[], clearSelection: () => void) => ReactNode;
   emptyTitle?: string;

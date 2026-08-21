@@ -212,7 +212,6 @@ export default function SmartPricingPage() {
           data={suggestions ?? []}
           isLoading={isLoading}
           searchPlaceholder={t('common.search')}
-          enableDensityToggle
         />
       )}
 
