@@ -4,8 +4,7 @@ import { Globe, Settings2, Image, Eye, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { Button, Input, Card, CardBody } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
@@ -60,37 +59,40 @@ export default function StorefrontPage() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('storefront.title')}>
-        <div className="flex gap-2">
-          <Button
-            variant={tab === 'config' ? 'solid' : 'bordered'}
-            color={tab === 'config' ? 'primary' : 'default'}
-            size="sm"
-            onClick={() => setTab('config')}
-            startContent={<Settings2 className="h-4 w-4" />}
-          >
-            {t('storefront.config')}
-          </Button>
-          <Button
-            variant={tab === 'banners' ? 'solid' : 'bordered'}
-            color={tab === 'banners' ? 'primary' : 'default'}
-            size="sm"
-            onClick={() => setTab('banners')}
-            startContent={<Image className="h-4 w-4" />}
-          >
-            {t('storefront.banners')}
-          </Button>
-          <Button
-            variant={tab === 'preview' ? 'solid' : 'bordered'}
-            color={tab === 'preview' ? 'primary' : 'default'}
-            size="sm"
-            onClick={() => setTab('preview')}
-            startContent={<Eye className="h-4 w-4" />}
-          >
-            {t('storefront.preview')}
-          </Button>
-        </div>
-      </PageHeader>
+      <PageHeader
+        title={t('storefront.title')}
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant={tab === 'config' ? 'solid' : 'bordered'}
+              color={tab === 'config' ? 'primary' : 'default'}
+              size="sm"
+              onClick={() => setTab('config')}
+              startContent={<Settings2 className="h-4 w-4" />}
+            >
+              {t('storefront.config')}
+            </Button>
+            <Button
+              variant={tab === 'banners' ? 'solid' : 'bordered'}
+              color={tab === 'banners' ? 'primary' : 'default'}
+              size="sm"
+              onClick={() => setTab('banners')}
+              startContent={<Image className="h-4 w-4" />}
+            >
+              {t('storefront.banners')}
+            </Button>
+            <Button
+              variant={tab === 'preview' ? 'solid' : 'bordered'}
+              color={tab === 'preview' ? 'primary' : 'default'}
+              size="sm"
+              onClick={() => setTab('preview')}
+              startContent={<Eye className="h-4 w-4" />}
+            >
+              {t('storefront.preview')}
+            </Button>
+          </div>
+        }
+      />
 
       {tab === 'config' && (
         <Card className="max-w-2xl border border-border bg-card shadow-sm">

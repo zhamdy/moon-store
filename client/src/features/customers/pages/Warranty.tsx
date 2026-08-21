@@ -8,8 +8,7 @@ import {
   ModalBody,
   ModalFooter,
 } from '@heroui/react';
-import { Badge, type BadgeVariant } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, type BadgeVariant, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
@@ -66,16 +65,19 @@ export default function WarrantyPage() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('warranty.title')}>
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<Plus className="h-4 w-4" />}
-          onClick={editor.openNew}
-        >
-          {t('warranty.create')}
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title={t('warranty.title')}
+        actions={
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={editor.openNew}
+          >
+            {t('warranty.create')}
+          </Button>
+        }
+      />
 
       <div className="overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
         <table className="w-full text-sm">

@@ -17,7 +17,7 @@ export interface DirectionContextValue {
   toggleDirection: () => void;
 }
 
-export const DirectionContext = createContext<DirectionContextValue | null>(null);
+const DirectionContext = createContext<DirectionContextValue | null>(null);
 
 export interface DirectionProviderProps {
   children: ReactNode;
@@ -93,6 +93,7 @@ export function DirectionProvider({
   return <DirectionContext.Provider value={value}>{children}</DirectionContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useDirection(): DirectionContextValue {
   const context = useContext(DirectionContext);
   if (!context) {

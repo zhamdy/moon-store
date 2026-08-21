@@ -18,7 +18,7 @@ export function UIProvider({ children }: UIProviderProps): React.JSX.Element {
       <HeroUIProvider
         locale={locale === 'ar' ? 'ar-EG' : 'en-US'}
         navigate={(to, options) => {
-          navigate({ to: to as never, ...options });
+          navigate({ to: to as never, ...(options ?? {}) });
         }}
         useHref={(to) => {
           try {
