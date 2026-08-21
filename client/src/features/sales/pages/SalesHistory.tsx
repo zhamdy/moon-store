@@ -154,13 +154,13 @@ export default function SalesHistory() {
         <button
           type="button"
           onClick={() => setExpandedRow(expandedRow === row.original.id ? null : row.original.id)}
-          className="text-primary hover:text-primary/80 transition-colors p-1"
+          className="p-1 transition-colors text-primary hover:text-primary/80"
           aria-label="Expand row details"
         >
           {expandedRow === row.original.id ? (
-            <ChevronDown className="h-4 w-4" />
+            <ChevronDown className="w-4 h-4" />
           ) : (
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="w-4 h-4" />
           )}
         </button>
       ),
@@ -169,7 +169,7 @@ export default function SalesHistory() {
       accessorKey: 'id',
       header: t('sales.saleId'),
       cell: ({ getValue }) => (
-        <span className="font-data text-primary font-semibold">#{getValue() as number}</span>
+        <span className="font-semibold font-data text-primary">#{getValue() as number}</span>
       ),
     },
     {
@@ -257,21 +257,21 @@ export default function SalesHistory() {
         <Dropdown>
           <DropdownTrigger>
             <Button isIconOnly variant="light" size="sm" onClick={(e) => e.stopPropagation()}>
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="w-4 h-4" />
             </Button>
           </DropdownTrigger>
           <DropdownMenu aria-label="Sale actions">
             <DropdownItem
               key="refund"
               isDisabled={row.original.refund_status === 'full'}
-              startContent={<RotateCcw className="h-4 w-4 text-danger" />}
+              startContent={<RotateCcw className="w-4 h-4 text-danger" />}
               onPress={() => handleRefund(row.original)}
             >
               {t('sales.refund')}
             </DropdownItem>
             <DropdownItem
               key="reprint"
-              startContent={<Printer className="h-4 w-4 text-primary" />}
+              startContent={<Printer className="w-4 h-4 text-primary" />}
               onPress={() => handlePrintReceipt(row.original.id)}
             >
               {t('receipt.reprint')}
@@ -290,7 +290,7 @@ export default function SalesHistory() {
           <Button
             variant="bordered"
             size="sm"
-            startContent={<Download className="h-4 w-4" />}
+            startContent={<Download className="w-4 h-4" />}
             onClick={handleExportCSV}
           >
             {t('sales.exportCsv')}
@@ -299,7 +299,7 @@ export default function SalesHistory() {
       />
 
       {/* Revenue summary StatCards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title={t('sales.totalRevenue')}
           value={formatCurrency(meta?.total_revenue || 0)}
@@ -315,7 +315,7 @@ export default function SalesHistory() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex flex-wrap items-center gap-4">
         <div className="w-72">
           <DateRangePicker value={dateRange} onChange={(range) => setDateRange(range)} />
         </div>
@@ -366,9 +366,9 @@ export default function SalesHistory() {
           if (expandedRow !== sale.id || !saleDetail || saleDetail.id !== sale.id) return null;
           const refunds = saleRefunds && expandedRow === sale.id ? saleRefunds : [];
           return (
-            <div className="animate-fade-in space-y-4">
+            <div className="space-y-4 animate-fade-in">
               <div>
-                <h3 className="text-xs font-semibold text-primary mb-2 uppercase tracking-wider">
+                <h3 className="mb-2 text-xs font-semibold tracking-wider uppercase text-primary">
                   {t('sales.itemBreakdown', { id: sale.id })}
                 </h3>
                 <div className="space-y-1.5 border border-border rounded-xl p-3 bg-muted/10">
@@ -378,39 +378,35 @@ export default function SalesHistory() {
                         {item.product_name}{' '}
                         <span className="text-muted-foreground">x{item.quantity}</span>
                       </span>
-                      <span className="text-foreground font-medium">
+                      <span className="font-medium text-foreground">
                         {formatCurrency(item.unit_price * item.quantity)}
                       </span>
                     </div>
                   ))}
                 </div>
                 {sale.discount && sale.discount > 0 && (
-                  <div className="flex justify-between text-sm font-data mt-2 pt-2 border-t border-border">
-                    <span className="text-success font-medium">{t('sales.discount')}</span>
-                    <span className="text-success font-medium">
-                      {sale.discount_type === 'percentage'
-                        ? `${sale.discount}%`
-                        : formatCurrency(sale.discount)}
-                    </span>
+                  <div className="flex justify-between pt-2 mt-2 text-sm border-t font-data border-border">
+                    <span className="font-medium text-success">{t('sales.discount')}</span>
+                    <span className="font-medium text-success"></span>
                   </div>
                 )}
               </div>
               {refunds.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-semibold text-danger mb-2 uppercase tracking-wider">
+                  <h3 className="mb-2 text-xs font-semibold tracking-wider uppercase text-danger">
                     {t('sales.refund')}
                   </h3>
                   <div className="space-y-2">
                     {refunds.map((refund) => (
                       <div
                         key={refund.id}
-                        className="text-sm font-data border border-border rounded-xl p-3 bg-muted/20"
+                        className="p-3 text-sm border font-data border-border rounded-xl bg-muted/20"
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-danger font-bold">
+                          <span className="font-bold text-danger">
                             {formatCurrency(refund.amount)}
                           </span>
-                          <span className="text-muted-foreground text-xs">
+                          <span className="text-xs text-muted-foreground">
                             {formatDateTime(refund.created_at)}
                           </span>
                         </div>
@@ -424,7 +420,7 @@ export default function SalesHistory() {
                             }[refund.reason] || refund.reason}
                           </Badge>
                           {refund.cashier_name && (
-                            <span className="text-muted-foreground text-xs">
+                            <span className="text-xs text-muted-foreground">
                               {refund.cashier_name}
                             </span>
                           )}
