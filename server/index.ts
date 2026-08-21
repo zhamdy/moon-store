@@ -11,7 +11,7 @@ import { sanitizeBody } from './middleware/sanitize';
 import logger from './lib/logger';
 import db, { closePool } from './src/database/pool';
 
-import { routeTable, cleanupExpiredReservations } from './routes';
+import { routeTable, cleanupExpiredReservations } from './src/router';
 
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;

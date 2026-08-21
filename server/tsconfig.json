@@ -20,9 +20,7 @@
   "include": [
     "index.ts",
     "src/**/*.ts",
-    "db/**/*.ts",
     "middleware/**/*.ts",
-    "routes/**/*.ts",
     "validators/**/*.ts",
     "services/**/*.ts"
   ],

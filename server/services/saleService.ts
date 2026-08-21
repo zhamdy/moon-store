@@ -1,5 +1,5 @@
-import { CreateSaleDTO, CreateRefundDTO, SaleTotals } from '../src/modules/sales/types';
-import { salesService } from '../src/modules/sales/service';
+import { CreateSaleDTO, CreateRefundDTO, SaleTotals } from '../src/modules/pos/sales/types';
+import { salesService } from '../src/modules/pos/sales/service';
 import pool from '../src/database/pool';
 import { Queryable } from '../src/database/transaction';
 
