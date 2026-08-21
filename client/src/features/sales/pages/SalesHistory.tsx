@@ -2,35 +2,35 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import {
   Download,
-  CalendarIcon,
   ChevronDown,
   ChevronRight,
   Printer,
   RotateCcw,
   MoreHorizontal,
+  DollarSign,
+  ShoppingCart,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   Button,
-  Card,
-  CardBody,
   Dropdown,
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
   Select,
   SelectItem,
 } from '@heroui/react';
-import PageHeader from '../../../shared/components/PageHeader';
-import { Calendar, type DateRange } from '../../../shared/components/Calendar';
-import DataTable from '../../../shared/components/DataTable';
+import {
+  PageHeader,
+  DataTable,
+  StatCard,
+  DateRangePicker,
+  Badge,
+  type DateRange,
+} from '../../../shared';
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import RefundDialog from '../components/RefundDialog';
-import { Badge } from '../../../shared/components/StatusBadge';
-import { formatCurrency, formatDateTime, formatDate } from '../../../shared/lib/utils';
+import { formatCurrency, formatDateTime } from '../../../shared/lib/utils';
 import { exportToExcel } from '../../../shared/lib/exportUtils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
@@ -46,7 +46,7 @@ const saleDetails = resource<SaleDetail>('sales');
 export default function SalesHistory() {
   const { t } = useTranslation();
   const transport = useTransport();
-  const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
+  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -60,8 +60,8 @@ export default function SalesHistory() {
   } | null>(null);
 
   const params: Record<string, string> = {};
-  if (dateRange.from) params.from = format(dateRange.from, 'yyyy-MM-dd');
-  if (dateRange.to) params.to = format(dateRange.to, 'yyyy-MM-dd');
+  if (dateRange.start) params.from = format(dateRange.start, 'yyyy-MM-dd');
+  if (dateRange.end) params.to = format(dateRange.end, 'yyyy-MM-dd');
   if (paymentFilter !== 'all') params.payment_method = paymentFilter;
 
   const { data: rows, meta, isLoading } = sales.useList({ ...params, limit: 200 });
@@ -284,62 +284,41 @@ export default function SalesHistory() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('sales.title')}>
-        <Button
-          variant="bordered"
-          size="sm"
-          startContent={<Download className="h-4 w-4" />}
-          onClick={handleExportCSV}
-        >
-          {t('sales.exportCsv')}
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title={t('sales.title')}
+        actions={
+          <Button
+            variant="bordered"
+            size="sm"
+            startContent={<Download className="h-4 w-4" />}
+            onClick={handleExportCSV}
+          >
+            {t('sales.exportCsv')}
+          </Button>
+        }
+      />
 
-      {/* Revenue summary */}
-      {meta && (
-        <Card className="border border-border bg-card shadow-sm">
-          <CardBody className="p-4 flex flex-row items-center gap-8">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                {t('sales.totalRevenue')}
-              </p>
-              <p className="text-2xl font-bold text-primary font-data mt-0.5">
-                {formatCurrency(meta.total_revenue)}
-              </p>
-            </div>
-            <div className="border-s border-border ps-8">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                {t('sales.totalSales')}
-              </p>
-              <p className="text-2xl font-bold text-foreground font-data mt-0.5">{meta.total}</p>
-            </div>
-          </CardBody>
-        </Card>
-      )}
+      {/* Revenue summary StatCards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title={t('sales.totalRevenue')}
+          value={formatCurrency(meta?.total_revenue || 0)}
+          icon={DollarSign}
+          isLoading={isLoading}
+        />
+        <StatCard
+          title={t('sales.totalSales')}
+          value={meta?.total || 0}
+          icon={ShoppingCart}
+          isLoading={isLoading}
+        />
+      </div>
 
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
-        <Popover placement="bottom-start">
-          <PopoverTrigger>
-            <Button
-              variant="bordered"
-              size="sm"
-              startContent={<CalendarIcon className="h-4 w-4 text-primary" />}
-            >
-              {dateRange.from
-                ? `${formatDate(dateRange.from)} - ${dateRange.to ? formatDate(dateRange.to) : '...'}`
-                : t('sales.dateRange')}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-3 bg-card border border-border shadow-xl">
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              onSelect={(range) => setDateRange(range || { from: null, to: null })}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
+        <div className="w-72">
+          <DateRangePicker value={dateRange} onChange={(range) => setDateRange(range)} />
+        </div>
 
         <div className="w-44">
           <Select
@@ -364,12 +343,12 @@ export default function SalesHistory() {
           </Select>
         </div>
 
-        {(dateRange.from || paymentFilter !== 'all') && (
+        {(dateRange.start || paymentFilter !== 'all') && (
           <Button
             variant="light"
             size="sm"
             onClick={() => {
-              setDateRange({ from: null, to: null });
+              setDateRange({ start: null, end: null });
               setPaymentFilter('all');
             }}
           >
@@ -383,6 +362,7 @@ export default function SalesHistory() {
         data={rows ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('sales.searchPlaceholder')}
+        enableDensityToggle
         renderSubComponent={(sale: Sale) => {
           if (expandedRow !== sale.id || !saleDetail || saleDetail.id !== sale.id) return null;
           const refunds = saleRefunds && expandedRow === sale.id ? saleRefunds : [];

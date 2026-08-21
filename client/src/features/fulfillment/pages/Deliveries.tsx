@@ -21,9 +21,7 @@ import {
   Card,
   CardBody,
 } from '@heroui/react';
-import DataTable from '../../../shared/components/DataTable';
-import StatusBadge from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { DataTable, StatusBadge, PageHeader, StatCard } from '../../../shared';
 import DeliveryFormDialog from '../components/delivery/DeliveryFormDialog';
 import DeliveryTimelineDialog from '../components/delivery/DeliveryTimelineDialog';
 import ShippingCompaniesDialog from '../components/delivery/ShippingCompaniesDialog';
@@ -51,6 +49,14 @@ export default function Deliveries() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'Admin';
+
+  const statusLabelMap: Record<string, string> = {
+    All: t('common.all'),
+    Pending: t('deliveries.pending'),
+    Shipped: t('deliveries.shipped'),
+    Delivered: t('deliveries.delivered'),
+    Cancelled: t('deliveries.cancelled'),
+  };
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<DeliveryOrder | null>(null);
@@ -102,34 +108,41 @@ export default function Deliveries() {
     },
   });
 
-  const changeStatus = deliveries.useAction('status', {
+  const updateStatus = deliveries.useAction('status', {
     method: 'PUT',
-    fallbackMessage: t('deliveries.statusFailed'),
+    message: t('deliveries.statusUpdated'),
+    fallbackMessage: t('deliveries.statusUpdateFailed'),
   });
 
   const openCreateDialog = () => {
     setEditingOrder(null);
-    setCustomerSearch('');
     setDialogOpen(true);
   };
 
-  const openTimeline = (order: DeliveryOrder) => {
-    setTimelineOrderId(order.id);
-    setTimelineOrderNumber(order.order_number);
-    setTimelineDialogOpen(true);
+  const openEditDialog = (order: DeliveryOrder) => {
+    setEditingOrder(order);
+    setDialogOpen(true);
   };
 
-  const copyTracking = (tracking: string) => {
-    navigator.clipboard.writeText(tracking);
-    toast.success(t('deliveries.copyTracking'));
+  const handleStatusChange = (orderId: number, status: string) => {
+    updateStatus.run({ id: orderId, status });
   };
 
-  const statusLabelMap: Record<string, string> = {
-    All: t('common.all'),
-    Pending: t('deliveries.pending'),
-    Shipped: t('deliveries.shipped'),
-    Delivered: t('deliveries.delivered'),
-    Cancelled: t('deliveries.cancelled'),
+  const handleCopyCustomerInfo = (order: DeliveryOrder) => {
+    const text = [
+      order.customer_name,
+      order.customer_phone,
+      order.address,
+      order.city ? `${order.city}` : '',
+      order.cod_amount ? `COD: ${formatCurrency(order.cod_amount)}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    navigator.clipboard.writeText(text).then(
+      () => toast.success(t('deliveries.copied')),
+      () => toast.error(t('deliveries.copyFailed'))
+    );
   };
 
   const columns: ColumnDef<DeliveryOrder>[] = [
@@ -137,21 +150,44 @@ export default function Deliveries() {
       accessorKey: 'order_number',
       header: t('deliveries.orderNumber'),
       cell: ({ getValue }) => (
-        <span className="font-data text-primary font-semibold">{getValue() as string}</span>
+        <span className="font-data font-semibold text-primary">{getValue() as string}</span>
       ),
     },
-    { accessorKey: 'customer_name', header: t('deliveries.customer') },
     {
-      accessorKey: 'phone',
-      header: t('deliveries.phone'),
-      cell: ({ getValue }) => <span className="font-data">{getValue() as string}</span>,
+      accessorKey: 'customer_name',
+      header: t('deliveries.customer'),
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-foreground">{row.original.customer_name}</p>
+          <p className="text-xs text-muted-foreground">{row.original.customer_phone}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'address',
+      header: t('deliveries.address'),
+      cell: ({ row }) => (
+        <div className="max-w-xs">
+          <p className="text-foreground truncate">{row.original.address}</p>
+          {row.original.city && (
+            <p className="text-xs text-muted-foreground">{row.original.city}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'shipping_company_name',
+      header: t('deliveries.shippingCompany'),
+      cell: ({ getValue }) => (
+        <span className="text-muted-foreground">{(getValue() as string) || '-'}</span>
+      ),
     },
     {
       accessorKey: 'status',
-      header: t('common.status'),
+      header: t('common.status') || t('deliveries.status'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <StatusBadge status={row.original.status} />
+          <StatusBadge status={row.original.status} showDot />
           {isAdmin &&
             row.original.status !== 'Delivered' &&
             row.original.status !== 'Cancelled' && (
@@ -164,7 +200,7 @@ export default function Deliveries() {
                 onChange={(e) => {
                   const status = e.target.value;
                   if (!status) return;
-                  changeStatus.run(
+                  updateStatus.run(
                     { id: row.original.id, body: { status } },
                     { onSuccess: () => toast.success(t('deliveries.statusUpdated', { status })) }
                   );
@@ -183,42 +219,19 @@ export default function Deliveries() {
       ),
     },
     {
-      accessorKey: 'shipping_company_name',
-      header: t('deliveries.shippingCompany'),
-      cell: ({ getValue }) => (getValue() as string) || '-',
-    },
-    {
-      accessorKey: 'tracking_number',
-      header: t('deliveries.trackingNumber'),
-      cell: ({ getValue }) => {
-        const val = getValue() as string | null;
-        if (!val) return '-';
-        return (
-          <div className="flex items-center gap-1">
-            <span className="font-data text-xs">{val}</span>
-            <button
-              onClick={() => copyTracking(val)}
-              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: 'shipping_cost',
-      header: t('deliveries.shippingCost'),
-      cell: ({ getValue }) => {
-        const val = getValue() as number;
-        return val ? <span className="font-data">{formatCurrency(val)}</span> : '-';
-      },
+      accessorKey: 'cod_amount',
+      header: t('deliveries.codAmount'),
+      cell: ({ getValue }) => (
+        <span className="font-data font-medium text-foreground">
+          {getValue() ? formatCurrency(getValue() as number) : '-'}
+        </span>
+      ),
     },
     {
       accessorKey: 'created_at',
-      header: t('deliveries.created'),
+      header: t('deliveries.date'),
       cell: ({ getValue }) => (
-        <span className="text-muted-foreground font-data text-xs">
+        <span className="font-data text-xs text-muted-foreground">
           {formatDateTime(getValue() as string)}
         </span>
       ),
@@ -226,26 +239,65 @@ export default function Deliveries() {
     {
       id: 'actions',
       header: '',
+      enableSorting: false,
       cell: ({ row }) => (
         <Dropdown>
           <DropdownTrigger>
-            <Button
-              isIconOnly
-              variant="light"
-              size="sm"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              aria-label={t('common.actions')}
-            >
+            <Button isIconOnly variant="light" size="sm">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownTrigger>
           <DropdownMenu aria-label="Delivery actions">
             <DropdownItem
+              key="edit"
+              startContent={<MoreHorizontal className="h-4 w-4" />}
+              onPress={() => openEditDialog(row.original)}
+            >
+              {t('common.edit')}
+            </DropdownItem>
+            <DropdownItem
+              key="copy"
+              startContent={<Copy className="h-4 w-4" />}
+              onPress={() => handleCopyCustomerInfo(row.original)}
+            >
+              {t('deliveries.copyInfo')}
+            </DropdownItem>
+            <DropdownItem
               key="timeline"
               startContent={<History className="h-4 w-4" />}
-              onPress={() => openTimeline(row.original)}
+              onPress={() => {
+                setTimelineOrderId(row.original.id);
+                setTimelineOrderNumber(row.original.order_number);
+                setTimelineDialogOpen(true);
+              }}
             >
               {t('deliveries.viewTimeline')}
+            </DropdownItem>
+            <DropdownItem
+              key="status-pending"
+              onPress={() => handleStatusChange(row.original.id, 'Pending')}
+            >
+              {t('deliveries.markPending')}
+            </DropdownItem>
+            <DropdownItem
+              key="status-shipped"
+              onPress={() => handleStatusChange(row.original.id, 'Shipped')}
+            >
+              {t('deliveries.markShipped')}
+            </DropdownItem>
+            <DropdownItem
+              key="status-delivered"
+              onPress={() => handleStatusChange(row.original.id, 'Delivered')}
+            >
+              {t('deliveries.markDelivered')}
+            </DropdownItem>
+            <DropdownItem
+              key="status-cancelled"
+              className="text-danger"
+              color="danger"
+              onPress={() => handleStatusChange(row.original.id, 'Cancelled')}
+            >
+              {t('deliveries.markCancelled')}
             </DropdownItem>
           </DropdownMenu>
         </Dropdown>
@@ -255,82 +307,45 @@ export default function Deliveries() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('deliveries.title')}>
-        {isAdmin && (
-          <Button
-            color="primary"
-            size="sm"
-            startContent={<Plus className="h-4 w-4" />}
-            onClick={openCreateDialog}
-          >
-            {t('deliveries.newOrder')}
-          </Button>
-        )}
-      </PageHeader>
+      <PageHeader
+        title={t('deliveries.title')}
+        actions={
+          isAdmin ? (
+            <Button
+              color="primary"
+              size="sm"
+              startContent={<Plus className="h-4 w-4" />}
+              onClick={openCreateDialog}
+            >
+              {t('deliveries.newOrder')}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Performance metrics (Admin only) */}
       {isAdmin && performance && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border border-border bg-card shadow-sm">
-            <CardBody className="p-4 flex flex-row items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-success/10 text-success">
-                <Truck className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-                  {t('deliveries.totalDelivered')}
-                </p>
-                <p className="text-xl font-bold font-data text-foreground mt-0.5">
-                  {performance.totalDelivered}
-                </p>
-              </div>
-            </CardBody>
-          </Card>
-          <Card className="border border-border bg-card shadow-sm">
-            <CardBody className="p-4 flex flex-row items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-secondary/10 text-secondary">
-                <Clock className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-                  {t('deliveries.avgDeliveryTime')}
-                </p>
-                <p className="text-xl font-bold font-data text-foreground mt-0.5">
-                  {t('deliveries.days', { count: performance.avgDeliveryDays })}
-                </p>
-              </div>
-            </CardBody>
-          </Card>
-          <Card className="border border-border bg-card shadow-sm">
-            <CardBody className="p-4 flex flex-row items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-warning/10 text-warning">
-                <Package className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-                  {t('deliveries.pendingOrders')}
-                </p>
-                <p className="text-xl font-bold font-data text-foreground mt-0.5">
-                  {performance.pendingCount}
-                </p>
-              </div>
-            </CardBody>
-          </Card>
-          <Card className="border border-border bg-card shadow-sm">
-            <CardBody className="p-4 flex flex-row items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
-                  {t('deliveries.shippedOrders')}
-                </p>
-                <p className="text-xl font-bold font-data text-foreground mt-0.5">
-                  {performance.shippedCount}
-                </p>
-              </div>
-            </CardBody>
-          </Card>
+          <StatCard
+            title={t('deliveries.totalDelivered')}
+            value={performance.totalDelivered}
+            icon={Truck}
+          />
+          <StatCard
+            title={t('deliveries.avgDeliveryTime')}
+            value={t('deliveries.days', { count: performance.avgDeliveryDays })}
+            icon={Clock}
+          />
+          <StatCard
+            title={t('deliveries.pendingOrders')}
+            value={performance.pendingCount}
+            icon={Package}
+          />
+          <StatCard
+            title={t('deliveries.shippedOrders')}
+            value={performance.shippedCount}
+            icon={TrendingUp}
+          />
         </div>
       )}
 
