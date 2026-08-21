@@ -201,11 +201,9 @@ export default function BranchesPage() {
           </div>
           <div className="overflow-x-auto border border-border rounded-lg bg-card">
             <table className="w-full text-sm">
-              <thead className="bg-muted/80 dark:bg-zinc-800/90 border-b border-border">
+              <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
                 <tr>
-                  <th className="text-start p-3 font-semibold text-foreground text-xs">
-                    {t('branches.storeName')}
-                  </th>
+                  <th className="text-start p-3">{t('branches.storeName')}</th>
                   <th className="text-start p-3 font-semibold text-foreground text-xs">
                     {t('branches.todaySales')}
                   </th>
@@ -361,11 +359,9 @@ export default function BranchesPage() {
           {transfers && transfers.length > 0 ? (
             <div className="overflow-x-auto border border-border rounded-lg bg-card">
               <table className="w-full text-sm">
-                <thead className="bg-muted/80 dark:bg-zinc-800/90 border-b border-border">
+                <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
                   <tr>
-                    <th className="text-start p-3 font-semibold text-foreground text-xs">
-                      {t('locations.from')}
-                    </th>
+                    <th className="text-start p-3">{t('locations.from')}</th>
                     <th className="text-start p-3 font-semibold text-foreground text-xs">
                       {t('locations.to')}
                     </th>

@@ -434,7 +434,7 @@ export default function RegisterPage() {
                 {historySessions && historySessions.length > 0 ? (
                   <div className="max-h-96 overflow-y-auto border border-border rounded-xl">
                     <table className="w-full text-sm">
-                      <thead className="bg-muted/80 dark:bg-zinc-800/90 border-b border-border text-foreground font-semibold text-xs sticky top-0">
+                      <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold sticky top-0">
                         <tr>
                           <th className="text-start p-3">{t('register.cashier')}</th>
                           <th className="text-start p-3">{t('register.openedAt')}</th>

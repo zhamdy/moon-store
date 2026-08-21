@@ -106,7 +106,7 @@ export default function Promotions() {
       ) : (
         <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
           <table className="w-full text-sm">
-            <thead className="bg-muted/80 dark:bg-zinc-800/90 border-b border-border text-foreground font-semibold text-xs">
+            <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
               <tr>
                 <th className="text-start p-3 font-semibold">{t('promotions.code')}</th>
                 <th className="text-start p-3 font-semibold">{t('promotions.type')}</th>

@@ -74,13 +74,13 @@
     @apply bg-background text-foreground;
   }
   table thead {
-    @apply bg-muted/80 dark:bg-zinc-800/90 border-b border-border;
+    @apply bg-card border-b border-border;
   }
   table thead th {
-    @apply text-foreground font-semibold text-xs;
+    @apply text-muted-foreground font-semibold text-[11px] uppercase tracking-wider;
   }
   table tbody tr {
-    @apply border-b border-border/60 hover:bg-muted/40 transition-colors;
+    @apply border-b border-border/50 hover:bg-muted/30 transition-colors;
   }
 }
 

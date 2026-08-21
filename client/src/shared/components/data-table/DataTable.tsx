@@ -195,14 +195,14 @@ export function DataTable<TData>({
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr
                   key={headerGroup.id}
-                  className="bg-muted/80 dark:bg-zinc-800/90 backdrop-blur-sm border-b border-border sticky top-0 z-10"
+                  className="bg-card border-b border-border sticky top-0 z-10"
                 >
                   {headerGroup.headers.map((header) => {
                     const sorted = header.column.getIsSorted();
                     return (
                       <th
                         key={header.id}
-                        className={`text-start font-semibold text-foreground text-xs select-none ${densityPaddingClass}`}
+                        className={`text-start font-semibold text-muted-foreground uppercase tracking-wider text-[11px] select-none ${densityPaddingClass}`}
                         aria-sort={
                           header.column.getCanSort()
                             ? sorted === 'asc'
@@ -216,22 +216,22 @@ export function DataTable<TData>({
                         {header.isPlaceholder ? null : header.column.getCanSort() ? (
                           <button
                             type="button"
-                            className="flex items-center gap-1.5 cursor-pointer text-foreground hover:text-foreground font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded px-1 -mx-1"
+                            className="flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded px-1 -mx-1"
                             onClick={header.column.getToggleSortingHandler()}
                           >
                             {flexRender(header.column.columnDef.header, header.getContext())}
                             <span>
                               {sorted === 'asc' ? (
-                                <ArrowUp className="h-3.5 w-3.5 text-foreground" />
+                                <ArrowUp className="h-3.5 w-3.5 text-primary" />
                               ) : sorted === 'desc' ? (
-                                <ArrowDown className="h-3.5 w-3.5 text-foreground" />
+                                <ArrowDown className="h-3.5 w-3.5 text-primary" />
                               ) : (
-                                <ArrowUpDown className="h-3.5 w-3.5 opacity-60 text-muted-foreground" />
+                                <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
                               )}
                             </span>
                           </button>
                         ) : (
-                          <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <div className="flex items-center gap-1.5 font-semibold text-muted-foreground">
                             {flexRender(header.column.columnDef.header, header.getContext())}
                           </div>
                         )}
