@@ -105,9 +105,8 @@ export default function CategoriesPage() {
           <Button
             isIconOnly
             variant="light"
-            color="danger"
             size="sm"
-            className="h-8 w-8 text-danger"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             onClick={() => setDeleteId(row.original.id)}
             title={t('common.delete')}
             aria-label={t('common.delete')}

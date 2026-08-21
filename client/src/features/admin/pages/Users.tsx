@@ -169,9 +169,8 @@ export default function UsersPage() {
             <Button
               isIconOnly
               variant="light"
-              color="danger"
               size="sm"
-              className="h-8 w-8 text-danger"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
               isDisabled={isSelf}
               onClick={() => setDeleteId(user.id)}
               title={isSelf ? t('users.cannotDeleteSelf') : t('common.delete')}

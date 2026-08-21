@@ -28,7 +28,8 @@ const colorIcons: Record<string, typeof AlertTriangle> = {
 };
 
 const confirmButtonColorClasses: Record<ConfirmColor, string> = {
-  danger: 'bg-rose-600 hover:bg-rose-700 text-white focus-visible:ring-rose-500',
+  danger:
+    'bg-destructive hover:bg-destructive/90 text-destructive-foreground focus-visible:ring-destructive',
   warning: 'bg-amber-600 hover:bg-amber-700 text-white focus-visible:ring-amber-500',
   primary: 'bg-primary hover:bg-primary/90 text-primary-foreground focus-visible:ring-primary',
   secondary:
@@ -149,12 +150,12 @@ export function ConfirmDialog({
       >
         <div className="flex items-start gap-4">
           <div
-            className={`p-2.5 rounded-xl flex-shrink-0 ${
+            className={`pt-0.5 flex-shrink-0 ${
               confirmColor === 'danger'
-                ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400'
+                ? 'text-destructive'
                 : confirmColor === 'warning'
-                  ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400'
-                  : 'bg-primary/10 text-primary'
+                  ? 'text-amber-500'
+                  : 'text-primary'
             }`}
           >
             <IconComponent className="h-5 w-5" aria-hidden="true" />

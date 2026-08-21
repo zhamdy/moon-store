@@ -46,7 +46,7 @@ export function StatCard({
       >
         <div className="flex items-center justify-between">
           <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-9 w-9 rounded-lg" />
+          <Skeleton className="h-5 w-5 rounded" />
         </div>
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-3 w-20" />
@@ -147,7 +147,7 @@ export function StatCard({
           {title}
         </h3>
         {IconOrElement && (
-          <div className="p-2 rounded-lg bg-muted text-muted-foreground flex-shrink-0">
+          <div className="text-muted-foreground/70 flex-shrink-0">
             {isValidElement(IconOrElement)
               ? IconOrElement
               : typeof IconOrElement === 'function' || typeof IconOrElement === 'object'

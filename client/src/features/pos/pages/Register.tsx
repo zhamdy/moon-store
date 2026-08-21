@@ -171,10 +171,11 @@ export default function RegisterPage() {
               </Button>
             ) : (
               <Button
-                color="danger"
+                variant="bordered"
                 size="sm"
                 onClick={() => setCloseDialogOpen(true)}
                 startContent={<X className="h-4 w-4" />}
+                className="border-destructive/40 text-destructive hover:bg-destructive/10"
               >
                 {t('register.closeRegister')}
               </Button>
