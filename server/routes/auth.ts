@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, AuthRequest } from '../middleware/auth';
 import { logAudit } from '../middleware/auditLogger';
 
@@ -17,6 +17,16 @@ const authLimiter = rateLimit({
   message: { success: false, error: 'Too many login attempts, please try again later' },
 });
 
+interface UserRecord {
+  id: number;
+  name: string;
+  email: string;
+  password_hash: string;
+  role: string;
+  created_at: string;
+  last_login?: string | null;
+}
+
 // POST /api/auth/login
 router.post('/login', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -26,20 +36,20 @@ router.post('/login', authLimiter, async (req: Request, res: Response, next: Nex
       return res.status(400).json({ success: false, error: 'Email and password required' });
     }
 
-    const result = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-    const user = result.rows[0] as Record<string, any> | undefined;
+    const result = await db.query<UserRecord>('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
 
     if (!user) {
       return res.status(401).json({ success: false, error: 'Invalid email or password' });
     }
 
-    const validPassword = await bcrypt.compare(password, user.password_hash as string);
+    const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
       return res.status(401).json({ success: false, error: 'Invalid email or password' });
     }
 
     // Update last login
-    await db.query("UPDATE users SET last_login = datetime('now') WHERE id = ?", [user.id]);
+    await db.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
 
     // Generate tokens
     const accessToken = jwt.sign(
@@ -54,7 +64,7 @@ router.post('/login', authLimiter, async (req: Request, res: Response, next: Nex
 
     // Store refresh token
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    await db.query('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)', [
+    await db.query('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)', [
       user.id,
       refreshToken,
       expiresAt,
@@ -105,15 +115,17 @@ router.post('/refresh', authLimiter, async (req: Request, res: Response, next: N
       return res.status(401).json({ success: false, error: 'Refresh token required' });
     }
 
-    let decoded: any;
+    let decoded: { id: number };
     try {
-      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string);
+      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as {
+        id: number;
+      };
     } catch {
       return res.status(401).json({ success: false, error: 'Invalid refresh token' });
     }
 
     const tokenResult = await db.query(
-      "SELECT * FROM refresh_tokens WHERE token = ? AND expires_at > datetime('now')",
+      'SELECT * FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
       [refreshToken]
     );
 
@@ -121,8 +133,10 @@ router.post('/refresh', authLimiter, async (req: Request, res: Response, next: N
       return res.status(401).json({ success: false, error: 'Refresh token expired or revoked' });
     }
 
-    const userResult = await db.query('SELECT * FROM users WHERE id = ?', [decoded.id]);
-    const user = userResult.rows[0] as Record<string, any> | undefined;
+    const userResult = await db.query<UserRecord>('SELECT * FROM users WHERE id = $1', [
+      decoded.id,
+    ]);
+    const user = userResult.rows[0];
 
     if (!user) {
       return res.status(401).json({ success: false, error: 'User not found' });
@@ -151,7 +165,7 @@ router.post('/logout', verifyToken, async (req: Request, res: Response, next: Ne
   try {
     const refreshToken = req.cookies?.refreshToken;
     if (refreshToken) {
-      await db.query('DELETE FROM refresh_tokens WHERE token = ?', [refreshToken]);
+      await db.query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
     }
     res.clearCookie('refreshToken', { path: '/' });
     res.json({ success: true, data: { message: 'Logged out successfully' } });
@@ -164,8 +178,8 @@ router.post('/logout', verifyToken, async (req: Request, res: Response, next: Ne
 router.get('/me', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authReq = req as AuthRequest;
-    const result = await db.query(
-      'SELECT id, name, email, role, created_at, last_login FROM users WHERE id = ?',
+    const result = await db.query<UserRecord>(
+      'SELECT id, name, email, role, created_at, last_login FROM users WHERE id = $1',
       [authReq.user!.id]
     );
     if (result.rows.length === 0) {
