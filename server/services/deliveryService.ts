@@ -29,12 +29,12 @@ export interface StatusUpdateInput {
   notes?: string | null;
 }
 
-interface DeliveryListResult {
+export interface DeliveryListResult {
   orders: Record<string, any>[];
   meta: { total: number; page: number; limit: number };
 }
 
-interface PerformanceResult {
+export interface PerformanceResult {
   totalDelivered: number;
   avgDeliveryDays: number;
   pendingCount: number;
