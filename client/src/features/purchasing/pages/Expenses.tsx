@@ -130,7 +130,7 @@ export default function ExpensesPage() {
           {/* Expense table */}
           <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
             <table className="w-full text-sm">
-              <thead className="bg-muted/40 border-b border-border text-muted-foreground text-xs">
+              <thead className="bg-muted/80 dark:bg-zinc-800/90 border-b border-border text-foreground font-semibold text-xs">
                 <tr>
                   <th className="text-start p-3 font-semibold">{t('expenses.date')}</th>
                   <th className="text-start p-3 font-semibold">{t('expenses.category')}</th>

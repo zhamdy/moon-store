@@ -122,13 +122,15 @@ export default function AiInsightsPage() {
           </Button>
           <div className="overflow-x-auto border border-border rounded-lg bg-card">
             <table className="w-full text-sm">
-              <thead className="border-b border-border text-muted-foreground">
+              <thead className="bg-muted/80 dark:bg-zinc-800/90 border-b border-border text-foreground font-semibold text-xs">
                 <tr>
-                  <th className="text-start p-3 font-medium">{t('aiInsights.product')}</th>
-                  <th className="text-start p-3 font-medium">{t('aiInsights.period')}</th>
-                  <th className="text-start p-3 font-medium">{t('aiInsights.predictedUnits')}</th>
-                  <th className="text-start p-3 font-medium">{t('aiInsights.predictedRevenue')}</th>
-                  <th className="text-start p-3 font-medium">{t('aiInsights.confidence')}</th>
+                  <th className="text-start p-3 font-semibold">{t('aiInsights.product')}</th>
+                  <th className="text-start p-3 font-semibold">{t('aiInsights.period')}</th>
+                  <th className="text-start p-3 font-semibold">{t('aiInsights.predictedUnits')}</th>
+                  <th className="text-start p-3 font-semibold">
+                    {t('aiInsights.predictedRevenue')}
+                  </th>
+                  <th className="text-start p-3 font-semibold">{t('aiInsights.confidence')}</th>
                 </tr>
               </thead>
               <tbody>

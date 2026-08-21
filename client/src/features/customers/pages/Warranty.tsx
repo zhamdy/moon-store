@@ -1,4 +1,5 @@
-import { ShieldCheck, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   Button,
   Input,
@@ -8,7 +9,7 @@ import {
   ModalBody,
   ModalFooter,
 } from '@heroui/react';
-import { Badge, type BadgeVariant, PageHeader } from '../../../shared';
+import { Badge, type BadgeVariant, PageHeader, DataTable } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
@@ -41,7 +42,7 @@ export default function WarrantyPage() {
   const editor = useEditorDialog(emptyClaim);
   const form = editor.values;
 
-  const { data: claims } = warranty.useList();
+  const { data: claims, isLoading } = warranty.useList();
 
   const saver = warranty.useSave({
     message: t('warranty.create'),
@@ -63,6 +64,76 @@ export default function WarrantyPage() {
     return map[s] || s;
   };
 
+  const columns: ColumnDef<WarrantyClaim>[] = [
+    {
+      accessorKey: 'id',
+      header: '#',
+      cell: ({ getValue }) => (
+        <span className="font-data text-muted-foreground">#{getValue() as number}</span>
+      ),
+    },
+    {
+      accessorKey: 'sale_id',
+      header: t('warranty.saleId'),
+      cell: ({ getValue }) => (
+        <span className="font-data font-medium">#{getValue() as number}</span>
+      ),
+    },
+    {
+      accessorKey: 'product_name',
+      header: 'Product',
+      cell: ({ getValue }) => (
+        <span className="font-medium text-foreground">{getValue() as string}</span>
+      ),
+    },
+    {
+      accessorKey: 'issue',
+      header: t('warranty.issue'),
+      cell: ({ getValue }) => (
+        <span className="text-muted-foreground max-w-48 truncate block">
+          {getValue() as string}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: t('warranty.status'),
+      cell: ({ row }) => (
+        <Badge size="sm" variant={statusVariantMap[row.original.status] || 'default'}>
+          {t(statusKey(row.original.status) as never)}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'created_at',
+      header: t('common.date'),
+      cell: ({ getValue }) => (
+        <span className="font-data text-xs text-muted-foreground">
+          {new Date(getValue() as string).toLocaleDateString()}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <select
+          className="h-8 w-36 text-xs rounded-md border border-border bg-background px-2 text-foreground"
+          value={row.original.status}
+          onChange={(e) =>
+            updateStatus.run({ id: row.original.id, body: { status: e.target.value } })
+          }
+        >
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {t(statusKey(s) as never)}
+            </option>
+          ))}
+        </select>
+      ),
+    },
+  ];
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <PageHeader
@@ -79,63 +150,13 @@ export default function WarrantyPage() {
         }
       />
 
-      <div className="overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border text-muted-foreground">
-            <tr>
-              <th className="text-start p-3 font-medium">#</th>
-              <th className="text-start p-3 font-medium">{t('warranty.saleId')}</th>
-              <th className="text-start p-3 font-medium">Product</th>
-              <th className="text-start p-3 font-medium">{t('warranty.issue')}</th>
-              <th className="text-start p-3 font-medium">{t('warranty.status')}</th>
-              <th className="text-start p-3 font-medium">{t('common.date')}</th>
-              <th className="p-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {!claims?.length ? (
-              <tr>
-                <td colSpan={7} className="text-center py-12 text-muted-foreground">
-                  <ShieldCheck className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
-                  {t('warranty.noClaims')}
-                </td>
-              </tr>
-            ) : (
-              claims.map((c) => (
-                <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30">
-                  <td className="p-3 font-data text-muted-foreground">#{c.id}</td>
-                  <td className="p-3 font-data font-medium">#{c.sale_id}</td>
-                  <td className="p-3 font-medium text-foreground">{c.product_name}</td>
-                  <td className="p-3 text-muted-foreground max-w-48 truncate">{c.issue}</td>
-                  <td className="p-3">
-                    <Badge size="sm" variant={statusVariantMap[c.status] || 'default'}>
-                      {t(statusKey(c.status) as never)}
-                    </Badge>
-                  </td>
-                  <td className="p-3 font-data text-xs text-muted-foreground">
-                    {new Date(c.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="p-3 w-40">
-                    <select
-                      className="h-8 w-full text-xs rounded-md border border-border bg-background px-2 text-foreground"
-                      value={c.status}
-                      onChange={(e) =>
-                        updateStatus.run({ id: c.id, body: { status: e.target.value } })
-                      }
-                    >
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {t(statusKey(s) as never)}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={claims ?? []}
+        isLoading={isLoading}
+        searchPlaceholder={t('common.search')}
+        enableDensityToggle
+      />
 
       <Modal
         isOpen={editor.open}
@@ -203,7 +224,7 @@ export default function WarrantyPage() {
                   {t('common.cancel')}
                 </Button>
                 <Button color="primary" size="sm" type="submit" isLoading={saver.isSaving}>
-                  {saver.isSaving ? t('common.loading') : t('common.save')}
+                  {saver.isSaving ? t('common.saving') : t('common.save')}
                 </Button>
               </ModalFooter>
             </form>

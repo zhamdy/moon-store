@@ -264,10 +264,10 @@ export default function ReportBuilderPage() {
       {resultData && resultData.length > 0 && (
         <div className="mt-6 overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
           <table className="w-full text-sm">
-            <thead className="border-b border-border text-muted-foreground">
+            <thead className="bg-muted/80 dark:bg-zinc-800/90 border-b border-border text-foreground font-semibold text-xs">
               <tr>
                 {Object.keys(resultData[0]).map((k) => (
-                  <th key={k} className="text-start p-3 font-medium">
+                  <th key={k} className="text-start p-3 font-semibold">
                     {k}
                   </th>
                 ))}
