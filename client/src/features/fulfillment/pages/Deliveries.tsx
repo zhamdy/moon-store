@@ -10,23 +10,20 @@ import {
   Package,
   Copy,
 } from 'lucide-react';
-import { Button } from '../../../shared/ui/button';
 import {
+  Button,
+  Dropdown,
+  DropdownTrigger,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../../shared/ui/dropdown-menu';
-import {
+  DropdownItem,
   Select,
-  SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../shared/ui/select';
-import { Card, CardContent } from '../../../shared/ui/card';
+  Card,
+  CardBody,
+} from '@heroui/react';
 import DataTable from '../../../shared/components/DataTable';
 import StatusBadge from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import DeliveryFormDialog from '../components/delivery/DeliveryFormDialog';
 import DeliveryTimelineDialog from '../components/delivery/DeliveryTimelineDialog';
 import ShippingCompaniesDialog from '../components/delivery/ShippingCompaniesDialog';
@@ -69,8 +66,6 @@ export default function Deliveries() {
     status: statusFilter === 'All' ? undefined : statusFilter,
   });
 
-  // Both hang off the delivery collection, so any write to it refreshes them
-  // without the page naming what to invalidate.
   const { data: performance } = deliveries.useRead<DeliveryPerformance>(
     'analytics/performance',
     undefined,
@@ -82,8 +77,6 @@ export default function Deliveries() {
     timelineOrderId !== null && timelineDialogOpen
   );
 
-  // Reads belonging to other collections, held back until the form that needs
-  // them is showing. `useList` has no such gate, and should not grow one.
   const { data: products } = useApiQuery<Product[]>(['products', { limit: 200 }], 'products', {
     limit: 200,
   });
@@ -143,7 +136,9 @@ export default function Deliveries() {
     {
       accessorKey: 'order_number',
       header: t('deliveries.orderNumber'),
-      cell: ({ getValue }) => <span className="font-data text-gold">{getValue() as string}</span>,
+      cell: ({ getValue }) => (
+        <span className="font-data text-primary font-semibold">{getValue() as string}</span>
+      ),
     },
     { accessorKey: 'customer_name', header: t('deliveries.customer') },
     {
@@ -161,28 +156,27 @@ export default function Deliveries() {
             row.original.status !== 'Delivered' &&
             row.original.status !== 'Cancelled' && (
               <Select
-                value={row.original.status}
-                onValueChange={(status) =>
+                size="sm"
+                variant="bordered"
+                aria-label="Change status"
+                selectedKeys={[row.original.status]}
+                className="w-32"
+                onChange={(e) => {
+                  const status = e.target.value;
+                  if (!status) return;
                   changeStatus.run(
                     { id: row.original.id, body: { status } },
-                    // The wording names the status, which only the call site
-                    // knows, so it is toasted here rather than by the hook.
                     { onSuccess: () => toast.success(t('deliveries.statusUpdated', { status })) }
-                  )
-                }
+                  );
+                }}
               >
-                <SelectTrigger className="h-7 w-[120px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses
-                    .filter((s) => s !== 'All')
-                    .map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {statusLabelMap[s] || s}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
+                {statuses
+                  .filter((s) => s !== 'All')
+                  .map((s) => (
+                    <SelectItem key={s} textValue={statusLabelMap[s] || s}>
+                      {statusLabelMap[s] || s}
+                    </SelectItem>
+                  ))}
               </Select>
             )}
         </div>
@@ -204,9 +198,9 @@ export default function Deliveries() {
             <span className="font-data text-xs">{val}</span>
             <button
               onClick={() => copyTracking(val)}
-              className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Copy className="h-3 w-3" />
+              <Copy className="h-3.5 w-3.5" />
             </button>
           </div>
         );
@@ -224,138 +218,156 @@ export default function Deliveries() {
       accessorKey: 'created_at',
       header: t('deliveries.created'),
       cell: ({ getValue }) => (
-        <span className="text-muted font-data text-xs">{formatDateTime(getValue() as string)}</span>
+        <span className="text-muted-foreground font-data text-xs">
+          {formatDateTime(getValue() as string)}
+        </span>
       ),
     },
     {
       id: 'actions',
       header: '',
       cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <Dropdown>
+          <DropdownTrigger>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
               aria-label={t('common.actions')}
             >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => openTimeline(row.original)}>
-              <History className="h-4 w-4 me-2" />
+          </DropdownTrigger>
+          <DropdownMenu aria-label="Delivery actions">
+            <DropdownItem
+              key="timeline"
+              startContent={<History className="h-4 w-4" />}
+              onPress={() => openTimeline(row.original)}
+            >
               {t('deliveries.viewTimeline')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
       ),
     },
   ];
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('deliveries.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
+      <PageHeader title={t('deliveries.title')}>
         {isAdmin && (
-          <Button className="gap-2" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4" />
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={openCreateDialog}
+          >
             {t('deliveries.newOrder')}
           </Button>
         )}
-      </div>
+      </PageHeader>
 
       {/* Performance metrics (Admin only) */}
       {isAdmin && performance && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-green-500/10">
-                <Truck className="h-5 w-5 text-green-600" />
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 flex flex-row items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-success/10 text-success">
+                <Truck className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">{t('deliveries.totalDelivered')}</p>
-                <p className="text-xl font-bold font-data">{performance.totalDelivered}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                  {t('deliveries.totalDelivered')}
+                </p>
+                <p className="text-xl font-bold font-data text-foreground mt-0.5">
+                  {performance.totalDelivered}
+                </p>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-purple-500/10">
-                <Clock className="h-5 w-5 text-purple-600" />
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 flex flex-row items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-secondary/10 text-secondary">
+                <Clock className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">{t('deliveries.avgDeliveryTime')}</p>
-                <p className="text-xl font-bold font-data">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                  {t('deliveries.avgDeliveryTime')}
+                </p>
+                <p className="text-xl font-bold font-data text-foreground mt-0.5">
                   {t('deliveries.days', { count: performance.avgDeliveryDays })}
                 </p>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-amber-500/10">
-                <Package className="h-5 w-5 text-amber-600" />
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 flex flex-row items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-warning/10 text-warning">
+                <Package className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">{t('deliveries.pendingOrders')}</p>
-                <p className="text-xl font-bold font-data">{performance.pendingCount}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                  {t('deliveries.pendingOrders')}
+                </p>
+                <p className="text-xl font-bold font-data text-foreground mt-0.5">
+                  {performance.pendingCount}
+                </p>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-full bg-blue-500/10">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 flex flex-row items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
+                <TrendingUp className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">{t('deliveries.shippedOrders')}</p>
-                <p className="text-xl font-bold font-data">{performance.shippedCount}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                  {t('deliveries.shippedOrders')}
+                </p>
+                <p className="text-xl font-bold font-data text-foreground mt-0.5">
+                  {performance.shippedCount}
+                </p>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
         </div>
       )}
 
       {/* Company stats */}
       {isAdmin && performance && performance.companyStats.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-sm font-medium mb-3">{t('deliveries.companyStats')}</h3>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardBody className="p-4">
+            <h3 className="text-sm font-semibold mb-3 text-foreground">
+              {t('deliveries.companyStats')}
+            </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-start py-2 pe-4 text-muted-foreground font-medium">
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="text-start py-2 pe-4 font-medium">
                       {t('deliveries.shippingCompany')}
                     </th>
-                    <th className="text-start py-2 pe-4 text-muted-foreground font-medium">
+                    <th className="text-start py-2 pe-4 font-medium">
                       {t('deliveries.totalOrders')}
                     </th>
-                    <th className="text-start py-2 pe-4 text-muted-foreground font-medium">
+                    <th className="text-start py-2 pe-4 font-medium">
                       {t('deliveries.deliveredCount')}
                     </th>
-                    <th className="text-start py-2 pe-4 text-muted-foreground font-medium">
+                    <th className="text-start py-2 pe-4 font-medium">
                       {t('deliveries.cancelledCount')}
                     </th>
-                    <th className="text-start py-2 text-muted-foreground font-medium">
-                      {t('deliveries.avgDays')}
-                    </th>
+                    <th className="text-start py-2 font-medium">{t('deliveries.avgDays')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {performance.companyStats.map((cs) => (
                     <tr key={cs.id} className="border-b border-border/50 last:border-0">
-                      <td className="py-2 pe-4 font-medium">{cs.name}</td>
-                      <td className="py-2 pe-4 font-data">{cs.total_orders}</td>
-                      <td className="py-2 pe-4 font-data text-green-600">{cs.delivered}</td>
-                      <td className="py-2 pe-4 font-data text-destructive">{cs.cancelled}</td>
-                      <td className="py-2 font-data">
+                      <td className="py-2.5 pe-4 font-medium text-foreground">{cs.name}</td>
+                      <td className="py-2.5 pe-4 font-data">{cs.total_orders}</td>
+                      <td className="py-2.5 pe-4 font-data text-success">{cs.delivered}</td>
+                      <td className="py-2.5 pe-4 font-data text-danger">{cs.cancelled}</td>
+                      <td className="py-2.5 font-data">
                         {cs.avg_days != null ? `${cs.avg_days}` : '-'}
                       </td>
                     </tr>
@@ -363,7 +375,7 @@ export default function Deliveries() {
                 </tbody>
               </table>
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       )}
 
@@ -372,7 +384,8 @@ export default function Deliveries() {
         {statuses.map((s) => (
           <Button
             key={s}
-            variant={statusFilter === s ? 'default' : 'outline'}
+            variant={statusFilter === s ? 'solid' : 'bordered'}
+            color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
             onClick={() => setStatusFilter(s)}
           >

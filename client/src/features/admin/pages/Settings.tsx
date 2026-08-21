@@ -1,21 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Switch } from '../../../shared/ui/switch';
 import {
+  Card,
+  CardHeader,
+  CardBody,
+  Button,
+  Input,
+  Switch,
   Select,
-  SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../shared/ui/select';
+} from '@heroui/react';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
+import PageHeader from '../../../shared/components/PageHeader';
 import type { AppSettings } from '../../../shared/types/index';
 
 export default function Settings() {
@@ -31,8 +30,6 @@ export default function Settings() {
   const [loyaltyEarnRate, setLoyaltyEarnRate] = useState('1');
   const [loyaltyRedeemValue, setLoyaltyRedeemValue] = useState('5');
 
-  // `['settings']` is shared with CartPanel and CustomerDetail — the key is the
-  // contract that lets a save here refresh the tax rate they read.
   const { data: settings, isLoading } = useApiQuery<AppSettings>(['settings'], 'settings');
 
   useEffect(() => {
@@ -46,8 +43,6 @@ export default function Settings() {
     }
   }, [settings]);
 
-  // The settings map is written whole by a collection-level PUT, which is not a
-  // shape `resource` serves, so this one goes straight to the transport.
   const saveMutation = useMutation({
     mutationFn: (values: AppSettings) =>
       transport.request({ method: 'PUT', path: 'settings', body: values }),
@@ -73,116 +68,124 @@ export default function Settings() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-display tracking-wider text-foreground">
-          {t('settings.title')}
-        </h1>
-        <div className="gold-divider mt-2" />
-      </div>
+      <PageHeader title={t('settings.title')} />
 
       {/* Tax Settings */}
-      <Card className="max-w-lg">
-        <CardHeader>
-          <CardTitle className="text-lg">{t('settings.taxSettings')}</CardTitle>
+      <Card className="max-w-xl border border-border bg-card shadow-sm">
+        <CardHeader className="border-b border-border/50 px-6 py-4">
+          <h2 className="text-base font-semibold text-foreground">{t('settings.taxSettings')}</h2>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="flex items-center justify-between">
+        <CardBody className="p-6 space-y-5">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <Label className="text-sm font-medium">{t('settings.taxEnabled')}</Label>
-              <p className="text-xs text-muted">{t('settings.taxEnabledDesc')}</p>
+              <p className="text-sm font-medium text-foreground">{t('settings.taxEnabled')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('settings.taxEnabledDesc')}</p>
             </div>
-            <Switch checked={taxEnabled} onCheckedChange={setTaxEnabled} />
+            <Switch
+              isSelected={taxEnabled}
+              onValueChange={setTaxEnabled}
+              aria-label={t('settings.taxEnabled')}
+            />
           </div>
 
           {taxEnabled && (
-            <>
-              <div className="space-y-2">
-                <Label>{t('settings.taxRate')}</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={taxRate}
-                    onChange={(e) => setTaxRate(e.target.value)}
-                    className="w-32"
-                  />
-                  <span className="text-sm text-muted">%</span>
-                </div>
+            <div className="space-y-4 pt-2 border-t border-border/40">
+              <div className="w-48">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  label={t('settings.taxRate')}
+                  size="sm"
+                  variant="bordered"
+                  value={taxRate}
+                  onValueChange={setTaxRate}
+                  endContent={<span className="text-xs text-muted-foreground">%</span>}
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label>{t('settings.taxMode')}</Label>
-                <Select value={taxMode} onValueChange={setTaxMode}>
-                  <SelectTrigger className="w-64">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="exclusive">{t('settings.taxExclusive')}</SelectItem>
-                    <SelectItem value="inclusive">{t('settings.taxInclusive')}</SelectItem>
-                  </SelectContent>
+              <div className="w-72">
+                <Select
+                  label={t('settings.taxMode')}
+                  size="sm"
+                  variant="bordered"
+                  selectedKeys={[taxMode]}
+                  onChange={(e) => setTaxMode(e.target.value || 'exclusive')}
+                  description={
+                    taxMode === 'exclusive'
+                      ? t('settings.taxExclusiveDesc')
+                      : t('settings.taxInclusiveDesc')
+                  }
+                >
+                  <SelectItem key="exclusive" textValue={t('settings.taxExclusive')}>
+                    {t('settings.taxExclusive')}
+                  </SelectItem>
+                  <SelectItem key="inclusive" textValue={t('settings.taxInclusive')}>
+                    {t('settings.taxInclusive')}
+                  </SelectItem>
                 </Select>
-                <p className="text-xs text-muted">
-                  {taxMode === 'exclusive'
-                    ? t('settings.taxExclusiveDesc')
-                    : t('settings.taxInclusiveDesc')}
-                </p>
               </div>
-            </>
+            </div>
           )}
-        </CardContent>
+        </CardBody>
       </Card>
 
       {/* Loyalty Settings */}
-      <Card className="max-w-lg">
-        <CardHeader>
-          <CardTitle className="text-lg">{t('loyalty.title')}</CardTitle>
+      <Card className="max-w-xl border border-border bg-card shadow-sm">
+        <CardHeader className="border-b border-border/50 px-6 py-4">
+          <h2 className="text-base font-semibold text-foreground">{t('loyalty.title')}</h2>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="flex items-center justify-between">
+        <CardBody className="p-6 space-y-5">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <Label className="text-sm font-medium">{t('loyalty.enabled')}</Label>
-              <p className="text-xs text-muted">{t('loyalty.enabledDesc')}</p>
+              <p className="text-sm font-medium text-foreground">{t('loyalty.enabled')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('loyalty.enabledDesc')}</p>
             </div>
-            <Switch checked={loyaltyEnabled} onCheckedChange={setLoyaltyEnabled} />
+            <Switch
+              isSelected={loyaltyEnabled}
+              onValueChange={setLoyaltyEnabled}
+              aria-label={t('loyalty.enabled')}
+            />
           </div>
 
           {loyaltyEnabled && (
-            <>
-              <div className="space-y-2">
-                <Label>{t('loyalty.earnRate')}</Label>
+            <div className="space-y-4 pt-2 border-t border-border/40">
+              <div className="w-48">
                 <Input
                   type="number"
                   min="0"
                   step="0.1"
+                  label={t('loyalty.earnRate')}
+                  size="sm"
+                  variant="bordered"
                   value={loyaltyEarnRate}
-                  onChange={(e) => setLoyaltyEarnRate(e.target.value)}
-                  className="w-32"
+                  onValueChange={setLoyaltyEarnRate}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>{t('loyalty.redeemValue')}</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={loyaltyRedeemValue}
-                    onChange={(e) => setLoyaltyRedeemValue(e.target.value)}
-                    className="w-32"
-                  />
-                  <span className="text-xs text-muted">$ / 100 pts</span>
-                </div>
+              <div className="w-48">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  label={t('loyalty.redeemValue')}
+                  size="sm"
+                  variant="bordered"
+                  value={loyaltyRedeemValue}
+                  onValueChange={setLoyaltyRedeemValue}
+                  endContent={
+                    <span className="text-xs text-muted-foreground font-data">$ / 100 pts</span>
+                  }
+                />
               </div>
-            </>
+            </div>
           )}
-        </CardContent>
+        </CardBody>
       </Card>
 
-      <div className="max-w-lg">
-        <Button onClick={handleSave} disabled={saveMutation.isPending}>
+      <div className="max-w-xl">
+        <Button color="primary" onClick={handleSave} isLoading={saveMutation.isPending}>
           {t('common.save')}
         </Button>
       </div>

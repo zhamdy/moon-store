@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { Plus, Pencil, DollarSign, CheckCircle, Ban } from 'lucide-react';
 import { formatCurrency } from '../../../shared/lib/utils';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
+  Button,
+  Input,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
@@ -54,8 +54,6 @@ const emptyVendor = {
   bank_iban: '',
 };
 
-// The list endpoint carries no address or bank detail, so those stay blank
-// until the vendor is saved with them.
 const vendorToForm = (v: Vendor) => ({
   ...emptyVendor,
   name: v.name,
@@ -64,13 +62,6 @@ const vendorToForm = (v: Vendor) => ({
   phone: v.phone || '',
   commission_rate: v.commission_rate,
 });
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-500/20 text-yellow-600',
-  active: 'bg-green-500/20 text-green-600',
-  suspended: 'bg-red-500/20 text-red-600',
-  rejected: 'bg-gray-500/20 text-gray-600',
-};
 
 export default function VendorsPage() {
   const { t } = useTranslation();
@@ -106,46 +97,91 @@ export default function VendorsPage() {
 
   const fmt = (n: number) => formatCurrency(n);
 
+  const getStatusChip = (status: string) => {
+    switch (status) {
+      case 'active':
+        return (
+          <Badge size="sm" variant="success">
+            {t('vendors.active')}
+          </Badge>
+        );
+      case 'pending':
+        return (
+          <Badge size="sm" variant="warning">
+            {t('vendors.pending')}
+          </Badge>
+        );
+      case 'suspended':
+        return (
+          <Badge size="sm" variant="danger">
+            {t('vendors.suspended')}
+          </Badge>
+        );
+      default:
+        return (
+          <Badge size="sm" variant="default">
+            {t(`vendors.${status}` as never)}
+          </Badge>
+        );
+    }
+  };
+
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('vendors.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
-        <Button onClick={editor.openNew} className="gap-2">
-          <Plus className="h-4 w-4" /> {t('vendors.addVendor')}
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('vendors.title')}>
+        <Button
+          color="primary"
+          size="sm"
+          startContent={<Plus className="h-4 w-4" />}
+          onClick={editor.openNew}
+        >
+          {t('vendors.addVendor')}
         </Button>
-      </div>
+      </PageHeader>
 
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="p-4 rounded-md border border-border bg-card">
-            <p className="text-xs text-muted">{t('vendors.activeVendors')}</p>
-            <p className="text-2xl font-display">{stats.active_vendors}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+              {t('vendors.activeVendors')}
+            </p>
+            <p className="text-2xl font-bold font-data text-foreground mt-1">
+              {stats.active_vendors}
+            </p>
           </div>
-          <div className="p-4 rounded-md border border-border bg-card">
-            <p className="text-xs text-muted">{t('vendors.pendingApproval')}</p>
-            <p className="text-2xl font-display text-yellow-500">{stats.pending_vendors}</p>
+          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+              {t('vendors.pendingApproval')}
+            </p>
+            <p className="text-2xl font-bold font-data text-warning mt-1">
+              {stats.pending_vendors}
+            </p>
           </div>
-          <div className="p-4 rounded-md border border-border bg-card">
-            <p className="text-xs text-muted">{t('vendors.totalUnpaid')}</p>
-            <p className="text-2xl font-display text-gold">{fmt(stats.total_unpaid)}</p>
+          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+              {t('vendors.totalUnpaid')}
+            </p>
+            <p className="text-2xl font-bold font-data text-primary mt-1">
+              {fmt(stats.total_unpaid)}
+            </p>
           </div>
-          <div className="p-4 rounded-md border border-border bg-card">
-            <p className="text-xs text-muted">{t('vendors.pendingCommissions')}</p>
-            <p className="text-2xl font-display">{fmt(stats.pending_commissions)}</p>
+          <div className="p-4 rounded-xl border border-border bg-card shadow-sm">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+              {t('vendors.pendingCommissions')}
+            </p>
+            <p className="text-2xl font-bold font-data text-foreground mt-1">
+              {fmt(stats.pending_commissions)}
+            </p>
           </div>
         </div>
       )}
 
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <div className="flex gap-2 flex-wrap">
         {['', 'pending', 'active', 'suspended'].map((s) => (
           <Button
             key={s}
-            variant={statusFilter === s ? 'default' : 'outline'}
+            variant={statusFilter === s ? 'solid' : 'bordered'}
+            color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
             onClick={() => setStatusFilter(s)}
           >
@@ -154,53 +190,53 @@ export default function VendorsPage() {
         ))}
       </div>
 
-      <div className="overflow-x-auto border border-border rounded-md">
+      <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-surface border-b border-border">
+          <thead className="bg-muted/40 border-b border-border text-muted-foreground text-xs">
             <tr>
-              <th className="text-start p-3 font-medium text-muted">{t('vendors.vendor')}</th>
-              <th className="text-start p-3 font-medium text-muted">{t('vendors.email')}</th>
-              <th className="text-start p-3 font-medium text-muted">{t('common.status')}</th>
-              <th className="text-start p-3 font-medium text-muted">{t('vendors.commission')}</th>
-              <th className="text-start p-3 font-medium text-muted">{t('vendors.balance')}</th>
-              <th className="text-start p-3 font-medium text-muted">{t('vendors.products')}</th>
-              <th className="text-start p-3 font-medium text-muted">{t('common.actions')}</th>
+              <th className="text-start p-3 font-semibold">{t('vendors.vendor')}</th>
+              <th className="text-start p-3 font-semibold">{t('vendors.email')}</th>
+              <th className="text-start p-3 font-semibold">{t('common.status')}</th>
+              <th className="text-start p-3 font-semibold">{t('vendors.commission')}</th>
+              <th className="text-start p-3 font-semibold">{t('vendors.balance')}</th>
+              <th className="text-start p-3 font-semibold">{t('vendors.products')}</th>
+              <th className="text-start p-3 font-semibold">{t('common.actions')}</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border/50">
             {!vendors?.length ? (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-muted">
+                <td colSpan={7} className="p-8 text-center text-muted-foreground">
                   {t('vendors.noVendors')}
                 </td>
               </tr>
             ) : (
               vendors.map((v) => (
-                <tr key={v.id} className="border-b border-border hover:bg-surface/50">
-                  <td className="p-3 font-medium">{v.name}</td>
-                  <td className="p-3 text-muted">{v.email}</td>
-                  <td className="p-3">
-                    <Badge className={statusColors[v.status]}>{t(`vendors.${v.status}`)}</Badge>
-                  </td>
-                  <td className="p-3 font-data">{v.commission_rate}%</td>
-                  <td className="p-3 font-data text-gold">{fmt(v.balance)}</td>
-                  <td className="p-3 font-data">{v.product_count}</td>
+                <tr key={v.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="p-3 font-medium text-foreground">{v.name}</td>
+                  <td className="p-3 text-muted-foreground">{v.email}</td>
+                  <td className="p-3">{getStatusChip(v.status)}</td>
+                  <td className="p-3 font-data text-foreground">{v.commission_rate}%</td>
+                  <td className="p-3 font-data text-primary font-semibold">{fmt(v.balance)}</td>
+                  <td className="p-3 font-data text-foreground">{v.product_count}</td>
                   <td className="p-3">
                     <div className="flex gap-1">
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        isIconOnly
+                        variant="light"
+                        size="sm"
                         className="h-7 w-7"
                         onClick={() => editor.openEdit(v)}
                         aria-label={t('common.edit')}
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-3.5 w-3.5 text-primary" />
                       </Button>
                       {v.status === 'pending' && (
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-green-500"
+                          isIconOnly
+                          variant="light"
+                          size="sm"
+                          className="h-7 w-7 text-success"
                           onClick={() => updateStatus.run({ id: v.id, body: { status: 'active' } })}
                           aria-label={t('common.confirm')}
                         >
@@ -209,9 +245,10 @@ export default function VendorsPage() {
                       )}
                       {v.status === 'active' && (
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
+                          isIconOnly
+                          variant="light"
+                          size="sm"
+                          className="h-7 w-7 text-primary"
                           onClick={() => {
                             setSelectedVendor(v);
                             setPayoutOpen(true);
@@ -223,9 +260,11 @@ export default function VendorsPage() {
                       )}
                       {v.status === 'active' && (
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-red-500"
+                          isIconOnly
+                          variant="light"
+                          color="danger"
+                          size="sm"
+                          className="h-7 w-7"
                           onClick={() =>
                             updateStatus.run({ id: v.id, body: { status: 'suspended' } })
                           }
@@ -244,148 +283,193 @@ export default function VendorsPage() {
       </div>
 
       {/* Vendor dialog */}
-      <Dialog open={editor.open} onOpenChange={editor.setOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editor.isEditing ? t('vendors.editVendor') : t('vendors.addVendor')}
-            </DialogTitle>
-            <DialogDescription>{t('vendors.vendorDetails')}</DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              saveVendor.save({ id: editor.editingId, ...form });
-            }}
-            className="space-y-3"
-          >
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>{t('vendors.name')}</Label>
+      <Modal
+        isOpen={editor.open}
+        onOpenChange={editor.setOpen}
+        backdrop="blur"
+        placement="center"
+        size="lg"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveVendor.save({ id: editor.editingId, ...form });
+              }}
+            >
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">
+                    {editor.isEditing ? t('vendors.editVendor') : t('vendors.addVendor')}
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('vendors.vendorDetails')}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label={t('vendors.name')}
+                    size="sm"
+                    variant="bordered"
+                    value={form.name}
+                    onValueChange={(val) => {
+                      editor.set('name', val);
+                      editor.set('slug', val.toLowerCase().replace(/\s+/g, '-'));
+                    }}
+                    isRequired
+                  />
+                  <Input
+                    label={t('vendors.slug')}
+                    size="sm"
+                    variant="bordered"
+                    value={form.slug}
+                    onValueChange={(val) => editor.set('slug', val)}
+                    isRequired
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    type="email"
+                    label={t('vendors.email')}
+                    size="sm"
+                    variant="bordered"
+                    value={form.email}
+                    onValueChange={(val) => editor.set('email', val)}
+                    isRequired
+                  />
+                  <Input
+                    label={t('vendors.phone')}
+                    size="sm"
+                    variant="bordered"
+                    value={form.phone}
+                    onValueChange={(val) => editor.set('phone', val)}
+                  />
+                </div>
                 <Input
-                  value={form.name}
-                  onChange={(e) => {
-                    editor.set('name', e.target.value);
-                    editor.set('slug', e.target.value.toLowerCase().replace(/\s+/g, '-'));
-                  }}
-                  required
+                  type="number"
+                  step="0.5"
+                  label={`${t('vendors.commission')} (%)`}
+                  size="sm"
+                  variant="bordered"
+                  value={String(form.commission_rate)}
+                  onValueChange={(val) => editor.set('commission_rate', parseFloat(val) || 0)}
                 />
-              </div>
-              <div className="space-y-1">
-                <Label>{t('vendors.slug')}</Label>
-                <Input
-                  value={form.slug}
-                  onChange={(e) => editor.set('slug', e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>{t('vendors.email')}</Label>
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => editor.set('email', e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>{t('vendors.phone')}</Label>
-                <Input value={form.phone} onChange={(e) => editor.set('phone', e.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label>{t('vendors.commission')} (%)</Label>
-              <Input
-                type="number"
-                step="0.5"
-                value={form.commission_rate}
-                onChange={(e) => editor.set('commission_rate', parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label>{t('vendors.bankName')}</Label>
-                <Input
-                  value={form.bank_name}
-                  onChange={(e) => editor.set('bank_name', e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>{t('vendors.bankAccount')}</Label>
-                <Input
-                  value={form.bank_account}
-                  onChange={(e) => editor.set('bank_account', e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>IBAN</Label>
-                <Input
-                  value={form.bank_iban}
-                  onChange={(e) => editor.set('bank_iban', e.target.value)}
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={saveVendor.isSaving}>
-              {saveVendor.isSaving ? t('common.saving') : t('common.save')}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+                <div className="grid grid-cols-3 gap-3">
+                  <Input
+                    label={t('vendors.bankName')}
+                    size="sm"
+                    variant="bordered"
+                    value={form.bank_name}
+                    onValueChange={(val) => editor.set('bank_name', val)}
+                  />
+                  <Input
+                    label={t('vendors.bankAccount')}
+                    size="sm"
+                    variant="bordered"
+                    value={form.bank_account}
+                    onValueChange={(val) => editor.set('bank_account', val)}
+                  />
+                  <Input
+                    label="IBAN"
+                    size="sm"
+                    variant="bordered"
+                    value={form.bank_iban}
+                    onValueChange={(val) => editor.set('bank_iban', val)}
+                  />
+                </div>
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={editor.close}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit" color="primary" size="sm" isLoading={saveVendor.isSaving}>
+                  {saveVendor.isSaving ? t('common.saving') : t('common.save')}
+                </Button>
+              </ModalFooter>
+            </form>
+          )}
+        </ModalContent>
+      </Modal>
 
       {/* Payout dialog */}
-      <Dialog open={payoutOpen} onOpenChange={setPayoutOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('vendors.createPayout')}</DialogTitle>
-            <DialogDescription>
-              {t('vendors.payoutDesc')} — {selectedVendor?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              createPayout.run({ id: selectedVendor!.id, body: payoutForm });
-            }}
-            className="space-y-3"
-          >
-            <p className="text-sm text-muted">
-              {t('vendors.currentBalance')}:{' '}
-              <span className="text-gold font-data">{fmt(selectedVendor?.balance || 0)}</span>
-            </p>
-            <div className="space-y-1">
-              <Label>{t('vendors.payoutAmount')}</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={payoutForm.amount}
-                onChange={(e) =>
-                  setPayoutForm({ ...payoutForm, amount: parseFloat(e.target.value) || 0 })
-                }
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('vendors.reference')}</Label>
-              <Input
-                value={payoutForm.reference}
-                onChange={(e) => setPayoutForm({ ...payoutForm, reference: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>{t('vendors.notes')}</Label>
-              <Input
-                value={payoutForm.notes}
-                onChange={(e) => setPayoutForm({ ...payoutForm, notes: e.target.value })}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={createPayout.isRunning}>
-              {createPayout.isRunning ? t('common.saving') : t('vendors.processPayout')}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        isOpen={payoutOpen}
+        onOpenChange={setPayoutOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                createPayout.run({ id: selectedVendor!.id, body: payoutForm });
+              }}
+            >
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('vendors.createPayout')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('vendors.payoutDesc')} — {selectedVendor?.name}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4 space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {t('vendors.currentBalance')}:{' '}
+                  <span className="text-primary font-bold font-data">
+                    {fmt(selectedVendor?.balance || 0)}
+                  </span>
+                </p>
+                <Input
+                  type="number"
+                  step="0.01"
+                  label={t('vendors.payoutAmount')}
+                  size="sm"
+                  variant="bordered"
+                  value={String(payoutForm.amount || '')}
+                  onValueChange={(val) =>
+                    setPayoutForm({ ...payoutForm, amount: parseFloat(val) || 0 })
+                  }
+                  isRequired
+                />
+                <Input
+                  label={t('vendors.reference')}
+                  size="sm"
+                  variant="bordered"
+                  value={payoutForm.reference}
+                  onValueChange={(val) => setPayoutForm({ ...payoutForm, reference: val })}
+                />
+                <Input
+                  label={t('vendors.notes')}
+                  size="sm"
+                  variant="bordered"
+                  value={payoutForm.notes}
+                  onValueChange={(val) => setPayoutForm({ ...payoutForm, notes: val })}
+                />
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={() => setPayoutOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit" color="primary" size="sm" isLoading={createPayout.isRunning}>
+                  {createPayout.isRunning ? t('common.saving') : t('vendors.processPayout')}
+                </Button>
+              </ModalFooter>
+            </form>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

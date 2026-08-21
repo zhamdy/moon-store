@@ -1,11 +1,5 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../../shared/ui/dialog';
-import { Badge } from '../../../../shared/ui/badge';
+import { Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
+import { Badge } from '../../../../shared/components/StatusBadge';
 import { formatCurrency } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
 import type { Product, ProductVariant } from '../../../../shared/types/index';
@@ -28,57 +22,79 @@ export default function VariantPickerDialog({
   const { t } = useTranslation();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {product?.name} — {t('variants.selectVariant')}
-          </DialogTitle>
-          <DialogDescription>
-            {t('variants.variantCount', { count: String(product?.variant_count || 0) })}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2 max-h-80 overflow-y-auto">
-          {variants?.map((variant) => (
-            <button
-              key={variant.id}
-              onClick={() => onSelectVariant(variant)}
-              disabled={variant.stock === 0}
-              className={`w-full flex items-center justify-between p-3 rounded-md border transition-colors text-start ${
-                variant.stock === 0
-                  ? 'opacity-50 cursor-not-allowed border-border'
-                  : 'border-border hover:border-gold/50 cursor-pointer'
-              }`}
-            >
+    <Modal
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      backdrop="blur"
+      placement="center"
+      size="md"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl',
+      }}
+    >
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader className="border-b border-border/50">
               <div>
-                <div className="flex flex-wrap gap-1 mb-1">
-                  {Object.entries(variant.attributes).map(([key, value]) => (
-                    <Badge key={key} variant="gold" className="text-[10px]">
-                      {key}: {value}
-                    </Badge>
-                  ))}
-                </div>
-                <p className="text-xs text-muted font-data">
-                  {t('pos.sku')}: {variant.sku}
+                <h3 className="text-base font-semibold">
+                  {product?.name} — {t('variants.selectVariant')}
+                </h3>
+                <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                  {t('variants.variantCount', { count: String(product?.variant_count || 0) })}
                 </p>
               </div>
-              <div className="text-end">
-                <p className="text-sm font-semibold text-gold font-data">
-                  {formatCurrency(Number(variant.price || product?.price || 0))}
-                </p>
-                <Badge
-                  variant={
-                    variant.stock === 0 ? 'destructive' : variant.stock <= 5 ? 'warning' : 'success'
-                  }
-                  className="text-[10px]"
-                >
-                  {variant.stock} {t('pos.inStock')}
-                </Badge>
+            </ModalHeader>
+            <ModalBody className="py-4">
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {variants?.map((variant) => (
+                  <button
+                    key={variant.id}
+                    onClick={() => onSelectVariant(variant)}
+                    disabled={variant.stock === 0}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-colors text-start ${
+                      variant.stock === 0
+                        ? 'opacity-50 cursor-not-allowed border-border bg-muted/10'
+                        : 'border-border hover:border-primary/50 hover:bg-muted/20 cursor-pointer'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {Object.entries(variant.attributes).map(([key, value]) => (
+                          <Badge key={key} size="sm" variant="primary">
+                            {key}: {value}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground font-data">
+                        {t('pos.sku')}: {variant.sku}
+                      </p>
+                    </div>
+                    <div className="text-end">
+                      <p className="text-sm font-semibold text-primary font-data">
+                        {formatCurrency(Number(variant.price || product?.price || 0))}
+                      </p>
+                      <Badge
+                        size="sm"
+                        variant={
+                          variant.stock === 0
+                            ? 'danger'
+                            : variant.stock <= 5
+                              ? 'warning'
+                              : 'success'
+                        }
+                        className="mt-0.5"
+                      >
+                        {variant.stock} {t('pos.inStock')}
+                      </Badge>
+                    </div>
+                  </button>
+                ))}
               </div>
-            </button>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
+            </ModalBody>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

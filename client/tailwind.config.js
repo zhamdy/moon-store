@@ -40,19 +40,25 @@ export default {
         'table-header': 'hsl(var(--table-header))',
       },
       fontFamily: {
-        display: ['Playfair Display', 'serif'],
-        body: ['DM Sans', 'sans-serif'],
-        data: ['DM Sans', 'sans-serif'],
-        arabic: ['Noto Naskh Arabic', 'DM Sans', 'sans-serif'],
+        sans: ['Tajawal', 'system-ui', 'sans-serif'],
+        display: ['Tajawal', 'system-ui', 'sans-serif'],
+        body: ['Tajawal', 'system-ui', 'sans-serif'],
+        data: ['Tajawal', 'system-ui', 'sans-serif'],
+        arabic: ['Tajawal', 'system-ui', 'sans-serif'],
       },
       letterSpacing: {
         wider: '0.05em',
         widest: '0.1em',
       },
       borderRadius: {
-        DEFAULT: '0.375rem',
+        DEFAULT: '0.5rem',
+        sm: '0.375rem',
+        md: '0.5rem',
+        lg: '0.75rem',
       },
       boxShadow: {
+        subtle: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        card: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
         glow: 'none',
         'glow-strong': 'none',
       },
@@ -63,34 +69,34 @@ export default {
     heroui({
       layout: {
         radius: {
-          small: '0.25rem',
-          medium: '0.375rem',
-          large: '0.5rem',
+          small: '0.375rem',
+          medium: '0.5rem',
+          large: '0.75rem',
         },
-        boxShadow: {
-          small: 'none',
-          medium: 'none',
-          large: 'none',
+        borderWidth: {
+          small: '1px',
+          medium: '1px',
+          large: '2px',
         },
       },
       themes: {
         dark: {
           colors: {
             primary: {
-              DEFAULT: '#FFFFFF',
-              foreground: '#000000',
+              DEFAULT: '#FAFAFA',
+              foreground: '#18181B',
             },
-            focus: '#FFFFFF',
-            background: '#0D0D0D',
+            focus: '#FAFAFA',
+            background: '#09090B',
           },
         },
         light: {
           colors: {
             primary: {
-              DEFAULT: '#000000',
-              foreground: '#FFFFFF',
+              DEFAULT: '#18181B',
+              foreground: '#FAFAFA',
             },
-            focus: '#000000',
+            focus: '#18181B',
           },
         },
       },

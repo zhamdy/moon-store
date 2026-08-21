@@ -3,18 +3,16 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Trash2, Search, UserPlus, Check } from 'lucide-react';
-import { Button } from '../../../../shared/ui/button';
-import { Input } from '../../../../shared/ui/input';
-import { Label } from '../../../../shared/ui/label';
-import { Textarea } from '../../../../shared/ui/textarea';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '../../../../shared/ui/dialog';
+  Button,
+  Input,
+  Textarea,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
 import { useTranslation, t as tStandalone } from '../../../../shared/i18n/index';
 
 import type { Customer, Product } from '../../../../shared/types/index';
@@ -174,202 +172,270 @@ export default function DeliveryFormDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {editingOrder ? t('deliveries.editOrder') : t('deliveries.newOrderTitle')}
-          </DialogTitle>
-          <DialogDescription>{t('deliveries.fillDetails')}</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-          {/* Customer selector */}
-          <div className="space-y-2" ref={customerDropdownRef}>
-            <Label>{t('deliveries.selectCustomer')}</Label>
-            <div className="relative">
-              <div
-                className="flex h-10 w-full items-center rounded-md border border-border bg-surface px-3 py-2 text-sm cursor-pointer"
-                onClick={() => setCustomerDropdownOpen(!customerDropdownOpen)}
-              >
-                <Search className="h-4 w-4 me-2 text-muted-foreground shrink-0" />
-                {selectedCustomer ? (
-                  <span className="truncate">
-                    {selectedCustomer.name} — {selectedCustomer.phone}
-                  </span>
-                ) : isNewCustomer ? (
-                  <span className="text-foreground">{t('deliveries.newCustomer')}</span>
-                ) : (
-                  <span className="text-muted-foreground">{t('deliveries.searchCustomer')}</span>
-                )}
+    <Modal
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      backdrop="blur"
+      placement="center"
+      size="2xl"
+      scrollBehavior="inside"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl',
+      }}
+    >
+      <ModalContent>
+        {() => (
+          <form onSubmit={handleSubmit(handleFormSubmit)}>
+            <ModalHeader className="border-b border-border/50">
+              <div>
+                <h3 className="text-base font-semibold">
+                  {editingOrder ? t('deliveries.editOrder') : t('deliveries.newOrderTitle')}
+                </h3>
+                <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                  {t('deliveries.fillDetails')}
+                </p>
               </div>
-              {customerDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-surface shadow-lg max-h-60 overflow-y-auto">
-                  <div className="p-2">
-                    <Input
-                      placeholder={t('deliveries.searchCustomer')}
-                      value={customerSearch}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                        onCustomerSearchChange(e.target.value)
-                      }
-                      autoFocus
-                    />
-                  </div>
+            </ModalHeader>
+            <ModalBody className="py-4 space-y-4">
+              {/* Customer selector */}
+              <div className="space-y-1.5" ref={customerDropdownRef}>
+                <p className="text-xs font-medium text-foreground">
+                  {t('deliveries.selectCustomer')}
+                </p>
+                <div className="relative">
                   <div
-                    className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted text-sm border-b border-border"
-                    onClick={selectNewCustomer}
+                    className="flex h-10 w-full items-center rounded-lg border border-border bg-card px-3 py-2 text-sm cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => setCustomerDropdownOpen(!customerDropdownOpen)}
                   >
-                    <UserPlus className="h-4 w-4 text-gold shrink-0" />
-                    <span className="font-medium">{t('deliveries.newCustomer')}</span>
-                    {isNewCustomer && !selectedCustomer && (
-                      <Check className="h-4 w-4 ms-auto text-gold" />
+                    <Search className="h-4 w-4 me-2 text-muted-foreground shrink-0" />
+                    {selectedCustomer ? (
+                      <span className="truncate font-medium text-foreground">
+                        {selectedCustomer.name} — {selectedCustomer.phone}
+                      </span>
+                    ) : isNewCustomer ? (
+                      <span className="text-foreground">{t('deliveries.newCustomer')}</span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {t('deliveries.searchCustomer')}
+                      </span>
                     )}
                   </div>
-                  {customers && customers.length > 0 ? (
-                    customers.map((c) => (
+                  {customerDropdownOpen && (
+                    <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-card shadow-xl max-h-60 overflow-y-auto">
+                      <div className="p-2">
+                        <Input
+                          placeholder={t('deliveries.searchCustomer')}
+                          value={customerSearch}
+                          size="sm"
+                          variant="bordered"
+                          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                            onCustomerSearchChange(e.target.value)
+                          }
+                          autoFocus
+                        />
+                      </div>
                       <div
-                        key={c.id}
-                        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted text-sm"
-                        onClick={() => selectCustomer(c)}
+                        className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-muted/50 text-sm border-b border-border"
+                        onClick={selectNewCustomer}
                       >
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{c.name}</div>
-                          <div className="text-xs text-muted-foreground font-data">{c.phone}</div>
-                        </div>
-                        {selectedCustomer?.id === c.id && (
-                          <Check className="h-4 w-4 shrink-0 text-gold" />
+                        <UserPlus className="h-4 w-4 text-primary shrink-0" />
+                        <span className="font-medium text-foreground">
+                          {t('deliveries.newCustomer')}
+                        </span>
+                        {isNewCustomer && !selectedCustomer && (
+                          <Check className="h-4 w-4 ms-auto text-primary" />
                         )}
                       </div>
-                    ))
-                  ) : (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">
-                      {t('deliveries.noCustomersFound')}
+                      {customers && customers.length > 0 ? (
+                        customers.map((c) => (
+                          <div
+                            key={c.id}
+                            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50 text-sm"
+                            onClick={() => selectCustomer(c)}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-foreground truncate">{c.name}</div>
+                              <div className="text-xs text-muted-foreground font-data">
+                                {c.phone}
+                              </div>
+                            </div>
+                            {selectedCustomer?.id === c.id && (
+                              <Check className="h-4 w-4 shrink-0 text-primary" />
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          {t('deliveries.noCustomersFound')}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{t('deliveries.customerName')}</Label>
-              <Input {...register('customer_name')} />
-              {errors.customer_name && (
-                <p className="text-xs text-destructive">{errors.customer_name.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>{t('deliveries.phone')}</Label>
-              <Input {...register('phone')} />
-              {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>{t('deliveries.address')}</Label>
-            <Textarea {...register('address')} />
-            {errors.address && <p className="text-xs text-destructive">{errors.address.message}</p>}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{t('deliveries.notes')}</Label>
-              <Textarea {...register('notes')} rows={2} />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('deliveries.estimatedDelivery')}</Label>
-              <Input type="datetime-local" {...register('estimated_delivery')} />
-            </div>
-          </div>
-
-          {/* Shipping fields */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>{t('deliveries.shippingCompany')}</Label>
-              <Button
-                type="button"
-                variant="link"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label={t('deliveries.customerName')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('customer_name')}
+                  isInvalid={!!errors.customer_name}
+                  errorMessage={errors.customer_name?.message}
+                />
+                <Input
+                  label={t('deliveries.phone')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('phone')}
+                  isInvalid={!!errors.phone}
+                  errorMessage={errors.phone?.message}
+                />
+              </div>
+              <Textarea
+                label={t('deliveries.address')}
                 size="sm"
-                className="h-auto p-0 text-xs"
-                onClick={onOpenCompaniesDialog}
-              >
-                {t('deliveries.manageCompanies')}
-              </Button>
-            </div>
-            <select
-              {...register('shipping_company_id')}
-              className="flex h-10 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-data text-foreground"
-            >
-              <option value="">{t('deliveries.noCompany')}</option>
-              {shippingCompanies?.map((sc) => (
-                <option key={sc.id} value={sc.id}>
-                  {sc.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{t('deliveries.trackingNumber')}</Label>
-              <Input {...register('tracking_number')} placeholder="e.g. 1234567890" />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('deliveries.shippingCost')}</Label>
-              <Input type="number" step="0.01" min="0" {...register('shipping_cost')} />
-            </div>
-          </div>
+                variant="bordered"
+                minRows={2}
+                {...register('address')}
+                isInvalid={!!errors.address}
+                errorMessage={errors.address?.message}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Textarea
+                  label={t('deliveries.notes')}
+                  size="sm"
+                  variant="bordered"
+                  minRows={2}
+                  {...register('notes')}
+                />
+                <Input
+                  type="datetime-local"
+                  label={t('deliveries.estimatedDelivery')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('estimated_delivery')}
+                />
+              </div>
 
-          {/* Items */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label>{t('deliveries.items')}</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => append({ product_id: 0, quantity: 1 })}
-              >
-                <Plus className="h-3 w-3 me-1" /> {t('deliveries.addItem')}
-              </Button>
-            </div>
-            {errors.items?.root && (
-              <p className="text-xs text-destructive">{errors.items.root.message}</p>
-            )}
-            {fields.map((field, index) => (
-              <div key={field.id} className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <select
-                    {...register(`items.${index}.product_id`)}
-                    className="flex h-10 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm font-data text-foreground"
+              {/* Shipping fields */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-foreground">
+                    {t('deliveries.shippingCompany')}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="light"
+                    color="primary"
+                    size="sm"
+                    className="h-auto p-0 text-xs"
+                    onClick={onOpenCompaniesDialog}
                   >
-                    <option value="">{t('deliveries.selectProduct')}</option>
-                    {products?.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.stock} in stock)
-                      </option>
-                    ))}
-                  </select>
+                    {t('deliveries.manageCompanies')}
+                  </Button>
                 </div>
+                <select
+                  {...register('shipping_company_id')}
+                  className="flex h-10 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm font-data text-foreground"
+                >
+                  <option value="">{t('deliveries.noCompany')}</option>
+                  {shippingCompanies?.map((sc) => (
+                    <option key={sc.id} value={sc.id}>
+                      {sc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label={t('deliveries.trackingNumber')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('tracking_number')}
+                  placeholder="e.g. 1234567890"
+                />
                 <Input
                   type="number"
-                  min="1"
-                  {...register(`items.${index}.quantity`)}
-                  className="w-20"
+                  step="0.01"
+                  min="0"
+                  label={t('deliveries.shippingCost')}
+                  size="sm"
+                  variant="bordered"
+                  {...register('shipping_cost')}
                 />
-                {fields.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                )}
               </div>
-            ))}
-          </div>
 
-          <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
-              {editingOrder ? t('common.update') : t('deliveries.createOrder')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              {/* Items */}
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-between items-center">
+                  <p className="text-xs font-medium text-foreground">{t('deliveries.items')}</p>
+                  <Button
+                    type="button"
+                    variant="bordered"
+                    size="sm"
+                    startContent={<Plus className="h-3.5 w-3.5" />}
+                    onClick={() => append({ product_id: 0, quantity: 1 })}
+                  >
+                    {t('deliveries.addItem')}
+                  </Button>
+                </div>
+                {errors.items?.root && (
+                  <p className="text-xs text-danger">{errors.items.root.message}</p>
+                )}
+                <div className="space-y-2">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="flex gap-2 items-center">
+                      <div className="flex-1">
+                        <select
+                          {...register(`items.${index}.product_id`)}
+                          className="flex h-9 w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-data text-foreground"
+                        >
+                          <option value="">{t('deliveries.selectProduct')}</option>
+                          {products?.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.stock} in stock)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="w-24">
+                        <Input
+                          type="number"
+                          min="1"
+                          size="sm"
+                          variant="bordered"
+                          {...register(`items.${index}.quantity`)}
+                        />
+                      </div>
+                      {fields.length > 1 && (
+                        <Button
+                          isIconOnly
+                          type="button"
+                          variant="light"
+                          color="danger"
+                          size="sm"
+                          onClick={() => remove(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </ModalBody>
+            <ModalFooter className="border-t border-border/50">
+              <Button variant="flat" size="sm" onClick={() => onOpenChange(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button color="primary" size="sm" type="submit" isLoading={isSubmitting}>
+                {editingOrder ? t('common.update') : t('deliveries.createOrder')}
+              </Button>
+            </ModalFooter>
+          </form>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

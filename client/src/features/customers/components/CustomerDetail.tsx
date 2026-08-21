@@ -10,20 +10,20 @@ import {
   Plus,
   Minus,
 } from 'lucide-react';
-import { Button } from '../../../shared/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
-import { Badge } from '../../../shared/ui/badge';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Textarea } from '../../../shared/ui/textarea';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
+  Button,
+  Card,
+  CardHeader,
+  CardBody,
+  Input,
+  Textarea,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
 import { formatCurrency, formatDateTime, formatRelative } from '../../../shared/lib/utils';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { resource } from '../../../shared/lib/resource';
@@ -77,8 +77,6 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
   const [adjustPoints, setAdjustPoints] = useState(0);
   const [adjustNote, setAdjustNote] = useState('');
 
-  // Settings.tsx writes this key and CartPanel.tsx reads it, so the cache entry
-  // stays shared with them rather than moving under a resource-scoped key.
   const { data: appSettings } = useApiQuery<AppSettings>(['settings'], 'settings', undefined, {
     staleTime: 5 * 60 * 1000,
   });
@@ -91,8 +89,6 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
     limit: 100,
   });
 
-  // Same story as settings: CartPanel.tsx reads ['customer-loyalty', id] and
-  // the adjustment below invalidates it, so both have to keep meeting here.
   const { data: loyaltyData } = useApiQuery<LoyaltyData>(
     ['customer-loyalty', customerId],
     `customers/${customerId}/loyalty`,
@@ -100,8 +96,6 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
     { enabled: loyaltyEnabled }
   );
 
-  // `useAction` refreshes the customers collection itself; the loyalty read
-  // lives under its own shared key, so that one is still invalidated by hand.
   const adjustMutation = customers.useAction('loyalty/adjust', {
     message: t('loyalty.adjustSuccess'),
     fallbackMessage: t('loyalty.adjustFailed'),
@@ -132,28 +126,25 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack}>
+        <Button isIconOnly variant="light" size="sm" onClick={onBack} aria-label="Back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <h2 className="text-2xl font-display tracking-wider text-foreground">{customerName}</h2>
-          <p className="text-sm text-muted font-body">{t('customers.purchaseHistory')}</p>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">{customerName}</h2>
+          <p className="text-sm text-muted-foreground">{t('customers.purchaseHistory')}</p>
         </div>
         {loyaltyEnabled && loyaltyData && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div className="text-end">
-              <p className="text-xs text-muted uppercase tracking-widest">{t('loyalty.points')}</p>
-              <p className="text-xl font-semibold text-gold font-data flex items-center gap-1 justify-end">
-                <Star className="h-4 w-4" />
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                {t('loyalty.points')}
+              </p>
+              <p className="text-lg font-bold text-foreground font-data flex items-center gap-1 justify-end">
+                <Star className="h-4 w-4 text-warning fill-warning" />
                 {loyaltyData.points}
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAdjustDialogOpen(true)}
-              className="text-xs"
-            >
+            <Button variant="bordered" size="sm" onClick={() => setAdjustDialogOpen(true)}>
               {t('loyalty.adjustPoints')}
             </Button>
           </div>
@@ -163,89 +154,91 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
       {/* Stats cards */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-md bg-gold/10">
-                <DollarSign className="h-5 w-5 text-gold" />
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 flex flex-row items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-accent text-foreground">
+                <DollarSign className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted uppercase tracking-widest font-body">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
                   {t('customers.totalSpent')}
                 </p>
-                <p className="text-lg font-semibold text-gold font-data">
+                <p className="text-lg font-bold text-foreground font-data mt-0.5">
                   {formatCurrency(stats.total_spent)}
                 </p>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-md bg-gold/10">
-                <ShoppingBag className="h-5 w-5 text-gold" />
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 flex flex-row items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-accent text-foreground">
+                <ShoppingBag className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted uppercase tracking-widest font-body">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
                   {t('customers.orderCount')}
                 </p>
-                <p className="text-lg font-semibold font-data">{stats.order_count}</p>
+                <p className="text-lg font-bold font-data mt-0.5">{stats.order_count}</p>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-md bg-gold/10">
-                <TrendingUp className="h-5 w-5 text-gold" />
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 flex flex-row items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-accent text-foreground">
+                <TrendingUp className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted uppercase tracking-widest font-body">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
                   {t('customers.avgOrder')}
                 </p>
-                <p className="text-lg font-semibold font-data">{formatCurrency(stats.avg_order)}</p>
+                <p className="text-lg font-bold font-data mt-0.5">
+                  {formatCurrency(stats.avg_order)}
+                </p>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 rounded-md bg-gold/10">
-                <Calendar className="h-5 w-5 text-gold" />
+          <Card className="border border-border bg-card shadow-sm">
+            <CardBody className="p-4 flex flex-row items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-accent text-foreground">
+                <Calendar className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted uppercase tracking-widest font-body">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
                   {t('customers.lastPurchase')}
                 </p>
-                <p className="text-sm font-data">
+                <p className="text-sm font-medium font-data mt-0.5">
                   {stats.last_purchase ? formatRelative(stats.last_purchase) : '-'}
                 </p>
               </div>
-            </CardContent>
+            </CardBody>
           </Card>
         </div>
       )}
 
       {/* Loyalty Points History */}
       {loyaltyEnabled && loyaltyData && loyaltyData.transactions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Star className="h-4 w-4 text-gold" />
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="border-b border-border/50 px-6 py-4">
+            <h3 className="text-base font-semibold flex items-center gap-2 text-foreground">
+              <Star className="h-4 w-4 text-warning fill-warning" />
               {t('loyalty.history')}
-            </CardTitle>
+            </h3>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardBody className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-start text-xs font-medium text-muted uppercase tracking-wider">
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider">
                       {t('sales.dateTime')}
                     </th>
-                    <th className="px-4 py-3 text-start text-xs font-medium text-muted uppercase tracking-wider">
+                    <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider">
                       {t('common.status')}
                     </th>
-                    <th className="px-4 py-3 text-start text-xs font-medium text-muted uppercase tracking-wider">
+                    <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider">
                       {t('loyalty.points')}
                     </th>
-                    <th className="px-4 py-3 text-start text-xs font-medium text-muted uppercase tracking-wider">
+                    <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider">
                       {t('customers.notes')}
                     </th>
                   </tr>
@@ -254,55 +247,57 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                   {loyaltyData.transactions.map((txn) => (
                     <tr
                       key={txn.id}
-                      className="border-b border-border last:border-0 hover:bg-muted/30"
+                      className="border-b border-border/50 last:border-0 hover:bg-muted/30"
                     >
                       <td className="px-4 py-3 font-data">{formatDateTime(txn.created_at)}</td>
                       <td className="px-4 py-3">
-                        <Badge variant={txn.points > 0 ? 'gold' : 'destructive'}>
+                        <Badge size="sm" variant={txn.points > 0 ? 'primary' : 'danger'}>
                           {typeLabel(txn.type)}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 font-data font-semibold">
-                        <span className={txn.points > 0 ? 'text-green-500' : 'text-red-500'}>
+                        <span className={txn.points > 0 ? 'text-success' : 'text-danger'}>
                           {txn.points > 0 ? '+' : ''}
                           {txn.points}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-muted text-xs">{txn.note || '-'}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{txn.note || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </CardContent>
+          </CardBody>
         </Card>
       )}
 
       {/* Sales list */}
-      <Card>
-        <CardContent className="p-0">
+      <Card className="border border-border bg-card shadow-sm">
+        <CardBody className="p-0">
           {isLoading ? (
-            <div className="p-8 text-center text-muted">{t('common.loading')}</div>
+            <div className="p-8 text-center text-muted-foreground">{t('common.loading')}</div>
           ) : sales.length === 0 ? (
-            <div className="p-8 text-center text-muted">{t('customers.noPurchases')}</div>
+            <div className="p-8 text-center text-muted-foreground">
+              {t('customers.noPurchases')}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-start text-xs font-medium text-muted uppercase tracking-wider">
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider">
                       {t('sales.saleId')}
                     </th>
-                    <th className="px-4 py-3 text-start text-xs font-medium text-muted uppercase tracking-wider">
+                    <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider">
                       {t('sales.dateTime')}
                     </th>
-                    <th className="px-4 py-3 text-start text-xs font-medium text-muted uppercase tracking-wider">
+                    <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider">
                       {t('sales.items')}
                     </th>
-                    <th className="px-4 py-3 text-start text-xs font-medium text-muted uppercase tracking-wider">
+                    <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider">
                       {t('sales.total')}
                     </th>
-                    <th className="px-4 py-3 text-start text-xs font-medium text-muted uppercase tracking-wider">
+                    <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider">
                       {t('sales.payment')}
                     </th>
                   </tr>
@@ -311,16 +306,25 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                   {sales.map((sale) => (
                     <tr
                       key={sale.id}
-                      className="border-b border-border last:border-0 hover:bg-muted/30"
+                      className="border-b border-border/50 last:border-0 hover:bg-muted/30"
                     >
-                      <td className="px-4 py-3 font-data text-gold">#{sale.id}</td>
+                      <td className="px-4 py-3 font-data text-primary font-medium">#{sale.id}</td>
                       <td className="px-4 py-3 font-data">{formatDateTime(sale.created_at)}</td>
                       <td className="px-4 py-3 font-data">{sale.items_count}</td>
                       <td className="px-4 py-3 font-semibold font-data">
                         {formatCurrency(sale.total)}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant="gold">
+                        <Badge
+                          size="sm"
+                          variant={
+                            sale.payment_method === 'Cash'
+                              ? 'success'
+                              : sale.payment_method === 'Card'
+                                ? 'primary'
+                                : 'default'
+                          }
+                        >
                           {{
                             Cash: t('cart.cash'),
                             Card: t('cart.card'),
@@ -335,71 +339,97 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
               </table>
             </div>
           )}
-        </CardContent>
+        </CardBody>
       </Card>
 
       {/* Adjust Points Dialog */}
-      <Dialog open={adjustDialogOpen} onOpenChange={setAdjustDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('loyalty.adjustPoints')}</DialogTitle>
-            <DialogDescription>{t('loyalty.adjustDesc')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('loyalty.points')}</Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setAdjustPoints((p) => p - 10)}
-                >
-                  <Minus className="h-3 w-3" />
-                </Button>
-                <Input
-                  type="number"
-                  value={adjustPoints}
-                  onChange={(e) => setAdjustPoints(parseInt(e.target.value) || 0)}
-                  className="w-32 text-center font-data"
+      <Modal
+        isOpen={adjustDialogOpen}
+        onOpenChange={setAdjustDialogOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <div>
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('loyalty.adjustPoints')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('loyalty.adjustDesc')}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4 space-y-4">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-foreground">{t('loyalty.points')}</p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      isIconOnly
+                      variant="bordered"
+                      size="sm"
+                      onClick={() => setAdjustPoints((p) => p - 10)}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      size="sm"
+                      variant="bordered"
+                      value={String(adjustPoints)}
+                      onValueChange={(val) => setAdjustPoints(parseInt(val) || 0)}
+                      className="w-32 text-center font-data"
+                    />
+                    <Button
+                      isIconOnly
+                      variant="bordered"
+                      size="sm"
+                      onClick={() => setAdjustPoints((p) => p + 10)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {adjustPoints > 0 ? `+${adjustPoints}` : adjustPoints} points
+                  </p>
+                </div>
+                <Textarea
+                  label={t('loyalty.adjustNote')}
+                  size="sm"
+                  variant="bordered"
+                  value={adjustNote}
+                  onValueChange={setAdjustNote}
+                  placeholder={t('loyalty.adjustNote')}
+                  isRequired
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setAdjustPoints((p) => p + 10)}
-                >
-                  <Plus className="h-3 w-3" />
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={() => setAdjustDialogOpen(false)}>
+                  {t('common.cancel')}
                 </Button>
-              </div>
-              <p className="text-xs text-muted">
-                {adjustPoints > 0 ? `+${adjustPoints}` : adjustPoints} points
-              </p>
+                <Button
+                  color="primary"
+                  size="sm"
+                  onClick={() =>
+                    adjustMutation.run({
+                      id: customerId,
+                      body: { points: adjustPoints, note: adjustNote },
+                    })
+                  }
+                  disabled={adjustPoints === 0 || !adjustNote}
+                  isLoading={adjustMutation.isRunning}
+                >
+                  {t('common.confirm')}
+                </Button>
+              </ModalFooter>
             </div>
-            <div className="space-y-2">
-              <Label>{t('loyalty.adjustNote')}</Label>
-              <Textarea
-                value={adjustNote}
-                onChange={(e) => setAdjustNote(e.target.value)}
-                placeholder={t('loyalty.adjustNote')}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={() =>
-                adjustMutation.run({
-                  id: customerId,
-                  body: { points: adjustPoints, note: adjustNote },
-                })
-              }
-              disabled={adjustPoints === 0 || !adjustNote || adjustMutation.isRunning}
-            >
-              {t('common.confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

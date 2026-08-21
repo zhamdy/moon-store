@@ -1,10 +1,4 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../shared/ui/dialog';
+import { Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
 import { useTranslation } from '../../../shared/i18n/index';
 
 interface KeyboardShortcutsHelpProps {
@@ -32,7 +26,7 @@ const shortcuts: ShortcutEntry[] = [
 
 function Kbd({ children }: { children: string }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 text-xs font-data font-medium bg-surface border border-border rounded text-foreground">
+    <kbd className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 text-xs font-data font-medium bg-muted/40 border border-border rounded-md text-foreground shadow-xs">
       {children}
     </kbd>
   );
@@ -42,28 +36,47 @@ export default function KeyboardShortcutsHelp({ open, onOpenChange }: KeyboardSh
   const { t } = useTranslation();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t('pos.shortcutsTitle')}</DialogTitle>
-          <DialogDescription>{t('pos.shortcutsDesc')}</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-2 mt-2">
-          {shortcuts.map((s) => (
-            <div
-              key={s.labelKey}
-              className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-surface transition-colors"
-            >
-              <span className="text-sm text-foreground">{t(s.labelKey)}</span>
-              <div className="flex gap-1">
-                {s.keys.map((k) => (
-                  <Kbd key={k}>{k}</Kbd>
+    <Modal
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      backdrop="blur"
+      placement="center"
+      size="md"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl',
+      }}
+    >
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader className="border-b border-border/50">
+              <div>
+                <h3 className="text-base font-semibold">{t('pos.shortcutsTitle')}</h3>
+                <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                  {t('pos.shortcutsDesc')}
+                </p>
+              </div>
+            </ModalHeader>
+            <ModalBody className="py-4">
+              <div className="grid gap-1">
+                {shortcuts.map((s) => (
+                  <div
+                    key={s.labelKey}
+                    className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/30 transition-colors"
+                  >
+                    <span className="text-sm text-foreground">{t(s.labelKey)}</span>
+                    <div className="flex gap-1">
+                      {s.keys.map((k) => (
+                        <Kbd key={k}>{k}</Kbd>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
+            </ModalBody>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

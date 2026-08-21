@@ -1,19 +1,18 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { FileText } from 'lucide-react';
+import { FileText, CalendarIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../../../shared/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '../../../shared/ui/popover';
-import { Calendar } from '../../../shared/ui/calendar';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@heroui/react';
+import { Calendar } from '../../../shared/components/Calendar';
+import PageHeader from '../../../shared/components/PageHeader';
 import { exportToExcel, exportMultiSheetExcel } from '../../../shared/lib/exportUtils';
 import KpiCards from '../components/KpiCards';
 import DashboardCharts from '../components/DashboardCharts';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { formatDate } from '../../../shared/lib/utils';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
 import { useTranslation } from '../../../shared/i18n/index';
-import type { DateRange } from '../../../shared/ui/calendar';
+import type { DateRange } from '../../../shared/components/Calendar';
 
 export default function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
@@ -191,29 +190,25 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('dashboard.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
-
+      <PageHeader title={t('dashboard.title')}>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            className="gap-2"
+            variant="bordered"
+            size="sm"
+            startContent={<FileText className="h-4 w-4 text-muted-foreground" />}
             onClick={handleExportPdf}
-            disabled={exporting}
+            isLoading={exporting}
           >
-            <FileText className="h-4 w-4 text-gold" />
             {exporting ? t('export.generating') : t('export.fullReport')}
           </Button>
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="gap-2">
-                <CalendarIcon className="h-4 w-4 text-gold" />
+          <Popover placement="bottom-end">
+            <PopoverTrigger>
+              <Button
+                variant="bordered"
+                size="sm"
+                startContent={<CalendarIcon className="h-4 w-4 text-muted-foreground" />}
+              >
                 {dateRange.from ? (
                   <>
                     {formatDate(dateRange.from)} - {dateRange.to ? formatDate(dateRange.to) : '...'}
@@ -223,7 +218,7 @@ export default function Dashboard() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
+            <PopoverContent className="p-0 bg-card border border-border">
               <Calendar
                 mode="range"
                 selected={dateRange}
@@ -233,7 +228,7 @@ export default function Dashboard() {
             </PopoverContent>
           </Popover>
         </div>
-      </div>
+      </PageHeader>
 
       <div id="dashboard-content" className="space-y-6">
         <KpiCards

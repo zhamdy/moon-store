@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { Button } from '../ui/button';
+import { Button } from '@heroui/react';
 import { t } from '../i18n/index';
 
 interface ErrorBoundaryProps {

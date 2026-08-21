@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import {
   LogIn,
   Plus,
@@ -25,21 +25,14 @@ import {
   Barcode,
   Activity,
   X,
+  type LucideIcon,
 } from 'lucide-react';
-import { Badge } from '../../../shared/ui/badge';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../shared/ui/select';
+import { Input, Select, SelectItem, Button, Pagination } from '@heroui/react';
+import { Badge, type BadgeVariant } from '../../../shared/components/StatusBadge';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import type { LucideIcon } from 'lucide-react';
+import PageHeader from '../../../shared/components/PageHeader';
 import type { User as UserRecord } from '../../../shared/types/index';
 import type { AuditEntry } from '../types';
 
@@ -50,22 +43,28 @@ interface AuditMeta {
 
 const auditLog = resource<AuditEntry, AuditMeta>('audit-log');
 
-const ACTION_CONFIG: Record<string, { color: string; icon: LucideIcon }> = {
-  create: { color: 'text-emerald-400', icon: Plus },
-  update: { color: 'text-blue-400', icon: Pencil },
-  delete: { color: 'text-destructive', icon: Trash2 },
-  login: { color: 'text-gold', icon: LogIn },
-  refund: { color: 'text-amber-400', icon: RotateCcw },
-  exchange: { color: 'text-purple-400', icon: ArrowLeftRight },
-  cancel: { color: 'text-destructive', icon: Ban },
-  approve: { color: 'text-emerald-400', icon: CheckCircle },
-  register_open: { color: 'text-amber-400', icon: Vault },
-  register_close: { color: 'text-muted', icon: Vault },
-  register_force_close: { color: 'text-destructive', icon: Vault },
-  status_change: { color: 'text-blue-400', icon: RefreshCw },
-  discontinue: { color: 'text-destructive', icon: Ban },
-  redeem: { color: 'text-teal-400', icon: Gift },
-  batch_barcode: { color: 'text-cyan-400', icon: Barcode },
+const ACTION_CONFIG: Record<
+  string,
+  {
+    color: 'success' | 'primary' | 'danger' | 'warning' | 'secondary' | 'default';
+    icon: LucideIcon;
+  }
+> = {
+  create: { color: 'success', icon: Plus },
+  update: { color: 'primary', icon: Pencil },
+  delete: { color: 'danger', icon: Trash2 },
+  login: { color: 'primary', icon: LogIn },
+  refund: { color: 'warning', icon: RotateCcw },
+  exchange: { color: 'secondary', icon: ArrowLeftRight },
+  cancel: { color: 'danger', icon: Ban },
+  approve: { color: 'success', icon: CheckCircle },
+  register_open: { color: 'warning', icon: Vault },
+  register_close: { color: 'default', icon: Vault },
+  register_force_close: { color: 'danger', icon: Vault },
+  status_change: { color: 'primary', icon: RefreshCw },
+  discontinue: { color: 'danger', icon: Ban },
+  redeem: { color: 'success', icon: Gift },
+  batch_barcode: { color: 'primary', icon: Barcode },
 };
 
 const ENTITY_ICONS: Record<string, LucideIcon> = {
@@ -152,130 +151,141 @@ export default function AuditLog() {
     search: search || undefined,
   });
 
-  const { data: actions } = auditLog.useRead<string[]>('actions');
-  const { data: entityTypes } = auditLog.useRead<string[]>('entity-types');
-  const { data: users } = useApiQuery<Pick<UserRecord, 'id' | 'name'>[]>(['users-list'], 'users');
+  const { data: actions = [] } = auditLog.useRead<string[]>('actions');
+  const { data: entityTypes = [] } = auditLog.useRead<string[]>('entity-types');
+  const { data: users = [] } = useApiQuery<Pick<UserRecord, 'id' | 'name'>[]>(
+    ['users-list'],
+    'users'
+  );
 
   const total = meta?.total ?? 0;
   const totalPages = Math.ceil(total / 50);
 
   const getActionConfig = (action: string) =>
-    ACTION_CONFIG[action] || { color: 'text-muted', icon: Activity };
+    ACTION_CONFIG[action] || { color: 'default' as const, icon: Activity };
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-display tracking-wider text-foreground">{t('audit.title')}</h1>
-        <div className="gold-divider mt-2" />
-      </div>
+      <PageHeader title={t('audit.title')} />
 
       {/* Filters */}
-      <div className="flex items-end gap-3 flex-wrap">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted">{t('audit.action')}</Label>
+      <div className="flex items-end gap-3 flex-wrap bg-card p-4 rounded-lg border border-border">
+        <div className="w-40">
           <Select
-            value={actionFilter}
-            onValueChange={(v) => {
-              setActionFilter(v);
+            label={t('audit.action')}
+            size="sm"
+            variant="bordered"
+            selectedKeys={[actionFilter]}
+            onChange={(e) => {
+              setActionFilter(e.target.value || 'all');
               setPage(1);
             }}
           >
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('audit.allActions')}</SelectItem>
-              {actions?.map((a) => (
-                <SelectItem key={a} value={a}>
+            {[
+              <SelectItem key="all" textValue={t('audit.allActions')}>
+                {t('audit.allActions')}
+              </SelectItem>,
+              ...actions.map((a) => (
+                <SelectItem key={a} textValue={tAction(a)}>
                   {tAction(a)}
                 </SelectItem>
-              ))}
-            </SelectContent>
+              )),
+            ]}
           </Select>
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xs text-muted">{t('audit.entityType')}</Label>
+        <div className="w-40">
           <Select
-            value={entityFilter}
-            onValueChange={(v) => {
-              setEntityFilter(v);
+            label={t('audit.entityType')}
+            size="sm"
+            variant="bordered"
+            selectedKeys={[entityFilter]}
+            onChange={(e) => {
+              setEntityFilter(e.target.value || 'all');
               setPage(1);
             }}
           >
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('audit.allEntities')}</SelectItem>
-              {entityTypes?.map((e) => (
-                <SelectItem key={e} value={e}>
+            {[
+              <SelectItem key="all" textValue={t('audit.allEntities')}>
+                {t('audit.allEntities')}
+              </SelectItem>,
+              ...entityTypes.map((e) => (
+                <SelectItem key={e} textValue={tEntity(e)}>
                   {tEntity(e)}
                 </SelectItem>
-              ))}
-            </SelectContent>
+              )),
+            ]}
           </Select>
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xs text-muted">{t('audit.user')}</Label>
+        <div className="w-40">
           <Select
-            value={userFilter}
-            onValueChange={(v) => {
-              setUserFilter(v);
+            label={t('audit.user')}
+            size="sm"
+            variant="bordered"
+            selectedKeys={[userFilter]}
+            onChange={(e) => {
+              setUserFilter(e.target.value || 'all');
               setPage(1);
             }}
           >
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('audit.allUsers')}</SelectItem>
-              {users?.map((u) => (
-                <SelectItem key={u.id} value={String(u.id)}>
+            {[
+              <SelectItem key="all" textValue={t('audit.allUsers')}>
+                {t('audit.allUsers')}
+              </SelectItem>,
+              ...users.map((u) => (
+                <SelectItem key={String(u.id)} textValue={u.name}>
                   {u.name}
                 </SelectItem>
-              ))}
-            </SelectContent>
+              )),
+            ]}
           </Select>
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xs text-muted">{t('audit.dateFrom')}</Label>
+        <div className="w-36">
           <Input
             type="date"
+            label={t('audit.dateFrom')}
+            size="sm"
+            variant="bordered"
             value={dateFrom}
             onChange={(e) => {
               setDateFrom(e.target.value);
               setPage(1);
             }}
-            className="w-36"
           />
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xs text-muted">{t('audit.dateTo')}</Label>
+        <div className="w-36">
           <Input
             type="date"
+            label={t('audit.dateTo')}
+            size="sm"
+            variant="bordered"
             value={dateTo}
             onChange={(e) => {
               setDateTo(e.target.value);
               setPage(1);
             }}
-            className="w-36"
           />
         </div>
 
-        <div className="space-y-1">
-          <Label className="text-xs text-muted">{t('common.search')}</Label>
+        <div className="w-48">
           <Input
+            label={t('common.search')}
+            placeholder={t('common.search')}
+            size="sm"
+            variant="bordered"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
+            onValueChange={(val) => {
+              setSearch(val);
               setPage(1);
             }}
-            placeholder={t('common.search')}
-            className="w-48"
+            isClearable
+            onClear={() => {
+              setSearch('');
+              setPage(1);
+            }}
           />
         </div>
 
@@ -285,7 +295,9 @@ export default function AuditLog() {
           dateFrom ||
           dateTo ||
           search) && (
-          <button
+          <Button
+            size="sm"
+            variant="flat"
             onClick={() => {
               setActionFilter('all');
               setEntityFilter('all');
@@ -295,20 +307,20 @@ export default function AuditLog() {
               setSearch('');
               setPage(1);
             }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm text-muted hover:text-foreground border border-border hover:border-gold/50 transition-colors self-end"
+            startContent={<X className="h-3.5 w-3.5" />}
+            className="self-end"
           >
-            <X className="h-3.5 w-3.5" />
             {t('common.clearFilters')}
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Log entries */}
-      <div className="space-y-1">
+      <div className="space-y-2">
         {isLoading ? (
-          <div className="text-center py-8 text-muted">{t('common.loading')}</div>
+          <div className="text-center py-12 text-muted-foreground">{t('common.loading')}</div>
         ) : entries.length === 0 ? (
-          <div className="text-center py-8 text-muted">{t('audit.noEntries')}</div>
+          <div className="text-center py-12 text-muted-foreground">{t('audit.noEntries')}</div>
         ) : (
           entries.map((entry) => {
             const config = getActionConfig(entry.action);
@@ -320,56 +332,56 @@ export default function AuditLog() {
             return (
               <div
                 key={entry.id}
-                className="border border-border rounded-md transition-colors hover:border-border/80"
+                className="border border-border rounded-lg bg-card transition-colors hover:border-border/80"
               >
                 <button
+                  type="button"
                   className="w-full flex items-center gap-3 px-4 py-3 text-start"
                   onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                 >
-                  <EntityIcon className="h-4 w-4 shrink-0 text-gold/70" />
-                  <Badge variant="secondary" className={`text-[10px] shrink-0 ${config.color}`}>
+                  <EntityIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Badge size="sm" variant={config.color as BadgeVariant} className="shrink-0">
                     {tAction(entry.action)}
                   </Badge>
-                  <Badge variant="gold" className="text-[10px] shrink-0">
+                  <span className="text-xs text-muted-foreground font-data">
                     {tEntity(entry.entity_type)}
-                  </Badge>
+                  </span>
                   {entry.entity_id && (
-                    <span className="text-xs text-muted font-data">#{entry.entity_id}</span>
+                    <span className="text-xs text-muted-foreground font-data">
+                      #{entry.entity_id}
+                    </span>
                   )}
-                  <span className="text-sm text-foreground flex-1 truncate">
+                  <span className="text-sm font-medium text-foreground flex-1 truncate">
                     {entry.user_name || entry.user_display_name || 'System'}
                   </span>
-                  <span className="text-xs text-muted font-data shrink-0">
+                  <span className="text-xs text-muted-foreground font-data shrink-0">
                     {new Date(entry.created_at).toLocaleString()}
                   </span>
                   {hasDetails &&
                     (isExpanded ? (
-                      <ChevronDown className="h-3.5 w-3.5 text-muted shrink-0" />
+                      <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                     ) : (
-                      <ChevronRight className="h-3.5 w-3.5 text-muted shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     ))}
                 </button>
                 {isExpanded && hasDetails && (
                   <div className="px-4 pb-4 border-t border-border/50">
                     <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 mt-3">
                       {details.map((d) => (
-                        <>
-                          <span key={`${d.key}-label`} className="text-sm text-muted">
-                            {d.label}
-                          </span>
-                          <span
-                            key={`${d.key}-value`}
-                            className="text-sm font-data text-foreground font-medium"
-                          >
+                        <Fragment key={d.key}>
+                          <span className="text-xs text-muted-foreground">{d.label}</span>
+                          <span className="text-xs font-data text-foreground font-medium">
                             {d.value}
                           </span>
-                        </>
+                        </Fragment>
                       ))}
                     </div>
                     {entry.ip_address && (
                       <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border/30">
-                        <span className="text-sm text-muted">{t('audit.ipAddress')}</span>
-                        <span className="text-sm font-data text-foreground">
+                        <span className="text-xs text-muted-foreground">
+                          {t('audit.ipAddress')}
+                        </span>
+                        <span className="text-xs font-data text-foreground">
                           {entry.ip_address}
                         </span>
                       </div>
@@ -384,24 +396,8 @@ export default function AuditLog() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <button
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page <= 1}
-            className="px-3 py-1 rounded text-sm border border-border disabled:opacity-50 hover:border-gold/50"
-          >
-            &laquo;
-          </button>
-          <span className="text-sm text-muted font-data">
-            {page} / {totalPages}
-          </span>
-          <button
-            onClick={() => setPage(Math.min(totalPages, page + 1))}
-            disabled={page >= totalPages}
-            className="px-3 py-1 rounded text-sm border border-border disabled:opacity-50 hover:border-gold/50"
-          >
-            &raquo;
-          </button>
+        <div className="flex items-center justify-center pt-4">
+          <Pagination total={totalPages} page={page} onChange={setPage} size="sm" variant="flat" />
         </div>
       )}
     </div>

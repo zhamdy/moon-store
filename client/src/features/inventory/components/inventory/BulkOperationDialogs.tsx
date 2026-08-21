@@ -1,31 +1,15 @@
-import { Button } from '../../../../shared/ui/button';
-import { Input } from '../../../../shared/ui/input';
-import { Label } from '../../../../shared/ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '../../../../shared/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../../shared/ui/alert-dialog';
-import {
+  Button,
+  Input,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
   Select,
-  SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../../shared/ui/select';
+} from '@heroui/react';
+import ConfirmDialog from '../../../../shared/components/ConfirmDialog';
 import { useTranslation } from '../../../../shared/i18n/index';
 import type { Category, Distributor } from '../../../../shared/types/index';
 
@@ -105,159 +89,255 @@ export default function BulkOperationDialogs({
   return (
     <>
       {/* Bulk Discontinue Confirmation */}
-      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('inventory.discontinueProduct')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('bulk.discontinueConfirm', { count: String(selectedCount) })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => onBulkDelete(selectedIds)}
-              className="bg-destructive text-foreground hover:bg-destructive/90"
-            >
-              {t('common.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        title={t('inventory.discontinueProduct')}
+        description={t('bulk.discontinueConfirm', { count: String(selectedCount) })}
+        confirmText={t('common.confirm')}
+        confirmColor="danger"
+        onConfirm={() => onBulkDelete(selectedIds)}
+      />
 
       {/* Bulk Change Category */}
-      <Dialog open={bulkCategoryOpen} onOpenChange={setBulkCategoryOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('bulk.changeCategoryTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('bulk.changeCategoryDesc', { count: String(selectedCount) })}
-            </DialogDescription>
-          </DialogHeader>
-          <Select value={bulkCategory} onValueChange={setBulkCategory}>
-            <SelectTrigger>
-              <SelectValue placeholder={t('inventory.selectCategory')} />
-            </SelectTrigger>
-            <SelectContent>
-              {categories?.map((cat) => (
-                <SelectItem key={cat.id} value={String(cat.id)}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button
-              disabled={!bulkCategory || bulkUpdatePending}
-              onClick={() => onBulkCategoryUpdate(selectedIds, Number(bulkCategory))}
-            >
-              {t('common.update')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        isOpen={bulkCategoryOpen}
+        onOpenChange={setBulkCategoryOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <div>
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('bulk.changeCategoryTitle')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('bulk.changeCategoryDesc', { count: String(selectedCount) })}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4">
+                <Select
+                  label={t('inventory.categoryCol')}
+                  size="sm"
+                  variant="bordered"
+                  placeholder={t('inventory.selectCategory')}
+                  selectedKeys={bulkCategory ? [bulkCategory] : []}
+                  onChange={(e) => setBulkCategory(e.target.value)}
+                >
+                  {categories?.map((cat) => (
+                    <SelectItem key={String(cat.id)} textValue={cat.name}>
+                      {cat.name}
+                    </SelectItem>
+                  )) || []}
+                </Select>
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={() => setBulkCategoryOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  color="primary"
+                  size="sm"
+                  disabled={!bulkCategory}
+                  isLoading={bulkUpdatePending}
+                  onClick={() => onBulkCategoryUpdate(selectedIds, Number(bulkCategory))}
+                >
+                  {t('common.update')}
+                </Button>
+              </ModalFooter>
+            </div>
+          )}
+        </ModalContent>
+      </Modal>
 
       {/* Bulk Change Distributor */}
-      <Dialog open={bulkDistributorOpen} onOpenChange={setBulkDistributorOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('bulk.changeDistributorTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('bulk.changeDistributorDesc', { count: String(selectedCount) })}
-            </DialogDescription>
-          </DialogHeader>
-          <Select value={bulkDistributor} onValueChange={setBulkDistributor}>
-            <SelectTrigger>
-              <SelectValue placeholder={t('inventory.selectDistributor')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="null">{t('inventory.noDistributor')}</SelectItem>
-              {distributors?.map((d) => (
-                <SelectItem key={d.id} value={String(d.id)}>
-                  {d.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button
-              disabled={!bulkDistributor || bulkUpdatePending}
-              onClick={() =>
-                onBulkDistributorUpdate(
-                  selectedIds,
-                  bulkDistributor === 'null' ? null : Number(bulkDistributor)
-                )
-              }
-            >
-              {t('common.update')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        isOpen={bulkDistributorOpen}
+        onOpenChange={setBulkDistributorOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <div>
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('bulk.changeDistributorTitle')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('bulk.changeDistributorDesc', { count: String(selectedCount) })}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4">
+                <Select
+                  label={t('inventory.distributor')}
+                  size="sm"
+                  variant="bordered"
+                  placeholder={t('inventory.selectDistributor')}
+                  selectedKeys={bulkDistributor ? [bulkDistributor] : []}
+                  onChange={(e) => setBulkDistributor(e.target.value)}
+                >
+                  <SelectItem key="null" textValue={t('inventory.noDistributor')}>
+                    {t('inventory.noDistributor')}
+                  </SelectItem>
+                  {distributors?.map((d) => (
+                    <SelectItem key={String(d.id)} textValue={d.name}>
+                      {d.name}
+                    </SelectItem>
+                  )) || []}
+                </Select>
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={() => setBulkDistributorOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  color="primary"
+                  size="sm"
+                  disabled={!bulkDistributor}
+                  isLoading={bulkUpdatePending}
+                  onClick={() =>
+                    onBulkDistributorUpdate(
+                      selectedIds,
+                      bulkDistributor === 'null' ? null : Number(bulkDistributor)
+                    )
+                  }
+                >
+                  {t('common.update')}
+                </Button>
+              </ModalFooter>
+            </div>
+          )}
+        </ModalContent>
+      </Modal>
 
       {/* Bulk Price Adjust */}
-      <Dialog open={bulkPriceOpen} onOpenChange={setBulkPriceOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('bulk.adjustPriceTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('bulk.adjustPriceDesc', { count: String(selectedCount) })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label>{t('bulk.pricePercent')}</Label>
-            <Input
-              type="number"
-              step="0.1"
-              value={bulkPricePercent}
-              onChange={(e) => setBulkPricePercent(e.target.value)}
-              placeholder="+10 or -15"
-            />
-            <p className="text-xs text-muted">{t('bulk.pricePercentHint')}</p>
-          </div>
-          <DialogFooter>
-            <Button
-              disabled={!bulkPricePercent || bulkUpdatePending}
-              onClick={() => onBulkPriceUpdate(selectedIds, Number(bulkPricePercent))}
-            >
-              {t('common.update')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        isOpen={bulkPriceOpen}
+        onOpenChange={setBulkPriceOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <div>
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('bulk.adjustPriceTitle')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('bulk.adjustPriceDesc', { count: String(selectedCount) })}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4 space-y-1">
+                <Input
+                  type="number"
+                  step="0.1"
+                  label={t('bulk.pricePercent')}
+                  size="sm"
+                  variant="bordered"
+                  value={bulkPricePercent}
+                  onValueChange={setBulkPricePercent}
+                  placeholder="+10 or -15"
+                />
+                <p className="text-xs text-muted-foreground">{t('bulk.pricePercentHint')}</p>
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={() => setBulkPriceOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  color="primary"
+                  size="sm"
+                  disabled={!bulkPricePercent}
+                  isLoading={bulkUpdatePending}
+                  onClick={() => onBulkPriceUpdate(selectedIds, Number(bulkPricePercent))}
+                >
+                  {t('common.update')}
+                </Button>
+              </ModalFooter>
+            </div>
+          )}
+        </ModalContent>
+      </Modal>
 
       {/* Bulk Change Status */}
-      <Dialog open={bulkStatusOpen} onOpenChange={setBulkStatusOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('bulk.changeStatusTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('bulk.changeStatusDesc', { count: String(selectedCount) })}
-            </DialogDescription>
-          </DialogHeader>
-          <Select value={bulkStatusValue} onValueChange={setBulkStatusValue}>
-            <SelectTrigger>
-              <SelectValue placeholder={t('inventory.status')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">{t('inventory.active')}</SelectItem>
-              <SelectItem value="inactive">{t('inventory.inactive')}</SelectItem>
-              <SelectItem value="discontinued">{t('inventory.discontinued')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button
-              disabled={!bulkStatusValue || bulkUpdatePending}
-              onClick={() => {
-                onBulkStatusUpdate(selectedIds, bulkStatusValue);
-                setBulkStatusOpen(false);
-              }}
-            >
-              {t('common.update')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        isOpen={bulkStatusOpen}
+        onOpenChange={setBulkStatusOpen}
+        backdrop="blur"
+        placement="center"
+        size="md"
+        classNames={{
+          base: 'bg-card text-card-foreground border border-border shadow-xl',
+        }}
+      >
+        <ModalContent>
+          {() => (
+            <div>
+              <ModalHeader className="border-b border-border/50">
+                <div>
+                  <h3 className="text-base font-semibold">{t('bulk.changeStatusTitle')}</h3>
+                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                    {t('bulk.changeStatusDesc', { count: String(selectedCount) })}
+                  </p>
+                </div>
+              </ModalHeader>
+              <ModalBody className="py-4">
+                <Select
+                  label={t('inventory.status')}
+                  size="sm"
+                  variant="bordered"
+                  placeholder={t('inventory.status')}
+                  selectedKeys={bulkStatusValue ? [bulkStatusValue] : []}
+                  onChange={(e) => setBulkStatusValue(e.target.value)}
+                >
+                  <SelectItem key="active" textValue={t('inventory.active')}>
+                    {t('inventory.active')}
+                  </SelectItem>
+                  <SelectItem key="inactive" textValue={t('inventory.inactive')}>
+                    {t('inventory.inactive')}
+                  </SelectItem>
+                  <SelectItem key="discontinued" textValue={t('inventory.discontinued')}>
+                    {t('inventory.discontinued')}
+                  </SelectItem>
+                </Select>
+              </ModalBody>
+              <ModalFooter className="border-t border-border/50">
+                <Button variant="flat" size="sm" onClick={() => setBulkStatusOpen(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  color="primary"
+                  size="sm"
+                  disabled={!bulkStatusValue}
+                  isLoading={bulkUpdatePending}
+                  onClick={() => {
+                    onBulkStatusUpdate(selectedIds, bulkStatusValue);
+                    setBulkStatusOpen(false);
+                  }}
+                >
+                  {t('common.update')}
+                </Button>
+              </ModalFooter>
+            </div>
+          )}
+        </ModalContent>
+      </Modal>
     </>
   );
 }

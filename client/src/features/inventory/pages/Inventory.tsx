@@ -18,34 +18,20 @@ import {
   MoreHorizontal,
   Pencil,
 } from 'lucide-react';
-import { Button } from '../../../shared/ui/button';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
 import {
+  Button,
+  Dropdown,
+  DropdownTrigger,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../../../shared/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../shared/ui/alert-dialog';
-import {
+  DropdownItem,
+  DropdownSection,
   Select,
-  SelectContent,
   SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../shared/ui/select';
-import { Checkbox } from '../../../shared/ui/checkbox';
+  Checkbox,
+} from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import ConfirmDialog from '../../../shared/components/ConfirmDialog';
+import PageHeader from '../../../shared/components/PageHeader';
 import DataTable from '../../../shared/components/DataTable';
 import AdjustStockDialog from '../components/AdjustStockDialog';
 import ProductFormDialog from '../components/inventory/ProductFormDialog';
@@ -259,8 +245,6 @@ export default function Inventory() {
     });
   };
 
-  // Handlers. Only the multipart upload needs a transport and query client of
-  // its own; every other write on this page refreshes the products reads itself.
   const queryClient = useQueryClient();
   const transport = useTransport();
 
@@ -362,14 +346,19 @@ export default function Inventory() {
             id: 'select',
             header: ({ table }: { table: import('@tanstack/react-table').Table<Product> }) => (
               <Checkbox
-                checked={table.getIsAllPageRowsSelected()}
-                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                isSelected={table.getIsAllPageRowsSelected()}
+                isIndeterminate={table.getIsSomePageRowsSelected()}
+                onValueChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                size="sm"
+                aria-label="Select all"
               />
             ),
             cell: ({ row }: { row: import('@tanstack/react-table').Row<Product> }) => (
               <Checkbox
-                checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(!!value)}
+                isSelected={row.getIsSelected()}
+                onValueChange={(value) => row.toggleSelected(!!value)}
+                size="sm"
+                aria-label="Select row"
               />
             ),
             enableSorting: false,
@@ -385,21 +374,21 @@ export default function Inventory() {
             <img
               src={`${assetBase}${row.original.image_url}`}
               alt={row.original.name}
-              className="h-8 w-8 rounded object-cover shrink-0"
+              className="h-8 w-8 rounded-lg object-cover shrink-0 border border-border"
               loading="lazy"
             />
           ) : (
-            <div className="h-8 w-8 rounded bg-muted/30 flex items-center justify-center shrink-0">
-              <Package className="h-4 w-4 text-muted" />
+            <div className="h-8 w-8 rounded-lg bg-muted/30 flex items-center justify-center shrink-0 border border-border">
+              <Package className="h-4 w-4 text-muted-foreground" />
             </div>
           )}
-          <span>{row.original.name}</span>
+          <span className="font-medium text-foreground">{row.original.name}</span>
           {row.original.stock === 0 ? (
-            <Badge variant="destructive" className="text-[10px]">
+            <Badge size="sm" variant="danger">
               {t('inventory.critical')}
             </Badge>
           ) : row.original.stock <= row.original.min_stock ? (
-            <Badge variant="warning" className="text-[10px]">
+            <Badge size="sm" variant="warning">
               {t('inventory.lowStock')}
             </Badge>
           ) : null}
@@ -411,7 +400,7 @@ export default function Inventory() {
       accessorKey: 'price',
       header: t('inventory.price'),
       cell: ({ getValue }) => (
-        <span className="font-data">{formatCurrency(Number(getValue()))}</span>
+        <span className="font-data text-foreground">{formatCurrency(Number(getValue()))}</span>
       ),
     },
     {
@@ -420,10 +409,9 @@ export default function Inventory() {
       cell: ({ row }) => {
         const price = Number(row.original.price);
         const cost = row.original.cost_price || 0;
-        if (price <= 0 || cost <= 0) return <span className="text-muted">-</span>;
+        if (price <= 0 || cost <= 0) return <span className="text-muted-foreground">-</span>;
         const margin = ((price - cost) / price) * 100;
-        const color =
-          margin >= 50 ? 'text-emerald-500' : margin >= 20 ? 'text-amber-400' : 'text-destructive';
+        const color = margin >= 50 ? 'text-success' : margin >= 20 ? 'text-warning' : 'text-danger';
         return <span className={`font-data font-semibold ${color}`}>{margin.toFixed(0)}%</span>;
       },
     },
@@ -434,10 +422,10 @@ export default function Inventory() {
         <span
           className={`font-data font-semibold ${
             row.original.stock === 0
-              ? 'text-destructive'
+              ? 'text-danger'
               : row.original.stock <= row.original.min_stock
-                ? 'text-amber-400'
-                : ''
+                ? 'text-warning'
+                : 'text-foreground'
           }`}
         >
           {row.original.stock}
@@ -450,7 +438,7 @@ export default function Inventory() {
             accessorKey: 'min_stock' as const,
             header: t('inventory.minStock'),
             cell: ({ getValue }: { getValue: () => unknown }) => (
-              <span className="font-data text-muted">{getValue() as number}</span>
+              <span className="font-data text-muted-foreground">{getValue() as number}</span>
             ),
           } as ColumnDef<Product>,
           {
@@ -462,7 +450,7 @@ export default function Inventory() {
               const deficit = getValue() as number;
               return (
                 <span
-                  className={`font-data font-semibold ${deficit > 0 ? 'text-destructive' : 'text-amber-400'}`}
+                  className={`font-data font-semibold ${deficit > 0 ? 'text-danger' : 'text-warning'}`}
                 >
                   {deficit > 0 ? `−${deficit}` : `${deficit}`}
                 </span>
@@ -475,7 +463,7 @@ export default function Inventory() {
       accessorKey: 'category',
       header: t('inventory.categoryCol'),
       cell: ({ row }) => (
-        <Badge variant="secondary">
+        <Badge size="sm" variant="default">
           {row.original.category_name || row.original.category || t('inventory.na')}
         </Badge>
       ),
@@ -485,7 +473,7 @@ export default function Inventory() {
       header: t('inventory.status'),
       cell: ({ row }) => {
         const s = row.original.status || 'active';
-        const variant = s === 'active' ? 'success' : s === 'inactive' ? 'warning' : 'secondary';
+        const variant = s === 'active' ? 'success' : s === 'inactive' ? 'warning' : 'default';
         const label =
           s === 'active'
             ? t('inventory.active')
@@ -493,7 +481,7 @@ export default function Inventory() {
               ? t('inventory.inactive')
               : t('inventory.discontinued');
         return (
-          <Badge variant={variant} className="text-[10px]">
+          <Badge size="sm" variant={variant}>
             {label}
           </Badge>
         );
@@ -504,14 +492,15 @@ export default function Inventory() {
       header: t('variants.title'),
       cell: ({ row }) => {
         const p = row.original;
-        if (!p.has_variants || p.variant_count === 0) return <span className="text-muted">-</span>;
+        if (!p.has_variants || p.variant_count === 0)
+          return <span className="text-muted-foreground">-</span>;
         return (
           <div className="flex items-center gap-1">
-            <Badge variant="gold" className="text-[10px] gap-0.5">
-              <Layers className="h-2.5 w-2.5" />
+            <Badge size="sm" variant="primary">
+              <Layers className="h-2.5 w-2.5 inline-block me-0.5" />
               {p.variant_count}
             </Badge>
-            <span className="text-xs text-muted font-data">({p.variant_stock})</span>
+            <span className="text-xs text-muted-foreground font-data">({p.variant_stock})</span>
           </div>
         );
       },
@@ -520,7 +509,7 @@ export default function Inventory() {
       accessorKey: 'distributor_name',
       header: t('inventory.distributor'),
       cell: ({ getValue }) => (
-        <span className="text-muted text-sm">{(getValue() as string) || '-'}</span>
+        <span className="text-muted-foreground text-sm">{(getValue() as string) || '-'}</span>
       ),
     },
     ...(isAdmin
@@ -532,58 +521,72 @@ export default function Inventory() {
             cell: ({ row }: { row: { original: Product } }) => {
               const isDiscontinued = row.original.status === 'discontinued';
               return (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Dropdown placement="bottom-end">
+                  <DropdownTrigger>
+                    <Button
+                      isIconOnly
+                      variant="light"
+                      size="sm"
+                      className="h-8 w-8 text-muted-foreground"
+                    >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      disabled={isDiscontinued}
-                      onClick={() => vm.openVariantsDialog(row.original)}
-                    >
-                      <Layers className="h-4 w-4 me-2 text-purple-400" />
-                      {t('variants.manageVariants')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={isDiscontinued}
-                      onClick={() => {
-                        setAdjustProduct({
-                          id: row.original.id,
-                          name: row.original.name,
-                          stock: row.original.stock,
-                        });
-                        setAdjustStockOpen(true);
-                      }}
-                    >
-                      <PackageMinus className="h-4 w-4 me-2 text-blue-400" />
-                      {t('inventory.adjustStock')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={isDiscontinued}
-                      onClick={() => openEditDialog(row.original)}
-                    >
-                      <Pencil className="h-4 w-4 me-2 text-gold" />
-                      {t('common.edit')}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    {isDiscontinued ? (
-                      <DropdownMenuItem onClick={() => setReactivateId(row.original.id)}>
-                        <RotateCcw className="h-4 w-4 me-2 text-emerald-400" />
-                        {t('inventory.reactivateProduct')}
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => setDiscontinueId(row.original.id)}
+                  </DropdownTrigger>
+                  <DropdownMenu aria-label="Product actions">
+                    <DropdownSection showDivider>
+                      <DropdownItem
+                        key="variants"
+                        isDisabled={isDiscontinued}
+                        startContent={<Layers className="h-4 w-4 text-purple-400" />}
+                        onPress={() => vm.openVariantsDialog(row.original)}
                       >
-                        <Archive className="h-4 w-4 me-2" />
+                        {t('variants.manageVariants')}
+                      </DropdownItem>
+                      <DropdownItem
+                        key="adjust"
+                        isDisabled={isDiscontinued}
+                        startContent={<PackageMinus className="h-4 w-4 text-blue-400" />}
+                        onPress={() => {
+                          setAdjustProduct({
+                            id: row.original.id,
+                            name: row.original.name,
+                            stock: row.original.stock,
+                          });
+                          setAdjustStockOpen(true);
+                        }}
+                      >
+                        {t('inventory.adjustStock')}
+                      </DropdownItem>
+                      <DropdownItem
+                        key="edit"
+                        isDisabled={isDiscontinued}
+                        startContent={<Pencil className="h-4 w-4 text-primary" />}
+                        onPress={() => openEditDialog(row.original)}
+                      >
+                        {t('common.edit')}
+                      </DropdownItem>
+                    </DropdownSection>
+                    {isDiscontinued ? (
+                      <DropdownItem
+                        key="reactivate"
+                        startContent={<RotateCcw className="h-4 w-4 text-success" />}
+                        onPress={() => setReactivateId(row.original.id)}
+                      >
+                        {t('inventory.reactivateProduct')}
+                      </DropdownItem>
+                    ) : (
+                      <DropdownItem
+                        key="discontinue"
+                        className="text-danger"
+                        color="danger"
+                        startContent={<Archive className="h-4 w-4" />}
+                        onPress={() => setDiscontinueId(row.original.id)}
+                      >
                         {t('inventory.discontinueProduct')}
-                      </DropdownMenuItem>
+                      </DropdownItem>
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </DropdownMenu>
+                </Dropdown>
               );
             },
           } as ColumnDef<Product>,
@@ -593,13 +596,7 @@ export default function Inventory() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">
-            {t('inventory.title')}
-          </h1>
-          <div className="gold-divider mt-2" />
-        </div>
+      <PageHeader title={t('inventory.title')}>
         {isAdmin && (
           <div className="flex gap-2">
             <input
@@ -610,123 +607,143 @@ export default function Inventory() {
               className="hidden"
             />
             <Button
-              variant="outline"
-              className="gap-2"
+              variant="bordered"
+              size="sm"
+              startContent={<Upload className="h-4 w-4" />}
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="h-4 w-4 text-gold" />
               {t('inventory.importCsv')}
             </Button>
-            <Button className="gap-2" onClick={openCreateDialog}>
-              <Plus className="h-4 w-4" />
+            <Button
+              color="primary"
+              size="sm"
+              startContent={<Plus className="h-4 w-4" />}
+              onClick={openCreateDialog}
+            >
               {t('inventory.addProduct')}
             </Button>
           </div>
         )}
-      </div>
+      </PageHeader>
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         {!lowStockFilter && (
           <>
-            <Label className="text-muted text-xs uppercase tracking-widest">
-              {t('inventory.category')}
-            </Label>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder={t('inventory.allCategories')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('inventory.allCategories')}</SelectItem>
-                {categories?.map((cat) => (
-                  <SelectItem key={cat.id} value={String(cat.id)}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+            <Select
+              size="sm"
+              variant="bordered"
+              className="w-48"
+              selectedKeys={[categoryFilter]}
+              onChange={(e) => setCategoryFilter(e.target.value || 'all')}
+              aria-label={t('inventory.category')}
+            >
+              <SelectItem key="all" textValue={t('inventory.allCategories')}>
+                {t('inventory.allCategories')}
+              </SelectItem>
+              {categories?.map((cat) => (
+                <SelectItem key={String(cat.id)} textValue={cat.name}>
+                  {cat.name}
+                </SelectItem>
+              )) || []}
             </Select>
-            <Label className="text-muted text-xs uppercase tracking-widest ms-2">
-              {t('inventory.statusFilter')}
-            </Label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder={t('inventory.allStatuses')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('inventory.allStatuses')}</SelectItem>
-                <SelectItem value="active">{t('inventory.active')}</SelectItem>
-                <SelectItem value="inactive">{t('inventory.inactive')}</SelectItem>
-                <SelectItem value="discontinued">{t('inventory.discontinued')}</SelectItem>
-              </SelectContent>
+
+            <Select
+              size="sm"
+              variant="bordered"
+              className="w-44"
+              selectedKeys={[statusFilter]}
+              onChange={(e) => setStatusFilter(e.target.value || 'all')}
+              aria-label={t('inventory.statusFilter')}
+            >
+              <SelectItem key="all" textValue={t('inventory.allStatuses')}>
+                {t('inventory.allStatuses')}
+              </SelectItem>
+              <SelectItem key="active" textValue={t('inventory.active')}>
+                {t('inventory.active')}
+              </SelectItem>
+              <SelectItem key="inactive" textValue={t('inventory.inactive')}>
+                {t('inventory.inactive')}
+              </SelectItem>
+              <SelectItem key="discontinued" textValue={t('inventory.discontinued')}>
+                {t('inventory.discontinued')}
+              </SelectItem>
             </Select>
           </>
         )}
         {isAdmin && (
-          <button
+          <Button
+            size="sm"
+            variant={lowStockFilter ? 'solid' : 'bordered'}
+            color={lowStockFilter ? 'warning' : 'default'}
+            startContent={<AlertTriangle className="h-3.5 w-3.5" />}
             onClick={() => toggleLowStock(!lowStockFilter)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              lowStockFilter
-                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                : 'bg-surface text-muted border border-border hover:border-amber-500/40 hover:text-amber-400'
-            }`}
           >
-            <AlertTriangle className="h-3 w-3" />
             {t('inventory.lowStockFilter')}
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Low-stock info banner */}
       {lowStockFilter && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-md border border-amber-500/30 bg-amber-500/5">
-          <div className="flex items-center gap-2 text-sm text-amber-400">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-warning/30 bg-warning/5">
+          <div className="flex items-center gap-2 text-sm text-warning font-medium">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>{t('inventory.showingLowStock')}</span>
           </div>
-          <button
+          <Button
+            size="sm"
+            variant="light"
+            endContent={<X className="h-3.5 w-3.5" />}
             onClick={() => toggleLowStock(false)}
-            className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
           >
             {t('inventory.viewAll')}
-            <X className="h-3 w-3" />
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Bulk action toolbar */}
       {isAdmin && selectedCount > 0 && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-md border border-gold/30 bg-gold/5">
-          <span className="text-sm font-medium text-gold">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 flex-wrap">
+          <span className="text-sm font-semibold text-primary">
             {t('bulk.selected', { count: String(selectedCount) })}
           </span>
-          <div className="flex items-center gap-2 ms-auto">
-            <Button variant="outline" size="sm" onClick={() => setBulkCategoryOpen(true)}>
+          <div className="flex items-center gap-2 ms-auto flex-wrap">
+            <Button variant="bordered" size="sm" onClick={() => setBulkCategoryOpen(true)}>
               {t('bulk.changeCategory')}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setBulkDistributorOpen(true)}>
+            <Button variant="bordered" size="sm" onClick={() => setBulkDistributorOpen(true)}>
               {t('bulk.changeDistributor')}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setBulkPriceOpen(true)}>
-              <Percent className="h-3.5 w-3.5 me-1" />
+            <Button
+              variant="bordered"
+              size="sm"
+              startContent={<Percent className="h-3.5 w-3.5" />}
+              onClick={() => setBulkPriceOpen(true)}
+            >
               {t('bulk.adjustPrice')}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setBulkStatusOpen(true)}>
+            <Button variant="bordered" size="sm" onClick={() => setBulkStatusOpen(true)}>
               {t('bulk.changeStatus')}
             </Button>
-            <Button variant="outline" size="sm" onClick={handleBulkExport}>
-              <Download className="h-3.5 w-3.5 me-1" />
+            <Button
+              variant="bordered"
+              size="sm"
+              startContent={<Download className="h-3.5 w-3.5" />}
+              onClick={handleBulkExport}
+            >
               {t('bulk.export')}
             </Button>
             <Button
-              variant="outline"
+              variant="flat"
+              color="danger"
               size="sm"
-              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              startContent={<Archive className="h-3.5 w-3.5" />}
               onClick={() => setBulkDeleteOpen(true)}
             >
-              <Archive className="h-3.5 w-3.5 me-1" />
               {t('bulk.discontinueSelected')}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setRowSelection({})}>
+            <Button variant="light" size="sm" onClick={() => setRowSelection({})}>
               {t('bulk.clearSelection')}
             </Button>
           </div>
@@ -759,43 +776,36 @@ export default function Inventory() {
       />
 
       {/* Discontinue confirmation */}
-      <AlertDialog open={!!discontinueId} onOpenChange={() => setDiscontinueId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('inventory.discontinueProduct')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('inventory.discontinueConfirm')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => discontinueId && discontinuer.remove(discontinueId)}
-              className="bg-destructive text-foreground hover:bg-destructive/90"
-            >
-              {t('common.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!discontinueId}
+        onOpenChange={(open) => {
+          if (!open) setDiscontinueId(null);
+        }}
+        title={t('inventory.discontinueProduct')}
+        description={t('inventory.discontinueConfirm')}
+        confirmText={t('common.confirm')}
+        confirmColor="danger"
+        isLoading={discontinuer.isRemoving}
+        onConfirm={() => {
+          if (discontinueId) discontinuer.remove(discontinueId);
+        }}
+      />
 
       {/* Reactivate confirmation */}
-      <AlertDialog open={!!reactivateId} onOpenChange={() => setReactivateId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('inventory.reactivateProduct')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('inventory.reactivateConfirm')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() =>
-                reactivateId && statusChanger.run({ id: reactivateId, body: { status: 'active' } })
-              }
-            >
-              {t('common.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!reactivateId}
+        onOpenChange={(open) => {
+          if (!open) setReactivateId(null);
+        }}
+        title={t('inventory.reactivateProduct')}
+        description={t('inventory.reactivateConfirm')}
+        confirmText={t('common.confirm')}
+        confirmColor="primary"
+        isLoading={statusChanger.isRunning}
+        onConfirm={() => {
+          if (reactivateId) statusChanger.run({ id: reactivateId, body: { status: 'active' } });
+        }}
+      />
 
       {/* Adjust Stock Dialog */}
       <AdjustStockDialog

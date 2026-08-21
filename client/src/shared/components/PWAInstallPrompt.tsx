@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Download, X } from 'lucide-react';
-import { Button } from '../ui/button';
+import { Button } from '@heroui/react';
 import { useTranslation } from '../i18n/index';
 
 interface BeforeInstallPromptEvent extends Event {

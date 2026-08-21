@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { Button } from '../../../../shared/ui/button';
-import { Input } from '../../../../shared/ui/input';
-import { Label } from '../../../../shared/ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../../shared/ui/dialog';
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Input,
+} from '@heroui/react';
 import { useTranslation } from '../../../../shared/i18n/index';
 
 interface CashMovementDialogProps {
@@ -39,46 +38,67 @@ export default function CashMovementDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {movementType === 'cash_in' ? t('register.cashIn') : t('register.cashOut')}
-          </DialogTitle>
-          <DialogDescription>{t('register.notePlaceholder')}</DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit(movementType, Number(amount) || 0, note || undefined);
-          }}
-          className="space-y-4"
-        >
-          <div className="space-y-1">
-            <Label>{t('register.amount')}</Label>
-            <Input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              autoFocus
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>{t('register.note')}</Label>
-            <Input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t('register.notePlaceholder')}
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? t('common.loading') : t('common.confirm')}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <Modal
+      isOpen={open}
+      onOpenChange={handleOpenChange}
+      backdrop="blur"
+      placement="center"
+      size="md"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl',
+      }}
+    >
+      <ModalContent>
+        {() => (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSubmit(movementType, Number(amount) || 0, note || undefined);
+            }}
+          >
+            <ModalHeader className="border-b border-border/50">
+              <div>
+                <h3 className="text-base font-semibold">
+                  {movementType === 'cash_in' ? t('register.cashIn') : t('register.cashOut')}
+                </h3>
+                <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                  {t('register.notePlaceholder')}
+                </p>
+              </div>
+            </ModalHeader>
+            <ModalBody className="py-4 space-y-4">
+              <Input
+                type="number"
+                label={t('register.amount')}
+                size="sm"
+                variant="bordered"
+                min="0.01"
+                step="0.01"
+                value={amount}
+                onValueChange={setAmount}
+                autoFocus
+                isRequired
+              />
+              <Input
+                label={t('register.note')}
+                size="sm"
+                variant="bordered"
+                value={note}
+                onValueChange={setNote}
+                placeholder={t('register.notePlaceholder')}
+              />
+            </ModalBody>
+            <ModalFooter className="border-t border-border/50">
+              <Button variant="flat" size="sm" onClick={() => handleOpenChange(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" color="primary" size="sm" isLoading={isSubmitting}>
+                {isSubmitting ? t('common.loading') : t('common.confirm')}
+              </Button>
+            </ModalFooter>
+          </form>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

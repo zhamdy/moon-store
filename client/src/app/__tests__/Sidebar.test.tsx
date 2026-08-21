@@ -74,11 +74,29 @@ describe('Sidebar navigation', () => {
       },
     });
 
-    const logoutBtn = await screen.findByRole('button', { name: /Logout/i });
-    fireEvent.click(logoutBtn);
+    const logoutBtns = await screen.findAllByRole('button', { name: /Logout/i });
+    fireEvent.click(logoutBtns[0]);
 
     await waitFor(() => {
       expect(logoutSpy).toHaveBeenCalled();
     });
+  });
+
+  it('renders mobile drawer when mobileOpen is true', async () => {
+    useAuthStore.setState({
+      user: { id: 1, name: 'Admin User', email: 'admin@moon.com', role: 'Admin' },
+      isAuthenticated: true,
+    });
+
+    renderWithRouter(<Sidebar mobileOpen={true} />, {
+      initialRoute: '/',
+      authState: {
+        isAuthenticated: true,
+        user: { id: 1, name: 'Admin User', email: 'admin@moon.com', role: 'Admin' },
+      },
+    });
+
+    const dashboards = await screen.findAllByText(/Dashboard/i);
+    expect(dashboards.length).toBeGreaterThan(1);
   });
 });

@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, FileSpreadsheet } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '../../../shared/ui/button';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
+import { Button, Select, SelectItem, Card, CardBody } from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { exportToExcel } from '../../../shared/lib/exportUtils';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
@@ -52,8 +52,6 @@ export default function ExportsPage() {
       toast.success(t('exports.downloaded', { count: String(rows.length) }));
       queryClient.invalidateQueries({ queryKey: ['exports'] });
     },
-    // ApiError carries the server's wording, and nothing when the failure was
-    // the transport's own — so the page keeps its own fallback.
     onError: (err: Error) => toast.error(err.message || 'Export failed'),
   });
 
@@ -66,82 +64,79 @@ export default function ExportsPage() {
   };
 
   return (
-    <div className="p-6 animate-fade-in">
-      <div className="mb-6">
-        <h1 className="text-3xl font-display tracking-wider text-foreground">
-          {t('exports.title')}
-        </h1>
-        <div className="gold-divider mt-2" />
-      </div>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <PageHeader title={t('exports.title')} />
 
       {/* Generator */}
-      <div className="p-6 border border-border rounded-md bg-card mb-8 max-w-lg">
-        <h2 className="text-lg font-display tracking-wider mb-4">{t('exports.generate')}</h2>
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <Label>{t('exports.module')}</Label>
-            <select
-              className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-              value={selectedModule}
-              onChange={(e) => setSelectedModule(e.target.value)}
-            >
-              {MODULES.map((m) => (
-                <option key={m} value={m}>
-                  {moduleLabels[m]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button
-            onClick={() => generateMutation.mutate()}
-            disabled={generateMutation.isPending}
-            className="w-full gap-2"
+      <Card className="max-w-lg border border-border bg-card shadow-sm">
+        <CardBody className="p-6 space-y-4">
+          <h2 className="text-base font-semibold text-foreground">{t('exports.generate')}</h2>
+          <Select
+            label={t('exports.module')}
+            size="sm"
+            variant="bordered"
+            selectedKeys={[selectedModule]}
+            onChange={(e) => setSelectedModule(e.target.value || 'products')}
           >
-            <Download className="h-4 w-4" />
+            {MODULES.map((m) => (
+              <SelectItem key={m} textValue={moduleLabels[m]}>
+                {moduleLabels[m]}
+              </SelectItem>
+            ))}
+          </Select>
+          <Button
+            color="primary"
+            onClick={() => generateMutation.mutate()}
+            isLoading={generateMutation.isPending}
+            className="w-full"
+            startContent={!generateMutation.isPending && <Download className="h-4 w-4" />}
+          >
             {generateMutation.isPending ? t('common.loading') : t('exports.download')}
           </Button>
-        </div>
-      </div>
+        </CardBody>
+      </Card>
 
       {/* History */}
-      <h2 className="text-xl font-display tracking-wider mb-4">{t('exports.history')}</h2>
-      {!history?.length ? (
-        <div className="text-center py-16">
-          <FileSpreadsheet className="h-12 w-12 text-gold/40 mx-auto mb-3" />
-          <p className="text-muted">{t('exports.noExports')}</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto border border-border rounded-md">
-          <table className="w-full text-sm">
-            <thead className="bg-surface border-b border-border">
-              <tr>
-                <th className="text-start p-3 font-medium text-muted">{t('exports.module')}</th>
-                <th className="text-start p-3 font-medium text-muted">{t('exports.format')}</th>
-                <th className="text-start p-3 font-medium text-muted">
-                  {t('exports.recordCount')}
-                </th>
-                <th className="text-start p-3 font-medium text-muted">{t('common.user')}</th>
-                <th className="text-start p-3 font-medium text-muted">{t('common.date')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((exp) => (
-                <tr key={exp.id} className="border-b border-border">
-                  <td className="p-3">
-                    <Badge variant="gold">{moduleLabels[exp.module] || exp.module}</Badge>
-                  </td>
-                  <td className="p-3 font-data uppercase">{exp.format}</td>
-                  <td className="p-3 font-data">{exp.record_count}</td>
-                  <td className="p-3">{exp.user_name}</td>
-                  <td className="p-3 font-data text-muted">
-                    {new Date(exp.created_at).toLocaleDateString()}
-                  </td>
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">{t('exports.history')}</h2>
+        {!history?.length ? (
+          <div className="text-center py-16">
+            <FileSpreadsheet className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">{t('exports.noExports')}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="border-b border-border text-muted-foreground">
+                <tr>
+                  <th className="text-start p-3 font-medium">{t('exports.module')}</th>
+                  <th className="text-start p-3 font-medium">{t('exports.format')}</th>
+                  <th className="text-start p-3 font-medium">{t('exports.recordCount')}</th>
+                  <th className="text-start p-3 font-medium">{t('common.user')}</th>
+                  <th className="text-start p-3 font-medium">{t('common.date')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {history.map((exp) => (
+                  <tr key={exp.id} className="border-b border-border/50 hover:bg-muted/30">
+                    <td className="p-3">
+                      <Badge size="sm" variant="secondary">
+                        {moduleLabels[exp.module] || exp.module}
+                      </Badge>
+                    </td>
+                    <td className="p-3 font-data uppercase">{exp.format}</td>
+                    <td className="p-3 font-data">{exp.record_count}</td>
+                    <td className="p-3">{exp.user_name}</td>
+                    <td className="p-3 font-data text-muted-foreground">
+                      {new Date(exp.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

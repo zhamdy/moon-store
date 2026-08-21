@@ -16,11 +16,11 @@ import {
   isAfter,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '../lib/utils';
 
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-interface DateRange {
+export interface DateRange {
   from: Date | null;
   to: Date | null;
 }
@@ -59,7 +59,7 @@ function MonthGrid({ month, selected, onDayClick, showOutsideDays }: MonthGridPr
         {DAYS.map((d) => (
           <div
             key={d}
-            className="h-9 w-9 flex items-center justify-center text-muted text-[0.8rem] font-data"
+            className="h-9 w-9 flex items-center justify-center text-muted-foreground text-[0.8rem] font-data"
           >
             {d}
           </div>
@@ -83,9 +83,9 @@ function MonthGrid({ month, selected, onDayClick, showOutsideDays }: MonthGridPr
                 key={day.toISOString()}
                 className={cn(
                   'relative h-9 w-9 flex items-center justify-center',
-                  inRange && !sel && 'bg-gold/20',
-                  rangeStart && selected?.to && 'rounded-l-md bg-gold/20',
-                  rangeEnd && selected?.from && 'rounded-r-md bg-gold/20'
+                  inRange && !sel && 'bg-primary/10',
+                  rangeStart && selected?.to && 'rounded-l-md bg-primary/10',
+                  rangeEnd && selected?.from && 'rounded-r-md bg-primary/10'
                 )}
               >
                 <button
@@ -93,12 +93,12 @@ function MonthGrid({ month, selected, onDayClick, showOutsideDays }: MonthGridPr
                   onClick={() => onDayClick(day)}
                   className={cn(
                     'h-8 w-8 rounded-md text-sm font-data transition-colors',
-                    'hover:bg-surface hover:text-gold',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold',
-                    outside && 'text-muted opacity-50',
-                    today && !sel && 'bg-surface text-gold',
+                    'hover:bg-muted hover:text-primary',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                    outside && 'text-muted-foreground opacity-50',
+                    today && !sel && 'bg-muted text-primary font-medium',
                     sel &&
-                      'bg-gold text-primary-foreground hover:bg-gold hover:text-primary-foreground',
+                      'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground font-semibold',
                     !sel && !outside && !today && 'text-foreground'
                   )}
                 >
@@ -113,7 +113,7 @@ function MonthGrid({ month, selected, onDayClick, showOutsideDays }: MonthGridPr
   );
 }
 
-interface CalendarProps {
+export interface CalendarProps {
   className?: string;
   mode?: 'range';
   selected?: DateRange;
@@ -122,7 +122,7 @@ interface CalendarProps {
   showOutsideDays?: boolean;
 }
 
-function Calendar({
+export function Calendar({
   className,
   mode = 'range',
   selected,
@@ -155,7 +155,7 @@ function Calendar({
         <button
           type="button"
           onClick={() => setBaseMonth((m) => subMonths(m, 1))}
-          className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border bg-transparent text-gold opacity-60 hover:opacity-100 transition-opacity"
+          className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border bg-transparent text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -163,7 +163,7 @@ function Calendar({
           {months.map((m) => (
             <span
               key={m.toISOString()}
-              className="text-sm font-medium font-display tracking-wider text-foreground"
+              className="text-sm font-medium tracking-wide text-foreground"
             >
               {format(m, 'MMMM yyyy')}
             </span>
@@ -172,7 +172,7 @@ function Calendar({
         <button
           type="button"
           onClick={() => setBaseMonth((m) => addMonths(m, 1))}
-          className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border bg-transparent text-gold opacity-60 hover:opacity-100 transition-opacity"
+          className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-border bg-transparent text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -192,7 +192,4 @@ function Calendar({
   );
 }
 
-Calendar.displayName = 'Calendar';
-
-export { Calendar };
-export type { CalendarProps, DateRange };
+export default Calendar;

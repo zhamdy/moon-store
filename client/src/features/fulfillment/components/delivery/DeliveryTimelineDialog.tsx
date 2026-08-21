@@ -1,11 +1,5 @@
 import { History } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../../../../shared/ui/dialog';
+import { Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
 import StatusBadge from '../../../../shared/components/StatusBadge';
 import { formatDateTime } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
@@ -28,60 +22,77 @@ export default function DeliveryTimelineDialog({
   const { t } = useTranslation();
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
-            {t('deliveries.statusTimeline')} — {orderNumber}
-          </DialogTitle>
-          <DialogDescription>{t('deliveries.statusTimeline')}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-0">
-          {history && history.length > 0 ? (
-            <div className="relative ps-6">
-              <div className="absolute start-[11px] top-2 bottom-2 w-0.5 bg-border" />
-              {history.map((entry, idx) => {
-                const isLast = idx === history.length - 1;
-                const isCancelled = entry.status === 'Cancelled';
-                return (
-                  <div key={entry.id} className="relative pb-6 last:pb-0">
-                    <div
-                      className={`absolute start-[-13px] top-1 h-3 w-3 rounded-full border-2 ${
-                        isCancelled
-                          ? 'border-destructive bg-destructive'
-                          : isLast
-                            ? 'border-gold bg-gold'
-                            : 'border-muted-foreground bg-muted-foreground'
-                      }`}
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={entry.status} />
-                        <span className="text-xs text-muted-foreground font-data">
-                          {formatDateTime(entry.created_at)}
-                        </span>
+    <Modal
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      backdrop="blur"
+      placement="center"
+      size="md"
+      classNames={{
+        base: 'bg-card text-card-foreground border border-border shadow-xl',
+      }}
+    >
+      <ModalContent>
+        {() => (
+          <div>
+            <ModalHeader className="border-b border-border/50">
+              <div>
+                <h3 className="text-base font-semibold flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  {t('deliveries.statusTimeline')} — {orderNumber}
+                </h3>
+                <p className="text-xs text-muted-foreground font-normal mt-0.5">
+                  {t('deliveries.statusTimeline')}
+                </p>
+              </div>
+            </ModalHeader>
+            <ModalBody className="py-5">
+              {history && history.length > 0 ? (
+                <div className="relative ps-6">
+                  <div className="absolute start-[11px] top-2 bottom-2 w-0.5 bg-border" />
+                  {history.map((entry, idx) => {
+                    const isLast = idx === history.length - 1;
+                    const isCancelled = entry.status === 'Cancelled';
+                    return (
+                      <div key={entry.id} className="relative pb-6 last:pb-0">
+                        <div
+                          className={`absolute start-[-13px] top-1 h-3 w-3 rounded-full border-2 ${
+                            isCancelled
+                              ? 'border-danger bg-danger'
+                              : isLast
+                                ? 'border-primary bg-primary'
+                                : 'border-muted-foreground bg-muted-foreground'
+                          }`}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={entry.status} />
+                            <span className="text-xs text-muted-foreground font-data">
+                              {formatDateTime(entry.created_at)}
+                            </span>
+                          </div>
+                          {entry.changed_by_name && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              by {entry.changed_by_name}
+                            </p>
+                          )}
+                          {entry.notes && (
+                            <p className="text-sm mt-1 text-foreground/80">{entry.notes}</p>
+                          )}
+                        </div>
                       </div>
-                      {entry.changed_by_name && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          by {entry.changed_by_name}
-                        </p>
-                      )}
-                      {entry.notes && (
-                        <p className="text-sm mt-1 text-foreground/80">{entry.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              {t('common.noResults')}
-            </p>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  {t('common.noResults')}
+                </p>
+              )}
+            </ModalBody>
+          </div>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

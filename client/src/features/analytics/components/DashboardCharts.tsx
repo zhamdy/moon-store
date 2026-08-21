@@ -8,9 +8,7 @@ import {
   Layers,
   Building2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
-import { Button } from '../../../shared/ui/button';
-import { Skeleton } from '../../../shared/ui/skeleton';
+import { Card, CardHeader, CardBody, Button, Skeleton } from '@heroui/react';
 import EmptyState from '../../../shared/components/EmptyState';
 import RevenueChart from './charts/RevenueChart';
 import TopProductsChart from './charts/TopProductsChart';
@@ -72,23 +70,26 @@ export default function DashboardCharts({
     <>
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">{t('dashboard.dailyRevenue')}</CardTitle>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 px-6 py-4">
+            <h3 className="text-base font-semibold text-foreground">
+              {t('dashboard.dailyRevenue')}
+            </h3>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground"
               onClick={() => onExportCsv('revenue')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
-              <Download className="h-3.5 w-3.5 text-muted" />
+              <Download className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent aria-busy={revenueLoading}>
+          <CardBody className="p-6" aria-busy={revenueLoading}>
             {revenueLoading ? (
-              <Skeleton variant="chart" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : !revenue || revenue.length === 0 ? (
               <EmptyState
                 icon={TrendingUp}
@@ -98,26 +99,27 @@ export default function DashboardCharts({
             ) : (
               <RevenueChart data={revenue} />
             )}
-          </CardContent>
+          </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">{t('dashboard.topSellers')}</CardTitle>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 px-6 py-4">
+            <h3 className="text-base font-semibold text-foreground">{t('dashboard.topSellers')}</h3>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground"
               onClick={() => onExportCsv('top-products')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
-              <Download className="h-3.5 w-3.5 text-muted" />
+              <Download className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent aria-busy={topLoading}>
+          <CardBody className="p-6" aria-busy={topLoading}>
             {topLoading ? (
-              <Skeleton variant="chart" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : !topProducts || topProducts.length === 0 ? (
               <EmptyState
                 icon={BarChart3}
@@ -127,26 +129,29 @@ export default function DashboardCharts({
             ) : (
               <TopProductsChart data={topProducts} />
             )}
-          </CardContent>
+          </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">{t('dashboard.paymentMethods')}</CardTitle>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 px-6 py-4">
+            <h3 className="text-base font-semibold text-foreground">
+              {t('dashboard.paymentMethods')}
+            </h3>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground"
               onClick={() => onExportCsv('payment-methods')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
-              <Download className="h-3.5 w-3.5 text-muted" />
+              <Download className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent aria-busy={paymentLoading}>
+          <CardBody className="p-6" aria-busy={paymentLoading}>
             {paymentLoading ? (
-              <Skeleton variant="chart" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : !paymentMethods || paymentMethods.length === 0 ? (
               <EmptyState
                 icon={CreditCard}
@@ -156,26 +161,29 @@ export default function DashboardCharts({
             ) : (
               <PaymentPieChart data={paymentMethods} />
             )}
-          </CardContent>
+          </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">{t('dashboard.ordersPerDay')}</CardTitle>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 px-6 py-4">
+            <h3 className="text-base font-semibold text-foreground">
+              {t('dashboard.ordersPerDay')}
+            </h3>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground"
               onClick={() => onExportCsv('orders-per-day')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
-              <Download className="h-3.5 w-3.5 text-muted" />
+              <Download className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent aria-busy={ordersLoading}>
+          <CardBody className="p-6" aria-busy={ordersLoading}>
             {ordersLoading ? (
-              <Skeleton variant="chart" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : !ordersPerDay || ordersPerDay.length === 0 ? (
               <EmptyState
                 icon={CalendarDays}
@@ -185,29 +193,32 @@ export default function DashboardCharts({
             ) : (
               <OrdersAreaChart data={ordersPerDay} />
             )}
-          </CardContent>
+          </CardBody>
         </Card>
       </div>
 
       {/* Cashier Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">{t('dashboard.cashierRevenue')}</CardTitle>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 px-6 py-4">
+            <h3 className="text-base font-semibold text-foreground">
+              {t('dashboard.cashierRevenue')}
+            </h3>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground"
               onClick={() => onExportCsv('cashier-performance')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
-              <Download className="h-3.5 w-3.5 text-muted" />
+              <Download className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent aria-busy={cashierLoading}>
+          <CardBody className="p-6" aria-busy={cashierLoading}>
             {cashierLoading ? (
-              <Skeleton variant="chart" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : !cashierPerformance || cashierPerformance.length === 0 ? (
               <EmptyState
                 icon={Users}
@@ -217,31 +228,34 @@ export default function DashboardCharts({
             ) : (
               <CashierPerformanceChart data={cashierPerformance} />
             )}
-          </CardContent>
+          </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">{t('dashboard.cashierStats')}</CardTitle>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 px-6 py-4">
+            <h3 className="text-base font-semibold text-foreground">
+              {t('dashboard.cashierStats')}
+            </h3>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground"
               onClick={() => onExportCsv('cashier-performance')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
-              <Download className="h-3.5 w-3.5 text-muted" />
+              <Download className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent aria-busy={cashierLoading}>
+          <CardBody className="p-6" aria-busy={cashierLoading}>
             {cashierLoading ? (
-              <Skeleton variant="chart" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : (
               <div className="overflow-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-muted">
+                    <tr className="border-b border-border text-muted-foreground">
                       <th className="text-start py-2 font-medium">{t('dashboard.cashierName')}</th>
                       <th className="text-end py-2 font-medium">{t('dashboard.salesCount')}</th>
                       <th className="text-end py-2 font-medium">{t('dashboard.revenue')}</th>
@@ -251,10 +265,13 @@ export default function DashboardCharts({
                   </thead>
                   <tbody>
                     {(cashierPerformance || []).map((c) => (
-                      <tr key={c.cashier_id} className="border-b border-border/50">
+                      <tr
+                        key={c.cashier_id}
+                        className="border-b border-border/50 hover:bg-muted/30"
+                      >
                         <td className="py-2 font-medium">{c.cashier_name}</td>
                         <td className="py-2 text-end font-data">{c.total_sales}</td>
-                        <td className="py-2 text-end font-data text-gold">
+                        <td className="py-2 text-end font-data text-primary font-medium">
                           {formatCurrency(c.total_revenue)}
                         </td>
                         <td className="py-2 text-end font-data">
@@ -267,7 +284,7 @@ export default function DashboardCharts({
                       <tr>
                         <td
                           colSpan={5}
-                          className="py-8 text-center text-muted"
+                          className="py-8 text-center text-muted-foreground"
                           role="status"
                           aria-live="polite"
                         >
@@ -279,29 +296,32 @@ export default function DashboardCharts({
                 </table>
               </div>
             )}
-          </CardContent>
+          </CardBody>
         </Card>
       </div>
 
       {/* Category & Distributor Sales */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">{t('dashboard.salesByCategory')}</CardTitle>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 px-6 py-4">
+            <h3 className="text-base font-semibold text-foreground">
+              {t('dashboard.salesByCategory')}
+            </h3>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground"
               onClick={() => onExportCsv('sales-by-category')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
-              <Download className="h-3.5 w-3.5 text-muted" />
+              <Download className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent aria-busy={categoryLoading}>
+          <CardBody className="p-6" aria-busy={categoryLoading}>
             {categoryLoading ? (
-              <Skeleton variant="chart" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : !categorySales || categorySales.length === 0 ? (
               <EmptyState
                 icon={Layers}
@@ -311,26 +331,29 @@ export default function DashboardCharts({
             ) : (
               <CategorySalesChart data={categorySales} />
             )}
-          </CardContent>
+          </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg">{t('dashboard.salesByDistributor')}</CardTitle>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 px-6 py-4">
+            <h3 className="text-base font-semibold text-foreground">
+              {t('dashboard.salesByDistributor')}
+            </h3>
             <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground"
               onClick={() => onExportCsv('sales-by-distributor')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
-              <Download className="h-3.5 w-3.5 text-muted" />
+              <Download className="h-4 w-4" />
             </Button>
           </CardHeader>
-          <CardContent aria-busy={distributorLoading}>
+          <CardBody className="p-6" aria-busy={distributorLoading}>
             {distributorLoading ? (
-              <Skeleton variant="chart" />
+              <Skeleton className="h-64 w-full rounded-lg" />
             ) : !distributorSales || distributorSales.length === 0 ? (
               <EmptyState
                 icon={Building2}
@@ -340,7 +363,7 @@ export default function DashboardCharts({
             ) : (
               <DistributorSalesChart data={distributorSales} />
             )}
-          </CardContent>
+          </CardBody>
         </Card>
       </div>
     </>

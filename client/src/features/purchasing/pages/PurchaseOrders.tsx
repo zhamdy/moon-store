@@ -1,26 +1,10 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Send, PackageCheck, Trash2, X, Eye, Wand2 } from 'lucide-react';
-import { Button } from '../../../shared/ui/button';
-import { Label } from '../../../shared/ui/label';
-import { Badge } from '../../../shared/ui/badge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../shared/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../shared/ui/select';
+import { Button, Select, SelectItem } from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
+import ConfirmDialog from '../../../shared/components/ConfirmDialog';
 import DataTable from '../../../shared/components/DataTable';
 import POFormDialog from '../components/purchase-orders/POFormDialog';
 import PODetailDialog from '../components/purchase-orders/PODetailDialog';
@@ -39,18 +23,8 @@ import type {
 } from '../types';
 
 const purchaseOrders = resource<PurchaseOrder>('purchase-orders');
-// The same collection, read one record at a time: that response carries the
-// ordered lines the list rows leave out.
 const purchaseOrderDetails = resource<PurchaseOrderDetail>('purchase-orders');
 const distributorsResource = resource<Distributor>('distributors');
-
-const STATUS_COLORS: Record<string, string> = {
-  Draft: 'secondary',
-  Sent: 'gold',
-  'Partially Received': 'warning',
-  Received: 'success',
-  Cancelled: 'destructive',
-};
 
 export default function PurchaseOrders() {
   const { t } = useTranslation();
@@ -84,8 +58,6 @@ export default function PurchaseOrders() {
   const { data: detail } = purchaseOrderDetails.useOne(detailOpen ? detailId : null);
   const { data: distributors } = distributorsResource.useList();
 
-  // Five hundred products are only worth fetching once the form asking for them
-  // is on screen, and `useList` has no way to say that.
   const { data: products } = useApiQuery<Product[]>(
     ['products-all'],
     'products',
@@ -120,8 +92,6 @@ export default function PurchaseOrders() {
     onDone: () => setDeleteId(null),
   });
 
-  // A one-shot read taken on a button press rather than held in the cache: the
-  // suggestions are consumed into form state and never rendered on their own.
   const handleAutoGenerate = async () => {
     try {
       const { data: suggestions } = await transport.request<LowStockSuggestion[]>({
@@ -158,15 +128,45 @@ export default function PurchaseOrders() {
     setCreateOpen(true);
   };
 
-  const statusLabel = (status: string) => {
-    const map: Record<string, string> = {
-      Draft: t('po.draft'),
-      Sent: t('po.sent'),
-      'Partially Received': t('po.partiallyReceived'),
-      Received: t('po.fullyReceived'),
-      Cancelled: t('po.cancelled'),
-    };
-    return map[status] || status;
+  const getStatusChip = (status: string) => {
+    switch (status) {
+      case 'Draft':
+        return (
+          <Badge size="sm" variant="default">
+            {t('po.draft')}
+          </Badge>
+        );
+      case 'Sent':
+        return (
+          <Badge size="sm" variant="primary">
+            {t('po.sent')}
+          </Badge>
+        );
+      case 'Partially Received':
+        return (
+          <Badge size="sm" variant="warning">
+            {t('po.partiallyReceived')}
+          </Badge>
+        );
+      case 'Received':
+        return (
+          <Badge size="sm" variant="success">
+            {t('po.fullyReceived')}
+          </Badge>
+        );
+      case 'Cancelled':
+        return (
+          <Badge size="sm" variant="danger">
+            {t('po.cancelled')}
+          </Badge>
+        );
+      default:
+        return (
+          <Badge size="sm" variant="default">
+            {status}
+          </Badge>
+        );
+    }
   };
 
   const columns: ColumnDef<PurchaseOrder>[] = [
@@ -174,7 +174,7 @@ export default function PurchaseOrders() {
       accessorKey: 'po_number',
       header: t('po.poNumber'),
       cell: ({ getValue }) => (
-        <span className="font-data font-semibold">{getValue() as string}</span>
+        <span className="font-data font-semibold text-foreground">{getValue() as string}</span>
       ),
     },
     {
@@ -184,29 +184,13 @@ export default function PurchaseOrders() {
     {
       accessorKey: 'status',
       header: t('po.status'),
-      cell: ({ getValue }) => {
-        const status = getValue() as string;
-        return (
-          <Badge
-            variant={
-              (STATUS_COLORS[status] || 'secondary') as
-                | 'secondary'
-                | 'gold'
-                | 'warning'
-                | 'success'
-                | 'destructive'
-            }
-          >
-            {statusLabel(status)}
-          </Badge>
-        );
-      },
+      cell: ({ getValue }) => getStatusChip(getValue() as string),
     },
     {
       accessorKey: 'total',
       header: t('po.total'),
       cell: ({ getValue }) => (
-        <span className="font-data font-semibold text-gold">
+        <span className="font-data font-semibold text-primary">
           {formatCurrency(getValue() as number)}
         </span>
       ),
@@ -214,13 +198,15 @@ export default function PurchaseOrders() {
     {
       accessorKey: 'item_count',
       header: t('po.items'),
-      cell: ({ getValue }) => <span className="font-data">{getValue() as number}</span>,
+      cell: ({ getValue }) => (
+        <span className="font-data text-foreground">{getValue() as number}</span>
+      ),
     },
     {
       accessorKey: 'created_at',
       header: t('po.createdAt'),
       cell: ({ getValue }) => (
-        <span className="text-muted text-sm">
+        <span className="text-muted-foreground text-sm">
           {new Date(getValue() as string).toLocaleDateString()}
         </span>
       ),
@@ -234,8 +220,9 @@ export default function PurchaseOrders() {
         return (
           <div className="flex gap-1">
             <Button
-              variant="ghost"
-              size="icon"
+              isIconOnly
+              variant="light"
+              size="sm"
               className="h-8 w-8"
               title={t('po.viewDetails')}
               onClick={() => {
@@ -243,24 +230,28 @@ export default function PurchaseOrders() {
                 setDetailOpen(true);
                 setInitialReceiveMode(false);
               }}
+              aria-label={t('po.viewDetails')}
             >
-              <Eye className="h-3.5 w-3.5 text-gold" />
+              <Eye className="h-3.5 w-3.5 text-primary" />
             </Button>
             {po.status === 'Draft' && (
               <Button
-                variant="ghost"
-                size="icon"
+                isIconOnly
+                variant="light"
+                size="sm"
                 className="h-8 w-8"
                 title={t('po.markSent')}
                 onClick={() => changeStatus.run({ id: po.id, body: { status: 'Sent' } })}
+                aria-label={t('po.markSent')}
               >
-                <Send className="h-3.5 w-3.5 text-blue-400" />
+                <Send className="h-3.5 w-3.5 text-primary" />
               </Button>
             )}
             {(po.status === 'Sent' || po.status === 'Partially Received') && (
               <Button
-                variant="ghost"
-                size="icon"
+                isIconOnly
+                variant="light"
+                size="sm"
                 className="h-8 w-8"
                 title={t('po.receive')}
                 onClick={() => {
@@ -268,30 +259,36 @@ export default function PurchaseOrders() {
                   setDetailOpen(true);
                   setInitialReceiveMode(true);
                 }}
+                aria-label={t('po.receive')}
               >
-                <PackageCheck className="h-3.5 w-3.5 text-emerald-400" />
+                <PackageCheck className="h-3.5 w-3.5 text-success" />
               </Button>
             )}
             {po.status !== 'Received' && po.status !== 'Cancelled' && (
               <Button
-                variant="ghost"
-                size="icon"
+                isIconOnly
+                variant="light"
+                size="sm"
                 className="h-8 w-8"
                 title={t('po.cancel')}
                 onClick={() => setCancelId(po.id)}
+                aria-label={t('po.cancel')}
               >
-                <X className="h-3.5 w-3.5 text-amber-400" />
+                <X className="h-3.5 w-3.5 text-warning" />
               </Button>
             )}
             {po.status === 'Draft' && (
               <Button
-                variant="ghost"
-                size="icon"
+                isIconOnly
+                variant="light"
+                color="danger"
+                size="sm"
                 className="h-8 w-8"
                 title={t('po.delete')}
                 onClick={() => setDeleteId(po.id)}
+                aria-label={t('po.delete')}
               >
-                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
@@ -302,56 +299,78 @@ export default function PurchaseOrders() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-display tracking-wider text-foreground">{t('po.title')}</h1>
-          <div className="gold-divider mt-2" />
-        </div>
+      <PageHeader title={t('po.title')}>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={handleAutoGenerate}>
-            <Wand2 className="h-4 w-4 text-gold" />
+          <Button
+            variant="bordered"
+            size="sm"
+            className="gap-2"
+            onClick={handleAutoGenerate}
+            startContent={<Wand2 className="h-4 w-4 text-primary" />}
+          >
             {t('po.autoGenerate')}
           </Button>
-          <Button className="gap-2" onClick={handleCreateOpen}>
-            <Plus className="h-4 w-4" />
+          <Button
+            color="primary"
+            size="sm"
+            className="gap-2"
+            onClick={handleCreateOpen}
+            startContent={<Plus className="h-4 w-4" />}
+          >
             {t('po.create')}
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Label className="text-muted text-xs uppercase tracking-widest">{t('po.status')}</Label>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">{t('po.allStatuses')}</SelectItem>
-            <SelectItem value="Draft">{t('po.draft')}</SelectItem>
-            <SelectItem value="Sent">{t('po.sent')}</SelectItem>
-            <SelectItem value="Partially Received">{t('po.partiallyReceived')}</SelectItem>
-            <SelectItem value="Received">{t('po.fullyReceived')}</SelectItem>
-            <SelectItem value="Cancelled">{t('po.cancelled')}</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="w-48">
+          <Select
+            label={t('po.status')}
+            size="sm"
+            variant="bordered"
+            selectedKeys={[statusFilter]}
+            onChange={(e) => setStatusFilter(e.target.value || 'All')}
+          >
+            <SelectItem key="All" textValue={t('po.allStatuses')}>
+              {t('po.allStatuses')}
+            </SelectItem>
+            <SelectItem key="Draft" textValue={t('po.draft')}>
+              {t('po.draft')}
+            </SelectItem>
+            <SelectItem key="Sent" textValue={t('po.sent')}>
+              {t('po.sent')}
+            </SelectItem>
+            <SelectItem key="Partially Received" textValue={t('po.partiallyReceived')}>
+              {t('po.partiallyReceived')}
+            </SelectItem>
+            <SelectItem key="Received" textValue={t('po.fullyReceived')}>
+              {t('po.fullyReceived')}
+            </SelectItem>
+            <SelectItem key="Cancelled" textValue={t('po.cancelled')}>
+              {t('po.cancelled')}
+            </SelectItem>
+          </Select>
+        </div>
 
-        <Label className="text-muted text-xs uppercase tracking-widest">
-          {t('po.distributor')}
-        </Label>
-        <Select value={distributorFilter} onValueChange={setDistributorFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('po.allDistributors')}</SelectItem>
-            {distributors?.map((d) => (
-              <SelectItem key={d.id} value={String(d.id)}>
+        <div className="w-48">
+          <Select
+            label={t('po.distributor')}
+            size="sm"
+            variant="bordered"
+            selectedKeys={[distributorFilter]}
+            onChange={(e) => setDistributorFilter(e.target.value || 'all')}
+          >
+            <SelectItem key="all" textValue={t('po.allDistributors')}>
+              {t('po.allDistributors')}
+            </SelectItem>
+            {(distributors ?? []).map((d) => (
+              <SelectItem key={String(d.id)} textValue={d.name}>
                 {d.name}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
+          </Select>
+        </div>
       </div>
 
       <DataTable
@@ -394,47 +413,33 @@ export default function PurchaseOrders() {
       />
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('po.delete')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('po.deleteConfirm')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteId && deleteOrder.remove(deleteId)}
-              className="bg-destructive text-foreground hover:bg-destructive/90"
-            >
-              {t('common.delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title={t('po.delete')}
+        description={t('po.deleteConfirm')}
+        confirmText={t('common.delete')}
+        confirmColor="danger"
+        isLoading={deleteOrder.isRemoving}
+        onConfirm={() => deleteId && deleteOrder.remove(deleteId)}
+      />
 
       {/* Cancel Confirmation */}
-      <AlertDialog open={!!cancelId} onOpenChange={() => setCancelId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('po.cancel')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('po.cancelConfirm')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (cancelId) {
-                  changeStatus.run({ id: cancelId, body: { status: 'Cancelled' } });
-                  setCancelId(null);
-                }
-              }}
-              className="bg-amber-500 text-foreground hover:bg-amber-600"
-            >
-              {t('po.cancel')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={!!cancelId}
+        onOpenChange={(open) => !open && setCancelId(null)}
+        title={t('po.cancel')}
+        description={t('po.cancelConfirm')}
+        confirmText={t('po.cancel')}
+        confirmColor="warning"
+        isLoading={changeStatus.isRunning}
+        onConfirm={() => {
+          if (cancelId) {
+            changeStatus.run({ id: cancelId, body: { status: 'Cancelled' } });
+            setCancelId(null);
+          }
+        }}
+      />
     </div>
   );
 }

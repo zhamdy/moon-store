@@ -5,11 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../shared/ui/card';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Label } from '../../../shared/ui/label';
-import { Checkbox } from '../../../shared/ui/checkbox';
+import { Card, CardBody, CardHeader, Button, Input, Checkbox } from '@heroui/react';
 import { useAuthStore } from '../store/authStore';
 import { useTransport } from '../../../shared/lib/transport/index';
 import moonLogo from '../../../shared/assets/moon-logo.svg';
@@ -27,8 +23,6 @@ type LoginFormData = z.infer<ReturnType<typeof getLoginSchema>>;
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuthStore();
-  // The same axios instance the refresh interceptor is installed on, reached
-  // through the seam so this page holds no HTTP knowledge of its own.
   const transport = useTransport();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,8 +40,6 @@ export default function Login() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      // The transport unwraps the `{ data: ... }` envelope, so what comes back
-      // here is what `response.data.data` used to be.
       const response = await transport.request<AuthResponseData['data']>({
         method: 'POST',
         path: 'auth/login',
@@ -66,8 +58,6 @@ export default function Login() {
         navigate({ to: '/deliveries' });
       }
     } catch (err) {
-      // ApiError carries the server's own wording, and nothing when the failure
-      // was the transport's own — so the page keeps its own fallback.
       toast.error((err instanceof Error && err.message) || t('login.failed'));
     } finally {
       setIsLoading(false);
@@ -77,18 +67,39 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-background flex flex-col lg:flex-row">
       {/* Hero panel — desktop only */}
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center bg-gradient-to-br from-gold-dark via-gold to-gold-light overflow-hidden">
-        {/* Radial overlays for depth */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_rgba(255,255,255,0.15)_0%,_transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,_rgba(0,0,0,0.1)_0%,_transparent_50%)]" />
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center bg-slate-950 dark:bg-black border-e border-border overflow-hidden select-none">
+        {/* Ambient celestial glow orbs */}
+        <div className="absolute -top-24 -start-24 w-96 h-96 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -end-24 w-96 h-96 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-amber-400/10 blur-[100px] pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col items-center text-center px-12 animate-fade-in">
-          <img src={moonLogo} alt="MOON" className="h-24 brightness-0 invert" />
-          <div className="gold-divider mt-6 mb-6 !bg-white/40" />
-          <h2 className="font-display text-3xl text-white tracking-wide">
+        {/* Subtle grid pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.07] pointer-events-none"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.8) 1px, transparent 0)`,
+            backgroundSize: '28px 28px',
+          }}
+        />
+
+        {/* Decorative concentric lunar orbit rings */}
+        <div className="absolute w-[500px] h-[500px] rounded-full border border-white/[0.04] pointer-events-none" />
+        <div className="absolute w-[700px] h-[700px] rounded-full border border-white/[0.03] pointer-events-none" />
+
+        {/* Glassmorphism content container */}
+        <div className="relative z-10 flex flex-col items-center text-center px-10 py-12 max-w-lg mx-auto animate-fade-in">
+          {/* Logo glow halo */}
+          <div className="relative flex items-center justify-center p-6 rounded-3xl bg-white/[0.03] border border-white/10 shadow-2xl backdrop-blur-md">
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-b from-amber-500/10 to-transparent blur-sm" />
+            <img src={moonLogo} alt="MOON" className="h-20 relative z-10 drop-shadow-md" />
+          </div>
+
+          <div className="w-16 h-0.5 bg-gradient-to-r from-transparent via-amber-400/50 to-transparent my-6" />
+
+          <h2 className="font-display text-3xl font-bold text-white tracking-tight">
             {t('login.heroTagline')}
           </h2>
-          <p className="mt-3 text-white/70 text-sm tracking-widest uppercase font-data">
+          <p className="mt-3 text-slate-400 text-xs tracking-widest uppercase font-semibold">
             {t('login.heroSubtext')}
           </p>
         </div>
@@ -98,62 +109,66 @@ export default function Login() {
       <div className="flex-1 flex flex-col items-center justify-center p-4 lg:p-8">
         {/* Mobile branding — visible below lg */}
         <div className="lg:hidden flex flex-col items-center mb-6">
-          <img src={moonLogo} alt="MOON" className="h-16" />
-          <div className="gold-divider mt-4" />
+          <img src={moonLogo} alt="MOON" className="h-14" />
+          <div className="w-12 h-px bg-border mt-4" />
         </div>
 
-        <Card className="w-full max-w-md animate-scale-in">
-          <CardHeader className="text-center space-y-4">
-            <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
-            <CardDescription>{t('login.subtitle')}</CardDescription>
+        <Card className="w-full max-w-md border border-border bg-card shadow-lg">
+          <CardHeader className="text-center flex flex-col gap-1.5 p-6 pb-2">
+            <h1 className="text-2xl font-bold text-foreground">{t('login.title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('login.subtitle')}</p>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="stagger-children space-y-4">
-              <div className="space-y-2 animate-slide-up">
-                <Label htmlFor="email">{t('login.email')}</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder={t('login.emailPlaceholder')}
-                  {...register('email')}
-                />
-                {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-              </div>
+          <CardBody className="p-6 pt-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <Input
+                type="email"
+                label={t('login.email')}
+                placeholder={t('login.emailPlaceholder')}
+                size="md"
+                variant="bordered"
+                {...register('email')}
+                isInvalid={!!errors.email}
+                errorMessage={errors.email?.message}
+              />
 
-              <div className="space-y-2 animate-slide-up">
-                <Label htmlFor="password">{t('login.password')}</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder={t('login.passwordPlaceholder')}
-                    {...register('password')}
-                  />
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                label={t('login.password')}
+                placeholder={t('login.passwordPlaceholder')}
+                size="md"
+                variant="bordered"
+                {...register('password')}
+                isInvalid={!!errors.password}
+                errorMessage={errors.password?.message}
+                endContent={
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute end-3 top-1/2 -translate-y-1/2 text-muted hover:text-gold transition-colors"
+                    className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
-                </div>
-                {errors.password && (
-                  <p className="text-xs text-destructive">{errors.password.message}</p>
-                )}
-              </div>
+                }
+              />
 
-              <div className="flex items-center gap-2 animate-slide-up">
-                <Checkbox id="remember" />
-                <Label htmlFor="remember" className="text-sm text-muted cursor-pointer">
+              <div className="flex items-center">
+                <Checkbox size="sm" classNames={{ label: 'text-sm text-muted-foreground' }}>
                   {t('login.rememberMe')}
-                </Label>
+                </Checkbox>
               </div>
 
-              <Button type="submit" className="w-full animate-slide-up" disabled={isLoading}>
+              <Button
+                type="submit"
+                color="primary"
+                size="lg"
+                className="w-full font-medium"
+                isLoading={isLoading}
+              >
                 {isLoading ? t('login.submitting') : t('login.submit')}
               </Button>
             </form>
-          </CardContent>
+          </CardBody>
         </Card>
       </div>
     </div>

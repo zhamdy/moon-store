@@ -2,24 +2,10 @@ import { useState, useCallback, type ChangeEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../shared/ui/tabs';
-import { Card, CardContent } from '../../../shared/ui/card';
-import { Button } from '../../../shared/ui/button';
-import { Input } from '../../../shared/ui/input';
-import { Badge } from '../../../shared/ui/badge';
-import { Checkbox } from '../../../shared/ui/checkbox';
+import { Tabs, Tab, Card, CardBody, Button, Input, Checkbox } from '@heroui/react';
+import { Badge } from '../../../shared/components/StatusBadge';
+import PageHeader from '../../../shared/components/PageHeader';
 import BarcodeScanner from '../../../shared/components/BarcodeScanner';
-// Deliberate deep, non-barrel import (bypasses boundaries/element-types;
-// the "@/" alias form sidesteps no-restricted-imports' relative-escape
-// pattern, which only matches "../../<slice>/*" specifiers, not aliased
-// ones -- so only one rule needs suppressing here): importing
-// BarcodeGenerator via the inventory barrel makes it statically reachable
-// through App.tsx's eager `import { Inventory } from '../features/inventory'`,
-// which caused Rollup to hoist BarcodeGenerator (and jsbarcode) into the
-// eager entry chunk instead of keeping it exclusive to this lazy-routed
-// page's chunk (~68KB regression, found by Unit 11 bundle verification).
-// Same class of documented exception as App.tsx's lazy() specifiers
-// staying deep.
 // eslint-disable-next-line boundaries/element-types
 import BarcodeGenerator from '@/features/inventory/components/BarcodeGenerator';
 import { formatCurrency } from '../../../shared/lib/utils';
@@ -135,184 +121,197 @@ export default function BarcodeTools() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-display tracking-wider text-foreground">
-          {t('barcode.title')}
-        </h1>
-        <div className="gold-divider mt-2" />
-      </div>
+      <PageHeader title={t('barcode.title')} />
 
-      <Tabs defaultValue="scanner">
-        <TabsList>
-          <TabsTrigger value="scanner">{t('barcode.scanner')}</TabsTrigger>
-          <TabsTrigger value="generator">{t('barcode.generator')}</TabsTrigger>
-          <TabsTrigger value="bulk">{t('barcode.bulkPrint')}</TabsTrigger>
-        </TabsList>
-
+      <Tabs aria-label="Barcode tools" color="primary" variant="bordered">
         {/* Scanner Tab */}
-        <TabsContent value="scanner" className="space-y-4">
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <BarcodeScanner onDetected={handleBarcodeDetected} />
+        <Tab key="scanner" title={t('barcode.scanner')}>
+          <div className="pt-4">
+            <Card className="border border-border bg-card shadow-sm">
+              <CardBody className="p-6 space-y-4">
+                <BarcodeScanner onDetected={handleBarcodeDetected} />
 
-              {scannedProduct && (
-                <Card className="border-gold/30">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium text-foreground">{scannedProduct.name}</h3>
-                        <p className="text-sm text-muted font-data">SKU: {scannedProduct.sku}</p>
-                        <p className="text-lg font-semibold text-gold font-data mt-1">
-                          {formatCurrency(Number(scannedProduct.price))}
-                        </p>
-                        <Badge
-                          variant={scannedProduct.stock > 0 ? 'success' : 'destructive'}
-                          className="mt-1"
-                        >
-                          {scannedProduct.stock} in stock
-                        </Badge>
+                {scannedProduct && (
+                  <Card className="border border-primary/30 bg-primary/5 shadow-sm">
+                    <CardBody className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-foreground">{scannedProduct.name}</h3>
+                          <p className="text-sm text-muted-foreground font-data">
+                            SKU: {scannedProduct.sku}
+                          </p>
+                          <p className="text-lg font-semibold text-primary font-data mt-1">
+                            {formatCurrency(Number(scannedProduct.price))}
+                          </p>
+                          <Badge
+                            size="sm"
+                            variant={scannedProduct.stock > 0 ? 'success' : 'danger'}
+                            className="mt-1"
+                          >
+                            {scannedProduct.stock} in stock
+                          </Badge>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            color="primary"
+                            size="sm"
+                            onClick={() => handleAddToCart(scannedProduct)}
+                          >
+                            {t('barcode.addToCart')}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="bordered"
+                            onClick={() => navigate({ to: '/inventory' })}
+                          >
+                            {t('barcode.viewProduct')}
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-2">
-                        <Button size="sm" onClick={() => handleAddToCart(scannedProduct)}>
-                          {t('barcode.addToCart')}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate({ to: '/inventory' })}
-                        >
-                          {t('barcode.viewProduct')}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    </CardBody>
+                  </Card>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+        </Tab>
 
         {/* Generator Tab */}
-        <TabsContent value="generator" className="space-y-4">
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <div>
-                <Input
-                  placeholder={t('barcode.searchProduct')}
-                  value={productSearch}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setProductSearch(e.target.value)}
-                />
-              </div>
-
-              {productSearch && (
-                <div className="max-h-48 overflow-y-auto space-y-1 border border-border rounded-md p-2">
-                  {filteredProducts?.slice(0, 10).map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        setSelectedProductId(p.id);
-                        setProductSearch('');
-                      }}
-                      className="w-full text-start px-3 py-2 rounded-md hover:bg-surface text-sm flex justify-between items-center"
-                    >
-                      <span>{p.name}</span>
-                      <span className="text-muted font-data text-xs">{p.sku}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {selectedProduct && (
-                <div className="space-y-4">
-                  <BarcodeGenerator
-                    value={selectedProduct.barcode || selectedProduct.sku}
-                    product={selectedProduct}
+        <Tab key="generator" title={t('barcode.generator')}>
+          <div className="pt-4">
+            <Card className="border border-border bg-card shadow-sm">
+              <CardBody className="p-6 space-y-4">
+                <div>
+                  <Input
+                    size="sm"
+                    variant="bordered"
+                    placeholder={t('barcode.searchProduct')}
+                    value={productSearch}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      setProductSearch(e.target.value)
+                    }
                   />
-                  <Button
-                    className="gap-2"
-                    onClick={() => {
-                      const printWindow = window.open('', '_blank');
-                      if (!printWindow) return;
-                      printWindow.document.write(`
-                        <html><head><title>Barcode - ${selectedProduct.name}</title>
-                        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js">${'</'}script>
-                        <style>body{font-family:Inter,sans-serif;display:flex;justify-content:center;padding:40px;}</style>
-                        </head><body>
-                        <div style="text-align:center;">
-                          <svg id="bc"></svg>
-                          <p><strong>${selectedProduct.name}</strong></p>
-                          <p>SKU: ${selectedProduct.sku}</p>
-                          <p style="font-size:20px;font-weight:bold;">${formatCurrency(parseFloat(String(selectedProduct.price)))}</p>
-                        </div>
-                        <script>
-                          try { JsBarcode("#bc","${selectedProduct.barcode || selectedProduct.sku}",{width:2,height:80,displayValue:true}); } catch(e){}
-                          setTimeout(()=>window.print(),500);
-                        ${'</'}script></body></html>
-                      `);
-                    }}
-                  >
-                    <Printer className="h-4 w-4" />
-                    {t('barcode.printBarcode')}
-                  </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+
+                {productSearch && (
+                  <div className="max-h-48 overflow-y-auto space-y-1 border border-border rounded-xl p-2 bg-card">
+                    {filteredProducts?.slice(0, 10).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedProductId(p.id);
+                          setProductSearch('');
+                        }}
+                        className="w-full text-start px-3 py-2 rounded-lg hover:bg-muted/30 text-sm flex justify-between items-center transition-colors"
+                      >
+                        <span className="text-foreground font-medium">{p.name}</span>
+                        <span className="text-muted-foreground font-data text-xs">{p.sku}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {selectedProduct && (
+                  <div className="space-y-4">
+                    <BarcodeGenerator
+                      value={selectedProduct.barcode || selectedProduct.sku}
+                      product={selectedProduct}
+                    />
+                    <Button
+                      color="primary"
+                      size="sm"
+                      startContent={<Printer className="h-4 w-4" />}
+                      onClick={() => {
+                        const printWindow = window.open('', '_blank');
+                        if (!printWindow) return;
+                        printWindow.document.write(`
+                          <html><head><title>Barcode - ${selectedProduct.name}</title>
+                          <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js">${'</'}script>
+                          <style>body{font-family:Inter,sans-serif;display:flex;justify-content:center;padding:40px;}</style>
+                          </head><body>
+                          <div style="text-align:center;">
+                            <svg id="bc"></svg>
+                            <p><strong>${selectedProduct.name}</strong></p>
+                            <p>SKU: ${selectedProduct.sku}</p>
+                            <p style="font-size:20px;font-weight:bold;">${formatCurrency(parseFloat(String(selectedProduct.price)))}</p>
+                          </div>
+                          <script>
+                            try { JsBarcode("#bc","${selectedProduct.barcode || selectedProduct.sku}",{width:2,height:80,displayValue:true}); } catch(e){}
+                            setTimeout(()=>window.print(),500);
+                          ${'</'}script></body></html>
+                        `);
+                      }}
+                    >
+                      {t('barcode.printBarcode')}
+                    </Button>
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+        </Tab>
 
         {/* Bulk Print Tab */}
-        <TabsContent value="bulk" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-muted">
-              {t('barcode.selected', { count: selectedForPrint.size })}
-            </p>
-            <Button
-              className="gap-2"
-              onClick={handleBulkPrint}
-              disabled={selectedForPrint.size === 0}
-            >
-              <Printer className="h-4 w-4" />
-              {t('barcode.generatePrint', { count: selectedForPrint.size })}
-            </Button>
-          </div>
-          <div className="rounded-md border border-border overflow-hidden">
-            <table className="w-full text-sm font-data">
-              <thead>
-                <tr className="bg-table-header border-b border-border">
-                  <th className="px-4 py-3 w-12"></th>
-                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">
-                    {t('barcode.product')}
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">
-                    {t('barcode.sku')}
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">
-                    {t('barcode.barcodeCol')}
-                  </th>
-                  <th className="px-4 py-3 text-start text-xs uppercase tracking-widest text-foreground">
-                    {t('barcode.price')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {products?.map((p) => (
-                  <tr key={p.id} className="border-b border-border hover:bg-surface/50">
-                    <td className="px-4 py-3">
-                      <Checkbox
-                        checked={selectedForPrint.has(p.id)}
-                        onCheckedChange={() => togglePrintSelection(p.id)}
-                      />
-                    </td>
-                    <td className="px-4 py-3">{p.name}</td>
-                    <td className="px-4 py-3 text-muted">{p.sku}</td>
-                    <td className="px-4 py-3 text-muted">{p.barcode || '-'}</td>
-                    <td className="px-4 py-3">{formatCurrency(Number(p.price))}</td>
+        <Tab key="bulk" title={t('barcode.bulkPrint')}>
+          <div className="pt-4 space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                {t('barcode.selected', { count: selectedForPrint.size })}
+              </p>
+              <Button
+                color="primary"
+                size="sm"
+                startContent={<Printer className="h-4 w-4" />}
+                onClick={handleBulkPrint}
+                isDisabled={selectedForPrint.size === 0}
+              >
+                {t('barcode.generatePrint', { count: selectedForPrint.size })}
+              </Button>
+            </div>
+            <div className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
+              <table className="w-full text-sm font-data">
+                <thead>
+                  <tr className="bg-muted/40 border-b border-border">
+                    <th className="px-4 py-3 w-12"></th>
+                    <th className="px-4 py-3 text-start text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                      {t('barcode.product')}
+                    </th>
+                    <th className="px-4 py-3 text-start text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                      {t('barcode.sku')}
+                    </th>
+                    <th className="px-4 py-3 text-start text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                      {t('barcode.barcodeCol')}
+                    </th>
+                    <th className="px-4 py-3 text-start text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                      {t('barcode.price')}
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {products?.map((p) => (
+                    <tr key={p.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <Checkbox
+                          isSelected={selectedForPrint.has(p.id)}
+                          onValueChange={() => togglePrintSelection(p.id)}
+                          size="sm"
+                          aria-label={`Select ${p.name}`}
+                        />
+                      </td>
+                      <td className="px-4 py-3 font-medium text-foreground">{p.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{p.sku}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{p.barcode || '-'}</td>
+                      <td className="px-4 py-3 text-foreground">
+                        {formatCurrency(Number(p.price))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </TabsContent>
+        </Tab>
       </Tabs>
     </div>
   );
