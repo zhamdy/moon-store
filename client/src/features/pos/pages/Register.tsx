@@ -9,20 +9,17 @@ import {
   FileText,
   Clock,
   X,
-  AlertTriangle,
 } from 'lucide-react';
 import {
   Button,
   Input,
-  Card,
-  CardBody,
   Modal,
   ModalContent,
   ModalHeader,
   ModalBody,
   ModalFooter,
 } from '@heroui/react';
-import PageHeader from '../../../shared/components/PageHeader';
+import { PageHeader, StatCard, CardSkeleton } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
@@ -141,10 +138,8 @@ export default function RegisterPage() {
     return (
       <div className="p-6 space-y-6 animate-fade-in">
         <div className="h-8 w-48 bg-muted/30 rounded animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-muted/20 rounded-xl animate-pulse" />
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <CardSkeleton count={4} />
         </div>
       </div>
     );
@@ -153,37 +148,40 @@ export default function RegisterPage() {
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
-      <PageHeader title={t('register.title')}>
-        <div className="flex gap-2">
-          <Button
-            variant="bordered"
-            size="sm"
-            onClick={() => setHistoryDialogOpen(true)}
-            startContent={<Clock className="h-4 w-4" />}
-          >
-            {t('register.history')}
-          </Button>
-          {!currentSession ? (
+      <PageHeader
+        title={t('register.title')}
+        actions={
+          <div className="flex gap-2">
             <Button
-              color="primary"
+              variant="bordered"
               size="sm"
-              onClick={() => setOpenDialogOpen(true)}
-              startContent={<Vault className="h-4 w-4" />}
+              onClick={() => setHistoryDialogOpen(true)}
+              startContent={<Clock className="h-4 w-4" />}
             >
-              {t('register.openRegister')}
+              {t('register.history')}
             </Button>
-          ) : (
-            <Button
-              color="danger"
-              size="sm"
-              onClick={() => setCloseDialogOpen(true)}
-              startContent={<X className="h-4 w-4" />}
-            >
-              {t('register.closeRegister')}
-            </Button>
-          )}
-        </div>
-      </PageHeader>
+            {!currentSession ? (
+              <Button
+                color="primary"
+                size="sm"
+                onClick={() => setOpenDialogOpen(true)}
+                startContent={<Vault className="h-4 w-4" />}
+              >
+                {t('register.openRegister')}
+              </Button>
+            ) : (
+              <Button
+                color="danger"
+                size="sm"
+                onClick={() => setCloseDialogOpen(true)}
+                startContent={<X className="h-4 w-4" />}
+              >
+                {t('register.closeRegister')}
+              </Button>
+            )}
+          </div>
+        }
+      />
 
       {/* No session state */}
       {!currentSession ? (
@@ -203,59 +201,27 @@ export default function RegisterPage() {
       ) : (
         <>
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="border border-border bg-card shadow-sm">
-              <CardBody className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground font-data uppercase tracking-wider">
-                    {t('register.openingFloat')}
-                  </span>
-                  <DollarSign className="h-4 w-4 text-primary" />
-                </div>
-                <p className="text-2xl font-data font-bold text-foreground">
-                  {formatCurrency(currentSession.opening_float)}
-                </p>
-              </CardBody>
-            </Card>
-            <Card className="border border-border bg-card shadow-sm">
-              <CardBody className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground font-data uppercase tracking-wider">
-                    {t('register.expectedCash')}
-                  </span>
-                  <DollarSign className="h-4 w-4 text-primary" />
-                </div>
-                <p className="text-2xl font-data font-bold text-foreground">
-                  {formatCurrency(currentSession.expected_cash)}
-                </p>
-              </CardBody>
-            </Card>
-            <Card className="border border-border bg-card shadow-sm">
-              <CardBody className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground font-data uppercase tracking-wider">
-                    {t('register.saleCount')}
-                  </span>
-                  <FileText className="h-4 w-4 text-primary" />
-                </div>
-                <p className="text-2xl font-data font-bold text-foreground">
-                  {currentSession.sale_count || 0}
-                </p>
-              </CardBody>
-            </Card>
-            <Card className="border border-border bg-card shadow-sm">
-              <CardBody className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground font-data uppercase tracking-wider">
-                    {t('register.openedAt')}
-                  </span>
-                  <Clock className="h-4 w-4 text-primary" />
-                </div>
-                <p className="text-lg font-data text-foreground">
-                  {new Date(currentSession.opened_at).toLocaleTimeString()}
-                </p>
-              </CardBody>
-            </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title={t('register.openingFloat')}
+              value={formatCurrency(currentSession.opening_float)}
+              icon={DollarSign}
+            />
+            <StatCard
+              title={t('register.expectedCash')}
+              value={formatCurrency(currentSession.expected_cash)}
+              icon={DollarSign}
+            />
+            <StatCard
+              title={t('register.saleCount')}
+              value={currentSession.sale_count || 0}
+              icon={FileText}
+            />
+            <StatCard
+              title={t('register.openedAt')}
+              value={new Date(currentSession.opened_at).toLocaleTimeString()}
+              icon={Clock}
+            />
           </div>
 
           {/* Action buttons */}
@@ -294,26 +260,16 @@ export default function RegisterPage() {
 
           {/* Cash summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="border border-border bg-card shadow-sm">
-              <CardBody className="p-4">
-                <h3 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-                  {t('register.totalCashIn')}
-                </h3>
-                <p className="text-2xl font-data font-bold text-success">
-                  +{formatCurrency(currentSession.total_in || 0)}
-                </p>
-              </CardBody>
-            </Card>
-            <Card className="border border-border bg-card shadow-sm">
-              <CardBody className="p-4">
-                <h3 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-                  {t('register.totalCashOut')}
-                </h3>
-                <p className="text-2xl font-data font-bold text-danger">
-                  -{formatCurrency(currentSession.total_out || 0)}
-                </p>
-              </CardBody>
-            </Card>
+            <StatCard
+              title={t('register.totalCashIn')}
+              value={`+${formatCurrency(currentSession.total_in || 0)}`}
+              trend={{ direction: 'up', value: 'Cash in' }}
+            />
+            <StatCard
+              title={t('register.totalCashOut')}
+              value={`-${formatCurrency(currentSession.total_out || 0)}`}
+              trend={{ direction: 'down', value: 'Cash out' }}
+            />
           </div>
         </>
       )}

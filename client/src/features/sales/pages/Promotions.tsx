@@ -16,8 +16,7 @@ import {
   SelectItem,
   Checkbox,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader } from '../../../shared';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
@@ -72,16 +71,19 @@ export default function Promotions() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('promotions.title')}>
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<Plus className="h-4 w-4" />}
-          onClick={editor.openNew}
-        >
-          {t('promotions.addCoupon')}
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title={t('promotions.title')}
+        actions={
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={editor.openNew}
+          >
+            {t('promotions.addCoupon')}
+          </Button>
+        }
+      />
 
       <div className="max-w-sm">
         <Input

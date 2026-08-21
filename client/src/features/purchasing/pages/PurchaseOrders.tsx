@@ -2,10 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Send, PackageCheck, Trash2, X, Eye, Wand2 } from 'lucide-react';
 import { Button, Select, SelectItem } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
-import ConfirmDialog from '../../../shared/components/ConfirmDialog';
-import DataTable from '../../../shared/components/DataTable';
+import { Badge, PageHeader, ConfirmDialog, DataTable } from '../../../shared';
 import POFormDialog from '../components/purchase-orders/POFormDialog';
 import PODetailDialog from '../components/purchase-orders/PODetailDialog';
 import { formatCurrency } from '../../../shared/lib/utils';
@@ -299,28 +296,31 @@ export default function PurchaseOrders() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('po.title')}>
-        <div className="flex gap-2">
-          <Button
-            variant="bordered"
-            size="sm"
-            className="gap-2"
-            onClick={handleAutoGenerate}
-            startContent={<Wand2 className="h-4 w-4 text-primary" />}
-          >
-            {t('po.autoGenerate')}
-          </Button>
-          <Button
-            color="primary"
-            size="sm"
-            className="gap-2"
-            onClick={handleCreateOpen}
-            startContent={<Plus className="h-4 w-4" />}
-          >
-            {t('po.create')}
-          </Button>
-        </div>
-      </PageHeader>
+      <PageHeader
+        title={t('po.title')}
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant="bordered"
+              size="sm"
+              className="gap-2"
+              onClick={handleAutoGenerate}
+              startContent={<Wand2 className="h-4 w-4 text-primary" />}
+            >
+              {t('po.autoGenerate')}
+            </Button>
+            <Button
+              color="primary"
+              size="sm"
+              className="gap-2"
+              onClick={handleCreateOpen}
+              startContent={<Plus className="h-4 w-4" />}
+            >
+              {t('po.create')}
+            </Button>
+          </div>
+        }
+      />
 
       {/* Filters */}
       <div className="flex items-center gap-4 flex-wrap">
