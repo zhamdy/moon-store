@@ -16,8 +16,7 @@ import {
   Select,
   SelectItem,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
@@ -73,39 +72,42 @@ export default function SmartPricingPage() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('smartPricing.title')}>
-        <div className="flex gap-2">
-          <Button
-            variant={tab === 'suggestions' ? 'solid' : 'bordered'}
-            color={tab === 'suggestions' ? 'primary' : 'default'}
-            size="sm"
-            onClick={() => setTab('suggestions')}
-            startContent={<Zap className="h-4 w-4" />}
-          >
-            {t('smartPricing.suggestions')}
-          </Button>
-          <Button
-            variant={tab === 'rules' ? 'solid' : 'bordered'}
-            color={tab === 'rules' ? 'primary' : 'default'}
-            size="sm"
-            onClick={() => setTab('rules')}
-            startContent={<TrendingUp className="h-4 w-4" />}
-          >
-            {t('smartPricing.rules')}
-          </Button>
-          <Button
-            color="primary"
-            size="sm"
-            onClick={() => generate.mutate()}
-            isLoading={generate.isPending}
-            startContent={
-              <RefreshCw className={`h-4 w-4 ${generate.isPending ? 'animate-spin' : ''}`} />
-            }
-          >
-            {t('smartPricing.generate')}
-          </Button>
-        </div>
-      </PageHeader>
+      <PageHeader
+        title={t('smartPricing.title')}
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant={tab === 'suggestions' ? 'solid' : 'bordered'}
+              color={tab === 'suggestions' ? 'primary' : 'default'}
+              size="sm"
+              onClick={() => setTab('suggestions')}
+              startContent={<Zap className="h-4 w-4" />}
+            >
+              {t('smartPricing.suggestions')}
+            </Button>
+            <Button
+              variant={tab === 'rules' ? 'solid' : 'bordered'}
+              color={tab === 'rules' ? 'primary' : 'default'}
+              size="sm"
+              onClick={() => setTab('rules')}
+              startContent={<TrendingUp className="h-4 w-4" />}
+            >
+              {t('smartPricing.rules')}
+            </Button>
+            <Button
+              color="primary"
+              size="sm"
+              onClick={() => generate.mutate()}
+              isLoading={generate.isPending}
+              startContent={
+                <RefreshCw className={`h-4 w-4 ${generate.isPending ? 'animate-spin' : ''}`} />
+              }
+            >
+              {t('smartPricing.generate')}
+            </Button>
+          </div>
+        }
+      />
 
       {tab === 'suggestions' && (
         <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
