@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole } from '../middleware/auth';
 import { distributorSchema } from '../validators/distributorSchema';
 import { cacheControl } from '../middleware/cache';
@@ -19,7 +19,7 @@ router.get(
       const params: unknown[] = [];
 
       if (search) {
-        query += ' WHERE name LIKE ? OR contact_person LIKE ? OR email LIKE ?';
+        query += ' WHERE name ILIKE $1 OR contact_person ILIKE $2 OR email ILIKE $3';
         const s = `%${search}%`;
         params.push(s, s, s);
       }
@@ -41,7 +41,7 @@ router.get(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await db.query('SELECT * FROM distributors WHERE id = ?', [req.params.id]);
+      const result = await db.query('SELECT * FROM distributors WHERE id = $1', [req.params.id]);
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Distributor not found' });
       }
@@ -67,7 +67,7 @@ router.post(
       const { name, contact_person, phone, email, address, notes } = parsed.data;
       const result = await db.query(
         `INSERT INTO distributors (name, contact_person, phone, email, address, notes)
-         VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
         [name, contact_person || null, phone || null, email || null, address || null, notes || null]
       );
 
@@ -92,8 +92,8 @@ router.put(
 
       const { name, contact_person, phone, email, address, notes } = parsed.data;
       const result = await db.query(
-        `UPDATE distributors SET name=?, contact_person=?, phone=?, email=?, address=?, notes=?, updated_at=datetime('now')
-         WHERE id=? RETURNING *`,
+        `UPDATE distributors SET name = $1, contact_person = $2, phone = $3, email = $4, address = $5, notes = $6, updated_at = NOW()
+         WHERE id = $7 RETURNING *`,
         [
           name,
           contact_person || null,
@@ -124,17 +124,17 @@ router.delete(
     try {
       // Check if any products reference this distributor
       const refs = await db.query<{ count: number }>(
-        'SELECT COUNT(*) as count FROM products WHERE distributor_id = ?',
+        'SELECT COUNT(*)::int as count FROM products WHERE distributor_id = $1',
         [req.params.id]
       );
-      if (refs.rows[0].count > 0) {
+      if (Number(refs.rows[0].count) > 0) {
         return res.status(400).json({
           success: false,
           error: `Cannot delete: ${refs.rows[0].count} product(s) reference this distributor`,
         });
       }
 
-      const result = await db.query('DELETE FROM distributors WHERE id = ? RETURNING id', [
+      const result = await db.query('DELETE FROM distributors WHERE id = $1 RETURNING id', [
         req.params.id,
       ]);
       if (result.rows.length === 0) {

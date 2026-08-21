@@ -470,7 +470,7 @@ CREATE TABLE IF NOT EXISTS delivery_orders (
   phone TEXT NOT NULL,
   address TEXT NOT NULL,
   notes TEXT,
-  items TEXT NOT NULL,
+  items TEXT DEFAULT '[]',
   status TEXT DEFAULT 'Pending' CHECK (status IN ('Pending', 'Shipped', 'Delivered', 'Cancelled')),
   estimated_delivery TIMESTAMPTZ,
   shipping_company_id INTEGER REFERENCES shipping_companies(id) ON DELETE SET NULL,
@@ -478,6 +478,23 @@ CREATE TABLE IF NOT EXISTS delivery_orders (
   shipping_cost NUMERIC DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS delivery_items (
+  id SERIAL PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES delivery_orders(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
+  quantity INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS delivery_status_history (
+  id SERIAL PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES delivery_orders(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  notes TEXT,
+  changed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS delivery_tracking (

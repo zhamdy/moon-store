@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole } from '../middleware/auth';
 import { shippingCompanySchema } from '../validators/shippingCompanySchema';
 
@@ -17,7 +17,7 @@ router.get(
       const params: unknown[] = [];
 
       if (search) {
-        query += ' WHERE name LIKE ?';
+        query += ' WHERE name ILIKE $1';
         params.push(`%${search}%`);
       }
 
@@ -45,7 +45,7 @@ router.post(
 
       const { name, phone, website } = parsed.data;
       const result = await db.query(
-        `INSERT INTO shipping_companies (name, phone, website) VALUES (?, ?, ?) RETURNING *`,
+        `INSERT INTO shipping_companies (name, phone, website) VALUES ($1, $2, $3) RETURNING *`,
         [name, phone || null, website || null]
       );
 
@@ -68,10 +68,11 @@ router.put(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
+      const companyId = req.params.id as string;
       const { name, phone, website } = parsed.data;
       const result = await db.query(
-        `UPDATE shipping_companies SET name=?, phone=?, website=? WHERE id=? RETURNING *`,
-        [name, phone || null, website || null, req.params.id]
+        `UPDATE shipping_companies SET name=$1, phone=$2, website=$3 WHERE id=$4 RETURNING *`,
+        [name, phone || null, website || null, companyId]
       );
 
       if (result.rows.length === 0) {
@@ -91,19 +92,21 @@ router.delete(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const refs = await db.query<{ count: number }>(
-        'SELECT COUNT(*) as count FROM delivery_orders WHERE shipping_company_id = ?',
-        [req.params.id]
+      const companyId = req.params.id as string;
+      const refs = await db.query<{ count: string | number }>(
+        'SELECT COUNT(*) as count FROM delivery_orders WHERE shipping_company_id = $1',
+        [companyId]
       );
-      if (refs.rows[0].count > 0) {
+      const refCount = Number(refs.rows[0]?.count || 0);
+      if (refCount > 0) {
         return res.status(400).json({
           success: false,
-          error: `Cannot delete: ${refs.rows[0].count} order(s) reference this shipping company`,
+          error: `Cannot delete: ${refCount} order(s) reference this shipping company`,
         });
       }
 
-      const result = await db.query('DELETE FROM shipping_companies WHERE id = ? RETURNING id', [
-        req.params.id,
+      const result = await db.query('DELETE FROM shipping_companies WHERE id = $1 RETURNING id', [
+        companyId,
       ]);
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Shipping company not found' });

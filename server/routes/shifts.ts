@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
+import { withTransaction } from '../src/database/transaction';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 
 const router: Router = Router();
@@ -11,7 +12,7 @@ router.get('/current', verifyToken, async (req: Request, res: Response, next: Ne
     const result = await db.query(
       `SELECT s.*, u.name as user_name
          FROM shifts s JOIN users u ON s.user_id = u.id
-         WHERE s.user_id = ? AND s.status IN ('active', 'on_break')
+         WHERE s.user_id = $1 AND s.status IN ('active', 'on_break')
          ORDER BY s.clock_in DESC LIMIT 1`,
       [authReq.user!.id]
     );
@@ -29,14 +30,14 @@ router.post('/clock-in', verifyToken, async (req: Request, res: Response, next: 
 
     // Check if already clocked in
     const existing = await db.query(
-      `SELECT id FROM shifts WHERE user_id = ? AND status IN ('active', 'on_break')`,
+      `SELECT id FROM shifts WHERE user_id = $1 AND status IN ('active', 'on_break')`,
       [userId]
     );
     if (existing.rows.length > 0) {
       return res.status(400).json({ success: false, error: 'Already clocked in' });
     }
 
-    const result = await db.query(`INSERT INTO shifts (user_id) VALUES (?) RETURNING *`, [userId]);
+    const result = await db.query(`INSERT INTO shifts (user_id) VALUES ($1) RETURNING *`, [userId]);
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     next(err);
@@ -49,38 +50,45 @@ router.post('/clock-out', verifyToken, async (req: Request, res: Response, next:
     const authReq = req as AuthRequest;
     const userId = authReq.user!.id;
 
-    const shift = await db.query(
-      `SELECT id, clock_in, break_minutes FROM shifts WHERE user_id = ? AND status IN ('active', 'on_break')`,
-      [userId]
-    );
-    if (shift.rows.length === 0) {
+    const result = await withTransaction(async (client) => {
+      const shiftRes = await client.query(
+        `SELECT id, clock_in, break_minutes FROM shifts WHERE user_id = $1 AND status IN ('active', 'on_break') FOR UPDATE`,
+        [userId]
+      );
+      if (shiftRes.rows.length === 0) {
+        return null;
+      }
+
+      const shiftId = shiftRes.rows[0].id;
+
+      // End any active break
+      await client.query(
+        `UPDATE shift_breaks SET end_time = NOW(), duration_minutes = ROUND(EXTRACT(EPOCH FROM (NOW() - start_time)) / 60)::int WHERE shift_id = $1 AND end_time IS NULL`,
+        [shiftId]
+      );
+
+      // Calculate total break minutes
+      const breakResult = await client.query<{ total_break: string | number }>(
+        `SELECT COALESCE(SUM(duration_minutes), 0) as total_break FROM shift_breaks WHERE shift_id = $1`,
+        [shiftId]
+      );
+
+      const totalBreak = Number(breakResult.rows[0].total_break);
+      const breakHours = totalBreak / 60.0;
+
+      const updateRes = await client.query(
+        `UPDATE shifts SET clock_out = NOW(), status = 'completed', break_minutes = $1, total_hours = ROUND((EXTRACT(EPOCH FROM (NOW() - clock_in)) / 3600.0 - $2)::numeric, 2) WHERE id = $3 RETURNING *`,
+        [totalBreak, breakHours, shiftId]
+      );
+
+      return updateRes.rows[0];
+    });
+
+    if (!result) {
       return res.status(400).json({ success: false, error: 'No active shift' });
     }
 
-    const shiftId = shift.rows[0].id;
-
-    // End any active break
-    db.db
-      .prepare(
-        `UPDATE shift_breaks SET end_time = datetime('now'), duration_minutes = CAST((julianday('now') - julianday(start_time)) * 1440 AS INTEGER) WHERE shift_id = ? AND end_time IS NULL`
-      )
-      .run(shiftId);
-
-    // Calculate total break minutes
-    const breakResult = await db.query(
-      `SELECT COALESCE(SUM(duration_minutes), 0) as total_break FROM shift_breaks WHERE shift_id = ?`,
-      [shiftId]
-    );
-
-    const totalBreak = breakResult.rows[0].total_break as number;
-    const breakHours = totalBreak / 60.0;
-
-    const result = await db.query(
-      `UPDATE shifts SET clock_out = datetime('now'), status = 'completed', break_minutes = ?, total_hours = ROUND((julianday('now') - julianday(clock_in)) * 24 - ?, 2) WHERE id = ? RETURNING *`,
-      [totalBreak, breakHours, shiftId]
-    );
-
-    res.json({ success: true, data: result.rows[0] });
+    res.json({ success: true, data: result });
   } catch (err) {
     next(err);
   }
@@ -93,22 +101,29 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const authReq = req as AuthRequest;
-      const shift = await db.query(
-        `SELECT id FROM shifts WHERE user_id = ? AND status = 'active'`,
-        [authReq.user!.id]
-      );
-      if (shift.rows.length === 0) {
+      const result = await withTransaction(async (client) => {
+        const shiftRes = await client.query(
+          `SELECT id FROM shifts WHERE user_id = $1 AND status = 'active' FOR UPDATE`,
+          [authReq.user!.id]
+        );
+        if (shiftRes.rows.length === 0) {
+          return null;
+        }
+
+        const shiftId = shiftRes.rows[0].id;
+        await client.query(`UPDATE shifts SET status = 'on_break' WHERE id = $1`, [shiftId]);
+        const breakResult = await client.query(
+          `INSERT INTO shift_breaks (shift_id) VALUES ($1) RETURNING *`,
+          [shiftId]
+        );
+        return breakResult.rows[0];
+      });
+
+      if (!result) {
         return res.status(400).json({ success: false, error: 'No active shift' });
       }
 
-      const shiftId = shift.rows[0].id;
-      await db.query(`UPDATE shifts SET status = 'on_break' WHERE id = ?`, [shiftId]);
-      const breakResult = await db.query(
-        `INSERT INTO shift_breaks (shift_id) VALUES (?) RETURNING *`,
-        [shiftId]
-      );
-
-      res.json({ success: true, data: breakResult.rows[0] });
+      res.json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
@@ -119,22 +134,29 @@ router.post(
 router.post('/end-break', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authReq = req as AuthRequest;
-    const shift = await db.query(
-      `SELECT id FROM shifts WHERE user_id = ? AND status = 'on_break'`,
-      [authReq.user!.id]
-    );
-    if (shift.rows.length === 0) {
+    const result = await withTransaction(async (client) => {
+      const shiftRes = await client.query(
+        `SELECT id FROM shifts WHERE user_id = $1 AND status = 'on_break' FOR UPDATE`,
+        [authReq.user!.id]
+      );
+      if (shiftRes.rows.length === 0) {
+        return false;
+      }
+
+      const shiftId = shiftRes.rows[0].id;
+      await client.query(
+        `UPDATE shift_breaks SET end_time = NOW(), duration_minutes = ROUND(EXTRACT(EPOCH FROM (NOW() - start_time)) / 60)::int WHERE shift_id = $1 AND end_time IS NULL`,
+        [shiftId]
+      );
+
+      await client.query(`UPDATE shifts SET status = 'active' WHERE id = $1`, [shiftId]);
+      return true;
+    });
+
+    if (!result) {
       return res.status(400).json({ success: false, error: 'Not on break' });
     }
 
-    const shiftId = shift.rows[0].id;
-    db.db
-      .prepare(
-        `UPDATE shift_breaks SET end_time = datetime('now'), duration_minutes = CAST((julianday('now') - julianday(start_time)) * 1440 AS INTEGER) WHERE shift_id = ? AND end_time IS NULL`
-      )
-      .run(shiftId);
-
-    await db.query(`UPDATE shifts SET status = 'active' WHERE id = ?`, [shiftId]);
     res.json({ success: true, data: { message: 'Break ended' } });
   } catch (err) {
     next(err);
@@ -175,35 +197,41 @@ router.get(
       const params: unknown[] = [];
 
       if (user_id) {
-        where += ' AND s.user_id = ?';
         params.push(user_id);
+        where += ` AND s.user_id = $${params.length}`;
       }
       if (from) {
-        where += ' AND s.clock_in >= ?';
         params.push(from);
+        where += ` AND s.clock_in >= $${params.length}::timestamptz`;
       }
       if (to) {
-        where += " AND s.clock_in <= ? || ' 23:59:59'";
-        params.push(to);
+        params.push(`${to} 23:59:59`);
+        where += ` AND s.clock_in <= $${params.length}::timestamptz`;
       }
 
-      const countResult = await db.query(
-        `SELECT COUNT(*) as total FROM shifts s WHERE ${where}`,
+      const countResult = await db.query<{ total: string | number }>(
+        `SELECT COUNT(*)::int as total FROM shifts s WHERE ${where}`,
         params
       );
+      const total = Number(countResult.rows[0].total);
+
+      const limitNum = Number(limit);
+      const offsetNum = offset;
+      const queryParams = [...params, limitNum, offsetNum];
+
       const result = await db.query(
         `SELECT s.*, u.name as user_name, u.role
          FROM shifts s JOIN users u ON s.user_id = u.id
          WHERE ${where}
          ORDER BY s.clock_in DESC
-         LIMIT ? OFFSET ?`,
-        [...params, Number(limit), offset]
+         LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
+        queryParams
       );
 
       res.json({
         success: true,
         data: result.rows,
-        meta: { total: countResult.rows[0].total, page: Number(page), limit: Number(limit) },
+        meta: { total, page: Number(page), limit: Number(limit) },
       });
     } catch (err) {
       next(err);
@@ -223,22 +251,22 @@ router.get(
       const params: unknown[] = [];
 
       if (from) {
-        where += ' AND s.clock_in >= ?';
         params.push(from);
+        where += ` AND s.clock_in >= $${params.length}::timestamptz`;
       }
       if (to) {
-        where += " AND s.clock_in <= ? || ' 23:59:59'";
-        params.push(to);
+        params.push(`${to} 23:59:59`);
+        where += ` AND s.clock_in <= $${params.length}::timestamptz`;
       }
 
       const result = await db.query(
         `SELECT u.id, u.name, u.role,
-                COUNT(s.id) as shift_count,
+                COUNT(s.id)::int as shift_count,
                 COALESCE(SUM(s.total_hours), 0) as total_hours,
                 COALESCE(SUM(s.break_minutes), 0) as total_break_minutes
          FROM users u
          LEFT JOIN shifts s ON s.user_id = u.id AND ${where}
-         GROUP BY u.id
+         GROUP BY u.id, u.name, u.role
          ORDER BY total_hours DESC`,
         params
       );

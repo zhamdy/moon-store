@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import db from '../db';
+import db from '../src/database/pool';
+import { withTransaction } from '../src/database/transaction';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { logAuditFromReq } from '../middleware/auditLogger';
 
@@ -41,14 +42,19 @@ router.get(
       let where = '1=1';
       const params: unknown[] = [];
       if (status) {
-        where += ' AND lo.status = ?';
         params.push(status);
+        where += ` AND lo.status = $${params.length}`;
       }
 
-      const countResult = await db.query(
-        `SELECT COUNT(*) as total FROM layaway_orders lo WHERE ${where}`,
+      const countResult = await db.query<{ total: string | number }>(
+        `SELECT COUNT(*)::int as total FROM layaway_orders lo WHERE ${where}`,
         params
       );
+
+      const limitNum = Number(limit);
+      const offsetNum = offset;
+      const queryParams = [...params, limitNum, offsetNum];
+
       const result = await db.query(
         `SELECT lo.*, c.name as customer_name, c.phone as customer_phone, u.name as cashier_name
          FROM layaway_orders lo
@@ -56,14 +62,18 @@ router.get(
          LEFT JOIN users u ON lo.cashier_id = u.id
          WHERE ${where}
          ORDER BY lo.created_at DESC
-         LIMIT ? OFFSET ?`,
-        [...params, Number(limit), offset]
+         LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
+        queryParams
       );
 
       res.json({
         success: true,
         data: result.rows,
-        meta: { total: countResult.rows[0].total, page: Number(page), limit: Number(limit) },
+        meta: {
+          total: Number(countResult.rows[0].total),
+          page: Number(page),
+          limit: Number(limit),
+        },
       });
     } catch (err) {
       next(err);
@@ -84,63 +94,65 @@ router.post(
       const total = parsed.items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
       const balance = total - parsed.deposit;
 
-      const rawDb = db.db;
-      const txn = rawDb.transaction(() => {
-        const layaway = rawDb
-          .prepare(
-            `INSERT INTO layaway_orders (customer_id, cashier_id, total, deposit, balance, due_date, notes)
-           VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`
-          )
-          .get(
+      const layaway = await withTransaction(async (client) => {
+        const layawayRes = await client.query(
+          `INSERT INTO layaway_orders (customer_id, cashier_id, total, deposit, balance, due_date, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+          [
             parsed.customer_id,
             authReq.user!.id,
             total,
             parsed.deposit,
             balance,
             parsed.due_date,
-            parsed.notes || null
-          ) as Record<string, any>;
+            parsed.notes || null,
+          ]
+        );
+        const layawayRow = layawayRes.rows[0];
 
         for (const item of parsed.items) {
-          rawDb
-            .prepare(
-              'INSERT INTO layaway_items (layaway_id, product_id, variant_id, quantity, unit_price) VALUES (?, ?, ?, ?, ?)'
-            )
-            .run(
-              layaway.id,
+          await client.query(
+            'INSERT INTO layaway_items (layaway_id, product_id, variant_id, quantity, unit_price) VALUES ($1, $2, $3, $4, $5)',
+            [
+              layawayRow.id,
               item.product_id,
               item.variant_id || null,
               item.quantity,
-              item.unit_price
-            );
+              item.unit_price,
+            ]
+          );
 
           // Reserve stock
           if (item.variant_id) {
-            rawDb
-              .prepare('UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?')
-              .run(item.quantity, item.variant_id, item.quantity);
+            const updated = await client.query(
+              'UPDATE product_variants SET stock = stock - $1, updated_at = NOW() WHERE id = $2 AND stock >= $3 RETURNING id',
+              [item.quantity, item.variant_id, item.quantity]
+            );
+            if (updated.rows.length === 0) {
+              throw new Error(`Insufficient stock for variant ID ${item.variant_id}`);
+            }
           } else {
-            rawDb
-              .prepare(
-                "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ? AND stock >= ?"
-              )
-              .run(item.quantity, item.product_id, item.quantity);
+            const updated = await client.query(
+              'UPDATE products SET stock = stock - $1, updated_at = NOW() WHERE id = $2 AND stock >= $3 RETURNING id',
+              [item.quantity, item.product_id, item.quantity]
+            );
+            if (updated.rows.length === 0) {
+              throw new Error(`Insufficient stock for product ID ${item.product_id}`);
+            }
           }
         }
 
         // Record initial deposit payment
         if (parsed.deposit > 0) {
-          rawDb
-            .prepare(
-              'INSERT INTO layaway_payments (layaway_id, amount, payment_method, cashier_id) VALUES (?, ?, ?, ?)'
-            )
-            .run(layaway.id, parsed.deposit, 'Cash', authReq.user!.id);
+          await client.query(
+            'INSERT INTO layaway_payments (layaway_id, amount, payment_method, cashier_id) VALUES ($1, $2, $3, $4)',
+            [layawayRow.id, parsed.deposit, 'Cash', authReq.user!.id]
+          );
         }
 
-        return layaway;
+        return layawayRow;
       });
 
-      const layaway = txn();
       logAuditFromReq(req, 'create', 'layaway', layaway.id, { total, deposit: parsed.deposit });
       res.status(201).json({ success: true, data: layaway });
     } catch (err) {
@@ -161,7 +173,7 @@ router.get(
     try {
       const { id } = req.params;
       const layaway = await db.query(
-        `SELECT lo.*, c.name as customer_name FROM layaway_orders lo JOIN customers c ON lo.customer_id = c.id WHERE lo.id = ?`,
+        `SELECT lo.*, c.name as customer_name FROM layaway_orders lo JOIN customers c ON lo.customer_id = c.id WHERE lo.id = $1`,
         [id]
       );
       if (layaway.rows.length === 0) {
@@ -169,11 +181,11 @@ router.get(
       }
 
       const items = await db.query(
-        `SELECT li.*, p.name as product_name FROM layaway_items li JOIN products p ON li.product_id = p.id WHERE li.layaway_id = ?`,
+        `SELECT li.*, p.name as product_name FROM layaway_items li JOIN products p ON li.product_id = p.id WHERE li.layaway_id = $1`,
         [id]
       );
       const payments = await db.query(
-        `SELECT lp.*, u.name as cashier_name FROM layaway_payments lp LEFT JOIN users u ON lp.cashier_id = u.id WHERE lp.layaway_id = ? ORDER BY lp.created_at ASC`,
+        `SELECT lp.*, u.name as cashier_name FROM layaway_payments lp LEFT JOIN users u ON lp.cashier_id = u.id WHERE lp.layaway_id = $1 ORDER BY lp.created_at ASC`,
         [id]
       );
 
@@ -198,35 +210,40 @@ router.post(
       const { id } = req.params;
       const parsed = paymentSchema.parse(req.body);
 
-      const layaway = await db.query(
-        `SELECT id, balance, status FROM layaway_orders WHERE id = ? AND status = 'active'`,
-        [id]
-      );
-      if (layaway.rows.length === 0) {
+      const result = await withTransaction(async (client) => {
+        const layawayRes = await client.query(
+          `SELECT id, balance, status FROM layaway_orders WHERE id = $1 AND status = 'active' FOR UPDATE`,
+          [id]
+        );
+        if (layawayRes.rows.length === 0) {
+          return null;
+        }
+
+        const currentBalance = Number(layawayRes.rows[0].balance);
+        const payAmount = Math.min(parsed.amount, currentBalance);
+        const newBalance = currentBalance - payAmount;
+
+        await client.query(
+          'INSERT INTO layaway_payments (layaway_id, amount, payment_method, cashier_id) VALUES ($1, $2, $3, $4)',
+          [id, payAmount, parsed.payment_method || 'Cash', authReq.user!.id]
+        );
+
+        const newStatus = newBalance <= 0 ? 'completed' : 'active';
+        await client.query(
+          `UPDATE layaway_orders SET balance = $1, status = $2, updated_at = NOW() WHERE id = $3`,
+          [newBalance, newStatus, id]
+        );
+
+        return { balance: newBalance, status: newStatus, paid: payAmount };
+      });
+
+      if (!result) {
         return res.status(404).json({ success: false, error: 'Layaway not found or not active' });
       }
 
-      const currentBalance = layaway.rows[0].balance as number;
-      const payAmount = Math.min(parsed.amount, currentBalance);
-      const newBalance = currentBalance - payAmount;
-
-      const rawDb = db.db;
-      rawDb
-        .prepare(
-          'INSERT INTO layaway_payments (layaway_id, amount, payment_method, cashier_id) VALUES (?, ?, ?, ?)'
-        )
-        .run(id, payAmount, parsed.payment_method || 'Cash', authReq.user!.id);
-
-      const newStatus = newBalance <= 0 ? 'completed' : 'active';
-      rawDb
-        .prepare(
-          `UPDATE layaway_orders SET balance = ?, status = ?, updated_at = datetime('now') WHERE id = ?`
-        )
-        .run(newBalance, newStatus, id);
-
       res.json({
         success: true,
-        data: { balance: newBalance, status: newStatus, paid: payAmount },
+        data: result,
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -245,39 +262,49 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      const layaway = await db.query(
-        `SELECT id FROM layaway_orders WHERE id = ? AND status = 'active'`,
-        [id]
-      );
-      if (layaway.rows.length === 0) {
+
+      const result = await withTransaction(async (client) => {
+        const layawayRes = await client.query(
+          `SELECT id FROM layaway_orders WHERE id = $1 AND status = 'active' FOR UPDATE`,
+          [id]
+        );
+        if (layawayRes.rows.length === 0) {
+          return false;
+        }
+
+        // Restore stock
+        const itemsRes = await client.query('SELECT * FROM layaway_items WHERE layaway_id = $1', [
+          id,
+        ]);
+        for (const item of itemsRes.rows as Array<{
+          variant_id: number | null;
+          quantity: number;
+          product_id: number;
+        }>) {
+          if (item.variant_id) {
+            await client.query(
+              'UPDATE product_variants SET stock = stock + $1, updated_at = NOW() WHERE id = $2',
+              [item.quantity, item.variant_id]
+            );
+          } else {
+            await client.query(
+              'UPDATE products SET stock = stock + $1, updated_at = NOW() WHERE id = $2',
+              [item.quantity, item.product_id]
+            );
+          }
+        }
+
+        await client.query(
+          `UPDATE layaway_orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+          [id]
+        );
+        return true;
+      });
+
+      if (!result) {
         return res.status(404).json({ success: false, error: 'Layaway not found or not active' });
       }
 
-      // Restore stock
-      const items = await db.query('SELECT * FROM layaway_items WHERE layaway_id = ?', [id]);
-      const rawDb = db.db;
-      for (const item of items.rows as Array<{
-        variant_id: number | null;
-        quantity: number;
-        product_id: number;
-      }>) {
-        if (item.variant_id) {
-          rawDb
-            .prepare('UPDATE product_variants SET stock = stock + ? WHERE id = ?')
-            .run(item.quantity, item.variant_id);
-        } else {
-          rawDb
-            .prepare(
-              "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?"
-            )
-            .run(item.quantity, item.product_id);
-        }
-      }
-
-      await db.query(
-        `UPDATE layaway_orders SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?`,
-        [id]
-      );
       logAuditFromReq(req, 'cancel', 'layaway', Number(id));
       res.json({ success: true, data: { message: 'Layaway cancelled' } });
     } catch (err) {

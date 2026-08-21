@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import db from '../db';
+import db from '../src/database/pool';
+import { withTransaction } from '../src/database/transaction';
 import { verifyToken, requireRole } from '../middleware/auth';
 
 const router: Router = Router();
@@ -42,20 +43,17 @@ router.put(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const rawDb = db.db;
-      const upsert = rawDb.prepare(
-        "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = datetime('now')"
-      );
-
-      const txn = rawDb.transaction(() => {
+      await withTransaction(async (client) => {
         for (const [key, value] of Object.entries(parsed.data)) {
           if (value !== undefined) {
-            upsert.run(key, value, value);
+            await client.query(
+              `INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW())
+               ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+              [key, value]
+            );
           }
         }
       });
-
-      txn();
 
       // Return updated settings
       const result = await db.query<{ key: string; value: string }>(

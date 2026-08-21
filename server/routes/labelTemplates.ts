@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
+import { withTransaction } from '../src/database/transaction';
 import { verifyToken, requireRole } from '../middleware/auth';
 import { z } from 'zod';
 
@@ -34,17 +35,17 @@ router.post(
       }
 
       const { name, template_json, is_default } = parsed.data;
-      const rawDb = db.db;
 
-      if (is_default) {
-        rawDb.prepare('UPDATE label_templates SET is_default = 0').run();
-      }
-
-      const result = rawDb
-        .prepare(
-          'INSERT INTO label_templates (name, template_json, is_default) VALUES (?, ?, ?) RETURNING *'
-        )
-        .get(name, template_json, is_default ? 1 : 0) as Record<string, any>;
+      const result = await withTransaction(async (client) => {
+        if (is_default) {
+          await client.query('UPDATE label_templates SET is_default = 0');
+        }
+        const insertRes = await client.query(
+          'INSERT INTO label_templates (name, template_json, is_default) VALUES ($1, $2, $3) RETURNING *',
+          [name, template_json, is_default ? 1 : 0]
+        );
+        return insertRes.rows[0];
+      });
 
       res.status(201).json({ success: true, data: result });
     } catch (err) {
@@ -66,21 +67,22 @@ router.put(
       }
 
       const { name, template_json, is_default } = parsed.data;
-      const rawDb = db.db;
 
-      if (is_default) {
-        rawDb.prepare('UPDATE label_templates SET is_default = 0').run();
-      }
+      const result = await withTransaction(async (client) => {
+        if (is_default) {
+          await client.query('UPDATE label_templates SET is_default = 0');
+        }
+        const updateRes = await client.query(
+          'UPDATE label_templates SET name = $1, template_json = $2, is_default = $3 WHERE id = $4 RETURNING *',
+          [name, template_json, is_default ? 1 : 0, req.params.id]
+        );
+        return updateRes.rows[0];
+      });
 
-      const result = await db.query(
-        'UPDATE label_templates SET name = ?, template_json = ?, is_default = ? WHERE id = ? RETURNING *',
-        [name, template_json, is_default ? 1 : 0, req.params.id]
-      );
-
-      if (result.rows.length === 0) {
+      if (!result) {
         return res.status(404).json({ success: false, error: 'Template not found' });
       }
-      res.json({ success: true, data: result.rows[0] });
+      res.json({ success: true, data: result });
     } catch (err) {
       next(err);
     }
@@ -94,7 +96,7 @@ router.delete(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await db.query('DELETE FROM label_templates WHERE id = ? RETURNING id', [
+      const result = await db.query('DELETE FROM label_templates WHERE id = $1 RETURNING id', [
         req.params.id,
       ]);
       if (result.rows.length === 0) {

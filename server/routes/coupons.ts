@@ -111,8 +111,9 @@ router.put(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const coupon = await updateCoupon(req.params.id, parsed.data);
-      logAuditFromReq(req, 'update', 'coupon', req.params.id, {
+      const couponId = req.params.id as string;
+      const coupon = await updateCoupon(couponId, parsed.data);
+      logAuditFromReq(req, 'update', 'coupon', couponId, {
         code: parsed.data.code,
         type: parsed.data.type,
         value: parsed.data.value,
@@ -135,8 +136,9 @@ router.delete(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await deleteCoupon(req.params.id);
-      logAuditFromReq(req, 'delete', 'coupon', req.params.id);
+      const couponId = req.params.id as string;
+      await deleteCoupon(couponId);
+      logAuditFromReq(req, 'delete', 'coupon', couponId);
       res.json({ success: true, data: { message: 'Coupon deactivated' } });
     } catch (err) {
       if (err instanceof CouponError) {

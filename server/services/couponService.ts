@@ -1,4 +1,4 @@
-import db from '../db';
+import db from '../src/database/pool';
 
 // --- Types ---
 
@@ -62,7 +62,11 @@ export class CouponError extends Error {
 function parseScopeIds(row: Record<string, any>): Record<string, any> {
   return {
     ...row,
-    scope_ids: row.scope_ids ? JSON.parse(row.scope_ids) : null,
+    scope_ids: row.scope_ids
+      ? typeof row.scope_ids === 'string'
+        ? JSON.parse(row.scope_ids)
+        : row.scope_ids
+      : null,
   };
 }
 
@@ -98,37 +102,41 @@ export async function listCoupons(filters: CouponFilters): Promise<CouponListRes
 
   const where: string[] = [];
   const params: unknown[] = [];
+  let paramIdx = 1;
 
   if (filters.search) {
-    where.push(`c.code LIKE ?`);
+    where.push(`c.code ILIKE $${paramIdx++}`);
     params.push(`%${filters.search}%`);
   }
   if (filters.status) {
-    where.push(`c.status = ?`);
+    where.push(`c.status = $${paramIdx++}`);
     params.push(filters.status);
   }
 
   const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
-  const countResult = await db.query<{ count: number }>(
+  const countResult = await db.query<{ count: string | number }>(
     `SELECT COUNT(*) as count FROM coupons c ${whereClause}`,
     params
   );
-  const total = countResult.rows[0].count;
+  const total = Number(countResult.rows[0]?.count || 0);
+
+  const queryParams = [...params, limitNum, offset];
+  const limitIdx = paramIdx++;
+  const offsetIdx = paramIdx++;
 
   const result = await db.query(
-    `SELECT c.*, COALESCE(cu_agg.usage_count, 0) as usage_count
+    `SELECT c.*, COALESCE(cu_agg.usage_count, 0)::int as usage_count
      FROM coupons c
      LEFT JOIN (
        SELECT coupon_id, COUNT(*) as usage_count FROM coupon_usage GROUP BY coupon_id
      ) cu_agg ON cu_agg.coupon_id = c.id
      ${whereClause}
      ORDER BY c.created_at DESC
-     LIMIT ? OFFSET ?`,
-    [...params, limitNum, offset]
+     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+    queryParams
   );
 
-  // Parse scope_ids JSON
   const coupons = result.rows.map((row: any) => parseScopeIds(row));
 
   return { coupons, total, page: pageNum, limit: limitNum };
@@ -140,14 +148,14 @@ export async function createCoupon(data: CouponData): Promise<Record<string, any
   try {
     const result = await db.query(
       `INSERT INTO coupons (code, type, value, min_purchase, max_discount, starts_at, expires_at, max_uses, max_uses_per_customer, scope, scope_ids, stackable)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       buildCouponParams(data)
     );
 
     const coupon = result.rows[0] as Record<string, any>;
     return parseScopeIds(coupon);
   } catch (err: any) {
-    if (err.message?.includes('UNIQUE')) {
+    if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
       throw new CouponError('Coupon code already exists', 409);
     }
     throw err;
@@ -162,8 +170,8 @@ export async function updateCoupon(
 
   try {
     const result = await db.query(
-      `UPDATE coupons SET code=?, type=?, value=?, min_purchase=?, max_discount=?, starts_at=?, expires_at=?, max_uses=?, max_uses_per_customer=?, scope=?, scope_ids=?, stackable=?
-       WHERE id=? AND status='active' RETURNING *`,
+      `UPDATE coupons SET code=$1, type=$2, value=$3, min_purchase=$4, max_discount=$5, starts_at=$6, expires_at=$7, max_uses=$8, max_uses_per_customer=$9, scope=$10, scope_ids=$11, stackable=$12, updated_at=NOW()
+       WHERE id=$13 AND status='active' RETURNING *`,
       [...buildCouponParams(data), id]
     );
 
@@ -175,7 +183,7 @@ export async function updateCoupon(
     return parseScopeIds(coupon);
   } catch (err: any) {
     if (err instanceof CouponError) throw err;
-    if (err.message?.includes('UNIQUE')) {
+    if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
       throw new CouponError('Coupon code already exists', 409);
     }
     throw err;
@@ -183,9 +191,10 @@ export async function updateCoupon(
 }
 
 export async function deleteCoupon(id: string | number): Promise<void> {
-  const result = await db.query(`UPDATE coupons SET status='inactive' WHERE id=? RETURNING id`, [
-    id,
-  ]);
+  const result = await db.query(
+    `UPDATE coupons SET status='inactive', updated_at=NOW() WHERE id=$1 RETURNING id`,
+    [id]
+  );
 
   if (result.rows.length === 0) {
     throw new CouponError('Coupon not found', 404);
@@ -195,9 +204,8 @@ export async function deleteCoupon(id: string | number): Promise<void> {
 export async function validateCoupon(input: ValidateCouponInput): Promise<ValidateCouponResult> {
   const { code, subtotal, customer_id, item_product_ids } = input;
 
-  // Step 1: Look up the coupon
   const couponResult = await db.query(
-    `SELECT * FROM coupons WHERE code = ? AND status = 'active'`,
+    `SELECT * FROM coupons WHERE code = $1 AND status = 'active'`,
     [code.toUpperCase().trim()]
   );
 
@@ -206,94 +214,88 @@ export async function validateCoupon(input: ValidateCouponInput): Promise<Valida
   }
 
   const coupon = couponResult.rows[0] as Record<string, any>;
-  const now = new Date().toISOString();
+  const now = new Date();
 
-  // Step 2: Check start date
-  if (coupon.starts_at && now < coupon.starts_at) {
+  if (coupon.starts_at && now < new Date(coupon.starts_at)) {
     throw new CouponError('Coupon is not yet active', 400);
   }
 
-  // Step 3: Check expiry
-  if (coupon.expires_at && now > coupon.expires_at) {
+  if (coupon.expires_at && now > new Date(coupon.expires_at)) {
     throw new CouponError('Coupon has expired', 400);
   }
 
-  // Step 4: Check minimum purchase
-  if (coupon.min_purchase && subtotal < coupon.min_purchase) {
+  if (coupon.min_purchase && subtotal < Number(coupon.min_purchase)) {
     throw new CouponError(`Minimum purchase of ${coupon.min_purchase} required`, 400);
   }
 
-  // Step 5: Check global usage limit
   if (coupon.max_uses) {
-    const usageResult = await db.query<{ count: number }>(
-      `SELECT COUNT(*) as count FROM coupon_usage WHERE coupon_id = ?`,
+    const usageResult = await db.query<{ count: string | number }>(
+      `SELECT COUNT(*) as count FROM coupon_usage WHERE coupon_id = $1`,
       [coupon.id]
     );
-    if (usageResult.rows[0].count >= coupon.max_uses) {
+    if (Number(usageResult.rows[0]?.count || 0) >= coupon.max_uses) {
       throw new CouponError('Coupon usage limit reached', 400);
     }
   }
 
-  // Step 6: Check per-customer usage limit
   if (coupon.max_uses_per_customer && customer_id) {
-    const customerUsageResult = await db.query<{ count: number }>(
-      `SELECT COUNT(*) as count FROM coupon_usage WHERE coupon_id = ? AND customer_id = ?`,
+    const customerUsageResult = await db.query<{ count: string | number }>(
+      `SELECT COUNT(*) as count FROM coupon_usage WHERE coupon_id = $1 AND customer_id = $2`,
       [coupon.id, customer_id]
     );
-    if (customerUsageResult.rows[0].count >= coupon.max_uses_per_customer) {
+    if (Number(customerUsageResult.rows[0]?.count || 0) >= coupon.max_uses_per_customer) {
       throw new CouponError('Coupon usage limit reached for this customer', 400);
     }
   }
 
-  // Step 7: Check scope
   if (coupon.scope === 'category' || coupon.scope === 'product') {
-    const scopeIds: number[] = coupon.scope_ids ? JSON.parse(coupon.scope_ids) : [];
+    const scopeIds: number[] = coupon.scope_ids
+      ? typeof coupon.scope_ids === 'string'
+        ? JSON.parse(coupon.scope_ids)
+        : coupon.scope_ids
+      : [];
 
     if (scopeIds.length > 0 && item_product_ids && item_product_ids.length > 0) {
       if (coupon.scope === 'product') {
-        // At least one product in cart must match scope
         const hasMatch = item_product_ids.some((pid: number) => scopeIds.includes(pid));
         if (!hasMatch) {
           throw new CouponError('Coupon does not apply to any products in the cart', 400);
         }
       } else if (coupon.scope === 'category') {
-        // Check if any cart product belongs to a scoped category
-        const placeholders = item_product_ids.map(() => '?').join(',');
-        const catPlaceholders = scopeIds.map(() => '?').join(',');
-        const matchResult = await db.query<{ count: number }>(
+        const placeholders = item_product_ids.map((_, i) => `$${i + 1}`).join(',');
+        const catPlaceholders = scopeIds
+          .map((_, i) => `$${i + 1 + item_product_ids.length}`)
+          .join(',');
+        const matchResult = await db.query<{ count: string | number }>(
           `SELECT COUNT(*) as count FROM products
-             WHERE id IN (${placeholders}) AND category_id IN (${catPlaceholders})`,
+           WHERE id IN (${placeholders}) AND category_id IN (${catPlaceholders})`,
           [...item_product_ids, ...scopeIds]
         );
-        if (matchResult.rows[0].count === 0) {
+        if (Number(matchResult.rows[0]?.count || 0) === 0) {
           throw new CouponError('Coupon does not apply to any product categories in the cart', 400);
         }
       }
     }
   }
 
-  // Step 8: Calculate discount
   let discount: number;
   if (coupon.type === 'percentage') {
-    discount = Math.round(((subtotal * coupon.value) / 100) * 100) / 100;
+    discount = Math.round(((subtotal * Number(coupon.value)) / 100) * 100) / 100;
   } else {
-    // fixed
-    discount = Math.min(coupon.value, subtotal);
+    discount = Math.min(Number(coupon.value), subtotal);
   }
 
-  // Apply max_discount cap
-  if (coupon.max_discount && discount > coupon.max_discount) {
-    discount = coupon.max_discount;
+  if (coupon.max_discount && discount > Number(coupon.max_discount)) {
+    discount = Number(coupon.max_discount);
   }
 
-  // Ensure discount does not exceed subtotal
   discount = Math.min(discount, subtotal);
 
   return {
     coupon_id: coupon.id,
     code: coupon.code,
     type: coupon.type,
-    value: coupon.value,
+    value: Number(coupon.value),
     discount,
     stackable: !!coupon.stackable,
   };

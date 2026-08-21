@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken } from '../middleware/auth';
 import { z } from 'zod';
 import logger from '../lib/logger';
@@ -27,45 +27,50 @@ router.post('/', verifyToken, async (req: Request, res: Response, next: NextFunc
     // Calculate expiry based on source type
     const expiryMinutes = source_type === 'cart' ? 15 : source_type === 'held' ? 480 : 1440;
 
-    const rawDb = db.db;
-
     // Check available stock
     let currentStock: number;
     if (variant_id) {
-      const v = rawDb.prepare('SELECT stock FROM product_variants WHERE id = ?').get(variant_id) as
-        | { stock: number }
-        | undefined;
-      currentStock = v?.stock || 0;
+      const v = await db.query<{ stock: number }>(
+        'SELECT stock FROM product_variants WHERE id = $1',
+        [variant_id]
+      );
+      currentStock = Number(v.rows[0]?.stock || 0);
     } else {
-      const p = rawDb.prepare('SELECT stock FROM products WHERE id = ?').get(product_id) as
-        | { stock: number }
-        | undefined;
-      currentStock = p?.stock || 0;
+      const p = await db.query<{ stock: number }>('SELECT stock FROM products WHERE id = $1', [
+        product_id,
+      ]);
+      currentStock = Number(p.rows[0]?.stock || 0);
     }
 
     // Get existing reservations
-    const reserved = rawDb
-      .prepare(
-        "SELECT COALESCE(SUM(quantity), 0) as total FROM stock_reservations WHERE product_id = ? AND (variant_id IS ? OR variant_id = ?) AND expires_at > datetime('now')"
-      )
-      .get(product_id, variant_id || null, variant_id || null) as { total: number };
+    const reservedRes = variant_id
+      ? await db.query<{ total: string | number }>(
+          `SELECT COALESCE(SUM(quantity), 0) as total
+           FROM stock_reservations
+           WHERE product_id = $1 AND variant_id = $2 AND expires_at > NOW()`,
+          [product_id, variant_id]
+        )
+      : await db.query<{ total: string | number }>(
+          `SELECT COALESCE(SUM(quantity), 0) as total
+           FROM stock_reservations
+           WHERE product_id = $1 AND variant_id IS NULL AND expires_at > NOW()`,
+          [product_id]
+        );
 
-    const available = currentStock - reserved.total;
+    const reservedTotal = Number(reservedRes.rows[0]?.total || 0);
+    const available = currentStock - reservedTotal;
     if (available < quantity) {
       return res.status(400).json({ success: false, error: 'Insufficient available stock' });
     }
 
-    const result = rawDb
-      .prepare(
-        `INSERT INTO stock_reservations (product_id, variant_id, quantity, source_type, source_id, expires_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now', '+${expiryMinutes} minutes')) RETURNING *`
-      )
-      .get(product_id, variant_id || null, quantity, source_type, source_id || null) as Record<
-      string,
-      any
-    >;
+    const result = await db.query(
+      `INSERT INTO stock_reservations (product_id, variant_id, quantity, source_type, source_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5, NOW() + INTERVAL '${expiryMinutes} minutes')
+       RETURNING *`,
+      [product_id, variant_id || null, quantity, source_type, source_id || null]
+    );
 
-    res.status(201).json({ success: true, data: result });
+    res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {
     next(err);
   }
@@ -74,7 +79,7 @@ router.post('/', verifyToken, async (req: Request, res: Response, next: NextFunc
 // DELETE /api/reservations/:id
 router.delete('/:id', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await db.query('DELETE FROM stock_reservations WHERE id = ? RETURNING id', [
+    const result = await db.query('DELETE FROM stock_reservations WHERE id = $1 RETURNING id', [
       req.params.id,
     ]);
     if (result.rows.length === 0) {
@@ -92,11 +97,11 @@ router.delete(
   verifyToken,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const rawDb = db.db;
-      const result = rawDb
-        .prepare('DELETE FROM stock_reservations WHERE source_id = ?')
-        .run(req.params.sourceId);
-      res.json({ success: true, data: { released: result.changes } });
+      const result = await db.query(
+        'DELETE FROM stock_reservations WHERE source_id = $1 RETURNING id',
+        [req.params.sourceId]
+      );
+      res.json({ success: true, data: { released: result.rowCount || 0 } });
     } catch (err) {
       next(err);
     }
@@ -104,14 +109,11 @@ router.delete(
 );
 
 // Cleanup expired reservations (called periodically)
-export function cleanupExpiredReservations(): void {
+export async function cleanupExpiredReservations(): Promise<void> {
   try {
-    const rawDb = db.db;
-    const result = rawDb
-      .prepare("DELETE FROM stock_reservations WHERE expires_at <= datetime('now')")
-      .run();
-    if (result.changes > 0) {
-      logger.info('Cleaned up expired reservations', { count: result.changes });
+    const result = await db.query('DELETE FROM stock_reservations WHERE expires_at <= NOW()');
+    if ((result.rowCount ?? 0) > 0) {
+      logger.info('Cleaned up expired reservations', { count: result.rowCount });
     }
   } catch (err) {
     logger.error('Reservation cleanup failed', { error: (err as Error).message });

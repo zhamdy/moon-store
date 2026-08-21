@@ -1,4 +1,4 @@
-import db from '../db';
+import db from '../src/database/pool';
 
 // --- Types ---
 
@@ -65,11 +65,11 @@ interface SessionHistoryResult {
 // --- Helpers ---
 
 async function findOpenSession(userId: number) {
-  const result = await db.query(
-    `SELECT id, expected_cash FROM register_sessions WHERE cashier_id = ? AND status = 'open'`,
+  const result = await db.query<{ id: number; expected_cash: number }>(
+    `SELECT id, expected_cash FROM register_sessions WHERE cashier_id = $1 AND status = 'open'`,
     [userId]
   );
-  return result.rows[0] as unknown as { id: number; expected_cash: number } | undefined;
+  return result.rows[0];
 }
 
 // --- Public API ---
@@ -77,14 +77,14 @@ async function findOpenSession(userId: number) {
 export async function getCurrentSession(userId: number): Promise<SessionRow | null> {
   const result = await db.query(
     `SELECT rs.*, u.name as cashier_name,
-            COUNT(CASE WHEN rm.type = 'sale' THEN 1 END) as sale_count,
+            COUNT(CASE WHEN rm.type = 'sale' THEN 1 END)::int as sale_count,
             COALESCE(SUM(CASE WHEN rm.type IN ('sale','cash_in') THEN rm.amount ELSE 0 END), 0) as total_in,
             COALESCE(SUM(CASE WHEN rm.type IN ('refund','cash_out') THEN rm.amount ELSE 0 END), 0) as total_out
      FROM register_sessions rs
      JOIN users u ON rs.cashier_id = u.id
      LEFT JOIN register_movements rm ON rm.session_id = rs.id
-     WHERE rs.cashier_id = ? AND rs.status = 'open'
-     GROUP BY rs.id
+     WHERE rs.cashier_id = $1 AND rs.status = 'open'
+     GROUP BY rs.id, u.name
      ORDER BY rs.opened_at DESC LIMIT 1`,
     [userId]
   );
@@ -96,9 +96,8 @@ export async function openSession(
   userId: number,
   openingFloat: number
 ): Promise<{ session: SessionRow; error?: undefined } | { session?: undefined; error: string }> {
-  // Check if already has an open session
   const existing = await db.query(
-    `SELECT id FROM register_sessions WHERE cashier_id = ? AND status = 'open'`,
+    `SELECT id FROM register_sessions WHERE cashier_id = $1 AND status = 'open'`,
     [userId]
   );
   if (existing.rows.length > 0) {
@@ -106,7 +105,7 @@ export async function openSession(
   }
 
   const result = await db.query(
-    `INSERT INTO register_sessions (cashier_id, opening_float, expected_cash) VALUES (?, ?, ?) RETURNING *`,
+    `INSERT INTO register_sessions (cashier_id, opening_float, expected_cash) VALUES ($1, $2, $3) RETURNING *`,
     [userId, openingFloat, openingFloat]
   );
 
@@ -119,24 +118,21 @@ export async function addMovement(
   amount: number,
   note?: string
 ): Promise<{ movement: MovementRow; error?: undefined } | { movement?: undefined; error: string }> {
-  // Get current open session
   const session = await findOpenSession(userId);
   if (!session) {
     return { error: 'No open register session' };
   }
 
   const sessionId = session.id;
-  const currentExpected = session.expected_cash;
+  const currentExpected = Number(session.expected_cash);
 
-  // Insert movement
   const movement = await db.query(
-    `INSERT INTO register_movements (session_id, type, amount, note) VALUES (?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO register_movements (session_id, type, amount, note) VALUES ($1, $2, $3, $4) RETURNING *`,
     [sessionId, type, amount, note || null]
   );
 
-  // Update expected cash
   const delta = type === 'cash_in' ? amount : -amount;
-  await db.query(`UPDATE register_sessions SET expected_cash = ? WHERE id = ?`, [
+  await db.query(`UPDATE register_sessions SET expected_cash = $1 WHERE id = $2`, [
     currentExpected + delta,
     sessionId,
   ]);
@@ -149,20 +145,19 @@ export async function closeSession(
   countedCash: number,
   notes?: string
 ): Promise<{ session: SessionRow; error?: undefined } | { session?: undefined; error: string }> {
-  // Get current open session
   const session = await findOpenSession(userId);
   if (!session) {
     return { error: 'No open register session' };
   }
 
   const sessionId = session.id;
-  const expectedCash = session.expected_cash;
+  const expectedCash = Number(session.expected_cash);
   const variance = countedCash - expectedCash;
 
   const result = await db.query(
     `UPDATE register_sessions
-     SET status = 'closed', closed_at = datetime('now'), counted_cash = ?, variance = ?, notes = ?
-     WHERE id = ?
+     SET status = 'closed', closed_at = NOW(), counted_cash = $1, variance = $2, notes = $3
+     WHERE id = $4
      RETURNING *`,
     [countedCash, variance, notes || null, sessionId]
   );
@@ -177,7 +172,7 @@ export async function getSessionReport(
     `SELECT rs.*, u.name as cashier_name
      FROM register_sessions rs
      JOIN users u ON rs.cashier_id = u.id
-     WHERE rs.id = ?`,
+     WHERE rs.id = $1`,
     [sessionId]
   );
   if (session.rows.length === 0) {
@@ -185,11 +180,10 @@ export async function getSessionReport(
   }
 
   const movements = await db.query(
-    `SELECT * FROM register_movements WHERE session_id = ? ORDER BY created_at ASC`,
+    `SELECT * FROM register_movements WHERE session_id = $1 ORDER BY created_at ASC`,
     [sessionId]
   );
 
-  // Aggregate by type
   const summary: MovementSummary = {
     total_sales: 0,
     total_refunds: 0,
@@ -199,21 +193,22 @@ export async function getSessionReport(
     refund_count: 0,
   };
 
-  for (const m of movements.rows as { type: string; amount: number }[]) {
+  for (const m of movements.rows as { type: string; amount: string | number }[]) {
+    const amt = Number(m.amount);
     switch (m.type) {
       case 'sale':
-        summary.total_sales += m.amount;
+        summary.total_sales += amt;
         summary.sale_count++;
         break;
       case 'refund':
-        summary.total_refunds += m.amount;
+        summary.total_refunds += amt;
         summary.refund_count++;
         break;
       case 'cash_in':
-        summary.total_cash_in += m.amount;
+        summary.total_cash_in += amt;
         break;
       case 'cash_out':
-        summary.total_cash_out += m.amount;
+        summary.total_cash_out += amt;
         break;
     }
   }
@@ -233,43 +228,50 @@ export async function getSessionHistory(
   const { page = '1', limit = '25', cashier_id, from, to } = filters;
   const offset = (Number(page) - 1) * Number(limit);
 
-  let where = '1=1';
+  const where: string[] = [];
   const params: unknown[] = [];
+  let paramIdx = 1;
 
   if (cashier_id) {
-    where += ' AND rs.cashier_id = ?';
+    where.push(`rs.cashier_id = $${paramIdx++}`);
     params.push(cashier_id);
   }
   if (from) {
-    where += ' AND rs.opened_at >= ?';
+    where.push(`rs.opened_at >= $${paramIdx++}`);
     params.push(from);
   }
   if (to) {
-    where += " AND rs.opened_at <= ? || ' 23:59:59'";
-    params.push(to);
+    where.push(`rs.opened_at <= $${paramIdx++}`);
+    params.push(to + ' 23:59:59');
   }
 
-  const countResult = await db.query(
-    `SELECT COUNT(*) as total FROM register_sessions rs WHERE ${where}`,
+  const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+
+  const countResult = await db.query<{ total: string | number }>(
+    `SELECT COUNT(*) as total FROM register_sessions rs ${whereClause}`,
     params
   );
 
+  const queryParams = [...params, Number(limit), offset];
+  const limitIdx = paramIdx++;
+  const offsetIdx = paramIdx++;
+
   const result = await db.query(
     `SELECT rs.*, u.name as cashier_name,
-            (SELECT COUNT(*) FROM register_movements WHERE session_id = rs.id AND type = 'sale') as sale_count,
+            (SELECT COUNT(*) FROM register_movements WHERE session_id = rs.id AND type = 'sale')::int as sale_count,
             (SELECT COALESCE(SUM(amount), 0) FROM register_movements WHERE session_id = rs.id AND type = 'sale') as total_sales
      FROM register_sessions rs
      JOIN users u ON rs.cashier_id = u.id
-     WHERE ${where}
+     ${whereClause}
      ORDER BY rs.opened_at DESC
-     LIMIT ? OFFSET ?`,
-    [...params, Number(limit), offset]
+     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+    queryParams
   );
 
   return {
     rows: result.rows as unknown as SessionRow[],
     meta: {
-      total: countResult.rows[0].total as number,
+      total: Number(countResult.rows[0]?.total || 0),
       page: Number(page),
       limit: Number(limit),
     },
@@ -280,7 +282,7 @@ export async function forceCloseSession(
   sessionId: number | string
 ): Promise<{ session: SessionRow; error?: undefined } | { session?: undefined; error: string }> {
   const session = await db.query(
-    `SELECT id, expected_cash FROM register_sessions WHERE id = ? AND status = 'open'`,
+    `SELECT id, expected_cash FROM register_sessions WHERE id = $1 AND status = 'open'`,
     [sessionId]
   );
   if (session.rows.length === 0) {
@@ -289,8 +291,8 @@ export async function forceCloseSession(
 
   const result = await db.query(
     `UPDATE register_sessions
-     SET status = 'closed', closed_at = datetime('now'), notes = COALESCE(notes || ' | ', '') || 'Force-closed by admin'
-     WHERE id = ?
+     SET status = 'closed', closed_at = NOW(), notes = COALESCE(notes || ' | ', '') || 'Force-closed by admin'
+     WHERE id = $1
      RETURNING *`,
     [sessionId]
   );
@@ -304,35 +306,8 @@ export async function recordSaleMovement(
   cashAmount: number
 ): Promise<void> {
   try {
-    const session = await db.query(
-      `SELECT id, expected_cash FROM register_sessions WHERE cashier_id = ? AND status = 'open'`,
-      [cashierId]
-    );
-    if (session.rows.length === 0) return; // No open session, skip
-
-    const sessionId = session.rows[0].id;
-
-    await db.query(
-      `INSERT INTO register_movements (session_id, type, amount, sale_id) VALUES (?, 'sale', ?, ?)`,
-      [sessionId, cashAmount, saleId]
-    );
-
-    await db.query(`UPDATE register_sessions SET expected_cash = expected_cash + ? WHERE id = ?`, [
-      cashAmount,
-      sessionId,
-    ]);
-
-    // Also link the sale to the session
-    await db.query(`UPDATE sales SET register_session_id = ? WHERE id = ?`, [sessionId, saleId]);
-  } catch {
-    // Don't fail the sale if register tracking fails
-  }
-}
-
-export async function recordRefundMovement(cashierId: number, amount: number): Promise<void> {
-  try {
-    const session = await db.query(
-      `SELECT id, expected_cash FROM register_sessions WHERE cashier_id = ? AND status = 'open'`,
+    const session = await db.query<{ id: number }>(
+      `SELECT id, expected_cash FROM register_sessions WHERE cashier_id = $1 AND status = 'open'`,
       [cashierId]
     );
     if (session.rows.length === 0) return;
@@ -340,14 +315,40 @@ export async function recordRefundMovement(cashierId: number, amount: number): P
     const sessionId = session.rows[0].id;
 
     await db.query(
-      `INSERT INTO register_movements (session_id, type, amount) VALUES (?, 'refund', ?)`,
+      `INSERT INTO register_movements (session_id, type, amount, sale_id) VALUES ($1, 'sale', $2, $3)`,
+      [sessionId, cashAmount, saleId]
+    );
+
+    await db.query(
+      `UPDATE register_sessions SET expected_cash = expected_cash + $1 WHERE id = $2`,
+      [cashAmount, sessionId]
+    );
+
+    await db.query(`UPDATE sales SET register_session_id = $1 WHERE id = $2`, [sessionId, saleId]);
+  } catch {
+    // Don't fail the sale if register tracking fails
+  }
+}
+
+export async function recordRefundMovement(cashierId: number, amount: number): Promise<void> {
+  try {
+    const session = await db.query<{ id: number }>(
+      `SELECT id, expected_cash FROM register_sessions WHERE cashier_id = $1 AND status = 'open'`,
+      [cashierId]
+    );
+    if (session.rows.length === 0) return;
+
+    const sessionId = session.rows[0].id;
+
+    await db.query(
+      `INSERT INTO register_movements (session_id, type, amount) VALUES ($1, 'refund', $2)`,
       [sessionId, amount]
     );
 
-    await db.query(`UPDATE register_sessions SET expected_cash = expected_cash - ? WHERE id = ?`, [
-      amount,
-      sessionId,
-    ]);
+    await db.query(
+      `UPDATE register_sessions SET expected_cash = expected_cash - $1 WHERE id = $2`,
+      [amount, sessionId]
+    );
   } catch {
     // Don't fail the refund if register tracking fails
   }

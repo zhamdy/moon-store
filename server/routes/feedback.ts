@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole } from '../middleware/auth';
 
 const router: Router = Router();
@@ -27,11 +27,11 @@ router.get(
       );
       const stats = await db.query(
         `SELECT
-        ROUND(AVG(rating), 1) as avg_rating,
-        COUNT(*) as total_responses,
+        ROUND(AVG(rating)::numeric, 1) as avg_rating,
+        COUNT(*)::int as total_responses,
         ROUND(
-          (CAST(SUM(CASE WHEN nps_score >= 9 THEN 1 ELSE 0 END) AS REAL) / NULLIF(COUNT(nps_score), 0) -
-           CAST(SUM(CASE WHEN nps_score <= 6 THEN 1 ELSE 0 END) AS REAL) / NULLIF(COUNT(nps_score), 0)) * 100
+          (CAST(SUM(CASE WHEN nps_score >= 9 THEN 1 ELSE 0 END) AS NUMERIC) / NULLIF(COUNT(nps_score), 0) -
+           CAST(SUM(CASE WHEN nps_score <= 6 THEN 1 ELSE 0 END) AS NUMERIC) / NULLIF(COUNT(nps_score), 0)) * 100
         , 0) as nps_score
        FROM customer_feedback`
       );
@@ -47,7 +47,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = feedbackSchema.parse(req.body);
     const result = await db.query(
-      `INSERT INTO customer_feedback (sale_id, customer_id, rating, nps_score, comment) VALUES (?, ?, ?, ?, ?) RETURNING *`,
+      `INSERT INTO customer_feedback (sale_id, customer_id, rating, nps_score, comment) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [
         parsed.sale_id || null,
         parsed.customer_id || null,

@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
+import { withTransaction } from '../src/database/transaction';
 import { verifyToken, requireRole } from '../middleware/auth';
 import crypto from 'crypto';
 
@@ -33,7 +34,7 @@ router.post(
     try {
       const { name, rule_type, config, priority, applies_to } = req.body;
       const result = await db.query(
-        'INSERT INTO pricing_rules (name, rule_type, config, priority, applies_to) VALUES (?, ?, ?, ?, ?) RETURNING *',
+        'INSERT INTO pricing_rules (name, rule_type, config, priority, applies_to) VALUES ($1, $2, $3, $4, $5) RETURNING *',
         [name, rule_type, JSON.stringify(config), priority || 0, applies_to || 'all']
       );
       res.status(201).json({ success: true, data: result.rows[0] });
@@ -53,8 +54,8 @@ router.post(
       // Simple demand-based pricing algorithm
       const products = await db.query(
         `SELECT p.id, p.name, p.price, p.stock, p.cost_price,
-        COALESCE((SELECT SUM(si.quantity) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = p.id AND s.created_at >= date('now', '-30 days')), 0) as monthly_sales,
-        COALESCE((SELECT SUM(si.quantity) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = p.id AND s.created_at >= date('now', '-7 days')), 0) as weekly_sales
+        COALESCE((SELECT SUM(si.quantity) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = p.id AND s.created_at >= NOW() - INTERVAL '30 days'), 0)::int as monthly_sales,
+        COALESCE((SELECT SUM(si.quantity) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = p.id AND s.created_at >= NOW() - INTERVAL '7 days'), 0)::int as weekly_sales
        FROM products p WHERE p.status = 'active'`
       );
 
@@ -77,36 +78,36 @@ router.post(
       }
       const suggestions: PricingSuggestion[] = [];
       for (const p of products.rows as unknown as PricingProduct[]) {
-        let suggested_price = p.price;
+        let suggested_price = Number(p.price);
         let reason = '';
 
         // High demand, low stock — increase price
-        if (p.weekly_sales > 5 && p.stock < 10) {
-          suggested_price = Math.round(p.price * 1.1 * 100) / 100;
+        if (Number(p.weekly_sales) > 5 && Number(p.stock) < 10) {
+          suggested_price = Math.round(Number(p.price) * 1.1 * 100) / 100;
           reason = 'High demand + low stock: suggest 10% increase';
         }
         // Low demand, high stock — decrease price
-        else if (p.monthly_sales < 2 && p.stock > 50) {
-          suggested_price = Math.round(p.price * 0.85 * 100) / 100;
+        else if (Number(p.monthly_sales) < 2 && Number(p.stock) > 50) {
+          suggested_price = Math.round(Number(p.price) * 0.85 * 100) / 100;
           reason = 'Low demand + high stock: suggest 15% clearance discount';
         }
         // Moderate demand
-        else if (p.weekly_sales > 3) {
-          suggested_price = Math.round(p.price * 1.05 * 100) / 100;
+        else if (Number(p.weekly_sales) > 3) {
+          suggested_price = Math.round(Number(p.price) * 1.05 * 100) / 100;
           reason = 'Moderate demand: suggest 5% increase';
         }
 
         // Ensure minimum margin
-        if (p.cost_price && suggested_price < p.cost_price * 1.2) {
-          suggested_price = Math.round(p.cost_price * 1.2 * 100) / 100;
+        if (p.cost_price && suggested_price < Number(p.cost_price) * 1.2) {
+          suggested_price = Math.round(Number(p.cost_price) * 1.2 * 100) / 100;
           reason += ' (adjusted for minimum 20% margin)';
         }
 
-        if (suggested_price !== p.price) {
+        if (suggested_price !== Number(p.price)) {
           suggestions.push({
             product_id: p.id,
             product_name: p.name,
-            current_price: p.price,
+            current_price: Number(p.price),
             suggested_price,
             reason,
             confidence: 0.7,
@@ -115,13 +116,15 @@ router.post(
       }
 
       // Save suggestions
-      const rawDb = db.db;
-      const stmt = rawDb.prepare(
-        'INSERT OR REPLACE INTO price_suggestions (product_id, current_price, suggested_price, reason, confidence) VALUES (?, ?, ?, ?, ?)'
-      );
-      for (const s of suggestions) {
-        stmt.run(s.product_id, s.current_price, s.suggested_price, s.reason, s.confidence);
-      }
+      await withTransaction(async (client) => {
+        for (const s of suggestions) {
+          await client.query(
+            `INSERT INTO price_suggestions (product_id, current_price, suggested_price, reason, confidence)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [s.product_id, s.current_price, s.suggested_price, s.reason, s.confidence]
+          );
+        }
+      });
 
       res.json({ success: true, data: suggestions });
     } catch (err) {
@@ -156,9 +159,10 @@ router.put(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { action } = req.body; // 'accept' or 'reject'
+      const suggestionId = req.params.id as string;
       if (action === 'accept') {
-        const suggestion = await db.query('SELECT * FROM price_suggestions WHERE id = ?', [
-          req.params.id,
+        const suggestion = await db.query('SELECT * FROM price_suggestions WHERE id = $1', [
+          suggestionId,
         ]);
         if (suggestion.rows.length > 0) {
           const s = suggestion.rows[0] as {
@@ -167,21 +171,23 @@ router.put(
             suggested_price: number;
             reason: string;
           };
-          await db.query('UPDATE products SET price = ? WHERE id = ?', [
-            s.suggested_price,
-            s.product_id,
-          ]);
-          await db.query(
-            "INSERT INTO price_history (product_id, old_price, new_price, changed_by, reason) VALUES (?, ?, ?, 'AI', ?)",
-            [s.product_id, s.current_price, s.suggested_price, s.reason]
-          );
+          await withTransaction(async (client) => {
+            await client.query('UPDATE products SET price = $1 WHERE id = $2', [
+              s.suggested_price,
+              s.product_id,
+            ]);
+            await client.query(
+              "INSERT INTO price_history (product_id, field, old_value, new_value) VALUES ($1, 'price', $2, $3)",
+              [s.product_id, s.current_price, s.suggested_price]
+            );
+            await client.query("UPDATE price_suggestions SET status = 'accepted' WHERE id = $1", [
+              suggestionId,
+            ]);
+          });
         }
-        await db.query("UPDATE price_suggestions SET status = 'accepted' WHERE id = ?", [
-          req.params.id,
-        ]);
       } else {
-        await db.query("UPDATE price_suggestions SET status = 'rejected' WHERE id = ?", [
-          req.params.id,
+        await db.query("UPDATE price_suggestions SET status = 'rejected' WHERE id = $1", [
+          suggestionId,
         ]);
       }
       res.json({ success: true, data: { message: `Suggestion ${action}ed` } });
@@ -198,7 +204,7 @@ router.post('/chat/session', async (_req: Request, res: Response, next: NextFunc
   try {
     const token = crypto.randomBytes(16).toString('hex');
     const result = await db.query(
-      'INSERT INTO chat_sessions (session_token) VALUES (?) RETURNING *',
+      'INSERT INTO chat_sessions (session_token) VALUES ($1) RETURNING *',
       [token]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
@@ -212,7 +218,7 @@ router.post('/chat/message', async (req: Request, res: Response, next: NextFunct
   try {
     const { session_token, message } = req.body;
     const session = await db.query(
-      "SELECT id FROM chat_sessions WHERE session_token = ? AND status = 'active'",
+      "SELECT id FROM chat_sessions WHERE session_token = $1 AND status = 'active'",
       [session_token]
     );
     if (session.rows.length === 0)
@@ -221,7 +227,7 @@ router.post('/chat/message', async (req: Request, res: Response, next: NextFunct
 
     // Save customer message
     await db.query(
-      "INSERT INTO chat_messages (session_id, sender, message) VALUES (?, 'customer', ?)",
+      "INSERT INTO chat_messages (session_id, sender, message) VALUES ($1, 'customer', $2)",
       [sessionId, message]
     );
 
@@ -231,7 +237,9 @@ router.post('/chat/message', async (req: Request, res: Response, next: NextFunct
 
     const kb = await db.query('SELECT * FROM knowledge_base WHERE is_active = 1');
     for (const entry of kb.rows as Array<{ keywords: string; answer: string }>) {
-      const keywords = entry.keywords.split(',').map((k) => k.trim().toLowerCase());
+      const keywords = entry.keywords
+        ? entry.keywords.split(',').map((k) => k.trim().toLowerCase())
+        : [];
       if (keywords.some((k) => lowerMsg.includes(k))) {
         botResponse = entry.answer;
         break;
@@ -247,7 +255,7 @@ router.post('/chat/message', async (req: Request, res: Response, next: NextFunct
       const searchTerms = lowerMsg.replace(/(looking for|do you have|search|find)/gi, '').trim();
       if (searchTerms) {
         const products = await db.query(
-          "SELECT name, price FROM products WHERE status = 'active' AND (name LIKE ? OR category LIKE ?) LIMIT 3",
+          "SELECT name, price FROM products WHERE status = 'active' AND (name ILIKE $1 OR category ILIKE $2) LIMIT 3",
           [`%${searchTerms}%`, `%${searchTerms}%`]
         );
         if ((products.rows as Array<{ name: string; price: number }>).length > 0) {
@@ -260,13 +268,13 @@ router.post('/chat/message', async (req: Request, res: Response, next: NextFunct
     }
 
     // Save bot response
-    await db.query("INSERT INTO chat_messages (session_id, sender, message) VALUES (?, 'bot', ?)", [
-      sessionId,
-      botResponse,
-    ]);
+    await db.query(
+      "INSERT INTO chat_messages (session_id, sender, message) VALUES ($1, 'bot', $2)",
+      [sessionId, botResponse]
+    );
 
     const messages = await db.query(
-      'SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC',
+      'SELECT * FROM chat_messages WHERE session_id = $1 ORDER BY created_at ASC',
       [sessionId]
     );
     res.json({ success: true, data: { response: botResponse, messages: messages.rows } });
@@ -287,8 +295,8 @@ router.post(
       // Simple moving average prediction
       const products = await db.query(
         `SELECT p.id, p.name, p.price, p.category,
-        COALESCE((SELECT SUM(si.quantity) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = p.id AND s.created_at >= date('now', '-30 days')), 0) as last_30d,
-        COALESCE((SELECT SUM(si.quantity) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = p.id AND s.created_at >= date('now', '-60 days') AND s.created_at < date('now', '-30 days')), 0) as prev_30d
+        COALESCE((SELECT SUM(si.quantity) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = p.id AND s.created_at >= NOW() - INTERVAL '30 days'), 0)::int as last_30d,
+        COALESCE((SELECT SUM(si.quantity) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.product_id = p.id AND s.created_at >= NOW() - INTERVAL '60 days' AND s.created_at < NOW() - INTERVAL '30 days'), 0)::int as prev_30d
        FROM products p WHERE p.status = 'active'`
       );
 
@@ -315,11 +323,14 @@ router.post(
       const period = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
 
       for (const p of products.rows as unknown as PredictionProduct[]) {
+        const last30 = Number(p.last_30d);
+        const prev30 = Number(p.prev_30d);
+        const price = Number(p.price);
+
         // Weighted average: 70% recent, 30% older
-        const predicted_units = Math.round(p.last_30d * 0.7 + p.prev_30d * 0.3);
-        const predicted_revenue = predicted_units * p.price;
-        const trend =
-          p.last_30d > p.prev_30d ? 'growing' : p.last_30d < p.prev_30d ? 'declining' : 'stable';
+        const predicted_units = Math.round(last30 * 0.7 + prev30 * 0.3);
+        const predicted_revenue = predicted_units * price;
+        const trend = last30 > prev30 ? 'growing' : last30 < prev30 ? 'declining' : 'stable';
 
         predictions.push({
           product_id: p.id,
@@ -333,20 +344,15 @@ router.post(
       }
 
       // Save predictions
-      const rawDb = db.db;
-      const stmt = rawDb.prepare(
-        "INSERT OR REPLACE INTO sales_predictions (product_id, category, prediction_type, period, predicted_units, predicted_revenue, confidence) VALUES (?, ?, 'monthly', ?, ?, ?, ?)"
-      );
-      for (const p of predictions) {
-        stmt.run(
-          p.product_id,
-          p.category,
-          period,
-          p.predicted_units,
-          p.predicted_revenue,
-          p.confidence
-        );
-      }
+      await withTransaction(async (client) => {
+        for (const p of predictions) {
+          await client.query(
+            `INSERT INTO sales_predictions (product_id, category, prediction_type, period, predicted_units, predicted_revenue, confidence)
+             VALUES ($1, $2, 'monthly', $3, $4, $5, $6)`,
+            [p.product_id, p.category, period, p.predicted_units, p.predicted_revenue, p.confidence]
+          );
+        }
+      });
 
       res.json({
         success: true,
@@ -384,7 +390,8 @@ router.post(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const product = await db.query('SELECT * FROM products WHERE id = ?', [req.params.productId]);
+      const productId = req.params.productId as string;
+      const product = await db.query('SELECT * FROM products WHERE id = $1', [productId]);
       if (product.rows.length === 0)
         return res.status(404).json({ success: false, error: 'Product not found' });
       const p = product.rows[0] as {
@@ -412,19 +419,17 @@ router.post(
         .filter(Boolean)
         .join(',');
 
-      await db.query(
-        'UPDATE products SET ai_description = ?, seo_title = ?, seo_description = ?, tags = ? WHERE id = ?',
-        [ai_description, seo_title, seo_description, tags, req.params.productId]
-      );
+      await withTransaction(async (client) => {
+        await client.query(
+          'UPDATE products SET ai_description = $1, seo_title = $2, seo_description = $3, tags = $4 WHERE id = $5',
+          [ai_description, seo_title, seo_description, tags, productId]
+        );
 
-      await db.query(
-        "INSERT INTO ai_generation_log (product_id, generation_type, input_data, output_data) VALUES (?, 'description', ?, ?)",
-        [
-          req.params.productId,
-          JSON.stringify({ name: p.name, category: p.category }),
-          ai_description,
-        ]
-      );
+        await client.query(
+          "INSERT INTO ai_generation_log (product_id, generation_type, input_data, output_data) VALUES ($1, 'description', $2, $3)",
+          [productId, JSON.stringify({ name: p.name, category: p.category }), ai_description]
+        );
+      });
 
       res.json({ success: true, data: { ai_description, seo_title, seo_description, tags } });
     } catch (err) {
@@ -458,7 +463,7 @@ router.post(
   }
 );
 
-// GET /api/ai/knowledge-base
+// GET /api/knowledge-base
 router.get(
   '/knowledge-base',
   verifyToken,
@@ -472,7 +477,7 @@ router.get(
   }
 );
 
-// POST /api/ai/knowledge-base
+// POST /api/knowledge-base
 router.post(
   '/knowledge-base',
   verifyToken,
@@ -481,7 +486,7 @@ router.post(
     try {
       const { category, question, answer, keywords } = req.body;
       const result = await db.query(
-        'INSERT INTO knowledge_base (category, question, answer, keywords) VALUES (?, ?, ?, ?) RETURNING *',
+        'INSERT INTO knowledge_base (category, question, answer, keywords) VALUES ($1, $2, $3, $4) RETURNING *',
         [category, question, answer, keywords || '']
       );
       res.status(201).json({ success: true, data: result.rows[0] });

@@ -278,7 +278,7 @@ router.post(
   requireRole('Admin'),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = createInventorySnapshot();
+      const data = await createInventorySnapshot();
       res.status(201).json({ success: true, data });
     } catch (err) {
       next(err);

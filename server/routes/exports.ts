@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
@@ -100,20 +100,11 @@ router.post(
         }
         case 'customers': {
           const result = await db.query(
-            `SELECT id, name, phone, email, loyalty_points, total_spent, visit_count, created_at
+            `SELECT id, name, phone, email, loyalty_points, total_spent, created_at
              FROM customers ORDER BY name`
           );
           data = result.rows;
-          columns = [
-            'id',
-            'name',
-            'phone',
-            'email',
-            'loyalty_points',
-            'total_spent',
-            'visit_count',
-            'created_at',
-          ];
+          columns = ['id', 'name', 'phone', 'email', 'loyalty_points', 'total_spent', 'created_at'];
           break;
         }
         case 'inventory': {
@@ -166,12 +157,10 @@ router.post(
       }
 
       // Record the export
-      const rawDb = db.db;
-      rawDb
-        .prepare(
-          `INSERT INTO exports (module, format, record_count, user_id, filters_json) VALUES (?, ?, ?, ?, ?)`
-        )
-        .run(mod, format, data.length, authReq.user!.id, filters ? JSON.stringify(filters) : null);
+      await db.query(
+        `INSERT INTO exports (module, format, record_count, user_id, filters_json) VALUES ($1, $2, $3, $4, $5)`,
+        [mod, format, data.length, authReq.user!.id, filters ? JSON.stringify(filters) : null]
+      );
 
       res.json({ success: true, data: { columns, rows: data, format, module: mod } });
     } catch (err) {
@@ -187,9 +176,10 @@ router.get(
   requireRole('Admin'),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const path = require('path');
-      const dbPath = path.join(__dirname, '..', 'db', 'moon.db');
-      res.download(dbPath, `moon-backup-${new Date().toISOString().split('T')[0]}.db`);
+      res.json({
+        success: true,
+        message: 'PostgreSQL database backups should be managed via pg_dump',
+      });
     } catch (err) {
       next(err);
     }

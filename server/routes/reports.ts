@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
@@ -29,20 +29,20 @@ router.post('/quick', verifyToken, async (req: Request, res: Response, next: Nex
       result = await db.query(
         `SELECT p.category, SUM(si.quantity * si.unit_price) as revenue, SUM(si.quantity) as units
          FROM sale_items si JOIN products p ON si.product_id = p.id JOIN sales s ON si.sale_id = s.id
-         WHERE s.created_at BETWEEN ? AND ? GROUP BY p.category ORDER BY revenue DESC`,
+         WHERE s.created_at BETWEEN $1 AND $2 GROUP BY p.category ORDER BY revenue DESC`,
         [date_from || '2000-01-01', date_to || '2099-12-31']
       );
     } else if (type === 'revenue_by_date') {
       result = await db.query(
-        `SELECT date(s.created_at) as date, SUM(s.total) as revenue, COUNT(*) as orders
-         FROM sales s WHERE s.created_at BETWEEN ? AND ? GROUP BY date(s.created_at) ORDER BY date`,
+        `SELECT s.created_at::date as date, SUM(s.total) as revenue, COUNT(*)::int as orders
+         FROM sales s WHERE s.created_at BETWEEN $1 AND $2 GROUP BY s.created_at::date ORDER BY date`,
         [date_from || '2000-01-01', date_to || '2099-12-31']
       );
     } else if (type === 'top_products') {
       result = await db.query(
         `SELECT p.name, p.sku, SUM(si.quantity) as units, SUM(si.quantity * si.unit_price) as revenue
          FROM sale_items si JOIN products p ON si.product_id = p.id JOIN sales s ON si.sale_id = s.id
-         WHERE s.created_at BETWEEN ? AND ? GROUP BY p.id ORDER BY revenue DESC LIMIT 20`,
+         WHERE s.created_at BETWEEN $1 AND $2 GROUP BY p.id, p.name, p.sku ORDER BY revenue DESC LIMIT 20`,
         [date_from || '2000-01-01', date_to || '2099-12-31']
       );
     } else {
@@ -83,7 +83,7 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       const { report_id, schedule, recipients } = parsed.data;
       const result = await db.query(
-        'INSERT INTO scheduled_reports (report_id, schedule, recipients) VALUES (?, ?, ?) RETURNING *',
+        'INSERT INTO scheduled_reports (report_id, schedule, recipients) VALUES ($1, $2, $3) RETURNING *',
         [report_id, schedule, recipients]
       );
       res.status(201).json({ success: true, data: result.rows[0] });
@@ -99,7 +99,7 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
     const authReq = req as AuthRequest;
     const result = await db.query(
       `SELECT r.*, u.name as created_by_name FROM saved_reports r LEFT JOIN users u ON r.created_by = u.id
-       WHERE r.is_public = 1 OR r.created_by = ? ORDER BY r.updated_at DESC`,
+       WHERE r.is_public = 1 OR r.created_by = $1 ORDER BY r.updated_at DESC`,
       [authReq.user!.id]
     );
     res.json({ success: true, data: result.rows });
@@ -117,7 +117,7 @@ router.post('/', verifyToken, async (req: Request, res: Response, next: NextFunc
       return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
     const { name, description, report_type, config, chart_type, is_public } = parsed.data;
     const result = await db.query(
-      `INSERT INTO saved_reports (name, description, report_type, config, chart_type, is_public, created_by) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      `INSERT INTO saved_reports (name, description, report_type, config, chart_type, is_public, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [
         name,
         description || null,
@@ -141,9 +141,10 @@ router.put('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
     if (!parsed.success)
       return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
     const { name, description, report_type, config, chart_type, is_public } = parsed.data;
+    const reportId = req.params.id as string;
     const result = await db.query(
-      `UPDATE saved_reports SET name=?, description=?, report_type=?, config=?, chart_type=?, is_public=?, updated_at=datetime('now') WHERE id=? RETURNING *`,
-      [name, description || null, report_type, config, chart_type, is_public ? 1 : 0, req.params.id]
+      `UPDATE saved_reports SET name=$1, description=$2, report_type=$3, config=$4, chart_type=$5, is_public=$6, updated_at=NOW() WHERE id=$7 RETURNING *`,
+      [name, description || null, report_type, config, chart_type, is_public ? 1 : 0, reportId]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ success: false, error: 'Report not found' });
@@ -156,7 +157,8 @@ router.put('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
 // DELETE /api/reports/:id
 router.delete('/:id', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await db.query('DELETE FROM saved_reports WHERE id = ?', [req.params.id]);
+    const reportId = req.params.id as string;
+    await db.query('DELETE FROM saved_reports WHERE id = $1', [reportId]);
     res.json({ success: true, data: { message: 'Report deleted' } });
   } catch (err) {
     next(err);
@@ -166,7 +168,8 @@ router.delete('/:id', verifyToken, async (req: Request, res: Response, next: Nex
 // POST /api/reports/:id/run — execute a report
 router.post('/:id/run', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const report = await db.query('SELECT * FROM saved_reports WHERE id = ?', [req.params.id]);
+    const reportId = req.params.id as string;
+    const report = await db.query('SELECT * FROM saved_reports WHERE id = $1', [reportId]);
     if (report.rows.length === 0)
       return res.status(404).json({ success: false, error: 'Report not found' });
     const reportType = (report.rows[0] as Record<string, string>).report_type;
@@ -174,9 +177,9 @@ router.post('/:id/run', verifyToken, async (req: Request, res: Response, next: N
     let data: any[] = [];
     if (reportType === 'sales') {
       const result = await db.query(
-        `SELECT date(s.created_at) as date, COUNT(*) as count, SUM(s.total) as revenue, AVG(s.total) as avg_order,
-         s.payment_method FROM sales s WHERE s.created_at >= date('now', '-30 days')
-         GROUP BY date(s.created_at) ORDER BY date DESC`
+        `SELECT s.created_at::date as date, COUNT(*)::int as count, SUM(s.total) as revenue, AVG(s.total) as avg_order,
+         s.payment_method FROM sales s WHERE s.created_at >= NOW() - INTERVAL '30 days'
+         GROUP BY s.created_at::date, s.payment_method ORDER BY date DESC`
       );
       data = result.rows;
     } else if (reportType === 'inventory') {
@@ -188,27 +191,25 @@ router.post('/:id/run', verifyToken, async (req: Request, res: Response, next: N
       data = result.rows;
     } else if (reportType === 'customers') {
       const result = await db.query(
-        `SELECT c.name, c.phone, COUNT(s.id) as order_count, COALESCE(SUM(s.total), 0) as total_spent,
+        `SELECT c.name, c.phone, COUNT(s.id)::int as order_count, COALESCE(SUM(s.total), 0) as total_spent,
          MAX(s.created_at) as last_purchase
          FROM customers c LEFT JOIN sales s ON s.customer_id = c.id
-         GROUP BY c.id ORDER BY total_spent DESC`
+         GROUP BY c.id, c.name, c.phone ORDER BY total_spent DESC`
       );
       data = result.rows;
     } else if (reportType === 'financial') {
       const result = await db.query(
-        `SELECT date(s.created_at) as date, SUM(s.total) as revenue,
+        `SELECT s.created_at::date as date, SUM(s.total) as revenue,
          SUM(si.quantity * COALESCE(p.cost_price, 0)) as cogs,
          SUM(s.total) - SUM(si.quantity * COALESCE(p.cost_price, 0)) as profit
          FROM sales s JOIN sale_items si ON s.id = si.sale_id JOIN products p ON si.product_id = p.id
-         WHERE s.created_at >= date('now', '-30 days')
-         GROUP BY date(s.created_at) ORDER BY date DESC`
+         WHERE s.created_at >= NOW() - INTERVAL '30 days'
+         GROUP BY s.created_at::date ORDER BY date DESC`
       );
       data = result.rows;
     }
 
-    await db.query("UPDATE saved_reports SET last_run_at = datetime('now') WHERE id = ?", [
-      req.params.id,
-    ]);
+    await db.query('UPDATE saved_reports SET last_run_at = NOW() WHERE id = $1', [reportId]);
     res.json({ success: true, data });
   } catch (err) {
     next(err);

@@ -27,6 +27,8 @@ DROP TABLE IF EXISTS storefront_config CASCADE;
 DROP TABLE IF EXISTS online_order_items CASCADE;
 DROP TABLE IF EXISTS online_orders CASCADE;
 DROP TABLE IF EXISTS delivery_tracking CASCADE;
+DROP TABLE IF EXISTS delivery_status_history CASCADE;
+DROP TABLE IF EXISTS delivery_items CASCADE;
 DROP TABLE IF EXISTS delivery_orders CASCADE;
 DROP TABLE IF EXISTS shipping_companies CASCADE;
 DROP TABLE IF EXISTS vendor_reviews CASCADE;

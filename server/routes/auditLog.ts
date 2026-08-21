@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole } from '../middleware/auth';
 
 const router: Router = Router();
@@ -27,39 +27,47 @@ router.get(
 
       const where: string[] = [];
       const params: unknown[] = [];
+      let paramIdx = 1;
 
       if (user_id) {
-        where.push(`a.user_id = ?`);
+        where.push(`a.user_id = $${paramIdx++}`);
         params.push(Number(user_id));
       }
       if (action) {
-        where.push(`a.action = ?`);
+        where.push(`a.action = $${paramIdx++}`);
         params.push(action);
       }
       if (entity_type) {
-        where.push(`a.entity_type = ?`);
+        where.push(`a.entity_type = $${paramIdx++}`);
         params.push(entity_type);
       }
       if (search) {
-        where.push(`(a.entity_id LIKE ? OR a.details LIKE ? OR a.user_name LIKE ?)`);
-        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+        where.push(
+          `(a.entity_id ILIKE $${paramIdx} OR a.details ILIKE $${paramIdx} OR a.user_name ILIKE $${paramIdx})`
+        );
+        params.push(`%${search}%`);
+        paramIdx++;
       }
       if (date_from) {
-        where.push(`a.created_at >= ?`);
+        where.push(`a.created_at >= $${paramIdx++}`);
         params.push(date_from);
       }
       if (date_to) {
-        where.push(`a.created_at <= ?`);
+        where.push(`a.created_at <= $${paramIdx++}`);
         params.push(date_to + ' 23:59:59');
       }
 
       const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
-      const countResult = await db.query<{ count: number }>(
+      const countResult = await db.query<{ count: string | number }>(
         `SELECT COUNT(*) as count FROM audit_log a ${whereClause}`,
         params
       );
-      const total = countResult.rows[0].count;
+      const total = Number(countResult.rows[0]?.count || 0);
+
+      const queryParams = [...params, limitNum, offset];
+      const limitIdx = paramIdx++;
+      const offsetIdx = paramIdx++;
 
       const entries = await db.query(
         `SELECT a.*, u.name as user_display_name
@@ -67,8 +75,8 @@ router.get(
          LEFT JOIN users u ON a.user_id = u.id
          ${whereClause}
          ORDER BY a.created_at DESC
-         LIMIT ? OFFSET ?`,
-        [...params, limitNum, offset]
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        queryParams
       );
 
       res.json({

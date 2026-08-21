@@ -42,6 +42,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       'online_order_items',
       'online_orders',
       'delivery_tracking',
+      'delivery_status_history',
+      'delivery_items',
       'delivery_orders',
       'shipping_companies',
       'vendor_reviews',

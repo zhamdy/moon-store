@@ -1,4 +1,4 @@
-import db from '../db';
+import db from '../src/database/pool';
 
 interface CreateNotification {
   userId: number | null;
@@ -14,43 +14,38 @@ interface CreateNotification {
  * Create a notification for a specific user.
  * If userId is null, create for all Admin users.
  */
-export function createNotification(notif: CreateNotification): void {
+export async function createNotification(notif: CreateNotification): Promise<void> {
   try {
     if (notif.userId) {
-      db.db
-        .prepare(
-          `INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id, link)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id, link)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
           notif.userId,
           notif.type,
           notif.title,
           notif.message || null,
           notif.entityType || null,
           notif.entityId != null ? String(notif.entityId) : null,
-          notif.link || null
-        );
-    } else {
-      // Broadcast to all Admin users
-      const admins = db.db.prepare(`SELECT id FROM users WHERE role = 'Admin'`).all() as Array<{
-        id: number;
-      }>;
-
-      const stmt = db.db.prepare(
-        `INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id, link)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
+          notif.link || null,
+        ]
       );
+    } else {
+      const admins = await db.query<{ id: number }>(`SELECT id FROM users WHERE role = 'Admin'`);
 
-      for (const admin of admins) {
-        stmt.run(
-          admin.id,
-          notif.type,
-          notif.title,
-          notif.message || null,
-          notif.entityType || null,
-          notif.entityId != null ? String(notif.entityId) : null,
-          notif.link || null
+      for (const admin of admins.rows) {
+        await db.query(
+          `INSERT INTO notifications (user_id, type, title, message, entity_type, entity_id, link)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            admin.id,
+            notif.type,
+            notif.title,
+            notif.message || null,
+            notif.entityType || null,
+            notif.entityId != null ? String(notif.entityId) : null,
+            notif.link || null,
+          ]
         );
       }
     }
@@ -71,7 +66,7 @@ export function notifyLowStock(productName: string, stock: number, productId: nu
     entityType: 'product',
     entityId: productId,
     link: '/inventory?lowStock=true',
-  });
+  }).catch(() => {});
 }
 
 /**
@@ -86,7 +81,7 @@ export function notifySale(total: number, saleId: number, cashierName: string): 
     entityType: 'sale',
     entityId: saleId,
     link: '/sales',
-  });
+  }).catch(() => {});
 }
 
 /**
@@ -105,8 +100,8 @@ export function notifyDeliveryOverdue(
     entityType: 'delivery',
     entityId: orderId,
     link: '/deliveries',
-  });
-  // Also notify admins
+  }).catch(() => {});
+
   if (assignedTo) {
     createNotification({
       userId: null,
@@ -116,6 +111,6 @@ export function notifyDeliveryOverdue(
       entityType: 'delivery',
       entityId: orderId,
       link: '/deliveries',
-    });
+    }).catch(() => {});
   }
 }

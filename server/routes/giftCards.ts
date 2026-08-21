@@ -97,7 +97,7 @@ router.get(
   verifyToken,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const balanceData = await getGiftCardBalance(req.params.code);
+      const balanceData = await getGiftCardBalance(req.params.code as string);
 
       if (!balanceData) {
         return res.status(404).json({ success: false, error: 'Gift card not found' });
@@ -126,7 +126,7 @@ router.post(
 
       let result;
       try {
-        result = redeemGiftCard(req.params.code, amount, sale_id, authReq.user!.id);
+        result = await redeemGiftCard(req.params.code as string, amount, sale_id, authReq.user!.id);
       } catch (err: any) {
         if (
           err.message === 'Gift card not found' ||
@@ -186,13 +186,13 @@ router.put(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const updated = await updateGiftCardStatus(req.params.id, parsed.data.status);
+      const updated = await updateGiftCardStatus(req.params.id as string, parsed.data.status);
 
       if (!updated) {
         return res.status(404).json({ success: false, error: 'Gift card not found' });
       }
 
-      logAuditFromReq(req, 'status_change', 'gift_card', req.params.id, {
+      logAuditFromReq(req, 'status_change', 'gift_card', req.params.id as string, {
         status: parsed.data.status,
       });
       res.json({ success: true, data: updated });

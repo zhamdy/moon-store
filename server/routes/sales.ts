@@ -267,7 +267,9 @@ router.post(
 
       const { refund, refundStatus, newRefundedTotal } = result;
 
-      logAuditFromReq(req, 'refund', 'sale', req.params.id, { refund_amount: refund.amount });
+      logAuditFromReq(req, 'refund', 'sale', req.params.id as string, {
+        refund_amount: refund.amount,
+      });
       recordRefundMovement(authReq.user!.id, Number(refund.amount));
 
       res.status(201).json({

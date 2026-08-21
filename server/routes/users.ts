@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { createUserSchema, updateUserSchema } from '../validators/userSchema';
 import { logAuditFromReq } from '../middleware/auditLogger';
@@ -60,15 +60,20 @@ router.post(
 
       const result = await db.query(
         `INSERT INTO users (name, email, password_hash, role)
-       VALUES (?, ?, ?, ?)
-       RETURNING id, name, email, role, created_at`,
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, name, email, role, created_at`,
         [name, email, hash, role]
       );
 
-      logAuditFromReq(req, 'create', 'user', result.rows[0]?.id, { name, email, role });
-      res.status(201).json({ success: true, data: result.rows[0] });
+      const createdUser = result.rows[0];
+      logAuditFromReq(req, 'create', 'user', createdUser.id as number, { name, email, role });
+      res.status(201).json({ success: true, data: createdUser });
     } catch (err: any) {
-      if (err.message?.includes('UNIQUE')) {
+      if (
+        err.code === '23505' ||
+        err.message?.includes('UNIQUE') ||
+        err.message?.includes('duplicate key')
+      ) {
         return res.status(409).json({ success: false, error: 'Email already exists' });
       }
       next(err);
@@ -91,7 +96,7 @@ router.put(
       const { name, email, password, role } = parsed.data;
 
       // Build update dynamically
-      const current = (await db.query('SELECT * FROM users WHERE id = ?', [req.params.id]))
+      const current = (await db.query('SELECT * FROM users WHERE id = $1', [req.params.id]))
         .rows[0] as Record<string, any> | undefined;
       if (!current) {
         return res.status(404).json({ success: false, error: 'User not found' });
@@ -106,14 +111,18 @@ router.put(
       }
 
       const result = await db.query(
-        `UPDATE users SET name=?, email=?, password_hash=?, role=? WHERE id=?
-       RETURNING id, name, email, role, created_at, last_login`,
+        `UPDATE users SET name = $1, email = $2, password_hash = $3, role = $4 WHERE id = $5
+         RETURNING id, name, email, role, created_at, last_login`,
         [newName, newEmail, newHash, newRole, req.params.id]
       );
 
       res.json({ success: true, data: result.rows[0] });
     } catch (err: any) {
-      if (err.message?.includes('UNIQUE')) {
+      if (
+        err.code === '23505' ||
+        err.message?.includes('UNIQUE') ||
+        err.message?.includes('duplicate key')
+      ) {
         return res.status(409).json({ success: false, error: 'Email already exists' });
       }
       next(err);
@@ -128,10 +137,11 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const authReq = req as AuthRequest;
-      const result = await db.query('SELECT favorites FROM users WHERE id = ?', [authReq.user!.id]);
-      const favorites = result.rows[0]?.favorites
-        ? JSON.parse(result.rows[0].favorites as string)
-        : [];
+      const result = await db.query('SELECT favorites FROM users WHERE id = $1', [
+        authReq.user!.id,
+      ]);
+      const rawFav = result.rows[0]?.favorites;
+      const favorites = typeof rawFav === 'string' ? JSON.parse(rawFav) : rawFav || [];
       res.json({ success: true, data: favorites });
     } catch (err) {
       next(err);
@@ -150,7 +160,7 @@ router.put(
       if (!Array.isArray(favorites)) {
         return res.status(400).json({ success: false, error: 'Favorites must be an array' });
       }
-      await db.query('UPDATE users SET favorites = ? WHERE id = ?', [
+      await db.query('UPDATE users SET favorites = $1 WHERE id = $2', [
         JSON.stringify(favorites),
         authReq.user!.id,
       ]);
@@ -173,11 +183,13 @@ router.delete(
         return res.status(400).json({ success: false, error: 'Cannot delete your own account' });
       }
 
-      const result = await db.query('DELETE FROM users WHERE id = ? RETURNING id', [req.params.id]);
+      const result = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [
+        req.params.id,
+      ]);
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'User not found' });
       }
-      logAuditFromReq(req, 'delete', 'user', req.params.id);
+      logAuditFromReq(req, 'delete', 'user', req.params.id as string);
       res.json({ success: true, data: { message: 'User deleted' } });
     } catch (err) {
       next(err);

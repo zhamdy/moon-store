@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole } from '../middleware/auth';
 
 const router: Router = Router();
@@ -20,25 +20,27 @@ router.get(
       const params: unknown[] = [];
 
       if (product_id) {
-        where.push('sa.product_id = ?');
         params.push(product_id);
+        where.push(`sa.product_id = $${params.length}`);
       }
       if (user_id) {
-        where.push('sa.user_id = ?');
         params.push(user_id);
+        where.push(`sa.user_id = $${params.length}`);
       }
       if (reason) {
-        where.push('sa.reason = ?');
         params.push(reason);
+        where.push(`sa.reason = $${params.length}`);
       }
 
       const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
       const countResult = await db.query<{ count: number }>(
-        `SELECT COUNT(*) as count FROM stock_adjustments sa ${whereClause}`,
+        `SELECT COUNT(*)::int as count FROM stock_adjustments sa ${whereClause}`,
         params
       );
 
+      const limitIdx = params.length + 1;
+      const offsetIdx = params.length + 2;
       const result = await db.query(
         `SELECT sa.*, p.name as product_name, p.sku as product_sku, u.name as user_name
          FROM stock_adjustments sa
@@ -46,14 +48,14 @@ router.get(
          LEFT JOIN users u ON sa.user_id = u.id
          ${whereClause}
          ORDER BY sa.created_at DESC
-         LIMIT ? OFFSET ?`,
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
         [...params, limitNum, offset]
       );
 
       res.json({
         success: true,
         data: result.rows,
-        meta: { total: countResult.rows[0].count, page: pageNum, limit: limitNum },
+        meta: { total: Number(countResult.rows[0]?.count || 0), page: pageNum, limit: limitNum },
       });
     } catch (err) {
       next(err);

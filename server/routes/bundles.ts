@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import db from '../db';
+import db from '../src/database/pool';
+import { withTransaction } from '../src/database/transaction';
 import { verifyToken, requireRole } from '../middleware/auth';
 
 const router: Router = Router();
@@ -40,16 +41,17 @@ router.get(
             `SELECT bi.*, p.name as product_name, p.price as product_price
              FROM bundle_items bi
              JOIN products p ON bi.product_id = p.id
-             WHERE bi.bundle_id = ?`,
+             WHERE bi.bundle_id = $1`,
             [bundle.id]
           )
         ).rows as Record<string, any>[];
 
         const originalPrice = items.reduce(
-          (sum: number, item: Record<string, any>) => sum + item.product_price * item.quantity,
+          (sum: number, item: Record<string, any>) =>
+            sum + Number(item.product_price) * item.quantity,
           0
         );
-        const savings = originalPrice - bundle.price;
+        const savings = originalPrice - Number(bundle.price);
         const savingsPercent = originalPrice > 0 ? Math.round((savings / originalPrice) * 100) : 0;
 
         bundle.items = items;
@@ -72,7 +74,7 @@ router.get(
   requireRole('Admin', 'Cashier'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await db.query(`SELECT b.* FROM bundles b WHERE b.id = ?`, [req.params.id]);
+      const result = await db.query(`SELECT b.* FROM bundles b WHERE b.id = $1`, [req.params.id]);
 
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Bundle not found' });
@@ -85,16 +87,17 @@ router.get(
           `SELECT bi.*, p.name as product_name, p.price as product_price
            FROM bundle_items bi
            JOIN products p ON bi.product_id = p.id
-           WHERE bi.bundle_id = ?`,
+           WHERE bi.bundle_id = $1`,
           [req.params.id]
         )
       ).rows as Record<string, any>[];
 
       const originalPrice = items.reduce(
-        (sum: number, item: Record<string, any>) => sum + item.product_price * item.quantity,
+        (sum: number, item: Record<string, any>) =>
+          sum + Number(item.product_price) * item.quantity,
         0
       );
-      const savings = originalPrice - bundle.price;
+      const savings = originalPrice - Number(bundle.price);
       const savingsPercent = originalPrice > 0 ? Math.round((savings / originalPrice) * 100) : 0;
 
       res.json({
@@ -127,33 +130,38 @@ router.post(
 
       const { name, description, price, status, items } = parsed.data;
 
-      const rawDb = db.db;
-      const txn = rawDb.transaction(() => {
-        const bundle = rawDb
-          .prepare(
+      try {
+        const bundle = await withTransaction(async (client) => {
+          const bundleRes = await client.query(
             `INSERT INTO bundles (name, description, price, status)
-             VALUES (?, ?, ?, ?) RETURNING *`
-          )
-          .get(name, description || null, price, status) as Record<string, any>;
+             VALUES ($1, $2, $3, $4) RETURNING *`,
+            [name, description || null, price, status]
+          );
+          const bundleRow = bundleRes.rows[0];
 
-        for (const item of items) {
-          rawDb
-            .prepare(
+          for (const item of items) {
+            await client.query(
               `INSERT INTO bundle_items (bundle_id, product_id, variant_id, quantity)
-               VALUES (?, ?, ?, ?)`
-            )
-            .run(bundle.id, item.product_id, item.variant_id || null, item.quantity);
+               VALUES ($1, $2, $3, $4)`,
+              [bundleRow.id, item.product_id, item.variant_id || null, item.quantity]
+            );
+          }
+
+          return bundleRow;
+        });
+
+        res.status(201).json({ success: true, data: bundle });
+      } catch (err: any) {
+        if (
+          err.code === '23505' ||
+          err.message?.includes('unique') ||
+          err.message?.includes('UNIQUE')
+        ) {
+          return res.status(409).json({ success: false, error: 'Bundle name already exists' });
         }
-
-        return bundle;
-      });
-
-      const bundle = txn();
-      res.status(201).json({ success: true, data: bundle });
-    } catch (err: any) {
-      if (err.message?.includes('UNIQUE')) {
-        return res.status(409).json({ success: false, error: 'Bundle name already exists' });
+        throw err;
       }
+    } catch (err) {
       next(err);
     }
   }
@@ -173,47 +181,49 @@ router.put(
 
       const { name, description, price, status, items } = parsed.data;
 
-      const rawDb = db.db;
-      const txn = rawDb.transaction(() => {
-        const bundle = rawDb
-          .prepare(
-            `UPDATE bundles SET name=?, description=?, price=?, status=?, updated_at=datetime('now')
-             WHERE id=? RETURNING *`
-          )
-          .get(name, description || null, price, status, req.params.id) as
-          | Record<string, any>
-          | undefined;
-
-        if (!bundle) throw new Error('Bundle not found');
-
-        // Replace all items: delete existing, insert new
-        rawDb.prepare('DELETE FROM bundle_items WHERE bundle_id = ?').run(req.params.id);
-
-        for (const item of items) {
-          rawDb
-            .prepare(
-              `INSERT INTO bundle_items (bundle_id, product_id, variant_id, quantity)
-               VALUES (?, ?, ?, ?)`
-            )
-            .run(bundle.id, item.product_id, item.variant_id || null, item.quantity);
-        }
-
-        return bundle;
-      });
-
       try {
-        const bundle = txn();
+        const bundle = await withTransaction(async (client) => {
+          const bundleRes = await client.query(
+            `UPDATE bundles SET name=$1, description=$2, price=$3, status=$4, updated_at=NOW()
+             WHERE id=$5 RETURNING *`,
+            [name, description || null, price, status, req.params.id]
+          );
+
+          if (bundleRes.rows.length === 0) {
+            const notFoundErr = new Error('Bundle not found');
+            (notFoundErr as any).statusCode = 404;
+            throw notFoundErr;
+          }
+
+          // Replace all items: delete existing, insert new
+          await client.query('DELETE FROM bundle_items WHERE bundle_id = $1', [req.params.id]);
+
+          for (const item of items) {
+            await client.query(
+              `INSERT INTO bundle_items (bundle_id, product_id, variant_id, quantity)
+               VALUES ($1, $2, $3, $4)`,
+              [req.params.id, item.product_id, item.variant_id || null, item.quantity]
+            );
+          }
+
+          return bundleRes.rows[0];
+        });
+
         res.json({ success: true, data: bundle });
       } catch (err: any) {
-        if (err.message === 'Bundle not found') {
+        if (err.statusCode === 404 || err.message === 'Bundle not found') {
           return res.status(404).json({ success: false, error: 'Bundle not found' });
+        }
+        if (
+          err.code === '23505' ||
+          err.message?.includes('unique') ||
+          err.message?.includes('UNIQUE')
+        ) {
+          return res.status(409).json({ success: false, error: 'Bundle name already exists' });
         }
         throw err;
       }
-    } catch (err: any) {
-      if (err.message?.includes('UNIQUE')) {
-        return res.status(409).json({ success: false, error: 'Bundle name already exists' });
-      }
+    } catch (err) {
       next(err);
     }
   }
@@ -226,30 +236,28 @@ router.delete(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const rawDb = db.db;
-      const txn = rawDb.transaction(() => {
+      await withTransaction(async (client) => {
         // Delete child items first
-        rawDb.prepare('DELETE FROM bundle_items WHERE bundle_id = ?').run(req.params.id);
+        await client.query('DELETE FROM bundle_items WHERE bundle_id = $1', [req.params.id]);
 
-        const result = rawDb
-          .prepare('DELETE FROM bundles WHERE id = ? RETURNING id')
-          .get(req.params.id) as Record<string, any> | undefined;
+        const delRes = await client.query('DELETE FROM bundles WHERE id = $1 RETURNING id', [
+          req.params.id,
+        ]);
 
-        if (!result) throw new Error('Bundle not found');
+        if (delRes.rows.length === 0) {
+          const notFoundErr = new Error('Bundle not found');
+          (notFoundErr as any).statusCode = 404;
+          throw notFoundErr;
+        }
 
-        return result;
+        return delRes.rows[0];
       });
 
-      try {
-        txn();
-        res.json({ success: true, data: { message: 'Bundle deleted' } });
-      } catch (err: any) {
-        if (err.message === 'Bundle not found') {
-          return res.status(404).json({ success: false, error: 'Bundle not found' });
-        }
-        throw err;
+      res.json({ success: true, data: { message: 'Bundle deleted' } });
+    } catch (err: any) {
+      if (err.statusCode === 404 || err.message === 'Bundle not found') {
+        return res.status(404).json({ success: false, error: 'Bundle not found' });
       }
-    } catch (err) {
       next(err);
     }
   }

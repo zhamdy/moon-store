@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole } from '../middleware/auth';
 import { categorySchema } from '../validators/categorySchema';
 
@@ -17,7 +17,7 @@ router.get(
       const params: unknown[] = [];
 
       if (search) {
-        query += ' WHERE name LIKE ? OR code LIKE ?';
+        query += ' WHERE name ILIKE $1 OR code ILIKE $2';
         const s = `%${search}%`;
         params.push(s, s);
       }
@@ -39,7 +39,7 @@ router.get(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await db.query('SELECT * FROM categories WHERE id = ?', [req.params.id]);
+      const result = await db.query('SELECT * FROM categories WHERE id = $1', [req.params.id]);
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Category not found' });
       }
@@ -64,7 +64,7 @@ router.post(
 
       const { name, code } = parsed.data;
       const result = await db.query(
-        `INSERT INTO categories (name, code) VALUES (?, ?) RETURNING *`,
+        `INSERT INTO categories (name, code) VALUES ($1, $2) RETURNING *`,
         [name, code]
       );
 
@@ -89,7 +89,7 @@ router.put(
 
       const { name, code } = parsed.data;
       const result = await db.query(
-        `UPDATE categories SET name=?, code=?, updated_at=datetime('now') WHERE id=? RETURNING *`,
+        `UPDATE categories SET name = $1, code = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
         [name, code, req.params.id]
       );
 
@@ -112,17 +112,17 @@ router.delete(
     try {
       // Check if any products reference this category
       const refs = await db.query<{ count: number }>(
-        'SELECT COUNT(*) as count FROM products WHERE category_id = ?',
+        'SELECT COUNT(*)::int as count FROM products WHERE category_id = $1',
         [req.params.id]
       );
-      if (refs.rows[0].count > 0) {
+      if (Number(refs.rows[0].count) > 0) {
         return res.status(400).json({
           success: false,
           error: `Cannot delete: ${refs.rows[0].count} product(s) reference this category`,
         });
       }
 
-      const result = await db.query('DELETE FROM categories WHERE id = ? RETURNING id', [
+      const result = await db.query('DELETE FROM categories WHERE id = $1 RETURNING id', [
         req.params.id,
       ]);
       if (result.rows.length === 0) {

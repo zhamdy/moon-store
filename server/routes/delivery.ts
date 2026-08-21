@@ -85,7 +85,7 @@ router.post(
       }
 
       try {
-        const order = createDeliveryOrder(parsed.data);
+        const order = await createDeliveryOrder(parsed.data);
         res.status(201).json({ success: true, data: order });
       } catch (err: any) {
         if (err.message === 'Customer not found') {
@@ -112,7 +112,7 @@ router.put(
       }
 
       try {
-        const order = updateDeliveryOrder(req.params.id as string, parsed.data);
+        const order = await updateDeliveryOrder(req.params.id as string, parsed.data);
         res.json({ success: true, data: order });
       } catch (err: any) {
         if (err.message === 'Order not found') {

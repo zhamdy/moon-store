@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
+import { withTransaction } from '../src/database/transaction';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
@@ -28,8 +29,8 @@ router.get(
     try {
       const stats = await db.query(
         `SELECT
-        (SELECT COUNT(*) FROM vendors WHERE status = 'active') as active_vendors,
-        (SELECT COUNT(*) FROM vendors WHERE status = 'pending') as pending_vendors,
+        (SELECT COUNT(*)::int FROM vendors WHERE status = 'active') as active_vendors,
+        (SELECT COUNT(*)::int FROM vendors WHERE status = 'pending') as pending_vendors,
         (SELECT COALESCE(SUM(balance), 0) FROM vendors) as total_unpaid,
         (SELECT COALESCE(SUM(commission_amount), 0) FROM vendor_commissions WHERE status = 'pending') as pending_commissions`
       );
@@ -47,11 +48,11 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
     let where = 'WHERE 1=1';
     const params: unknown[] = [];
     if (status) {
-      where += ' AND v.status = ?';
       params.push(status);
+      where += ` AND v.status = $${params.length}`;
     }
     const result = await db.query(
-      `SELECT v.*, (SELECT COUNT(*) FROM products p WHERE p.vendor_id = v.id) as product_count FROM vendors v ${where} ORDER BY v.created_at DESC`,
+      `SELECT v.*, (SELECT COUNT(*)::int FROM products p WHERE p.vendor_id = v.id) as product_count FROM vendors v ${where} ORDER BY v.created_at DESC`,
       params
     );
     res.json({ success: true, data: result.rows });
@@ -63,15 +64,15 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
 // GET /api/vendors/:id
 router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const vendor = await db.query('SELECT * FROM vendors WHERE id = ?', [req.params.id]);
+    const vendor = await db.query('SELECT * FROM vendors WHERE id = $1', [req.params.id]);
     if (vendor.rows.length === 0)
       return res.status(404).json({ success: false, error: 'Vendor not found' });
     const products = await db.query(
-      'SELECT * FROM products WHERE vendor_id = ? ORDER BY created_at DESC',
+      'SELECT * FROM products WHERE vendor_id = $1 ORDER BY created_at DESC',
       [req.params.id]
     );
     const commissions = await db.query(
-      'SELECT * FROM vendor_commissions WHERE vendor_id = ? ORDER BY created_at DESC LIMIT 50',
+      'SELECT * FROM vendor_commissions WHERE vendor_id = $1 ORDER BY created_at DESC LIMIT 50',
       [req.params.id]
     );
     res.json({
@@ -96,7 +97,7 @@ router.post(
       const d = parsed.data;
       const result = await db.query(
         `INSERT INTO vendors (name, slug, email, phone, description, address, city, commission_rate, bank_name, bank_account, bank_iban, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active') RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'active') RETURNING *`,
         [
           d.name,
           d.slug,
@@ -130,8 +131,8 @@ router.put(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       const d = parsed.data;
       const result = await db.query(
-        `UPDATE vendors SET name=?, slug=?, email=?, phone=?, description=?, address=?, city=?, commission_rate=?, bank_name=?, bank_account=?, bank_iban=?
-       WHERE id=? RETURNING *`,
+        `UPDATE vendors SET name=$1, slug=$2, email=$3, phone=$4, description=$5, address=$6, city=$7, commission_rate=$8, bank_name=$9, bank_account=$10, bank_iban=$11
+       WHERE id=$12 RETURNING *`,
         [
           d.name,
           d.slug,
@@ -168,9 +169,9 @@ router.put(
       if (!validStatuses.includes(status))
         return res.status(400).json({ success: false, error: 'Invalid status' });
       let extra = '';
-      if (status === 'active') extra = ", approved_at = datetime('now')";
+      if (status === 'active') extra = ', approved_at = NOW()';
       const result = await db.query(
-        `UPDATE vendors SET status = ?${extra} WHERE id = ? RETURNING *`,
+        `UPDATE vendors SET status = $1${extra} WHERE id = $2 RETURNING *`,
         [status, req.params.id]
       );
       if (result.rows.length === 0)
@@ -186,7 +187,7 @@ router.put(
 router.get('/:id/payouts', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await db.query(
-      'SELECT * FROM vendor_payouts WHERE vendor_id = ? ORDER BY created_at DESC',
+      'SELECT * FROM vendor_payouts WHERE vendor_id = $1 ORDER BY created_at DESC',
       [req.params.id]
     );
     res.json({ success: true, data: result.rows });
@@ -204,23 +205,28 @@ router.post(
     try {
       const authReq = req as AuthRequest;
       const { amount, method, reference, notes } = req.body;
-      const result = await db.query(
-        `INSERT INTO vendor_payouts (vendor_id, amount, method, reference, notes, processed_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
-        [
-          req.params.id,
+
+      const payout = await withTransaction(async (client) => {
+        const result = await client.query(
+          `INSERT INTO vendor_payouts (vendor_id, amount, method, reference, notes, processed_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+          [
+            req.params.id,
+            amount,
+            method || 'bank_transfer',
+            reference || null,
+            notes || null,
+            authReq.user!.id,
+          ]
+        );
+        // Deduct from vendor balance
+        await client.query('UPDATE vendors SET balance = balance - $1 WHERE id = $2', [
           amount,
-          method || 'bank_transfer',
-          reference || null,
-          notes || null,
-          authReq.user!.id,
-        ]
-      );
-      // Deduct from vendor balance
-      await db.query('UPDATE vendors SET balance = balance - ? WHERE id = ?', [
-        amount,
-        req.params.id,
-      ]);
-      res.status(201).json({ success: true, data: result.rows[0] });
+          req.params.id,
+        ]);
+        return result.rows[0];
+      });
+
+      res.status(201).json({ success: true, data: payout });
     } catch (err) {
       next(err);
     }

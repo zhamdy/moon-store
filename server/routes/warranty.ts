@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole } from '../middleware/auth';
 
 const router: Router = Router();
@@ -23,8 +23,8 @@ router.get(
       let where = '1=1';
       const params: unknown[] = [];
       if (status) {
-        where += ' AND wc.status = ?';
         params.push(status);
+        where += ` AND wc.status = $${params.length}`;
       }
 
       const result = await db.query(
@@ -48,7 +48,7 @@ router.post('/', verifyToken, async (req: Request, res: Response, next: NextFunc
   try {
     const parsed = claimSchema.parse(req.body);
     const result = await db.query(
-      `INSERT INTO warranty_claims (sale_id, product_id, customer_id, issue) VALUES (?, ?, ?, ?) RETURNING *`,
+      `INSERT INTO warranty_claims (sale_id, product_id, customer_id, issue) VALUES ($1, $2, $3, $4) RETURNING *`,
       [parsed.sale_id, parsed.product_id, parsed.customer_id || null, parsed.issue]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
@@ -68,7 +68,7 @@ router.put(
     try {
       const { status, resolution } = req.body;
       const result = await db.query(
-        `UPDATE warranty_claims SET status = ?, resolution = ?, updated_at = datetime('now') WHERE id = ? RETURNING *`,
+        `UPDATE warranty_claims SET status = $1, resolution = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
         [status, resolution || null, req.params.id]
       );
       if (result.rows.length === 0)

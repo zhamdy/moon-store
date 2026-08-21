@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import db from '../db';
+import db from '../src/database/pool';
+import { withTransaction } from '../src/database/transaction';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { logAuditFromReq } from '../middleware/auditLogger';
 
@@ -28,8 +29,8 @@ router.get(
         `SELECT sc.*,
                 u.name as started_by_name,
                 c.name as category_name,
-                (SELECT COUNT(*) FROM stock_count_items WHERE count_id = sc.id) as item_count,
-                (SELECT COUNT(*) FROM stock_count_items WHERE count_id = sc.id AND actual_qty IS NOT NULL) as counted
+                (SELECT COUNT(*)::int FROM stock_count_items WHERE count_id = sc.id) as item_count,
+                (SELECT COUNT(*)::int FROM stock_count_items WHERE count_id = sc.id AND actual_qty IS NOT NULL) as counted
          FROM stock_counts sc
          LEFT JOIN users u ON sc.started_by = u.id
          LEFT JOIN categories c ON sc.category_id = c.id
@@ -58,55 +59,49 @@ router.post(
       const authReq = req as AuthRequest;
       const { category_id, notes } = parsed.data;
 
-      const rawDb = db.db;
-      const txn = rawDb.transaction(() => {
+      const count = await withTransaction(async (client) => {
         // Create the stock count record
-        const count = rawDb
-          .prepare(
-            `INSERT INTO stock_counts (category_id, notes, started_by) VALUES (?, ?, ?) RETURNING *`
-          )
-          .get(category_id || null, notes || null, authReq.user!.id) as Record<string, unknown>;
+        const countRes = await client.query(
+          `INSERT INTO stock_counts (category_id, notes, started_by, started_at, status)
+           VALUES ($1, $2, $3, NOW(), 'in_progress')
+           RETURNING *`,
+          [category_id || null, notes || null, authReq.user!.id]
+        );
+        const countRow = countRes.rows[0];
 
         // Build product filter
         const where: string[] = ["status = 'active'"];
         const params: unknown[] = [];
 
         if (category_id) {
-          where.push('category_id = ?');
           params.push(category_id);
+          where.push(`category_id = $${params.length}`);
         }
 
-        const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+        const whereClause = `WHERE ${where.join(' AND ')}`;
 
         // Get all matching products
-        const products = rawDb
-          .prepare(`SELECT id, stock FROM products ${whereClause}`)
-          .all(...params) as Array<{ id: number; stock: number }>;
+        const productsRes = await client.query<{ id: number; stock: number }>(
+          `SELECT id, stock FROM products ${whereClause}`,
+          params
+        );
+        const products = productsRes.rows;
 
         // Pre-populate stock_count_items with current stock as expected_qty
-        const insertItem = rawDb.prepare(
-          `INSERT INTO stock_count_items (count_id, product_id, expected_qty) VALUES (?, ?, ?)`
-        );
-
         for (const product of products) {
-          insertItem.run(count.id, product.id, product.stock);
+          await client.query(
+            `INSERT INTO stock_count_items (count_id, product_id, expected_qty) VALUES ($1, $2, $3)`,
+            [countRow.id, product.id, product.stock]
+          );
         }
 
-        return { ...count, item_count: products.length };
+        return { ...countRow, item_count: products.length };
       });
 
-      const count = txn();
-
-      logAuditFromReq(
-        req,
-        'create',
-        'stock_count',
-        (count as Record<string, unknown>).id as number,
-        {
-          category_id: category_id || null,
-          item_count: count.item_count,
-        }
-      );
+      logAuditFromReq(req, 'create', 'stock_count', Number((count as Record<string, unknown>).id), {
+        category_id: category_id || null,
+        item_count: count.item_count,
+      });
 
       res.status(201).json({ success: true, data: count });
     } catch (err) {
@@ -129,7 +124,7 @@ router.get(
          FROM stock_counts sc
          LEFT JOIN users u ON sc.started_by = u.id
          LEFT JOIN categories c ON sc.category_id = c.id
-         WHERE sc.id = ?`,
+         WHERE sc.id = $1`,
         [req.params.id]
       );
 
@@ -141,7 +136,7 @@ router.get(
         `SELECT sci.*, p.name as product_name, p.sku as product_sku
          FROM stock_count_items sci
          JOIN products p ON sci.product_id = p.id
-         WHERE sci.count_id = ?
+         WHERE sci.count_id = $1
          ORDER BY p.name`,
         [req.params.id]
       );
@@ -169,7 +164,7 @@ router.put(
 
       // Verify the stock count exists and is in_progress
       const countResult = await db.query<{ status: string }>(
-        `SELECT status FROM stock_counts WHERE id = ?`,
+        `SELECT status FROM stock_counts WHERE id = $1`,
         [req.params.id]
       );
       if (countResult.rows.length === 0) {
@@ -180,7 +175,7 @@ router.put(
       }
 
       const result = await db.query(
-        `UPDATE stock_count_items SET actual_qty = ? WHERE id = ? AND count_id = ? RETURNING *`,
+        `UPDATE stock_count_items SET actual_qty = $1 WHERE id = $2 AND count_id = $3 RETURNING *`,
         [actual_qty, req.params.itemId, req.params.id]
       );
 
@@ -204,7 +199,7 @@ router.put(
     try {
       // Verify the stock count exists and is in_progress
       const countResult = await db.query<{ status: string }>(
-        `SELECT status FROM stock_counts WHERE id = ?`,
+        `SELECT status FROM stock_counts WHERE id = $1`,
         [req.params.id]
       );
       if (countResult.rows.length === 0) {
@@ -217,8 +212,8 @@ router.put(
       // Toggle: if approved=0 set to 1, if approved=1 set to 0
       const result = await db.query(
         `UPDATE stock_count_items
-         SET approved = CASE WHEN approved = 0 THEN 1 ELSE 0 END
-         WHERE id = ? AND count_id = ?
+         SET approved = CASE WHEN approved = 0 OR approved IS NULL THEN 1 ELSE 0 END
+         WHERE id = $1 AND count_id = $2
          RETURNING *`,
         [req.params.itemId, req.params.id]
       );
@@ -244,12 +239,12 @@ router.post(
       const authReq = req as AuthRequest;
       const countId = Number(req.params.id);
 
-      const rawDb = db.db;
-
       // Verify stock count exists and is in_progress
-      const count = rawDb.prepare(`SELECT * FROM stock_counts WHERE id = ?`).get(countId) as
-        | Record<string, any>
-        | undefined;
+      const countRes = await db.query<{ id: number; status: string }>(
+        `SELECT * FROM stock_counts WHERE id = $1`,
+        [countId]
+      );
+      const count = countRes.rows[0];
 
       if (!count) {
         return res.status(404).json({ success: false, error: 'Stock count not found' });
@@ -258,58 +253,49 @@ router.post(
         return res.status(400).json({ success: false, error: 'Stock count is not in progress' });
       }
 
-      const txn = rawDb.transaction(() => {
+      const adjustmentsCreated = await withTransaction(async (client) => {
         // Get all approved items where actual_qty differs from expected_qty
-        const items = rawDb
-          .prepare(
-            `SELECT sci.*, p.stock as current_stock
-             FROM stock_count_items sci
-             JOIN products p ON sci.product_id = p.id
-             WHERE sci.count_id = ? AND sci.approved = 1 AND sci.actual_qty IS NOT NULL AND sci.actual_qty != sci.expected_qty`
-          )
-          .all(countId) as Array<Record<string, any>>;
+        const itemsRes = await client.query<Record<string, any>>(
+          `SELECT sci.*, p.stock as current_stock
+           FROM stock_count_items sci
+           JOIN products p ON sci.product_id = p.id
+           WHERE sci.count_id = $1 AND sci.approved = 1 AND sci.actual_qty IS NOT NULL AND sci.actual_qty != sci.expected_qty`,
+          [countId]
+        );
+        const items = itemsRes.rows;
 
-        let adjustmentsCreated = 0;
+        let createdCount = 0;
 
         for (const item of items) {
-          const previousQty = item.current_stock as number;
-          const delta = (item.actual_qty as number) - (item.expected_qty as number);
+          const previousQty = Number(item.current_stock);
+          const delta = Number(item.actual_qty) - Number(item.expected_qty);
           const newQty = previousQty + delta;
+          const clampedQty = newQty < 0 ? 0 : newQty;
 
           // Update product stock
-          rawDb
-            .prepare("UPDATE products SET stock = ?, updated_at = datetime('now') WHERE id = ?")
-            .run(newQty < 0 ? 0 : newQty, item.product_id);
+          await client.query(`UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2`, [
+            clampedQty,
+            item.product_id,
+          ]);
 
           // Create stock adjustment record
-          rawDb
-            .prepare(
-              `INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id)
-               VALUES (?, ?, ?, ?, ?, ?)`
-            )
-            .run(
-              item.product_id,
-              previousQty,
-              newQty < 0 ? 0 : newQty,
-              delta,
-              'Stock Count',
-              authReq.user!.id
-            );
+          await client.query(
+            `INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [item.product_id, previousQty, clampedQty, delta, 'Stock Count', authReq.user!.id]
+          );
 
-          adjustmentsCreated++;
+          createdCount++;
         }
 
         // Mark the count as completed
-        rawDb
-          .prepare(
-            `UPDATE stock_counts SET status = 'completed', completed_at = datetime('now') WHERE id = ?`
-          )
-          .run(countId);
+        await client.query(
+          `UPDATE stock_counts SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+          [countId]
+        );
 
-        return adjustmentsCreated;
+        return createdCount;
       });
-
-      const adjustmentsCreated = txn();
 
       logAuditFromReq(req, 'approve', 'stock_count', countId, {
         adjustments_created: adjustmentsCreated,
@@ -333,7 +319,7 @@ router.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const existing = await db.query<{ status: string }>(
-        `SELECT status FROM stock_counts WHERE id = ?`,
+        `SELECT status FROM stock_counts WHERE id = $1`,
         [req.params.id]
       );
 
@@ -348,9 +334,9 @@ router.delete(
         });
       }
 
-      await db.query(`UPDATE stock_counts SET status = 'cancelled' WHERE id = ?`, [req.params.id]);
+      await db.query(`UPDATE stock_counts SET status = 'cancelled' WHERE id = $1`, [req.params.id]);
 
-      logAuditFromReq(req, 'cancel', 'stock_count', req.params.id);
+      logAuditFromReq(req, 'cancel', 'stock_count', Number(req.params.id));
 
       res.json({ success: true, data: { id: Number(req.params.id), status: 'cancelled' } });
     } catch (err) {

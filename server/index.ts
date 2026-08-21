@@ -9,7 +9,7 @@ import errorHandler from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import { sanitizeBody } from './middleware/sanitize';
 import logger from './lib/logger';
-import db from './db';
+import db, { closePool } from './src/database/pool';
 
 import { routeTable, cleanupExpiredReservations } from './routes';
 
@@ -91,9 +91,9 @@ for (const [routePath, router] of routeTable) {
 }
 
 // Health check (includes DB connectivity test)
-app.get('/api/health', (_req: Request, res: Response) => {
+app.get('/api/health', async (_req: Request, res: Response) => {
   try {
-    db.db.prepare('SELECT 1').get();
+    await db.query('SELECT 1');
     res.json({ success: true, data: { status: 'ok', timestamp: new Date().toISOString() } });
   } catch {
     res.status(503).json({ success: false, error: 'Database unreachable' });
@@ -123,10 +123,14 @@ const server = app.listen(PORT, () => {
 function shutdown(signal: string): void {
   logger.info(`${signal} received, shutting down gracefully`);
   clearInterval(cleanupInterval);
-  server.close(() => {
+  server.close(async () => {
     logger.info('HTTP server closed');
-    db.db.close();
-    logger.info('Database connection closed');
+    try {
+      await closePool();
+      logger.info('Database connection closed');
+    } catch (err: any) {
+      logger.error('Error closing database pool', { error: err.message });
+    }
     process.exit(0);
   });
   // Force exit after 10s if connections don't close

@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
+import { withTransaction } from '../src/database/transaction';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { purchaseOrderSchema, receiveSchema } from '../validators/purchaseOrderSchema';
 
@@ -30,37 +31,39 @@ router.get(
       const params: unknown[] = [];
 
       if (status && status !== 'All') {
-        where.push(`po.status = ?`);
         params.push(status);
+        where.push(`po.status = $${params.length}`);
       }
       if (distributor_id) {
-        where.push(`po.distributor_id = ?`);
         params.push(Number(distributor_id));
+        where.push(`po.distributor_id = $${params.length}`);
       }
       if (search) {
-        where.push(`(po.po_number LIKE ? OR d.name LIKE ?)`);
         params.push(`%${search}%`, `%${search}%`);
+        where.push(`(po.po_number ILIKE $${params.length - 1} OR d.name ILIKE $${params.length})`);
       }
 
       const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
       const countResult = await db.query<{ count: number }>(
-        `SELECT COUNT(*) as count FROM purchase_orders po
+        `SELECT COUNT(*)::int as count FROM purchase_orders po
          LEFT JOIN distributors d ON po.distributor_id = d.id
          ${whereClause}`,
         params
       );
-      const total = countResult.rows[0].count;
+      const total = Number(countResult.rows[0]?.count || 0);
 
+      const limitIdx = params.length + 1;
+      const offsetIdx = params.length + 2;
       const orders = await db.query(
         `SELECT po.*, d.name as distributor_name, u.name as created_by_name,
-                (SELECT COUNT(*) FROM purchase_order_items WHERE po_id = po.id) as item_count
+                (SELECT COUNT(*)::int FROM purchase_order_items WHERE po_id = po.id) as item_count
          FROM purchase_orders po
          LEFT JOIN distributors d ON po.distributor_id = d.id
          LEFT JOIN users u ON po.created_by = u.id
          ${whereClause}
          ORDER BY po.created_at DESC
-         LIMIT ? OFFSET ?`,
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
         [...params, limitNum, offset]
       );
 
@@ -112,7 +115,7 @@ router.get(
          FROM purchase_orders po
          LEFT JOIN distributors d ON po.distributor_id = d.id
          LEFT JOIN users u ON po.created_by = u.id
-         WHERE po.id = ?`,
+         WHERE po.id = $1`,
         [req.params.id]
       );
 
@@ -127,15 +130,16 @@ router.get(
          FROM purchase_order_items poi
          LEFT JOIN products p ON poi.product_id = p.id
          LEFT JOIN product_variants pv ON poi.variant_id = pv.id
-         WHERE poi.po_id = ?`,
+         WHERE poi.po_id = $1`,
         [req.params.id]
       );
 
       const parsedItems = items.rows.map((item: Record<string, unknown>) => ({
         ...item,
-        variant_attributes: item.variant_attributes
-          ? JSON.parse(item.variant_attributes as string)
-          : null,
+        variant_attributes:
+          typeof item.variant_attributes === 'string'
+            ? JSON.parse(item.variant_attributes)
+            : item.variant_attributes || null,
       }));
 
       res.json({ success: true, data: { ...order.rows[0], items: parsedItems } });
@@ -158,21 +162,25 @@ router.post(
 
       const total = parsed.items.reduce((sum, item) => sum + item.cost_price * item.quantity, 0);
 
-      const result = await db.query(
-        `INSERT INTO purchase_orders (po_number, distributor_id, notes, total, created_by)
-         VALUES (?, ?, ?, ?, ?)`,
-        [poNumber, parsed.distributor_id, parsed.notes || null, total, authReq.user!.id]
-      );
-
-      const poId = result.lastInsertRowid as number;
-
-      for (const item of parsed.items) {
-        await db.query(
-          `INSERT INTO purchase_order_items (po_id, product_id, variant_id, quantity, cost_price)
-           VALUES (?, ?, ?, ?, ?)`,
-          [poId, item.product_id, item.variant_id || null, item.quantity, item.cost_price]
+      const { poId } = await withTransaction(async (client) => {
+        const result = await client.query<{ id: number }>(
+          `INSERT INTO purchase_orders (po_number, distributor_id, notes, total, created_by)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+          [poNumber, parsed.distributor_id, parsed.notes || null, total, authReq.user!.id]
         );
-      }
+
+        const newPoId = result.rows[0].id;
+
+        for (const item of parsed.items) {
+          await client.query(
+            `INSERT INTO purchase_order_items (po_id, product_id, variant_id, quantity, cost_price)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [newPoId, item.product_id, item.variant_id || null, item.quantity, item.cost_price]
+          );
+        }
+
+        return { poId: newPoId };
+      });
 
       res.status(201).json({
         success: true,
@@ -197,17 +205,17 @@ router.put(
         return res.status(400).json({ success: false, error: 'Invalid status' });
       }
 
-      const existing = await db.query(`SELECT * FROM purchase_orders WHERE id = ?`, [
+      const existing = await db.query(`SELECT * FROM purchase_orders WHERE id = $1`, [
         req.params.id,
       ]);
       if (existing.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Purchase order not found' });
       }
 
-      await db.query(
-        `UPDATE purchase_orders SET status = ?, updated_at = datetime('now') WHERE id = ?`,
-        [status, req.params.id]
-      );
+      await db.query(`UPDATE purchase_orders SET status = $1, updated_at = NOW() WHERE id = $2`, [
+        status,
+        req.params.id,
+      ]);
 
       res.json({ success: true, data: { id: Number(req.params.id), status } });
     } catch (err) {
@@ -226,7 +234,7 @@ router.post(
       const parsed = receiveSchema.parse(req.body);
       const authReq = req as AuthRequest;
 
-      const order = await db.query(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
+      const order = await db.query(`SELECT * FROM purchase_orders WHERE id = $1`, [req.params.id]);
       if (order.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Purchase order not found' });
       }
@@ -239,86 +247,90 @@ router.post(
         });
       }
 
-      const txn = db.db.transaction(() => {
+      const newStatus = await withTransaction(async (client) => {
         for (const receiveItem of parsed.items) {
           if (receiveItem.quantity <= 0) continue;
 
           // Get PO item
-          const poItem = db.db
-            .prepare(`SELECT * FROM purchase_order_items WHERE id = ? AND po_id = ?`)
-            .get(receiveItem.item_id, req.params.id) as Record<string, unknown> | undefined;
+          const poItemRes = await client.query<Record<string, any>>(
+            `SELECT * FROM purchase_order_items WHERE id = $1 AND po_id = $2`,
+            [receiveItem.item_id, req.params.id]
+          );
+          const poItem = poItemRes.rows[0];
 
           if (!poItem) continue;
 
-          const maxReceivable = (poItem.quantity as number) - (poItem.received_quantity as number);
+          const maxReceivable = Number(poItem.quantity) - Number(poItem.received_quantity || 0);
           const actualReceive = Math.min(receiveItem.quantity, maxReceivable);
           if (actualReceive <= 0) continue;
 
           // Update received quantity
-          db.db
-            .prepare(
-              `UPDATE purchase_order_items SET received_quantity = received_quantity + ? WHERE id = ?`
-            )
-            .run(actualReceive, receiveItem.item_id);
+          await client.query(
+            `UPDATE purchase_order_items SET received_quantity = received_quantity + $1 WHERE id = $2`,
+            [actualReceive, receiveItem.item_id]
+          );
 
           // Update stock
           if (poItem.variant_id) {
-            db.db
-              .prepare(`UPDATE product_variants SET stock = stock + ? WHERE id = ?`)
-              .run(actualReceive, poItem.variant_id);
+            await client.query(`UPDATE product_variants SET stock = stock + $1 WHERE id = $2`, [
+              actualReceive,
+              poItem.variant_id,
+            ]);
           } else {
-            db.db
-              .prepare(
-                `UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?`
-              )
-              .run(actualReceive, poItem.product_id);
+            await client.query(
+              `UPDATE products SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
+              [actualReceive, poItem.product_id]
+            );
           }
 
           // Log stock adjustment
-          const currentProduct = db.db
-            .prepare('SELECT stock FROM products WHERE id = ?')
-            .get(poItem.product_id) as { stock: number } | undefined;
-          const prevStock = (currentProduct?.stock || 0) - actualReceive;
-          db.db
-            .prepare(
-              `INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id)
-               VALUES (?, ?, ?, ?, ?, ?)`
-            )
-            .run(
+          const productRes = await client.query<{ stock: number }>(
+            'SELECT stock FROM products WHERE id = $1',
+            [poItem.product_id]
+          );
+          const currentProduct = productRes.rows[0];
+          const prevStock = (Number(currentProduct?.stock) || 0) - actualReceive;
+
+          await client.query(
+            `INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
               poItem.product_id,
               prevStock,
               prevStock + actualReceive,
               actualReceive,
               'Import',
-              authReq.user!.id
-            );
+              authReq.user!.id,
+            ]
+          );
         }
 
         // Determine new PO status
-        const allItems = db.db
-          .prepare(`SELECT quantity, received_quantity FROM purchase_order_items WHERE po_id = ?`)
-          .all(req.params.id) as Array<{ quantity: number; received_quantity: number }>;
+        const allItemsRes = await client.query<{ quantity: number; received_quantity: number }>(
+          `SELECT quantity, received_quantity FROM purchase_order_items WHERE po_id = $1`,
+          [req.params.id]
+        );
+        const allItems = allItemsRes.rows;
 
-        const allReceived = allItems.every((i) => i.received_quantity >= i.quantity);
-        const someReceived = allItems.some((i) => i.received_quantity > 0);
+        const allReceived = allItems.every(
+          (i) => Number(i.received_quantity) >= Number(i.quantity)
+        );
+        const someReceived = allItems.some((i) => Number(i.received_quantity) > 0);
 
-        let newStatus = po.status as string;
+        let calculatedStatus = po.status as string;
         if (allReceived) {
-          newStatus = 'Received';
+          calculatedStatus = 'Received';
         } else if (someReceived) {
-          newStatus = 'Partially Received';
+          calculatedStatus = 'Partially Received';
         }
 
-        db.db
-          .prepare(
-            `UPDATE purchase_orders SET status = ?, updated_at = datetime('now') WHERE id = ?`
-          )
-          .run(newStatus, req.params.id);
+        await client.query(
+          `UPDATE purchase_orders SET status = $1, updated_at = NOW() WHERE id = $2`,
+          [calculatedStatus, req.params.id]
+        );
 
-        return newStatus;
+        return calculatedStatus;
       });
-
-      const newStatus = txn();
 
       res.json({
         success: true,
@@ -337,7 +349,7 @@ router.delete(
   requireRole('Admin'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const existing = await db.query(`SELECT * FROM purchase_orders WHERE id = ?`, [
+      const existing = await db.query(`SELECT * FROM purchase_orders WHERE id = $1`, [
         req.params.id,
       ]);
       if (existing.rows.length === 0) {
@@ -352,7 +364,7 @@ router.delete(
         });
       }
 
-      await db.query(`DELETE FROM purchase_orders WHERE id = ?`, [req.params.id]);
+      await db.query(`DELETE FROM purchase_orders WHERE id = $1`, [req.params.id]);
 
       res.json({ success: true, data: { deleted: true } });
     } catch (err) {
