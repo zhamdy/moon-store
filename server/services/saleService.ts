@@ -1,5 +1,5 @@
-import db from '../db';
-import type Database from 'better-sqlite3';
+import db from '../src/database/pool';
+import { withTransaction, Queryable } from '../src/database/transaction';
 
 // --- Types ---
 
@@ -41,7 +41,7 @@ interface LoyaltySettings {
   redeemValue: number;
 }
 
-interface SaleTotals {
+export interface SaleTotals {
   subtotal: number;
   discountAmount: number;
   afterDiscount: number;
@@ -55,27 +55,23 @@ interface SaleTotals {
 
 // --- Helpers ---
 
-function loadSetting(rawDb: Database.Database, key: string): string | undefined {
-  const row = rawDb.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
-    | { value: string }
-    | undefined;
-  return row?.value;
+async function loadSetting(queryable: Queryable, key: string): Promise<string | undefined> {
+  const result = await queryable.query<{ value: string }>('SELECT value FROM settings WHERE key = $1', [key]);
+  return result.rows[0]?.value;
 }
 
-function loadTaxSettings(rawDb: Database.Database): TaxSettings {
-  return {
-    enabled: loadSetting(rawDb, 'tax_enabled') === 'true',
-    rate: parseFloat(loadSetting(rawDb, 'tax_rate') || '0'),
-    mode: loadSetting(rawDb, 'tax_mode') || 'exclusive',
-  };
+async function loadTaxSettings(queryable: Queryable): Promise<TaxSettings> {
+  const enabled = (await loadSetting(queryable, 'tax_enabled')) === 'true';
+  const rate = parseFloat((await loadSetting(queryable, 'tax_rate')) || '0');
+  const mode = (await loadSetting(queryable, 'tax_mode')) || 'exclusive';
+  return { enabled, rate, mode };
 }
 
-function loadLoyaltySettings(rawDb: Database.Database): LoyaltySettings {
-  return {
-    enabled: loadSetting(rawDb, 'loyalty_enabled') === 'true',
-    earnRate: parseFloat(loadSetting(rawDb, 'loyalty_earn_rate') || '1'),
-    redeemValue: parseFloat(loadSetting(rawDb, 'loyalty_redeem_value') || '5'),
-  };
+async function loadLoyaltySettings(queryable: Queryable): Promise<LoyaltySettings> {
+  const enabled = (await loadSetting(queryable, 'loyalty_enabled')) === 'true';
+  const earnRate = parseFloat((await loadSetting(queryable, 'loyalty_earn_rate')) || '1');
+  const redeemValue = parseFloat((await loadSetting(queryable, 'loyalty_redeem_value')) || '5');
+  return { enabled, earnRate, redeemValue };
 }
 
 function calculateTax(
@@ -94,26 +90,29 @@ function calculateTax(
   return { taxAmount, total: afterDiscount };
 }
 
-function validateAndApplyCoupon(
-  rawDb: Database.Database,
+async function validateAndApplyCoupon(
+  queryable: Queryable,
   code: string,
   currentTotal: number
-): { couponId: number | null; couponDiscount: number } {
-  const coupon = rawDb
-    .prepare("SELECT * FROM coupons WHERE code = ? AND status = 'active'")
-    .get(code) as Record<string, any> | undefined;
+): Promise<{ couponId: number | null; couponDiscount: number }> {
+  const result = await queryable.query<Record<string, any>>(
+    "SELECT * FROM coupons WHERE code = $1 AND status = 'active'",
+    [code]
+  );
+  const coupon = result.rows[0];
 
   if (!coupon) return { couponId: null, couponDiscount: 0 };
 
-  const now = new Date().toISOString();
-  if (coupon.starts_at && coupon.starts_at > now) return { couponId: null, couponDiscount: 0 };
-  if (coupon.expires_at && coupon.expires_at < now) return { couponId: null, couponDiscount: 0 };
+  const now = new Date();
+  if (coupon.starts_at && new Date(coupon.starts_at) > now) return { couponId: null, couponDiscount: 0 };
+  if (coupon.expires_at && new Date(coupon.expires_at) < now) return { couponId: null, couponDiscount: 0 };
 
   if (coupon.max_uses) {
-    const usage = rawDb
-      .prepare('SELECT COUNT(*) as c FROM coupon_usage WHERE coupon_id = ?')
-      .get(coupon.id) as { c: number };
-    if (usage.c >= coupon.max_uses) return { couponId: null, couponDiscount: 0 };
+    const usage = await queryable.query<{ c: number }>(
+      'SELECT COUNT(*)::int as c FROM coupon_usage WHERE coupon_id = $1',
+      [coupon.id]
+    );
+    if ((usage.rows[0]?.c || 0) >= coupon.max_uses) return { couponId: null, couponDiscount: 0 };
   }
 
   if (currentTotal < (coupon.min_purchase || 0)) return { couponId: null, couponDiscount: 0 };
@@ -131,9 +130,10 @@ function validateAndApplyCoupon(
 
 // --- Public API ---
 
-export function calculateSaleTotals(input: CreateSaleInput): SaleTotals {
-  const rawDb = db.db;
-
+export async function calculateSaleTotals(
+  input: CreateSaleInput,
+  queryable: Queryable = db
+): Promise<SaleTotals> {
   // Subtotal
   let subtotal = 0;
   for (const item of input.items) {
@@ -148,12 +148,12 @@ export function calculateSaleTotals(input: CreateSaleInput): SaleTotals {
   const afterDiscount = Math.max(0, subtotal - discountAmount);
 
   // Tax
-  const tax = loadTaxSettings(rawDb);
+  const tax = await loadTaxSettings(queryable);
   const { taxAmount, total: afterTax } = calculateTax(afterDiscount, tax);
   let total = afterTax;
 
   // Loyalty points redemption
-  const loyalty = loadLoyaltySettings(rawDb);
+  const loyalty = await loadLoyaltySettings(queryable);
   let pointsDiscount = 0;
   if (loyalty.enabled && (input.points_redeemed || 0) > 0 && input.customer_id) {
     pointsDiscount =
@@ -166,7 +166,7 @@ export function calculateSaleTotals(input: CreateSaleInput): SaleTotals {
   let couponId: number | null = null;
   let couponDiscount = 0;
   if (input.coupon_code) {
-    const couponResult = validateAndApplyCoupon(rawDb, input.coupon_code, total);
+    const couponResult = await validateAndApplyCoupon(queryable, input.coupon_code, total);
     couponId = couponResult.couponId;
     couponDiscount = couponResult.couponDiscount;
     total = Math.round((total - couponDiscount) * 100) / 100;
@@ -185,32 +185,63 @@ export function calculateSaleTotals(input: CreateSaleInput): SaleTotals {
   };
 }
 
-export function executeSaleTransaction(
+export async function executeSaleTransaction(
   input: CreateSaleInput,
   totals: SaleTotals,
-  cashierId: number
-): Record<string, any> {
-  const rawDb = db.db;
-  const loyalty = loadLoyaltySettings(rawDb);
+  cashierId: number,
+  clientOrPool?: any
+): Promise<Record<string, any>> {
+  return withTransaction(async (client) => {
+    const loyalty = await loadLoyaltySettings(client);
 
-  const txn = rawDb.transaction(() => {
     // Validate customer has enough points
     if (loyalty.enabled && (input.points_redeemed || 0) > 0 && input.customer_id) {
-      const cust = rawDb
-        .prepare('SELECT loyalty_points FROM customers WHERE id = ?')
-        .get(input.customer_id) as { loyalty_points: number } | undefined;
+      const custRes = await client.query<{ loyalty_points: number }>(
+        'SELECT loyalty_points FROM customers WHERE id = $1',
+        [input.customer_id]
+      );
+      const cust = custRes.rows[0];
       if (!cust || cust.loyalty_points < (input.points_redeemed || 0)) {
         throw new Error('Insufficient loyalty points');
       }
     }
 
+    // Pre-validate stock for all items to fail fast
+    for (const item of input.items) {
+      if (item.variant_id) {
+        const variantRes = await client.query<{ stock: number }>(
+          'SELECT stock FROM product_variants WHERE id = $1 AND product_id = $2',
+          [item.variant_id, item.product_id]
+        );
+        const variant = variantRes.rows[0];
+        if (!variant) {
+          throw new Error(`Variant not found: ID ${item.variant_id}`);
+        }
+        if (variant.stock < item.quantity) {
+          throw new Error(`Insufficient stock for variant ID ${item.variant_id}`);
+        }
+      } else {
+        const prodRes = await client.query<{ stock: number }>(
+          'SELECT stock FROM products WHERE id = $1',
+          [item.product_id]
+        );
+        const product = prodRes.rows[0];
+        if (!product) {
+          throw new Error(`Product not found: ID ${item.product_id}`);
+        }
+        if (product.stock < item.quantity) {
+          throw new Error(`Insufficient stock for product ID ${item.product_id}`);
+        }
+      }
+    }
+
     // Insert sale
-    const saleResult = rawDb
-      .prepare(
-        `INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id, customer_id, tax_amount, points_redeemed, notes, tip_amount, coupon_id, coupon_discount)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
-      )
-      .get(
+    const saleResult = await client.query<Record<string, any>>(
+      `INSERT INTO sales (
+        total, discount, discount_type, payment_method, cashier_id, customer_id,
+        tax_amount, points_redeemed, notes, tip_amount, coupon_id, coupon_discount
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [
         totals.total,
         input.discount,
         input.discount_type,
@@ -222,26 +253,27 @@ export function executeSaleTransaction(
         input.notes || null,
         totals.tipAmount,
         totals.couponId,
-        totals.couponDiscount
-      ) as Record<string, any>;
+        totals.couponDiscount,
+      ]
+    );
+    const sale = saleResult.rows[0];
 
     // Split payments
     if (input.payments && input.payments.length > 0) {
-      const insertPayment = rawDb.prepare(
-        'INSERT INTO sale_payments (sale_id, method, amount) VALUES (?, ?, ?)'
-      );
       for (const p of input.payments) {
-        insertPayment.run(saleResult.id, p.method, p.amount);
+        await client.query(
+          'INSERT INTO sale_payments (sale_id, method, amount) VALUES ($1, $2, $3)',
+          [sale.id, p.method, p.amount]
+        );
       }
     }
 
     // Coupon usage
     if (totals.couponId && totals.couponDiscount > 0) {
-      rawDb
-        .prepare(
-          'INSERT INTO coupon_usage (coupon_id, sale_id, customer_id, discount_applied) VALUES (?, ?, ?, ?)'
-        )
-        .run(totals.couponId, saleResult.id, input.customer_id || null, totals.couponDiscount);
+      await client.query(
+        'INSERT INTO coupon_usage (coupon_id, sale_id, customer_id, discount_applied) VALUES ($1, $2, $3, $4)',
+        [totals.couponId, sale.id, input.customer_id || null, totals.couponDiscount]
+      );
     }
 
     // Process items: deduct stock, record sale items
@@ -250,128 +282,84 @@ export function executeSaleTransaction(
       const itemMemo = item.memo || null;
 
       if (variantId) {
-        const variant = rawDb
-          .prepare('SELECT cost_price, stock FROM product_variants WHERE id = ? AND product_id = ?')
-          .get(variantId, item.product_id) as { cost_price: number; stock: number } | undefined;
-        const costPrice = variant?.cost_price || 0;
-        const previousStock = variant?.stock || 0;
+        const variantRes = await client.query<{ cost_price: number; stock: number }>(
+          'SELECT cost_price, stock FROM product_variants WHERE id = $1 AND product_id = $2',
+          [variantId, item.product_id]
+        );
+        const variant = variantRes.rows[0];
+        const costPrice = variant.cost_price || 0;
+        const previousStock = variant.stock || 0;
+        const newStock = previousStock - item.quantity;
 
-        rawDb
-          .prepare(
-            'INSERT INTO sale_items (sale_id, product_id, variant_id, quantity, unit_price, cost_price, memo) VALUES (?, ?, ?, ?, ?, ?, ?)'
-          )
-          .run(
-            saleResult.id,
-            item.product_id,
-            variantId,
-            item.quantity,
-            item.unit_price,
-            costPrice,
-            itemMemo
-          );
+        await client.query(
+          'INSERT INTO sale_items (sale_id, product_id, variant_id, quantity, unit_price, cost_price, memo) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+          [sale.id, item.product_id, variantId, item.quantity, item.unit_price, costPrice, itemMemo]
+        );
 
-        const updated = rawDb
-          .prepare('UPDATE product_variants SET stock = stock - ? WHERE id = ? AND stock >= ?')
-          .run(item.quantity, variantId, item.quantity);
-        if (updated.changes === 0) {
-          throw new Error(`Insufficient stock for variant ID ${variantId}`);
-        }
+        await client.query(
+          'UPDATE product_variants SET stock = $1, updated_at = NOW() WHERE id = $2',
+          [newStock, variantId]
+        );
 
-        rawDb
-          .prepare(
-            'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES (?, ?, ?, ?, ?, ?)'
-          )
-          .run(
-            item.product_id,
-            previousStock,
-            previousStock - item.quantity,
-            -item.quantity,
-            'Sale',
-            cashierId
-          );
+        await client.query(
+          'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
+          [item.product_id, previousStock, newStock, -item.quantity, 'Sale', cashierId]
+        );
       } else {
-        const product = rawDb
-          .prepare('SELECT cost_price, stock FROM products WHERE id = ?')
-          .get(item.product_id) as { cost_price: number; stock: number } | undefined;
-        const costPrice = product?.cost_price || 0;
-        const previousStock = product?.stock || 0;
+        const prodRes = await client.query<{ cost_price: number; stock: number }>(
+          'SELECT cost_price, stock FROM products WHERE id = $1',
+          [item.product_id]
+        );
+        const product = prodRes.rows[0];
+        const costPrice = product.cost_price || 0;
+        const previousStock = product.stock || 0;
+        const newStock = previousStock - item.quantity;
 
-        rawDb
-          .prepare(
-            'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, cost_price, memo) VALUES (?, ?, ?, ?, ?, ?)'
-          )
-          .run(saleResult.id, item.product_id, item.quantity, item.unit_price, costPrice, itemMemo);
+        await client.query(
+          'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, cost_price, memo) VALUES ($1, $2, $3, $4, $5, $6)',
+          [sale.id, item.product_id, item.quantity, item.unit_price, costPrice, itemMemo]
+        );
 
-        const updated = rawDb
-          .prepare(
-            "UPDATE products SET stock = stock - ?, updated_at = datetime('now') WHERE id = ? AND stock >= ?"
-          )
-          .run(item.quantity, item.product_id, item.quantity);
-        if (updated.changes === 0) {
-          throw new Error(`Insufficient stock for product ID ${item.product_id}`);
-        }
+        await client.query(
+          'UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2',
+          [newStock, item.product_id]
+        );
 
-        rawDb
-          .prepare(
-            'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES (?, ?, ?, ?, ?, ?)'
-          )
-          .run(
-            item.product_id,
-            previousStock,
-            previousStock - item.quantity,
-            -item.quantity,
-            'Sale',
-            cashierId
-          );
+        await client.query(
+          'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
+          [item.product_id, previousStock, newStock, -item.quantity, 'Sale', cashierId]
+        );
       }
     }
 
     // Loyalty points: deduct redeemed, earn new
     if (loyalty.enabled && input.customer_id) {
       if ((input.points_redeemed || 0) > 0) {
-        rawDb
-          .prepare(
-            "UPDATE customers SET loyalty_points = loyalty_points - ?, updated_at = datetime('now') WHERE id = ?"
-          )
-          .run(input.points_redeemed, input.customer_id);
-        rawDb
-          .prepare(
-            'INSERT INTO loyalty_transactions (customer_id, sale_id, points, type, note) VALUES (?, ?, ?, ?, ?)'
-          )
-          .run(
-            input.customer_id,
-            saleResult.id,
-            -(input.points_redeemed || 0),
-            'redeemed',
-            `Redeemed on sale #${saleResult.id}`
-          );
+        await client.query(
+          'UPDATE customers SET loyalty_points = loyalty_points - $1, updated_at = NOW() WHERE id = $2',
+          [input.points_redeemed, input.customer_id]
+        );
+        await client.query(
+          'INSERT INTO loyalty_transactions (customer_id, sale_id, points, type, note) VALUES ($1, $2, $3, $4, $5)',
+          [input.customer_id, sale.id, -(input.points_redeemed || 0), 'redeemed', `Redeemed on sale #${sale.id}`]
+        );
       }
 
       const earnedPoints = Math.floor(totals.total * loyalty.earnRate);
       if (earnedPoints > 0) {
-        rawDb
-          .prepare(
-            "UPDATE customers SET loyalty_points = loyalty_points + ?, updated_at = datetime('now') WHERE id = ?"
-          )
-          .run(earnedPoints, input.customer_id);
-        rawDb
-          .prepare(
-            'INSERT INTO loyalty_transactions (customer_id, sale_id, points, type, note) VALUES (?, ?, ?, ?, ?)'
-          )
-          .run(
-            input.customer_id,
-            saleResult.id,
-            earnedPoints,
-            'earned',
-            `Earned from sale #${saleResult.id}`
-          );
+        await client.query(
+          'UPDATE customers SET loyalty_points = loyalty_points + $1, updated_at = NOW() WHERE id = $2',
+          [earnedPoints, input.customer_id]
+        );
+        await client.query(
+          'INSERT INTO loyalty_transactions (customer_id, sale_id, points, type, note) VALUES ($1, $2, $3, $4, $5)',
+          [input.customer_id, sale.id, earnedPoints, 'earned', `Earned from sale #${sale.id}`]
+        );
       }
     }
 
-    return saleResult;
-  });
-
-  return txn();
+    return sale;
+  }, clientOrPool);
 }
 
 export interface RefundInput {
@@ -380,82 +368,78 @@ export interface RefundInput {
   restock: boolean;
 }
 
-export function executeRefundTransaction(
+export async function executeRefundTransaction(
   saleId: number,
   input: RefundInput,
-  cashierId: number
-): { refund: Record<string, any>; refundStatus: string; newRefundedTotal: number } {
-  const rawDb = db.db;
+  cashierId: number,
+  clientOrPool?: any
+): Promise<{ refund: Record<string, any>; refundStatus: string; newRefundedTotal: number }> {
+  return withTransaction(async (client) => {
+    // Verify sale
+    const saleRes = await client.query<{ id: number; total: number; refunded_amount: number | null; refund_status: string | null }>(
+      'SELECT id, total, refunded_amount, refund_status FROM sales WHERE id = $1',
+      [saleId]
+    );
+    const sale = saleRes.rows[0];
 
-  // Verify sale
-  const sale = rawDb
-    .prepare('SELECT id, total, refunded_amount, refund_status FROM sales WHERE id = ?')
-    .get(saleId) as
-    | { id: number; total: number; refunded_amount: number | null; refund_status: string | null }
-    | undefined;
+    if (!sale) throw new Error('Sale not found');
+    if (sale.refund_status === 'full') throw new Error('Sale already fully refunded');
 
-  if (!sale) throw new Error('Sale not found');
-  if (sale.refund_status === 'full') throw new Error('Sale already fully refunded');
+    // Validate items against sale
+    const itemsRes = await client.query<{ product_id: number; quantity: number; unit_price: number }>(
+      'SELECT product_id, quantity, unit_price FROM sale_items WHERE sale_id = $1',
+      [saleId]
+    );
+    const saleItems = itemsRes.rows;
 
-  // Validate items against sale
-  const saleItems = rawDb
-    .prepare('SELECT product_id, quantity, unit_price FROM sale_items WHERE sale_id = ?')
-    .all(saleId) as Array<{ product_id: number; quantity: number; unit_price: number }>;
-
-  for (const refundItem of input.items) {
-    const saleItem = saleItems.find((si) => si.product_id === refundItem.product_id);
-    if (!saleItem) throw new Error(`Product ${refundItem.product_id} not in this sale`);
-    if (refundItem.quantity > saleItem.quantity) {
-      throw new Error(`Refund quantity exceeds sold quantity for product ${refundItem.product_id}`);
-    }
-  }
-
-  // Calculate refund amount
-  let refundAmount = 0;
-  for (const item of input.items) {
-    refundAmount += item.unit_price * item.quantity;
-  }
-
-  const previouslyRefunded = sale.refunded_amount || 0;
-  if (previouslyRefunded + refundAmount > sale.total) {
-    throw new Error('Refund amount exceeds sale total');
-  }
-
-  const newRefundedTotal = previouslyRefunded + refundAmount;
-  const refundStatus = newRefundedTotal >= sale.total ? 'full' : 'partial';
-
-  const txn = rawDb.transaction(() => {
-    const refund = rawDb
-      .prepare(
-        `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
-         VALUES (?, ?, ?, ?, ?, ?) RETURNING *`
-      )
-      .get(
-        saleId,
-        refundAmount,
-        input.reason,
-        JSON.stringify(input.items),
-        input.restock ? 1 : 0,
-        cashierId
-      ) as Record<string, any>;
-
-    rawDb
-      .prepare('UPDATE sales SET refund_status = ?, refunded_amount = ? WHERE id = ?')
-      .run(refundStatus, newRefundedTotal, saleId);
-
-    if (input.restock) {
-      for (const item of input.items) {
-        rawDb
-          .prepare(
-            "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?"
-          )
-          .run(item.quantity, item.product_id);
+    for (const refundItem of input.items) {
+      const saleItem = saleItems.find((si) => si.product_id === refundItem.product_id);
+      if (!saleItem) throw new Error(`Product ${refundItem.product_id} not in this sale`);
+      if (refundItem.quantity > saleItem.quantity) {
+        throw new Error(`Refund quantity exceeds sold quantity for product ${refundItem.product_id}`);
       }
     }
 
-    return refund;
-  });
+    // Calculate refund amount
+    let refundAmount = 0;
+    for (const item of input.items) {
+      refundAmount += item.unit_price * item.quantity;
+    }
 
-  const refund = txn();
-  return { refund, refundStatus, newRefundedTotal };
+    const previouslyRefunded = Number(sale.refunded_amount) || 0;
+    if (previouslyRefunded + refundAmount > Number(sale.total)) {
+      throw new Error('Refund amount exceeds sale total');
+    }
+
+    const newRefundedTotal = previouslyRefunded + refundAmount;
+    const refundStatus = newRefundedTotal >= Number(sale.total) ? 'full' : 'partial';
+
+    const refundRes = await client.query<Record<string, any>>(
+      `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [saleId, refundAmount, input.reason, JSON.stringify(input.items), input.restock ? 1 : 0, cashierId]
+    );
+    const refund = refundRes.rows[0];
+
+    await client.query(
+      'UPDATE sales SET refund_status = $1, refunded_amount = $2 WHERE id = $3',
+      [refundStatus, newRefundedTotal, saleId]
+    );
+
+    if (input.restock) {
+      for (const item of input.items) {
+        const prodRes = await client.query<{ stock: number }>(
+          'SELECT stock FROM products WHERE id = $1',
+          [item.product_id]
+        );
+        const currentStock = prodRes.rows[0]?.stock || 0;
+        await client.query(
+          'UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2',
+          [currentStock + item.quantity, item.product_id]
+        );
+      }
+    }
+
+    return { refund, refundStatus, newRefundedTotal };
+  }, clientOrPool);
 }

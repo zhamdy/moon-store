@@ -1,71 +1,31 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import Database from 'better-sqlite3';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { newDb } from 'pg-mem';
+import { Pool as PgPool } from 'pg';
 import path from 'path';
-import fs from 'fs';
 import { saleSchema } from '../validators/saleSchema';
+import { setPool, closePool } from '../src/database/pool';
+import { runMigrationsUp } from '../src/database/migrate';
+import {
+  calculateSaleTotals,
+  executeSaleTransaction,
+  executeRefundTransaction,
+} from '../services/saleService';
 
-const TEST_DB_PATH = path.join(__dirname, 'test-sales.db');
-let testDb: InstanceType<typeof Database>;
+let testPool: PgPool;
 
-function setupTestDb() {
-  testDb = new Database(TEST_DB_PATH);
-  testDb.pragma('journal_mode = WAL');
-  testDb.pragma('foreign_keys = ON');
+beforeAll(async () => {
+  const memDb = newDb({ noAstCoverageCheck: true });
+  const { Pool } = memDb.adapters.createPg();
+  testPool = new Pool() as unknown as PgPool;
+  setPool(testPool);
 
-  testDb.exec(`
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'Cashier',
-      created_at TEXT DEFAULT (datetime('now')),
-      last_login TEXT
-    );
-    CREATE TABLE products (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      sku TEXT UNIQUE NOT NULL,
-      barcode TEXT UNIQUE,
-      price REAL NOT NULL,
-      cost_price REAL DEFAULT 0,
-      stock INTEGER NOT NULL DEFAULT 0,
-      category TEXT,
-      min_stock INTEGER DEFAULT 5,
-      status TEXT DEFAULT 'active',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    );
-    CREATE TABLE sales (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      total REAL NOT NULL,
-      discount REAL DEFAULT 0,
-      discount_type TEXT DEFAULT 'fixed',
-      tax_amount REAL DEFAULT 0,
-      payment_method TEXT DEFAULT 'Cash',
-      cashier_id INTEGER REFERENCES users(id),
-      customer_id INTEGER,
-      notes TEXT,
-      tip REAL DEFAULT 0,
-      refunded_amount REAL DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
-    CREATE TABLE sale_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sale_id INTEGER REFERENCES sales(id),
-      product_id INTEGER REFERENCES products(id),
-      variant_id INTEGER,
-      quantity INTEGER NOT NULL,
-      unit_price REAL NOT NULL,
-      cost_price REAL DEFAULT 0,
-      memo TEXT
-    );
-    CREATE TABLE settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-  `);
-}
+  const migrationsDir = path.join(__dirname, '../src/database/migrations');
+  await runMigrationsUp(testPool, migrationsDir);
+});
+
+afterAll(async () => {
+  await closePool();
+});
 
 describe('Sales - Schema Validation', () => {
   it('should accept a valid sale', () => {
@@ -132,98 +92,95 @@ describe('Sales - Schema Validation', () => {
   });
 });
 
-describe('Sales - Stock Deduction', () => {
-  beforeAll(() => {
-    setupTestDb();
-    // Seed test data
-    testDb
-      .prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)')
-      .run('Admin', 'admin@moon.com', 'hash', 'Admin');
-    testDb
-      .prepare('INSERT INTO products (name, sku, price, stock) VALUES (?, ?, ?, ?)')
-      .run('Silk Dress', 'SKU-001', 500, 10);
-    testDb
-      .prepare('INSERT INTO products (name, sku, price, stock) VALUES (?, ?, ?, ?)')
-      .run('Cotton Shirt', 'SKU-002', 200, 5);
+describe('Sales - PostgreSQL Service & Transaction', () => {
+  beforeEach(async () => {
+    // Clear and seed test items
+    await testPool.query('DELETE FROM sale_items');
+    await testPool.query('DELETE FROM sales');
+    await testPool.query('DELETE FROM products');
+    await testPool.query('DELETE FROM users');
+
+    await testPool.query(
+      'INSERT INTO users (id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
+      [1, 'Admin', 'admin@moon.com', 'hash', 'Admin']
+    );
+    await testPool.query(
+      'INSERT INTO products (id, name, sku, price, cost_price, stock) VALUES ($1, $2, $3, $4, $5, $6)',
+      [1, 'Silk Dress', 'SKU-001', 500, 250, 10]
+    );
+    await testPool.query(
+      'INSERT INTO products (id, name, sku, price, cost_price, stock) VALUES ($1, $2, $3, $4, $5, $6)',
+      [2, 'Cotton Shirt', 'SKU-002', 200, 100, 5]
+    );
   });
 
-  afterAll(() => {
-    testDb.close();
-    if (fs.existsSync(TEST_DB_PATH)) fs.unlinkSync(TEST_DB_PATH);
-    for (const ext of ['-wal', '-shm']) {
-      const f = TEST_DB_PATH + ext;
-      if (fs.existsSync(f)) fs.unlinkSync(f);
-    }
+  it('should deduct stock and record sale atomically in PostgreSQL', async () => {
+    const input = {
+      items: [{ product_id: 1, quantity: 2, unit_price: 500 }],
+      discount: 0,
+      discount_type: 'fixed',
+      payment_method: 'Cash',
+    };
+
+    const totals = await calculateSaleTotals(input, testPool);
+    const sale = await executeSaleTransaction(input, totals, 1, testPool);
+
+    expect(Number(sale.total)).toBe(1000);
+
+    const prod = await testPool.query<{ stock: number }>('SELECT stock FROM products WHERE id = $1', [1]);
+    expect(prod.rows[0].stock).toBe(8); // 10 - 2
+
+    const items = await testPool.query('SELECT * FROM sale_items WHERE sale_id = $1', [sale.id]);
+    expect(items.rows).toHaveLength(1);
   });
 
-  it('should deduct stock when sale is created', () => {
-    const createSale = testDb.transaction(() => {
-      const saleResult = testDb
-        .prepare(
-          'INSERT INTO sales (total, discount, discount_type, payment_method, cashier_id) VALUES (?, ?, ?, ?, ?) RETURNING *'
-        )
-        .get(500, 0, 'fixed', 'Cash', 1) as Record<string, unknown>;
+  it('should rollback transaction on insufficient stock', async () => {
+    const input = {
+      items: [{ product_id: 1, quantity: 20, unit_price: 500 }], // only 10 available
+      discount: 0,
+      discount_type: 'fixed',
+      payment_method: 'Cash',
+    };
 
-      testDb
-        .prepare(
-          'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)'
-        )
-        .run(saleResult.id, 1, 2, 500);
+    const totals = await calculateSaleTotals(input, testPool);
+    await expect(executeSaleTransaction(input, totals, 1, testPool)).rejects.toThrow(
+      /Insufficient stock/
+    );
 
-      // Deduct stock
-      testDb.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(2, 1);
+    const prod = await testPool.query<{ stock: number }>('SELECT stock FROM products WHERE id = $1', [1]);
+    expect(prod.rows[0].stock).toBe(10); // unchanged
 
-      return saleResult;
-    });
-
-    const sale = createSale();
-    expect(sale.total).toBe(500);
-
-    const product = testDb.prepare('SELECT stock FROM products WHERE id = 1').get() as Record<
-      string,
-      unknown
-    >;
-    expect(product.stock).toBe(8); // 10 - 2
+    const sales = await testPool.query('SELECT * FROM sales');
+    expect(sales.rows).toHaveLength(0); // no orphaned sale
   });
 
-  it('should handle multiple items in one sale', () => {
-    const items = [
-      { product_id: 1, quantity: 1, unit_price: 500 },
-      { product_id: 2, quantity: 2, unit_price: 200 },
-    ];
-    const total = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+  it('should execute refund and restock product in PostgreSQL', async () => {
+    const input = {
+      items: [{ product_id: 1, quantity: 2, unit_price: 500 }],
+      discount: 0,
+      discount_type: 'fixed',
+      payment_method: 'Cash',
+    };
 
-    const createSale = testDb.transaction(() => {
-      const saleResult = testDb
-        .prepare('INSERT INTO sales (total, cashier_id) VALUES (?, ?) RETURNING *')
-        .get(total, 1) as Record<string, unknown>;
+    const totals = await calculateSaleTotals(input, testPool);
+    const sale = await executeSaleTransaction(input, totals, 1, testPool);
 
-      for (const item of items) {
-        testDb
-          .prepare(
-            'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)'
-          )
-          .run(saleResult.id, item.product_id, item.quantity, item.unit_price);
-        testDb
-          .prepare('UPDATE products SET stock = stock - ? WHERE id = ?')
-          .run(item.quantity, item.product_id);
-      }
-      return saleResult;
-    });
+    const refundRes = await executeRefundTransaction(
+      sale.id,
+      {
+        items: [{ product_id: 1, quantity: 1, unit_price: 500 }],
+        reason: 'Wrong size',
+        restock: true,
+      },
+      1,
+      testPool
+    );
 
-    const sale = createSale();
-    expect(sale.total).toBe(900); // 500 + 2*200
+    expect(refundRes.refundStatus).toBe('partial');
+    expect(refundRes.newRefundedTotal).toBe(500);
 
-    const p1 = testDb.prepare('SELECT stock FROM products WHERE id = 1').get() as Record<
-      string,
-      unknown
-    >;
-    const p2 = testDb.prepare('SELECT stock FROM products WHERE id = 2').get() as Record<
-      string,
-      unknown
-    >;
-    expect(p1.stock).toBe(7); // 8 - 1
-    expect(p2.stock).toBe(3); // 5 - 2
+    const prod = await testPool.query<{ stock: number }>('SELECT stock FROM products WHERE id = $1', [1]);
+    expect(prod.rows[0].stock).toBe(9); // 8 + 1 restocked
   });
 });
 

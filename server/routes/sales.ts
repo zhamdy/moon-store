@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import db from '../db';
+import db from '../src/database/pool';
 import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
 import { saleSchema } from '../validators/saleSchema';
 import { refundSchema } from '../validators/refundSchema';
@@ -21,22 +21,22 @@ router.get(
   requireRole('Admin', 'Cashier'),
   async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const today = await db.query<{ revenue: number; count: number }>(
+      const today = await db.query<{ revenue: string | number; count: string | number }>(
         `SELECT COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as revenue, COUNT(*) as count
-       FROM sales WHERE date(created_at) = date('now')`
+         FROM sales WHERE created_at::date = CURRENT_DATE`
       );
-      const month = await db.query<{ revenue: number; count: number }>(
+      const month = await db.query<{ revenue: string | number; count: string | number }>(
         `SELECT COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as revenue, COUNT(*) as count
-       FROM sales WHERE created_at >= date('now', 'start of month')`
+         FROM sales WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE)`
       );
 
       res.json({
         success: true,
         data: {
-          today_revenue: today.rows[0].revenue,
-          today_sales: today.rows[0].count,
-          month_revenue: month.rows[0].revenue,
-          month_sales: month.rows[0].count,
+          today_revenue: Number(today.rows[0].revenue),
+          today_sales: Number(today.rows[0].count),
+          month_revenue: Number(month.rows[0].revenue),
+          month_sales: Number(month.rows[0].count),
         },
       });
     } catch (err) {
@@ -58,11 +58,11 @@ router.post(
         return res.status(400).json({ success: false, error: parsed.error.errors[0].message });
       }
 
-      const totals = calculateSaleTotals(parsed.data);
+      const totals = await calculateSaleTotals(parsed.data);
 
       let sale: Record<string, any>;
       try {
-        sale = executeSaleTransaction(parsed.data, totals, authReq.user!.id);
+        sale = await executeSaleTransaction(parsed.data, totals, authReq.user!.id);
       } catch (err: any) {
         return res.status(400).json({ success: false, error: err.message });
       }
@@ -71,14 +71,14 @@ router.post(
       const saleItems = (
         await db.query(
           `SELECT si.*, p.name as product_name
-       FROM sale_items si JOIN products p ON si.product_id = p.id
-       WHERE si.sale_id = ?`,
+           FROM sale_items si JOIN products p ON si.product_id = p.id
+           WHERE si.sale_id = $1`,
           [sale.id]
         )
       ).rows;
 
       const cashier = (
-        await db.query<{ name: string }>('SELECT name FROM users WHERE id = ?', [authReq.user!.id])
+        await db.query<{ name: string }>('SELECT name FROM users WHERE id = $1', [authReq.user!.id])
       ).rows[0];
 
       logAuditFromReq(req, 'create', 'sale', sale.id, {
@@ -86,7 +86,7 @@ router.post(
         items: parsed.data.items.length,
       });
 
-      notifySale(sale.total, sale.id, cashier?.name || 'Unknown');
+      notifySale(Number(sale.total), sale.id, cashier?.name || 'Unknown');
 
       // Record cash register movement for cash payments
       const cashPayments = (parsed.data.payments || []).filter(
@@ -96,7 +96,7 @@ router.post(
         (sum: number, p: { amount: number }) => sum + p.amount,
         0
       );
-      const singleCashPayment = parsed.data.payment_method === 'Cash' ? sale.total : 0;
+      const singleCashPayment = parsed.data.payment_method === 'Cash' ? Number(sale.total) : 0;
       const totalCashForRegister = cashAmount || singleCashPayment;
       if (totalCashForRegister > 0) {
         recordSaleMovement(authReq.user!.id, sale.id, totalCashForRegister);
@@ -135,58 +135,63 @@ router.get(
 
       const where: string[] = [];
       const params: unknown[] = [];
+      let paramIdx = 1;
 
       if (from) {
-        where.push(`s.created_at >= ?`);
+        where.push(`s.created_at >= $${paramIdx++}`);
         params.push(from);
       }
       if (to) {
-        where.push(`s.created_at <= ?`);
+        where.push(`s.created_at <= $${paramIdx++}`);
         params.push(to + ' 23:59:59');
       }
       if (payment_method) {
-        where.push(`s.payment_method = ?`);
+        where.push(`s.payment_method = $${paramIdx++}`);
         params.push(payment_method);
       }
       if (cashier_id) {
-        where.push(`s.cashier_id = ?`);
+        where.push(`s.cashier_id = $${paramIdx++}`);
         params.push(cashier_id);
       }
       if (customer_id) {
-        where.push(`s.customer_id = ?`);
+        where.push(`s.customer_id = $${paramIdx++}`);
         params.push(customer_id);
       }
       if (search) {
-        where.push(`CAST(s.id AS TEXT) LIKE ?`);
+        where.push(`s.id::text ILIKE $${paramIdx++}`);
         params.push(`%${search}%`);
       }
 
       const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
-      const countResult = await db.query<{ count: number }>(
+      const countResult = await db.query<{ count: string | number }>(
         `SELECT COUNT(*) as count FROM sales s ${whereClause}`,
         params
       );
-      const total = countResult.rows[0].count;
+      const total = Number(countResult.rows[0].count);
 
-      const revenueResult = await db.query<{ total_revenue: number }>(
+      const revenueResult = await db.query<{ total_revenue: string | number }>(
         `SELECT COALESCE(SUM(total), 0) as total_revenue FROM sales s ${whereClause}`,
         params
       );
 
+      const queryParams = [...params, limitNum, offset];
+      const limitIdx = paramIdx++;
+      const offsetIdx = paramIdx++;
+
       const result = await db.query(
         `SELECT s.*, u.name as cashier_name, c.name as customer_name,
-        COUNT(si.id) as items_count,
-        s.refund_status, s.refunded_amount
-       FROM sales s
-       LEFT JOIN users u ON s.cashier_id = u.id
-       LEFT JOIN customers c ON s.customer_id = c.id
-       LEFT JOIN sale_items si ON si.sale_id = s.id
-       ${whereClause}
-       GROUP BY s.id
-       ORDER BY s.created_at DESC
-       LIMIT ? OFFSET ?`,
-        [...params, limitNum, offset]
+                COUNT(si.id)::int as items_count,
+                s.refund_status, s.refunded_amount
+         FROM sales s
+         LEFT JOIN users u ON s.cashier_id = u.id
+         LEFT JOIN customers c ON s.customer_id = c.id
+         LEFT JOIN sale_items si ON si.sale_id = s.id
+         ${whereClause}
+         GROUP BY s.id, u.name, c.name
+         ORDER BY s.created_at DESC
+         LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+        queryParams
       );
 
       res.json({
@@ -196,7 +201,7 @@ router.get(
           total,
           page: pageNum,
           limit: limitNum,
-          total_revenue: revenueResult.rows[0].total_revenue,
+          total_revenue: Number(revenueResult.rows[0].total_revenue),
         },
       });
     } catch (err) {
@@ -214,8 +219,8 @@ router.get(
     try {
       const saleResult = await db.query(
         `SELECT s.*, u.name as cashier_name
-       FROM sales s LEFT JOIN users u ON s.cashier_id = u.id
-       WHERE s.id = ?`,
+         FROM sales s LEFT JOIN users u ON s.cashier_id = u.id
+         WHERE s.id = $1`,
         [req.params.id]
       );
 
@@ -225,8 +230,8 @@ router.get(
 
       const items = await db.query(
         `SELECT si.*, p.name as product_name
-       FROM sale_items si JOIN products p ON si.product_id = p.id
-       WHERE si.sale_id = ?`,
+         FROM sale_items si JOIN products p ON si.product_id = p.id
+         WHERE si.sale_id = $1`,
         [req.params.id]
       );
 
@@ -254,7 +259,7 @@ router.post(
 
       let result;
       try {
-        result = executeRefundTransaction(saleId, parsed.data, authReq.user!.id);
+        result = await executeRefundTransaction(saleId, parsed.data, authReq.user!.id);
       } catch (err: any) {
         const status = err.message === 'Sale not found' ? 404 : 400;
         return res.status(status).json({ success: false, error: err.message });
@@ -262,14 +267,14 @@ router.post(
 
       const { refund, refundStatus, newRefundedTotal } = result;
 
-      logAuditFromReq(req, 'refund', 'sale', req.params.id, { refund_amount: refund.total_refund });
-      recordRefundMovement(authReq.user!.id, refund.total_refund);
+      logAuditFromReq(req, 'refund', 'sale', req.params.id, { refund_amount: refund.amount });
+      recordRefundMovement(authReq.user!.id, Number(refund.amount));
 
       res.status(201).json({
         success: true,
         data: {
           ...refund,
-          items: JSON.parse(refund.items),
+          items: typeof refund.items === 'string' ? JSON.parse(refund.items) : refund.items,
           refund_status: refundStatus,
           refunded_amount: newRefundedTotal,
         },
@@ -293,14 +298,14 @@ router.get(
         `SELECT r.*, u.name as cashier_name
          FROM refunds r
          LEFT JOIN users u ON r.cashier_id = u.id
-         WHERE r.sale_id = ?
+         WHERE r.sale_id = $1
          ORDER BY r.created_at DESC`,
         [saleId]
       );
 
       const refunds = result.rows.map((r: any) => ({
         ...r,
-        items: JSON.parse(r.items),
+        items: typeof r.items === 'string' ? JSON.parse(r.items) : r.items,
       }));
 
       res.json({ success: true, data: refunds });
@@ -326,12 +331,12 @@ router.post(
           .json({ success: false, error: 'Channel must be email, sms, or whatsapp' });
       }
 
-      const saleResult = await db.query('SELECT * FROM sales WHERE id = ?', [req.params.id]);
+      const saleResult = await db.query('SELECT * FROM sales WHERE id = $1', [req.params.id]);
       if (saleResult.rows.length === 0) {
         return res.status(404).json({ success: false, error: 'Sale not found' });
       }
 
-      await db.query('UPDATE sales SET receipt_sent_via = ? WHERE id = ?', [
+      await db.query('UPDATE sales SET receipt_sent_via = $1 WHERE id = $2', [
         channel,
         req.params.id,
       ]);
