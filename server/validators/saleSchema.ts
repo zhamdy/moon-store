@@ -8,7 +8,7 @@ export const saleItemSchema = z.object({
   memo: z.string().max(200).optional().nullable(),
 });
 
-const paymentEntrySchema = z.object({
+export const paymentEntrySchema = z.object({
   method: z.enum(['Cash', 'Card', 'Other', 'Gift Card']),
   amount: z.number().positive(),
 });
@@ -26,5 +26,19 @@ export const saleSchema = z.object({
   coupon_code: z.string().optional().nullable(),
 });
 
+export const refundItemSchema = z.object({
+  product_id: z.number().int().positive(),
+  quantity: z.number().int().positive('Quantity must be at least 1'),
+  unit_price: z.number().positive(),
+});
+
+export const refundSchema = z.object({
+  items: z.array(refundItemSchema).min(1, 'At least one item required'),
+  reason: z.string().min(1, 'Reason is required').max(500),
+  restock: z.boolean().default(true),
+});
+
 export type SaleItem = z.infer<typeof saleItemSchema>;
 export type Sale = z.infer<typeof saleSchema>;
+export type RefundItem = z.infer<typeof refundItemSchema>;
+export type Refund = z.infer<typeof refundSchema>;

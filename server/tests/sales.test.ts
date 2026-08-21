@@ -191,6 +191,19 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
     );
     expect(prod.rows[0].stock).toBe(9); // 8 + 1 restocked
   });
+
+  it('should auto-fetch catalog price if unit_price is not provided', async () => {
+    const input = {
+      items: [{ product_id: 1, quantity: 2 }], // Silk Dress is 500 in catalog
+      discount: 0,
+      payment_method: 'Cash',
+    };
+
+    const totals = await calculateSaleTotals(input as any, testPool);
+    expect(totals.subtotal).toBe(1000);
+    const sale = await executeSaleTransaction(input as any, totals, 1, testPool);
+    expect(Number(sale.total)).toBe(1000);
+  });
 });
 
 describe('Sales - Discount Calculation', () => {
