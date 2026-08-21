@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import {
   Button,
@@ -15,10 +14,7 @@ import {
   Select,
   SelectItem,
 } from '@heroui/react';
-import { Badge, type BadgeVariant } from '../../../shared/components/StatusBadge';
-import DataTable from '../../../shared/components/DataTable';
-import ConfirmDialog from '../../../shared/components/ConfirmDialog';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, type BadgeVariant, DataTable, ConfirmDialog, PageHeader } from '../../../shared';
 import { formatDateTime, formatDate } from '../../../shared/lib/utils';
 import { useAuthStore } from '../../auth';
 import { resource } from '../../../shared/lib/resource';
@@ -118,32 +114,35 @@ export default function UsersPage() {
     {
       accessorKey: 'email',
       header: t('common.email'),
-      cell: ({ getValue }) => <span className="font-data">{getValue() as string}</span>,
+      cell: ({ getValue }) => <span className="font-data">{(getValue() as string) || '-'}</span>,
     },
     {
       accessorKey: 'role',
-      header: t('common.role'),
+      header: t('users.role'),
+      cell: ({ getValue }) => {
+        const role = getValue() as UserRole;
+        return (
+          <Badge size="sm" variant={roleBadgeVariant[role] || 'default'}>
+            {t(`users.roles.${role}`)}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: 'created_at',
+      header: t('users.createdAt'),
       cell: ({ getValue }) => (
-        <Badge size="sm" variant={roleBadgeVariant[getValue() as UserRole] || 'default'}>
-          {getValue() as string}
-        </Badge>
+        <span className="text-muted-foreground text-sm">
+          {getValue() ? formatDate(getValue() as string) : '-'}
+        </span>
       ),
     },
     {
       accessorKey: 'last_login',
       header: t('users.lastLogin'),
       cell: ({ getValue }) => (
-        <span className="text-muted-foreground font-data text-xs">
-          {getValue() ? formatDateTime(getValue() as string) : t('users.never')}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'created_at',
-      header: t('users.createdDate'),
-      cell: ({ getValue }) => (
-        <span className="text-muted-foreground font-data text-xs">
-          {formatDate(getValue() as string)}
+        <span className="text-muted-foreground text-sm font-data">
+          {getValue() ? formatDateTime(getValue() as string) : t('users.neverLoggedIn')}
         </span>
       ),
     },
@@ -151,58 +150,63 @@ export default function UsersPage() {
       id: 'actions',
       header: t('common.actions'),
       enableSorting: false,
-      cell: ({ row }) => (
-        <div className="flex gap-1">
-          <Button
-            isIconOnly
-            variant="light"
-            size="sm"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={() => openEditDialog(row.original)}
-            aria-label={t('common.edit')}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            isIconOnly
-            variant="light"
-            color="danger"
-            size="sm"
-            className="h-8 w-8"
-            onClick={() => {
-              if (row.original.id === currentUser?.id) {
-                toast.error(t('users.cannotDeleteSelf'));
-                return;
-              }
-              setDeleteId(row.original.id);
-            }}
-            aria-label={t('common.delete')}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const user = row.original;
+        const isSelf = currentUser?.id === user.id;
+        return (
+          <div className="flex gap-1">
+            <Button
+              isIconOnly
+              variant="light"
+              size="sm"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => openEditDialog(user)}
+              title={t('common.edit')}
+              aria-label={t('common.edit')}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              isIconOnly
+              variant="light"
+              color="danger"
+              size="sm"
+              className="h-8 w-8 text-danger"
+              isDisabled={isSelf}
+              onClick={() => setDeleteId(user.id)}
+              title={isSelf ? t('users.cannotDeleteSelf') : t('common.delete')}
+              aria-label={isSelf ? t('users.cannotDeleteSelf') : t('common.delete')}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <PageHeader title={t('users.title')}>
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<Plus className="h-4 w-4" />}
-          onClick={openCreateDialog}
-        >
-          {t('users.addUser')}
-        </Button>
-      </PageHeader>
+      <PageHeader
+        title={t('users.title')}
+        actions={
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={openCreateDialog}
+          >
+            {t('users.addUser')}
+          </Button>
+        }
+      />
 
       <DataTable
         columns={columns}
         data={rows ?? []}
         isLoading={isLoading}
         searchPlaceholder={t('users.searchPlaceholder')}
+        enableDensityToggle
       />
 
       {/* Add/Edit Dialog */}
