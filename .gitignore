@@ -11,3 +11,4 @@ dist/
 *.jpg
 nul
 .playwright-mcp/
+.tanstack/

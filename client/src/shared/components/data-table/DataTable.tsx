@@ -1,0 +1,327 @@
+import React, { useState, Fragment } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+  type SortingState,
+  type RowSelectionState,
+  type VisibilityState,
+  type PaginationState,
+} from '@tanstack/react-table';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, SlidersHorizontal } from 'lucide-react';
+import { TableBulkActions } from './TableBulkActions';
+import { TableColumnVisibility } from './TableColumnVisibility';
+import { Skeleton } from '../data-display/SkeletonLoader';
+import EmptyState from '../EmptyState';
+import { useTranslation } from '../../i18n/index';
+import type { DataTableProps, TableDensity } from './types';
+
+export function DataTable<TData>({
+  columns,
+  data,
+  isLoading,
+  searchPlaceholder,
+  enableSearch = true,
+  enableRowSelection = false,
+  rowSelection: controlledRowSelection,
+  onRowSelectionChange: setControlledRowSelection,
+  getRowId,
+  renderSubComponent,
+  enableColumnVisibility = false,
+  enableDensityToggle = false,
+  toolbar,
+  bulkActions,
+  emptyTitle,
+  emptyDescription,
+  className = '',
+  ...props
+}: DataTableProps<TData>): React.JSX.Element {
+  const isServer = props.mode === 'server';
+  const { t } = useTranslation();
+
+  // Internal client state
+  const [internalSorting, setInternalSorting] = useState<SortingState>([]);
+  const [internalGlobalFilter, setInternalGlobalFilter] = useState<string>('');
+  const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [density, setDensity] = useState<TableDensity>('standard');
+  const [internalPagination, setInternalPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+
+  const activeSorting = isServer ? props.sorting || [] : internalSorting;
+  const onSortingChange = isServer ? props.onSortingChange : setInternalSorting;
+
+  const activePagination = isServer
+    ? props.pagination || { pageIndex: 0, pageSize: 10 }
+    : internalPagination;
+  const onPaginationChange = isServer ? props.onPaginationChange : setInternalPagination;
+
+  const activeGlobalFilter = isServer ? props.search || '' : internalGlobalFilter;
+  const handleGlobalFilterChange = (val: string) => {
+    if (isServer) {
+      if (props.onSearchChange) props.onSearchChange(val);
+    } else {
+      setInternalGlobalFilter(val);
+    }
+  };
+
+  const activeRowSelection =
+    controlledRowSelection !== undefined ? controlledRowSelection : internalRowSelection;
+  const handleRowSelectionChange = setControlledRowSelection || setInternalRowSelection;
+
+  const table = useReactTable<TData>({
+    data: data || [],
+    columns,
+    state: {
+      sorting: activeSorting,
+      globalFilter: activeGlobalFilter,
+      columnVisibility,
+      pagination: activePagination,
+      ...(enableRowSelection ? { rowSelection: activeRowSelection } : {}),
+    },
+    onSortingChange,
+    onGlobalFilterChange: handleGlobalFilterChange,
+    onColumnVisibilityChange: setColumnVisibility,
+    onPaginationChange,
+    ...(enableRowSelection
+      ? { enableRowSelection: true, onRowSelectionChange: handleRowSelectionChange }
+      : {}),
+    ...(getRowId ? { getRowId } : {}),
+    manualPagination: isServer,
+    manualSorting: isServer,
+    manualFiltering: isServer,
+    pageCount: isServer ? props.pageCount : undefined,
+    getCoreRowModel: getCoreRowModel(),
+    ...(!isServer
+      ? {
+          getSortedRowModel: getSortedRowModel(),
+          getFilteredRowModel: getFilteredRowModel(),
+          getPaginationRowModel: getPaginationRowModel(),
+        }
+      : {}),
+  });
+
+  if (isLoading) {
+    return (
+      <div className={`space-y-3 ${className}`} aria-busy="true">
+        {enableSearch && <Skeleton className="h-10 w-full sm:w-72 rounded-lg" />}
+        <Skeleton className="h-10 w-full rounded-lg" />
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  const selectedRows = table.getSelectedRowModel
+    ? table.getSelectedRowModel().rows.map((r) => r.original)
+    : [];
+  const selectedCount = Object.keys(activeRowSelection).length;
+
+  const clearSelection = () => {
+    table.resetRowSelection();
+  };
+
+  const densityPaddingClass = density === 'compact' ? 'px-3 py-2 text-xs' : 'px-4 py-3 text-sm';
+
+  const pageSize = table.getState().pagination.pageSize;
+  const pageIndex = table.getState().pagination.pageIndex;
+  const totalRowCount =
+    isServer && props.totalRows !== undefined
+      ? props.totalRows
+      : table.getFilteredRowModel
+        ? table.getFilteredRowModel().rows.length
+        : (data || []).length;
+  const startRow = totalRowCount === 0 ? 0 : pageIndex * pageSize + 1;
+  const endRow = Math.min((pageIndex + 1) * pageSize, totalRowCount);
+
+  return (
+    <div className={`space-y-4 ${className}`}>
+      {/* Top Action Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-wrap">
+        {enableSearch && (
+          <div className="w-full sm:w-72 relative">
+            <div className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+              <Search className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <input
+              type="search"
+              role="searchbox"
+              aria-label={searchPlaceholder || t('common.search')}
+              placeholder={searchPlaceholder || t('common.search')}
+              value={activeGlobalFilter}
+              onChange={(e) => handleGlobalFilterChange(e.target.value)}
+              className="w-full h-9 ps-9 pe-3 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground outline-none transition-colors hover:border-foreground/40 focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 ms-auto flex-wrap">
+          {toolbar}
+
+          {enableDensityToggle && (
+            <button
+              type="button"
+              onClick={() => setDensity(density === 'standard' ? 'compact' : 'standard')}
+              aria-label={`Switch to ${density === 'standard' ? 'compact' : 'standard'} density`}
+              className="flex items-center gap-1.5 h-9 px-3 text-xs font-medium rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <span className="capitalize">{density}</span>
+            </button>
+          )}
+
+          {enableColumnVisibility && <TableColumnVisibility table={table} />}
+        </div>
+      </div>
+
+      {/* Floating Bulk Actions Bar */}
+      {enableRowSelection && selectedCount > 0 && (
+        <TableBulkActions selectedCount={selectedCount} onClearSelection={clearSelection}>
+          {bulkActions && bulkActions(selectedRows, clearSelection)}
+        </TableBulkActions>
+      )}
+
+      {/* Table Container */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm relative">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px] font-data">
+            <thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr
+                  key={headerGroup.id}
+                  className="bg-muted/50 dark:bg-zinc-800/80 border-b border-border sticky top-0 z-10"
+                >
+                  {headerGroup.headers.map((header) => {
+                    const sorted = header.column.getIsSorted();
+                    return (
+                      <th
+                        key={header.id}
+                        className={`text-start font-semibold text-muted-foreground tracking-wider uppercase text-[11px] select-none ${densityPaddingClass}`}
+                        aria-sort={
+                          header.column.getCanSort()
+                            ? sorted === 'asc'
+                              ? 'ascending'
+                              : sorted === 'desc'
+                                ? 'descending'
+                                : 'none'
+                            : undefined
+                        }
+                      >
+                        {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 cursor-pointer text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded px-1 -mx-1"
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            <span>
+                              {sorted === 'asc' ? (
+                                <ArrowUp className="h-3.5 w-3.5 text-primary" />
+                              ) : sorted === 'desc' ? (
+                                <ArrowDown className="h-3.5 w-3.5 text-primary" />
+                              ) : (
+                                <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+                              )}
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </div>
+                        )}
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length} role="status" aria-live="polite" className="py-8">
+                    <EmptyState
+                      icon={Search}
+                      title={emptyTitle || t('common.noResults')}
+                      description={emptyDescription || t('common.noResultsDesc')}
+                    />
+                  </td>
+                </tr>
+              ) : (
+                table.getRowModel().rows.map((row) => {
+                  const subContent = renderSubComponent ? renderSubComponent(row.original) : null;
+                  return (
+                    <Fragment key={row.id}>
+                      <tr className="group border-b border-border/60 hover:bg-muted/40 transition-colors">
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className={`text-foreground ${densityPaddingClass}`}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                      {subContent && (
+                        <tr className="bg-muted/20 border-b border-border/60">
+                          <td colSpan={columns.length} className="px-6 py-3">
+                            {subContent}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pagination Footer */}
+      <div className="flex items-center justify-between border-t border-border pt-3 flex-wrap gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <span>{t('common.rowsPerPage')}</span>
+          <select
+            aria-label={t('common.rowsPerPage')}
+            value={pageSize}
+            onChange={(e) => table.setPageSize(Number(e.target.value))}
+            className="h-8 px-2 rounded-lg border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {[10, 25, 50, 100].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+          <span>
+            {startRow} - {endRow} {t('common.of')} {totalRowCount}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+            className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            {t('common.previous')}
+          </button>
+          <button
+            type="button"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+            className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            {t('common.next')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default DataTable;
