@@ -10,6 +10,41 @@ import {
   executeSaleTransaction,
   executeRefundTransaction,
 } from '../services/saleService';
+import { parseSaleListQuery } from '../src/modules/pos/sales/types';
+import { SalesRepository } from '../src/modules/pos/sales/repository';
+
+describe('Sales - List Contract', () => {
+  it('parses canonical pagination and filters', () => {
+    expect(
+      parseSaleListQuery({
+        page: '2',
+        pageSize: '50',
+        dateFrom: '2026-08-01',
+        dateTo: '2026-08-22',
+        paymentMethod: 'Card',
+        cashierId: '7',
+        search: 'private receipt',
+        sortBy: 'total',
+        sortOrder: 'desc',
+      })
+    ).toEqual({
+      page: 2,
+      pageSize: 50,
+      dateFrom: '2026-08-01',
+      dateTo: '2026-08-22',
+      paymentMethod: 'Card',
+      cashierId: 7,
+      search: 'private receipt',
+      sortBy: 'total',
+      sortOrder: 'desc',
+    });
+  });
+
+  it('rejects legacy and unknown list parameters', () => {
+    expect(() => parseSaleListQuery({ limit: '200' })).toThrow();
+    expect(() => parseSaleListQuery({ payment_method: 'Cash' })).toThrow();
+  });
+});
 
 let testPool: PgPool;
 
@@ -203,6 +238,32 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
     expect(totals.subtotal).toBe(1000);
     const sale = await executeSaleTransaction(input as any, totals, 1, testPool);
     expect(Number(sale.total)).toBe(1000);
+  });
+
+  it('returns filtered totals, aggregates, and deterministic pages from one predicate', async () => {
+    await testPool.query(
+      `INSERT INTO sales (total, payment_method, cashier_id, created_at)
+       VALUES (100, 'Cash', 1, '2026-08-20T10:00:00Z'),
+              (250, 'Card', 1, '2026-08-21T10:00:00Z'),
+              (300, 'Card', 1, '2026-08-21T10:00:00Z')`
+    );
+    const repository = new SalesRepository();
+    const result = await repository.listSales(
+      {
+        page: 1,
+        pageSize: 10,
+        paymentMethod: 'Card',
+        dateFrom: '2026-08-21',
+        dateTo: '2026-08-21',
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      },
+      testPool
+    );
+
+    expect(result.total).toBe(2);
+    expect(result.totalRevenue).toBe(550);
+    expect(result.rows.map((row) => Number(row.total))).toEqual([300, 250]);
   });
 });
 

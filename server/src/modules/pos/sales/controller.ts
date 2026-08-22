@@ -6,27 +6,22 @@ import { recordSaleMovement, recordRefundMovement } from '../register';
 import { saleSchema, refundSchema } from '../../../../validators/saleSchema';
 import { salesService } from './service';
 import { salesRepository } from './repository';
+import { parseSaleListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
 
 export class SalesController {
   async getSales(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = 1, limit = 25, payment_method, cashier_id, from, to, search } = req.query;
-
-      const result = await salesRepository.listSales({
-        page: Number(page),
-        limit: Number(limit),
-        search: search as string | undefined,
-        payment_method: payment_method as string | undefined,
-        cashier_id: cashier_id ? Number(cashier_id) : undefined,
-        from: from as string | undefined,
-        to: to as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: { total: result.total, page: Number(page), limit: Number(limit) },
-      });
+      const query = parseSaleListQuery(req.query);
+      const result = await salesRepository.listSales(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+          aggregates: { totalRevenue: result.totalRevenue, totalSales: result.total },
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -37,23 +32,21 @@ export class SalesController {
       const saleId = Number(req.params.id);
       const sale = await salesRepository.findById(saleId);
       if (!sale) {
-        res.status(404).json({ success: false, error: 'Sale not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Sale not found');
       }
 
       const items = await salesRepository.findItemsBySaleId(saleId);
       const payments = await salesRepository.findPaymentsBySaleId(saleId);
       const refunds = await salesRepository.findRefundsBySaleId(saleId);
 
-      res.json({
-        success: true,
-        data: {
+      res.json(
+        success({
           ...sale,
           items,
           payments,
           refunds,
-        },
-      });
+        })
+      );
     } catch (err) {
       next(err);
     }

@@ -16,7 +16,7 @@ export interface ISalesRepository {
   listSales(
     filters: SaleFilters,
     queryable?: Queryable
-  ): Promise<{ rows: Record<string, any>[]; total: number }>;
+  ): Promise<{ rows: Record<string, any>[]; total: number; totalRevenue: number }>;
   createSale(data: Record<string, any>, queryable: Queryable): Promise<Record<string, any>>;
   createSaleItem(data: Record<string, any>, queryable: Queryable): Promise<Record<string, any>>;
   createSalePayment(
@@ -137,9 +137,19 @@ export class SalesRepository implements ISalesRepository {
   async listSales(
     filters: SaleFilters,
     queryable?: Queryable
-  ): Promise<{ rows: Record<string, any>[]; total: number }> {
-    const { page = 1, limit = 25, search, payment_method, cashier_id, from, to } = filters;
-    const offset = (page - 1) * limit;
+  ): Promise<{ rows: Record<string, any>[]; total: number; totalRevenue: number }> {
+    const {
+      page,
+      pageSize,
+      search,
+      paymentMethod,
+      cashierId,
+      dateFrom,
+      dateTo,
+      sortBy,
+      sortOrder,
+    } = filters;
+    const offset = (page - 1) * pageSize;
 
     const where: string[] = [];
     const params: unknown[] = [];
@@ -152,27 +162,32 @@ export class SalesRepository implements ISalesRepository {
       params.push(`%${search}%`);
       paramIdx++;
     }
-    if (payment_method) {
+    if (paymentMethod) {
       where.push(`s.payment_method = $${paramIdx++}`);
-      params.push(payment_method);
+      params.push(paymentMethod);
     }
-    if (cashier_id) {
+    if (cashierId) {
       where.push(`s.cashier_id = $${paramIdx++}`);
-      params.push(cashier_id);
+      params.push(cashierId);
     }
-    if (from) {
+    if (dateFrom) {
       where.push(`s.created_at >= $${paramIdx++}`);
-      params.push(from);
+      params.push(dateFrom);
     }
-    if (to) {
-      where.push(`s.created_at <= $${paramIdx++}`);
-      params.push(to + ' 23:59:59');
+    if (dateTo) {
+      const exclusiveDateTo = new Date(`${dateTo}T00:00:00.000Z`);
+      exclusiveDateTo.setUTCDate(exclusiveDateTo.getUTCDate() + 1);
+      where.push(`s.created_at < $${paramIdx++}`);
+      params.push(exclusiveDateTo.toISOString());
     }
 
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
-    const countRes = await this.q(queryable).query<{ count: string | number }>(
-      `SELECT COUNT(*) as count
+    const countRes = await this.q(queryable).query<{
+      count: string | number;
+      total_revenue: string | number;
+    }>(
+      `SELECT COUNT(*) as count, COALESCE(SUM(s.total), 0) as total_revenue
        FROM sales s
        LEFT JOIN users u ON s.cashier_id = u.id
        LEFT JOIN customers c ON s.customer_id = c.id
@@ -180,23 +195,30 @@ export class SalesRepository implements ISalesRepository {
       params
     );
     const total = Number(countRes.rows[0]?.count || 0);
+    const totalRevenue = Number(countRes.rows[0]?.total_revenue || 0);
 
-    const queryParams = [...params, limit, offset];
+    const queryParams = [...params, pageSize, offset];
     const limitIdx = paramIdx++;
     const offsetIdx = paramIdx++;
 
+    const orderColumn = sortBy === 'total' ? 's.total' : 's.created_at';
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
     const rowsRes = await this.q(queryable).query(
-      `SELECT s.*, u.name as cashier_name, c.name as customer_name, c.phone as customer_phone
+      `SELECT s.*, u.name as cashier_name, c.name as customer_name, c.phone as customer_phone,
+              COALESCE(si_counts.items_count, 0)::int as items_count
        FROM sales s
        LEFT JOIN users u ON s.cashier_id = u.id
        LEFT JOIN customers c ON s.customer_id = c.id
+       LEFT JOIN (
+         SELECT sale_id, COUNT(*) as items_count FROM sale_items GROUP BY sale_id
+       ) si_counts ON si_counts.sale_id = s.id
        ${whereClause}
-       ORDER BY s.created_at DESC
+       ORDER BY ${orderColumn} ${direction}, s.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );
 
-    return { rows: rowsRes.rows, total };
+    return { rows: rowsRes.rows, total, totalRevenue };
   }
 
   async createSale(data: Record<string, any>, queryable: Queryable): Promise<Record<string, any>> {
