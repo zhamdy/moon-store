@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogIn, LogOut, Coffee, Play } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button, Card, CardBody, Tabs, Tab } from '@heroui/react';
+import { Button, Card, CardBody, Tabs, Tab, Pagination } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useAuthStore } from '../../auth';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { Shift, TimesheetEntry } from '../types';
+import { useApiQuery } from '../../../shared/lib/apiQuery';
+import type { Shift } from '../types';
 
 const shifts = resource<Shift>('shifts');
 
@@ -30,31 +31,35 @@ function useShiftAction(path: string, message: string) {
 export default function ShiftsPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const [tab, setTab] = useState<'active' | 'history' | 'timesheet'>('active');
+  const [tab, setTab] = useState<'active' | 'history'>('active');
+  const [historyPage, setHistoryPage] = useState(1);
 
   const isAdmin = user?.role === 'Admin';
 
   const { data: currentShift } = shifts.useRead<Shift | null>('current');
-  const { data: activeShifts } = shifts.useRead<Shift[]>(
-    'active',
-    undefined,
-    isAdmin && tab === 'active'
+  const { data: activeShifts } = useApiQuery<Shift[]>(
+    ['shifts', 'active'],
+    'shifts',
+    { page: 1, pageSize: 25, status: 'open', sortBy: 'clockIn', sortOrder: 'desc' },
+    { enabled: isAdmin && tab === 'active' }
   );
-  const { data: history } = shifts.useRead<Shift[]>(
-    'history',
-    { limit: 50 },
-    isAdmin && tab === 'history'
-  );
-  const { data: timesheet } = shifts.useRead<TimesheetEntry[]>(
-    'timesheet',
-    undefined,
-    isAdmin && tab === 'timesheet'
+  const { data: history, meta: historyMeta } = useApiQuery<Shift[]>(
+    ['shifts', 'history'],
+    'shifts',
+    {
+      page: historyPage,
+      pageSize: 25,
+      status: 'completed',
+      sortBy: 'clockIn',
+      sortOrder: 'desc',
+    },
+    { enabled: isAdmin && tab === 'history' }
   );
 
   const clockIn = useShiftAction('shifts/clock-in', t('shifts.clockedIn'));
   const clockOut = useShiftAction('shifts/clock-out', t('shifts.clockedOut'));
-  const startBreak = useShiftAction('shifts/start-break', t('shifts.onBreak'));
-  const endBreak = useShiftAction('shifts/end-break', t('shifts.breakEnded'));
+  const startBreak = useShiftAction('shifts/break/start', t('shifts.onBreak'));
+  const endBreak = useShiftAction('shifts/break/end', t('shifts.breakEnded'));
 
   const formatHours = (h: number | null) => {
     if (h === null || h === undefined) return '—';
@@ -145,7 +150,7 @@ export default function ShiftsPage() {
       {isAdmin && (
         <Tabs
           selectedKey={tab}
-          onSelectionChange={(k) => setTab(k as 'active' | 'history' | 'timesheet')}
+          onSelectionChange={(k) => setTab(k as 'active' | 'history')}
           color="primary"
           variant="bordered"
           aria-label="Shift management tabs"
@@ -216,45 +221,17 @@ export default function ShiftsPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          </Tab>
-
-          <Tab key="timesheet" title={t('shifts.timesheet')}>
-            <div className="pt-4">
-              <div className="overflow-x-auto border border-border rounded-xl bg-card shadow-sm">
-                <table className="w-full text-sm">
-                  <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
-                    <tr>
-                      <th className="text-start p-3 font-medium">{t('common.name')}</th>
-                      <th className="text-start p-3 font-medium">{t('common.role')}</th>
-                      <th className="text-end p-3 font-medium"># {t('shifts.history')}</th>
-                      <th className="text-end p-3 font-medium">{t('shifts.totalHours')}</th>
-                      <th className="text-end p-3 font-medium">{t('shifts.breakDuration')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {timesheet?.map((e) => (
-                      <tr key={e.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="p-3 font-medium text-foreground">{e.name}</td>
-                        <td className="p-3">
-                          <Badge size="sm" variant="primary">
-                            {e.role}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-end font-data text-muted-foreground">
-                          {e.shift_count}
-                        </td>
-                        <td className="p-3 text-end font-data text-foreground font-semibold">
-                          {formatHours(e.total_hours)}
-                        </td>
-                        <td className="p-3 text-end font-data text-muted-foreground">
-                          {e.total_break_minutes}m
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {(historyMeta?.pagination?.totalPages ?? 0) > 1 && (
+                <div className="flex justify-center pt-4">
+                  <Pagination
+                    total={historyMeta!.pagination!.totalPages}
+                    page={historyPage}
+                    onChange={setHistoryPage}
+                    size="sm"
+                    variant="flat"
+                  />
+                </div>
+              )}
             </div>
           </Tab>
         </Tabs>

@@ -67,7 +67,7 @@ describe('Shifts', () => {
 
     await waitFor(() =>
       expect(transport.calls()).toContainEqual(
-        expect.objectContaining({ method: 'POST', path: 'shifts/start-break' })
+        expect.objectContaining({ method: 'POST', path: 'shifts/break/start' })
       )
     );
   });
@@ -79,27 +79,31 @@ describe('Shifts', () => {
       isAuthenticated: true,
     });
     const transport = createMemoryTransport(
-      {},
-      { reads: { 'shifts/current': null, 'shifts/active': [ACTIVE_SHIFT], 'shifts/timesheet': [] } }
+      { shifts: [ACTIVE_SHIFT] },
+      { reads: { 'shifts/current': null } }
     );
 
     render(<ShiftsPage />, { wrapper: wrapperFor(transport) });
     await waitFor(() =>
       expect(transport.calls()).toContainEqual(
-        expect.objectContaining({ method: 'GET', path: 'shifts/active' })
+        expect.objectContaining({
+          method: 'GET',
+          path: 'shifts',
+          params: expect.objectContaining({ status: 'open', page: 1, pageSize: 25 }),
+        })
       )
     );
 
-    // The timesheet is not fetched until its tab is showing.
-    expect(transport.calls()).not.toContainEqual(
-      expect.objectContaining({ path: 'shifts/timesheet' })
-    );
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Timesheet' }));
+    expect(screen.queryByRole('tab', { name: 'Timesheet' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Shift History' }));
 
     await waitFor(() =>
       expect(transport.calls()).toContainEqual(
-        expect.objectContaining({ method: 'GET', path: 'shifts/timesheet' })
+        expect.objectContaining({
+          method: 'GET',
+          path: 'shifts',
+          params: expect.objectContaining({ status: 'completed', page: 1, pageSize: 25 }),
+        })
       )
     );
   });

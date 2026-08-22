@@ -45,7 +45,7 @@ export interface RegisterReportData {
   };
 }
 
-/** Shift from GET /api/v1/shifts/current, /active and /history */
+/** Shift from GET /api/v1/shifts/current and paginated GET /api/v1/shifts */
 export interface Shift {
   id: number;
   user_id: number;
@@ -56,14 +56,4 @@ export interface Shift {
   status: 'active' | 'on_break' | 'completed';
   total_hours: number | null;
   break_minutes: number;
-}
-
-/** One person's totals from GET /api/v1/shifts/timesheet */
-export interface TimesheetEntry {
-  id: number;
-  name: string;
-  role: string;
-  shift_count: number;
-  total_hours: number;
-  total_break_minutes: number;
 }

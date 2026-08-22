@@ -25,18 +25,39 @@ export interface ClockOutDTO {
 }
 
 export interface ShiftFilters {
-  user_id?: string | number;
+  userId?: number;
+  status?: 'open' | 'completed';
   from?: string;
   to?: string;
-  page?: string | number;
-  limit?: string | number;
+  page: number;
+  pageSize: number;
+  sortBy: 'clockIn' | 'clockOut';
+  sortOrder: 'asc' | 'desc';
 }
 
 export interface ShiftListResult {
   rows: ShiftRow[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-  };
+  total: number;
 }
+
+const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD');
+const shiftListQuerySchema = createListQuerySchema(['clockIn', 'clockOut'] as const)
+  .extend({
+    userId: z
+      .string()
+      .regex(/^\d+$/)
+      .transform(Number)
+      .pipe(z.number().int().positive())
+      .optional(),
+    status: z.enum(['open', 'completed']).optional(),
+    from: date.optional(),
+    to: date.optional(),
+  })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'clockIn', ...query }));
+
+export function parseShiftListQuery(query: unknown): ShiftFilters {
+  return shiftListQuerySchema.parse(query);
+}
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';

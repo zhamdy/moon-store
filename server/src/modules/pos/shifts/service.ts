@@ -71,29 +71,25 @@ export class ShiftsService implements IShiftsService {
     currentUserId: number,
     filters: ShiftFilters
   ): Promise<ShiftListResult> {
-    const { user_id, from, to, page = '1', limit = '20' } = filters;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 20;
-    const offset = (pageNum - 1) * limitNum;
+    const { userId, status, from, to, page, pageSize, sortBy, sortOrder } = filters;
+    const offset = (page - 1) * pageSize;
 
-    const targetUserId =
-      userRole === 'Admin' ? (user_id ? Number(user_id) : undefined) : currentUserId;
+    const targetUserId = userRole === 'Admin' ? userId : currentUserId;
 
     const result = await this.repo.listShifts({
       targetUserId,
       from,
       to,
-      limit: limitNum,
+      status,
+      sortBy,
+      sortOrder,
+      limit: pageSize,
       offset,
     });
 
     return {
       rows: result.rows,
-      meta: {
-        total: result.total,
-        page: pageNum,
-        limit: limitNum,
-      },
+      total: result.total,
     };
   }
 }
