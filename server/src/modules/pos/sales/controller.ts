@@ -56,8 +56,7 @@ export class SalesController {
     try {
       const parsed = saleSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
@@ -85,7 +84,7 @@ export class SalesController {
 
       notifySale(Number(sale.total), sale.id, cashierName);
 
-      res.status(201).json({ success: true, data: sale });
+      res.status(201).json(success(sale));
     } catch (err: any) {
       if (
         err.message?.includes('Insufficient stock') ||
@@ -93,7 +92,7 @@ export class SalesController {
         err.message?.includes('Product not found') ||
         err.message?.includes('Variant not found')
       ) {
-        res.status(400).json({ success: false, error: err.message });
+        next(new PublicError('VALIDATION_ERROR', err.message));
         return;
       }
       next(err);
@@ -105,8 +104,7 @@ export class SalesController {
       const saleId = Number(req.params.id);
       const parsed = refundSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
@@ -119,14 +117,13 @@ export class SalesController {
       });
       recordRefundMovement(cashierId, Number(result.refund.amount));
 
-      res.status(201).json({
-        success: true,
-        data: {
+      res.status(201).json(
+        success({
           refund: result.refund,
           refund_status: result.refundStatus,
           refunded_amount: result.newRefundedTotal,
-        },
-      });
+        })
+      );
     } catch (err: any) {
       if (
         err.message === 'Sale not found' ||
@@ -135,8 +132,8 @@ export class SalesController {
         err.message?.includes('exceeds sold quantity') ||
         err.message === 'Refund amount exceeds sale total'
       ) {
-        const statusCode = err.message === 'Sale not found' ? 404 : 400;
-        res.status(statusCode).json({ success: false, error: err.message });
+        const code = err.message === 'Sale not found' ? 'NOT_FOUND' : 'VALIDATION_ERROR';
+        next(new PublicError(code, err.message));
         return;
       }
       next(err);
