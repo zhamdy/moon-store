@@ -26,7 +26,32 @@ export interface TransportRequest {
 export interface TransportResult<T> {
   data: T;
   /** Pagination and aggregate figures the server returns alongside a list. */
-  meta?: Record<string, unknown>;
+  meta?: ApiMeta;
+}
+
+export interface PaginationMeta {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface ApiMeta extends Record<string, unknown> {
+  pagination?: PaginationMeta;
+}
+
+export interface ValidationDetail {
+  field: string;
+  code: string;
+  message: string;
+}
+
+export interface StructuredApiError {
+  code: string;
+  message: string;
+  details?: ValidationDetail[];
 }
 
 export interface Transport {
@@ -39,10 +64,19 @@ export interface Transport {
  */
 export class ApiError extends Error {
   readonly status: number | null;
+  readonly code?: string;
+  readonly details?: ValidationDetail[];
 
-  constructor(message: string, status: number | null = null) {
+  constructor(
+    message: string,
+    status: number | null = null,
+    code?: string,
+    details?: ValidationDetail[]
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
+    this.details = details;
   }
 }

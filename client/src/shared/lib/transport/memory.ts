@@ -109,8 +109,8 @@ export function createMemoryTransport(
       }
 
       if (method === 'DELETE') {
-        const [removed] = rows.splice(index, 1);
-        return { data: { ...removed } as T };
+        rows.splice(index, 1);
+        return { data: undefined as T };
       }
 
       throw new ApiError(`Unsupported request in memory transport: ${method} ${path}`, null);

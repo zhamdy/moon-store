@@ -3,10 +3,19 @@
 // a single slice live in that slice's `types.ts` instead — see
 // docs/plans/2026-08-20-001-refactor-client-feature-slice-architecture-plan.md (Unit 8).
 
-/** Standard API error response shape */
+import type { StructuredApiError } from '../lib/transport/types';
+
+/** Standard API error response shape, tolerant during the structured-error rollout. */
 export interface ApiErrorResponse {
-  error?: string;
+  error?: string | StructuredApiError;
 }
+
+export type {
+  ApiMeta,
+  PaginationMeta,
+  StructuredApiError,
+  ValidationDetail,
+} from '../lib/transport/types';
 
 /** Product from GET /api/products (full shape) */
 export interface Product {

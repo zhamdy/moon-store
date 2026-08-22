@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -15,10 +15,12 @@ interface Expense {
 const RENT: Expense = { id: 1, category: 'rent', amount: 1200 };
 const SALARIES: Expense = { id: 2, category: 'salaries', amount: 5000 };
 
-function wrapperFor(transport: MemoryTransport) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+function wrapperFor(transport: MemoryTransport, providedClient?: QueryClient) {
+  const queryClient =
+    providedClient ??
+    new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <TransportProvider transport={transport}>{children}</TransportProvider>
@@ -211,6 +213,72 @@ describe('resource', () => {
         params: { limit: 100, category: 'rent' },
       })
     );
+  });
+
+  it('uses one deterministic key for equivalent params and removes undefined values', async () => {
+    const transport = createMemoryTransport({ expenses: [RENT] });
+    const expenses = resource<Expense>('expenses');
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+    const wrapper = wrapperFor(transport, queryClient);
+
+    const first = renderHook(
+      () => expenses.useList({ search: 'rent', status: undefined, page: 1 }),
+      {
+        wrapper,
+      }
+    );
+    await waitFor(() => expect(first.result.current.data).toEqual([RENT]));
+    first.unmount();
+
+    const second = renderHook(() => expenses.useList({ page: 1, search: 'rent' }), { wrapper });
+    await waitFor(() => expect(second.result.current.data).toEqual([RENT]));
+
+    expect(transport.calls()).toHaveLength(1);
+  });
+
+  it('keeps prior rows visible while a different list query refetches', async () => {
+    let resolveSecond!: (value: { data: Expense[] }) => void;
+    const transport = createMemoryTransport({ expenses: [RENT] });
+    const originalRequest = transport.request.bind(transport);
+    let requests = 0;
+    transport.request = ((request) => {
+      requests += 1;
+      if (requests === 2)
+        return new Promise((resolve) => {
+          resolveSecond = resolve;
+        }) as never;
+      return originalRequest(request);
+    }) as MemoryTransport['request'];
+    const expenses = resource<Expense>('expenses');
+    const { result, rerender } = renderHook(({ page }) => expenses.useList({ page }), {
+      initialProps: { page: 1 },
+      wrapper: wrapperFor(transport),
+    });
+    await waitFor(() => expect(result.current.data).toEqual([RENT]));
+
+    rerender({ page: 2 });
+    expect(result.current.data).toEqual([RENT]);
+    expect(result.current.isFetching).toBe(true);
+    resolveSecond({ data: [SALARIES] });
+    await waitFor(() => expect(result.current.data).toEqual([SALARIES]));
+  });
+
+  it('invalidates every list variant after a mutation', async () => {
+    const transport = createMemoryTransport({ expenses: [RENT] });
+    const expenses = resource<Expense>('expenses');
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(['expenses', 'list', { page: 1 }], { data: [RENT] });
+    queryClient.setQueryData(['expenses', 'list', { page: 2 }], { data: [SALARIES] });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => expenses.useSave(), {
+      wrapper: wrapperFor(transport, queryClient),
+    });
+
+    result.current.save({ category: 'utilities', amount: 300 });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['expenses'] });
   });
 
   it('carries list meta alongside the rows', async () => {

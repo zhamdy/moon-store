@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTransport } from './transport/index';
+import { normalizeQueryParams } from './queryClient';
 
 /**
  * A read that does not belong to a resource collection.
@@ -25,9 +26,10 @@ export function useApiQuery<T>(
   { enabled = true, staleTime }: ApiQueryOptions = {}
 ) {
   const transport = useTransport();
+  const normalizedParams = normalizeQueryParams(params);
   const query = useQuery({
-    queryKey: key,
-    queryFn: () => transport.request<T>({ method: 'GET', path, params }),
+    queryKey: [...key, normalizedParams],
+    queryFn: () => transport.request<T>({ method: 'GET', path, params: normalizedParams }),
     enabled,
     staleTime,
   });
