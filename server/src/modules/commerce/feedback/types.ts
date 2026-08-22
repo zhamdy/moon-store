@@ -20,9 +20,9 @@ export interface CreateFeedbackDTO {
 
 export interface FeedbackFilters {
   rating?: number;
-  category?: string;
-  page?: number;
-  limit?: number;
+  category?: CreateFeedbackDTO['category'];
+  page: number;
+  pageSize: number;
 }
 
 export interface FeedbackStats {
@@ -37,5 +37,26 @@ export interface FeedbackListResult {
   stats: FeedbackStats;
   total: number;
   page: number;
-  limit: number;
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const feedbackListQuerySchema = createListQuerySchema(['createdAt', 'rating'] as const)
+  .extend({
+    rating: z.enum(['1', '2', '3', '4', '5']).transform(Number).optional(),
+    category: z
+      .enum(['service', 'product_quality', 'pricing', 'store_ambiance', 'general'])
+      .optional(),
+  })
+  .strict();
+
+export function parseFeedbackListQuery(query: unknown): FeedbackFilters {
+  const parsed = feedbackListQuerySchema.parse(query);
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    rating: parsed.rating,
+    category: parsed.category,
+  };
 }

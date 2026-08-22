@@ -7,6 +7,8 @@ import {
   parseGiftCardListQuery,
   parseGiftCardTransactionQuery,
 } from '../src/modules/commerce/giftCards/types';
+import { parseCouponListQuery } from '../src/modules/commerce/coupons/types';
+import { parseFeedbackListQuery } from '../src/modules/commerce/feedback/types';
 
 describe('commerce collection contracts', () => {
   it('parses canonical customer collection queries', () => {
@@ -38,5 +40,20 @@ describe('commerce collection contracts', () => {
       pageSize: 25,
     });
     expect(() => parseGiftCardListQuery({ limit: '200' })).toThrow();
+  });
+
+  it('uses canonical pagination for coupons and feedback', () => {
+    expect(parseCouponListQuery({ page: '1', pageSize: '25', search: 'VIP' })).toMatchObject({
+      page: 1,
+      pageSize: 25,
+      search: 'VIP',
+    });
+    expect(parseFeedbackListQuery({ page: '2', pageSize: '10', rating: '5' })).toMatchObject({
+      page: 2,
+      pageSize: 10,
+      rating: 5,
+    });
+    expect(() => parseCouponListQuery({ limit: '25' })).toThrow();
+    expect(() => parseFeedbackListQuery({ limit: '20' })).toThrow();
   });
 });

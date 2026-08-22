@@ -1,13 +1,21 @@
+import { useState } from 'react';
 import { Star, TrendingUp, MessageSquare } from 'lucide-react';
+import { Pagination } from '@heroui/react';
 import { Badge, PageHeader, StatCard } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
-import type { FeedbackResponse } from '../types';
+import { resource } from '../../../shared/lib/resource';
+import type { FeedbackEntry, FeedbackStats } from '../types';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
+
+const feedback = resource<FeedbackEntry, { stats: FeedbackStats }>('feedback');
 
 export default function FeedbackPage() {
   const { t } = useTranslation();
+  const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useApiQuery<FeedbackResponse>(['feedback'], 'feedback');
+  const { data = [], meta, isLoading } = feedback.useList({ page, pageSize: 25 });
+  const stats = meta?.stats;
+  const pagination = meta?.pagination as PaginationMeta | undefined;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -17,19 +25,19 @@ export default function FeedbackPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           title={t('feedback.avgRating')}
-          value={`${data?.stats.avg_rating?.toFixed(1) || '—'} / 5`}
+          value={`${stats?.avg_rating?.toFixed(1) || '—'} / 5`}
           icon={Star}
           isLoading={isLoading}
         />
         <StatCard
           title={t('feedback.npsScore')}
-          value={data?.stats.nps_score ?? '—'}
+          value={stats?.nps_score ?? '—'}
           icon={TrendingUp}
           isLoading={isLoading}
         />
         <StatCard
           title={t('feedback.totalResponses')}
-          value={data?.stats.total_responses || 0}
+          value={stats?.total_responses || 0}
           icon={MessageSquare}
           isLoading={isLoading}
         />
@@ -37,10 +45,10 @@ export default function FeedbackPage() {
 
       {/* Feedback list */}
       <div className="space-y-3">
-        {!data?.feedback.length ? (
+        {!data.length ? (
           <p className="text-center py-12 text-muted-foreground text-sm">{t('common.noResults')}</p>
         ) : (
-          data.feedback.map((f) => (
+          data.map((f) => (
             <div key={f.id} className="p-4 rounded-lg border border-border bg-card shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -74,6 +82,11 @@ export default function FeedbackPage() {
           ))
         )}
       </div>
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center">
+          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
+        </div>
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   Select,
   SelectItem,
   Checkbox,
+  Pagination,
 } from '@heroui/react';
 import { Badge, PageHeader } from '../../../shared';
 import { formatCurrency } from '../../../shared/lib/utils';
@@ -22,6 +23,8 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import type { Coupon } from '../types';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 
 const coupons = resource<Coupon>('coupons');
 
@@ -54,10 +57,21 @@ const couponToForm = (c: Coupon) => ({
 export default function Promotions() {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
   const editor = useEditorDialog(emptyCoupon, couponToForm);
   const form = editor.values;
 
-  const { data: rows, isLoading } = coupons.useList({ search: search || undefined });
+  const {
+    data: rows,
+    meta,
+    isLoading,
+  } = coupons.useList({
+    page,
+    pageSize: 25,
+    search: debouncedSearch || undefined,
+  });
+  const pagination = meta?.pagination as PaginationMeta | undefined;
 
   const saver = coupons.useSave({
     message: editor.isEditing ? t('promotions.updated') : t('promotions.created'),
@@ -91,7 +105,10 @@ export default function Promotions() {
           variant="bordered"
           placeholder={t('promotions.search')}
           value={search}
-          onValueChange={setSearch}
+          onValueChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
           startContent={<Search className="h-4 w-4 text-primary" />}
         />
       </div>
@@ -173,6 +190,12 @@ export default function Promotions() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center">
+          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
         </div>
       )}
 

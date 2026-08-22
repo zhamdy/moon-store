@@ -3,6 +3,20 @@ import { z } from 'zod';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { couponsService } from './service';
 import { CouponError } from './types';
+import { parseCouponListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
+
+const couponPublicError = (error: CouponError) =>
+  new PublicError(
+    error.statusCode === 404
+      ? 'NOT_FOUND'
+      : error.statusCode === 409
+        ? 'CONFLICT'
+        : 'VALIDATION_ERROR',
+    error.message
+  );
 
 export const couponSchema = z.object({
   code: z
@@ -35,20 +49,13 @@ export const validateCouponSchema = z.object({
 export class CouponsController {
   async listCoupons(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = 1, limit = 25, search, status } = req.query;
-
-      const result = await couponsService.list({
-        page: Number(page),
-        limit: Number(limit),
-        search: search as string | undefined,
-        status: status as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.coupons,
-        meta: { total: result.total, page: result.page, limit: result.limit },
-      });
+      const query = parseCouponListQuery(req.query);
+      const result = await couponsService.list(query);
+      res.json(
+        success(result.coupons, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -58,8 +65,7 @@ export class CouponsController {
     try {
       const parsed = couponSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const coupon = await couponsService.create(parsed.data);
@@ -69,10 +75,10 @@ export class CouponsController {
         value: parsed.data.value,
       });
 
-      res.status(201).json({ success: true, data: coupon });
+      res.status(201).json(success(coupon));
     } catch (err) {
       if (err instanceof CouponError) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
+        next(couponPublicError(err));
         return;
       }
       next(err);
@@ -83,8 +89,7 @@ export class CouponsController {
     try {
       const parsed = couponSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const id = req.params.id as string;
@@ -95,10 +100,10 @@ export class CouponsController {
         value: parsed.data.value,
       });
 
-      res.json({ success: true, data: coupon });
+      res.json(success(coupon));
     } catch (err) {
       if (err instanceof CouponError) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
+        next(couponPublicError(err));
         return;
       }
       next(err);
@@ -110,10 +115,10 @@ export class CouponsController {
       const id = req.params.id as string;
       await couponsService.delete(id);
       logAuditFromReq(req, 'delete', 'coupon', id);
-      res.json({ success: true, data: { message: 'Coupon deactivated' } });
+      res.status(204).send();
     } catch (err) {
       if (err instanceof CouponError) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
+        next(couponPublicError(err));
         return;
       }
       next(err);
@@ -124,15 +129,14 @@ export class CouponsController {
     try {
       const parsed = validateCouponSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const result = await couponsService.validate(parsed.data);
-      res.json({ success: true, data: result });
+      res.json(success(result));
     } catch (err) {
       if (err instanceof CouponError) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
+        next(couponPublicError(err));
         return;
       }
       next(err);
