@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: server
     buildCommand: npm install --include=dev
-    startCommand: npm run migrate && npm run seed && npm run start
+    startCommand: npm run migrate && (npm run seed || true) && npm run start
     envVars:
       - key: NODE_ENV
         value: production
