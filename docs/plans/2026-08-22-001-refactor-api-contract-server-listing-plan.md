@@ -114,7 +114,7 @@ This is the planning baseline required by R21. `P` = paginated user-facing colle
 | Core/auth | `POST auth/login` M; `POST auth/refresh` M; `POST auth/logout` M; `GET auth/me` S |
 | Core/users | `GET users` P; `GET users/delivery` B; `POST users` M; `PUT users/:id` M; `GET users/me/favorites` B; `PUT users/me/favorites` M; `DELETE users/:id` M |
 | Core/settings | `GET settings` S; `PUT settings` M |
-| Core/audit-log | `GET audit-log` P; `GET audit-log/actions` B |
+| Core/audit-log | `GET audit-log` P; `GET audit-log/actions` B; `GET audit-log/entity-types` B |
 | Core/branches | `GET branches` B; `POST branches` M; `PUT branches/:id` M; `GET branches/consolidated` S; `GET branches/transfers` P; `POST branches/transfers` M; `PUT branches/transfers/:id/status` M |
 | POS/sales | `GET sales` P; `GET sales/:id` S; `POST sales` M; `POST sales/:id/refund` M |
 | POS/register | `GET register/current` S; `POST register/open` M; `POST register/movement` M; `POST register/close` M; `GET register/history` P; `GET register/:id/report` S; `POST register/:id/force-close` M |

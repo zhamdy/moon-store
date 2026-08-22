@@ -31,6 +31,15 @@ describe('AuditLog user filter', () => {
       expect(transport.calls()).toContainEqual(
         expect.objectContaining({
           method: 'GET',
+          path: 'audit-log',
+          params: expect.objectContaining({ page: 1, pageSize: 50 }),
+        })
+      )
+    );
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'GET',
           path: 'users',
           params: expect.objectContaining({ page: 1, pageSize: 25, sortBy: 'name' }),
         })

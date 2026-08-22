@@ -67,7 +67,7 @@ Backend validates query -> filters/sorts/paginates at the data source
 - R16. The React application is the only API consumer. Once a domain and all of its React consumers are migrated and verified, its obsolete response shape may be removed without a public deprecation window.
 - R17. Temporary compatibility adapters may exist only while a domain is actively migrating and must be removed when that domain's migration is complete.
 - R20. Before obsolete contracts are removed, the migration verifies the sole-consumer assumption using repository references, tests, scripts, documented integrations, and runtime access evidence when available.
-- R21. Planning produces an exhaustive `/api/v1` endpoint matrix that classifies each endpoint as an enveloped singleton, paginated collection, bounded lookup, mutation, or exempt response. The matrix is the migration checklist and source for contract acceptance tests.
+- R21. Planning produces an exhaustive `/api/v1` endpoint matrix that classifies each endpoint as an enveloped singleton, paginated collection, bounded lookup, mutation, or exempt response. The matrix is the migration checklist and source for contract acceptance tests. Existing mounted and client-consumed filter vocabularies, including the Audit Log entity-type lookup, are represented as bounded endpoints rather than inferred from a partial result page.
 - R22. The products reference pattern is not generalized until it is checked against at least one contrasting collection, initially sales history, covering date filters, aggregate metadata, and role-scoped transactional data.
 
 ## Success Criteria
