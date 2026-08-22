@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { branchesService } from './service';
+import { PublicError } from '../../../http/errors';
+import { paginationMeta } from '../../../http/pagination';
+import { success } from '../../../http/responses';
+import { parseTransferListQuery } from './types';
 
 const branchSchema = z.object({
   name: z.string().min(1).max(100),
@@ -25,7 +29,7 @@ export class BranchesController {
   async getBranches(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const branches = await branchesService.list();
-      res.json({ success: true, data: branches });
+      res.json(success(branches));
     } catch (err) {
       next(err);
     }
@@ -36,10 +40,10 @@ export class BranchesController {
       const parsed = branchSchema.parse(req.body);
       const branch = await branchesService.create(parsed);
       logAuditFromReq(req, 'create', 'branch', branch.id, { name: parsed.name });
-      res.status(201).json({ success: true, data: branch });
+      res.status(201).json(success(branch));
     } catch (err: any) {
       if (err.name === 'ZodError') {
-        res.status(400).json({ success: false, error: err.errors[0].message });
+        next(err);
         return;
       }
       if (
@@ -47,11 +51,13 @@ export class BranchesController {
         err.message?.includes('UNIQUE') ||
         err.message?.includes('duplicate key')
       ) {
-        res.status(409).json({ success: false, error: 'Branch code already exists' });
+        next(new PublicError('CONFLICT', 'Branch code already exists'));
         return;
       }
       if (err.statusCode) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
+        next(
+          new PublicError(err.statusCode === 404 ? 'NOT_FOUND' : 'VALIDATION_ERROR', err.message)
+        );
         return;
       }
       next(err);
@@ -63,10 +69,10 @@ export class BranchesController {
       const parsed = branchSchema.parse(req.body);
       const id = Number(req.params.id);
       const branch = await branchesService.update(id, parsed);
-      res.json({ success: true, data: branch });
+      res.json(success(branch));
     } catch (err: any) {
       if (err.name === 'ZodError') {
-        res.status(400).json({ success: false, error: err.errors[0].message });
+        next(err);
         return;
       }
       if (
@@ -74,11 +80,13 @@ export class BranchesController {
         err.message?.includes('UNIQUE') ||
         err.message?.includes('duplicate key')
       ) {
-        res.status(409).json({ success: false, error: 'Branch code already exists' });
+        next(new PublicError('CONFLICT', 'Branch code already exists'));
         return;
       }
       if (err.statusCode) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
+        next(
+          new PublicError(err.statusCode === 404 ? 'NOT_FOUND' : 'VALIDATION_ERROR', err.message)
+        );
         return;
       }
       next(err);
@@ -88,7 +96,7 @@ export class BranchesController {
   async getConsolidated(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await branchesService.getConsolidated();
-      res.json({ success: true, data });
+      res.json(success(data));
     } catch (err) {
       next(err);
     }
@@ -96,13 +104,13 @@ export class BranchesController {
 
   async getTransfers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { status, page = '1', limit = '20' } = req.query;
-      const transfers = await branchesService.listTransfers({
-        status: status as string | undefined,
-        page: Number(page),
-        limit: Number(limit),
-      });
-      res.json({ success: true, data: transfers });
+      const query = parseTransferListQuery(req.query);
+      const transfers = await branchesService.listTransfers(query);
+      res.json(
+        success(transfers.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, transfers.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -113,14 +121,16 @@ export class BranchesController {
       const authReq = req as AuthRequest;
       const parsed = transferSchema.parse(req.body);
       const transfer = await branchesService.createTransfer(parsed, authReq.user!.id);
-      res.status(201).json({ success: true, data: transfer });
+      res.status(201).json(success(transfer));
     } catch (err: any) {
       if (err.name === 'ZodError') {
-        res.status(400).json({ success: false, error: err.errors[0].message });
+        next(err);
         return;
       }
       if (err.statusCode) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
+        next(
+          new PublicError(err.statusCode === 404 ? 'NOT_FOUND' : 'VALIDATION_ERROR', err.message)
+        );
         return;
       }
       next(err);
@@ -132,10 +142,12 @@ export class BranchesController {
       const id = Number(req.params.id);
       const { status } = req.body;
       const result = await branchesService.updateTransferStatus(id, status);
-      res.json({ success: true, data: result });
+      res.json(success(result));
     } catch (err: any) {
       if (err.statusCode) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
+        next(
+          new PublicError(err.statusCode === 404 ? 'NOT_FOUND' : 'VALIDATION_ERROR', err.message)
+        );
         return;
       }
       next(err);

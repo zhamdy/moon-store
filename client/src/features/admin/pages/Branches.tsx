@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   Plus,
@@ -27,6 +27,7 @@ import {
   CardBody,
   Select,
   SelectItem,
+  Pagination,
 } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import { useTranslation } from '../../../shared/i18n/index';
@@ -79,6 +80,8 @@ export default function BranchesPage() {
   const [selectedBranch, setSelectedBranch] = useState<number | null>(null);
   const [tab, setTab] = useState<'branches' | 'dashboard' | 'transfers'>('branches');
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferPage, setTransferPage] = useState(1);
+  const [transferStatus, setTransferStatus] = useState('all');
   const [transferForm, setTransferForm] = useState(emptyTransfer);
   const editor = useEditorDialog(emptyBranch, branchToForm);
   const form = editor.values;
@@ -122,11 +125,24 @@ export default function BranchesPage() {
           ...users,
         ]
       : users;
-  const { data: transfers } = branches.useRead<BranchTransfer[]>(
-    'transfers',
-    undefined,
-    tab === 'transfers'
-  );
+  const transferQuery = useQuery({
+    queryKey: ['branches', 'transfers', transferPage, transferStatus],
+    enabled: tab === 'transfers',
+    queryFn: () =>
+      transport.request<BranchTransfer[]>({
+        method: 'GET',
+        path: 'branches/transfers',
+        params: {
+          page: transferPage,
+          pageSize: 25,
+          status: transferStatus === 'all' ? undefined : transferStatus,
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+        },
+      }),
+  });
+  const transfers = transferQuery.data?.data;
+  const transferTotalPages = transferQuery.data?.meta?.pagination?.totalPages ?? 0;
 
   const saveBranch = branches.useSave({
     message: t('branches.saved'),
@@ -378,7 +394,22 @@ export default function BranchesPage() {
 
       {tab === 'transfers' && (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
+            <Select
+              aria-label="Transfer status"
+              className="max-w-48"
+              selectedKeys={[transferStatus]}
+              onSelectionChange={(keys) => {
+                setTransferStatus(String(Array.from(keys)[0] ?? 'all'));
+                setTransferPage(1);
+              }}
+            >
+              <SelectItem key="all">All statuses</SelectItem>
+              <SelectItem key="pending">Pending</SelectItem>
+              <SelectItem key="in_transit">In transit</SelectItem>
+              <SelectItem key="completed">Completed</SelectItem>
+              <SelectItem key="cancelled">Cancelled</SelectItem>
+            </Select>
             <Button
               variant="bordered"
               onClick={() => setTransferDialogOpen(true)}
@@ -422,6 +453,17 @@ export default function BranchesPage() {
             <p className="text-muted-foreground text-sm text-center py-12">
               {t('locations.noTransfers')}
             </p>
+          )}
+          {transferTotalPages > 1 && (
+            <div className="flex justify-center">
+              <Pagination
+                total={transferTotalPages}
+                page={transferPage}
+                onChange={setTransferPage}
+                size="sm"
+                variant="flat"
+              />
+            </div>
           )}
         </div>
       )}

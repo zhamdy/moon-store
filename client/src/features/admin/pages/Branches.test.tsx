@@ -36,4 +36,42 @@ describe('Branches manager selector', () => {
       )
     );
   });
+
+  it('requests transfer filtering and pagination from the backend', async () => {
+    const transport = createMemoryTransport(
+      { branches: [] },
+      { reads: { 'branches/transfers': [] } }
+    );
+    render(<BranchesPage />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Stock Transfers' }));
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'GET',
+          path: 'branches/transfers',
+          params: expect.objectContaining({
+            page: 1,
+            pageSize: 25,
+            sortBy: 'createdAt',
+            sortOrder: 'desc',
+          }),
+        })
+      )
+    );
+
+    fireEvent.click(screen.getByLabelText('Transfer status'));
+    const completedOptions = await screen.findAllByText('Completed');
+    fireEvent.click(completedOptions[completedOptions.length - 1]);
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          path: 'branches/transfers',
+          params: expect.objectContaining({ status: 'completed', page: 1 }),
+        })
+      )
+    );
+  });
 });
