@@ -10,6 +10,11 @@ export interface IProductsRepository {
     filters: ProductFilters,
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number }>;
+  lookup(
+    ids: number[],
+    includeInactive: boolean,
+    queryable?: Queryable
+  ): Promise<Record<string, any>[]>;
   create(data: Record<string, any>, queryable?: Queryable): Promise<Record<string, any>>;
   update(
     id: number | string,
@@ -93,20 +98,25 @@ export class ProductsRepository implements IProductsRepository {
   ): Promise<{ rows: Record<string, any>[]; total: number }> {
     const {
       search,
-      category,
-      category_id,
-      collection_id,
+      categoryId,
       status,
+      lowStock,
       page = 1,
-      limit = 25,
-      sort = 'name',
-      order = 'asc',
+      pageSize = 25,
+      sortBy = 'name',
+      sortOrder = 'asc',
     } = filters;
 
-    const offset = (page - 1) * limit;
-    const allowedSorts = ['name', 'price', 'stock', 'category', 'created_at'];
-    const sortCol = allowedSorts.includes(sort) ? `p.${sort}` : 'p.name';
-    const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
+    const offset = (page - 1) * pageSize;
+    const sortColumns = {
+      name: 'p.name',
+      price: 'p.price',
+      stock: 'p.stock',
+      category: 'p.category',
+      createdAt: 'p.created_at',
+    } as const;
+    const sortCol = sortColumns[sortBy];
+    const sqlSortOrder = sortOrder === 'desc' ? 'DESC' : 'ASC';
 
     const where: string[] = [];
     const params: unknown[] = [];
@@ -119,17 +129,9 @@ export class ProductsRepository implements IProductsRepository {
       params.push(`%${search}%`);
       paramIdx++;
     }
-    if (collection_id) {
-      where.push(
-        `p.id IN (SELECT product_id FROM collection_products WHERE collection_id = $${paramIdx++})`
-      );
-      params.push(collection_id);
-    } else if (category_id) {
+    if (categoryId) {
       where.push(`p.category_id = $${paramIdx++}`);
-      params.push(category_id);
-    } else if (category) {
-      where.push(`p.category = $${paramIdx++}`);
-      params.push(category);
+      params.push(categoryId);
     }
 
     if (status && status !== 'all') {
@@ -138,6 +140,7 @@ export class ProductsRepository implements IProductsRepository {
     } else if (!status) {
       where.push(`p.status = 'active'`);
     }
+    if (lowStock) where.push('p.stock <= p.min_stock');
 
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -147,23 +150,42 @@ export class ProductsRepository implements IProductsRepository {
     );
     const total = Number(countRes.rows[0]?.count || 0);
 
-    const queryParams = [...params, limit, offset];
+    const queryParams = [...params, pageSize, offset];
     const limitIdx = paramIdx++;
     const offsetIdx = paramIdx++;
 
     const rowsRes = await this.q(queryable).query(
       `SELECT p.*, c.name as category_name, c.code as category_code, d.name as distributor_name,
-              (SELECT COUNT(*)::int FROM product_variants pv WHERE pv.product_id = p.id) as variant_count,
-              (SELECT COALESCE(SUM(pv.stock), 0)::int FROM product_variants pv WHERE pv.product_id = p.id) as variant_stock
+              COALESCE(va.variant_count, 0)::int as variant_count,
+              COALESCE(va.variant_stock, 0)::int as variant_stock
        FROM products p
        LEFT JOIN categories c ON p.category_id = c.id
        LEFT JOIN distributors d ON p.distributor_id = d.id
+       LEFT JOIN (SELECT product_id, COUNT(*)::int variant_count, COALESCE(SUM(stock), 0)::int variant_stock
+                  FROM product_variants GROUP BY product_id) va ON va.product_id = p.id
        ${whereClause}
-       ORDER BY ${sortCol} ${sortOrder} LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+       ORDER BY ${sortCol} ${sqlSortOrder}, p.id ASC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );
 
     return { rows: rowsRes.rows, total };
+  }
+
+  async lookup(
+    ids: number[],
+    includeInactive: boolean,
+    queryable?: Queryable
+  ): Promise<Record<string, any>[]> {
+    const visibility = includeInactive ? '' : "AND p.status = 'active'";
+    const result = await this.q(queryable).query(
+      `SELECT p.id, p.name, p.sku, p.barcode, p.price, p.stock, p.status,
+              p.category_id, p.image_url
+       FROM products p
+       WHERE p.id = ANY($1::int[]) ${visibility}
+       ORDER BY p.id ASC`,
+      [ids]
+    );
+    return result.rows;
   }
 
   async create(data: Record<string, any>, queryable?: Queryable): Promise<Record<string, any>> {
