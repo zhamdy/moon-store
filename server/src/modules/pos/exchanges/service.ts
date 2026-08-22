@@ -1,11 +1,6 @@
 import { withTransaction } from '../../../database/transaction';
 import { IExchangesRepository, exchangesRepository as defaultRepo } from './repository';
-import {
-  CreateExchangeDTO,
-  ExchangeFilters,
-  ExchangeRow,
-  ExchangeDetail,
-} from './types';
+import { CreateExchangeDTO, ExchangeFilters, ExchangeRow, ExchangeDetail } from './types';
 
 export function generateExchangeNumber(): string {
   const now = new Date();
@@ -18,9 +13,7 @@ export function generateExchangeNumber(): string {
 
 export interface IExchangesService {
   createExchange(data: CreateExchangeDTO, cashierId: number): Promise<ExchangeRow>;
-  listExchanges(
-    filters: ExchangeFilters
-  ): Promise<{ rows: ExchangeRow[]; meta: { total: number; page: number; limit: number } }>;
+  listExchanges(filters: ExchangeFilters): Promise<{ rows: ExchangeRow[]; total: number }>;
   getExchangeById(id: number | string): Promise<ExchangeDetail | null>;
 }
 
@@ -84,24 +77,19 @@ export class ExchangesService implements IExchangesService {
     });
   }
 
-  async listExchanges(
-    filters: ExchangeFilters
-  ): Promise<{ rows: ExchangeRow[]; meta: { total: number; page: number; limit: number } }> {
-    const { page = '1', limit = '20', search } = filters;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 20;
-    const offset = (pageNum - 1) * limitNum;
+  async listExchanges(filters: ExchangeFilters): Promise<{ rows: ExchangeRow[]; total: number }> {
+    const { page, pageSize, search, sortBy, sortOrder } = filters;
+    const offset = (page - 1) * pageSize;
 
-    const result = await this.repo.listExchanges({ search, limit: limitNum, offset });
+    const result = await this.repo.listExchanges({
+      search,
+      sortBy,
+      sortOrder,
+      limit: pageSize,
+      offset,
+    });
 
-    return {
-      rows: result.rows,
-      meta: {
-        total: result.total,
-        page: pageNum,
-        limit: limitNum,
-      },
-    };
+    return result;
   }
 
   async getExchangeById(id: number | string): Promise<ExchangeDetail | null> {

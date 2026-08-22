@@ -1,12 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import {
-  ExchangeRow,
-  ReturnedItemRow,
-  NewItemRow,
-  ReturnedItemInput,
-  NewItemInput,
-} from './types';
+import { ExchangeRow, ReturnedItemRow, NewItemRow, ReturnedItemInput, NewItemInput } from './types';
 
 export interface IExchangesRepository {
   findSaleById(saleId: number, queryable?: Queryable): Promise<Record<string, any> | null>;
@@ -35,14 +29,17 @@ export interface IExchangesRepository {
   deductVariantStock(variantId: number, quantity: number, queryable: Queryable): Promise<void>;
   deductProductStock(productId: number, quantity: number, queryable: Queryable): Promise<void>;
   listExchanges(
-    filters: { search?: string; limit: number; offset: number },
+    filters: {
+      search?: string;
+      sortBy: 'createdAt' | 'exchangeNumber' | 'difference';
+      sortOrder: 'asc' | 'desc';
+      limit: number;
+      offset: number;
+    },
     queryable?: Queryable
   ): Promise<{ rows: ExchangeRow[]; total: number }>;
   findById(id: number | string, queryable?: Queryable): Promise<ExchangeRow | null>;
-  findReturnedItems(
-    exchangeId: number | string,
-    queryable?: Queryable
-  ): Promise<ReturnedItemRow[]>;
+  findReturnedItems(exchangeId: number | string, queryable?: Queryable): Promise<ReturnedItemRow[]>;
   findNewItems(exchangeId: number | string, queryable?: Queryable): Promise<NewItemRow[]>;
 }
 
@@ -110,11 +107,7 @@ export class ExchangesRepository implements IExchangesRepository {
     );
   }
 
-  async createNewItem(
-    exchangeId: number,
-    item: NewItemInput,
-    queryable: Queryable
-  ): Promise<void> {
+  async createNewItem(exchangeId: number, item: NewItemInput, queryable: Queryable): Promise<void> {
     await this.q(queryable).query(
       `INSERT INTO exchange_new_items (exchange_id, product_id, variant_id, quantity, price)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -122,22 +115,14 @@ export class ExchangesRepository implements IExchangesRepository {
     );
   }
 
-  async restockVariant(
-    variantId: number,
-    quantity: number,
-    queryable: Queryable
-  ): Promise<void> {
-    await this.q(queryable).query(
-      `UPDATE product_variants SET stock = stock + $1 WHERE id = $2`,
-      [quantity, variantId]
-    );
+  async restockVariant(variantId: number, quantity: number, queryable: Queryable): Promise<void> {
+    await this.q(queryable).query(`UPDATE product_variants SET stock = stock + $1 WHERE id = $2`, [
+      quantity,
+      variantId,
+    ]);
   }
 
-  async restockProduct(
-    productId: number,
-    quantity: number,
-    queryable: Queryable
-  ): Promise<void> {
+  async restockProduct(productId: number, quantity: number, queryable: Queryable): Promise<void> {
     await this.q(queryable).query(
       `UPDATE products SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
       [quantity, productId]
@@ -149,10 +134,10 @@ export class ExchangesRepository implements IExchangesRepository {
     quantity: number,
     queryable: Queryable
   ): Promise<void> {
-    await this.q(queryable).query(
-      `UPDATE product_variants SET stock = stock - $1 WHERE id = $2`,
-      [quantity, variantId]
-    );
+    await this.q(queryable).query(`UPDATE product_variants SET stock = stock - $1 WHERE id = $2`, [
+      quantity,
+      variantId,
+    ]);
   }
 
   async deductProductStock(
@@ -167,10 +152,16 @@ export class ExchangesRepository implements IExchangesRepository {
   }
 
   async listExchanges(
-    filters: { search?: string; limit: number; offset: number },
+    filters: {
+      search?: string;
+      sortBy: 'createdAt' | 'exchangeNumber' | 'difference';
+      sortOrder: 'asc' | 'desc';
+      limit: number;
+      offset: number;
+    },
     queryable?: Queryable
   ): Promise<{ rows: ExchangeRow[]; total: number }> {
-    const { search, limit, offset } = filters;
+    const { search, sortBy, sortOrder, limit, offset } = filters;
     const params: unknown[] = [];
     let where = '';
 
@@ -186,6 +177,12 @@ export class ExchangesRepository implements IExchangesRepository {
 
     const limitIdx = params.length + 1;
     const offsetIdx = params.length + 2;
+    const sortColumn =
+      sortBy === 'exchangeNumber'
+        ? 'e.exchange_number'
+        : sortBy === 'difference'
+          ? 'e.difference'
+          : 'e.created_at';
 
     const res = await this.q(queryable).query(
       `SELECT e.*, u.name as cashier_name, c.name as customer_name
@@ -193,7 +190,7 @@ export class ExchangesRepository implements IExchangesRepository {
        JOIN users u ON e.cashier_id = u.id
        LEFT JOIN customers c ON e.customer_id = c.id
        ${where}
-       ORDER BY e.created_at DESC
+       ORDER BY ${sortColumn} ${sortOrder.toUpperCase()}, e.id ${sortOrder.toUpperCase()}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limit, offset]
     );
@@ -231,10 +228,7 @@ export class ExchangesRepository implements IExchangesRepository {
     return res.rows as unknown as ReturnedItemRow[];
   }
 
-  async findNewItems(
-    exchangeId: number | string,
-    queryable?: Queryable
-  ): Promise<NewItemRow[]> {
+  async findNewItems(exchangeId: number | string, queryable?: Queryable): Promise<NewItemRow[]> {
     const res = await this.q(queryable).query(
       `SELECT eni.*, p.name as product_name, p.sku
        FROM exchange_new_items eni

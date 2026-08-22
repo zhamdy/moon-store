@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { exchangesService, IExchangesService } from './service';
+import { PublicError } from '../../../http/errors';
+import { paginationMeta } from '../../../http/pagination';
+import { success } from '../../../http/responses';
+import { parseExchangeListQuery } from './types';
 
 const exchangeSchema = z.object({
   original_sale_id: z.number().int().positive(),
@@ -47,34 +51,27 @@ export class ExchangesController {
         difference: result.difference,
       });
 
-      res.status(201).json({ success: true, data: result });
-    } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: err.errors[0].message });
-        return;
-      }
-      if (err.message === 'Original sale not found') {
-        res.status(404).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.status(201).json(success(result));
+    } catch (err) {
+      next(
+        err instanceof z.ZodError || err instanceof PublicError
+          ? err
+          : err instanceof Error && err.message === 'Original sale not found'
+            ? new PublicError('NOT_FOUND', err.message)
+            : err
+      );
     }
   }
 
   async getExchanges(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = '1', limit = '20', search } = req.query;
-      const result = await this.service.listExchanges({
-        page: page as string,
-        limit: limit as string,
-        search: search as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: result.meta,
-      });
+      const query = parseExchangeListQuery(req.query);
+      const result = await this.service.listExchanges(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -86,14 +83,10 @@ export class ExchangesController {
       const exchange = await this.service.getExchangeById(id);
 
       if (!exchange) {
-        res.status(404).json({ success: false, error: 'Exchange not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Exchange not found');
       }
 
-      res.json({
-        success: true,
-        data: exchange,
-      });
+      res.json(success(exchange));
     } catch (err) {
       next(err);
     }

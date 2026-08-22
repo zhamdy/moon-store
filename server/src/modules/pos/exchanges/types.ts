@@ -23,9 +23,24 @@ export interface CreateExchangeDTO {
 }
 
 export interface ExchangeFilters {
-  page?: string | number;
-  limit?: string | number;
+  page: number;
+  pageSize: number;
   search?: string;
+  sortBy: 'createdAt' | 'exchangeNumber' | 'difference';
+  sortOrder: 'asc' | 'desc';
+}
+
+const exchangeListQuerySchema = createListQuerySchema([
+  'createdAt',
+  'exchangeNumber',
+  'difference',
+] as const)
+  .extend({ search: z.string().trim().min(1).max(100).optional() })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+
+export function parseExchangeListQuery(query: unknown): ExchangeFilters {
+  return exchangeListQuerySchema.parse(query);
 }
 
 export interface ExchangeRow {
@@ -73,3 +88,5 @@ export interface ExchangeDetail extends ExchangeRow {
   returned_items: ReturnedItemRow[];
   new_items: NewItemRow[];
 }
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
