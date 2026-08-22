@@ -18,7 +18,8 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import type { Product } from '../../../shared/types/index';
 import type { Bundle, BundleItem } from '../types';
 
@@ -41,16 +42,21 @@ export default function BundlesPage() {
   const [selectedBundle, setSelectedBundle] = useState<number | null>(null);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
   const { data: rows } = bundles.useList();
   const { data: detail } = bundles.useOne(selectedBundle);
 
-  const { data: allProducts } = useApiQuery<Product[]>(
-    ['products-for-bundle', productSearch],
-    'products',
-    { search: productSearch, limit: 20 },
-    { enabled: addProductOpen }
-  );
+  const {
+    products: allProducts,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useProductCatalog({
+    search: debouncedProductSearch,
+    enabled: addProductOpen,
+    selectedIds: bundleItems.map((item) => item.product_id),
+  });
 
   const saver = bundles.useSave({
     message: editor.isEditing ? t('bundles.updated') : t('bundles.created'),
@@ -603,6 +609,17 @@ export default function BundlesPage() {
                       </span>
                     </button>
                   ))}
+                  {hasNextPage && (
+                    <Button
+                      fullWidth
+                      variant="bordered"
+                      onPress={() => void fetchNextPage()}
+                      isLoading={isFetchingNextPage}
+                      aria-label="Load more products"
+                    >
+                      Load more
+                    </Button>
+                  )}
                 </div>
               </ModalBody>
             </div>

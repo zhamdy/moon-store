@@ -10,7 +10,8 @@ import BarcodeScanner from '../../../shared/components/BarcodeScanner';
 import BarcodeGenerator from '@/features/inventory/components/BarcodeGenerator';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useCartStore } from '../store/cartStore';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useTranslation } from '../../../shared/i18n/index';
 import type { Product } from '../../../shared/types/index';
@@ -24,17 +25,14 @@ export default function BarcodeTools() {
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [selectedForPrint, setSelectedForPrint] = useState<Set<number>>(new Set());
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
-  const { data: products } = useApiQuery<Product[]>(['products', { limit: 200 }], 'products', {
-    limit: 200,
+  const { products, hasNextPage, fetchNextPage, isFetchingNextPage } = useProductCatalog({
+    search: debouncedProductSearch,
+    selectedIds: [selectedProductId, ...selectedForPrint].filter((id): id is number => id !== null),
   });
 
   const selectedProduct = products?.find((p) => p.id === selectedProductId);
-  const filteredProducts = products?.filter(
-    (p) =>
-      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-      p.sku.toLowerCase().includes(productSearch.toLowerCase())
-  );
 
   const handleBarcodeDetected = useCallback(
     async (barcode: string) => {
@@ -195,7 +193,7 @@ export default function BarcodeTools() {
 
                 {productSearch && (
                   <div className="max-h-48 overflow-y-auto space-y-1 border border-border rounded-xl p-2 bg-card">
-                    {filteredProducts?.slice(0, 10).map((p) => (
+                    {products.map((p) => (
                       <button
                         key={p.id}
                         type="button"
@@ -209,6 +207,17 @@ export default function BarcodeTools() {
                         <span className="text-muted-foreground font-data text-xs">{p.sku}</span>
                       </button>
                     ))}
+                    {hasNextPage && (
+                      <Button
+                        fullWidth
+                        variant="bordered"
+                        onPress={() => void fetchNextPage()}
+                        isLoading={isFetchingNextPage}
+                        aria-label="Load more products"
+                      >
+                        Load more
+                      </Button>
+                    )}
                   </div>
                 )}
 
@@ -289,7 +298,7 @@ export default function BarcodeTools() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
-                  {products?.map((p) => (
+                  {products.map((p) => (
                     <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
                         <Checkbox
@@ -309,6 +318,18 @@ export default function BarcodeTools() {
                   ))}
                 </tbody>
               </table>
+              {hasNextPage && (
+                <div className="p-3 border-t border-border flex justify-center">
+                  <Button
+                    variant="bordered"
+                    onPress={() => void fetchNextPage()}
+                    isLoading={isFetchingNextPage}
+                    aria-label="Load more products"
+                  >
+                    Load more
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </Tab>
