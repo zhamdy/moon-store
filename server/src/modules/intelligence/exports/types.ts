@@ -1,6 +1,25 @@
 export interface ExportSalesFilters {
-  from?: unknown;
-  to?: unknown;
+  from?: string;
+  to?: string;
+}
+
+import { z } from 'zod';
+
+const exportSalesQuerySchema = z
+  .object({
+    from: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/)
+      .optional(),
+    to: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/)
+      .optional(),
+  })
+  .strict();
+
+export function parseExportSalesQuery(query: unknown): ExportSalesFilters {
+  return exportSalesQuerySchema.parse(query);
 }
 
 export interface ExportProductRow extends Record<string, unknown> {

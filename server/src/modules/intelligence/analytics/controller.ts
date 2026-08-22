@@ -1,12 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
 import { analyticsService } from './service';
+import {
+  parseAnalyticsDateQuery,
+  parseAnalyticsDaysPageQuery,
+  parseAnalyticsPageQuery,
+} from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+
+const page = <T>(items: T[], pageNumber: number, pageSize: number) => ({
+  items: items.slice((pageNumber - 1) * pageSize, pageNumber * pageSize),
+  meta: { pagination: paginationMeta(pageNumber, pageSize, items.length) },
+});
 
 export class AnalyticsController {
   async getDashboardAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
+      const { from, to } = parseAnalyticsDateQuery(req.query);
       const data = await analyticsService.getDashboardAll(from, to);
-      res.json({ success: true, data });
+      res.json(success(data));
     } catch (err) {
       next(err);
     }
@@ -15,7 +27,7 @@ export class AnalyticsController {
   async getDashboard(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await analyticsService.getDashboardKpis();
-      res.json({ success: true, data });
+      res.json(success(data));
     } catch (err) {
       next(err);
     }
@@ -23,9 +35,9 @@ export class AnalyticsController {
 
   async getRevenue(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
+      const { from, to } = parseAnalyticsDateQuery(req.query);
       const data = await analyticsService.getRevenueByDate(from, to);
-      res.json({ success: true, data });
+      res.json(success(data));
     } catch (err) {
       next(err);
     }
@@ -33,9 +45,11 @@ export class AnalyticsController {
 
   async getTopProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
+      const query = parseAnalyticsPageQuery(req.query);
+      const { from, to } = query;
       const data = await analyticsService.getTopProducts(from, to);
-      res.json({ success: true, data });
+      const result = page(data, query.page, query.pageSize);
+      res.json(success(result.items, result.meta));
     } catch (err) {
       next(err);
     }
@@ -43,9 +57,9 @@ export class AnalyticsController {
 
   async getPaymentMethods(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
+      const { from, to } = parseAnalyticsDateQuery(req.query);
       const data = await analyticsService.getPaymentMethodBreakdown(from, to);
-      res.json({ success: true, data });
+      res.json(success(data));
     } catch (err) {
       next(err);
     }
@@ -53,9 +67,9 @@ export class AnalyticsController {
 
   async getOrdersPerDay(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
+      const { from, to } = parseAnalyticsDateQuery(req.query);
       const data = await analyticsService.getOrdersPerDay(from, to);
-      res.json({ success: true, data });
+      res.json(success(data));
     } catch (err) {
       next(err);
     }
@@ -63,9 +77,11 @@ export class AnalyticsController {
 
   async getCashierPerformance(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
+      const query = parseAnalyticsPageQuery(req.query);
+      const { from, to } = query;
       const data = await analyticsService.getCashierPerformance(from, to);
-      res.json({ success: true, data });
+      const result = page(data, query.page, query.pageSize);
+      res.json(success(result.items, result.meta));
     } catch (err) {
       next(err);
     }
@@ -73,9 +89,11 @@ export class AnalyticsController {
 
   async getSalesByCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
+      const query = parseAnalyticsPageQuery(req.query);
+      const { from, to } = query;
       const data = await analyticsService.getSalesByCategory(from, to);
-      res.json({ success: true, data });
+      const result = page(data, query.page, query.pageSize);
+      res.json(success(result.items, result.meta));
     } catch (err) {
       next(err);
     }
@@ -83,9 +101,11 @@ export class AnalyticsController {
 
   async getSalesByDistributor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
+      const query = parseAnalyticsPageQuery(req.query);
+      const { from, to } = query;
       const data = await analyticsService.getSalesByDistributor(from, to);
-      res.json({ success: true, data });
+      const result = page(data, query.page, query.pageSize);
+      res.json(success(result.items, result.meta));
     } catch (err) {
       next(err);
     }
@@ -93,9 +113,10 @@ export class AnalyticsController {
 
   async getDeadStock(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const days = parseInt(req.query.days as string, 10) || 90;
-      const data = await analyticsService.getDeadStock(days);
-      res.json({ success: true, data });
+      const query = parseAnalyticsDaysPageQuery(req.query, 90);
+      const data = await analyticsService.getDeadStock(query.days);
+      const result = page(data.products, query.page, query.pageSize);
+      res.json(success({ ...data, products: result.items }, result.meta));
     } catch (err) {
       next(err);
     }
@@ -103,9 +124,11 @@ export class AnalyticsController {
 
   async getCustomerLtv(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
+      const query = parseAnalyticsPageQuery(req.query);
+      const { from, to } = query;
       const data = await analyticsService.getCustomerLtv(from, to);
-      res.json({ success: true, data });
+      const result = page(data.customers, query.page, query.pageSize);
+      res.json(success({ ...data, customers: result.items }, result.meta));
     } catch (err) {
       next(err);
     }
@@ -113,49 +136,51 @@ export class AnalyticsController {
 
   async getHourlyHeatmap(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const days = parseInt(req.query.days as string, 10) || 30;
+      const { days } = parseAnalyticsDaysPageQuery(req.query, 30);
       const data = await analyticsService.getHourlyHeatmap(days);
-      res.json({ success: true, data });
+      res.json(success(data));
     } catch (err) {
       next(err);
     }
   }
 
-  async getAbcClassification(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAbcClassification(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await analyticsService.getAbcClassification();
-      res.json({ success: true, data });
+      const query = parseAnalyticsPageQuery(req.query);
+      const result = page(data.products, query.page, query.pageSize);
+      res.json(success({ ...data, products: result.items }, result.meta));
     } catch (err) {
       next(err);
     }
   }
 
-  async getReorderSuggestions(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getReorderSuggestions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await analyticsService.getReorderSuggestions();
-      res.json({ success: true, data });
+      const query = parseAnalyticsPageQuery(req.query);
+      const result = page(data, query.page, query.pageSize);
+      res.json(success(result.items, result.meta));
     } catch (err) {
       next(err);
     }
   }
 
-  async createInventorySnapshot(
-    _req: Request,
-    res: Response,
-    next: NextFunction
-  ): Promise<void> {
+  async createInventorySnapshot(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await analyticsService.createInventorySnapshot();
-      res.status(201).json({ success: true, data });
+      res.status(201).json(success(data));
     } catch (err) {
       next(err);
     }
   }
 
-  async getInventorySnapshots(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getInventorySnapshots(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await analyticsService.getInventorySnapshots();
-      res.json({ success: true, data });
+      const query = parseAnalyticsPageQuery(req.query);
+      const result = page(data, query.page, query.pageSize);
+      res.json(success(result.items, result.meta));
     } catch (err) {
       next(err);
     }

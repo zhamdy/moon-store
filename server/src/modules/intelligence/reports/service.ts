@@ -17,21 +17,11 @@ export class ReportsService {
 
   async getSalesReport(filters: SalesReportFilters): Promise<{
     data: SalesReportData;
-    meta: { total: number; page: number; limit: number; totalPages: number };
+    total: number;
   }> {
-    const {
-      from,
-      to,
-      groupBy = 'day',
-      cashierId,
-      paymentMethod,
-      page = 1,
-      limit = 50,
-    } = filters;
+    const { from, to, groupBy = 'day', cashierId, paymentMethod, page, pageSize } = filters;
 
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
-    const offset = (pageNum - 1) * limitNum;
+    const offset = (page - 1) * pageSize;
     const where: string[] = ["s.status != 'voided'"];
     const params: unknown[] = [];
     let paramIdx = 1;
@@ -70,7 +60,7 @@ export class ReportsService {
         params,
         limitIdx,
         offsetIdx,
-        limitNum,
+        pageSize,
         offset
       ),
       this.repo.getSalesReportCount(whereClause, params),
@@ -88,12 +78,7 @@ export class ReportsService {
         grouped,
         transactions,
       },
-      meta: {
-        total,
-        page: pageNum,
-        limit: limitNum,
-        totalPages: Math.ceil(total / limitNum) || 0,
-      },
+      total,
     };
   }
 
@@ -166,10 +151,8 @@ export class ReportsService {
     const totalExpenses = Number(expenseSummary?.total || 0);
     const netProfit = grossProfit - totalExpenses;
     const netRevenue = Number(sales?.net_revenue || 0);
-    const netMargin =
-      netRevenue > 0 ? Math.round((netProfit / netRevenue) * 10000) / 100 : 0;
-    const grossMargin =
-      netRevenue > 0 ? Math.round((grossProfit / netRevenue) * 10000) / 100 : 0;
+    const netMargin = netRevenue > 0 ? Math.round((netProfit / netRevenue) * 10000) / 100 : 0;
+    const grossMargin = netRevenue > 0 ? Math.round((grossProfit / netRevenue) * 10000) / 100 : 0;
 
     return {
       revenue: {

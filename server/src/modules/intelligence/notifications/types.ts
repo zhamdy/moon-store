@@ -22,6 +22,24 @@ export interface CreateNotificationDTO {
 }
 
 export interface NotificationFilters {
-  limit?: number | string;
-  unread_only?: string | boolean;
+  page: number;
+  pageSize: number;
+  unreadOnly?: boolean;
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const notificationListQuerySchema = createListQuerySchema(['createdAt'] as const)
+  .extend({
+    unreadOnly: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
+  })
+  .strict();
+
+export function parseNotificationListQuery(query: unknown): NotificationFilters {
+  const parsed = notificationListQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize, unreadOnly: parsed.unreadOnly };
 }

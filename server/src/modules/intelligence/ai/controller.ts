@@ -1,11 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { aiService } from './service';
+import { parseAiListQuery, parseRecommendationQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+
+const page = <T>(items: T[], pageNumber: number, pageSize: number) => ({
+  items: items.slice((pageNumber - 1) * pageSize, pageNumber * pageSize),
+  meta: { pagination: paginationMeta(pageNumber, pageSize, items.length) },
+});
 
 export class AiController {
-  async getForecast(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getForecast(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await aiService.getForecast();
-      res.json({ success: true, data });
+      const query = parseAiListQuery(req.query);
+      const result = page(data.forecasts, query.page, query.pageSize);
+      res.json(success({ ...data, forecasts: result.items }, result.meta));
     } catch (err) {
       next(err);
     }
@@ -13,36 +23,48 @@ export class AiController {
 
   async getRecommendations(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { productId } = req.query;
-      const data = await aiService.getRecommendations(productId as string | undefined);
-      res.json({ success: true, data });
+      const query = parseRecommendationQuery(req.query);
+      const data = await aiService.getRecommendations(query.productId?.toString());
+      if (data.recommendations) {
+        const result = page(data.recommendations, query.page, query.pageSize);
+        res.json(success({ ...data, recommendations: result.items }, result.meta));
+      } else {
+        const result = page(data.topPairs ?? [], query.page, query.pageSize);
+        res.json(success({ ...data, topPairs: result.items }, result.meta));
+      }
     } catch (err) {
       next(err);
     }
   }
 
-  async getPricingSuggestions(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getPricingSuggestions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await aiService.getPricingSuggestions();
-      res.json({ success: true, data });
+      const query = parseAiListQuery(req.query);
+      const result = page(data, query.page, query.pageSize);
+      res.json(success(result.items, result.meta));
     } catch (err) {
       next(err);
     }
   }
 
-  async getChurnRisk(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getChurnRisk(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await aiService.getChurnRisk();
-      res.json({ success: true, data });
+      const query = parseAiListQuery(req.query);
+      const result = page(data.customers, query.page, query.pageSize);
+      res.json(success({ ...data, customers: result.items }, result.meta));
     } catch (err) {
       next(err);
     }
   }
 
-  async getAnomalies(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAnomalies(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await aiService.getAnomalies();
-      res.json({ success: true, data });
+      const query = parseAiListQuery(req.query);
+      const result = page(data.anomalies, query.page, query.pageSize);
+      res.json(success({ ...data, anomalies: result.items }, result.meta));
     } catch (err) {
       next(err);
     }

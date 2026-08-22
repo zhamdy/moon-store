@@ -89,7 +89,7 @@ export default function NotificationCenter(): React.JSX.Element {
         await transport.request<Notification[]>({
           method: 'GET',
           path: 'notifications',
-          params: { limit: 20 },
+          params: { page: 1, pageSize: 25 },
         })
       ).data,
     enabled: open,

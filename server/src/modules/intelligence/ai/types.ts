@@ -13,6 +13,24 @@ export interface ForecastItem {
   confidence: 'high' | 'medium' | 'low';
 }
 
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const aiListQuerySchema = createListQuerySchema(['value', 'name'] as const).strict();
+const recommendationQuerySchema = createListQuerySchema(['value', 'name'] as const)
+  .extend({ productId: z.string().regex(/^\d+$/).transform(Number).optional() })
+  .strict();
+
+export function parseAiListQuery(query: unknown) {
+  const parsed = aiListQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize };
+}
+
+export function parseRecommendationQuery(query: unknown) {
+  const parsed = recommendationQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize, productId: parsed.productId };
+}
+
 export interface ForecastResult {
   period: string;
   generatedAt: string;

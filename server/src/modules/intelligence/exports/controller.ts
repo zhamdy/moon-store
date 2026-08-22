@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { exportsService } from './service';
+import { parseExportSalesQuery } from './types';
 
 export class ExportsController {
   async exportProducts(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -15,8 +16,7 @@ export class ExportsController {
 
   async exportSales(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = req.query;
-      const { csv, filename } = await exportsService.exportSales({ from, to });
+      const { csv, filename } = await exportsService.exportSales(parseExportSalesQuery(req.query));
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
       res.send(csv);

@@ -7,6 +7,49 @@ export interface DashboardKpis {
   low_stock_items: number;
 }
 
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const dateFilters = {
+  from: z.string().date().optional(),
+  to: z.string().date().optional(),
+};
+const analyticsDateQuerySchema = z.object(dateFilters).strict();
+const analyticsPageQuerySchema = createListQuerySchema(['value', 'name'] as const)
+  .extend(dateFilters)
+  .strict();
+const analyticsDaysPageQuerySchema = createListQuerySchema(['value', 'name'] as const)
+  .extend({
+    days: z
+      .string()
+      .regex(/^\d+$/)
+      .transform(Number)
+      .pipe(z.number().int().min(1).max(3650))
+      .optional(),
+  })
+  .strict();
+
+export interface AnalyticsPageQuery {
+  page: number;
+  pageSize: number;
+  from?: string;
+  to?: string;
+}
+
+export function parseAnalyticsDateQuery(query: unknown) {
+  return analyticsDateQuerySchema.parse(query);
+}
+
+export function parseAnalyticsPageQuery(query: unknown): AnalyticsPageQuery {
+  const parsed = analyticsPageQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize, from: parsed.from, to: parsed.to };
+}
+
+export function parseAnalyticsDaysPageQuery(query: unknown, defaultDays: number) {
+  const parsed = analyticsDaysPageQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize, days: parsed.days ?? defaultDays };
+}
+
 export interface RevenueByDate {
   date: string;
   revenue: number;
