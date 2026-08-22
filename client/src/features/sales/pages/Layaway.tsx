@@ -12,6 +12,7 @@ import {
   ModalFooter,
   Select,
   SelectItem,
+  Pagination,
 } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import PageHeader from '../../../shared/components/PageHeader';
@@ -50,13 +51,22 @@ export default function LayawayPage() {
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState('all');
 
-  const { data: layaways } = layaway.useList({ limit: 100 });
+  const { data: layaways, meta } = layaway.useList({
+    page,
+    pageSize: 25,
+    status: status === 'all' ? undefined : status,
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  });
+  const pagination = (meta as { pagination?: { totalPages: number } } | undefined)?.pagination;
 
   const { data: customers } = useApiQuery<Customer[]>(
     ['customers-list'],
     'customers',
-    { limit: 200 },
+    { page: 1, pageSize: 100, sortBy: 'name', sortOrder: 'asc' },
     { enabled: createOpen }
   );
 
@@ -203,17 +213,34 @@ export default function LayawayPage() {
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <PageHeader title={t('layaway.title')}>
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<Plus className="h-4 w-4" />}
-          onClick={() => {
-            resetCreateForm();
-            setCreateOpen(true);
-          }}
-        >
-          {t('layaway.create')}
-        </Button>
+        <div className="flex gap-2">
+          <Select
+            aria-label="Layaway status"
+            className="w-40"
+            size="sm"
+            selectedKeys={[status]}
+            onSelectionChange={(keys) => {
+              setStatus(String(Array.from(keys)[0] ?? 'all'));
+              setPage(1);
+            }}
+          >
+            <SelectItem key="all">All statuses</SelectItem>
+            <SelectItem key="active">{t('layaway.active')}</SelectItem>
+            <SelectItem key="completed">{t('layaway.completed')}</SelectItem>
+            <SelectItem key="cancelled">{t('layaway.cancelled')}</SelectItem>
+          </Select>
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              resetCreateForm();
+              setCreateOpen(true);
+            }}
+          >
+            {t('layaway.create')}
+          </Button>
+        </div>
       </PageHeader>
 
       {/* Layaway table */}
@@ -310,6 +337,17 @@ export default function LayawayPage() {
           </tbody>
         </table>
       </div>
+      {(pagination?.totalPages ?? 0) > 1 && (
+        <div className="flex justify-center">
+          <Pagination
+            total={pagination!.totalPages}
+            page={page}
+            onChange={setPage}
+            size="sm"
+            variant="flat"
+          />
+        </div>
+      )}
 
       {/* Payment Dialog */}
       <Modal

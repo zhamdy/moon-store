@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { layawayService, ILayawayService } from './service';
+import { PublicError } from '../../../http/errors';
+import { paginationMeta } from '../../../http/pagination';
+import { success } from '../../../http/responses';
+import { parseLayawayListQuery } from './types';
 
 const createLayawaySchema = z.object({
   customer_id: z.number().int().positive(),
@@ -40,35 +44,21 @@ export class LayawayController {
       const plan = await this.service.createPlan(parsed, authReq.user!.id);
 
       logAuditFromReq(req, 'create', 'layaway', plan.id, { plan_number: plan.plan_number });
-      res.status(201).json({ success: true, data: plan });
-    } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: err.errors[0].message });
-        return;
-      }
-      if (err.message === 'Deposit cannot equal or exceed total amount') {
-        res.status(400).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.status(201).json(success(plan));
+    } catch (err) {
+      next(err instanceof z.ZodError ? err : this.mapDomainError(err));
     }
   }
 
   async getPlans(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { status, page = '1', limit = '20', search } = req.query;
-      const result = await this.service.listPlans({
-        status: status as string | undefined,
-        page: page as string,
-        limit: limit as string,
-        search: search as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: result.meta,
-      });
+      const query = parseLayawayListQuery(req.query);
+      const result = await this.service.listPlans(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -79,14 +69,9 @@ export class LayawayController {
       const plan = await this.service.getPlanById(req.params.id as string);
 
       if (!plan) {
-        res.status(404).json({ success: false, error: 'Layaway plan not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Layaway plan not found');
       }
-
-      res.json({
-        success: true,
-        data: plan,
-      });
+      res.json(success(plan));
     } catch (err) {
       next(err);
     }
@@ -106,24 +91,9 @@ export class LayawayController {
         completed: result.status === 'completed',
       });
 
-      res.json({
-        success: true,
-        data: result,
-      });
-    } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: err.errors[0].message });
-        return;
-      }
-      if (err.message === 'Plan not found') {
-        res.status(404).json({ success: false, error: err.message });
-        return;
-      }
-      if (err.message === 'Plan is not active' || err.message?.includes('exceeds remaining balance')) {
-        res.status(400).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.json(success(result));
+    } catch (err) {
+      next(err instanceof z.ZodError ? err : this.mapDomainError(err));
     }
   }
 
@@ -133,18 +103,18 @@ export class LayawayController {
       const result = await this.service.cancelPlan(id);
 
       logAuditFromReq(req, 'cancel', 'layaway', id);
-      res.json({ success: true, data: result });
-    } catch (err: any) {
-      if (err.message === 'Plan not found') {
-        res.status(404).json({ success: false, error: err.message });
-        return;
-      }
-      if (err.message === 'Only active plans can be cancelled') {
-        res.status(400).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.json(success(result));
+    } catch (err) {
+      next(this.mapDomainError(err));
     }
+  }
+
+  private mapDomainError(error: unknown): unknown {
+    if (!(error instanceof Error)) return error;
+    return new PublicError(
+      error.message.includes('not found') ? 'NOT_FOUND' : 'VALIDATION_ERROR',
+      error.message
+    );
   }
 }
 

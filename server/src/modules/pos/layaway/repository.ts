@@ -22,11 +22,7 @@ export interface ILayawayRepository {
     },
     queryable: Queryable
   ): Promise<LayawayPlanRow>;
-  createPlanItem(
-    planId: number,
-    item: LayawayItemInput,
-    queryable: Queryable
-  ): Promise<void>;
+  createPlanItem(planId: number, item: LayawayItemInput, queryable: Queryable): Promise<void>;
   deductVariantStock(variantId: number, quantity: number, queryable: Queryable): Promise<void>;
   deductProductStock(productId: number, quantity: number, queryable: Queryable): Promise<void>;
   createPayment(
@@ -44,10 +40,7 @@ export interface ILayawayRepository {
     queryable?: Queryable
   ): Promise<{ rows: LayawayPlanRow[]; total: number }>;
   findById(id: number | string, queryable?: Queryable): Promise<LayawayPlanRow | null>;
-  findItemsByPlanId(
-    planId: number | string,
-    queryable?: Queryable
-  ): Promise<LayawayItemRow[]>;
+  findItemsByPlanId(planId: number | string, queryable?: Queryable): Promise<LayawayItemRow[]>;
   findPaymentsByPlanId(
     planId: number | string,
     queryable?: Queryable
@@ -117,10 +110,10 @@ export class LayawayRepository implements ILayawayRepository {
     quantity: number,
     queryable: Queryable
   ): Promise<void> {
-    await this.q(queryable).query(
-      `UPDATE product_variants SET stock = stock - $1 WHERE id = $2`,
-      [quantity, variantId]
-    );
+    await this.q(queryable).query(`UPDATE product_variants SET stock = stock - $1 WHERE id = $2`, [
+      quantity,
+      variantId,
+    ]);
   }
 
   async deductProductStock(
@@ -161,14 +154,12 @@ export class LayawayRepository implements ILayawayRepository {
     filters: LayawayFilters,
     queryable?: Queryable
   ): Promise<{ rows: LayawayPlanRow[]; total: number }> {
-    const { status, page = '1', limit = '20', search } = filters;
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 20;
-    const offset = (pageNum - 1) * limitNum;
+    const { status, page, pageSize, search, sortBy, sortOrder } = filters;
+    const offset = (page - 1) * pageSize;
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
 
-    if (status && status !== 'all') {
+    if (status) {
       params.push(status);
       where += ` AND lp.status = $${params.length}`;
     }
@@ -186,6 +177,12 @@ export class LayawayRepository implements ILayawayRepository {
 
     const limitIdx = params.length + 1;
     const offsetIdx = params.length + 2;
+    const sortColumn =
+      sortBy === 'dueDate'
+        ? 'lp.due_date'
+        : sortBy === 'remainingBalance'
+          ? 'lp.remaining_balance'
+          : 'lp.created_at';
 
     const res = await this.q(queryable).query(
       `SELECT lp.*, c.name as customer_name, c.phone as customer_phone, u.name as created_by_name
@@ -193,9 +190,9 @@ export class LayawayRepository implements ILayawayRepository {
        JOIN customers c ON lp.customer_id = c.id
        JOIN users u ON lp.created_by = u.id
        ${where}
-       ORDER BY lp.created_at DESC
+       ORDER BY ${sortColumn} ${sortOrder.toUpperCase()}, lp.id ${sortOrder.toUpperCase()}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-      [...params, limitNum, offset]
+      [...params, pageSize, offset]
     );
 
     return {
@@ -261,33 +258,21 @@ export class LayawayRepository implements ILayawayRepository {
     );
   }
 
-  async restockVariant(
-    variantId: number,
-    quantity: number,
-    queryable: Queryable
-  ): Promise<void> {
-    await this.q(queryable).query(
-      `UPDATE product_variants SET stock = stock + $1 WHERE id = $2`,
-      [quantity, variantId]
-    );
+  async restockVariant(variantId: number, quantity: number, queryable: Queryable): Promise<void> {
+    await this.q(queryable).query(`UPDATE product_variants SET stock = stock + $1 WHERE id = $2`, [
+      quantity,
+      variantId,
+    ]);
   }
 
-  async restockProduct(
-    productId: number,
-    quantity: number,
-    queryable: Queryable
-  ): Promise<void> {
+  async restockProduct(productId: number, quantity: number, queryable: Queryable): Promise<void> {
     await this.q(queryable).query(
       `UPDATE products SET stock = stock + $1, updated_at = NOW() WHERE id = $2`,
       [quantity, productId]
     );
   }
 
-  async updatePlanStatus(
-    planId: number,
-    status: string,
-    queryable: Queryable
-  ): Promise<void> {
+  async updatePlanStatus(planId: number, status: string, queryable: Queryable): Promise<void> {
     await this.q(queryable).query(
       `UPDATE layaway_plans SET status = $1, updated_at = NOW() WHERE id = $2`,
       [status, planId]

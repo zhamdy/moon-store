@@ -40,4 +40,24 @@ describe('Layaway', () => {
       )
     );
   });
+
+  it('requests layaway filtering and pagination from the backend', async () => {
+    const transport = createMemoryTransport({ layaway: [] });
+    render(<LayawayPage />, { wrapper: wrapperFor(transport) });
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'GET',
+          path: 'layaway',
+          params: expect.objectContaining({
+            page: 1,
+            pageSize: 25,
+            sortBy: 'createdAt',
+            sortOrder: 'desc',
+          }),
+        })
+      )
+    );
+  });
 });
