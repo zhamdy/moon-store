@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { IAuthRepository, authRepository as defaultRepo } from './repository';
-import { LoginDTO, AuthTokens, UserRecord } from './types';
+import { LoginDTO, AuthTokens } from './types';
+import { PublicError } from '../../../http/errors';
 
 export class AuthService {
   constructor(private repo: IAuthRepository = defaultRepo) {}
@@ -10,16 +11,12 @@ export class AuthService {
     const { email, password } = credentials;
     const user = await this.repo.findUserByEmail(email);
     if (!user) {
-      const err = new Error('Invalid email or password');
-      (err as any).statusCode = 401;
-      throw err;
+      throw new PublicError('UNAUTHORIZED', 'Invalid email or password');
     }
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      const err = new Error('Invalid email or password');
-      (err as any).statusCode = 401;
-      throw err;
+      throw new PublicError('UNAUTHORIZED', 'Invalid email or password');
     }
 
     await this.repo.updateLastLogin(user.id);
@@ -56,23 +53,17 @@ export class AuthService {
         id: number;
       };
     } catch {
-      const err = new Error('Invalid refresh token');
-      (err as any).statusCode = 401;
-      throw err;
+      throw new PublicError('UNAUTHORIZED', 'Invalid refresh token');
     }
 
     const tokenRecord = await this.repo.findValidRefreshToken(refreshToken);
     if (!tokenRecord) {
-      const err = new Error('Refresh token expired or revoked');
-      (err as any).statusCode = 401;
-      throw err;
+      throw new PublicError('UNAUTHORIZED', 'Refresh token expired or revoked');
     }
 
     const user = await this.repo.findUserById(decoded.id);
     if (!user) {
-      const err = new Error('User not found');
-      (err as any).statusCode = 401;
-      throw err;
+      throw new PublicError('UNAUTHORIZED', 'User not found');
     }
 
     const accessToken = jwt.sign(
@@ -93,8 +84,10 @@ export class AuthService {
     }
   }
 
-  async getMe(userId: number): Promise<UserRecord | null> {
-    return this.repo.findUserById(userId);
+  async getMe(userId: number): Promise<AuthTokens['user'] | null> {
+    const user = await this.repo.findUserById(userId);
+    if (!user) return null;
+    return { id: user.id, name: user.name, email: user.email, role: user.role };
   }
 }
 

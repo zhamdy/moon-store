@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { verifyToken } from '../../../../middleware/auth';
+import { errorResponse } from '../../../http/errors';
 import { authController } from './controller';
 
 const router: Router = Router();
@@ -10,7 +11,7 @@ const authLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, error: 'Too many login attempts, please try again later' },
+  message: errorResponse('RATE_LIMITED', 'Too many login attempts, please try again later'),
 });
 
 router.post('/login', authLimiter, (req, res, next) => authController.login(req, res, next));
