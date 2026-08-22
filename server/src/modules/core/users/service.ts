@@ -1,12 +1,12 @@
 import bcrypt from 'bcrypt';
 import { IUsersRepository, usersRepository as defaultRepo } from './repository';
-import { CreateUserDTO, UpdateUserDTO, UserListItem, DeliveryUser } from './types';
+import { CreateUserDTO, UpdateUserDTO, UserListItem, DeliveryUser, UserListQuery } from './types';
 
 export class UsersService {
   constructor(private repo: IUsersRepository = defaultRepo) {}
 
-  async list(): Promise<UserListItem[]> {
-    return this.repo.findAll();
+  async list(query: UserListQuery): Promise<{ rows: UserListItem[]; total: number }> {
+    return this.repo.findPage(query);
   }
 
   async listDeliveryUsers(): Promise<DeliveryUser[]> {

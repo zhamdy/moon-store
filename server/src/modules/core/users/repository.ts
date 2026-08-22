@@ -1,9 +1,12 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import { UserListItem, DeliveryUser, UserDbRecord } from './types';
+import { UserListItem, DeliveryUser, UserDbRecord, UserListQuery } from './types';
 
 export interface IUsersRepository {
-  findAll(queryable?: Queryable): Promise<UserListItem[]>;
+  findPage(
+    query: UserListQuery,
+    queryable?: Queryable
+  ): Promise<{ rows: UserListItem[]; total: number }>;
   findDeliveryUsers(queryable?: Queryable): Promise<DeliveryUser[]>;
   findById(id: number | string, queryable?: Queryable): Promise<UserDbRecord | null>;
   create(
@@ -27,11 +30,42 @@ export class UsersRepository implements IUsersRepository {
     return queryable || this.defaultQueryable;
   }
 
-  async findAll(queryable?: Queryable): Promise<UserListItem[]> {
-    const result = await this.q(queryable).query<UserListItem>(
-      'SELECT id, name, email, role, created_at, last_login FROM users ORDER BY created_at DESC'
+  async findPage(
+    query: UserListQuery,
+    queryable?: Queryable
+  ): Promise<{ rows: UserListItem[]; total: number }> {
+    const where: string[] = [];
+    const params: unknown[] = [];
+    if (query.search) {
+      params.push(`%${query.search}%`);
+      where.push(`(name ILIKE $${params.length} OR email ILIKE $${params.length})`);
+    }
+    if (query.role) {
+      params.push(query.role);
+      where.push(`role = $${params.length}`);
+    }
+    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const count = await this.q(queryable).query<{ count: string | number }>(
+      `SELECT COUNT(*) as count FROM users ${whereClause}`,
+      params
     );
-    return result.rows;
+    const sortColumns = {
+      name: 'name',
+      email: 'email',
+      role: 'role',
+      createdAt: 'created_at',
+      lastLogin: 'last_login',
+    } as const;
+    const direction = query.sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const pageParams = [...params, query.pageSize, (query.page - 1) * query.pageSize];
+    const rows = await this.q(queryable).query<UserListItem>(
+      `SELECT id, name, email, role, created_at, last_login
+       FROM users ${whereClause}
+       ORDER BY ${sortColumns[query.sortBy]} ${direction} NULLS LAST, id ASC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      pageParams
+    );
+    return { rows: rows.rows, total: Number(count.rows[0]?.count || 0) };
   }
 
   async findDeliveryUsers(queryable?: Queryable): Promise<DeliveryUser[]> {

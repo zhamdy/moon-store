@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   Plus,
@@ -31,9 +31,9 @@ import {
 import { Badge } from '../../../shared/components/StatusBadge';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import { useTransport } from '../../../shared/lib/transport/index';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import PageHeader from '../../../shared/components/PageHeader';
 import type { User } from '../../../shared/types/index';
 import type { Branch, BranchTransfer, ConsolidatedBranches } from '../types';
@@ -83,6 +83,8 @@ export default function BranchesPage() {
   const editor = useEditorDialog(emptyBranch, branchToForm);
   const form = editor.values;
   const [settingForm, setSettingForm] = useState({ setting_key: '', setting_value: '' });
+  const [managerSearch, setManagerSearch] = useState('');
+  const debouncedManagerSearch = useDebouncedValue(managerSearch, 300);
 
   const { data: branchList } = branches.useList();
   const { data: consolidated } = branches.useRead<ConsolidatedBranches>(
@@ -90,7 +92,36 @@ export default function BranchesPage() {
     undefined,
     tab === 'dashboard'
   );
-  const { data: users = [] } = useApiQuery<Pick<User, 'id' | 'name'>[]>(['users-list'], 'users');
+  const managerQuery = useInfiniteQuery({
+    queryKey: ['users', 'manager-selector', debouncedManagerSearch],
+    initialPageParam: 1,
+    enabled: editor.open,
+    queryFn: ({ pageParam }) =>
+      transport.request<Pick<User, 'id' | 'name'>[]>({
+        method: 'GET',
+        path: 'users',
+        params: {
+          page: pageParam,
+          pageSize: 25,
+          search: debouncedManagerSearch || undefined,
+          sortBy: 'name',
+          sortOrder: 'asc',
+        },
+      }),
+    getNextPageParam: (lastPage) =>
+      lastPage.meta?.pagination?.hasNextPage ? lastPage.meta.pagination.page + 1 : undefined,
+  });
+  const users = managerQuery.data?.pages.flatMap((page) => page.data) ?? [];
+  const selectedManager = branchList?.find(
+    (branch) => String(branch.manager_id) === form.manager_id
+  );
+  const managerOptions =
+    selectedManager && !users.some((user) => user.id === selectedManager.manager_id)
+      ? [
+          { id: selectedManager.manager_id!, name: selectedManager.manager_name || 'Unavailable' },
+          ...users,
+        ]
+      : users;
   const { data: transfers } = branches.useRead<BranchTransfer[]>(
     'transfers',
     undefined,
@@ -550,7 +581,10 @@ export default function BranchesPage() {
       {/* Branch dialog */}
       <Modal
         isOpen={editor.open}
-        onOpenChange={editor.setOpen}
+        onOpenChange={(open) => {
+          editor.setOpen(open);
+          if (!open) setManagerSearch('');
+        }}
         backdrop="blur"
         placement="center"
         size="lg"
@@ -631,24 +665,45 @@ export default function BranchesPage() {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Select
-                    label={t('branches.manager')}
-                    size="sm"
-                    variant="bordered"
-                    selectedKeys={form.manager_id ? [form.manager_id] : []}
-                    onChange={(e) => editor.set('manager_id', e.target.value)}
-                  >
-                    {[
-                      <SelectItem key="" textValue="—">
-                        —
-                      </SelectItem>,
-                      ...users.map((u) => (
-                        <SelectItem key={String(u.id)} textValue={u.name}>
-                          {u.name}
-                        </SelectItem>
-                      )),
-                    ]}
-                  </Select>
+                  <div className="space-y-2">
+                    <Input
+                      aria-label="Search managers"
+                      placeholder={t('common.search')}
+                      size="sm"
+                      variant="bordered"
+                      value={managerSearch}
+                      onValueChange={setManagerSearch}
+                    />
+                    <Select
+                      label={t('branches.manager')}
+                      size="sm"
+                      variant="bordered"
+                      selectedKeys={form.manager_id ? [form.manager_id] : []}
+                      onChange={(e) => editor.set('manager_id', e.target.value)}
+                    >
+                      {[
+                        <SelectItem key="" textValue="—">
+                          —
+                        </SelectItem>,
+                        ...managerOptions.map((u) => (
+                          <SelectItem key={String(u.id)} textValue={u.name}>
+                            {u.name}
+                          </SelectItem>
+                        )),
+                      ]}
+                    </Select>
+                    {managerQuery.hasNextPage && (
+                      <Button
+                        fullWidth
+                        size="sm"
+                        variant="bordered"
+                        isLoading={managerQuery.isFetchingNextPage}
+                        onPress={() => void managerQuery.fetchNextPage()}
+                      >
+                        Load more
+                      </Button>
+                    )}
+                  </div>
                   <Input
                     label={t('branches.currency')}
                     size="sm"

@@ -19,7 +19,9 @@ import { formatDateTime, formatDate } from '../../../shared/lib/utils';
 import { useAuthStore } from '../../auth';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
-import type { ColumnDef } from '@tanstack/react-table';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import type { PaginationMeta } from '../../../shared/lib/transport';
+import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import type { User, UserRole } from '../../../shared/types/index';
 
 const getCreateSchema = () =>
@@ -42,7 +44,7 @@ type CreateUserFormData = z.infer<ReturnType<typeof getCreateSchema>>;
 type EditUserFormData = z.infer<ReturnType<typeof getEditSchema>>;
 type UserFormData = CreateUserFormData | EditUserFormData;
 
-const users = resource<User>('users');
+const users = resource<User, { pagination: PaginationMeta }>('users');
 
 const roleBadgeVariant: Record<UserRole, BadgeVariant> = {
   Admin: 'primary',
@@ -56,8 +58,35 @@ export default function UsersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 });
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }]);
 
-  const { data: rows, isLoading } = users.useList();
+  const sortBy =
+    (
+      {
+        name: 'name',
+        email: 'email',
+        role: 'role',
+        created_at: 'createdAt',
+        last_login: 'lastLogin',
+      } as const
+    )[sorting[0]?.id as 'name' | 'email' | 'role' | 'created_at' | 'last_login'] ?? 'createdAt';
+  const {
+    data: rows,
+    meta,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = users.useList({
+    page: pagination.pageIndex + 1,
+    pageSize: pagination.pageSize,
+    search: debouncedSearch || undefined,
+    sortBy,
+    sortOrder: sorting[0]?.desc === false ? 'asc' : 'desc',
+  });
 
   const schema = editingUser ? getEditSchema() : getCreateSchema();
   const {
@@ -201,9 +230,30 @@ export default function UsersPage() {
       />
 
       <DataTable
+        mode="server"
         columns={columns}
         data={rows ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        error={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
+        pagination={pagination}
+        onPaginationChange={(updater) =>
+          setPagination((current) => (typeof updater === 'function' ? updater(current) : updater))
+        }
+        pageCount={meta?.pagination.totalPages ?? 0}
+        totalRows={meta?.pagination.totalItems ?? 0}
+        sorting={sorting}
+        onSortingChange={(updater) => {
+          setSorting((current) => (typeof updater === 'function' ? updater(current) : updater));
+          setPagination((current) => ({ ...current, pageIndex: 0 }));
+        }}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          setPagination((current) => ({ ...current, pageIndex: 0 }));
+        }}
+        isFiltered={Boolean(search)}
         searchPlaceholder={t('users.searchPlaceholder')}
       />
 
