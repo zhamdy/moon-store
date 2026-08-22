@@ -8,6 +8,8 @@ import { LabelTemplatesController } from '../src/modules/inventory/labelTemplate
 import { labelTemplatesService } from '../src/modules/inventory/labelTemplates/service';
 import { parseBundleListQuery } from '../src/modules/inventory/bundles/types';
 import { parseCollectionListQuery } from '../src/modules/inventory/collections/types';
+import { parseStockCountListQuery } from '../src/modules/inventory/stockCounts/types';
+import { parseStockAdjustmentListQuery } from '../src/modules/inventory/stockAdjustments/types';
 
 function response() {
   const res = {} as Response;
@@ -80,5 +82,19 @@ describe('paginated inventory query contracts', () => {
       }
     );
     expect(() => parseCollectionListQuery({ featured: 'yes' })).toThrow();
+  });
+
+  it('uses canonical pagination for stock collections', () => {
+    expect(parseStockCountListQuery({ page: '2', pageSize: '10', status: 'completed' })).toEqual({
+      page: 2,
+      pageSize: 10,
+      status: 'completed',
+    });
+    expect(parseStockAdjustmentListQuery({ page: '3', pageSize: '50' })).toEqual({
+      page: 3,
+      pageSize: 50,
+    });
+    expect(() => parseStockCountListQuery({ limit: '20' })).toThrow();
+    expect(() => parseStockAdjustmentListQuery({ limit: '50' })).toThrow();
   });
 });

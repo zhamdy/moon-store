@@ -13,6 +13,17 @@ export interface StockAdjustmentRecord {
 }
 
 export interface StockAdjustmentFilters {
-  page?: number;
-  limit?: number;
+  page: number;
+  pageSize: number;
+}
+
+import { createListQuerySchema } from '../../../http/pagination';
+
+const stockAdjustmentListQuerySchema = createListQuerySchema(['createdAt'] as const)
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+
+export function parseStockAdjustmentListQuery(query: unknown): StockAdjustmentFilters {
+  const parsed = stockAdjustmentListQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize };
 }

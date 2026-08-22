@@ -1,23 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import { stockAdjustmentsService } from './service';
+import { parseStockAdjustmentListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
 
 export class StockAdjustmentsController {
   async getStockAdjustments(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = 1, limit = 50 } = req.query;
-      const pageNum = Number(page);
-      const limitNum = Number(limit);
-
-      const result = await stockAdjustmentsService.list({
-        page: pageNum,
-        limit: limitNum,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: { total: result.total, page: pageNum, limit: limitNum },
-      });
+      const query = parseStockAdjustmentListQuery(req.query);
+      const result = await stockAdjustmentsService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }

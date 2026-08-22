@@ -14,6 +14,7 @@ import {
   ModalFooter,
   Select,
   SelectItem,
+  Pagination,
 } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import PageHeader from '../../../shared/components/PageHeader';
@@ -21,6 +22,7 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
 import type { CategoryRecord, StockCountDetail, StockCountSummary } from '../types';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 const stockCounts = resource<StockCountSummary>('stock-counts');
 const stockCountDetails = resource<StockCountDetail>('stock-counts');
@@ -34,8 +36,10 @@ export default function StockCountPage() {
   const [selectedCount, setSelectedCount] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
+  const [page, setPage] = useState(1);
 
-  const { data: counts, isLoading } = stockCounts.useList();
+  const { data: counts, meta, isLoading } = stockCounts.useList({ page, pageSize: 25 });
+  const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: detail } = stockCountDetails.useOne(selectedCount);
   const { data: categories } = categoriesResource.useList();
 
@@ -299,6 +303,12 @@ export default function StockCountPage() {
               </CardBody>
             </Card>
           ))}
+        </div>
+      )}
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center">
+          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
         </div>
       )}
 
