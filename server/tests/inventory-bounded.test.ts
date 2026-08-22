@@ -6,6 +6,8 @@ import { DistributorsController } from '../src/modules/inventory/distributors/co
 import { distributorsService } from '../src/modules/inventory/distributors/service';
 import { LabelTemplatesController } from '../src/modules/inventory/labelTemplates/controller';
 import { labelTemplatesService } from '../src/modules/inventory/labelTemplates/service';
+import { parseBundleListQuery } from '../src/modules/inventory/bundles/types';
+import { parseCollectionListQuery } from '../src/modules/inventory/collections/types';
 
 function response() {
   const res = {} as Response;
@@ -56,5 +58,27 @@ describe('bounded inventory contracts', () => {
     );
     expect(res.status).toHaveBeenCalledWith(204);
     expect(res.send).toHaveBeenCalled();
+  });
+});
+
+describe('paginated inventory query contracts', () => {
+  it('parses canonical bundle pagination and rejects legacy limit', () => {
+    expect(parseBundleListQuery({ page: '2', pageSize: '25', status: 'active' })).toEqual({
+      page: 2,
+      pageSize: 25,
+      status: 'active',
+    });
+    expect(() => parseBundleListQuery({ limit: '20' })).toThrow();
+  });
+
+  it('parses canonical collection filters and rejects unknown input', () => {
+    expect(parseCollectionListQuery({ page: '1', pageSize: '50', featured: 'true' })).toMatchObject(
+      {
+        page: 1,
+        pageSize: 50,
+        featured: true,
+      }
+    );
+    expect(() => parseCollectionListQuery({ featured: 'yes' })).toThrow();
   });
 });

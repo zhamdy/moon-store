@@ -43,5 +43,31 @@ export type UpdateCollectionDTO = CreateCollectionDTO;
 
 export interface CollectionFilters {
   season?: string;
-  featured?: string;
+  featured?: boolean;
+  page: number;
+  pageSize: number;
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const collectionListQuerySchema = createListQuerySchema(['createdAt', 'name'] as const)
+  .extend({
+    season: z.string().trim().min(1).max(50).optional(),
+    featured: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
+  })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+
+export function parseCollectionListQuery(query: unknown): CollectionFilters {
+  const parsed = collectionListQuerySchema.parse(query);
+  return {
+    season: parsed.season,
+    featured: parsed.featured,
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+  };
 }

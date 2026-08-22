@@ -45,12 +45,12 @@ export class BundlesRepository implements IBundlesRepository {
     filters: BundleFilters,
     queryable?: Queryable
   ): Promise<{ rows: BundleRecord[]; total: number }> {
-    const { status, page = 1, limit = 20 } = filters;
-    const offset = (Number(page) - 1) * Number(limit);
+    const { status, page, pageSize } = filters;
+    const offset = (page - 1) * pageSize;
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
 
-    if (status && status !== 'all') {
+    if (status) {
       params.push(status);
       where += ` AND b.status = $${params.length}`;
     }
@@ -71,9 +71,9 @@ export class BundlesRepository implements IBundlesRepository {
          WHERE bi.bundle_id = b.id) as original_price
        FROM product_bundles b
        ${where}
-       ORDER BY b.created_at DESC
+       ORDER BY b.created_at DESC, b.id DESC
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-      [...params, Number(limit), offset]
+      [...params, pageSize, offset]
     );
 
     return {

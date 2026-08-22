@@ -15,7 +15,7 @@ export class CollectionsService {
     return this.repo;
   }
 
-  list(filters: CollectionFilters): Promise<CollectionRecord[]> {
+  list(filters: CollectionFilters): Promise<{ rows: CollectionRecord[]; total: number }> {
     return this.repo.list(filters);
   }
 

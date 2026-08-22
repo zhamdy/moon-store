@@ -9,7 +9,10 @@ import {
 } from './types';
 
 export interface ICollectionsRepository {
-  list(filters: CollectionFilters, queryable?: Queryable): Promise<CollectionRecord[]>;
+  list(
+    filters: CollectionFilters,
+    queryable?: Queryable
+  ): Promise<{ rows: CollectionRecord[]; total: number }>;
   findById(id: number | string, queryable?: Queryable): Promise<CollectionRecord | null>;
   findProductsByCollectionId(
     collectionId: number | string,
@@ -21,10 +24,7 @@ export interface ICollectionsRepository {
     data: UpdateCollectionDTO,
     queryable?: Queryable
   ): Promise<CollectionRecord | null>;
-  deleteProductsByCollectionId(
-    collectionId: number | string,
-    queryable?: Queryable
-  ): Promise<void>;
+  deleteProductsByCollectionId(collectionId: number | string, queryable?: Queryable): Promise<void>;
   addProducts(
     collectionId: number | string,
     productIds: number[],
@@ -40,8 +40,11 @@ export class CollectionsRepository implements ICollectionsRepository {
     return queryable || this.defaultQueryable;
   }
 
-  async list(filters: CollectionFilters, queryable?: Queryable): Promise<CollectionRecord[]> {
-    const { season, featured } = filters;
+  async list(
+    filters: CollectionFilters,
+    queryable?: Queryable
+  ): Promise<{ rows: CollectionRecord[]; total: number }> {
+    const { season, featured, page, pageSize } = filters;
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
 
@@ -49,20 +52,29 @@ export class CollectionsRepository implements ICollectionsRepository {
       params.push(season);
       where += ` AND c.season = $${params.length}`;
     }
-    if (featured === 'true') {
-      where += ' AND c.is_featured = 1';
+    if (featured !== undefined) {
+      params.push(featured ? 1 : 0);
+      where += ` AND c.is_featured = $${params.length}`;
     }
+
+    const count = await this.q(queryable).query<{ total: number }>(
+      `SELECT COUNT(*)::int AS total FROM collections c ${where}`,
+      params
+    );
+    const limitIdx = params.length + 1;
+    const offsetIdx = params.length + 2;
 
     const collections = await this.q(queryable).query<CollectionRecord>(
       `SELECT c.*,
         (SELECT COUNT(*)::int FROM collection_products WHERE collection_id = c.id) as product_count
        FROM collections c
        ${where}
-       ORDER BY c.is_featured DESC, c.created_at DESC`,
-      params
+       ORDER BY c.is_featured DESC, c.created_at DESC, c.id DESC
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      [...params, pageSize, (page - 1) * pageSize]
     );
 
-    return collections.rows;
+    return { rows: collections.rows, total: Number(count.rows[0]?.total ?? 0) };
   }
 
   async findById(id: number | string, queryable?: Queryable): Promise<CollectionRecord | null> {
@@ -92,12 +104,7 @@ export class CollectionsRepository implements ICollectionsRepository {
     const res = await this.q(queryable).query<CollectionRecord>(
       `INSERT INTO collections (name, description, season, is_featured)
        VALUES ($1, $2, $3, $4) RETURNING *`,
-      [
-        data.name,
-        data.description || null,
-        data.season || null,
-        data.is_featured ? 1 : 0,
-      ]
+      [data.name, data.description || null, data.season || null, data.is_featured ? 1 : 0]
     );
     return res.rows[0];
   }
@@ -110,13 +117,7 @@ export class CollectionsRepository implements ICollectionsRepository {
     const res = await this.q(queryable).query<CollectionRecord>(
       `UPDATE collections SET name = $1, description = $2, season = $3, is_featured = $4, updated_at = NOW()
        WHERE id = $5 RETURNING *`,
-      [
-        data.name,
-        data.description || null,
-        data.season || null,
-        data.is_featured ? 1 : 0,
-        id,
-      ]
+      [data.name, data.description || null, data.season || null, data.is_featured ? 1 : 0, id]
     );
     return res.rows[0] || null;
   }
