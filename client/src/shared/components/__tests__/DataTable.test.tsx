@@ -106,6 +106,55 @@ describe('Unit 4: Enterprise DataTable Suite', () => {
       fireEvent.change(searchInput, { target: { value: 'test' } });
       expect(handleSearchChange).toHaveBeenCalledWith('test');
     });
+
+    it('retains rows while refetching and exposes an accessible status', () => {
+      renderWithProviders(
+        <DataTable<TestUser>
+          mode="server"
+          data={testData}
+          columns={columns}
+          isFetching
+          totalRows={3}
+          pageCount={1}
+        />
+      );
+
+      expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+      expect(screen.getByRole('status', { name: /loading results/i })).toBeInTheDocument();
+    });
+
+    it('shows a retryable error without removing stale rows', () => {
+      const retry = vi.fn();
+      renderWithProviders(
+        <DataTable<TestUser>
+          mode="server"
+          data={testData}
+          columns={columns}
+          error="Unable to load results"
+          onRetry={retry}
+        />
+      );
+
+      expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+      expect(retry).toHaveBeenCalledOnce();
+    });
+
+    it('distinguishes a filtered empty result from an empty dataset', () => {
+      renderWithProviders(
+        <DataTable<TestUser>
+          mode="server"
+          data={[]}
+          columns={columns}
+          search="missing"
+          filteredEmptyTitle="No matching users"
+          emptyTitle="No users yet"
+        />
+      );
+
+      expect(screen.getByText('No matching users')).toBeInTheDocument();
+      expect(screen.queryByText('No users yet')).not.toBeInTheDocument();
+    });
   });
 
   describe('Bulk Actions & Selection', () => {

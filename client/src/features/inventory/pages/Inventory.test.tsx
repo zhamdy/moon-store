@@ -134,13 +134,24 @@ describe('Inventory bulk operations', () => {
     );
   }, 20000);
 
-  it('reads the low-stock endpoint rather than filtering the list it already has', async () => {
+  it('requests the canonical server-side low-stock filter', async () => {
     const transport = createMemoryTransport(
       { products: [SILK_DRESS, CASHMERE_COAT], distributors: [] },
       {
         reads: {
           'products/categories': [],
-          'products/low-stock': [{ ...SILK_DRESS, deficit: 1 }],
+        },
+        meta: {
+          products: {
+            pagination: {
+              page: 1,
+              pageSize: 25,
+              totalItems: 2,
+              totalPages: 1,
+              hasNextPage: false,
+              hasPreviousPage: false,
+            },
+          },
         },
       }
     );
@@ -152,7 +163,16 @@ describe('Inventory bulk operations', () => {
 
     await waitFor(() =>
       expect(transport.calls()).toContainEqual(
-        expect.objectContaining({ method: 'GET', path: 'products/low-stock' })
+        expect.objectContaining({
+          method: 'GET',
+          path: 'products',
+          params: expect.objectContaining({
+            lowStock: true,
+            status: 'active',
+            page: 1,
+            pageSize: 25,
+          }),
+        })
       )
     );
     expect(await screen.findByText('Deficit')).toBeInTheDocument();
