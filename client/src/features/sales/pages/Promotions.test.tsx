@@ -89,7 +89,11 @@ describe('Promotions', () => {
 
     await waitFor(() =>
       expect(transport.calls()).toContainEqual(
-        expect.objectContaining({ method: 'GET', path: 'coupons', params: { search: 'WINTER' } })
+        expect.objectContaining({
+          method: 'GET',
+          path: 'coupons',
+          params: { page: 1, pageSize: 25, search: 'WINTER' },
+        })
       )
     );
   });
