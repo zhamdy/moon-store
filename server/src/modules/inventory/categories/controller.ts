@@ -2,12 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { categorySchema } from '../../../../validators/categorySchema';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { categoriesService } from './service';
+import { success } from '../../../http/responses';
+import { PublicError } from '../../../http/errors';
 
 export class CategoriesController {
   async getCategories(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await categoriesService.findAll();
-      res.json({ success: true, data });
+      res.json(success(data));
     } catch (err) {
       next(err);
     }
@@ -17,22 +19,21 @@ export class CategoriesController {
     try {
       const parsed = categorySchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const { name, code } = parsed.data;
       const category = await categoriesService.create({ name, code });
 
       logAuditFromReq(req, 'create', 'category', category.id, { name, code });
-      res.status(201).json({ success: true, data: category });
+      res.status(201).json(success(category));
     } catch (err: any) {
       if (
         err.code === '23505' ||
         err.message?.includes('UNIQUE') ||
         err.message?.includes('duplicate key')
       ) {
-        res.status(409).json({ success: false, error: 'Category code already exists' });
+        next(new PublicError('CONFLICT', 'Category code already exists'));
         return;
       }
       next(err);
@@ -43,26 +44,24 @@ export class CategoriesController {
     try {
       const parsed = categorySchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const { name, code } = parsed.data;
       const category = await categoriesService.update(req.params.id as string, { name, code });
 
       if (!category) {
-        res.status(404).json({ success: false, error: 'Category not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Category not found');
       }
 
-      res.json({ success: true, data: category });
+      res.json(success(category));
     } catch (err: any) {
       if (
         err.code === '23505' ||
         err.message?.includes('UNIQUE') ||
         err.message?.includes('duplicate key')
       ) {
-        res.status(409).json({ success: false, error: 'Category code already exists' });
+        next(new PublicError('CONFLICT', 'Category code already exists'));
         return;
       }
       next(err);
@@ -73,13 +72,12 @@ export class CategoriesController {
     try {
       const result = await categoriesService.delete(req.params.id as string);
       if (!result.success) {
-        const statusCode = result.error === 'Category not found' ? 404 : 400;
-        res.status(statusCode).json({ success: false, error: result.error });
-        return;
+        const code = result.error === 'Category not found' ? 'NOT_FOUND' : 'CONFLICT';
+        throw new PublicError(code, result.error);
       }
 
       logAuditFromReq(req, 'delete', 'category', req.params.id as string);
-      res.json({ success: true, data: { message: 'Category deleted' } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }
