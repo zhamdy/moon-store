@@ -59,10 +59,7 @@ export class GiftCardsService {
     return this.repo.findById(id);
   }
 
-  async create(
-    data: CreateGiftCardInput,
-    createdByUserId: number
-  ): Promise<Record<string, any>> {
+  async create(data: CreateGiftCardInput, createdByUserId: number): Promise<Record<string, any>> {
     const { code, initial_value, customer_id, expires_at } = data;
 
     let finalCode = code || generateGiftCardCode();
@@ -163,21 +160,24 @@ export class GiftCardsService {
   }
 
   async getTransactions(
-    id: number
-  ): Promise<{ card: Record<string, any> | null; transactions: Record<string, any>[] }> {
+    id: number,
+    page = 1,
+    pageSize = 25
+  ): Promise<{
+    card: Record<string, any> | null;
+    transactions: Record<string, any>[];
+    total: number;
+  }> {
     const card = await this.repo.findById(id);
     if (!card) {
-      return { card: null, transactions: [] };
+      return { card: null, transactions: [], total: 0 };
     }
 
-    const transactions = await this.repo.getTransactions(id);
-    return { card, transactions };
+    const transactions = await this.repo.getTransactions(id, page, pageSize);
+    return { card, transactions: transactions.rows, total: transactions.total };
   }
 
-  async updateStatus(
-    id: number | string,
-    status: string
-  ): Promise<Record<string, any> | null> {
+  async updateStatus(id: number | string, status: string): Promise<Record<string, any> | null> {
     return this.repo.updateStatus(id, status);
   }
 }

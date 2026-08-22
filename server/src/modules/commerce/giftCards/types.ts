@@ -1,7 +1,7 @@
 export interface GiftCardFilters {
-  page?: number;
-  limit?: number;
-  status?: string;
+  page: number;
+  pageSize: number;
+  status?: 'active' | 'cancelled' | 'redeemed';
   search?: string;
 }
 
@@ -9,7 +9,32 @@ export interface GiftCardListResult {
   rows: Record<string, any>[];
   total: number;
   page: number;
-  limit: number;
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const giftCardListQuerySchema = createListQuerySchema(['createdAt'] as const)
+  .extend({
+    status: z.enum(['active', 'cancelled', 'redeemed']).optional(),
+    search: z.string().trim().min(1).max(100).optional(),
+  })
+  .strict();
+const giftCardTransactionQuerySchema = createListQuerySchema(['createdAt'] as const).strict();
+
+export function parseGiftCardListQuery(query: unknown): GiftCardFilters {
+  const parsed = giftCardListQuerySchema.parse(query);
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    status: parsed.status,
+    search: parsed.search,
+  };
+}
+
+export function parseGiftCardTransactionQuery(query: unknown): { page: number; pageSize: number } {
+  const parsed = giftCardTransactionQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize };
 }
 
 export interface CreateGiftCardInput {

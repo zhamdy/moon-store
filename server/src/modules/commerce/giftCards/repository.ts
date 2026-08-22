@@ -30,7 +30,12 @@ export interface IGiftCardsRepository {
     },
     queryable?: Queryable
   ): Promise<Record<string, any>>;
-  getTransactions(id: number, queryable?: Queryable): Promise<Record<string, any>[]>;
+  getTransactions(
+    id: number,
+    page?: number,
+    pageSize?: number,
+    queryable?: Queryable
+  ): Promise<{ rows: Record<string, any>[]; total: number }>;
   updateStatus(
     id: number | string,
     status: string,
@@ -46,16 +51,14 @@ export class GiftCardsRepository implements IGiftCardsRepository {
   }
 
   async list(filters: GiftCardFilters, queryable?: Queryable): Promise<GiftCardListResult> {
-    const { page = 1, limit = 25, status, search } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
-    const offset = (pageNum - 1) * limitNum;
+    const { page, pageSize, status, search } = filters;
+    const offset = (page - 1) * pageSize;
 
     const where: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
 
-    if (status && status !== 'all') {
+    if (status) {
       where.push(`gc.status = $${paramIdx++}`);
       params.push(status);
     }
@@ -73,7 +76,7 @@ export class GiftCardsRepository implements IGiftCardsRepository {
     );
     const total = Number(countResult.rows[0]?.count || 0);
 
-    const queryParams = [...params, limitNum, offset];
+    const queryParams = [...params, pageSize, offset];
     const limitIdx = paramIdx++;
     const offsetIdx = paramIdx++;
 
@@ -87,7 +90,7 @@ export class GiftCardsRepository implements IGiftCardsRepository {
          FROM gift_card_transactions GROUP BY gift_card_id
        ) t_agg ON t_agg.gift_card_id = gc.id
        ${whereClause}
-       ORDER BY gc.created_at DESC
+       ORDER BY gc.created_at DESC, gc.id DESC
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );
@@ -95,8 +98,7 @@ export class GiftCardsRepository implements IGiftCardsRepository {
     return {
       rows: result.rows,
       total,
-      page: pageNum,
-      limit: limitNum,
+      page,
     };
   }
 
@@ -178,16 +180,25 @@ export class GiftCardsRepository implements IGiftCardsRepository {
     return txRes.rows[0];
   }
 
-  async getTransactions(id: number, queryable?: Queryable): Promise<Record<string, any>[]> {
+  async getTransactions(
+    id: number,
+    page = 1,
+    pageSize = 25,
+    queryable?: Queryable
+  ): Promise<{ rows: Record<string, any>[]; total: number }> {
+    const count = await this.q(queryable).query<{ total: number }>(
+      'SELECT COUNT(*)::int AS total FROM gift_card_transactions WHERE gift_card_id = $1',
+      [id]
+    );
     const result = await this.q(queryable).query(
       `SELECT t.*, u.name as performed_by_name
        FROM gift_card_transactions t
        LEFT JOIN users u ON t.performed_by = u.id
        WHERE t.gift_card_id = $1
-       ORDER BY t.created_at DESC`,
-      [id]
+       ORDER BY t.created_at DESC, t.id DESC LIMIT $2 OFFSET $3`,
+      [id, pageSize, (page - 1) * pageSize]
     );
-    return result.rows;
+    return { rows: result.rows, total: Number(count.rows[0]?.total ?? 0) };
   }
 
   async updateStatus(

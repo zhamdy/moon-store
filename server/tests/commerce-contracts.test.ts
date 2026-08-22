@@ -3,6 +3,10 @@ import {
   parseCustomerListQuery,
   parseCustomerSalesQuery,
 } from '../src/modules/commerce/customers/types';
+import {
+  parseGiftCardListQuery,
+  parseGiftCardTransactionQuery,
+} from '../src/modules/commerce/giftCards/types';
 
 describe('commerce collection contracts', () => {
   it('parses canonical customer collection queries', () => {
@@ -21,5 +25,18 @@ describe('commerce collection contracts', () => {
     expect(() => parseCustomerListQuery({ limit: '1000' })).toThrow();
     expect(() => parseCustomerSalesQuery({ limit: '100' })).toThrow();
     expect(() => parseCustomerListQuery({ search: 'x'.repeat(101) })).toThrow();
+  });
+
+  it('uses canonical pagination for gift cards and their transactions', () => {
+    expect(parseGiftCardListQuery({ page: '2', pageSize: '50', status: 'active' })).toMatchObject({
+      page: 2,
+      pageSize: 50,
+      status: 'active',
+    });
+    expect(parseGiftCardTransactionQuery({ page: '1', pageSize: '25' })).toEqual({
+      page: 1,
+      pageSize: 25,
+    });
+    expect(() => parseGiftCardListQuery({ limit: '200' })).toThrow();
   });
 });
