@@ -37,8 +37,8 @@ export class CustomersRepository implements ICustomersRepository {
     filters: CustomerFilters,
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number }> {
-    const { search, page = 1, limit = 50 } = filters;
-    const offset = (page - 1) * limit;
+    const { search, page, pageSize } = filters;
+    const offset = (page - 1) * pageSize;
 
     const where: string[] = [];
     const params: unknown[] = [];
@@ -60,8 +60,8 @@ export class CustomersRepository implements ICustomersRepository {
     const offsetIdx = params.length + 2;
 
     const rowsRes = await this.q(queryable).query(
-      `SELECT * FROM customers ${whereClause} ORDER BY name ASC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-      [...params, limit, offset]
+      `SELECT * FROM customers ${whereClause} ORDER BY name ASC, id ASC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      [...params, pageSize, offset]
     );
 
     return { rows: rowsRes.rows, total };
@@ -126,10 +126,10 @@ export class CustomersRepository implements ICustomersRepository {
   async getSales(
     id: number | string,
     page: number,
-    limit: number,
+    pageSize: number,
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number }> {
-    const offset = (page - 1) * limit;
+    const offset = (page - 1) * pageSize;
     const countRes = await this.q(queryable).query<{ count: string | number }>(
       'SELECT COUNT(*)::int as count FROM sales WHERE customer_id = $1',
       [id]
@@ -142,9 +142,9 @@ export class CustomersRepository implements ICustomersRepository {
        FROM sales s
        LEFT JOIN users u ON s.cashier_id = u.id
        WHERE s.customer_id = $1
-       ORDER BY s.created_at DESC
+       ORDER BY s.created_at DESC, s.id DESC
        LIMIT $2 OFFSET $3`,
-      [id, limit, offset]
+      [id, pageSize, offset]
     );
 
     return { rows: rowsRes.rows, total };

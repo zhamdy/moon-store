@@ -17,8 +17,10 @@ import { DataTable, ConfirmDialog, PageHeader } from '../../../shared';
 import CustomerDetail from '../components/CustomerDetail';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import type { Customer } from '../../../shared/types/index';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 
 const customersResource = resource<Customer>('customers');
 
@@ -38,8 +40,23 @@ export default function CustomersPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
 
-  const { data: customers, isLoading } = customersResource.useList({ limit: 1000 });
+  const {
+    data: customers,
+    meta,
+    isLoading,
+    isFetching,
+  } = customersResource.useList({
+    page,
+    pageSize,
+    search: debouncedSearch || undefined,
+  });
+  const paginationMeta = meta?.pagination as PaginationMeta | undefined;
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
 
   const {
     register,
@@ -197,9 +214,23 @@ export default function CustomersPage() {
       />
 
       <DataTable
+        mode="server"
         columns={columns}
         data={customers ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          setPage(1);
+        }}
+        pagination={pagination}
+        pageCount={paginationMeta?.totalPages ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          setPage(next.pageIndex + 1);
+          setPageSize(next.pageSize);
+        }}
         searchPlaceholder={t('customers.searchPlaceholder')}
       />
 
