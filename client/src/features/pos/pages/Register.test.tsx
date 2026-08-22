@@ -128,4 +128,24 @@ describe('Register', () => {
     );
     expect(await screen.findByText('Sarah', { exact: false })).toBeInTheDocument();
   });
+
+  it('requests register history pagination from the backend when opened', async () => {
+    const transport = createMemoryTransport(
+      {},
+      { reads: { 'register/current': OPEN_SESSION, 'register/history': [] } }
+    );
+
+    render(<RegisterPage />, { wrapper: wrapperFor(transport) });
+    fireEvent.click(await screen.findByRole('button', { name: 'Register History' }));
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'GET',
+          path: 'register/history',
+          params: { page: 1, pageSize: 25, sortBy: 'openedAt', sortOrder: 'desc' },
+        })
+      )
+    );
+  });
 });

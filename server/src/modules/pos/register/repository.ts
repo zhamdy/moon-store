@@ -1,11 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import {
-  SessionRow,
-  MovementRow,
-  SessionHistoryFilters,
-  SessionHistoryResult,
-} from './types';
+import { SessionRow, MovementRow, SessionHistoryFilters, SessionHistoryResult } from './types';
 
 export interface IRegisterRepository {
   findOpenSessionByCashierId(
@@ -26,11 +21,7 @@ export interface IRegisterRepository {
     saleId?: number | null,
     queryable?: Queryable
   ): Promise<MovementRow>;
-  updateSessionExpectedCash(
-    sessionId: number,
-    delta: number,
-    queryable?: Queryable
-  ): Promise<void>;
+  updateSessionExpectedCash(sessionId: number, delta: number, queryable?: Queryable): Promise<void>;
   closeSession(
     sessionId: number,
     countedCash: number,
@@ -38,10 +29,7 @@ export interface IRegisterRepository {
     notes?: string | null,
     queryable?: Queryable
   ): Promise<SessionRow>;
-  findSessionById(
-    sessionId: number | string,
-    queryable?: Queryable
-  ): Promise<SessionRow | null>;
+  findSessionById(sessionId: number | string, queryable?: Queryable): Promise<SessionRow | null>;
   findMovementsBySessionId(
     sessionId: number | string,
     queryable?: Queryable
@@ -50,10 +38,7 @@ export interface IRegisterRepository {
     filters: SessionHistoryFilters,
     queryable?: Queryable
   ): Promise<SessionHistoryResult>;
-  forceCloseSession(
-    sessionId: number | string,
-    queryable?: Queryable
-  ): Promise<SessionRow | null>;
+  forceCloseSession(sessionId: number | string, queryable?: Queryable): Promise<SessionRow | null>;
   updateSaleRegisterSession(
     saleId: number,
     sessionId: number,
@@ -180,16 +165,16 @@ export class RegisterRepository implements IRegisterRepository {
     filters: SessionHistoryFilters,
     queryable?: Queryable
   ): Promise<SessionHistoryResult> {
-    const { page = '1', limit = '25', cashier_id, from, to } = filters;
-    const offset = (Number(page) - 1) * Number(limit);
+    const { page, pageSize, cashierId, from, to, sortBy, sortOrder } = filters;
+    const offset = (page - 1) * pageSize;
 
     const where: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
 
-    if (cashier_id) {
+    if (cashierId) {
       where.push(`rs.cashier_id = $${paramIdx++}`);
-      params.push(cashier_id);
+      params.push(cashierId);
     }
     if (from) {
       where.push(`rs.opened_at >= $${paramIdx++}`);
@@ -207,7 +192,7 @@ export class RegisterRepository implements IRegisterRepository {
       params
     );
 
-    const queryParams = [...params, Number(limit), offset];
+    const queryParams = [...params, pageSize, offset];
     const limitIdx = paramIdx++;
     const offsetIdx = paramIdx++;
 
@@ -218,18 +203,14 @@ export class RegisterRepository implements IRegisterRepository {
        FROM register_sessions rs
        JOIN users u ON rs.cashier_id = u.id
        ${whereClause}
-       ORDER BY rs.opened_at DESC
+       ORDER BY ${sortBy === 'closedAt' ? 'rs.closed_at' : 'rs.opened_at'} ${sortOrder.toUpperCase()}, rs.id ${sortOrder.toUpperCase()}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );
 
     return {
       rows: result.rows as unknown as SessionRow[],
-      meta: {
-        total: Number(countResult.rows[0]?.total || 0),
-        page: Number(page),
-        limit: Number(limit),
-      },
+      total: Number(countResult.rows[0]?.total || 0),
     };
   }
 
@@ -252,10 +233,10 @@ export class RegisterRepository implements IRegisterRepository {
     sessionId: number,
     queryable?: Queryable
   ): Promise<void> {
-    await this.q(queryable).query(
-      `UPDATE sales SET register_session_id = $1 WHERE id = $2`,
-      [sessionId, saleId]
-    );
+    await this.q(queryable).query(`UPDATE sales SET register_session_id = $1 WHERE id = $2`, [
+      sessionId,
+      saleId,
+    ]);
   }
 }
 
