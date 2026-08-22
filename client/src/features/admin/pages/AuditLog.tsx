@@ -28,10 +28,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Input, Select, SelectItem, Button, Pagination } from '@heroui/react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Badge, type BadgeVariant, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useTransport } from '../../../shared/lib/transport';
 import type { User as UserRecord } from '../../../shared/types/index';
 import type { AuditEntry } from '../types';
 
@@ -122,6 +123,7 @@ function parseDetails(
 
 export default function AuditLog() {
   const { t } = useTranslation();
+  const transport = useTransport();
 
   const [actionFilter, setActionFilter] = useState('all');
   const [entityFilter, setEntityFilter] = useState('all');
@@ -152,10 +154,19 @@ export default function AuditLog() {
 
   const { data: actions = [] } = auditLog.useRead<string[]>('actions');
   const { data: entityTypes = [] } = auditLog.useRead<string[]>('entity-types');
-  const { data: users = [] } = useApiQuery<Pick<UserRecord, 'id' | 'name'>[]>(
-    ['users-list'],
-    'users'
-  );
+  const usersQuery = useInfiniteQuery({
+    queryKey: ['users', 'audit-filter'],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      transport.request<Pick<UserRecord, 'id' | 'name'>[]>({
+        method: 'GET',
+        path: 'users',
+        params: { page: pageParam, pageSize: 25, sortBy: 'name', sortOrder: 'asc' },
+      }),
+    getNextPageParam: (lastPage) =>
+      lastPage.meta?.pagination?.hasNextPage ? lastPage.meta.pagination.page + 1 : undefined,
+  });
+  const users = usersQuery.data?.pages.flatMap((response) => response.data) ?? [];
 
   const total = meta?.total ?? 0;
   const totalPages = Math.ceil(total / 50);
@@ -239,6 +250,17 @@ export default function AuditLog() {
               )),
             ]}
           </Select>
+          {usersQuery.hasNextPage && (
+            <Button
+              fullWidth
+              size="sm"
+              variant="light"
+              isLoading={usersQuery.isFetchingNextPage}
+              onPress={() => void usersQuery.fetchNextPage()}
+            >
+              Load more
+            </Button>
+          )}
         </div>
 
         <div className="w-36">
