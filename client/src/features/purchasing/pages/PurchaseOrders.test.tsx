@@ -54,7 +54,7 @@ describe('PurchaseOrders', () => {
       expect.objectContaining({
         method: 'GET',
         path: 'purchase-orders',
-        params: { limit: 200, status: undefined, distributor_id: undefined },
+        params: { page: 1, pageSize: 25, status: undefined, distributorId: undefined },
       })
     );
   });

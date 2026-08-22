@@ -14,6 +14,7 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Pagination,
 } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import PageHeader from '../../../shared/components/PageHeader';
@@ -45,7 +46,9 @@ interface PnLData {
 const categories = ['rent', 'salaries', 'utilities', 'marketing', 'supplies', 'other'] as const;
 const recurrences = ['one_time', 'daily', 'weekly', 'monthly', 'yearly'] as const;
 
-const expenses = resource<Expense, { total: number; total_amount: number }>('expenses');
+const expenses = resource<Expense, { pagination: { totalPages: number }; totalAmount: number }>(
+  'expenses'
+);
 
 const emptyExpense = () => ({
   category: 'other' as string,
@@ -68,8 +71,9 @@ export default function ExpensesPage() {
   const [tab, setTab] = useState<'list' | 'pnl'>('list');
   const editor = useEditorDialog(emptyExpense, expenseToForm);
   const form = editor.values;
+  const [page, setPage] = useState(1);
 
-  const { data: rows, meta } = expenses.useList({ limit: 100 });
+  const { data: rows, meta } = expenses.useList({ page, pageSize: 25 });
   const { data: pnl } = expenses.useRead<PnLData>('pnl', undefined, tab === 'pnl');
 
   const saver = expenses.useSave({
@@ -120,7 +124,7 @@ export default function ExpensesPage() {
                   {t('expenses.totalExpenses')}
                 </span>
                 <p className="text-2xl font-data font-bold text-danger mt-1">
-                  {formatCurrency(meta?.total_amount ?? 0)}
+                  {formatCurrency(meta?.totalAmount ?? 0)}
                 </p>
               </div>
               <Receipt className="h-8 w-8 text-primary/30" />
@@ -199,6 +203,16 @@ export default function ExpensesPage() {
               </tbody>
             </table>
           </div>
+          {(meta?.pagination.totalPages ?? 0) > 1 && (
+            <div className="flex justify-center">
+              <Pagination
+                page={page}
+                total={meta?.pagination.totalPages ?? 1}
+                onChange={setPage}
+                showControls
+              />
+            </div>
+          )}
         </>
       )}
 

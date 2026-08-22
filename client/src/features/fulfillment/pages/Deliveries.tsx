@@ -33,7 +33,8 @@ import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 import type { Customer } from '../../../shared/types/index';
 import type {
   DeliveryOrder,
@@ -67,24 +68,36 @@ export default function Deliveries() {
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
   const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null);
   const [timelineOrderNumber, setTimelineOrderNumber] = useState('');
+  const [timelinePage, setTimelinePage] = useState(1);
   const [companiesDialogOpen, setCompaniesDialogOpen] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
-  const { data: orders, isLoading } = deliveries.useList({
-    limit: 100,
+  const {
+    data: orders,
+    meta,
+    isLoading,
+    isFetching,
+  } = deliveries.useList({
+    page,
+    pageSize,
     status: statusFilter === 'All' ? undefined : statusFilter,
   });
+  const pageMeta = meta?.pagination as PaginationMeta | undefined;
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
 
   const { data: performance } = deliveries.useRead<DeliveryPerformance>(
     'analytics/performance',
     undefined,
     isAdmin
   );
-  const { data: statusHistory } = deliveries.useRead<DeliveryStatusHistoryEntry[]>(
-    `${timelineOrderId}/history`,
-    undefined,
-    timelineOrderId !== null && timelineDialogOpen
+  const { data: statusHistory, meta: historyMeta } = useApiQuery<DeliveryStatusHistoryEntry[]>(
+    ['delivery', 'history', timelineOrderId],
+    `delivery/${timelineOrderId}/history`,
+    { page: timelinePage, pageSize: 25 },
+    { enabled: timelineOrderId !== null && timelineDialogOpen }
   );
 
   const {
@@ -276,6 +289,7 @@ export default function Deliveries() {
               onPress={() => {
                 setTimelineOrderId(row.original.id);
                 setTimelineOrderNumber(row.original.order_number);
+                setTimelinePage(1);
                 setTimelineDialogOpen(true);
               }}
             >
@@ -410,7 +424,10 @@ export default function Deliveries() {
             variant={statusFilter === s ? 'solid' : 'bordered'}
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setStatusFilter(s)}
+            onClick={() => {
+              setStatusFilter(s);
+              setPage(1);
+            }}
           >
             {statusLabelMap[s] || s}
           </Button>
@@ -418,9 +435,18 @@ export default function Deliveries() {
       </div>
 
       <DataTable
+        mode="server"
         columns={columns}
         data={orders ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        pagination={pagination}
+        pageCount={pageMeta?.totalPages ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          setPage(next.pageIndex + 1);
+          setPageSize(next.pageSize);
+        }}
         searchPlaceholder={t('deliveries.searchPlaceholder')}
       />
 
@@ -430,6 +456,9 @@ export default function Deliveries() {
         onOpenChange={setTimelineDialogOpen}
         orderNumber={timelineOrderNumber}
         history={statusHistory}
+        page={timelinePage}
+        totalPages={(historyMeta?.pagination as PaginationMeta | undefined)?.totalPages ?? 0}
+        onPageChange={setTimelinePage}
       />
 
       {/* Manage Shipping Companies Dialog */}

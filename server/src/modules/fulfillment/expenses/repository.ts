@@ -33,10 +33,8 @@ export class ExpensesRepository implements IExpensesRepository {
   }
 
   async list(filters: ExpenseFilters, queryable?: Queryable): Promise<ExpenseListResult> {
-    const { page = 1, limit = 25, category, from, to } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
-    const offset = (pageNum - 1) * limitNum;
+    const { page, pageSize, category, from, to } = filters;
+    const offset = (page - 1) * pageSize;
 
     const where: string[] = ['1=1'];
     const params: unknown[] = [];
@@ -66,7 +64,7 @@ export class ExpensesRepository implements IExpensesRepository {
       params
     );
 
-    const queryParams = [...params, limitNum, offset];
+    const queryParams = [...params, pageSize, offset];
     const limitIdx = paramIdx++;
     const offsetIdx = paramIdx++;
 

@@ -37,16 +37,8 @@ export interface IPurchaseOrdersRepository {
     actualReceive: number,
     queryable: Queryable
   ): Promise<void>;
-  updateVariantStock(
-    variantId: number,
-    actualReceive: number,
-    queryable: Queryable
-  ): Promise<void>;
-  updateProductStock(
-    productId: number,
-    actualReceive: number,
-    queryable: Queryable
-  ): Promise<void>;
+  updateVariantStock(variantId: number, actualReceive: number, queryable: Queryable): Promise<void>;
+  updateProductStock(productId: number, actualReceive: number, queryable: Queryable): Promise<void>;
   getProductStock(productId: number, queryable: Queryable): Promise<number>;
   createStockAdjustment(
     productId: number,
@@ -74,18 +66,16 @@ export class PurchaseOrdersRepository implements IPurchaseOrdersRepository {
     filters: PurchaseOrderFilters,
     queryable?: Queryable
   ): Promise<PurchaseOrderListResult> {
-    const { page = 1, limit = 25, distributor_id, status } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
+    const { page: pageNum, pageSize: limitNum, distributorId, status } = filters;
     const offset = (pageNum - 1) * limitNum;
 
     const where: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
 
-    if (distributor_id) {
+    if (distributorId) {
       where.push(`po.distributor_id = $${paramIdx++}`);
-      params.push(Number(distributor_id));
+      params.push(distributorId);
     }
     if (status && status !== 'all') {
       where.push(`po.status = $${paramIdx++}`);

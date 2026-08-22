@@ -11,7 +11,8 @@ import { resource } from '../../../shared/lib/resource';
 import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 import type { Distributor } from '../../../shared/types/index';
 import type {
   LowStockSuggestion,
@@ -48,12 +49,22 @@ export default function PurchaseOrders() {
   // Delete/Cancel confirm
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [cancelId, setCancelId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  const { data: orders, isLoading } = purchaseOrders.useList({
-    limit: 200,
+  const {
+    data: orders,
+    meta,
+    isLoading,
+    isFetching,
+  } = purchaseOrders.useList({
+    page,
+    pageSize,
     status: statusFilter === 'All' ? undefined : statusFilter,
-    distributor_id: distributorFilter === 'all' ? undefined : distributorFilter,
+    distributorId: distributorFilter === 'all' ? undefined : distributorFilter,
   });
+  const pageMeta = meta?.pagination as PaginationMeta | undefined;
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
 
   const { data: detail } = purchaseOrderDetails.useOne(detailOpen ? detailId : null);
   const { data: distributors } = distributorsResource.useList();
@@ -338,7 +349,10 @@ export default function PurchaseOrders() {
             size="sm"
             variant="bordered"
             selectedKeys={[statusFilter]}
-            onChange={(e) => setStatusFilter(e.target.value || 'All')}
+            onChange={(e) => {
+              setStatusFilter(e.target.value || 'All');
+              setPage(1);
+            }}
           >
             <SelectItem key="All" textValue={t('po.allStatuses')}>
               {t('po.allStatuses')}
@@ -367,7 +381,10 @@ export default function PurchaseOrders() {
             size="sm"
             variant="bordered"
             selectedKeys={[distributorFilter]}
-            onChange={(e) => setDistributorFilter(e.target.value || 'all')}
+            onChange={(e) => {
+              setDistributorFilter(e.target.value || 'all');
+              setPage(1);
+            }}
           >
             <SelectItem key="all" textValue={t('po.allDistributors')}>
               {t('po.allDistributors')}
@@ -382,9 +399,18 @@ export default function PurchaseOrders() {
       </div>
 
       <DataTable
+        mode="server"
         columns={columns}
         data={orders ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        pagination={pagination}
+        pageCount={pageMeta?.totalPages ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          setPage(next.pageIndex + 1);
+          setPageSize(next.pageSize);
+        }}
         searchPlaceholder={t('common.search')}
       />
 

@@ -72,7 +72,7 @@ describe('Deliveries', () => {
       expect.objectContaining({
         method: 'GET',
         path: 'delivery',
-        params: { limit: 100, status: undefined },
+        params: { page: 1, pageSize: 25, status: undefined },
       })
     );
   });

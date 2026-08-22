@@ -1,5 +1,5 @@
 import { History } from 'lucide-react';
-import { Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
+import { Modal, ModalContent, ModalHeader, ModalBody, Pagination } from '@heroui/react';
 import StatusBadge from '../../../../shared/components/StatusBadge';
 import { formatDateTime } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
@@ -11,6 +11,9 @@ interface DeliveryTimelineDialogProps {
   onOpenChange: (open: boolean) => void;
   orderNumber: string;
   history: DeliveryStatusHistoryEntry[] | undefined;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }
 
 export default function DeliveryTimelineDialog({
@@ -18,6 +21,9 @@ export default function DeliveryTimelineDialog({
   onOpenChange,
   orderNumber,
   history,
+  page,
+  totalPages,
+  onPageChange,
 }: DeliveryTimelineDialogProps) {
   const { t } = useTranslation();
 
@@ -88,6 +94,9 @@ export default function DeliveryTimelineDialog({
                 <p className="text-sm text-muted-foreground py-4 text-center">
                   {t('common.noResults')}
                 </p>
+              )}
+              {totalPages > 1 && (
+                <Pagination page={page} total={totalPages} onChange={onPageChange} showControls />
               )}
             </ModalBody>
           </div>
