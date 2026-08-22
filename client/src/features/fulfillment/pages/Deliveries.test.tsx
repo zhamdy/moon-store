@@ -121,4 +121,23 @@ describe('Deliveries', () => {
       )
     );
   });
+
+  it('does not request the product catalog until an admin opens the order form', async () => {
+    const transport = transportWithOrders();
+    render(<Deliveries />, { wrapper: wrapperFor(transport) });
+    await screen.findByText('DEL-0007');
+
+    expect(transport.calls().some((call) => call.path === 'products')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'New Order' }));
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'GET',
+          path: 'products',
+          params: expect.objectContaining({ page: 1, pageSize: 25 }),
+        })
+      )
+    );
+  });
 });

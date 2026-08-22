@@ -8,10 +8,11 @@ import PODetailDialog from '../components/purchase-orders/PODetailDialog';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useTransport } from '../../../shared/lib/transport/index';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { Distributor, Product } from '../../../shared/types/index';
+import type { Distributor } from '../../../shared/types/index';
 import type {
   LowStockSuggestion,
   PurchaseOrder,
@@ -36,6 +37,8 @@ export default function PurchaseOrders() {
   const [autoLineItems, setAutoLineItems] = useState<PurchaseOrderLine[] | undefined>(undefined);
   // Key forces POFormDialog remount when auto-generate populates initial data
   const [formKey, setFormKey] = useState(0);
+  const [productSearch, setProductSearch] = useState('');
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
   // Detail/Receive dialog
   const [detailOpen, setDetailOpen] = useState(false);
@@ -55,12 +58,16 @@ export default function PurchaseOrders() {
   const { data: detail } = purchaseOrderDetails.useOne(detailOpen ? detailId : null);
   const { data: distributors } = distributorsResource.useList();
 
-  const { data: products } = useApiQuery<Product[]>(
-    ['products-all'],
-    'products',
-    { limit: 500 },
-    { enabled: createOpen }
-  );
+  const {
+    products,
+    hasNextPage: hasMoreProducts,
+    fetchNextPage: loadMoreProducts,
+    isFetchingNextPage: isLoadingMoreProducts,
+  } = useProductCatalog({
+    search: debouncedProductSearch,
+    enabled: createOpen,
+    selectedIds: autoLineItems?.map((item) => item.product_id) ?? [],
+  });
 
   const createOrder = purchaseOrders.useSave({
     message: t('po.created'),
@@ -122,6 +129,7 @@ export default function PurchaseOrders() {
     setAutoDistributorId('');
     setAutoLineItems(undefined);
     setFormKey((k) => k + 1);
+    setProductSearch('');
     setCreateOpen(true);
   };
 
@@ -387,6 +395,11 @@ export default function PurchaseOrders() {
         onOpenChange={setCreateOpen}
         distributors={distributors}
         products={products}
+        productSearch={productSearch}
+        onProductSearchChange={setProductSearch}
+        hasMoreProducts={hasMoreProducts}
+        onLoadMoreProducts={() => void loadMoreProducts()}
+        isLoadingMoreProducts={isLoadingMoreProducts}
         onSubmit={(data) => createOrder.save(data)}
         isSubmitting={createOrder.isSaving}
         initialDistributorId={autoDistributorId}

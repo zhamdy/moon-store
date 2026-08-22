@@ -8,6 +8,15 @@ import { useSettingsStore } from '../../../shared/store/settingsStore';
 import type { PurchaseOrder } from '../types';
 import PurchaseOrders from './PurchaseOrders';
 
+const ACTIVE_PRODUCT = {
+  id: 5,
+  name: 'Silk Scarf',
+  sku: 'SLK-01',
+  price: 500,
+  cost_price: 450,
+  status: 'active',
+} as const;
+
 const DRAFT_ORDER: PurchaseOrder = {
   id: 3,
   po_number: 'PO-0003',
@@ -109,6 +118,32 @@ describe('PurchaseOrders', () => {
         path: 'purchase-orders/3/receive',
         body: { items: [{ item_id: 11, quantity: 3 }] },
       })
+    );
+  });
+
+  it('searches products server-side only while the create dialog is open', async () => {
+    const transport = createMemoryTransport({
+      'purchase-orders': [],
+      distributors: [{ id: 1, name: 'Nile Textiles' }],
+      products: [ACTIVE_PRODUCT],
+    });
+
+    render(<PurchaseOrders />, { wrapper: wrapperFor(transport) });
+    await screen.findByRole('heading', { name: 'Purchase Orders' });
+    expect(transport.calls().some((call) => call.path === 'products')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create PO' }));
+    const search = await screen.findByRole('textbox', { name: 'Search products' });
+    fireEvent.change(search, { target: { value: 'silk' } });
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'GET',
+          path: 'products',
+          params: expect.objectContaining({ page: 1, pageSize: 25, search: 'silk' }),
+        })
+      )
     );
   });
 });

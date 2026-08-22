@@ -46,6 +46,11 @@ interface DeliveryFormDialogProps {
   onOpenChange: (open: boolean) => void;
   editingOrder: DeliveryOrder | null;
   products: Product[] | undefined;
+  productSearch: string;
+  onProductSearchChange: (value: string) => void;
+  hasMoreProducts?: boolean;
+  onLoadMoreProducts: () => void;
+  isLoadingMoreProducts: boolean;
   customers: Customer[] | undefined;
   shippingCompanies: ShippingCompany[] | undefined;
   onSubmit: (payload: DeliveryPayload) => void;
@@ -60,6 +65,11 @@ export default function DeliveryFormDialog({
   onOpenChange,
   editingOrder,
   products,
+  productSearch,
+  onProductSearchChange,
+  hasMoreProducts,
+  onLoadMoreProducts,
+  isLoadingMoreProducts,
   customers,
   shippingCompanies,
   onSubmit,
@@ -174,7 +184,10 @@ export default function DeliveryFormDialog({
   return (
     <Modal
       isOpen={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onProductSearchChange('');
+        onOpenChange(nextOpen);
+      }}
       backdrop="blur"
       placement="center"
       size="2xl"
@@ -383,6 +396,14 @@ export default function DeliveryFormDialog({
                 {errors.items?.root && (
                   <p className="text-xs text-danger">{errors.items.root.message}</p>
                 )}
+                <Input
+                  aria-label="Search products"
+                  placeholder={t('common.search')}
+                  size="sm"
+                  variant="bordered"
+                  value={productSearch}
+                  onValueChange={onProductSearchChange}
+                />
                 <div className="space-y-2">
                   {fields.map((field, index) => (
                     <div key={field.id} className="flex gap-2 items-center">
@@ -392,11 +413,13 @@ export default function DeliveryFormDialog({
                           className="flex h-9 w-full rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-data text-foreground"
                         >
                           <option value="">{t('deliveries.selectProduct')}</option>
-                          {products?.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} ({p.stock} in stock)
-                            </option>
-                          ))}
+                          {products
+                            ?.filter((p) => p.status === 'active')
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({p.stock} in stock)
+                              </option>
+                            ))}
                         </select>
                       </div>
                       <div className="w-24">
@@ -423,6 +446,19 @@ export default function DeliveryFormDialog({
                     </div>
                   ))}
                 </div>
+                {hasMoreProducts && (
+                  <Button
+                    fullWidth
+                    type="button"
+                    variant="bordered"
+                    size="sm"
+                    onPress={onLoadMoreProducts}
+                    isLoading={isLoadingMoreProducts}
+                    aria-label="Load more products"
+                  >
+                    Load more
+                  </Button>
+                )}
               </div>
             </ModalBody>
             <ModalFooter className="border-t border-border/50">

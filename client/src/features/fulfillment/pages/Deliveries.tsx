@@ -30,9 +30,11 @@ import { useAuthStore } from '../../auth';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import type { Customer, Product } from '../../../shared/types/index';
+import type { Customer } from '../../../shared/types/index';
 import type {
   DeliveryOrder,
   DeliveryPayload,
@@ -66,6 +68,8 @@ export default function Deliveries() {
   const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null);
   const [timelineOrderNumber, setTimelineOrderNumber] = useState('');
   const [companiesDialogOpen, setCompaniesDialogOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
   const { data: orders, isLoading } = deliveries.useList({
     limit: 100,
@@ -83,9 +87,12 @@ export default function Deliveries() {
     timelineOrderId !== null && timelineDialogOpen
   );
 
-  const { data: products } = useApiQuery<Product[]>(['products', { limit: 200 }], 'products', {
-    limit: 200,
-  });
+  const {
+    products,
+    hasNextPage: hasMoreProducts,
+    fetchNextPage: loadMoreProducts,
+    isFetchingNextPage: isLoadingMoreProducts,
+  } = useProductCatalog({ search: debouncedProductSearch, enabled: isAdmin && dialogOpen });
   const { data: customers } = useApiQuery<Customer[]>(
     ['customers', { search: customerSearch }],
     'customers',
@@ -116,6 +123,7 @@ export default function Deliveries() {
 
   const openCreateDialog = () => {
     setEditingOrder(null);
+    setProductSearch('');
     setDialogOpen(true);
   };
 
@@ -437,6 +445,11 @@ export default function Deliveries() {
         onOpenChange={setDialogOpen}
         editingOrder={editingOrder}
         products={products}
+        productSearch={productSearch}
+        onProductSearchChange={setProductSearch}
+        hasMoreProducts={hasMoreProducts}
+        onLoadMoreProducts={() => void loadMoreProducts()}
+        isLoadingMoreProducts={isLoadingMoreProducts}
         customers={customers}
         shippingCompanies={shippingCompanies}
         onSubmit={(payload: DeliveryPayload) =>
