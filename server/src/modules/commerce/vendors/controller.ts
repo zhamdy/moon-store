@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { vendorsService } from './service';
-import { parseVendorListQuery } from './types';
+import { parseVendorListQuery, parseVendorPayoutQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
@@ -72,8 +72,13 @@ export class VendorsController {
   async getPayouts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const payouts = await vendorsService.getPayouts(id as string);
-      res.json(success(payouts));
+      const query = parseVendorPayoutQuery(req.query);
+      const result = await vendorsService.getPayouts(id as string, query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }

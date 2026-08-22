@@ -11,6 +11,7 @@ import { parseCouponListQuery } from '../src/modules/commerce/coupons/types';
 import { parseFeedbackListQuery } from '../src/modules/commerce/feedback/types';
 import { parseOnlineOrderListQuery } from '../src/modules/commerce/onlineOrders/types';
 import { parseVendorListQuery } from '../src/modules/commerce/vendors/types';
+import { parseVendorPayoutQuery } from '../src/modules/commerce/vendors/types';
 import { parseWarrantyListQuery } from '../src/modules/commerce/warranty/types';
 
 describe('commerce collection contracts', () => {
@@ -76,6 +77,11 @@ describe('commerce collection contracts', () => {
     });
     expect(() => parseOnlineOrderListQuery({ limit: '20' })).toThrow();
     expect(() => parseVendorListQuery({ limit: '20' })).toThrow();
+    expect(parseVendorPayoutQuery({ page: '2', pageSize: '25' })).toEqual({
+      page: 2,
+      pageSize: 25,
+    });
+    expect(() => parseVendorPayoutQuery({ limit: '20' })).toThrow();
     expect(() => parseWarrantyListQuery({ limit: '20' })).toThrow();
   });
 });

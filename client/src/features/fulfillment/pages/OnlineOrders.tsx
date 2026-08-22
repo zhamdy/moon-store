@@ -131,7 +131,10 @@ export default function OnlineOrdersPage() {
             variant={statusFilter === s ? 'solid' : 'bordered'}
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setStatusFilter(s)}
+            onClick={() => {
+              setStatusFilter(s);
+              setPage(1);
+            }}
           >
             {s ? t(`onlineOrders.${s}`) : t('common.all')}
           </Button>
@@ -146,6 +149,7 @@ export default function OnlineOrdersPage() {
         isFetching={isFetching}
         pagination={pagination}
         pageCount={pageMeta?.totalPages ?? 0}
+        totalRows={pageMeta?.totalItems ?? 0}
         onPaginationChange={(updater) => {
           const next = typeof updater === 'function' ? updater(pagination) : updater;
           setPage(next.pageIndex + 1);

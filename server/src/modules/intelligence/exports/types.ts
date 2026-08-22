@@ -7,14 +7,8 @@ import { z } from 'zod';
 
 const exportSalesQuerySchema = z
   .object({
-    from: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/)
-      .optional(),
-    to: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/)
-      .optional(),
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
   })
   .strict();
 

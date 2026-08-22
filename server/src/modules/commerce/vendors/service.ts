@@ -46,8 +46,8 @@ export class VendorsService {
     return this.repo.update(id, data);
   }
 
-  async getPayouts(vendorId: number | string): Promise<VendorPayoutRecord[]> {
-    return this.repo.getPayouts(vendorId);
+  async getPayouts(vendorId: number | string, filters: import('./types').VendorPayoutFilters) {
+    return this.repo.getPayouts(vendorId, filters);
   }
 
   async createPayout(

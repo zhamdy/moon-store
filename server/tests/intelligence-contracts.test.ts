@@ -45,5 +45,6 @@ describe('intelligence collection contracts', () => {
     expect(() => parseAiListQuery({ limit: '100' })).toThrow();
     expect(() => parseNotificationListQuery({ unread_only: 'true' })).toThrow();
     expect(() => parseSalesReportQuery({ limit: '50' })).toThrow();
+    expect(() => parseSalesReportQuery({ from: '2026-99-99' })).toThrow();
   });
 });

@@ -265,6 +265,7 @@ export default function GiftCards() {
         }}
         pagination={tablePagination}
         pageCount={listPagination?.totalPages ?? 0}
+        totalRows={listPagination?.totalItems ?? 0}
         onPaginationChange={(updater) => {
           const next = typeof updater === 'function' ? updater(tablePagination) : updater;
           setPage(next.pageIndex + 1);

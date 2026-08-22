@@ -67,3 +67,13 @@ export function parseVendorListQuery(query: unknown): VendorFilters {
     search: parsed.search,
   };
 }
+
+export interface VendorPayoutFilters {
+  page: number;
+  pageSize: number;
+}
+const vendorPayoutQuerySchema = createListQuerySchema(['createdAt'] as const).strict();
+export function parseVendorPayoutQuery(query: unknown): VendorPayoutFilters {
+  const parsed = vendorPayoutQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize };
+}

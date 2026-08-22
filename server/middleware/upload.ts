@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
+import { errorResponse } from '../src/http/errors';
 
 function validateMagicBytes(buffer: Buffer): string | null {
   // JPEG: starts with FF D8 FF
@@ -98,7 +99,9 @@ export function validateMagic(req: Request, res: Response, next: NextFunction): 
       fs.unlinkSync(filePath);
       res
         .status(400)
-        .json({ success: false, error: 'File content does not match a supported image format' });
+        .json(
+          errorResponse('VALIDATION_ERROR', 'File content does not match a supported image format')
+        );
       return;
     }
 
@@ -112,17 +115,21 @@ export function validateMagic(req: Request, res: Response, next: NextFunction): 
 
     if (extToMime[ext] && extToMime[ext] !== detectedType) {
       fs.unlinkSync(filePath);
-      res.status(400).json({
-        success: false,
-        error: `File extension (${ext}) does not match actual content (${detectedType})`,
-      });
+      res
+        .status(400)
+        .json(
+          errorResponse(
+            'VALIDATION_ERROR',
+            `File extension (${ext}) does not match actual content (${detectedType})`
+          )
+        );
       return;
     }
 
     next();
   } catch {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    res.status(500).json({ success: false, error: 'Failed to validate uploaded file' });
+    res.status(500).json(errorResponse('INTERNAL_ERROR'));
   }
 }
 
@@ -130,7 +137,7 @@ export function validateMagic(req: Request, res: Response, next: NextFunction): 
 export const uploadRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { success: false, error: 'Too many uploads. Please try again later.' },
+  message: errorResponse('RATE_LIMITED', 'Too many uploads. Please try again later.'),
   standardHeaders: true,
   legacyHeaders: false,
 });

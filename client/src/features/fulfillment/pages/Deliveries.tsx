@@ -442,6 +442,7 @@ export default function Deliveries() {
         isFetching={isFetching}
         pagination={pagination}
         pageCount={pageMeta?.totalPages ?? 0}
+        totalRows={pageMeta?.totalItems ?? 0}
         onPaginationChange={(updater) => {
           const next = typeof updater === 'function' ? updater(pagination) : updater;
           setPage(next.pageIndex + 1);

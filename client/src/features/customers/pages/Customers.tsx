@@ -226,6 +226,7 @@ export default function CustomersPage() {
         }}
         pagination={pagination}
         pageCount={paginationMeta?.totalPages ?? 0}
+        totalRows={paginationMeta?.totalItems ?? 0}
         onPaginationChange={(updater) => {
           const next = typeof updater === 'function' ? updater(pagination) : updater;
           setPage(next.pageIndex + 1);

@@ -44,6 +44,7 @@ export function DataTable<TData>({
   ...props
 }: DataTableProps<TData>): React.JSX.Element {
   const isServer = props.mode === 'server';
+  const showSearch = enableSearch && (!isServer || Boolean(props.onSearchChange));
   const { t } = useTranslation();
 
   // Internal client state
@@ -98,6 +99,7 @@ export function DataTable<TData>({
     manualPagination: isServer,
     manualSorting: isServer,
     manualFiltering: isServer,
+    enableSorting: !isServer || Boolean(props.onSortingChange),
     pageCount: isServer ? props.pageCount : undefined,
     getCoreRowModel: getCoreRowModel(),
     ...(!isServer
@@ -112,7 +114,7 @@ export function DataTable<TData>({
   if (isLoading) {
     return (
       <div className={`space-y-3 ${className}`} aria-busy="true">
-        {enableSearch && <Skeleton className="h-10 w-full sm:w-72 rounded-lg" />}
+        {showSearch && <Skeleton className="h-10 w-full sm:w-72 rounded-lg" />}
         <Skeleton className="h-10 w-full rounded-lg" />
         {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-12 w-full rounded-lg" />
@@ -155,7 +157,7 @@ export function DataTable<TData>({
       </div>
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-wrap">
-        {enableSearch && (
+        {showSearch && (
           <div className="w-full sm:w-72 relative">
             <div className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
               <Search className="h-4 w-4" aria-hidden="true" />

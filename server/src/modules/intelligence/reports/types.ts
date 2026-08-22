@@ -13,14 +13,8 @@ import { createListQuerySchema } from '../../../http/pagination';
 
 const salesReportQuerySchema = createListQuerySchema(['createdAt', 'total'] as const)
   .extend({
-    from: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/)
-      .optional(),
-    to: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/)
-      .optional(),
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
     groupBy: z.enum(['day', 'month', 'hour']).default('day'),
     cashierId: z.string().regex(/^\d+$/).transform(Number).optional(),
     paymentMethod: z.string().trim().min(1).max(30).optional(),
@@ -124,14 +118,8 @@ const inventoryReportQuerySchema = z
   .strict();
 const profitLossQuerySchema = z
   .object({
-    from: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/)
-      .optional(),
-    to: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}(?:T.*)?$/)
-      .optional(),
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
   })
   .strict();
 

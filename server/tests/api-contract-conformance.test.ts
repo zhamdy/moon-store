@@ -14,6 +14,11 @@ describe('API contract conformance guardrails', () => {
     const controllers = readdirSync(modulesRoot, { recursive: true })
       .filter((path) => path.toString().endsWith('controller.ts'))
       .map((path) => readFileSync(resolve(modulesRoot, path.toString()), 'utf8'))
+      .concat(
+        readdirSync(resolve(root, 'server/middleware'))
+          .filter((path) => path.endsWith('.ts'))
+          .map((path) => readFileSync(resolve(root, 'server/middleware', path), 'utf8'))
+      )
       .join('\n');
     expect(controllers).not.toContain('success: true');
     expect(controllers).not.toContain('success: false');

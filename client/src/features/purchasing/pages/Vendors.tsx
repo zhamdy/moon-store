@@ -191,7 +191,10 @@ export default function VendorsPage() {
             variant={statusFilter === s ? 'solid' : 'bordered'}
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setStatusFilter(s)}
+            onClick={() => {
+              setStatusFilter(s);
+              setPage(1);
+            }}
           >
             {s ? t(`vendors.${s}`) : t('common.all')}
           </Button>
