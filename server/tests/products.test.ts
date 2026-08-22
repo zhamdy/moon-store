@@ -6,6 +6,7 @@ import {
 } from '../src/modules/inventory/products/types';
 import { productsRepository } from '../src/modules/inventory/products/repository';
 import { productsService } from '../src/modules/inventory/products/service';
+import productsRouter from '../src/modules/inventory/products/routes';
 
 function response() {
   const res: any = {};
@@ -16,15 +17,22 @@ function response() {
 }
 
 describe('product collection query contract', () => {
-  it('normalizes canonical defaults and temporary legacy limit', () => {
+  it('normalizes canonical defaults and rejects retired compatibility aliases', () => {
     expect(parseProductListQuery({})).toMatchObject({
       page: 1,
       pageSize: 25,
       sortBy: 'name',
       sortOrder: 'asc',
     });
-    expect(parseProductListQuery({ limit: '500' }).pageSize).toBe(500);
     expect(() => parseProductListQuery({ pageSize: '200' })).toThrow();
+    for (const query of [
+      { limit: '25' },
+      { sort: 'name' },
+      { order: 'asc' },
+      { category_id: '1' },
+    ]) {
+      expect(() => parseProductListQuery(query)).toThrow();
+    }
   });
 
   it.each([
@@ -49,6 +57,15 @@ describe('product collection query contract', () => {
   it('preserves absent-status active default and explicit all', () => {
     expect(parseProductListQuery({}).status).toBeUndefined();
     expect(parseProductListQuery({ status: 'all' }).status).toBe('all');
+  });
+});
+
+describe('product routes', () => {
+  it('does not expose the retired low-stock compatibility route', () => {
+    const paths = (
+      productsRouter as unknown as { stack: Array<{ route?: { path: string } }> }
+    ).stack.map((layer) => layer.route?.path);
+    expect(paths).not.toContain('/low-stock');
   });
 });
 

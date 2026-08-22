@@ -101,20 +101,6 @@ export class ProductsController {
     }
   }
 
-  async getLowStock(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const query = parseProductListQuery({ ...req.query, lowStock: 'true' });
-      const result = await productsService.list(query);
-      res.json(
-        success(result.rows, {
-          pagination: paginationMeta(query.page, query.pageSize, result.total),
-        })
-      );
-    } catch (err) {
-      next(err);
-    }
-  }
-
   async getByBarcode(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const barcode = req.params.barcode as string;

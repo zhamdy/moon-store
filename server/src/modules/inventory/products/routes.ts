@@ -18,9 +18,6 @@ router.get('/generate-sku/:categoryId', verifyToken, requireRole('Admin'), (req,
 router.get('/generate-barcode', verifyToken, requireRole('Admin'), (req, res, next) =>
   productsController.generateBarcode(req, res, next)
 );
-router.get('/low-stock', verifyToken, requireRole('Admin'), (req, res, next) =>
-  productsController.getLowStock(req, res, next)
-);
 router.get('/barcode/:barcode', verifyToken, (req, res, next) =>
   productsController.getByBarcode(req, res, next)
 );

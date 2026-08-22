@@ -64,7 +64,6 @@ export interface ProductFilters {
   pageSize: number;
   sortBy: 'name' | 'price' | 'stock' | 'category' | 'createdAt';
   sortOrder: 'asc' | 'desc';
-  legacyQuery?: boolean;
 }
 
 const integer = (field: string) =>
@@ -87,27 +86,9 @@ const rawListQuery = z
       .enum(['true', 'false'])
       .transform((value) => value === 'true')
       .optional(),
-    limit: integer('limit').pipe(z.number().max(500)).optional(),
-    sort: z.enum(['name', 'price', 'stock', 'category', 'created_at']).optional(),
-    order: z.enum(['asc', 'desc']).optional(),
-    category_id: integer('category_id').optional(),
   })
   .strict()
   .superRefine((query, ctx) => {
-    for (const [canonical, legacy] of [
-      ['pageSize', 'limit'],
-      ['sortBy', 'sort'],
-      ['sortOrder', 'order'],
-      ['categoryId', 'category_id'],
-    ] as const) {
-      if (query[canonical] !== undefined && query[legacy] !== undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [canonical],
-          message: `Cannot combine ${canonical} with ${legacy}`,
-        });
-      }
-    }
     if (query.lowStock && query.status !== undefined && query.status !== 'active') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -119,21 +100,15 @@ const rawListQuery = z
 
 export function parseProductListQuery(input: unknown): ProductFilters {
   const query = rawListQuery.parse(input);
-  const legacyQuery =
-    query.limit !== undefined ||
-    query.sort !== undefined ||
-    query.order !== undefined ||
-    query.category_id !== undefined;
   return {
     page: query.page ?? 1,
-    pageSize: query.pageSize ?? query.limit ?? 25,
+    pageSize: query.pageSize ?? 25,
     search: query.search || undefined,
-    sortBy: query.sortBy ?? (query.sort === 'created_at' ? 'createdAt' : query.sort) ?? 'name',
-    sortOrder: query.sortOrder ?? query.order ?? 'asc',
-    categoryId: query.categoryId ?? query.category_id,
+    sortBy: query.sortBy ?? 'name',
+    sortOrder: query.sortOrder ?? 'asc',
+    categoryId: query.categoryId,
     status: query.status,
     lowStock: query.lowStock,
-    ...(legacyQuery ? { legacyQuery: true } : {}),
   };
 }
 
