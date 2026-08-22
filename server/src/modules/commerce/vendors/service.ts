@@ -18,12 +18,12 @@ export class VendorsService {
     filters: VendorFilters
   ): Promise<{ rows: VendorRecord[]; total: number; page: number; limit: number }> {
     const pageNum = filters.page ? Number(filters.page) : 1;
-    const limitNum = filters.limit ? Number(filters.limit) : 20;
+    const limitNum = filters.pageSize;
 
     const result = await this.repo.list({
       ...filters,
       page: pageNum,
-      limit: limitNum,
+      pageSize: limitNum,
     });
 
     return {

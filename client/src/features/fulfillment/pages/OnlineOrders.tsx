@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import { Eye, Truck, XCircle, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { Button, Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
@@ -7,6 +7,7 @@ import { Badge, type BadgeVariant, PageHeader, DataTable } from '../../../shared
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import type { OnlineOrder } from '../types';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 const onlineOrders = resource<OnlineOrder>('online-orders');
 
@@ -25,8 +26,17 @@ export default function OnlineOrdersPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  const { data: orders, isLoading } = onlineOrders.useList({ status: statusFilter || undefined });
+  const {
+    data: orders,
+    meta,
+    isLoading,
+    isFetching,
+  } = onlineOrders.useList({ page, pageSize, status: statusFilter || undefined });
+  const pageMeta = meta?.pagination as PaginationMeta | undefined;
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
   const { data: selectedOrder } = onlineOrders.useOne(detailOpen ? detailId : null);
 
   const updateStatus = onlineOrders.useAction('status', {
@@ -129,9 +139,18 @@ export default function OnlineOrdersPage() {
       </div>
 
       <DataTable
+        mode="server"
         columns={columns}
         data={orders ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        pagination={pagination}
+        pageCount={pageMeta?.totalPages ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          setPage(next.pageIndex + 1);
+          setPageSize(next.pageSize);
+        }}
         searchPlaceholder={t('common.search')}
       />
 

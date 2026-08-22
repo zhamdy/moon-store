@@ -9,6 +9,9 @@ import {
 } from '../src/modules/commerce/giftCards/types';
 import { parseCouponListQuery } from '../src/modules/commerce/coupons/types';
 import { parseFeedbackListQuery } from '../src/modules/commerce/feedback/types';
+import { parseOnlineOrderListQuery } from '../src/modules/commerce/onlineOrders/types';
+import { parseVendorListQuery } from '../src/modules/commerce/vendors/types';
+import { parseWarrantyListQuery } from '../src/modules/commerce/warranty/types';
 
 describe('commerce collection contracts', () => {
   it('parses canonical customer collection queries', () => {
@@ -55,5 +58,24 @@ describe('commerce collection contracts', () => {
     });
     expect(() => parseCouponListQuery({ limit: '25' })).toThrow();
     expect(() => parseFeedbackListQuery({ limit: '20' })).toThrow();
+  });
+
+  it('uses canonical pagination for orders, vendors, and warranty', () => {
+    expect(parseOnlineOrderListQuery({ page: '1', pageSize: '25' })).toMatchObject({
+      page: 1,
+      pageSize: 25,
+    });
+    expect(parseVendorListQuery({ page: '2', pageSize: '10', status: 'active' })).toMatchObject({
+      page: 2,
+      pageSize: 10,
+      status: 'active',
+    });
+    expect(parseWarrantyListQuery({ page: '3', pageSize: '50' })).toMatchObject({
+      page: 3,
+      pageSize: 50,
+    });
+    expect(() => parseOnlineOrderListQuery({ limit: '20' })).toThrow();
+    expect(() => parseVendorListQuery({ limit: '20' })).toThrow();
+    expect(() => parseWarrantyListQuery({ limit: '20' })).toThrow();
   });
 });

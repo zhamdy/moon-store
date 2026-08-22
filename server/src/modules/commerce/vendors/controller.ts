@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { vendorsService } from './service';
+import { parseVendorListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
 
 export const vendorSchema = z.object({
   name: z.string().min(1).max(100),
@@ -18,24 +22,13 @@ export const vendorSchema = z.object({
 export class VendorsController {
   async listVendors(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { status, page = '1', limit = '20', search } = req.query;
-
-      const result = await vendorsService.list({
-        status: status as string | undefined,
-        page: Number(page),
-        limit: Number(limit),
-        search: search as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: {
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-        },
-      });
+      const query = parseVendorListQuery(req.query);
+      const result = await vendorsService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -45,13 +38,12 @@ export class VendorsController {
     try {
       const parsed = vendorSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const vendor = await vendorsService.create(parsed.data);
       logAuditFromReq(req, 'create', 'vendor', vendor.id, { name: parsed.data.name });
-      res.status(201).json({ success: true, data: vendor });
+      res.status(201).json(success(vendor));
     } catch (err) {
       next(err);
     }
@@ -62,18 +54,16 @@ export class VendorsController {
       const { id } = req.params;
       const parsed = vendorSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const vendor = await vendorsService.update(id as string, parsed.data);
       if (!vendor) {
-        res.status(404).json({ success: false, error: 'Vendor not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Vendor not found');
       }
 
       logAuditFromReq(req, 'update', 'vendor', Number(id));
-      res.json({ success: true, data: vendor });
+      res.json(success(vendor));
     } catch (err) {
       next(err);
     }
@@ -83,7 +73,7 @@ export class VendorsController {
     try {
       const { id } = req.params;
       const payouts = await vendorsService.getPayouts(id as string);
-      res.json({ success: true, data: payouts });
+      res.json(success(payouts));
     } catch (err) {
       next(err);
     }
@@ -96,8 +86,7 @@ export class VendorsController {
       const { amount, period_start, period_end, notes } = req.body;
 
       if (!amount || amount <= 0) {
-        res.status(400).json({ success: false, error: 'Valid payout amount required' });
-        return;
+        throw new PublicError('VALIDATION_ERROR', 'Valid payout amount required');
       }
 
       const payout = await vendorsService.createPayout(
@@ -111,7 +100,7 @@ export class VendorsController {
         authReq.user?.id || 0
       );
 
-      res.status(201).json({ success: true, data: payout });
+      res.status(201).json(success(payout));
     } catch (err) {
       next(err);
     }

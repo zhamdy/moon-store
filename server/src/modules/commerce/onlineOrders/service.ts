@@ -1,10 +1,6 @@
 import { withTransaction } from '../../../database/transaction';
 import { IOnlineOrdersRepository, onlineOrdersRepository as defaultRepo } from './repository';
-import {
-  CreateOnlineOrderDTO,
-  OnlineOrderFilters,
-  OnlineOrderRecord,
-} from './types';
+import { CreateOnlineOrderDTO, OnlineOrderFilters, OnlineOrderRecord } from './types';
 
 export function generateOnlineOrderNumber(): string {
   const now = new Date();
@@ -86,12 +82,12 @@ export class OnlineOrdersService {
     filters: OnlineOrderFilters
   ): Promise<{ rows: OnlineOrderRecord[]; total: number; page: number; limit: number }> {
     const pageNum = filters.page ? Number(filters.page) : 1;
-    const limitNum = filters.limit ? Number(filters.limit) : 20;
+    const limitNum = filters.pageSize;
 
     const result = await this.repo.list({
       ...filters,
       page: pageNum,
-      limit: limitNum,
+      pageSize: limitNum,
     });
 
     return {

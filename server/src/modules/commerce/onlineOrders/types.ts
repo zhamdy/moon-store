@@ -18,10 +18,27 @@ export interface CreateOnlineOrderDTO {
 
 export interface OnlineOrderFilters {
   status?: string;
-  payment_status?: string;
-  page?: number;
-  limit?: number;
+  page: number;
+  pageSize: number;
   search?: string;
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+const onlineOrderListQuerySchema = createListQuerySchema(['createdAt', 'total'] as const)
+  .extend({
+    status: z.string().trim().min(1).max(30).optional(),
+    search: z.string().trim().min(1).max(100).optional(),
+  })
+  .strict();
+export function parseOnlineOrderListQuery(query: unknown): OnlineOrderFilters {
+  const parsed = onlineOrderListQuerySchema.parse(query);
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    status: parsed.status,
+    search: parsed.search,
+  };
 }
 
 export interface OnlineOrderItemRecord {

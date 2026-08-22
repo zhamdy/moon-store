@@ -1,10 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import {
-  OnlineOrderFilters,
-  OnlineOrderItemRecord,
-  OnlineOrderRecord,
-} from './types';
+import { OnlineOrderFilters, OnlineOrderItemRecord, OnlineOrderRecord } from './types';
 
 export interface IOnlineOrdersRepository {
   findCustomerByPhone(phone: string, queryable?: Queryable): Promise<Record<string, any> | null>;
@@ -152,9 +148,7 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
     filters: OnlineOrderFilters,
     queryable?: Queryable
   ): Promise<{ rows: OnlineOrderRecord[]; total: number }> {
-    const { status, page = 1, limit = 20, search } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
+    const { status, page: pageNum, pageSize: limitNum, search } = filters;
     const offset = (pageNum - 1) * limitNum;
 
     const params: unknown[] = [];

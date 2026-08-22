@@ -9,12 +9,14 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Pagination,
 } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 interface Vendor {
   id: number;
@@ -68,6 +70,7 @@ export default function VendorsPage() {
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [page, setPage] = useState(1);
   const editor = useEditorDialog(emptyVendor, vendorToForm);
   const form = editor.values;
   const [payoutForm, setPayoutForm] = useState({
@@ -77,7 +80,12 @@ export default function VendorsPage() {
     notes: '',
   });
 
-  const { data: vendors } = vendorsResource.useList({ status: statusFilter || undefined });
+  const { data: vendors, meta } = vendorsResource.useList({
+    page,
+    pageSize: 25,
+    status: statusFilter || undefined,
+  });
+  const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: stats } = vendorsResource.useRead<VendorStats>('dashboard/stats');
 
   const saveVendor = vendorsResource.useSave({
@@ -283,6 +291,12 @@ export default function VendorsPage() {
       </div>
 
       {/* Vendor dialog */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center">
+          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
+        </div>
+      )}
+
       <Modal
         isOpen={editor.open}
         onOpenChange={editor.setOpen}

@@ -15,11 +15,7 @@ export interface IVendorsRepository {
   ): Promise<{ rows: VendorRecord[]; total: number }>;
   findById(id: number | string, queryable?: Queryable): Promise<VendorRecord | null>;
   create(data: VendorDTO, queryable?: Queryable): Promise<VendorRecord>;
-  update(
-    id: number | string,
-    data: VendorDTO,
-    queryable?: Queryable
-  ): Promise<VendorRecord | null>;
+  update(id: number | string, data: VendorDTO, queryable?: Queryable): Promise<VendorRecord | null>;
   getPayouts(vendorId: number | string, queryable?: Queryable): Promise<VendorPayoutRecord[]>;
   createPayout(
     vendorId: number | string,
@@ -40,14 +36,12 @@ export class VendorsRepository implements IVendorsRepository {
     filters: VendorFilters,
     queryable?: Queryable
   ): Promise<{ rows: VendorRecord[]; total: number }> {
-    const { status, page = 1, limit = 20, search } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
+    const { status, page: pageNum, pageSize: limitNum, search } = filters;
     const offset = (pageNum - 1) * limitNum;
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
 
-    if (status && status !== 'all') {
+    if (status) {
       params.push(status);
       where += ` AND v.status = $${params.length}`;
     }

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { storefrontService } from './service';
+import { success } from '../../../http/responses';
+import { PublicError } from '../../../http/errors';
 
 export const bannerSchema = z.object({
   title: z.string().min(1).max(100),
@@ -15,7 +17,7 @@ export class StorefrontController {
   async getActiveBanners(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const banners = await storefrontService.getActiveBanners();
-      res.json({ success: true, data: banners });
+      res.json(success(banners));
     } catch (err) {
       next(err);
     }
@@ -24,7 +26,7 @@ export class StorefrontController {
   async getAllBanners(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const banners = await storefrontService.getAllBanners();
-      res.json({ success: true, data: banners });
+      res.json(success(banners));
     } catch (err) {
       next(err);
     }
@@ -34,12 +36,11 @@ export class StorefrontController {
     try {
       const parsed = bannerSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const banner = await storefrontService.createBanner(parsed.data);
-      res.status(201).json({ success: true, data: banner });
+      res.status(201).json(success(banner));
     } catch (err) {
       next(err);
     }
@@ -50,17 +51,15 @@ export class StorefrontController {
       const { id } = req.params;
       const parsed = bannerSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const banner = await storefrontService.updateBanner(id as string, parsed.data);
       if (!banner) {
-        res.status(404).json({ success: false, error: 'Banner not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Banner not found');
       }
 
-      res.json({ success: true, data: banner });
+      res.json(success(banner));
     } catch (err) {
       next(err);
     }
@@ -71,11 +70,10 @@ export class StorefrontController {
       const { id } = req.params;
       const deleted = await storefrontService.deleteBanner(id as string);
       if (!deleted) {
-        res.status(404).json({ success: false, error: 'Banner not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Banner not found');
       }
 
-      res.json({ success: true, data: { message: 'Banner deleted' } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }
