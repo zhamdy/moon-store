@@ -175,22 +175,21 @@ assume the endpoint is a CRUD collection with list/save/remove semantics.
 ### Standard CRUD Route File
 
 ```typescript
-import { Router, Response } from 'express';
-import { verifyToken, requireRole, AuthRequest } from '../middleware/auth';
-import db from '../db';
+import { Router } from 'express';
+import { verifyToken, requireRole } from '../middleware/auth';
+import { controller } from './controller';
 
 const router = Router();
 
 // List
-router.get('/', verifyToken, requireRole('Admin'), async (req: AuthRequest, res: Response) => {
-  const { rows } = await db.query('SELECT * FROM table_name ORDER BY id DESC');
-  res.json({ success: true, data: rows });
-});
+router.get('/', verifyToken, requireRole('Admin'), (req, res, next) =>
+  controller.list(req, res, next)
+);
 
 // Create
-router.post('/', verifyToken, requireRole('Admin'), async (req: AuthRequest, res: Response) => {
-  // Zod validation, db.query INSERT, res.json
-});
+router.post('/', verifyToken, requireRole('Admin'), (req, res, next) =>
+  controller.create(req, res, next)
+);
 
 export default router;
 ```
@@ -226,17 +225,28 @@ rawDb.transaction(() => {
 
 ### Response Format
 
-Always return consistent shape:
+JSON endpoints use the helpers in `server/src/modules/http/`. File downloads and operational
+endpoints keep their purpose-specific representation.
 
 ```typescript
-// Success
-res.json({ success: true, data: result });
-res.json({ success: true, data: rows, meta: { total, page, limit } });
+// Singleton / mutation success
+res.json(success(result));
 
-// Error
-res.status(400).json({ success: false, error: 'Validation failed' });
-res.status(404).json({ success: false, error: 'Not found' });
+// Paginated collection success
+res.json(success(rows, {
+  pagination: paginationMeta(query.page, query.pageSize, total),
+}));
+
+// Delete success
+res.status(204).send();
+
+// Expected domain error; centralized middleware creates { error: { code, message, details? } }
+throw new PublicError('NOT_FOUND', 'Product not found');
 ```
+
+Collection queries use flat camelCase parameters: `page`, `pageSize`, `search`, `sortBy`,
+`sortOrder`, plus documented resource filters. Parse them with a strict schema based on
+`createListQuerySchema`; unknown parameters and legacy `limit`/snake_case filters are rejected.
 
 ---
 
@@ -340,7 +350,7 @@ import { productSchema } from '../validators/productSchema';
 
 const parsed = productSchema.safeParse(req.body);
 if (!parsed.success) {
-  return res.status(400).json({ success: false, error: parsed.error.message });
+  throw parsed.error;
 }
 ```
 
