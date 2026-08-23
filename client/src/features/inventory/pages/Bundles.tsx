@@ -52,7 +52,7 @@ export default function BundlesPage() {
   const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: detail } = bundles.useOne(selectedBundle);
 
-  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
+  useLastPageRecovery(page, pagination?.totalItems, pagination?.totalPages, update);
 
   const {
     products: allProducts,

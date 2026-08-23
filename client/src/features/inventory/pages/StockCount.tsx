@@ -44,7 +44,7 @@ export default function StockCountPage() {
   const { data: detail } = stockCountDetails.useOne(selectedCount);
   const { data: categories } = categoriesResource.useList();
 
-  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
+  useLastPageRecovery(page, pagination?.totalItems, pagination?.totalPages, update);
 
   const createMutation = useMutation({
     mutationFn: () =>

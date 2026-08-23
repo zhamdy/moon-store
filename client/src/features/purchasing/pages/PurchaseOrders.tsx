@@ -11,7 +11,7 @@ import { resource } from '../../../shared/lib/resource';
 import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useTransport } from '../../../shared/lib/transport/index';
-import { useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
 import type { Distributor } from '../../../shared/types/index';
@@ -69,7 +69,7 @@ export default function PurchaseOrders() {
   const pageMeta = meta?.pagination as PaginationMeta | undefined;
   const pagination: PaginationState = { pageIndex: page - 1, pageSize };
 
-  useLastPageRecovery(page, pageMeta?.totalItems, pageMeta?.totalPages, updateListSearch);
+  useLastPageRecovery(page, pageMeta?.totalItems, pageMeta?.totalPages, update);
 
   const { data: detail } = purchaseOrderDetails.useOne(detailOpen ? detailId : null);
   const { data: distributors } = distributorsResource.useList();

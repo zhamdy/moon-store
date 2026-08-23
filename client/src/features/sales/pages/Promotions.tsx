@@ -74,7 +74,7 @@ export default function Promotions() {
   });
   const pagination = meta?.pagination as PaginationMeta | undefined;
 
-  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
+  useLastPageRecovery(page, pagination?.totalItems, pagination?.totalPages, update);
 
   const saver = coupons.useSave({
     message: editor.isEditing ? t('promotions.updated') : t('promotions.created'),

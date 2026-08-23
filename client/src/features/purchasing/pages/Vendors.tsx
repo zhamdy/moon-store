@@ -89,7 +89,7 @@ export default function VendorsPage() {
   const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: stats } = vendorsResource.useRead<VendorStats>('dashboard/stats');
 
-  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
+  useLastPageRecovery(page, pagination?.totalItems, pagination?.totalPages, update);
 
   const saveVendor = vendorsResource.useSave({
     message: t('vendors.saved'),

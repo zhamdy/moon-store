@@ -77,7 +77,7 @@ export default function ExpensesPage() {
   const { data: rows, meta } = expenses.useList({ page, pageSize });
   const { data: pnl } = expenses.useRead<PnLData>('pnl', undefined, tab === 'pnl');
 
-  useLastPageRecovery(page, meta?.pagination?.total, meta?.pagination?.totalPages, update);
+  useLastPageRecovery(page, meta?.pagination?.totalItems, meta?.pagination?.totalPages, update);
 
   const saver = expenses.useSave({
     message: editor.isEditing ? t('expenses.updated') : t('expenses.created'),
@@ -108,7 +108,7 @@ export default function ExpensesPage() {
       {/* Tabs */}
       <Tabs
         selectedKey={tab}
-        onSelectionChange={(key) => setTab(key as 'list' | 'pnl')}
+        onSelectionChange={(key) => update({ tab: key === 'pnl' ? 'pnl' : undefined, page: 1 })}
         color="primary"
         variant="bordered"
         size="sm"
