@@ -304,6 +304,20 @@ CREATE TABLE IF NOT EXISTS inventory_snapshots (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ─── Branches & Registers ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS branches (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  code TEXT UNIQUE NOT NULL,
+  address TEXT,
+  phone TEXT,
+  currency TEXT DEFAULT 'EGP',
+  is_main INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ─── Cash Register, Shifts & Expenses ──────────────────────
 CREATE TABLE IF NOT EXISTS register_sessions (
   id SERIAL PRIMARY KEY,
@@ -331,10 +345,13 @@ CREATE TABLE IF NOT EXISTS register_movements (
 CREATE TABLE IF NOT EXISTS shifts (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
-  start_time TIMESTAMPTZ NOT NULL,
-  end_time TIMESTAMPTZ,
+  branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  clock_in TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  clock_out TIMESTAMPTZ,
+  break_start TIMESTAMPTZ,
   break_minutes INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+  total_hours NUMERIC(5,2),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'on_break', 'completed')),
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -573,19 +590,7 @@ CREATE TABLE IF NOT EXISTS label_templates (
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- ─── Multi-location & Branches ─────────────────────────────
-CREATE TABLE IF NOT EXISTS branches (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  code TEXT UNIQUE NOT NULL,
-  address TEXT,
-  phone TEXT,
-  currency TEXT DEFAULT 'EGP',
-  is_main INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'active',
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
+-- ─── Multi-location & Transfers ────────────────────────────
 
 CREATE TABLE IF NOT EXISTS inter_store_transfers (
   id SERIAL PRIMARY KEY,
@@ -642,10 +647,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   type TEXT DEFAULT 'info',
-  is_read INTEGER DEFAULT 0,
+  title TEXT NOT NULL,
+  message TEXT,
+  entity_type TEXT,
+  entity_id TEXT,
+  link TEXT,
+  read INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
