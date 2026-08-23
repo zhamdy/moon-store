@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { t } from '../i18n/index';
 import { useTransport, type TransportMethod, type TransportRequest } from './transport/index';
+import { normalizeQueryParams } from './queryClient';
 
 /** A record being saved. An `id` means update; its absence means create. */
 export type Draft = Record<string, unknown> & { id?: number | null };
@@ -64,9 +65,12 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
   return {
     useList(params?: Record<string, unknown>) {
       const transport = useTransport();
+      const normalizedParams = normalizeQueryParams(params);
       const query = useQuery({
-        queryKey: [name, 'list', params ?? {}] as const,
-        queryFn: () => transport.request<Row[]>({ method: 'GET', path: name, params }),
+        queryKey: [name, 'list', normalizedParams] as const,
+        queryFn: () =>
+          transport.request<Row[]>({ method: 'GET', path: name, params: normalizedParams }),
+        placeholderData: keepPreviousData,
       });
 
       return {
@@ -92,15 +96,29 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
      * `useRead('pnl')` for `expenses/pnl`. Returns whatever that endpoint
      * yields, which is rarely the resource's own row type.
      */
-    useRead<R>(segment: string, params?: Record<string, unknown>, enabled = true) {
+    useRead<R, ReadMeta = Record<string, unknown>>(
+      segment: string,
+      params?: Record<string, unknown>,
+      enabled = true
+    ) {
       const transport = useTransport();
+      const normalizedParams = normalizeQueryParams(params);
       const query = useQuery({
-        queryKey: [name, 'read', segment, params ?? {}] as const,
-        queryFn: () => transport.request<R>({ method: 'GET', path: `${name}/${segment}`, params }),
+        queryKey: [name, 'read', segment, normalizedParams] as const,
+        queryFn: () =>
+          transport.request<R>({
+            method: 'GET',
+            path: `${name}/${segment}`,
+            params: normalizedParams,
+          }),
         enabled,
       });
 
-      return { ...query, data: query.data?.data };
+      return {
+        ...query,
+        data: query.data?.data,
+        meta: query.data?.meta as ReadMeta | undefined,
+      };
     },
 
     useSave(options: WriteOptions = {}) {

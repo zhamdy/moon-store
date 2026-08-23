@@ -33,10 +33,10 @@ export class ExpensesRepository implements IExpensesRepository {
   }
 
   async list(filters: ExpenseFilters, queryable?: Queryable): Promise<ExpenseListResult> {
-    const { page = 1, limit = 25, category, from, to } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
-    const offset = (pageNum - 1) * limitNum;
+    const { page, pageSize, category, from, to, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'createdAt' ? 'e.created_at' : 'e.date';
+    const offset = (page - 1) * pageSize;
 
     const where: string[] = ['1=1'];
     const params: unknown[] = [];
@@ -66,7 +66,7 @@ export class ExpensesRepository implements IExpensesRepository {
       params
     );
 
-    const queryParams = [...params, limitNum, offset];
+    const queryParams = [...params, pageSize, offset];
     const limitIdx = paramIdx++;
     const offsetIdx = paramIdx++;
 
@@ -74,7 +74,7 @@ export class ExpensesRepository implements IExpensesRepository {
       `SELECT e.*, u.name as user_name
        FROM expenses e LEFT JOIN users u ON e.user_id = u.id
        ${whereClause}
-       ORDER BY e.date DESC, e.created_at DESC
+        ORDER BY ${sortColumn} ${direction}, e.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );

@@ -6,6 +6,7 @@ import {
   StatusUpdateInput,
   DeliveryListResult,
   PerformanceResult,
+  DeliveryHistoryFilters,
 } from '../src/modules/fulfillment/delivery';
 
 export {
@@ -14,6 +15,7 @@ export {
   StatusUpdateInput,
   DeliveryListResult,
   PerformanceResult,
+  DeliveryHistoryFilters,
 };
 
 export const generateOrderNumber = generateDeliveryOrderNumber;
@@ -51,6 +53,6 @@ export async function updateDeliveryStatus(
   return deliveryService.updateDeliveryStatus(id, input, userId);
 }
 
-export async function getOrderStatusHistory(id: string | number): Promise<Record<string, any>[]> {
-  return deliveryService.getOrderStatusHistory(id);
+export async function getOrderStatusHistory(id: string | number, filters: DeliveryHistoryFilters) {
+  return deliveryService.getOrderStatusHistory(id, filters);
 }

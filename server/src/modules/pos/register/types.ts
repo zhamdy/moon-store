@@ -42,20 +42,37 @@ export interface SessionReport {
 }
 
 export interface SessionHistoryFilters {
-  page?: string | number;
-  limit?: string | number;
-  cashier_id?: string | number;
+  page: number;
+  pageSize: number;
+  cashierId?: number;
   from?: string;
   to?: string;
+  sortBy: 'openedAt' | 'closedAt';
+  sortOrder: 'asc' | 'desc';
 }
 
 export interface SessionHistoryResult {
   rows: SessionRow[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-  };
+  total: number;
+}
+
+const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD');
+const historyQuerySchema = createListQuerySchema(['openedAt', 'closedAt'] as const)
+  .extend({
+    cashierId: z
+      .string()
+      .regex(/^\d+$/)
+      .transform(Number)
+      .pipe(z.number().int().positive())
+      .optional(),
+    from: date.optional(),
+    to: date.optional(),
+  })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'openedAt', ...query }));
+
+export function parseSessionHistoryQuery(query: unknown): SessionHistoryFilters {
+  return historyQuerySchema.parse(query);
 }
 
 export interface OpenRegisterDTO {
@@ -72,3 +89,5 @@ export interface CloseRegisterDTO {
   counted_cash: number;
   notes?: string;
 }
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';

@@ -12,6 +12,7 @@ import {
   ModalFooter,
   Select,
   SelectItem,
+  Pagination,
 } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import PageHeader from '../../../shared/components/PageHeader';
@@ -19,8 +20,10 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { Customer, Product } from '../../../shared/types/index';
+import type { Customer } from '../../../shared/types/index';
 import type { LayawayDetail, LayawayLine, LayawayOrder } from '../types';
 
 const layaway = resource<LayawayOrder>('layaway');
@@ -43,25 +46,40 @@ export default function LayawayPage() {
     return d.toISOString().split('T')[0];
   });
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState('all');
 
-  const { data: layaways } = layaway.useList({ limit: 100 });
+  const { data: layaways, meta } = layaway.useList({
+    page,
+    pageSize: 25,
+    status: status === 'all' ? undefined : status,
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  });
+  const pagination = (meta as { pagination?: { totalPages: number } } | undefined)?.pagination;
 
   const { data: customers } = useApiQuery<Customer[]>(
     ['customers-list'],
     'customers',
-    { limit: 200 },
+    { page: 1, pageSize: 100, sortBy: 'name', sortOrder: 'asc' },
     { enabled: createOpen }
   );
 
-  const { data: products } = useApiQuery<Product[]>(
-    ['products-layaway'],
-    'products',
-    { limit: 200 },
-    { enabled: createOpen }
-  );
+  const {
+    products,
+    hasNextPage: hasMoreProducts,
+    fetchNextPage: loadMoreProducts,
+    isFetchingNextPage: isLoadingMoreProducts,
+  } = useProductCatalog({
+    search: debouncedProductSearch,
+    enabled: createOpen,
+    selectedIds: createItems.map((item) => item.product_id),
+  });
 
   const { data: detail } = layaway.useRead<LayawayDetail>(
     String(selectedId),
@@ -118,6 +136,7 @@ export default function LayawayPage() {
     setDeposit('');
     setDueDate(defaultDueDate());
     setSelectedProductId('');
+    setProductSearch('');
     setShowNewCustomer(false);
     setNewCustName('');
     setNewCustPhone('');
@@ -194,17 +213,34 @@ export default function LayawayPage() {
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <PageHeader title={t('layaway.title')}>
-        <Button
-          color="primary"
-          size="sm"
-          startContent={<Plus className="h-4 w-4" />}
-          onClick={() => {
-            resetCreateForm();
-            setCreateOpen(true);
-          }}
-        >
-          {t('layaway.create')}
-        </Button>
+        <div className="flex gap-2">
+          <Select
+            aria-label="Layaway status"
+            className="w-40"
+            size="sm"
+            selectedKeys={[status]}
+            onSelectionChange={(keys) => {
+              setStatus(String(Array.from(keys)[0] ?? 'all'));
+              setPage(1);
+            }}
+          >
+            <SelectItem key="all">All statuses</SelectItem>
+            <SelectItem key="active">{t('layaway.active')}</SelectItem>
+            <SelectItem key="completed">{t('layaway.completed')}</SelectItem>
+            <SelectItem key="cancelled">{t('layaway.cancelled')}</SelectItem>
+          </Select>
+          <Button
+            color="primary"
+            size="sm"
+            startContent={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              resetCreateForm();
+              setCreateOpen(true);
+            }}
+          >
+            {t('layaway.create')}
+          </Button>
+        </div>
       </PageHeader>
 
       {/* Layaway table */}
@@ -301,6 +337,17 @@ export default function LayawayPage() {
           </tbody>
         </table>
       </div>
+      {(pagination?.totalPages ?? 0) > 1 && (
+        <div className="flex justify-center">
+          <Pagination
+            total={pagination!.totalPages}
+            page={page}
+            onChange={setPage}
+            size="sm"
+            variant="flat"
+          />
+        </div>
+      )}
 
       {/* Payment Dialog */}
       <Modal
@@ -358,7 +405,10 @@ export default function LayawayPage() {
       {/* Create Dialog */}
       <Modal
         isOpen={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) setProductSearch('');
+        }}
         backdrop="blur"
         placement="center"
         size="lg"
@@ -453,6 +503,14 @@ export default function LayawayPage() {
                     {t('deliveries.items')}
                   </label>
                   <div className="flex gap-2 items-center">
+                    <Input
+                      aria-label="Search products"
+                      placeholder={t('common.search')}
+                      size="sm"
+                      variant="bordered"
+                      value={productSearch}
+                      onValueChange={setProductSearch}
+                    />
                     <Select
                       label={t('deliveries.selectProduct')}
                       size="sm"
@@ -462,6 +520,7 @@ export default function LayawayPage() {
                       onChange={(e) => setSelectedProductId(e.target.value)}
                     >
                       {(products ?? [])
+                        .filter((p) => p.status === 'active')
                         .filter((p) => !createItems.some((i) => i.product_id === p.id))
                         .map((p) => (
                           <SelectItem
@@ -483,6 +542,18 @@ export default function LayawayPage() {
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
+                  {hasMoreProducts && (
+                    <Button
+                      fullWidth
+                      variant="bordered"
+                      size="sm"
+                      onPress={() => void loadMoreProducts()}
+                      isLoading={isLoadingMoreProducts}
+                      aria-label="Load more products"
+                    >
+                      Load more
+                    </Button>
+                  )}
                 </div>
 
                 {/* Items list */}
@@ -492,6 +563,10 @@ export default function LayawayPage() {
                       <div key={item.product_id} className="flex items-center gap-2 p-2.5">
                         <span className="flex-1 text-sm font-medium text-foreground truncate">
                           {item.product_name}
+                          {products.find((product) => product.id === item.product_id)?.status !==
+                            'active' && (
+                            <span className="ms-2 text-xs text-warning">Unavailable</span>
+                          )}
                         </span>
                         <input
                           type="number"

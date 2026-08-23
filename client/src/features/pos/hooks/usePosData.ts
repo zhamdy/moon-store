@@ -4,6 +4,7 @@ import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
 import type { Category, Product, ProductVariant } from '../../../shared/types/index';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 
 const products = resource<Product>('products');
 
@@ -35,7 +36,11 @@ interface UsePosDataReturn {
   toggleFavorite: (productId: number) => void;
   categories: Category[] | undefined;
   products: Product[] | undefined;
+  favoriteProducts: Product[];
   isLoadingProducts: boolean;
+  hasMoreProducts: boolean;
+  loadMoreProducts: () => void;
+  isLoadingMoreProducts: boolean;
   bundles: PosBundle[] | undefined;
   variants: ProductVariant[] | undefined;
   variantProduct: Product | null;
@@ -102,23 +107,19 @@ export function usePosData({
   );
 
   // Products with debounced search and category filter
-  const { data: productRows, isLoading: isLoadingProducts } = useApiQuery<Product[]>(
-    [
-      'products',
-      {
-        search: debouncedSearch,
-        category_id: selectedCategory,
-        limit: 100,
-      },
-    ],
-    'products',
-    {
-      search: debouncedSearch || undefined,
-      category_id: selectedCategory || undefined,
-      limit: 100,
-    },
-    { staleTime: 0 }
-  );
+  const {
+    products: favoriteProducts,
+    searchProducts: productRows,
+    isLoading: isLoadingProducts,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useProductCatalog({
+    search: debouncedSearch,
+    categoryId: selectedCategory,
+    selectedIds: favorites,
+    staleTime: 0,
+  });
 
   // Variants for selected product
   const { data: variants } = products.useRead<ProductVariant[]>(
@@ -133,7 +134,11 @@ export function usePosData({
     toggleFavorite,
     categories,
     products: productRows,
+    favoriteProducts,
     isLoadingProducts,
+    hasMoreProducts: !!hasNextPage,
+    loadMoreProducts: () => void fetchNextPage(),
+    isLoadingMoreProducts: isFetchingNextPage,
     bundles,
     variants,
     variantProduct,

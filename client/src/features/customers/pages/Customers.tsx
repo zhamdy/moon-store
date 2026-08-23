@@ -17,8 +17,10 @@ import { DataTable, ConfirmDialog, PageHeader } from '../../../shared';
 import CustomerDetail from '../components/CustomerDetail';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import type { Customer } from '../../../shared/types/index';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 
 const customersResource = resource<Customer>('customers');
 
@@ -32,14 +34,34 @@ const getCustomerFormSchema = () =>
 
 type CustomerFormData = z.infer<ReturnType<typeof getCustomerFormSchema>>;
 
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
+
 export default function CustomersPage() {
   const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
+  const { page, pageSize, update } = useListRouteState();
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
 
-  const { data: customers, isLoading } = customersResource.useList({ limit: 1000 });
+  const {
+    data: customers,
+    meta,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = customersResource.useList({
+    page,
+    pageSize,
+    search: debouncedSearch || undefined,
+  });
+  const paginationMeta = meta?.pagination as PaginationMeta | undefined;
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+
+  useLastPageRecovery(page, paginationMeta?.totalItems, paginationMeta?.totalPages, update);
 
   const {
     register,
@@ -197,9 +219,28 @@ export default function CustomersPage() {
       />
 
       <DataTable
+        mode="server"
         columns={columns}
         data={customers ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        error={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          update({ page: 1 });
+        }}
+        pagination={pagination}
+        pageCount={paginationMeta?.totalPages ?? 0}
+        totalRows={paginationMeta?.totalItems ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          update({
+            page: next.pageSize === pageSize ? next.pageIndex + 1 : 1,
+            pageSize: next.pageSize,
+          });
+        }}
         searchPlaceholder={t('customers.searchPlaceholder')}
       />
 

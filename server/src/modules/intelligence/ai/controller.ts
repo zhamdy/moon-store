@@ -1,11 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { aiService } from './service';
+import { parseAiListQuery, parseForecastQuery, parseRecommendationQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
 
 export class AiController {
-  async getForecast(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getForecast(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await aiService.getForecast();
-      res.json({ success: true, data });
+      parseForecastQuery(req.query);
+      res.json(success(await aiService.getForecast()));
     } catch (err) {
       next(err);
     }
@@ -13,36 +16,59 @@ export class AiController {
 
   async getRecommendations(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { productId } = req.query;
-      const data = await aiService.getRecommendations(productId as string | undefined);
-      res.json({ success: true, data });
+      const query = parseRecommendationQuery(req.query);
+      const result = await aiService.getRecommendationsPage(
+        query.productId,
+        query.page,
+        query.pageSize
+      );
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
   }
 
-  async getPricingSuggestions(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getPricingSuggestions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await aiService.getPricingSuggestions();
-      res.json({ success: true, data });
+      const query = parseAiListQuery(req.query);
+      const result = await aiService.getPricingSuggestionsPage(query.page, query.pageSize);
+      res.json(
+        success(result.items, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
   }
 
-  async getChurnRisk(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getChurnRisk(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await aiService.getChurnRisk();
-      res.json({ success: true, data });
+      const query = parseAiListQuery(req.query);
+      const result = await aiService.getChurnRiskPage(query.page, query.pageSize);
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
   }
 
-  async getAnomalies(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAnomalies(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await aiService.getAnomalies();
-      res.json({ success: true, data });
+      const query = parseAiListQuery(req.query);
+      const result = await aiService.getAnomaliesPage(query.page, query.pageSize);
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }

@@ -14,14 +14,14 @@ router.get('/delivery', verifyToken, requireRole('Admin'), cacheControl(60), (re
 router.post('/', verifyToken, requireRole('Admin'), (req, res, next) =>
   usersController.createUser(req, res, next)
 );
-router.put('/:id', verifyToken, requireRole('Admin'), (req, res, next) =>
-  usersController.updateUser(req, res, next)
-);
 router.get('/me/favorites', verifyToken, (req, res, next) =>
   usersController.getFavorites(req, res, next)
 );
 router.put('/me/favorites', verifyToken, (req, res, next) =>
   usersController.updateFavorites(req, res, next)
+);
+router.put('/:id', verifyToken, requireRole('Admin'), (req, res, next) =>
+  usersController.updateUser(req, res, next)
 );
 router.delete('/:id', verifyToken, requireRole('Admin'), (req, res, next) =>
   usersController.deleteUser(req, res, next)

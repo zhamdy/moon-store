@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { stockCountsService } from './service';
+import { parseStockCountListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
 
 const createStockCountSchema = z.object({
   category_id: z.number().int().positive().optional(),
@@ -17,21 +21,13 @@ const updateCountItemSchema = z.object({
 export class StockCountsController {
   async getStockCounts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = 1, limit = 20, status } = req.query;
-      const pageNum = Number(page);
-      const limitNum = Number(limit);
-
-      const result = await stockCountsService.list({
-        page: pageNum,
-        limit: limitNum,
-        status: status as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: { total: result.total, page: pageNum, limit: limitNum },
-      });
+      const query = parseStockCountListQuery(req.query);
+      const result = await stockCountsService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -41,20 +37,18 @@ export class StockCountsController {
     try {
       const parsed = createStockCountSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
       const result = await stockCountsService.createCount(parsed.data, authReq.user!.id);
 
       if (!result.success) {
-        res.status(400).json({ success: false, error: result.error });
-        return;
+        throw new PublicError('VALIDATION_ERROR', result.error);
       }
 
       logAuditFromReq(req, 'create', 'stock_count', result.data!.id);
-      res.status(201).json({ success: true, data: result.data });
+      res.status(201).json(success(result.data));
     } catch (err) {
       next(err);
     }
@@ -64,11 +58,10 @@ export class StockCountsController {
     try {
       const stockCount = await stockCountsService.findById(req.params.id as string);
       if (!stockCount) {
-        res.status(404).json({ success: false, error: 'Stock count not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Stock count not found');
       }
 
-      res.json({ success: true, data: stockCount });
+      res.json(success(stockCount));
     } catch (err) {
       next(err);
     }
@@ -78,8 +71,7 @@ export class StockCountsController {
     try {
       const parsed = updateCountItemSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const result = await stockCountsService.updateCountItem(
@@ -89,12 +81,11 @@ export class StockCountsController {
       );
 
       if (!result.success) {
-        const statusCode = result.error === 'Count item not found' ? 404 : 400;
-        res.status(statusCode).json({ success: false, error: result.error });
-        return;
+        const code = result.error === 'Count item not found' ? 'NOT_FOUND' : 'VALIDATION_ERROR';
+        throw new PublicError(code, result.error);
       }
 
-      res.json({ success: true, data: result.data });
+      res.json(success(result.data));
     } catch (err) {
       next(err);
     }
@@ -112,15 +103,15 @@ export class StockCountsController {
       );
 
       if (!result.success) {
-        res.status(result.status || 400).json({ success: false, error: result.error });
-        return;
+        const code = result.status === 404 ? 'NOT_FOUND' : 'CONFLICT';
+        throw new PublicError(code, result.error);
       }
 
       logAuditFromReq(req, 'complete', 'stock_count', req.params.id as string, {
         appliedAdjustments: apply_adjustments,
       });
 
-      res.json({ success: true, data: { status: 'completed' } });
+      res.json(success({ status: 'completed' }));
     } catch (err) {
       next(err);
     }
@@ -130,12 +121,11 @@ export class StockCountsController {
     try {
       const result = await stockCountsService.cancelCount(req.params.id as string);
       if (!result.success) {
-        res.status(400).json({ success: false, error: result.error });
-        return;
+        throw new PublicError('CONFLICT', result.error);
       }
 
       logAuditFromReq(req, 'cancel', 'stock_count', req.params.id as string);
-      res.json({ success: true, data: { status: 'cancelled' } });
+      res.json(success({ status: 'cancelled' }));
     } catch (err) {
       next(err);
     }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,6 +8,11 @@ import { useSettingsStore } from '../../../shared/store/settingsStore';
 import { useAuthStore } from '../../auth';
 import type { DeliveryOrder, DeliveryPerformance } from '../types';
 import Deliveries from './Deliveries';
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useSearch: () => ({}),
+}));
 
 const PENDING_ORDER: DeliveryOrder = {
   id: 7,
@@ -72,7 +77,7 @@ describe('Deliveries', () => {
       expect.objectContaining({
         method: 'GET',
         path: 'delivery',
-        params: { limit: 100, status: undefined },
+        params: { page: 1, pageSize: 25, status: undefined },
       })
     );
   });
@@ -118,6 +123,25 @@ describe('Deliveries', () => {
     await waitFor(() =>
       expect(transport.calls()).toContainEqual(
         expect.objectContaining({ method: 'GET', path: 'delivery/analytics/performance' })
+      )
+    );
+  });
+
+  it('does not request the product catalog until an admin opens the order form', async () => {
+    const transport = transportWithOrders();
+    render(<Deliveries />, { wrapper: wrapperFor(transport) });
+    await screen.findByText('DEL-0007');
+
+    expect(transport.calls().some((call) => call.path === 'products')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'New Order' }));
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'GET',
+          path: 'products',
+          params: expect.objectContaining({ page: 1, pageSize: 25 }),
+        })
       )
     );
   });

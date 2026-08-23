@@ -10,6 +10,7 @@ import { requestLogger } from './middleware/requestLogger';
 import { sanitizeBody } from './middleware/sanitize';
 import logger from './lib/logger';
 import db, { closePool } from './src/database/pool';
+import { errorResponse } from './src/http/errors';
 
 import { routeTable, cleanupExpiredReservations } from './src/router';
 
@@ -68,7 +69,7 @@ const limiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, error: 'Too many requests, please try again later' },
+  message: errorResponse('RATE_LIMITED'),
 });
 app.use(limiter);
 
@@ -98,6 +99,10 @@ app.get('/api/health', async (_req: Request, res: Response) => {
   } catch {
     res.status(503).json({ success: false, error: 'Database unreachable' });
   }
+});
+
+app.use((_req: Request, res: Response) => {
+  res.status(404).json(errorResponse('NOT_FOUND'));
 });
 
 // Error handler

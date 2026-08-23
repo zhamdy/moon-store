@@ -9,12 +9,15 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Pagination,
 } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 interface Vendor {
   id: number;
@@ -66,8 +69,9 @@ const vendorToForm = (v: Vendor) => ({
 export default function VendorsPage() {
   const { t } = useTranslation();
   const [payoutOpen, setPayoutOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('');
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const { search, page, pageSize, update } = useListRouteState();
+  const statusFilter = typeof search.status === 'string' ? search.status : '';
   const editor = useEditorDialog(emptyVendor, vendorToForm);
   const form = editor.values;
   const [payoutForm, setPayoutForm] = useState({
@@ -77,8 +81,15 @@ export default function VendorsPage() {
     notes: '',
   });
 
-  const { data: vendors } = vendorsResource.useList({ status: statusFilter || undefined });
+  const { data: vendors, meta } = vendorsResource.useList({
+    page,
+    pageSize,
+    status: statusFilter || undefined,
+  });
+  const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: stats } = vendorsResource.useRead<VendorStats>('dashboard/stats');
+
+  useLastPageRecovery(page, pagination?.totalItems, pagination?.totalPages, update);
 
   const saveVendor = vendorsResource.useSave({
     message: t('vendors.saved'),
@@ -183,7 +194,9 @@ export default function VendorsPage() {
             variant={statusFilter === s ? 'solid' : 'bordered'}
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setStatusFilter(s)}
+            onClick={() => {
+              update({ status: s || undefined, page: 1 });
+            }}
           >
             {s ? t(`vendors.${s}`) : t('common.all')}
           </Button>
@@ -283,6 +296,17 @@ export default function VendorsPage() {
       </div>
 
       {/* Vendor dialog */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center">
+          <Pagination
+            page={page}
+            total={pagination.totalPages}
+            onChange={(newPage) => update({ page: newPage })}
+            showControls
+          />
+        </div>
+      )}
+
       <Modal
         isOpen={editor.open}
         onOpenChange={editor.setOpen}

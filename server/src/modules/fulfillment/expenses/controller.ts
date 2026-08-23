@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { expensesService } from './service';
+import { parseExpenseListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
 
 const expenseSchema = z.object({
   category: z.enum(['rent', 'salaries', 'utilities', 'marketing', 'supplies', 'other']),
@@ -15,25 +19,14 @@ const expenseSchema = z.object({
 export class ExpensesController {
   async getExpenses(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = '1', limit = '25', category, from, to } = req.query;
-      const result = await expensesService.list({
-        page: Number(page),
-        limit: Number(limit),
-        category: category as string | undefined,
-        from: from as string | undefined,
-        to: to as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: {
-          total: result.total,
-          page: Number(page),
-          limit: Number(limit),
-          total_amount: result.total_amount,
-        },
-      });
+      const query = parseExpenseListQuery(req.query);
+      const result = await expensesService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+          totalAmount: result.total_amount,
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -43,8 +36,7 @@ export class ExpensesController {
     try {
       const parsed = expenseSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
@@ -55,7 +47,7 @@ export class ExpensesController {
         category: parsed.data.category,
       });
 
-      res.status(201).json({ success: true, data: expense });
+      res.status(201).json(success(expense));
     } catch (err) {
       next(err);
     }
@@ -65,18 +57,16 @@ export class ExpensesController {
     try {
       const parsed = expenseSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const { id } = req.params;
       const updated = await expensesService.update(id as string, parsed.data);
       if (!updated) {
-        res.status(404).json({ success: false, error: 'Expense not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Expense not found');
       }
 
-      res.json({ success: true, data: updated });
+      res.json(success(updated));
     } catch (err) {
       next(err);
     }
@@ -87,12 +77,11 @@ export class ExpensesController {
       const { id } = req.params;
       const deleted = await expensesService.delete(id as string);
       if (!deleted) {
-        res.status(404).json({ success: false, error: 'Expense not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Expense not found');
       }
 
       logAuditFromReq(req, 'delete', 'expense', Number(id));
-      res.json({ success: true, data: { message: 'Expense deleted' } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }
@@ -101,8 +90,11 @@ export class ExpensesController {
   async getPnl(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { from, to } = req.query;
-      const data = await expensesService.getPnl(from as string | undefined, to as string | undefined);
-      res.json({ success: true, data });
+      const data = await expensesService.getPnl(
+        from as string | undefined,
+        to as string | undefined
+      );
+      res.json(success(data));
     } catch (err) {
       next(err);
     }

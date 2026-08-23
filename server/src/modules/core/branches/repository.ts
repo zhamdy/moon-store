@@ -17,7 +17,10 @@ export interface IBranchesRepository {
   create(data: CreateBranchDTO, queryable?: Queryable): Promise<Branch>;
   update(id: number, data: UpdateBranchDTO, queryable?: Queryable): Promise<Branch | null>;
   getConsolidatedBranches(queryable?: Queryable): Promise<ConsolidatedBranch[]>;
-  findTransfers(filters: TransferFilters, queryable?: Queryable): Promise<BranchTransfer[]>;
+  findTransfers(
+    filters: TransferFilters,
+    queryable?: Queryable
+  ): Promise<{ rows: BranchTransfer[]; total: number }>;
   findTransferById(id: number, queryable?: Queryable): Promise<BranchTransfer | null>;
   createTransfer(
     data: CreateTransferDTO,
@@ -25,11 +28,7 @@ export interface IBranchesRepository {
     queryable?: Queryable
   ): Promise<BranchTransfer>;
   updateTransferStatus(id: number, status: string, queryable?: Queryable): Promise<void>;
-  completeTransfer(
-    transfer: BranchTransfer,
-    status: string,
-    queryable: Queryable
-  ): Promise<void>;
+  completeTransfer(transfer: BranchTransfer, status: string, queryable: Queryable): Promise<void>;
 }
 
 export class BranchesRepository implements IBranchesRepository {
@@ -50,10 +49,9 @@ export class BranchesRepository implements IBranchesRepository {
   }
 
   async findById(id: number, queryable?: Queryable): Promise<Branch | null> {
-    const result = await this.q(queryable).query<Branch>(
-      'SELECT * FROM branches WHERE id = $1',
-      [id]
-    );
+    const result = await this.q(queryable).query<Branch>('SELECT * FROM branches WHERE id = $1', [
+      id,
+    ]);
     return result.rows[0] || null;
   }
 
@@ -78,11 +76,7 @@ export class BranchesRepository implements IBranchesRepository {
     return result.rows[0];
   }
 
-  async update(
-    id: number,
-    data: UpdateBranchDTO,
-    queryable?: Queryable
-  ): Promise<Branch | null> {
+  async update(id: number, data: UpdateBranchDTO, queryable?: Queryable): Promise<Branch | null> {
     const isMain = data.is_main ? 1 : 0;
     const result = await this.q(queryable).query<Branch>(
       `UPDATE branches SET name = $1, code = $2, address = $3, phone = $4, is_main = $5, updated_at = NOW()
@@ -124,9 +118,9 @@ export class BranchesRepository implements IBranchesRepository {
   async findTransfers(
     filters: TransferFilters,
     queryable?: Queryable
-  ): Promise<BranchTransfer[]> {
-    const { status, page = 1, limit = 20 } = filters;
-    const offset = (page - 1) * limit;
+  ): Promise<{ rows: BranchTransfer[]; total: number }> {
+    const { status, page, pageSize, sortBy, sortOrder } = filters;
+    const offset = (page - 1) * pageSize;
     const params: unknown[] = [];
     let where = '';
 
@@ -135,8 +129,13 @@ export class BranchesRepository implements IBranchesRepository {
       where = `WHERE t.status = $${params.length}`;
     }
 
+    const count = await this.q(queryable).query<{ total: number }>(
+      `SELECT COUNT(*)::int AS total FROM branch_transfers t ${where}`,
+      params
+    );
     const limitIdx = params.length + 1;
     const offsetIdx = params.length + 2;
+    const sortColumn = sortBy === 'status' ? 't.status' : 't.created_at';
 
     const result = await this.q(queryable).query<BranchTransfer>(
       `SELECT t.*, sb.name as source_branch, tb.name as target_branch,
@@ -148,12 +147,12 @@ export class BranchesRepository implements IBranchesRepository {
        JOIN products p ON t.product_id = p.id
        LEFT JOIN users u ON t.created_by = u.id
        ${where}
-       ORDER BY t.created_at DESC
+       ORDER BY ${sortColumn} ${sortOrder.toUpperCase()}, t.id ${sortOrder.toUpperCase()}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-      [...params, limit, offset]
+      [...params, pageSize, offset]
     );
 
-    return result.rows;
+    return { rows: result.rows, total: count.rows[0]?.total ?? 0 };
   }
 
   async findTransferById(id: number, queryable?: Queryable): Promise<BranchTransfer | null> {
@@ -185,11 +184,7 @@ export class BranchesRepository implements IBranchesRepository {
     return result.rows[0];
   }
 
-  async updateTransferStatus(
-    id: number,
-    status: string,
-    queryable?: Queryable
-  ): Promise<void> {
+  async updateTransferStatus(id: number, status: string, queryable?: Queryable): Promise<void> {
     await this.q(queryable).query('UPDATE branch_transfers SET status = $1 WHERE id = $2', [
       status,
       id,

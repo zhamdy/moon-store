@@ -1,11 +1,21 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import {
-  DashboardKpis,
-  InventorySnapshot,
-} from './types';
+import { DashboardKpis, InventorySnapshot } from './types';
 
 export interface IAnalyticsRepository {
+  getAggregatePage<T extends Record<string, unknown>>(
+    sql: string,
+    params: unknown[],
+    page: number,
+    pageSize: number,
+    queryable?: Queryable
+  ): Promise<{ rows: T[]; totalItems: number }>;
+  getAggregate<T extends Record<string, unknown>>(
+    sql: string,
+    params: unknown[],
+    queryable?: Queryable
+  ): Promise<T | undefined>;
+  refreshAbcClasses(queryable?: Queryable): Promise<void>;
   getDashboardKpis(queryable?: Queryable): Promise<DashboardKpis>;
   getRevenueByDateRaw(
     dateFilter: string,
@@ -46,12 +56,16 @@ export interface IAnalyticsRepository {
     dateFilter: string,
     params: unknown[],
     queryable?: Queryable
-  ): Promise<Array<{ category_name: string; total_sold: string | number; revenue: string | number }>>;
+  ): Promise<
+    Array<{ category_name: string; total_sold: string | number; revenue: string | number }>
+  >;
   getSalesByDistributorRaw(
     dateFilter: string,
     params: unknown[],
     queryable?: Queryable
-  ): Promise<Array<{ distributor_name: string; total_sold: string | number; revenue: string | number }>>;
+  ): Promise<
+    Array<{ distributor_name: string; total_sold: string | number; revenue: string | number }>
+  >;
   getAbcRawProducts(queryable?: Queryable): Promise<
     Array<{
       id: number;
@@ -81,7 +95,9 @@ export interface IAnalyticsRepository {
   >;
   getActiveProductsForSnapshot(
     queryable?: Queryable
-  ): Promise<Array<{ id: number; stock: number; cost_price: string | number; price: string | number }>>;
+  ): Promise<
+    Array<{ id: number; stock: number; cost_price: string | number; price: string | number }>
+  >;
   insertInventorySnapshot(
     totalProducts: number,
     totalUnits: number,
@@ -144,6 +160,51 @@ export class AnalyticsRepository implements IAnalyticsRepository {
 
   private q(queryable?: Queryable): Queryable {
     return queryable || this.defaultQueryable;
+  }
+
+  async getAggregatePage<T extends Record<string, unknown>>(
+    sql: string,
+    params: unknown[],
+    page: number,
+    pageSize: number,
+    queryable?: Queryable
+  ): Promise<{ rows: T[]; totalItems: number }> {
+    const count = await this.q(queryable).query<{ count: string | number }>(
+      `SELECT COUNT(*) AS count FROM (${sql}) intelligence_rows`,
+      params
+    );
+    const rows = await this.q(queryable).query<T>(
+      `${sql} LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, (page - 1) * pageSize]
+    );
+    return { rows: rows.rows, totalItems: Number(count.rows[0]?.count ?? 0) };
+  }
+
+  async getAggregate<T extends Record<string, unknown>>(
+    sql: string,
+    params: unknown[],
+    queryable?: Queryable
+  ): Promise<T | undefined> {
+    const result = await this.q(queryable).query<T>(sql, params);
+    return result.rows[0];
+  }
+
+  async refreshAbcClasses(queryable?: Queryable): Promise<void> {
+    await this.q(queryable).query(
+      `WITH revenue AS (
+         SELECT p.id, COALESCE(SUM(si.quantity * si.unit_price) FILTER (WHERE s.id IS NOT NULL), 0) AS revenue
+         FROM products p LEFT JOIN sale_items si ON si.product_id = p.id
+         LEFT JOIN sales s ON si.sale_id = s.id AND s.created_at >= CURRENT_DATE - INTERVAL '90 days'
+         WHERE p.status = 'active' GROUP BY p.id
+       ), ranked AS (
+         SELECT id, CASE WHEN SUM(revenue) OVER () = 0 THEN 100
+                    ELSE SUM(revenue) OVER (ORDER BY revenue DESC, id ASC) / SUM(revenue) OVER () * 100 END AS cumulative_pct
+         FROM revenue
+       )
+       UPDATE products p SET abc_class = CASE WHEN ranked.cumulative_pct <= 80 THEN 'A'
+                                              WHEN ranked.cumulative_pct <= 95 THEN 'B' ELSE 'C' END
+       FROM ranked WHERE p.id = ranked.id`
+    );
   }
 
   async getDashboardKpis(queryable?: Queryable): Promise<DashboardKpis> {
@@ -310,7 +371,9 @@ export class AnalyticsRepository implements IAnalyticsRepository {
     dateFilter: string,
     params: unknown[],
     queryable?: Queryable
-  ): Promise<Array<{ category_name: string; total_sold: string | number; revenue: string | number }>> {
+  ): Promise<
+    Array<{ category_name: string; total_sold: string | number; revenue: string | number }>
+  > {
     const result = await this.q(queryable).query<{
       category_name: string;
       total_sold: string | number;
@@ -335,7 +398,9 @@ export class AnalyticsRepository implements IAnalyticsRepository {
     dateFilter: string,
     params: unknown[],
     queryable?: Queryable
-  ): Promise<Array<{ distributor_name: string; total_sold: string | number; revenue: string | number }>> {
+  ): Promise<
+    Array<{ distributor_name: string; total_sold: string | number; revenue: string | number }>
+  > {
     const result = await this.q(queryable).query<{
       distributor_name: string;
       total_sold: string | number;
@@ -441,7 +506,9 @@ export class AnalyticsRepository implements IAnalyticsRepository {
 
   async getActiveProductsForSnapshot(
     queryable?: Queryable
-  ): Promise<Array<{ id: number; stock: number; cost_price: string | number; price: string | number }>> {
+  ): Promise<
+    Array<{ id: number; stock: number; cost_price: string | number; price: string | number }>
+  > {
     const result = await this.q(queryable).query<{
       id: number;
       stock: number;
@@ -594,7 +661,9 @@ export class AnalyticsRepository implements IAnalyticsRepository {
     return result.rows;
   }
 
-  async getInventorySnapshots(queryable?: Queryable): Promise<Omit<InventorySnapshot, 'snapshot_data'>[]> {
+  async getInventorySnapshots(
+    queryable?: Queryable
+  ): Promise<Omit<InventorySnapshot, 'snapshot_data'>[]> {
     const result = await this.q(queryable).query<Omit<InventorySnapshot, 'snapshot_data'>>(
       `SELECT id, total_products, total_units, total_cost_value, total_retail_value, created_at
        FROM inventory_snapshots ORDER BY created_at DESC LIMIT 30`

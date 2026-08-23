@@ -13,6 +13,7 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Pagination,
 } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import PageHeader from '../../../shared/components/PageHeader';
@@ -22,8 +23,11 @@ import { formatCurrency, formatDate } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
-import type { ColumnDef } from '@tanstack/react-table';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import type { GiftCard, GiftCardTransaction } from '../types';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 
 const giftCards = resource<GiftCard>('gift-cards');
 
@@ -34,15 +38,39 @@ export default function GiftCards() {
 
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [transactionsCard, setTransactionsCard] = useState<GiftCard | null>(null);
+  const { page, pageSize, update } = useListRouteState();
+  const [search, setSearch] = useState('');
+  const [transactionsPage, setTransactionsPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const editor = useEditorDialog(emptyGiftCard);
   const form = editor.values;
 
-  const { data: cards, isLoading } = giftCards.useList({ limit: 200 });
+  const {
+    data: cards,
+    meta,
+    isLoading,
+    isFetching,
+  } = giftCards.useList({
+    page,
+    pageSize,
+    search: debouncedSearch || undefined,
+  });
+  const listPagination = meta?.pagination as PaginationMeta | undefined;
+  const tablePagination: PaginationState = { pageIndex: page - 1, pageSize };
 
-  const { data: transactions, isLoading: transactionsLoading } = giftCards.useRead<
-    GiftCardTransaction[]
-  >(`${transactionsCard?.id}/transactions`, undefined, !!transactionsCard);
+  useLastPageRecovery(page, listPagination?.totalItems, listPagination?.totalPages, update);
+
+  const {
+    data: transactions,
+    meta: transactionsMeta,
+    isLoading: transactionsLoading,
+  } = giftCards.useRead<GiftCardTransaction[]>(
+    `${transactionsCard?.id}/transactions`,
+    { page: transactionsPage, pageSize: 25 },
+    !!transactionsCard
+  );
+  const transactionPagination = transactionsMeta?.pagination as PaginationMeta | undefined;
 
   const creator = giftCards.useSave({
     message: t('giftCards.created'),
@@ -186,7 +214,10 @@ export default function GiftCards() {
               <DropdownItem
                 key="transactions"
                 startContent={<Eye className="h-4 w-4 text-primary" />}
-                onPress={() => setTransactionsCard(card)}
+                onPress={() => {
+                  setTransactionsPage(1);
+                  setTransactionsCard(card);
+                }}
               >
                 {t('giftCards.transactions')}
               </DropdownItem>
@@ -224,9 +255,23 @@ export default function GiftCards() {
 
       {/* Table */}
       <DataTable
+        mode="server"
         columns={columns}
         data={cards ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          update({ page: 1 });
+        }}
+        pagination={tablePagination}
+        pageCount={listPagination?.totalPages ?? 0}
+        totalRows={listPagination?.totalItems ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(tablePagination) : updater;
+          update({ page: next.pageIndex + 1, pageSize: next.pageSize });
+        }}
         searchPlaceholder={t('giftCards.searchPlaceholder')}
       />
 
@@ -403,6 +448,16 @@ export default function GiftCards() {
                     <p className="text-sm text-muted-foreground text-center py-8">
                       {t('giftCards.noTransactions')}
                     </p>
+                  )}
+                  {transactionPagination && transactionPagination.totalPages > 1 && (
+                    <div className="flex justify-center pt-3">
+                      <Pagination
+                        page={transactionsPage}
+                        total={transactionPagination.totalPages}
+                        onChange={setTransactionsPage}
+                        showControls
+                      />
+                    </div>
                   )}
                 </div>
               </ModalBody>

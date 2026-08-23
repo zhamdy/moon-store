@@ -8,6 +8,7 @@ const upload = createUpload({ maxSize: 2 * 1024 * 1024, destination: 'uploads/pr
 const router: Router = Router();
 
 router.get('/', verifyToken, (req, res, next) => productsController.getProducts(req, res, next));
+router.get('/lookup', verifyToken, (req, res, next) => productsController.lookup(req, res, next));
 router.get('/categories', verifyToken, cacheControl(300), (req, res, next) =>
   productsController.getCategories(req, res, next)
 );
@@ -16,9 +17,6 @@ router.get('/generate-sku/:categoryId', verifyToken, requireRole('Admin'), (req,
 );
 router.get('/generate-barcode', verifyToken, requireRole('Admin'), (req, res, next) =>
   productsController.generateBarcode(req, res, next)
-);
-router.get('/low-stock', verifyToken, requireRole('Admin'), (req, res, next) =>
-  productsController.getLowStock(req, res, next)
 );
 router.get('/barcode/:barcode', verifyToken, (req, res, next) =>
   productsController.getByBarcode(req, res, next)

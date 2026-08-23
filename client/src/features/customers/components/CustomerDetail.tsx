@@ -22,6 +22,7 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Pagination,
 } from '@heroui/react';
 import { Badge } from '../../../shared/components/StatusBadge';
 import { formatCurrency, formatDateTime, formatRelative } from '../../../shared/lib/utils';
@@ -29,6 +30,7 @@ import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation } from '../../../shared/i18n/index';
 import type { AppSettings } from '../../../shared/types/index';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 /** Reached only for reads hanging off one customer and the points adjustment. */
 const customers = resource<{ id: number }>('customers');
@@ -76,6 +78,7 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
   const [adjustDialogOpen, setAdjustDialogOpen] = useState(false);
   const [adjustPoints, setAdjustPoints] = useState(0);
   const [adjustNote, setAdjustNote] = useState('');
+  const [salesPage, setSalesPage] = useState(1);
 
   const { data: appSettings } = useApiQuery<AppSettings>(['settings'], 'settings', undefined, {
     staleTime: 5 * 60 * 1000,
@@ -85,9 +88,12 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
 
   const { data: stats } = customers.useRead<CustomerStats>(`${customerId}/stats`);
 
-  const { data: sales = [], isLoading } = customers.useRead<CustomerSale[]>(`${customerId}/sales`, {
-    limit: 100,
-  });
+  const {
+    data: sales = [],
+    meta: salesMeta,
+    isLoading,
+  } = customers.useRead<CustomerSale[]>(`${customerId}/sales`, { page: salesPage, pageSize: 25 });
+  const salesPagination = salesMeta?.pagination as PaginationMeta | undefined;
 
   const { data: loyaltyData } = useApiQuery<LoyaltyData>(
     ['customer-loyalty', customerId],
@@ -337,6 +343,16 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {salesPagination && salesPagination.totalPages > 1 && (
+            <div className="flex justify-center border-t border-border p-3">
+              <Pagination
+                page={salesPage}
+                total={salesPagination.totalPages}
+                onChange={setSalesPage}
+                showControls
+              />
             </div>
           )}
         </CardBody>

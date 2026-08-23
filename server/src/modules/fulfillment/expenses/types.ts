@@ -32,11 +32,40 @@ export interface CreateExpenseDTO {
 export type UpdateExpenseDTO = CreateExpenseDTO;
 
 export interface ExpenseFilters {
-  page?: number;
-  limit?: number;
+  page: number;
+  pageSize: number;
   category?: string;
   from?: string;
   to?: string;
+  sortBy: 'date' | 'createdAt';
+  sortOrder: 'asc' | 'desc';
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const expenseListQuerySchema = createListQuerySchema(['date', 'createdAt'] as const)
+  .extend({
+    category: z
+      .enum(['rent', 'salaries', 'utilities', 'marketing', 'supplies', 'other'])
+      .optional(),
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
+  })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'date', ...query }));
+
+export function parseExpenseListQuery(query: unknown): ExpenseFilters {
+  const parsed = expenseListQuerySchema.parse(query);
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    category: parsed.category,
+    from: parsed.from,
+    to: parsed.to,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }
 
 export interface ExpenseListResult {

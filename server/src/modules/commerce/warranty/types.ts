@@ -32,6 +32,25 @@ export interface UpdateWarrantyClaimDTO {
 
 export interface WarrantyFilters {
   status?: string;
-  page?: number;
-  limit?: number;
+  page: number;
+  pageSize: number;
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+const warrantyListQuerySchema = createListQuerySchema(['createdAt'] as const)
+  .extend({ status: z.string().trim().min(1).max(30).optional() })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+export function parseWarrantyListQuery(query: unknown): WarrantyFilters {
+  const parsed = warrantyListQuerySchema.parse(query);
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    status: parsed.status,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }

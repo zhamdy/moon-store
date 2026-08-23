@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import { Eye, Truck, XCircle, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { Button, Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
 import { Badge, type BadgeVariant, PageHeader, DataTable } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { OnlineOrder } from '../types';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 const onlineOrders = resource<OnlineOrder>('online-orders');
 
@@ -22,11 +24,23 @@ const statusVariantMap: Record<string, BadgeVariant> = {
 
 export default function OnlineOrdersPage() {
   const { t } = useTranslation();
-  const [statusFilter, setStatusFilter] = useState('');
+  const { search: routeSearch, page, pageSize, update } = useListRouteState();
+  const statusFilter = typeof routeSearch.status === 'string' ? routeSearch.status : '';
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailId, setDetailId] = useState<number | null>(null);
 
-  const { data: orders, isLoading } = onlineOrders.useList({ status: statusFilter || undefined });
+  const {
+    data: orders,
+    meta,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = onlineOrders.useList({ page, pageSize, status: statusFilter || undefined });
+  const pageMeta = meta?.pagination as PaginationMeta | undefined;
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+
+  useLastPageRecovery(page, pageMeta?.totalItems, pageMeta?.totalPages, update);
   const { data: selectedOrder } = onlineOrders.useOne(detailOpen ? detailId : null);
 
   const updateStatus = onlineOrders.useAction('status', {
@@ -121,7 +135,9 @@ export default function OnlineOrdersPage() {
             variant={statusFilter === s ? 'solid' : 'bordered'}
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setStatusFilter(s)}
+            onClick={() => {
+              update({ status: s || undefined, page: 1 });
+            }}
           >
             {s ? t(`onlineOrders.${s}`) : t('common.all')}
           </Button>
@@ -129,9 +145,23 @@ export default function OnlineOrdersPage() {
       </div>
 
       <DataTable
+        mode="server"
         columns={columns}
         data={orders ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        error={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
+        pagination={pagination}
+        pageCount={pageMeta?.totalPages ?? 0}
+        totalRows={pageMeta?.totalItems ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          update({
+            page: next.pageSize === pageSize ? next.pageIndex + 1 : 1,
+            pageSize: next.pageSize,
+          });
+        }}
         searchPlaceholder={t('common.search')}
       />
 

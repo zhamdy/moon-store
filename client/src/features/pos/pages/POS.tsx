@@ -65,7 +65,11 @@ export default function POS() {
     toggleFavorite,
     categories,
     products,
+    favoriteProducts,
     isLoadingProducts,
+    hasMoreProducts,
+    loadMoreProducts,
+    isLoadingMoreProducts,
     bundles,
     variants,
     variantProduct,
@@ -328,7 +332,7 @@ export default function POS() {
               </h3>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {favorites.map((favId) => {
-                  const product = products.find((p) => p.id === favId);
+                  const product = favoriteProducts.find((p) => p.id === favId);
                   if (!product) return null;
                   return (
                     <button
@@ -489,6 +493,18 @@ export default function POS() {
                   </CardBody>
                 </Card>
               ))}
+              {hasMoreProducts && (
+                <div className="col-span-full flex justify-center pt-2">
+                  <Button
+                    variant="bordered"
+                    onPress={loadMoreProducts}
+                    isLoading={isLoadingMoreProducts}
+                    aria-label="Load more products"
+                  >
+                    Load more
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

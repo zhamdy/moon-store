@@ -5,10 +5,11 @@ import { NotificationRecord } from './types';
 export interface INotificationsRepository {
   list(
     userId: number,
-    unreadOnly?: boolean,
-    limit?: number,
+    unreadOnly: boolean,
+    page: number,
+    pageSize: number,
     queryable?: Queryable
-  ): Promise<NotificationRecord[]>;
+  ): Promise<{ rows: NotificationRecord[]; total: number }>;
   getUnreadCount(userId: number, queryable?: Queryable): Promise<number>;
   markAsRead(id: number | string, userId: number, queryable?: Queryable): Promise<void>;
   markAllAsRead(userId: number, queryable?: Queryable): Promise<void>;
@@ -34,10 +35,11 @@ export class NotificationsRepository implements INotificationsRepository {
 
   async list(
     userId: number,
-    unreadOnly: boolean = false,
-    limit: number = 50,
+    unreadOnly: boolean,
+    page: number,
+    pageSize: number,
     queryable?: Queryable
-  ): Promise<NotificationRecord[]> {
+  ): Promise<{ rows: NotificationRecord[]; total: number }> {
     let query = 'SELECT * FROM notifications WHERE user_id = $1';
     const params: unknown[] = [userId];
 
@@ -45,11 +47,15 @@ export class NotificationsRepository implements INotificationsRepository {
       query += ' AND read = 0';
     }
 
-    params.push(limit);
-    query += ` ORDER BY created_at DESC LIMIT $${params.length}`;
+    const count = await this.q(queryable).query<{ total: string | number }>(
+      `SELECT COUNT(*) AS total FROM notifications WHERE user_id = $1${unreadOnly ? ' AND read = 0' : ''}`,
+      [userId]
+    );
+    params.push(pageSize, (page - 1) * pageSize);
+    query += ` ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
 
     const result = await this.q(queryable).query<NotificationRecord>(query, params);
-    return result.rows;
+    return { rows: result.rows, total: Number(count.rows[0]?.total || 0) };
   }
 
   async getUnreadCount(userId: number, queryable?: Queryable): Promise<number> {
@@ -60,11 +66,7 @@ export class NotificationsRepository implements INotificationsRepository {
     return Number(result.rows[0]?.count || 0);
   }
 
-  async markAsRead(
-    id: number | string,
-    userId: number,
-    queryable?: Queryable
-  ): Promise<void> {
+  async markAsRead(id: number | string, userId: number, queryable?: Queryable): Promise<void> {
     await this.q(queryable).query(
       `UPDATE notifications SET read = 1 WHERE id = $1 AND user_id = $2`,
       [id, userId]

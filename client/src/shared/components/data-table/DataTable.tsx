@@ -11,7 +11,7 @@ import {
   type VisibilityState,
   type PaginationState,
 } from '@tanstack/react-table';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, AlertTriangle } from 'lucide-react';
 import { TableBulkActions } from './TableBulkActions';
 import { Skeleton } from '../data-display/SkeletonLoader';
 import EmptyState from '../EmptyState';
@@ -22,7 +22,12 @@ export function DataTable<TData>({
   columns,
   data,
   isLoading,
+  isFetching,
+  error,
+  onRetry,
   searchPlaceholder,
+  searchError,
+  isFiltered = false,
   enableSearch = true,
   enableRowSelection = false,
   rowSelection: controlledRowSelection,
@@ -33,10 +38,13 @@ export function DataTable<TData>({
   bulkActions,
   emptyTitle,
   emptyDescription,
+  filteredEmptyTitle,
+  filteredEmptyDescription,
   className = '',
   ...props
 }: DataTableProps<TData>): React.JSX.Element {
   const isServer = props.mode === 'server';
+  const showSearch = enableSearch && (!isServer || Boolean(props.onSearchChange));
   const { t } = useTranslation();
 
   // Internal client state
@@ -91,6 +99,7 @@ export function DataTable<TData>({
     manualPagination: isServer,
     manualSorting: isServer,
     manualFiltering: isServer,
+    enableSorting: !isServer || Boolean(props.onSortingChange),
     pageCount: isServer ? props.pageCount : undefined,
     getCoreRowModel: getCoreRowModel(),
     ...(!isServer
@@ -105,7 +114,7 @@ export function DataTable<TData>({
   if (isLoading) {
     return (
       <div className={`space-y-3 ${className}`} aria-busy="true">
-        {enableSearch && <Skeleton className="h-10 w-full sm:w-72 rounded-lg" />}
+        {showSearch && <Skeleton className="h-10 w-full sm:w-72 rounded-lg" />}
         <Skeleton className="h-10 w-full rounded-lg" />
         {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-12 w-full rounded-lg" />
@@ -137,10 +146,18 @@ export function DataTable<TData>({
   const endRow = Math.min((pageIndex + 1) * pageSize, totalRowCount);
 
   return (
-    <div className={`space-y-4 ${className}`}>
+    <div className={`space-y-4 ${className}`} aria-busy={isFetching || undefined}>
+      <div
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-label={isFetching ? 'Loading results' : 'Results loaded'}
+      >
+        {isFetching ? 'Loading results' : `${totalRowCount} results`}
+      </div>
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-wrap">
-        {enableSearch && (
+        {showSearch && (
           <div className="w-full sm:w-72 relative">
             <div className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
               <Search className="h-4 w-4" aria-hidden="true" />
@@ -151,9 +168,16 @@ export function DataTable<TData>({
               aria-label={searchPlaceholder || t('common.search')}
               placeholder={searchPlaceholder || t('common.search')}
               value={activeGlobalFilter}
+              aria-invalid={!!searchError}
+              aria-describedby={searchError ? 'data-table-search-error' : undefined}
               onChange={(e) => handleGlobalFilterChange(e.target.value)}
               className="w-full h-9 ps-9 pe-3 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground outline-none transition-colors hover:border-foreground/40 focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
+            {searchError && (
+              <p id="data-table-search-error" className="mt-1 text-xs text-danger">
+                {searchError}
+              </p>
+            )}
           </div>
         )}
 
@@ -165,6 +189,27 @@ export function DataTable<TData>({
         <TableBulkActions selectedCount={selectedCount} onClearSelection={clearSelection}>
           {bulkActions && bulkActions(selectedRows, clearSelection)}
         </TableBulkActions>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger"
+        >
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {error}
+          </span>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-lg border border-danger/30 px-3 py-1.5 font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Retry
+            </button>
+          )}
+        </div>
       )}
 
       {/* Table Container */}
@@ -227,8 +272,15 @@ export function DataTable<TData>({
                   <td colSpan={columns.length} role="status" aria-live="polite" className="py-8">
                     <EmptyState
                       icon={Search}
-                      title={emptyTitle || t('common.noResults')}
-                      description={emptyDescription || t('common.noResultsDesc')}
+                      title={
+                        (activeGlobalFilter || isFiltered ? filteredEmptyTitle : emptyTitle) ||
+                        t('common.noResults')
+                      }
+                      description={
+                        (activeGlobalFilter || isFiltered
+                          ? filteredEmptyDescription
+                          : emptyDescription) || t('common.noResultsDesc')
+                      }
                     />
                   </td>
                 </tr>

@@ -19,9 +19,7 @@ export function generatePlanNumber(): string {
 
 export interface ILayawayService {
   createPlan(data: CreateLayawayDTO, userId: number): Promise<LayawayPlanRow>;
-  listPlans(
-    filters: LayawayFilters
-  ): Promise<{ rows: LayawayPlanRow[]; meta: { total: number; page: number; limit: number } }>;
+  listPlans(filters: LayawayFilters): Promise<{ rows: LayawayPlanRow[]; total: number }>;
   getPlanById(id: number | string): Promise<LayawayPlanDetail | null>;
   recordPayment(
     planId: number,
@@ -86,22 +84,8 @@ export class LayawayService implements ILayawayService {
     });
   }
 
-  async listPlans(
-    filters: LayawayFilters
-  ): Promise<{ rows: LayawayPlanRow[]; meta: { total: number; page: number; limit: number } }> {
-    const pageNum = Number(filters.page) || 1;
-    const limitNum = Number(filters.limit) || 20;
-
-    const result = await this.repo.listPlans(filters);
-
-    return {
-      rows: result.rows,
-      meta: {
-        total: result.total,
-        page: pageNum,
-        limit: limitNum,
-      },
-    };
+  async listPlans(filters: LayawayFilters): Promise<{ rows: LayawayPlanRow[]; total: number }> {
+    return this.repo.listPlans(filters);
   }
 
   async getPlanById(id: number | string): Promise<LayawayPlanDetail | null> {

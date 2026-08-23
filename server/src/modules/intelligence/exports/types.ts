@@ -1,6 +1,19 @@
 export interface ExportSalesFilters {
-  from?: unknown;
-  to?: unknown;
+  from?: string;
+  to?: string;
+}
+
+import { z } from 'zod';
+
+const exportSalesQuerySchema = z
+  .object({
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
+  })
+  .strict();
+
+export function parseExportSalesQuery(query: unknown): ExportSalesFilters {
+  return exportSalesQuerySchema.parse(query);
 }
 
 export interface ExportProductRow extends Record<string, unknown> {

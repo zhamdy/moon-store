@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, type ChangeEvent } from 'react';
+import { useState, useRef, useMemo, useEffect, type ChangeEvent } from 'react';
 import { useSearch, useNavigate } from '@tanstack/react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -44,7 +44,13 @@ import { resource } from '../../../shared/lib/resource';
 import { useTransport, type TransportMethod } from '../../../shared/lib/transport/index';
 import { useAuthStore } from '../../auth';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
-import type { ColumnDef, RowSelectionState } from '@tanstack/react-table';
+import type {
+  ColumnDef,
+  RowSelectionState,
+  PaginationState,
+  SortingState,
+} from '@tanstack/react-table';
+import { ApiError, type PaginationMeta } from '../../../shared/lib/transport/types';
 import type { Category, Distributor, Product } from '../../../shared/types/index';
 import type {
   BulkDiscontinueResult,
@@ -104,20 +110,26 @@ export default function Inventory() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'Admin';
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const search = useSearch({ strict: false }) as { lowStock?: string | boolean } | undefined;
+  const navigate = useNavigate({ from: '/inventory' });
+  const rawSearch = useSearch({ strict: false }) as Record<string, unknown>;
+  const page = typeof rawSearch.page === 'number' && rawSearch.page > 0 ? rawSearch.page : 1;
+  const pageSize = [10, 25, 50, 100].includes(Number(rawSearch.pageSize))
+    ? Number(rawSearch.pageSize)
+    : 25;
+  const searchTerm = typeof rawSearch.search === 'string' ? rawSearch.search : '';
+  const sortBy = typeof rawSearch.sortBy === 'string' ? rawSearch.sortBy : 'name';
+  const sortOrder = rawSearch.sortOrder === 'desc' ? 'desc' : 'asc';
+  const categoryId = typeof rawSearch.categoryId === 'number' ? rawSearch.categoryId : undefined;
+  const status = typeof rawSearch.status === 'string' ? rawSearch.status : 'all';
+  const lowStockFilter = rawSearch.lowStock === true || rawSearch.lowStock === 'true';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchDraft, setSearchDraft] = useState(searchTerm);
 
   // UI state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [discontinueId, setDiscontinueId] = useState<number | null>(null);
   const [reactivateId, setReactivateId] = useState<number | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [lowStockFilter, setLowStockFilter] = useState(
-    search?.lowStock === 'true' || search?.lowStock === true
-  );
   const [adjustStockOpen, setAdjustStockOpen] = useState(false);
   const [adjustProduct, setAdjustProduct] = useState<{
     id: number;
@@ -137,19 +149,59 @@ export default function Inventory() {
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState('');
 
-  // Reads. The two product lists are separate server endpoints rather than one
-  // filtered read, so the page picks between them rather than merging them.
+  // The URL is the authoritative list state; the server owns every collection operation.
   const list = products.useList({
-    limit: 200,
-    category_id: categoryFilter === 'all' ? undefined : categoryFilter,
-    status: statusFilter,
+    page,
+    pageSize,
+    search: searchTerm || undefined,
+    sortBy,
+    sortOrder,
+    categoryId,
+    status,
+    lowStock: lowStockFilter || undefined,
   });
-  const lowStock = products.useRead<LowStockProduct[]>('low-stock', undefined, lowStockFilter);
   const { data: categories } = products.useRead<Category[]>('categories');
   const { data: distributorRows } = distributors.useList();
 
-  const currentData: Product[] = (lowStockFilter ? lowStock.data : list.data) ?? [];
-  const isLoading = lowStockFilter ? lowStock.isLoading : list.isLoading;
+  const currentData: Product[] = list.data ?? [];
+  const paginationMeta = (list.meta as { pagination?: PaginationMeta } | undefined)?.pagination;
+  const listError = list.error instanceof ApiError ? list.error : null;
+  const validationDetails = listError?.details ?? [];
+
+  useEffect(() => setSearchDraft(searchTerm), [searchTerm]);
+
+  useEffect(() => {
+    if (searchDraft === searchTerm) return;
+    const timer = window.setTimeout(() => {
+      navigate({
+        replace: true,
+        search: (previous: Record<string, unknown>) => ({
+          ...previous,
+          search: searchDraft.trim() || undefined,
+          page: 1,
+        }),
+      });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [navigate, searchDraft, searchTerm]);
+
+  useEffect(() => {
+    const lastPage = Math.max(1, paginationMeta?.totalPages ?? 1);
+    if (paginationMeta && page > lastPage) {
+      navigate({
+        replace: true,
+        search: (previous: Record<string, unknown>) => ({
+          ...previous,
+          page: lastPage,
+        }),
+      });
+    }
+  }, [navigate, page, paginationMeta]);
+
+  useEffect(
+    () => setRowSelection({}),
+    [page, pageSize, searchTerm, sortBy, sortOrder, categoryId, status, lowStockFilter]
+  );
 
   // Writes. One save covers create and update: an id in the draft is what makes
   // it an update, so the page does not branch on which mutation to reach for.
@@ -236,14 +288,24 @@ export default function Inventory() {
   const selectedCount = selectedIds.length;
 
   const toggleLowStock = (on: boolean) => {
-    setLowStockFilter(on);
     navigate({
       search: (prev: Record<string, unknown>) => ({
         ...prev,
-        lowStock: on ? 'true' : undefined,
+        lowStock: on || undefined,
+        status: on ? 'active' : prev.status,
+        page: 1,
       }),
     });
   };
+
+  const updateSearch = (changes: Record<string, unknown>, replace = false) =>
+    navigate({
+      replace,
+      search: (previous: Record<string, unknown>) => ({ ...previous, ...changes }),
+    });
+
+  const tablePagination: PaginationState = { pageIndex: page - 1, pageSize };
+  const tableSorting: SortingState = [{ id: sortBy, desc: sortOrder === 'desc' }];
 
   const queryClient = useQueryClient();
   const transport = useTransport();
@@ -637,9 +699,18 @@ export default function Inventory() {
               size="sm"
               variant="bordered"
               className="w-48"
-              selectedKeys={[categoryFilter]}
-              onChange={(e) => setCategoryFilter(e.target.value || 'all')}
+              selectedKeys={[categoryId ? String(categoryId) : 'all']}
+              onChange={(e) =>
+                updateSearch({
+                  categoryId: e.target.value === 'all' ? undefined : Number(e.target.value),
+                  page: 1,
+                })
+              }
               aria-label={t('inventory.category')}
+              errorMessage={
+                validationDetails.find((detail) => detail.field === 'categoryId')?.message
+              }
+              isInvalid={validationDetails.some((detail) => detail.field === 'categoryId')}
             >
               <SelectItem key="all" textValue={t('inventory.allCategories')}>
                 {t('inventory.allCategories')}
@@ -655,9 +726,11 @@ export default function Inventory() {
               size="sm"
               variant="bordered"
               className="w-44"
-              selectedKeys={[statusFilter]}
-              onChange={(e) => setStatusFilter(e.target.value || 'all')}
+              selectedKeys={[status]}
+              onChange={(e) => updateSearch({ status: e.target.value || 'all', page: 1 })}
               aria-label={t('inventory.statusFilter')}
+              errorMessage={validationDetails.find((detail) => detail.field === 'status')?.message}
+              isInvalid={validationDetails.some((detail) => detail.field === 'status')}
             >
               <SelectItem key="all" textValue={t('inventory.allStatuses')}>
                 {t('inventory.allStatuses')}
@@ -705,57 +778,102 @@ export default function Inventory() {
         </div>
       )}
 
-      <DataTable
-        columns={columns}
-        data={currentData}
-        isLoading={isLoading}
-        searchPlaceholder={t('inventory.searchPlaceholder')}
-        enableRowSelection={isAdmin}
-        rowSelection={rowSelection}
-        onRowSelectionChange={setRowSelection}
-        getRowId={(row: Product) => String(row.id)}
-        bulkActions={(_selected, clearSelection) => (
-          <>
-            <Button variant="bordered" size="sm" onClick={() => setBulkCategoryOpen(true)}>
-              {t('bulk.changeCategory')}
-            </Button>
-            <Button variant="bordered" size="sm" onClick={() => setBulkDistributorOpen(true)}>
-              {t('bulk.changeDistributor')}
-            </Button>
-            <Button
-              variant="bordered"
-              size="sm"
-              startContent={<Percent className="h-3.5 w-3.5" />}
-              onClick={() => setBulkPriceOpen(true)}
-            >
-              {t('bulk.adjustPrice')}
-            </Button>
-            <Button variant="bordered" size="sm" onClick={() => setBulkStatusOpen(true)}>
-              {t('bulk.changeStatus')}
-            </Button>
-            <Button
-              variant="bordered"
-              size="sm"
-              startContent={<Download className="h-3.5 w-3.5" />}
-              onClick={handleBulkExport}
-            >
-              {t('bulk.export')}
-            </Button>
-            <Button
-              variant="flat"
-              color="danger"
-              size="sm"
-              startContent={<Archive className="h-3.5 w-3.5" />}
-              onClick={() => setBulkDeleteOpen(true)}
-            >
-              {t('bulk.discontinueSelected')}
-            </Button>
-            <Button variant="light" size="sm" onClick={clearSelection}>
-              {t('bulk.clearSelection')}
-            </Button>
-          </>
-        )}
-      />
+      {listError?.status === 403 ? (
+        <div
+          role="alert"
+          className="rounded-xl border border-danger/30 bg-danger/5 p-6 text-sm text-danger"
+        >
+          <h2 className="font-semibold">Permission required</h2>
+          <p className="mt-1">{listError.message}</p>
+        </div>
+      ) : (
+        <DataTable
+          mode="server"
+          columns={columns}
+          data={currentData}
+          isLoading={list.isLoading && currentData.length === 0}
+          isFetching={list.isFetching && !list.isLoading}
+          error={listError ? listError.message || t('common.error') : undefined}
+          onRetry={listError && listError.status !== 403 ? () => list.refetch() : undefined}
+          searchPlaceholder={t('inventory.searchPlaceholder')}
+          searchError={validationDetails.find((detail) => detail.field === 'search')?.message}
+          isFiltered={!!(searchTerm || categoryId || status !== 'all' || lowStockFilter)}
+          search={searchDraft}
+          onSearchChange={setSearchDraft}
+          pagination={tablePagination}
+          pageCount={paginationMeta?.totalPages ?? 0}
+          totalRows={paginationMeta?.totalItems ?? currentData.length}
+          onPaginationChange={(updater) => {
+            const next = typeof updater === 'function' ? updater(tablePagination) : updater;
+            updateSearch({
+              page: next.pageIndex + 1,
+              pageSize: next.pageSize,
+              ...(next.pageSize !== pageSize ? { page: 1 } : {}),
+            });
+          }}
+          sorting={tableSorting}
+          onSortingChange={(updater) => {
+            const next = typeof updater === 'function' ? updater(tableSorting) : updater;
+            const requested = next[0];
+            const allowed = new Set(['name', 'price', 'stock', 'category']);
+            if (requested && allowed.has(requested.id))
+              updateSearch({
+                sortBy: requested.id,
+                sortOrder: requested.desc ? 'desc' : 'asc',
+                page: 1,
+              });
+          }}
+          emptyTitle="No products yet"
+          emptyDescription="Add a product to start building inventory."
+          filteredEmptyTitle="No matching products"
+          filteredEmptyDescription="Try changing the search or filters."
+          enableRowSelection={isAdmin}
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
+          getRowId={(row: Product) => String(row.id)}
+          bulkActions={(_selected, clearSelection) => (
+            <>
+              <Button variant="bordered" size="sm" onClick={() => setBulkCategoryOpen(true)}>
+                {t('bulk.changeCategory')}
+              </Button>
+              <Button variant="bordered" size="sm" onClick={() => setBulkDistributorOpen(true)}>
+                {t('bulk.changeDistributor')}
+              </Button>
+              <Button
+                variant="bordered"
+                size="sm"
+                startContent={<Percent className="h-3.5 w-3.5" />}
+                onClick={() => setBulkPriceOpen(true)}
+              >
+                {t('bulk.adjustPrice')}
+              </Button>
+              <Button variant="bordered" size="sm" onClick={() => setBulkStatusOpen(true)}>
+                {t('bulk.changeStatus')}
+              </Button>
+              <Button
+                variant="bordered"
+                size="sm"
+                startContent={<Download className="h-3.5 w-3.5" />}
+                onClick={handleBulkExport}
+              >
+                {t('bulk.export')}
+              </Button>
+              <Button
+                variant="flat"
+                color="danger"
+                size="sm"
+                startContent={<Archive className="h-3.5 w-3.5" />}
+                onClick={() => setBulkDeleteOpen(true)}
+              >
+                {t('bulk.discontinueSelected')}
+              </Button>
+              <Button variant="light" size="sm" onClick={clearSelection}>
+                {t('bulk.clearSelection')}
+              </Button>
+            </>
+          )}
+        />
+      )}
 
       {/* Product Add/Edit Dialog */}
       <ProductFormDialog

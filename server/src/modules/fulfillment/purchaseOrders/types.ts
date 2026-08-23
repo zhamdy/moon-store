@@ -28,10 +28,33 @@ export interface ReceiveItemsDTO {
 }
 
 export interface PurchaseOrderFilters {
-  page?: number;
-  limit?: number;
-  distributor_id?: number | string;
+  page: number;
+  pageSize: number;
+  distributorId?: number;
   status?: string;
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+const purchaseOrderListQuerySchema = createListQuerySchema(['createdAt'] as const)
+  .extend({
+    distributorId: z.string().regex(/^\d+$/).transform(Number).optional(),
+    status: z.string().trim().min(1).max(30).optional(),
+  })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+export function parsePurchaseOrderListQuery(query: unknown): PurchaseOrderFilters {
+  const parsed = purchaseOrderListQuerySchema.parse(query);
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    distributorId: parsed.distributorId,
+    status: parsed.status,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }
 
 export interface PurchaseOrderListResult {

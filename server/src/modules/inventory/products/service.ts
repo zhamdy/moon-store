@@ -13,12 +13,25 @@ import {
   batchGenerateBarcodes,
 } from '../../../../services/productService';
 import { IProductsRepository, productsRepository as defaultRepo } from './repository';
+import { ProductFilters } from './types';
+import { withTransaction } from '../../../database/transaction';
 
 export class ProductsService {
   constructor(private repo: IProductsRepository = defaultRepo) {}
 
   getRepository(): IProductsRepository {
     return this.repo;
+  }
+
+  list(filters: ProductFilters) {
+    return withTransaction(async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
+      return this.repo.list(filters, client);
+    });
+  }
+
+  lookup(ids: number[], includeInactive: boolean) {
+    return this.repo.lookup(ids, includeInactive);
   }
 
   generateSku(categoryId: number) {

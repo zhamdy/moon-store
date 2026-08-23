@@ -32,9 +32,8 @@ export class WarrantyRepository implements IWarrantyRepository {
     filters: WarrantyFilters,
     queryable?: Queryable
   ): Promise<{ rows: WarrantyClaimRecord[]; total: number }> {
-    const { status, page = 1, limit = 20 } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
+    const { status, page: pageNum, pageSize: limitNum, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
     const offset = (pageNum - 1) * limitNum;
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
@@ -58,7 +57,7 @@ export class WarrantyRepository implements IWarrantyRepository {
        FROM warranty_claims w
        JOIN products p ON w.product_id = p.id
        ${where}
-       ORDER BY w.created_at DESC
+        ORDER BY w.created_at ${direction}, w.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limitNum, offset]
     );
@@ -77,10 +76,7 @@ export class WarrantyRepository implements IWarrantyRepository {
     return res.rows[0] || null;
   }
 
-  async create(
-    data: CreateWarrantyClaimDTO,
-    queryable?: Queryable
-  ): Promise<WarrantyClaimRecord> {
+  async create(data: CreateWarrantyClaimDTO, queryable?: Queryable): Promise<WarrantyClaimRecord> {
     const result = await this.q(queryable).query<WarrantyClaimRecord>(
       `INSERT INTO warranty_claims (sale_id, product_id, customer_id, customer_name, customer_phone, issue_description, status)
        VALUES ($1, $2, $3, $4, $5, $6, 'pending') RETURNING *`,

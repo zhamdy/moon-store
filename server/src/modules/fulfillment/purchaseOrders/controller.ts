@@ -1,28 +1,23 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
-import {
-  purchaseOrderSchema,
-  receiveSchema,
-} from '../../../../validators/purchaseOrderSchema';
+import { purchaseOrderSchema, receiveSchema } from '../../../../validators/purchaseOrderSchema';
 import { purchaseOrdersService } from './service';
+import { parsePurchaseOrderListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
 
 export class PurchaseOrdersController {
   async getPurchaseOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = 1, limit = 25, distributor_id, status } = req.query;
-      const result = await purchaseOrdersService.list({
-        page: Number(page),
-        limit: Number(limit),
-        distributor_id: distributor_id ? (distributor_id as string) : undefined,
-        status: status as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: { total: result.total, page: Number(page), limit: Number(limit) },
-      });
+      const query = parsePurchaseOrderListQuery(req.query);
+      const result = await purchaseOrdersService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -32,11 +27,10 @@ export class PurchaseOrdersController {
     try {
       const order = await purchaseOrdersService.findById(req.params.id as string);
       if (!order) {
-        res.status(404).json({ success: false, error: 'Purchase order not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Purchase order not found');
       }
 
-      res.json({ success: true, data: order });
+      res.json(success(order));
     } catch (err) {
       next(err);
     }
@@ -46,8 +40,7 @@ export class PurchaseOrdersController {
     try {
       const parsed = purchaseOrderSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
@@ -57,10 +50,7 @@ export class PurchaseOrdersController {
         po_number: created.po_number,
       });
 
-      res.status(201).json({
-        success: true,
-        data: created,
-      });
+      res.status(201).json(success(created));
     } catch (err) {
       next(err);
     }
@@ -71,17 +61,15 @@ export class PurchaseOrdersController {
       const { status } = req.body;
       const validStatuses = ['Draft', 'Sent', 'Partially Received', 'Received', 'Cancelled'];
       if (!validStatuses.includes(status)) {
-        res.status(400).json({ success: false, error: 'Invalid status' });
-        return;
+        throw new PublicError('VALIDATION_ERROR', 'Invalid status');
       }
 
       const updated = await purchaseOrdersService.updateStatus(req.params.id as string, status);
       if (!updated) {
-        res.status(404).json({ success: false, error: 'Purchase order not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Purchase order not found');
       }
 
-      res.json({ success: true, data: updated });
+      res.json(success(updated));
     } catch (err) {
       next(err);
     }
@@ -91,8 +79,7 @@ export class PurchaseOrdersController {
     try {
       const parsed = receiveSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
@@ -103,18 +90,13 @@ export class PurchaseOrdersController {
           authReq.user!.id
         );
 
-        res.json({
-          success: true,
-          data: { id: Number(req.params.id), status: newStatus },
-        });
+        res.json(success({ id: Number(req.params.id), status: newStatus }));
       } catch (err: any) {
         if (err.message === 'Purchase order not found') {
-          res.status(404).json({ success: false, error: err.message });
-          return;
+          throw new PublicError('NOT_FOUND', err.message);
         }
         if (err.message?.startsWith('Cannot receive items')) {
-          res.status(400).json({ success: false, error: err.message });
-          return;
+          throw new PublicError('CONFLICT', err.message);
         }
         throw err;
       }
@@ -128,14 +110,12 @@ export class PurchaseOrdersController {
       const result = await purchaseOrdersService.delete(req.params.id as string);
       if (!result.success) {
         if (result.error === 'Purchase order not found') {
-          res.status(404).json({ success: false, error: result.error });
-          return;
+          throw new PublicError('NOT_FOUND', result.error);
         }
-        res.status(400).json({ success: false, error: result.error });
-        return;
+        throw new PublicError('CONFLICT', result.error);
       }
 
-      res.json({ success: true, data: { deleted: true } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

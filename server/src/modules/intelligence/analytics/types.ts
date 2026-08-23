@@ -7,6 +7,81 @@ export interface DashboardKpis {
   low_stock_items: number;
 }
 
+import { z } from 'zod';
+
+const dateFilters = {
+  from: z.string().date().optional(),
+  to: z.string().date().optional(),
+};
+const validateDateRange = (value: { from?: string; to?: string }, ctx: z.RefinementCtx) => {
+  if ((value.from && !value.to) || (!value.from && value.to)) {
+    ctx.addIssue({ code: 'custom', message: 'from and to must be provided together' });
+  } else if (value.from && value.to && value.from > value.to) {
+    ctx.addIssue({ code: 'custom', message: 'from must be on or before to' });
+  }
+};
+const analyticsDateQuerySchema = z.object(dateFilters).strict().superRefine(validateDateRange);
+const pageFields = {
+  page: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive()).default('1'),
+  pageSize: z.enum(['10', '25', '50', '100']).default('25').transform(Number),
+};
+const analyticsPageQuerySchema = z
+  .object({ ...pageFields, ...dateFilters })
+  .strict()
+  .superRefine(validateDateRange);
+const analyticsDaysPageQuerySchema = z
+  .object({
+    ...pageFields,
+    days: z
+      .string()
+      .regex(/^\d+$/)
+      .transform(Number)
+      .pipe(z.number().int().min(1).max(3650))
+      .optional(),
+  })
+  .strict();
+const analyticsDaysQuerySchema = z
+  .object({
+    days: z
+      .string()
+      .regex(/^\d+$/)
+      .transform(Number)
+      .pipe(z.number().int().min(1).max(3650))
+      .optional(),
+  })
+  .strict();
+
+export interface AnalyticsPageQuery {
+  page: number;
+  pageSize: number;
+  from?: string;
+  to?: string;
+}
+
+export interface AnalyticsPagedResult<T> {
+  items: T[];
+  totalItems: number;
+}
+
+export function parseAnalyticsDateQuery(query: unknown) {
+  return analyticsDateQuerySchema.parse(query);
+}
+
+export function parseAnalyticsPageQuery(query: unknown): AnalyticsPageQuery {
+  const parsed = analyticsPageQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize, from: parsed.from, to: parsed.to };
+}
+
+export function parseAnalyticsDaysPageQuery(query: unknown, defaultDays: number) {
+  const parsed = analyticsDaysPageQuerySchema.parse(query);
+  return { page: parsed.page, pageSize: parsed.pageSize, days: parsed.days ?? defaultDays };
+}
+
+export function parseAnalyticsDaysQuery(query: unknown, defaultDays: number) {
+  const parsed = analyticsDaysQuerySchema.parse(query);
+  return { days: parsed.days ?? defaultDays };
+}
+
 export interface RevenueByDate {
   date: string;
   revenue: number;

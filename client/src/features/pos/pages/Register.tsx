@@ -18,6 +18,7 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
+  Pagination,
 } from '@heroui/react';
 import { PageHeader, StatCard, CardSkeleton } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
@@ -52,6 +53,7 @@ export default function RegisterPage() {
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [movementDialogOpen, setMovementDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
   const [reportSessionId, setReportSessionId] = useState<number | null>(null);
 
   const [openingFloat, setOpeningFloat] = useState('');
@@ -70,9 +72,10 @@ export default function RegisterPage() {
   const { data: historySessions, meta: historyMeta } = useApiQuery<RegisterSession[]>(
     ['register', 'history'],
     'register/history',
-    undefined,
+    { page: historyPage, pageSize: 25, sortBy: 'openedAt', sortOrder: 'desc' },
     { enabled: historyDialogOpen }
   );
+  const historyPagination = historyMeta?.pagination;
 
   const openRegister = useRegisterWrite<{ opening_float: number }>(
     'register/open',
@@ -426,7 +429,7 @@ export default function RegisterPage() {
                 <div>
                   <h3 className="text-base font-semibold">{t('register.history')}</h3>
                   <p className="text-xs text-muted-foreground font-normal mt-0.5">
-                    {Number(historyMeta?.total ?? 0)} {t('register.history').toLowerCase()}
+                    {historyPagination?.totalItems ?? 0} {t('register.history').toLowerCase()}
                   </p>
                 </div>
               </ModalHeader>
@@ -508,6 +511,17 @@ export default function RegisterPage() {
                   <p className="text-muted-foreground text-sm text-center py-8">
                     {t('register.noOpenSession')}
                   </p>
+                )}
+                {(historyPagination?.totalPages ?? 0) > 1 && (
+                  <div className="flex justify-center pt-2">
+                    <Pagination
+                      total={historyPagination!.totalPages}
+                      page={historyPage}
+                      onChange={setHistoryPage}
+                      size="sm"
+                      variant="flat"
+                    />
+                  </div>
                 )}
               </ModalBody>
             </>

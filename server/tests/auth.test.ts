@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { newDb } from 'pg-mem';
@@ -6,6 +7,9 @@ import { Pool as PgPool } from 'pg';
 import path from 'path';
 import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
+import { AuthController } from '../src/modules/core/auth/controller';
+import { authService } from '../src/modules/core/auth/service';
+import { PublicError } from '../src/http/errors';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
@@ -157,5 +161,110 @@ describe('Auth - Role Checking', () => {
     expect(user.role).toBe('Cashier');
     expect(['Admin'].includes(user.role as string)).toBe(false);
     expect(['Admin', 'Cashier'].includes(user.role as string)).toBe(true);
+  });
+});
+
+describe('Auth HTTP contract', () => {
+  it('returns login data without the legacy success flag', async () => {
+    vi.spyOn(authService, 'login').mockResolvedValue({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+    });
+    const json = vi.fn();
+    const cookie = vi.fn();
+    const next = vi.fn();
+
+    await new AuthController().login(
+      {
+        body: { email: 'admin@moon.com', password: 'admin123' },
+        socket: {},
+      } as Request,
+      { json, cookie } as unknown as Response,
+      next
+    );
+
+    expect(json).toHaveBeenCalledWith({
+      data: {
+        accessToken: 'access-token',
+        user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+      },
+    });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('forwards missing credentials as a standard public validation error', async () => {
+    const next = vi.fn();
+
+    await new AuthController().login({ body: {} } as Request, {} as Response, next);
+
+    expect(next).toHaveBeenCalledWith(expect.any(PublicError));
+    expect(next.mock.calls[0][0]).toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('returns refresh data without the legacy success flag', async () => {
+    vi.spyOn(authService, 'refresh').mockResolvedValue({
+      accessToken: 'new-access-token',
+      user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+    });
+    const json = vi.fn();
+    const next = vi.fn();
+
+    await new AuthController().refresh(
+      { cookies: { refreshToken: 'refresh-token' } } as Request,
+      { json } as unknown as Response,
+      next
+    );
+
+    expect(json).toHaveBeenCalledWith({
+      data: {
+        accessToken: 'new-access-token',
+        user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+      },
+    });
+  });
+
+  it('forwards a missing refresh token as a standard unauthorized error', async () => {
+    const next = vi.fn();
+
+    await new AuthController().refresh({ cookies: {} } as Request, {} as Response, next);
+
+    expect(next).toHaveBeenCalledWith(expect.any(PublicError));
+    expect(next.mock.calls[0][0]).toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
+  it('clears the refresh cookie and returns 204 on logout', async () => {
+    vi.spyOn(authService, 'logout').mockResolvedValue();
+    const clearCookie = vi.fn();
+    const sendStatus = vi.fn();
+
+    await new AuthController().logout(
+      { cookies: { refreshToken: 'refresh-token' } } as Request,
+      { clearCookie, sendStatus } as unknown as Response,
+      vi.fn()
+    );
+
+    expect(clearCookie).toHaveBeenCalledWith('refreshToken', { path: '/' });
+    expect(sendStatus).toHaveBeenCalledWith(204);
+  });
+
+  it('returns the current user in the canonical data envelope', async () => {
+    vi.spyOn(authService, 'getMe').mockResolvedValue({
+      id: 1,
+      name: 'Admin',
+      email: 'admin@moon.com',
+      role: 'Admin',
+    });
+    const json = vi.fn();
+
+    await new AuthController().getMe(
+      { user: { id: 1 } } as unknown as Request,
+      { json } as unknown as Response,
+      vi.fn()
+    );
+
+    expect(json).toHaveBeenCalledWith({
+      data: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+    });
   });
 });

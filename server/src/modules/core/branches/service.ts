@@ -53,7 +53,9 @@ export class BranchesService {
     return this.repo.getConsolidatedBranches();
   }
 
-  async listTransfers(filters: TransferFilters): Promise<BranchTransfer[]> {
+  async listTransfers(
+    filters: TransferFilters
+  ): Promise<{ rows: BranchTransfer[]; total: number }> {
     return this.repo.findTransfers(filters);
   }
 

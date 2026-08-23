@@ -160,8 +160,11 @@ export class DeliveryService {
     return order;
   }
 
-  async getOrderStatusHistory(id: string | number): Promise<Record<string, any>[]> {
-    return this.repo.getStatusHistory(id);
+  async getOrderStatusHistory(
+    id: string | number,
+    filters: import('./types').DeliveryHistoryFilters
+  ) {
+    return this.repo.getStatusHistory(id, filters);
   }
 }
 

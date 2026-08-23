@@ -2,6 +2,10 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { collectionsService } from './service';
+import { parseCollectionListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
 
 const collectionSchema = z.object({
   name: z.string().min(1).max(100),
@@ -14,13 +18,13 @@ const collectionSchema = z.object({
 export class CollectionsController {
   async getCollections(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { season, featured } = req.query;
-      const data = await collectionsService.list({
-        season: season as string | undefined,
-        featured: featured as string | undefined,
-      });
-
-      res.json({ success: true, data });
+      const query = parseCollectionListQuery(req.query);
+      const result = await collectionsService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -30,14 +34,10 @@ export class CollectionsController {
     try {
       const collection = await collectionsService.findById(req.params.id as string);
       if (!collection) {
-        res.status(404).json({ success: false, error: 'Collection not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Collection not found');
       }
 
-      res.json({
-        success: true,
-        data: collection,
-      });
+      res.json(success(collection));
     } catch (err) {
       next(err);
     }
@@ -49,12 +49,8 @@ export class CollectionsController {
       const collection = await collectionsService.create(parsed);
 
       logAuditFromReq(req, 'create', 'collection', collection.id, { name: parsed.name });
-      res.status(201).json({ success: true, data: collection });
-    } catch (err: any) {
-      if (err.name === 'ZodError' || err instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: err.errors[0].message });
-        return;
-      }
+      res.status(201).json(success(collection));
+    } catch (err) {
       next(err);
     }
   }
@@ -66,17 +62,12 @@ export class CollectionsController {
 
       const result = await collectionsService.update(id as string, parsed);
       if (!result.success) {
-        res.status(404).json({ success: false, error: result.error });
-        return;
+        throw new PublicError('NOT_FOUND', result.error);
       }
 
       logAuditFromReq(req, 'update', 'collection', Number(id));
-      res.json({ success: true, data: result.data });
-    } catch (err: any) {
-      if (err.name === 'ZodError' || err instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: err.errors[0].message });
-        return;
-      }
+      res.json(success(result.data));
+    } catch (err) {
       next(err);
     }
   }
@@ -86,12 +77,11 @@ export class CollectionsController {
       const { id } = req.params;
       const result = await collectionsService.delete(id as string);
       if (!result.success) {
-        res.status(404).json({ success: false, error: result.error });
-        return;
+        throw new PublicError('NOT_FOUND', result.error);
       }
 
       logAuditFromReq(req, 'delete', 'collection', Number(id));
-      res.json({ success: true, data: { message: 'Collection deleted' } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

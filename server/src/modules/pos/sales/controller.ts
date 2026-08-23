@@ -6,27 +6,22 @@ import { recordSaleMovement, recordRefundMovement } from '../register';
 import { saleSchema, refundSchema } from '../../../../validators/saleSchema';
 import { salesService } from './service';
 import { salesRepository } from './repository';
+import { parseSaleListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
 
 export class SalesController {
   async getSales(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page = 1, limit = 25, payment_method, cashier_id, from, to, search } = req.query;
-
-      const result = await salesRepository.listSales({
-        page: Number(page),
-        limit: Number(limit),
-        search: search as string | undefined,
-        payment_method: payment_method as string | undefined,
-        cashier_id: cashier_id ? Number(cashier_id) : undefined,
-        from: from as string | undefined,
-        to: to as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: { total: result.total, page: Number(page), limit: Number(limit) },
-      });
+      const query = parseSaleListQuery(req.query);
+      const result = await salesRepository.listSales(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+          aggregates: { totalRevenue: result.totalRevenue, totalSales: result.total },
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -37,23 +32,21 @@ export class SalesController {
       const saleId = Number(req.params.id);
       const sale = await salesRepository.findById(saleId);
       if (!sale) {
-        res.status(404).json({ success: false, error: 'Sale not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Sale not found');
       }
 
       const items = await salesRepository.findItemsBySaleId(saleId);
       const payments = await salesRepository.findPaymentsBySaleId(saleId);
       const refunds = await salesRepository.findRefundsBySaleId(saleId);
 
-      res.json({
-        success: true,
-        data: {
+      res.json(
+        success({
           ...sale,
           items,
           payments,
           refunds,
-        },
-      });
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -63,8 +56,7 @@ export class SalesController {
     try {
       const parsed = saleSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
@@ -92,7 +84,7 @@ export class SalesController {
 
       notifySale(Number(sale.total), sale.id, cashierName);
 
-      res.status(201).json({ success: true, data: sale });
+      res.status(201).json(success(sale));
     } catch (err: any) {
       if (
         err.message?.includes('Insufficient stock') ||
@@ -100,7 +92,7 @@ export class SalesController {
         err.message?.includes('Product not found') ||
         err.message?.includes('Variant not found')
       ) {
-        res.status(400).json({ success: false, error: err.message });
+        next(new PublicError('VALIDATION_ERROR', err.message));
         return;
       }
       next(err);
@@ -112,8 +104,7 @@ export class SalesController {
       const saleId = Number(req.params.id);
       const parsed = refundSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
@@ -126,14 +117,13 @@ export class SalesController {
       });
       recordRefundMovement(cashierId, Number(result.refund.amount));
 
-      res.status(201).json({
-        success: true,
-        data: {
+      res.status(201).json(
+        success({
           refund: result.refund,
           refund_status: result.refundStatus,
           refunded_amount: result.newRefundedTotal,
-        },
-      });
+        })
+      );
     } catch (err: any) {
       if (
         err.message === 'Sale not found' ||
@@ -142,8 +132,8 @@ export class SalesController {
         err.message?.includes('exceeds sold quantity') ||
         err.message === 'Refund amount exceeds sale total'
       ) {
-        const statusCode = err.message === 'Sale not found' ? 404 : 400;
-        res.status(statusCode).json({ success: false, error: err.message });
+        const code = err.message === 'Sale not found' ? 'NOT_FOUND' : 'VALIDATION_ERROR';
+        next(new PublicError(code, err.message));
         return;
       }
       next(err);

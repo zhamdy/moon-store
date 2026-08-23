@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+import type { NextFunction, Request, Response } from 'express';
 import { newDb } from 'pg-mem';
 import { Pool as PgPool } from 'pg';
 import path from 'path';
@@ -10,6 +11,107 @@ import {
   executeSaleTransaction,
   executeRefundTransaction,
 } from '../services/saleService';
+import { parseSaleListQuery } from '../src/modules/pos/sales/types';
+import { SalesRepository } from '../src/modules/pos/sales/repository';
+import { SalesController } from '../src/modules/pos/sales/controller';
+import { salesService } from '../src/modules/pos/sales/service';
+import { PublicError } from '../src/modules/http/errors';
+
+describe('Sales - Mutation Contract', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('forwards create validation errors to the shared error handler', async () => {
+    const status = vi.fn().mockReturnThis();
+    const json = vi.fn();
+    const next = vi.fn();
+
+    await new SalesController().createSale(
+      { body: {} } as Request,
+      { status, json } as unknown as Response,
+      next as NextFunction
+    );
+
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ name: 'ZodError' }));
+    expect(status).not.toHaveBeenCalled();
+  });
+
+  it('maps known create failures to the canonical validation error', async () => {
+    vi.spyOn(salesService, 'executeSale').mockRejectedValueOnce(
+      new Error('Insufficient stock for product')
+    );
+    const next = vi.fn();
+
+    await new SalesController().createSale(
+      {
+        body: {
+          items: [{ product_id: 1, quantity: 1, unit_price: 10 }],
+          payment_method: 'Card',
+        },
+        user: { id: 1, name: 'Cashier' },
+      } as unknown as Request,
+      { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response,
+      next as NextFunction
+    );
+
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining<Partial<PublicError>>({ code: 'VALIDATION_ERROR' })
+    );
+  });
+
+  it('maps a missing refund sale to the canonical not-found error', async () => {
+    vi.spyOn(salesService, 'executeRefund').mockRejectedValueOnce(new Error('Sale not found'));
+    const next = vi.fn();
+
+    await new SalesController().refundSale(
+      {
+        params: { id: '42' },
+        body: { items: [{ product_id: 1, quantity: 1, unit_price: 10 }], reason: 'Returned' },
+        user: { id: 1, name: 'Cashier' },
+      } as unknown as Request,
+      { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response,
+      next as NextFunction
+    );
+
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining<Partial<PublicError>>({ code: 'NOT_FOUND' })
+    );
+  });
+});
+
+describe('Sales - List Contract', () => {
+  it('parses canonical pagination and filters', () => {
+    expect(
+      parseSaleListQuery({
+        page: '2',
+        pageSize: '50',
+        dateFrom: '2026-08-01',
+        dateTo: '2026-08-22',
+        paymentMethod: 'Card',
+        cashierId: '7',
+        search: 'private receipt',
+        sortBy: 'total',
+        sortOrder: 'desc',
+      })
+    ).toEqual({
+      page: 2,
+      pageSize: 50,
+      dateFrom: '2026-08-01',
+      dateTo: '2026-08-22',
+      paymentMethod: 'Card',
+      cashierId: 7,
+      search: 'private receipt',
+      sortBy: 'total',
+      sortOrder: 'desc',
+    });
+  });
+
+  it('rejects legacy and unknown list parameters', () => {
+    expect(() => parseSaleListQuery({ limit: '200' })).toThrow();
+    expect(() => parseSaleListQuery({ payment_method: 'Cash' })).toThrow();
+  });
+});
 
 let testPool: PgPool;
 
@@ -203,6 +305,32 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
     expect(totals.subtotal).toBe(1000);
     const sale = await executeSaleTransaction(input as any, totals, 1, testPool);
     expect(Number(sale.total)).toBe(1000);
+  });
+
+  it('returns filtered totals, aggregates, and deterministic pages from one predicate', async () => {
+    await testPool.query(
+      `INSERT INTO sales (total, payment_method, cashier_id, created_at)
+       VALUES (100, 'Cash', 1, '2026-08-20T10:00:00Z'),
+              (250, 'Card', 1, '2026-08-21T10:00:00Z'),
+              (300, 'Card', 1, '2026-08-21T10:00:00Z')`
+    );
+    const repository = new SalesRepository();
+    const result = await repository.listSales(
+      {
+        page: 1,
+        pageSize: 10,
+        paymentMethod: 'Card',
+        dateFrom: '2026-08-21',
+        dateTo: '2026-08-21',
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      },
+      testPool
+    );
+
+    expect(result.total).toBe(2);
+    expect(result.totalRevenue).toBe(550);
+    expect(result.rows.map((row) => Number(row.total))).toEqual([300, 250]);
   });
 });
 

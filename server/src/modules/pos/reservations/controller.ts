@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { reservationsService, IReservationsService } from './service';
+import { PublicError } from '../../../http/errors';
+import { success } from '../../../http/responses';
 
 const reserveSchema = z.object({
   product_id: z.number().int().positive(),
@@ -17,38 +19,37 @@ export class ReservationsController {
     try {
       const parsed = reserveSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const reservation = await this.service.createReservation(parsed.data);
-      res.status(201).json({ success: true, data: reservation });
-    } catch (err: any) {
-      if (err.message === 'Insufficient available stock') {
-        res.status(400).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.status(201).json(success(reservation));
+    } catch (err) {
+      next(
+        err instanceof Error && err.message === 'Insufficient available stock'
+          ? new PublicError('VALIDATION_ERROR', err.message)
+          : err
+      );
     }
   }
 
   async deleteReservation(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       await this.service.releaseReservation(req.params.id as string);
-      res.json({ success: true, data: { message: 'Reservation released' } });
-    } catch (err: any) {
-      if (err.message === 'Reservation not found') {
-        res.status(404).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.sendStatus(204);
+    } catch (err) {
+      next(
+        err instanceof Error && err.message === 'Reservation not found'
+          ? new PublicError('NOT_FOUND', err.message)
+          : err
+      );
     }
   }
 
   async deleteBySourceId(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const released = await this.service.releaseBySourceId(req.params.sourceId as string);
-      res.json({ success: true, data: { released } });
+      res.json(success({ released }));
     } catch (err) {
       next(err);
     }

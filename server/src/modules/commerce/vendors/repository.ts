@@ -6,6 +6,7 @@ import {
   VendorFilters,
   VendorPayoutRecord,
   VendorRecord,
+  VendorPayoutFilters,
 } from './types';
 
 export interface IVendorsRepository {
@@ -15,12 +16,12 @@ export interface IVendorsRepository {
   ): Promise<{ rows: VendorRecord[]; total: number }>;
   findById(id: number | string, queryable?: Queryable): Promise<VendorRecord | null>;
   create(data: VendorDTO, queryable?: Queryable): Promise<VendorRecord>;
-  update(
-    id: number | string,
-    data: VendorDTO,
+  update(id: number | string, data: VendorDTO, queryable?: Queryable): Promise<VendorRecord | null>;
+  getPayouts(
+    vendorId: number | string,
+    filters: VendorPayoutFilters,
     queryable?: Queryable
-  ): Promise<VendorRecord | null>;
-  getPayouts(vendorId: number | string, queryable?: Queryable): Promise<VendorPayoutRecord[]>;
+  ): Promise<{ rows: VendorPayoutRecord[]; total: number }>;
   createPayout(
     vendorId: number | string,
     data: CreateVendorPayoutDTO,
@@ -40,14 +41,14 @@ export class VendorsRepository implements IVendorsRepository {
     filters: VendorFilters,
     queryable?: Queryable
   ): Promise<{ rows: VendorRecord[]; total: number }> {
-    const { status, page = 1, limit = 20, search } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
+    const { status, page: pageNum, pageSize: limitNum, search, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'createdAt' ? 'v.created_at' : 'v.name';
     const offset = (pageNum - 1) * limitNum;
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
 
-    if (status && status !== 'all') {
+    if (status) {
       params.push(status);
       where += ` AND v.status = $${params.length}`;
     }
@@ -70,7 +71,7 @@ export class VendorsRepository implements IVendorsRepository {
         (SELECT COUNT(*)::int FROM products WHERE distributor_id = v.id) as product_count
        FROM vendors v
        ${where}
-       ORDER BY v.name ASC
+        ORDER BY ${sortColumn} ${direction}, v.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limitNum, offset]
     );
@@ -129,17 +130,23 @@ export class VendorsRepository implements IVendorsRepository {
 
   async getPayouts(
     vendorId: number | string,
+    filters: VendorPayoutFilters,
     queryable?: Queryable
-  ): Promise<VendorPayoutRecord[]> {
+  ): Promise<{ rows: VendorPayoutRecord[]; total: number }> {
+    const count = await this.q(queryable).query<{ total: string | number }>(
+      'SELECT COUNT(*) AS total FROM vendor_payouts WHERE vendor_id = $1',
+      [vendorId]
+    );
     const payouts = await this.q(queryable).query<VendorPayoutRecord>(
       `SELECT vp.*, u.name as created_by_name
        FROM vendor_payouts vp
        JOIN users u ON vp.created_by = u.id
        WHERE vp.vendor_id = $1
-       ORDER BY vp.created_at DESC`,
-      [vendorId]
+       ORDER BY vp.created_at ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}, vp.id ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}
+       LIMIT $2 OFFSET $3`,
+      [vendorId, filters.pageSize, (filters.page - 1) * filters.pageSize]
     );
-    return payouts.rows;
+    return { rows: payouts.rows, total: Number(count.rows[0]?.total || 0) };
   }
 
   async createPayout(

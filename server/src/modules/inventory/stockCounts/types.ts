@@ -51,7 +51,28 @@ export interface CompleteStockCountDTO {
 }
 
 export interface StockCountFilters {
-  page?: number;
-  limit?: number;
-  status?: string;
+  page: number;
+  pageSize: number;
+  status?: 'in_progress' | 'completed' | 'cancelled';
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const stockCountListQuerySchema = createListQuerySchema(['createdAt'] as const)
+  .extend({ status: z.enum(['in_progress', 'completed', 'cancelled']).optional() })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+
+export function parseStockCountListQuery(query: unknown): StockCountFilters {
+  const parsed = stockCountListQuerySchema.parse(query);
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    status: parsed.status,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }

@@ -1,10 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import {
-  StockCountRecord,
-  StockCountItemRecord,
-  StockCountFilters,
-} from './types';
+import { StockCountRecord, StockCountItemRecord, StockCountFilters } from './types';
 
 export interface IStockCountsRepository {
   list(
@@ -24,7 +20,9 @@ export interface IStockCountsRepository {
   findActiveProductsForCount(
     categoryId?: number,
     queryable?: Queryable
-  ): Promise<{ id: number; stock: number; variant_id?: number | null; variant_stock?: number | null }[]>;
+  ): Promise<
+    { id: number; stock: number; variant_id?: number | null; variant_stock?: number | null }[]
+  >;
   createStockCount(
     data: { category_id?: number | null; notes?: string | null; created_by: number },
     queryable?: Queryable
@@ -73,15 +71,14 @@ export class StockCountsRepository implements IStockCountsRepository {
     filters: StockCountFilters,
     queryable?: Queryable
   ): Promise<{ rows: StockCountRecord[]; total: number }> {
-    const { page = 1, limit = 20, status } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
-    const offset = (pageNum - 1) * limitNum;
+    const { page, pageSize, status, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const offset = (page - 1) * pageSize;
 
     const where: string[] = [];
     const params: unknown[] = [];
 
-    if (status && status !== 'all') {
+    if (status) {
       params.push(status);
       where.push(`sc.status = $${params.length}`);
     }
@@ -106,9 +103,9 @@ export class StockCountsRepository implements IStockCountsRepository {
        LEFT JOIN users u ON sc.created_by = u.id
        LEFT JOIN categories c ON sc.category_id = c.id
        ${whereClause}
-       ORDER BY sc.created_at DESC
+        ORDER BY sc.created_at ${direction}, sc.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-      [...params, limitNum, offset]
+      [...params, pageSize, offset]
     );
 
     return { rows: result.rows, total };
@@ -165,7 +162,9 @@ export class StockCountsRepository implements IStockCountsRepository {
   async findActiveProductsForCount(
     categoryId?: number,
     queryable?: Queryable
-  ): Promise<{ id: number; stock: number; variant_id?: number | null; variant_stock?: number | null }[]> {
+  ): Promise<
+    { id: number; stock: number; variant_id?: number | null; variant_stock?: number | null }[]
+  > {
     const query = categoryId
       ? `SELECT p.id, p.stock, pv.id as variant_id, pv.stock as variant_stock
          FROM products p
@@ -247,10 +246,10 @@ export class StockCountsRepository implements IStockCountsRepository {
   }
 
   async updateVariantStock(variantId: number, stock: number, queryable?: Queryable): Promise<void> {
-    await this.q(queryable).query(
-      'UPDATE product_variants SET stock = $1 WHERE id = $2',
-      [stock, variantId]
-    );
+    await this.q(queryable).query('UPDATE product_variants SET stock = $1 WHERE id = $2', [
+      stock,
+      variantId,
+    ]);
   }
 
   async createStockAdjustment(
@@ -267,14 +266,7 @@ export class StockCountsRepository implements IStockCountsRepository {
     await this.q(queryable).query(
       `INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        data.product_id,
-        data.previous_qty,
-        data.new_qty,
-        data.delta,
-        data.reason,
-        data.user_id,
-      ]
+      [data.product_id, data.previous_qty, data.new_qty, data.delta, data.reason, data.user_id]
     );
   }
 

@@ -1,10 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import {
-  OnlineOrderFilters,
-  OnlineOrderItemRecord,
-  OnlineOrderRecord,
-} from './types';
+import { OnlineOrderFilters, OnlineOrderItemRecord, OnlineOrderRecord } from './types';
 
 export interface IOnlineOrdersRepository {
   findCustomerByPhone(phone: string, queryable?: Queryable): Promise<Record<string, any> | null>;
@@ -152,9 +148,9 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
     filters: OnlineOrderFilters,
     queryable?: Queryable
   ): Promise<{ rows: OnlineOrderRecord[]; total: number }> {
-    const { status, page = 1, limit = 20, search } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
+    const { status, page: pageNum, pageSize: limitNum, search, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'total' ? 'o.total' : 'o.created_at';
     const offset = (pageNum - 1) * limitNum;
 
     const params: unknown[] = [];
@@ -183,7 +179,7 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
         (SELECT COUNT(*)::int FROM online_order_items WHERE order_id = o.id) as item_count
        FROM online_orders o
        ${where}
-       ORDER BY o.created_at DESC
+        ORDER BY ${sortColumn} ${direction}, o.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limitNum, offset]
     );

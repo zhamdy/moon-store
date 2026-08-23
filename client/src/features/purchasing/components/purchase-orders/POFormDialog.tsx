@@ -21,6 +21,11 @@ interface POFormDialogProps {
   onOpenChange: (open: boolean) => void;
   distributors: Distributor[] | undefined;
   products: Product[] | undefined;
+  productSearch: string;
+  onProductSearchChange: (value: string) => void;
+  hasMoreProducts?: boolean;
+  onLoadMoreProducts: () => void;
+  isLoadingMoreProducts: boolean;
   onSubmit: (data: {
     distributor_id: number;
     items: Array<{ product_id: number; quantity: number; cost_price: number }>;
@@ -38,6 +43,11 @@ export default function POFormDialog({
   onOpenChange,
   distributors,
   products,
+  productSearch,
+  onProductSearchChange,
+  hasMoreProducts,
+  onLoadMoreProducts,
+  isLoadingMoreProducts,
   onSubmit,
   isSubmitting,
   initialDistributorId = '',
@@ -60,6 +70,7 @@ export default function POFormDialog({
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       resetForm();
+      onProductSearchChange('');
     }
     onOpenChange(nextOpen);
   };
@@ -145,31 +156,55 @@ export default function POFormDialog({
               </div>
 
               {/* Add product */}
-              <div className="flex gap-2 items-center">
-                <Select
-                  label={t('po.selectProduct')}
+              <div className="space-y-2">
+                <Input
+                  aria-label="Search products"
+                  placeholder={t('common.search')}
                   size="sm"
                   variant="bordered"
-                  className="flex-1"
-                  selectedKeys={addProductId ? [addProductId] : []}
-                  onChange={(e) => setAddProductId(e.target.value)}
-                >
-                  {(products ?? []).map((p) => (
-                    <SelectItem key={String(p.id)} textValue={`${p.name} (${p.sku})`}>
-                      {p.name} ({p.sku})
-                    </SelectItem>
-                  ))}
-                </Select>
-                <Button
-                  isIconOnly
-                  variant="bordered"
-                  size="sm"
-                  className="h-10 w-10"
-                  onClick={handleAddLineItem}
-                  isDisabled={!addProductId}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+                  value={productSearch}
+                  onValueChange={onProductSearchChange}
+                />
+                <div className="flex gap-2 items-center">
+                  <Select
+                    label={t('po.selectProduct')}
+                    size="sm"
+                    variant="bordered"
+                    className="flex-1"
+                    selectedKeys={addProductId ? [addProductId] : []}
+                    onChange={(e) => setAddProductId(e.target.value)}
+                  >
+                    {(products ?? [])
+                      .filter((p) => p.status === 'active')
+                      .map((p) => (
+                        <SelectItem key={String(p.id)} textValue={`${p.name} (${p.sku})`}>
+                          {p.name} ({p.sku})
+                        </SelectItem>
+                      ))}
+                  </Select>
+                  <Button
+                    isIconOnly
+                    variant="bordered"
+                    size="sm"
+                    className="h-10 w-10"
+                    onClick={handleAddLineItem}
+                    isDisabled={!addProductId}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {hasMoreProducts && (
+                  <Button
+                    fullWidth
+                    variant="bordered"
+                    size="sm"
+                    onPress={onLoadMoreProducts}
+                    isLoading={isLoadingMoreProducts}
+                    aria-label="Load more products"
+                  >
+                    Load more
+                  </Button>
+                )}
               </div>
 
               {/* Line items */}
@@ -190,6 +225,9 @@ export default function POFormDialog({
                       >
                         <span className="col-span-5 text-sm font-medium text-foreground truncate">
                           {li.product_name}
+                          {products?.find((p) => p.id === li.product_id)?.status !== 'active' && (
+                            <span className="ms-2 text-xs text-warning">Unavailable</span>
+                          )}
                         </span>
                         <input
                           type="number"

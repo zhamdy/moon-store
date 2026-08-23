@@ -19,7 +19,10 @@ import { formatDateTime, formatDate } from '../../../shared/lib/utils';
 import { useAuthStore } from '../../auth';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
-import type { ColumnDef } from '@tanstack/react-table';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
+import type { PaginationMeta } from '../../../shared/lib/transport';
+import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import type { User, UserRole } from '../../../shared/types/index';
 
 const getCreateSchema = () =>
@@ -42,7 +45,7 @@ type CreateUserFormData = z.infer<ReturnType<typeof getCreateSchema>>;
 type EditUserFormData = z.infer<ReturnType<typeof getEditSchema>>;
 type UserFormData = CreateUserFormData | EditUserFormData;
 
-const users = resource<User>('users');
+const users = resource<User, { pagination: PaginationMeta }>('users');
 
 const roleBadgeVariant: Record<UserRole, BadgeVariant> = {
   Admin: 'primary',
@@ -50,14 +53,63 @@ const roleBadgeVariant: Record<UserRole, BadgeVariant> = {
   Delivery: 'default',
 };
 
+const sortFieldMap = {
+  name: 'name',
+  email: 'email',
+  role: 'role',
+  created_at: 'createdAt',
+  last_login: 'lastLogin',
+} as const;
+
+const sortParamToId = {
+  name: 'name',
+  email: 'email',
+  role: 'role',
+  createdAt: 'created_at',
+  lastLogin: 'last_login',
+} as const;
+
 export default function UsersPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const { search: routeSearch, page, pageSize, update } = useListRouteState();
 
-  const { data: rows, isLoading } = users.useList();
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
+
+  const sortBy =
+    (routeSearch.sortBy as keyof typeof sortParamToId) in sortParamToId
+      ? (routeSearch.sortBy as 'name' | 'email' | 'role' | 'createdAt' | 'lastLogin')
+      : 'createdAt';
+  const sortOrder = routeSearch.sortOrder === 'asc' ? 'asc' : 'desc';
+
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+  const sorting: SortingState = [
+    {
+      id: sortParamToId[sortBy] ?? 'created_at',
+      desc: sortOrder === 'desc',
+    },
+  ];
+
+  const {
+    data: rows,
+    meta,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = users.useList({
+    page,
+    pageSize,
+    search: debouncedSearch || undefined,
+    sortBy,
+    sortOrder,
+  });
+
+  useLastPageRecovery(page, meta?.pagination?.totalItems, meta?.pagination?.totalPages, update);
 
   const schema = editingUser ? getEditSchema() : getCreateSchema();
   const {
@@ -201,9 +253,39 @@ export default function UsersPage() {
       />
 
       <DataTable
+        mode="server"
         columns={columns}
         data={rows ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        error={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
+        pagination={pagination}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          update({ page: next.pageIndex + 1, pageSize: next.pageSize });
+        }}
+        pageCount={meta?.pagination.totalPages ?? 0}
+        totalRows={meta?.pagination.totalItems ?? 0}
+        sorting={sorting}
+        onSortingChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(sorting) : updater;
+          const sortItem = next[0];
+          const mappedSortBy = sortItem?.id
+            ? (sortFieldMap[sortItem.id as keyof typeof sortFieldMap] ?? 'createdAt')
+            : 'createdAt';
+          update({
+            sortBy: mappedSortBy,
+            sortOrder: sortItem?.desc === false ? 'asc' : 'desc',
+            page: 1,
+          });
+        }}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          update({ page: 1 });
+        }}
+        isFiltered={Boolean(search)}
         searchPlaceholder={t('users.searchPlaceholder')}
       />
 

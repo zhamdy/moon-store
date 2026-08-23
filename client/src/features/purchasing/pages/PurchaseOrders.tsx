@@ -8,10 +8,13 @@ import PODetailDialog from '../components/purchase-orders/PODetailDialog';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { ColumnDef } from '@tanstack/react-table';
-import type { Distributor, Product } from '../../../shared/types/index';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
+import type { Distributor } from '../../../shared/types/index';
 import type {
   LowStockSuggestion,
   PurchaseOrder,
@@ -26,9 +29,11 @@ const distributorsResource = resource<Distributor>('distributors');
 export default function PurchaseOrders() {
   const { t } = useTranslation();
   const transport = useTransport();
+  const { search: routeSearch, page, pageSize, update } = useListRouteState();
 
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [distributorFilter, setDistributorFilter] = useState('all');
+  const statusFilter = typeof routeSearch.status === 'string' ? routeSearch.status : 'All';
+  const distributorFilter =
+    typeof routeSearch.distributorId === 'string' ? routeSearch.distributorId : 'all';
 
   // Create PO state
   const [createOpen, setCreateOpen] = useState(false);
@@ -36,6 +41,8 @@ export default function PurchaseOrders() {
   const [autoLineItems, setAutoLineItems] = useState<PurchaseOrderLine[] | undefined>(undefined);
   // Key forces POFormDialog remount when auto-generate populates initial data
   const [formKey, setFormKey] = useState(0);
+  const [productSearch, setProductSearch] = useState('');
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
   // Detail/Receive dialog
   const [detailOpen, setDetailOpen] = useState(false);
@@ -46,21 +53,37 @@ export default function PurchaseOrders() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [cancelId, setCancelId] = useState<number | null>(null);
 
-  const { data: orders, isLoading } = purchaseOrders.useList({
-    limit: 200,
+  const {
+    data: orders,
+    meta,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = purchaseOrders.useList({
+    page,
+    pageSize,
     status: statusFilter === 'All' ? undefined : statusFilter,
-    distributor_id: distributorFilter === 'all' ? undefined : distributorFilter,
+    distributorId: distributorFilter === 'all' ? undefined : distributorFilter,
   });
+  const pageMeta = meta?.pagination as PaginationMeta | undefined;
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+
+  useLastPageRecovery(page, pageMeta?.totalItems, pageMeta?.totalPages, update);
 
   const { data: detail } = purchaseOrderDetails.useOne(detailOpen ? detailId : null);
   const { data: distributors } = distributorsResource.useList();
 
-  const { data: products } = useApiQuery<Product[]>(
-    ['products-all'],
-    'products',
-    { limit: 500 },
-    { enabled: createOpen }
-  );
+  const {
+    products,
+    hasNextPage: hasMoreProducts,
+    fetchNextPage: loadMoreProducts,
+    isFetchingNextPage: isLoadingMoreProducts,
+  } = useProductCatalog({
+    search: debouncedProductSearch,
+    enabled: createOpen,
+    selectedIds: autoLineItems?.map((item) => item.product_id) ?? [],
+  });
 
   const createOrder = purchaseOrders.useSave({
     message: t('po.created'),
@@ -122,6 +145,7 @@ export default function PurchaseOrders() {
     setAutoDistributorId('');
     setAutoLineItems(undefined);
     setFormKey((k) => k + 1);
+    setProductSearch('');
     setCreateOpen(true);
   };
 
@@ -330,7 +354,9 @@ export default function PurchaseOrders() {
             size="sm"
             variant="bordered"
             selectedKeys={[statusFilter]}
-            onChange={(e) => setStatusFilter(e.target.value || 'All')}
+            onChange={(e) => {
+              update({ status: e.target.value || 'All', page: 1 });
+            }}
           >
             <SelectItem key="All" textValue={t('po.allStatuses')}>
               {t('po.allStatuses')}
@@ -359,7 +385,9 @@ export default function PurchaseOrders() {
             size="sm"
             variant="bordered"
             selectedKeys={[distributorFilter]}
-            onChange={(e) => setDistributorFilter(e.target.value || 'all')}
+            onChange={(e) => {
+              update({ distributorId: e.target.value || 'all', page: 1 });
+            }}
           >
             <SelectItem key="all" textValue={t('po.allDistributors')}>
               {t('po.allDistributors')}
@@ -374,9 +402,23 @@ export default function PurchaseOrders() {
       </div>
 
       <DataTable
+        mode="server"
         columns={columns}
         data={orders ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        error={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
+        pagination={pagination}
+        pageCount={pageMeta?.totalPages ?? 0}
+        totalRows={pageMeta?.totalItems ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          update({
+            page: next.pageSize === pageSize ? next.pageIndex + 1 : 1,
+            pageSize: next.pageSize,
+          });
+        }}
         searchPlaceholder={t('common.search')}
       />
 
@@ -387,6 +429,11 @@ export default function PurchaseOrders() {
         onOpenChange={setCreateOpen}
         distributors={distributors}
         products={products}
+        productSearch={productSearch}
+        onProductSearchChange={setProductSearch}
+        hasMoreProducts={hasMoreProducts}
+        onLoadMoreProducts={() => void loadMoreProducts()}
+        isLoadingMoreProducts={isLoadingMoreProducts}
         onSubmit={(data) => createOrder.save(data)}
         isSubmitting={createOrder.isSaving}
         initialDistributorId={autoDistributorId}

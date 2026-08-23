@@ -106,10 +106,15 @@ export interface Sale {
 
 /** The aggregate figures GET /api/v1/sales returns beside the rows. */
 export interface SalesMeta {
-  total: number;
-  total_revenue: number;
-  page: number;
-  limit: number;
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+  aggregates: { totalRevenue: number; totalSales: number };
 }
 
 /** GET /api/v1/sales/:id — the same sale, with its lines attached. */

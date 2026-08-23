@@ -70,6 +70,21 @@ export interface CreateTransferDTO {
 
 export interface TransferFilters {
   status?: string;
-  page?: number;
-  limit?: number;
+  page: number;
+  pageSize: number;
+  sortBy: 'createdAt' | 'status';
+  sortOrder: 'asc' | 'desc';
 }
+
+const transferListQuerySchema = createListQuerySchema(['createdAt', 'status'] as const)
+  .extend({
+    status: z.enum(['pending', 'in_transit', 'completed', 'cancelled']).optional(),
+  })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+
+export function parseTransferListQuery(query: unknown): TransferFilters {
+  return transferListQuerySchema.parse(query);
+}
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,6 +7,20 @@ import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib
 import { useSettingsStore } from '../../../shared/store/settingsStore';
 import type { PurchaseOrder } from '../types';
 import PurchaseOrders from './PurchaseOrders';
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useSearch: () => ({}),
+}));
+
+const ACTIVE_PRODUCT = {
+  id: 5,
+  name: 'Silk Scarf',
+  sku: 'SLK-01',
+  price: 500,
+  cost_price: 450,
+  status: 'active',
+} as const;
 
 const DRAFT_ORDER: PurchaseOrder = {
   id: 3,
@@ -45,7 +59,7 @@ describe('PurchaseOrders', () => {
       expect.objectContaining({
         method: 'GET',
         path: 'purchase-orders',
-        params: { limit: 200, status: undefined, distributor_id: undefined },
+        params: { page: 1, pageSize: 25, status: undefined, distributorId: undefined },
       })
     );
   });
@@ -109,6 +123,32 @@ describe('PurchaseOrders', () => {
         path: 'purchase-orders/3/receive',
         body: { items: [{ item_id: 11, quantity: 3 }] },
       })
+    );
+  });
+
+  it('searches products server-side only while the create dialog is open', async () => {
+    const transport = createMemoryTransport({
+      'purchase-orders': [],
+      distributors: [{ id: 1, name: 'Nile Textiles' }],
+      products: [ACTIVE_PRODUCT],
+    });
+
+    render(<PurchaseOrders />, { wrapper: wrapperFor(transport) });
+    await screen.findByRole('heading', { name: 'Purchase Orders' });
+    expect(transport.calls().some((call) => call.path === 'products')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create PO' }));
+    const search = await screen.findByRole('textbox', { name: 'Search products' });
+    fireEvent.change(search, { target: { value: 'silk' } });
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'GET',
+          path: 'products',
+          params: expect.objectContaining({ page: 1, pageSize: 25, search: 'silk' }),
+        })
+      )
     );
   });
 });

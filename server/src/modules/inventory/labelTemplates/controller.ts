@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { labelTemplatesService } from './service';
+import { success } from '../../../http/responses';
+import { PublicError } from '../../../http/errors';
 
 const labelTemplateSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -14,7 +16,7 @@ export class LabelTemplatesController {
   async getLabelTemplates(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const templates = await labelTemplatesService.findAll();
-      res.json({ success: true, data: templates });
+      res.json(success(templates));
     } catch (err) {
       next(err);
     }
@@ -24,12 +26,8 @@ export class LabelTemplatesController {
     try {
       const parsed = labelTemplateSchema.parse(req.body);
       const template = await labelTemplatesService.create(parsed);
-      res.status(201).json({ success: true, data: template });
+      res.status(201).json(success(template));
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: err.errors[0].message });
-        return;
-      }
       next(err);
     }
   }
@@ -41,16 +39,11 @@ export class LabelTemplatesController {
 
       const result = await labelTemplatesService.update(id as string, parsed);
       if (!result.success) {
-        res.status(404).json({ success: false, error: result.error });
-        return;
+        throw new PublicError('NOT_FOUND', result.error);
       }
 
-      res.json({ success: true, data: result.data });
+      res.json(success(result.data));
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: err.errors[0].message });
-        return;
-      }
       next(err);
     }
   }
@@ -60,11 +53,10 @@ export class LabelTemplatesController {
       const { id } = req.params;
       const result = await labelTemplatesService.delete(id as string);
       if (!result.success) {
-        res.status(404).json({ success: false, error: result.error });
-        return;
+        throw new PublicError('NOT_FOUND', result.error);
       }
 
-      res.json({ success: true, data: { message: 'Template deleted' } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

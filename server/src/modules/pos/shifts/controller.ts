@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { shiftsService, IShiftsService } from './service';
+import { PublicError } from '../../../http/errors';
+import { paginationMeta } from '../../../http/pagination';
+import { success } from '../../../http/responses';
+import { parseShiftListQuery } from './types';
 
 const clockInSchema = z.object({
   branch_id: z.number().int().positive().optional(),
@@ -20,7 +24,7 @@ export class ShiftsController {
     try {
       const authReq = req as AuthRequest;
       const shift = await this.service.getCurrentShift(authReq.user!.id);
-      res.json({ success: true, data: shift });
+      res.json(success(shift));
     } catch (err) {
       next(err);
     }
@@ -34,17 +38,9 @@ export class ShiftsController {
       const shift = await this.service.clockIn(authReq.user!.id, parsed);
 
       logAuditFromReq(req, 'clock_in', 'shift', shift.id);
-      res.status(201).json({ success: true, data: shift });
-    } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: err.errors[0].message });
-        return;
-      }
-      if (err.message === 'Already clocked in') {
-        res.status(400).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.status(201).json(success(shift));
+    } catch (err) {
+      next(err instanceof z.ZodError ? err : this.toValidationError(err));
     }
   }
 
@@ -56,17 +52,9 @@ export class ShiftsController {
       const shift = await this.service.clockOut(authReq.user!.id, parsed);
 
       logAuditFromReq(req, 'clock_out', 'shift', shift.id);
-      res.json({ success: true, data: shift });
-    } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ success: false, error: err.errors[0].message });
-        return;
-      }
-      if (err.message === 'No active shift found') {
-        res.status(400).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.json(success(shift));
+    } catch (err) {
+      next(err instanceof z.ZodError ? err : this.toValidationError(err));
     }
   }
 
@@ -74,13 +62,9 @@ export class ShiftsController {
     try {
       const authReq = req as AuthRequest;
       const shift = await this.service.startBreak(authReq.user!.id);
-      res.json({ success: true, data: shift });
-    } catch (err: any) {
-      if (err.message === 'No active shift to start break') {
-        res.status(400).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.json(success(shift));
+    } catch (err) {
+      next(this.toValidationError(err));
     }
   }
 
@@ -88,33 +72,30 @@ export class ShiftsController {
     try {
       const authReq = req as AuthRequest;
       const shift = await this.service.endBreak(authReq.user!.id);
-      res.json({ success: true, data: shift });
-    } catch (err: any) {
-      if (err.message === 'Not currently on break') {
-        res.status(400).json({ success: false, error: err.message });
-        return;
-      }
-      next(err);
+      res.json(success(shift));
+    } catch (err) {
+      next(this.toValidationError(err));
     }
   }
 
   async getShifts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const result = await this.service.listShifts(
-        authReq.user!.role,
-        authReq.user!.id,
-        req.query
-      );
+      const query = parseShiftListQuery(req.query);
+      const result = await this.service.listShifts(authReq.user!.role, authReq.user!.id, query);
 
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: result.meta,
-      });
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
+  }
+
+  private toValidationError(error: unknown): unknown {
+    return error instanceof Error ? new PublicError('VALIDATION_ERROR', error.message) : error;
   }
 }
 

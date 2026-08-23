@@ -1,11 +1,37 @@
 export interface SalesReportFilters {
-  from?: unknown;
-  to?: unknown;
-  groupBy?: 'day' | 'month' | 'hour' | string;
-  cashierId?: unknown;
-  paymentMethod?: unknown;
-  page?: number | string;
-  limit?: number | string;
+  from?: string;
+  to?: string;
+  groupBy?: 'day' | 'month' | 'hour';
+  cashierId?: number;
+  paymentMethod?: string;
+  page: number;
+  pageSize: number;
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const salesReportQuerySchema = createListQuerySchema(['createdAt', 'total'] as const)
+  .extend({
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
+    groupBy: z.enum(['day', 'month', 'hour']).default('day'),
+    cashierId: z.string().regex(/^\d+$/).transform(Number).optional(),
+    paymentMethod: z.string().trim().min(1).max(30).optional(),
+  })
+  .strict();
+
+export function parseSalesReportQuery(query: unknown): SalesReportFilters {
+  const parsed = salesReportQuerySchema.parse(query);
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    from: parsed.from,
+    to: parsed.to,
+    groupBy: parsed.groupBy,
+    cashierId: parsed.cashierId,
+    paymentMethod: parsed.paymentMethod,
+  };
 }
 
 export interface SalesReportSummary {
@@ -78,6 +104,31 @@ export interface InventoryReportData {
 export interface ProfitLossFilters {
   from?: unknown;
   to?: unknown;
+}
+
+const inventoryReportQuerySchema = z
+  .object({
+    categoryId: z.string().regex(/^\d+$/).transform(Number).optional(),
+    distributorId: z.string().regex(/^\d+$/).transform(Number).optional(),
+    lowStockOnly: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
+  })
+  .strict();
+const profitLossQuerySchema = z
+  .object({
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
+  })
+  .strict();
+
+export function parseInventoryReportQuery(query: unknown): InventoryReportFilters {
+  return inventoryReportQuerySchema.parse(query);
+}
+
+export function parseProfitLossQuery(query: unknown): ProfitLossFilters {
+  return profitLossQuerySchema.parse(query);
 }
 
 export interface ProfitLossRevenue {

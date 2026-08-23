@@ -1,7 +1,4 @@
-import {
-  INotificationsRepository,
-  notificationsRepository as defaultRepo,
-} from './repository';
+import { INotificationsRepository, notificationsRepository as defaultRepo } from './repository';
 import { CreateNotificationDTO, NotificationFilters, NotificationRecord } from './types';
 
 export class NotificationsService {
@@ -14,16 +11,15 @@ export class NotificationsService {
   async list(
     userId: number,
     filters: NotificationFilters
-  ): Promise<{ rows: NotificationRecord[]; unreadCount: number }> {
-    const limit = Number(filters.limit) || 50;
-    const unreadOnly = filters.unread_only === 'true' || filters.unread_only === true;
+  ): Promise<{ rows: NotificationRecord[]; total: number; unreadCount: number }> {
+    const unreadOnly = filters.unreadOnly ?? false;
 
-    const [rows, unreadCount] = await Promise.all([
-      this.repo.list(userId, unreadOnly, limit),
+    const [result, unreadCount] = await Promise.all([
+      this.repo.list(userId, unreadOnly, filters.page, filters.pageSize),
       this.repo.getUnreadCount(userId),
     ]);
 
-    return { rows, unreadCount };
+    return { ...result, unreadCount };
   }
 
   async getUnreadCount(userId: number): Promise<number> {
@@ -98,11 +94,7 @@ export class NotificationsService {
     }).catch(() => {});
   }
 
-  notifyDeliveryOverdue(
-    orderNumber: string,
-    orderId: number,
-    assignedTo: number | null
-  ): void {
+  notifyDeliveryOverdue(orderNumber: string, orderId: number, assignedTo: number | null): void {
     this.createNotification({
       userId: assignedTo,
       type: 'delivery_overdue',

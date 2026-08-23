@@ -1,15 +1,39 @@
 export interface CouponFilters {
-  page?: number;
-  limit?: number;
+  page: number;
+  pageSize: number;
   search?: string;
-  status?: string;
+  status?: 'active' | 'inactive' | 'expired';
+  sortBy: 'createdAt' | 'code';
+  sortOrder: 'asc' | 'desc';
 }
 
 export interface CouponListResult {
   coupons: Record<string, any>[];
   total: number;
   page: number;
-  limit: number;
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const couponListQuerySchema = createListQuerySchema(['createdAt', 'code'] as const)
+  .extend({
+    search: z.string().trim().min(1).max(100).optional(),
+    status: z.enum(['active', 'inactive', 'expired']).optional(),
+  })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+
+export function parseCouponListQuery(query: unknown): CouponFilters {
+  const parsed = couponListQuerySchema.parse(query);
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    search: parsed.search,
+    status: parsed.status,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }
 
 export interface CouponData {

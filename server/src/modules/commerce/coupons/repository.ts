@@ -7,11 +7,23 @@ export interface ICouponsRepository {
   findById(id: number | string, queryable?: Queryable): Promise<Record<string, any> | null>;
   findByCode(code: string, queryable?: Queryable): Promise<Record<string, any> | null>;
   create(data: CouponData, queryable?: Queryable): Promise<Record<string, any>>;
-  update(id: string | number, data: CouponData, queryable?: Queryable): Promise<Record<string, any> | null>;
+  update(
+    id: string | number,
+    data: CouponData,
+    queryable?: Queryable
+  ): Promise<Record<string, any> | null>;
   delete(id: string | number, queryable?: Queryable): Promise<boolean>;
   getUsageCount(couponId: number, queryable?: Queryable): Promise<number>;
-  getCustomerUsageCount(couponId: number, customerId: number, queryable?: Queryable): Promise<number>;
-  checkProductCategoriesMatch(itemProductIds: number[], categoryIds: number[], queryable?: Queryable): Promise<number>;
+  getCustomerUsageCount(
+    couponId: number,
+    customerId: number,
+    queryable?: Queryable
+  ): Promise<number>;
+  checkProductCategoriesMatch(
+    itemProductIds: number[],
+    categoryIds: number[],
+    queryable?: Queryable
+  ): Promise<number>;
 }
 
 export class CouponsRepository implements ICouponsRepository {
@@ -50,8 +62,10 @@ export class CouponsRepository implements ICouponsRepository {
   }
 
   async list(filters: CouponFilters, queryable?: Queryable): Promise<CouponListResult> {
-    const pageNum = filters.page || 1;
-    const limitNum = filters.limit || 25;
+    const direction = filters.sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = filters.sortBy === 'code' ? 'c.code' : 'c.created_at';
+    const pageNum = filters.page;
+    const limitNum = filters.pageSize;
     const offset = (pageNum - 1) * limitNum;
 
     const where: string[] = [];
@@ -86,13 +100,13 @@ export class CouponsRepository implements ICouponsRepository {
          SELECT coupon_id, COUNT(*) as usage_count FROM coupon_usage GROUP BY coupon_id
        ) cu_agg ON cu_agg.coupon_id = c.id
        ${whereClause}
-       ORDER BY c.created_at DESC
+       ORDER BY ${sortColumn} ${direction}, c.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );
 
     const coupons = result.rows.map((row: any) => this.parseScopeIds(row));
-    return { coupons, total, page: pageNum, limit: limitNum };
+    return { coupons, total, page: pageNum };
   }
 
   async findById(id: number | string, queryable?: Queryable): Promise<Record<string, any> | null> {

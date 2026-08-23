@@ -12,15 +12,17 @@ import {
   ModalFooter,
   Select,
   SelectItem,
+  Pagination,
 } from '@heroui/react';
 import { Badge, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
-import type { Product } from '../../../shared/types/index';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import type { Collection, CollectionDetail } from '../types';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 const collections = resource<Collection>('collections');
 const collectionDetail = resource<CollectionDetail>('collections');
@@ -61,16 +63,19 @@ export default function CollectionsPage() {
   const [selectedCol, setSelectedCol] = useState<number | null>(null);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
-  const { data: rows } = collections.useList();
+  const { data: rows, meta } = collections.useList({ page, pageSize: 25 });
+  const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: detail } = collectionDetail.useOne(selectedCol);
 
-  const { data: allProducts } = useApiQuery<Product[]>(
-    ['products-for-collection', productSearch],
-    'products',
-    { search: productSearch, limit: 20 },
-    { enabled: addProductOpen }
-  );
+  const {
+    products: allProducts,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useProductCatalog({ search: debouncedProductSearch, enabled: addProductOpen });
 
   const saver = collections.useSave({
     message: t('collections.created'),
@@ -231,6 +236,17 @@ export default function CollectionsPage() {
                           </span>
                         </button>
                       ))}
+                    {hasNextPage && (
+                      <Button
+                        fullWidth
+                        variant="bordered"
+                        onPress={() => void fetchNextPage()}
+                        isLoading={isFetchingNextPage}
+                        aria-label="Load more products"
+                      >
+                        Load more
+                      </Button>
+                    )}
                   </div>
                 </ModalBody>
               </div>
@@ -341,6 +357,12 @@ export default function CollectionsPage() {
           ))
         )}
       </div>
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center">
+          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
+        </div>
+      )}
 
       <Modal
         isOpen={editor.open}

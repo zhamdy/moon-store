@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import toast from 'react-hot-toast';
 import {
   Plus,
@@ -30,9 +31,13 @@ import { useAuthStore } from '../../auth';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 
-import type { ColumnDef } from '@tanstack/react-table';
-import type { Customer, Product } from '../../../shared/types/index';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
+import type { Customer } from '../../../shared/types/index';
 import type {
   DeliveryOrder,
   DeliveryPayload,
@@ -49,6 +54,8 @@ export default function Deliveries() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'Admin';
+  const navigate = useNavigate({ from: '/deliveries' });
+  const routeSearch = useSearch({ strict: false }) as Record<string, unknown>;
 
   const statusLabelMap: Record<string, string> = {
     All: t('common.all'),
@@ -60,32 +67,60 @@ export default function Deliveries() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<DeliveryOrder | null>(null);
-  const [statusFilter, setStatusFilter] = useState('All');
+  const statusFilter = typeof routeSearch.status === 'string' ? routeSearch.status : 'All';
   const [customerSearch, setCustomerSearch] = useState('');
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
   const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null);
   const [timelineOrderNumber, setTimelineOrderNumber] = useState('');
+  const [timelinePage, setTimelinePage] = useState(1);
   const [companiesDialogOpen, setCompaniesDialogOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const page = typeof routeSearch.page === 'number' ? routeSearch.page : 1;
+  const pageSize = typeof routeSearch.pageSize === 'number' ? routeSearch.pageSize : 25;
+  const updateListSearch = (changes: Record<string, unknown>) =>
+    navigate({ search: (previous: Record<string, unknown>) => ({ ...previous, ...changes }) });
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
-  const { data: orders, isLoading } = deliveries.useList({
-    limit: 100,
-    status: statusFilter === 'All' ? undefined : statusFilter,
+  const {
+    data: orders,
+    meta,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = deliveries.useList({
+    page,
+    pageSize,
+    status: statusFilter === 'All' ? undefined : statusFilter.toLowerCase(),
   });
+  const paginationMeta = meta?.pagination as PaginationMeta | undefined;
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+
+  useLastPageRecovery(
+    page,
+    paginationMeta?.totalItems,
+    paginationMeta?.totalPages,
+    updateListSearch
+  );
 
   const { data: performance } = deliveries.useRead<DeliveryPerformance>(
     'analytics/performance',
     undefined,
     isAdmin
   );
-  const { data: statusHistory } = deliveries.useRead<DeliveryStatusHistoryEntry[]>(
-    `${timelineOrderId}/history`,
-    undefined,
-    timelineOrderId !== null && timelineDialogOpen
+  const { data: statusHistory, meta: historyMeta } = useApiQuery<DeliveryStatusHistoryEntry[]>(
+    ['delivery', 'history', timelineOrderId],
+    `delivery/${timelineOrderId}/history`,
+    { page: timelinePage, pageSize: 25 },
+    { enabled: timelineOrderId !== null && timelineDialogOpen }
   );
 
-  const { data: products } = useApiQuery<Product[]>(['products', { limit: 200 }], 'products', {
-    limit: 200,
-  });
+  const {
+    products,
+    hasNextPage: hasMoreProducts,
+    fetchNextPage: loadMoreProducts,
+    isFetchingNextPage: isLoadingMoreProducts,
+  } = useProductCatalog({ search: debouncedProductSearch, enabled: isAdmin && dialogOpen });
   const { data: customers } = useApiQuery<Customer[]>(
     ['customers', { search: customerSearch }],
     'customers',
@@ -116,6 +151,7 @@ export default function Deliveries() {
 
   const openCreateDialog = () => {
     setEditingOrder(null);
+    setProductSearch('');
     setDialogOpen(true);
   };
 
@@ -268,6 +304,7 @@ export default function Deliveries() {
               onPress={() => {
                 setTimelineOrderId(row.original.id);
                 setTimelineOrderNumber(row.original.order_number);
+                setTimelinePage(1);
                 setTimelineDialogOpen(true);
               }}
             >
@@ -402,7 +439,9 @@ export default function Deliveries() {
             variant={statusFilter === s ? 'solid' : 'bordered'}
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setStatusFilter(s)}
+            onClick={() => {
+              updateListSearch({ status: s === 'All' ? undefined : s, page: 1 });
+            }}
           >
             {statusLabelMap[s] || s}
           </Button>
@@ -410,9 +449,23 @@ export default function Deliveries() {
       </div>
 
       <DataTable
+        mode="server"
         columns={columns}
         data={orders ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        error={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
+        pagination={pagination}
+        pageCount={paginationMeta?.totalPages ?? 0}
+        totalRows={paginationMeta?.totalItems ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          updateListSearch({
+            page: next.pageSize === pageSize ? next.pageIndex + 1 : 1,
+            pageSize: next.pageSize,
+          });
+        }}
         searchPlaceholder={t('deliveries.searchPlaceholder')}
       />
 
@@ -422,6 +475,9 @@ export default function Deliveries() {
         onOpenChange={setTimelineDialogOpen}
         orderNumber={timelineOrderNumber}
         history={statusHistory}
+        page={timelinePage}
+        totalPages={(historyMeta?.pagination as PaginationMeta | undefined)?.totalPages ?? 0}
+        onPageChange={setTimelinePage}
       />
 
       {/* Manage Shipping Companies Dialog */}
@@ -437,6 +493,11 @@ export default function Deliveries() {
         onOpenChange={setDialogOpen}
         editingOrder={editingOrder}
         products={products}
+        productSearch={productSearch}
+        onProductSearchChange={setProductSearch}
+        hasMoreProducts={hasMoreProducts}
+        onLoadMoreProducts={() => void loadMoreProducts()}
+        isLoadingMoreProducts={isLoadingMoreProducts}
         customers={customers}
         shippingCompanies={shippingCompanies}
         onSubmit={(payload: DeliveryPayload) =>

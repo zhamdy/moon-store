@@ -12,15 +12,19 @@ import {
   ModalFooter,
   Select,
   SelectItem,
+  Pagination,
 } from '@heroui/react';
 import { Badge, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { Product } from '../../../shared/types/index';
 import type { Bundle, BundleItem } from '../types';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 const bundles = resource<Bundle>('bundles');
 
@@ -41,16 +45,25 @@ export default function BundlesPage() {
   const [selectedBundle, setSelectedBundle] = useState<number | null>(null);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const { page, pageSize, update } = useListRouteState();
+  const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
-  const { data: rows } = bundles.useList();
+  const { data: rows, meta } = bundles.useList({ page, pageSize });
+  const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: detail } = bundles.useOne(selectedBundle);
 
-  const { data: allProducts } = useApiQuery<Product[]>(
-    ['products-for-bundle', productSearch],
-    'products',
-    { search: productSearch, limit: 20 },
-    { enabled: addProductOpen }
-  );
+  useLastPageRecovery(page, pagination?.totalItems, pagination?.totalPages, update);
+
+  const {
+    products: allProducts,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useProductCatalog({
+    search: debouncedProductSearch,
+    enabled: addProductOpen,
+    selectedIds: bundleItems.map((item) => item.product_id),
+  });
 
   const saver = bundles.useSave({
     message: editor.isEditing ? t('bundles.updated') : t('bundles.created'),
@@ -369,6 +382,17 @@ export default function BundlesPage() {
         )}
       </div>
 
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex justify-center">
+          <Pagination
+            page={page}
+            total={pagination.totalPages}
+            onChange={(newPage) => update({ page: newPage })}
+            showControls
+          />
+        </div>
+      )}
+
       {/* Create / Edit dialog */}
       <Modal
         isOpen={editor.open}
@@ -603,6 +627,17 @@ export default function BundlesPage() {
                       </span>
                     </button>
                   ))}
+                  {hasNextPage && (
+                    <Button
+                      fullWidth
+                      variant="bordered"
+                      onPress={() => void fetchNextPage()}
+                      isLoading={isFetchingNextPage}
+                      aria-label="Load more products"
+                    >
+                      Load more
+                    </Button>
+                  )}
                 </div>
               </ModalBody>
             </div>

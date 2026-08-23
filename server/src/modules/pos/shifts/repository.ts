@@ -19,6 +19,9 @@ export interface IShiftsRepository {
       targetUserId?: number;
       from?: string;
       to?: string;
+      status?: 'open' | 'completed';
+      sortBy: 'clockIn' | 'clockOut';
+      sortOrder: 'asc' | 'desc';
       limit: number;
       offset: number;
     },
@@ -87,11 +90,7 @@ export class ShiftsRepository implements IShiftsRepository {
     return res.rows[0] as unknown as ShiftRow;
   }
 
-  async clockOut(
-    shiftId: number,
-    notes?: string | null,
-    queryable?: Queryable
-  ): Promise<ShiftRow> {
+  async clockOut(shiftId: number, notes?: string | null, queryable?: Queryable): Promise<ShiftRow> {
     const res = await this.q(queryable).query(
       `UPDATE shifts SET
          clock_out = NOW(),
@@ -109,12 +108,15 @@ export class ShiftsRepository implements IShiftsRepository {
       targetUserId?: number;
       from?: string;
       to?: string;
+      status?: 'open' | 'completed';
+      sortBy: 'clockIn' | 'clockOut';
+      sortOrder: 'asc' | 'desc';
       limit: number;
       offset: number;
     },
     queryable?: Queryable
   ): Promise<{ rows: ShiftRow[]; total: number }> {
-    const { targetUserId, from, to, limit, offset } = filters;
+    const { targetUserId, from, to, status, sortBy, sortOrder, limit, offset } = filters;
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
 
@@ -129,6 +131,11 @@ export class ShiftsRepository implements IShiftsRepository {
     if (to) {
       params.push(to);
       where += ` AND s.clock_in <= $${params.length}`;
+    }
+    if (status === 'open') {
+      where += " AND s.status IN ('active', 'on_break')";
+    } else if (status === 'completed') {
+      where += " AND s.status = 'completed'";
     }
 
     const countResult = await this.q(queryable).query<{ total: number }>(
@@ -145,7 +152,7 @@ export class ShiftsRepository implements IShiftsRepository {
        JOIN users u ON s.user_id = u.id
        LEFT JOIN branches b ON s.branch_id = b.id
        ${where}
-       ORDER BY s.clock_in DESC
+       ORDER BY ${sortBy === 'clockOut' ? 's.clock_out' : 's.clock_in'} ${sortOrder.toUpperCase()}, s.id ${sortOrder.toUpperCase()}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limit, offset]
     );

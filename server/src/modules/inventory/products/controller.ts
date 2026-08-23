@@ -11,6 +11,10 @@ import {
 import { productsService } from './service';
 import { productsRepository } from './repository';
 import { z } from 'zod';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
+import { parseProductListQuery, parseProductLookupQuery } from './types';
 
 const bulkUpdateSchema = z.object({
   ids: z.array(z.number().int().positive()).min(1),
@@ -41,35 +45,27 @@ const batchBarcodeSchema = z.object({
 export class ProductsController {
   async getProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const {
-        search,
-        category,
-        category_id,
-        collection_id,
-        status,
-        page = 1,
-        limit = 25,
-        sort = 'name',
-        order = 'asc',
-      } = req.query;
+      const query = parseProductListQuery(req.query);
+      const role = (req as AuthRequest).user?.role;
+      if (query.lowStock && role !== 'Admin') {
+        throw new PublicError('FORBIDDEN');
+      }
+      const result = await productsService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
 
-      const result = await productsRepository.list({
-        search: search as string | undefined,
-        category: category as string | undefined,
-        category_id: category_id ? Number(category_id) : undefined,
-        collection_id: collection_id ? Number(collection_id) : undefined,
-        status: status as string | undefined,
-        page: Number(page),
-        limit: Number(limit),
-        sort: sort as string,
-        order: order as 'asc' | 'desc',
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: { total: result.total, page: Number(page), limit: Number(limit) },
-      });
+  async lookup(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { ids } = parseProductLookupQuery(req.query);
+      const rows = await productsService.lookup(ids, (req as AuthRequest).user?.role === 'Admin');
+      res.json(success(rows));
     } catch (err) {
       next(err);
     }
@@ -78,7 +74,7 @@ export class ProductsController {
   async getCategories(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const categories = await productsRepository.listCategories();
-      res.json({ success: true, data: categories });
+      res.json(success(categories));
     } catch (err) {
       next(err);
     }
@@ -88,10 +84,9 @@ export class ProductsController {
     try {
       const result = await productsService.generateSku(Number(req.params.categoryId));
       if (!result) {
-        res.status(404).json({ success: false, error: 'Category not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Category not found');
       }
-      res.json({ success: true, data: result });
+      res.json(success(result));
     } catch (err) {
       next(err);
     }
@@ -100,16 +95,7 @@ export class ProductsController {
   async generateBarcode(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const result = await productsService.generateBarcode();
-      res.json({ success: true, data: result });
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  async getLowStock(_req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const rows = await productsRepository.listLowStock();
-      res.json({ success: true, data: rows });
+      res.json(success(result));
     } catch (err) {
       next(err);
     }
@@ -120,15 +106,14 @@ export class ProductsController {
       const barcode = req.params.barcode as string;
       const product = await productsRepository.findByBarcode(barcode);
       if (product) {
-        res.json({ success: true, data: product });
+        res.json(success(product));
         return;
       }
 
       const variant = await productsRepository.findVariantByBarcode(barcode);
       if (variant) {
-        res.json({
-          success: true,
-          data: {
+        res.json(
+          success({
             id: variant.product_id,
             name: variant.product_name,
             sku: variant.sku,
@@ -143,12 +128,12 @@ export class ProductsController {
               typeof variant.attributes === 'string'
                 ? JSON.parse(variant.attributes || '{}')
                 : variant.attributes,
-          },
-        });
+          })
+        );
         return;
       }
 
-      res.status(404).json({ success: false, error: 'Product not found' });
+      throw new PublicError('NOT_FOUND', 'Product not found');
     } catch (err) {
       next(err);
     }
@@ -158,10 +143,9 @@ export class ProductsController {
     try {
       const product = await productsRepository.findById(req.params.id as string);
       if (!product) {
-        res.status(404).json({ success: false, error: 'Product not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Product not found');
       }
-      res.json({ success: true, data: product });
+      res.json(success(product));
     } catch (err) {
       next(err);
     }
@@ -171,8 +155,7 @@ export class ProductsController {
     try {
       const parsed = productSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const product = await productsService.createProduct(parsed.data);
@@ -181,10 +164,10 @@ export class ProductsController {
         sku: parsed.data.sku,
         price: parsed.data.price,
       });
-      res.status(201).json({ success: true, data: product });
+      res.status(201).json(success(product));
     } catch (err: any) {
       if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
-        res.status(409).json({ success: false, error: 'SKU or barcode already exists' });
+        next(new PublicError('CONFLICT', 'SKU or barcode already exists'));
         return;
       }
       next(err);
@@ -195,16 +178,15 @@ export class ProductsController {
     try {
       const parsed = bulkUpdateSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const { ids, updates } = parsed.data;
       const updated = await productsService.bulkUpdateProducts(ids, updates);
-      res.json({ success: true, data: { updated } });
+      res.json(success({ updated }));
     } catch (err: any) {
       if (err.message === 'Category not found') {
-        res.status(404).json({ success: false, error: err.message });
+        next(new PublicError('NOT_FOUND', err.message));
         return;
       }
       next(err);
@@ -215,8 +197,7 @@ export class ProductsController {
     try {
       const parsed = productSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
@@ -227,19 +208,18 @@ export class ProductsController {
       );
 
       if (!product) {
-        res.status(404).json({ success: false, error: 'Product not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Product not found');
       }
 
       logAuditFromReq(req, 'update', 'product', req.params.id as string);
-      res.json({ success: true, data: product });
+      res.json(success(product));
     } catch (err: any) {
       if (err.type === 'discontinued') {
-        res.status(403).json({ success: false, error: err.message });
+        next(new PublicError('FORBIDDEN', err.message));
         return;
       }
       if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
-        res.status(409).json({ success: false, error: 'SKU or barcode already exists' });
+        next(new PublicError('CONFLICT', 'SKU or barcode already exists'));
         return;
       }
       next(err);
@@ -250,20 +230,18 @@ export class ProductsController {
     try {
       const parsed = productStatusSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const { status } = parsed.data;
       const product = await productsRepository.updateStatus(req.params.id as string, status);
 
       if (!product) {
-        res.status(404).json({ success: false, error: 'Product not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Product not found');
       }
 
       logAuditFromReq(req, 'status_change', 'product', req.params.id as string, { status });
-      res.json({ success: true, data: product });
+      res.json(success(product));
     } catch (err) {
       next(err);
     }
@@ -276,11 +254,10 @@ export class ProductsController {
         'discontinued'
       );
       if (!product) {
-        res.status(404).json({ success: false, error: 'Product not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Product not found');
       }
       logAuditFromReq(req, 'discontinue', 'product', req.params.id as string);
-      res.json({ success: true, data: { message: 'Product discontinued' } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }
@@ -290,12 +267,11 @@ export class ProductsController {
     try {
       const parsed = bulkDeleteSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const deleted = await productsService.bulkDeleteProducts(parsed.data.ids);
-      res.json({ success: true, data: { deleted } });
+      res.json(success({ deleted }));
     } catch (err) {
       next(err);
     }
@@ -305,39 +281,41 @@ export class ProductsController {
     try {
       const { products } = req.body;
       if (!Array.isArray(products) || products.length === 0) {
-        res.status(400).json({ success: false, error: 'Products array required' });
-        return;
+        throw new PublicError('VALIDATION_ERROR', 'Products array required');
       }
 
       const result = await productsService.importProducts(products);
-      res.json({ success: true, data: result });
+      res.json(success(result));
     } catch (err) {
       next(err);
     }
   }
 
-  async adjustStock(req: Request, res: Response, _next: NextFunction): Promise<void> {
+  async adjustStock(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
       const productId = Number(req.params.id);
 
       const parsed = adjustStockSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const result = await productsService.adjustStock(productId, parsed.data, authReq.user!.id);
-      res.json({ success: true, data: result });
+      res.json(success(result));
     } catch (err: any) {
-      res.status(400).json({ success: false, error: err.message });
+      next(
+        err instanceof PublicError || err instanceof z.ZodError
+          ? err
+          : new PublicError('VALIDATION_ERROR', err.message)
+      );
     }
   }
 
   async getStockHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rows = await productsRepository.getStockAdjustments(req.params.id as string);
-      res.json({ success: true, data: rows });
+      res.json(success(rows));
     } catch (err) {
       next(err);
     }
@@ -346,8 +324,7 @@ export class ProductsController {
   async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.file) {
-        res.status(400).json({ success: false, error: 'No image file provided' });
-        return;
+        throw new PublicError('VALIDATION_ERROR', 'No image file provided');
       }
 
       const productId = Number(req.params.id);
@@ -356,13 +333,11 @@ export class ProductsController {
       const existing = await productsRepository.findById(productId);
       if (!existing) {
         fs.unlinkSync(req.file.path);
-        res.status(404).json({ success: false, error: 'Product not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Product not found');
       }
       if (existing.status === 'discontinued') {
         fs.unlinkSync(req.file.path);
-        res.status(403).json({ success: false, error: 'Cannot modify a discontinued product' });
-        return;
+        throw new PublicError('FORBIDDEN', 'Cannot modify a discontinued product');
       }
       if (existing.image_url) {
         const oldPath = path.join(__dirname, '../../../../..', existing.image_url);
@@ -372,7 +347,7 @@ export class ProductsController {
       }
 
       await productsRepository.updateImage(productId, imageUrl);
-      res.json({ success: true, data: { image_url: imageUrl } });
+      res.json(success({ image_url: imageUrl }));
     } catch (err) {
       next(err);
     }
@@ -383,12 +358,10 @@ export class ProductsController {
       const productId = Number(req.params.id);
       const existing = await productsRepository.findById(productId);
       if (!existing) {
-        res.status(404).json({ success: false, error: 'Product not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Product not found');
       }
       if (existing.status === 'discontinued') {
-        res.status(403).json({ success: false, error: 'Cannot modify a discontinued product' });
-        return;
+        throw new PublicError('FORBIDDEN', 'Cannot modify a discontinued product');
       }
       if (existing.image_url) {
         const oldPath = path.join(__dirname, '../../../../..', existing.image_url);
@@ -398,7 +371,7 @@ export class ProductsController {
       }
 
       await productsRepository.updateImage(productId, null);
-      res.json({ success: true, data: { message: 'Image removed' } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }
@@ -412,7 +385,7 @@ export class ProductsController {
         attributes:
           typeof v.attributes === 'string' ? JSON.parse(v.attributes || '{}') : v.attributes,
       }));
-      res.json({ success: true, data: variants });
+      res.json(success(variants));
     } catch (err) {
       next(err);
     }
@@ -422,20 +395,19 @@ export class ProductsController {
     try {
       const parsed = variantSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const productId = Number(req.params.id);
       const variant = await productsService.createVariant(productId, parsed.data);
-      res.status(201).json({ success: true, data: variant });
+      res.status(201).json(success(variant));
     } catch (err: any) {
       if (err.message === 'Product not found') {
-        res.status(404).json({ success: false, error: err.message });
+        next(new PublicError('NOT_FOUND', err.message));
         return;
       }
       if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
-        res.status(409).json({ success: false, error: 'SKU or barcode already exists' });
+        next(new PublicError('CONFLICT', 'SKU or barcode already exists'));
         return;
       }
       next(err);
@@ -446,8 +418,7 @@ export class ProductsController {
     try {
       const parsed = variantSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const variant = await productsService.updateVariant(
@@ -456,14 +427,13 @@ export class ProductsController {
         parsed.data
       );
       if (!variant) {
-        res.status(404).json({ success: false, error: 'Variant not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Variant not found');
       }
 
-      res.json({ success: true, data: variant });
+      res.json(success(variant));
     } catch (err: any) {
       if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
-        res.status(409).json({ success: false, error: 'SKU or barcode already exists' });
+        next(new PublicError('CONFLICT', 'SKU or barcode already exists'));
         return;
       }
       next(err);
@@ -477,11 +447,10 @@ export class ProductsController {
         req.params.variantId as string
       );
       if (!deleted) {
-        res.status(404).json({ success: false, error: 'Variant not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Variant not found');
       }
 
-      res.json({ success: true, data: { message: 'Variant deleted' } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }
@@ -490,7 +459,7 @@ export class ProductsController {
   async getPriceHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const rows = await productsRepository.getPriceHistory(req.params.id as string);
-      res.json({ success: true, data: rows });
+      res.json(success(rows));
     } catch (err) {
       next(err);
     }
@@ -500,13 +469,12 @@ export class ProductsController {
     try {
       const parsed = batchBarcodeSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const results = await productsService.batchGenerateBarcodes(parsed.data.product_ids);
       logAuditFromReq(req, 'batch_barcode', 'product', undefined, { count: results.length });
-      res.json({ success: true, data: results });
+      res.json(success(results));
     } catch (err) {
       _next(err);
     }

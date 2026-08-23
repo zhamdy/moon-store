@@ -181,3 +181,86 @@ describe('transport client', () => {
     expect(source).not.toContain("'../../store");
   });
 });
+
+describe('HTTP transport contract', () => {
+  it('unwraps paginated and aggregate metadata without exposing the envelope', async () => {
+    const request = vi.fn().mockResolvedValue({
+      status: 200,
+      data: {
+        success: true,
+        data: [{ id: 1 }],
+        meta: {
+          pagination: {
+            page: 1,
+            pageSize: 25,
+            totalItems: 1,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+          totalAmount: 42,
+        },
+      },
+    });
+    const { createHttpTransport } = await import('./http');
+    const transport = createHttpTransport({ request } as never);
+
+    await expect(transport.request({ method: 'GET', path: 'expenses' })).resolves.toEqual({
+      data: [{ id: 1 }],
+      meta: expect.objectContaining({ totalAmount: 42 }),
+    });
+  });
+
+  it('returns undefined data for a successful 204', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 204, data: undefined });
+    const { createHttpTransport } = await import('./http');
+    const transport = createHttpTransport({ request } as never);
+
+    await expect(
+      transport.request<void>({ method: 'DELETE', path: 'expenses/1' })
+    ).resolves.toEqual({
+      data: undefined,
+    });
+  });
+
+  it.each([
+    [
+      { error: 'Invalid amount' },
+      { message: 'Invalid amount', code: undefined, details: undefined },
+    ],
+    [
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid amount',
+          details: [{ field: 'amount', code: 'too_small', message: 'Must be positive' }],
+        },
+      },
+      {
+        message: 'Invalid amount',
+        code: 'VALIDATION_ERROR',
+        details: [{ field: 'amount', code: 'too_small', message: 'Must be positive' }],
+      },
+    ],
+  ])('normalizes legacy and structured errors (%#)', async (body, expected) => {
+    const request = vi.fn().mockRejectedValue({ response: { status: 400, data: body } });
+    const { createHttpTransport } = await import('./http');
+    const transport = createHttpTransport({ request } as never);
+
+    const error = await transport
+      .request({ method: 'GET', path: 'expenses' })
+      .catch((caught) => caught);
+    expect(error).toMatchObject({ name: 'ApiError', status: 400, ...expected });
+  });
+
+  it('keeps blob responses outside JSON envelope handling', async () => {
+    const blob = new Blob(['report']);
+    const request = vi.fn().mockResolvedValue({ status: 200, data: blob });
+    const { createHttpTransport } = await import('./http');
+    const transport = createHttpTransport({ request } as never);
+
+    await expect(
+      transport.request<Blob>({ method: 'GET', path: 'exports/1', responseType: 'blob' })
+    ).resolves.toEqual({ data: blob });
+  });
+});

@@ -5,6 +5,7 @@ import {
   DeliveryListResult,
   PerformanceResult,
   DeliveryOrderInput,
+  DeliveryHistoryFilters,
 } from './types';
 
 export interface IDeliveryRepository {
@@ -49,7 +50,11 @@ export interface IDeliveryRepository {
     userId: number,
     queryable?: Queryable
   ): Promise<void>;
-  getStatusHistory(id: string | number, queryable?: Queryable): Promise<Record<string, any>[]>;
+  getStatusHistory(
+    id: string | number,
+    filters: DeliveryHistoryFilters,
+    queryable?: Queryable
+  ): Promise<{ rows: Record<string, any>[]; total: number }>;
   getShippingCompanyName(id: number, queryable?: Queryable): Promise<string | null>;
 }
 
@@ -61,9 +66,9 @@ export class DeliveryRepository implements IDeliveryRepository {
   }
 
   async list(filters: DeliveryOrderFilters, queryable?: Queryable): Promise<DeliveryListResult> {
-    const { page = 1, limit = 25, status, search } = filters;
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
+    const { page: pageNum, pageSize: limitNum, status, search, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'estimatedDelivery' ? 'd.estimated_delivery' : 'd.created_at';
     const offset = (pageNum - 1) * limitNum;
 
     const where: string[] = [];
@@ -100,7 +105,7 @@ export class DeliveryRepository implements IDeliveryRepository {
          FROM delivery_orders d
          LEFT JOIN shipping_companies sc ON d.shipping_company_id = sc.id
          ${whereClause}
-         ORDER BY d.created_at DESC
+          ORDER BY ${sortColumn} ${direction}, d.id ${direction}
          LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
         queryParams
       )
@@ -135,7 +140,7 @@ export class DeliveryRepository implements IDeliveryRepository {
 
     return {
       orders,
-      meta: { total, page: pageNum, limit: limitNum },
+      total,
     };
   }
 
@@ -331,17 +336,24 @@ export class DeliveryRepository implements IDeliveryRepository {
 
   async getStatusHistory(
     id: string | number,
+    filters: DeliveryHistoryFilters,
     queryable?: Queryable
-  ): Promise<Record<string, any>[]> {
+  ): Promise<{ rows: Record<string, any>[]; total: number }> {
+    const offset = (filters.page - 1) * filters.pageSize;
+    const count = await this.q(queryable).query<{ total: string | number }>(
+      'SELECT COUNT(*) AS total FROM delivery_status_history WHERE order_id = $1',
+      [id]
+    );
     const result = await this.q(queryable).query(
       `SELECT h.*, u.name as changed_by_name
        FROM delivery_status_history h
        LEFT JOIN users u ON h.changed_by = u.id
        WHERE h.order_id = $1
-       ORDER BY h.created_at ASC`,
-      [id]
+        ORDER BY h.created_at ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}, h.id ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}
+       LIMIT $2 OFFSET $3`,
+      [id, filters.pageSize, offset]
     );
-    return result.rows as Record<string, any>[];
+    return { rows: result.rows as Record<string, any>[], total: Number(count.rows[0]?.total || 0) };
   }
 
   async getShippingCompanyName(id: number, queryable?: Queryable): Promise<string | null> {

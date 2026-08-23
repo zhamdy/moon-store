@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react';
-import type { ColumnDef } from '@tanstack/react-table';
+import { useState } from 'react';
+import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import {
   Button,
   Input,
@@ -14,6 +15,7 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import type { WarrantyClaim } from '../types';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 const warranty = resource<WarrantyClaim>('warranty');
 
@@ -41,8 +43,12 @@ export default function WarrantyPage() {
   const { t } = useTranslation();
   const editor = useEditorDialog(emptyClaim);
   const form = editor.values;
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  const { data: claims, isLoading } = warranty.useList();
+  const { data: claims, meta, isLoading, isFetching } = warranty.useList({ page, pageSize });
+  const pageMeta = meta?.pagination as PaginationMeta | undefined;
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
 
   const saver = warranty.useSave({
     message: t('warranty.create'),
@@ -151,9 +157,19 @@ export default function WarrantyPage() {
       />
 
       <DataTable
+        mode="server"
         columns={columns}
         data={claims ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        pagination={pagination}
+        pageCount={pageMeta?.totalPages ?? 0}
+        totalRows={pageMeta?.totalItems ?? 0}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          setPage(next.pageIndex + 1);
+          setPageSize(next.pageSize);
+        }}
         searchPlaceholder={t('common.search')}
       />
 

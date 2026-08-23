@@ -45,7 +45,28 @@ export interface CreateBundleDTO {
 export type UpdateBundleDTO = CreateBundleDTO;
 
 export interface BundleFilters {
-  status?: string;
-  page?: number;
-  limit?: number;
+  status?: 'active' | 'inactive';
+  page: number;
+  pageSize: number;
+  sortBy: 'createdAt' | 'name';
+  sortOrder: 'asc' | 'desc';
+}
+
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
+const bundleListQuerySchema = createListQuerySchema(['createdAt', 'name'] as const)
+  .extend({ status: z.enum(['active', 'inactive']).optional() })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+
+export function parseBundleListQuery(query: unknown): BundleFilters {
+  const parsed = bundleListQuerySchema.parse(query);
+  return {
+    status: parsed.status,
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }

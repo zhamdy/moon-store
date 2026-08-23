@@ -1,41 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import { auditLogService } from './service';
+import { parseAuditLogListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
 
 export class AuditLogController {
   async getAuditLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const {
-        userId,
-        action,
-        entityType,
-        entityId,
-        startDate,
-        endDate,
-        page = '1',
-        limit = '50',
-      } = req.query;
-
-      const result = await auditLogService.list({
-        userId: userId as string | undefined,
-        action: action as string | undefined,
-        entityType: entityType as string | undefined,
-        entityId: entityId as string | undefined,
-        startDate: startDate as string | undefined,
-        endDate: endDate as string | undefined,
-        page: Number(page),
-        limit: Number(limit),
-      });
-
-      res.json({
-        success: true,
-        data: result.logs,
-        meta: {
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-          totalPages: result.totalPages,
-        },
-      });
+      const query = parseAuditLogListQuery(req.query);
+      const result = await auditLogService.list(query);
+      res.json(
+        success(result.logs, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -44,7 +22,15 @@ export class AuditLogController {
   async getActions(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await auditLogService.getActions();
-      res.json({ success: true, data });
+      res.json(success(data));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getEntityTypes(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      res.json(success(await auditLogService.getEntityTypes()));
     } catch (err) {
       next(err);
     }

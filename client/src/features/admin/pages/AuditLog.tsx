@@ -28,16 +28,19 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Input, Select, SelectItem, Button, Pagination } from '@heroui/react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Badge, type BadgeVariant, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
+import { useTransport } from '../../../shared/lib/transport';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import type { PaginationMeta } from '../../../shared/lib/transport';
 import type { User as UserRecord } from '../../../shared/types/index';
 import type { AuditEntry } from '../types';
 
 /** Pagination figures the audit-log list carries beside its rows. */
 interface AuditMeta {
-  total: number;
+  pagination: PaginationMeta;
 }
 
 const auditLog = resource<AuditEntry, AuditMeta>('audit-log');
@@ -122,6 +125,7 @@ function parseDetails(
 
 export default function AuditLog() {
   const { t } = useTranslation();
+  const transport = useTransport();
 
   const [actionFilter, setActionFilter] = useState('all');
   const [entityFilter, setEntityFilter] = useState('all');
@@ -129,6 +133,7 @@ export default function AuditLog() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
 
@@ -141,24 +146,32 @@ export default function AuditLog() {
     meta,
   } = auditLog.useList({
     page,
-    limit: 50,
+    pageSize: 50,
     action: actionFilter === 'all' ? undefined : actionFilter,
-    entity_type: entityFilter === 'all' ? undefined : entityFilter,
-    user_id: userFilter === 'all' ? undefined : userFilter,
-    date_from: dateFrom || undefined,
-    date_to: dateTo || undefined,
-    search: search || undefined,
+    entityType: entityFilter === 'all' ? undefined : entityFilter,
+    userId: userFilter === 'all' ? undefined : userFilter,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    search: debouncedSearch || undefined,
   });
 
   const { data: actions = [] } = auditLog.useRead<string[]>('actions');
   const { data: entityTypes = [] } = auditLog.useRead<string[]>('entity-types');
-  const { data: users = [] } = useApiQuery<Pick<UserRecord, 'id' | 'name'>[]>(
-    ['users-list'],
-    'users'
-  );
+  const usersQuery = useInfiniteQuery({
+    queryKey: ['users', 'audit-filter'],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      transport.request<Pick<UserRecord, 'id' | 'name'>[]>({
+        method: 'GET',
+        path: 'users',
+        params: { page: pageParam, pageSize: 25, sortBy: 'name', sortOrder: 'asc' },
+      }),
+    getNextPageParam: (lastPage) =>
+      lastPage.meta?.pagination?.hasNextPage ? lastPage.meta.pagination.page + 1 : undefined,
+  });
+  const users = usersQuery.data?.pages.flatMap((response) => response.data) ?? [];
 
-  const total = meta?.total ?? 0;
-  const totalPages = Math.ceil(total / 50);
+  const totalPages = meta?.pagination.totalPages ?? 0;
 
   const getActionConfig = (action: string) =>
     ACTION_CONFIG[action] || { color: 'default' as const, icon: Activity };
@@ -239,6 +252,17 @@ export default function AuditLog() {
               )),
             ]}
           </Select>
+          {usersQuery.hasNextPage && (
+            <Button
+              fullWidth
+              size="sm"
+              variant="light"
+              isLoading={usersQuery.isFetchingNextPage}
+              onPress={() => void usersQuery.fetchNextPage()}
+            >
+              Load more
+            </Button>
+          )}
         </div>
 
         <div className="w-36">

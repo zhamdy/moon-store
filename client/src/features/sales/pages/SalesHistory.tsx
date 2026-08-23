@@ -36,7 +36,9 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { ColumnDef } from '@tanstack/react-table';
+import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
+import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import type { ReceiptData } from '../../../shared/components/Receipt';
 import type { Sale, SaleDetail, SaleRefund, SalesMeta } from '../types';
 
@@ -46,8 +48,25 @@ const saleDetails = resource<SaleDetail>('sales');
 export default function SalesHistory() {
   const { t } = useTranslation();
   const transport = useTransport();
-  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
-  const [paymentFilter, setPaymentFilter] = useState('all');
+  const { search: routeSearch, page, pageSize, update } = useListRouteState();
+
+  const paymentFilter =
+    typeof routeSearch.paymentMethod === 'string' ? routeSearch.paymentMethod : 'all';
+  const sortBy = routeSearch.sortBy === 'total' ? 'total' : 'createdAt';
+  const sortOrder = routeSearch.sortOrder === 'asc' ? 'asc' : 'desc';
+
+  const dateRange: DateRange = {
+    start: typeof routeSearch.dateFrom === 'string' ? new Date(routeSearch.dateFrom) : null,
+    end: typeof routeSearch.dateTo === 'string' ? new Date(routeSearch.dateTo) : null,
+  };
+
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+  const sorting: SortingState = [
+    { id: sortBy === 'total' ? 'total' : 'created_at', desc: sortOrder === 'desc' },
+  ];
+
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
@@ -60,11 +79,18 @@ export default function SalesHistory() {
   } | null>(null);
 
   const params: Record<string, string> = {};
-  if (dateRange.start) params.from = format(dateRange.start, 'yyyy-MM-dd');
-  if (dateRange.end) params.to = format(dateRange.end, 'yyyy-MM-dd');
-  if (paymentFilter !== 'all') params.payment_method = paymentFilter;
+  if (routeSearch.dateFrom) params.dateFrom = String(routeSearch.dateFrom);
+  if (routeSearch.dateTo) params.dateTo = String(routeSearch.dateTo);
+  if (paymentFilter !== 'all') params.paymentMethod = paymentFilter;
+  if (debouncedSearch) params.search = debouncedSearch;
+  params.page = String(page);
+  params.pageSize = String(pageSize);
+  params.sortBy = sortBy;
+  params.sortOrder = sortOrder;
 
-  const { data: rows, meta, isLoading } = sales.useList({ ...params, limit: 200 });
+  const { data: rows, meta, isLoading, isFetching, error, refetch } = sales.useList(params);
+
+  useLastPageRecovery(page, meta?.pagination?.totalItems, meta?.pagination?.totalPages, update);
 
   const { data: saleDetail } = saleDetails.useOne(expandedRow);
 
@@ -302,13 +328,13 @@ export default function SalesHistory() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title={t('sales.totalRevenue')}
-          value={formatCurrency(meta?.total_revenue || 0)}
+          value={formatCurrency(meta?.aggregates.totalRevenue || 0)}
           icon={DollarSign}
           isLoading={isLoading}
         />
         <StatCard
           title={t('sales.totalSales')}
-          value={meta?.total || 0}
+          value={meta?.aggregates.totalSales || 0}
           icon={ShoppingCart}
           isLoading={isLoading}
         />
@@ -317,7 +343,16 @@ export default function SalesHistory() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="w-72">
-          <DateRangePicker value={dateRange} onChange={(range) => setDateRange(range)} />
+          <DateRangePicker
+            value={dateRange}
+            onChange={(range) => {
+              update({
+                dateFrom: range.start ? format(range.start, 'yyyy-MM-dd') : undefined,
+                dateTo: range.end ? format(range.end, 'yyyy-MM-dd') : undefined,
+                page: 1,
+              });
+            }}
+          />
         </div>
 
         <div className="w-44">
@@ -326,7 +361,13 @@ export default function SalesHistory() {
             variant="bordered"
             aria-label="Payment Filter"
             selectedKeys={[paymentFilter]}
-            onChange={(e) => setPaymentFilter(e.target.value || 'all')}
+            onChange={(e) => {
+              update({
+                paymentMethod:
+                  e.target.value && e.target.value !== 'all' ? e.target.value : undefined,
+                page: 1,
+              });
+            }}
           >
             <SelectItem key="all" textValue={t('sales.allPayments')}>
               {t('sales.allPayments')}
@@ -348,8 +389,12 @@ export default function SalesHistory() {
             variant="light"
             size="sm"
             onClick={() => {
-              setDateRange({ start: null, end: null });
-              setPaymentFilter('all');
+              update({
+                dateFrom: undefined,
+                dateTo: undefined,
+                paymentMethod: undefined,
+                page: 1,
+              });
             }}
           >
             {t('common.clearFilters')}
@@ -358,9 +403,36 @@ export default function SalesHistory() {
       </div>
 
       <DataTable
+        mode="server"
         columns={columns}
         data={rows ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
+        error={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
+        pagination={pagination}
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          update({ page: next.pageIndex + 1, pageSize: next.pageSize });
+        }}
+        pageCount={meta?.pagination.totalPages ?? 0}
+        totalRows={meta?.pagination.totalItems ?? 0}
+        sorting={sorting}
+        onSortingChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(sorting) : updater;
+          const sortItem = next[0];
+          update({
+            sortBy: sortItem?.id === 'total' ? 'total' : 'createdAt',
+            sortOrder: sortItem?.desc === false ? 'asc' : 'desc',
+            page: 1,
+          });
+        }}
+        search={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          update({ page: 1 });
+        }}
+        isFiltered={Boolean(search || dateRange.start || dateRange.end || paymentFilter !== 'all')}
         searchPlaceholder={t('sales.searchReceipts')}
         renderSubComponent={(sale: Sale) => {
           if (expandedRow !== sale.id || !saleDetail || saleDetail.id !== sale.id) return null;

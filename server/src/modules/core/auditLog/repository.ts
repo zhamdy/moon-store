@@ -8,6 +8,7 @@ export interface IAuditLogRepository {
     queryable?: Queryable
   ): Promise<{ rows: AuditLogEntry[]; total: number }>;
   findDistinctActions(queryable?: Queryable): Promise<string[]>;
+  findDistinctEntityTypes(queryable?: Queryable): Promise<string[]>;
 }
 
 export class AuditLogRepository implements IAuditLogRepository {
@@ -21,18 +22,10 @@ export class AuditLogRepository implements IAuditLogRepository {
     filters: AuditLogFilters,
     queryable?: Queryable
   ): Promise<{ rows: AuditLogEntry[]; total: number }> {
-    const {
-      userId,
-      action,
-      entityType,
-      entityId,
-      startDate,
-      endDate,
-      page = 1,
-      limit = 50,
-    } = filters;
+    const { userId, action, entityType, entityId, dateFrom, dateTo, search, page, pageSize } =
+      filters;
 
-    const offset = (page - 1) * limit;
+    const offset = (page - 1) * pageSize;
     const where: string[] = [];
     const params: unknown[] = [];
     let paramIdx = 1;
@@ -53,29 +46,39 @@ export class AuditLogRepository implements IAuditLogRepository {
       where.push(`entity_id = $${paramIdx++}`);
       params.push(String(entityId));
     }
-    if (startDate) {
+    if (dateFrom) {
       where.push(`created_at >= $${paramIdx++}`);
-      params.push(String(startDate));
+      params.push(dateFrom);
     }
-    if (endDate) {
-      where.push(`created_at <= $${paramIdx++}`);
-      params.push(String(endDate));
+    if (dateTo) {
+      const exclusiveDateTo = new Date(`${dateTo}T00:00:00.000Z`);
+      exclusiveDateTo.setUTCDate(exclusiveDateTo.getUTCDate() + 1);
+      where.push(`created_at < $${paramIdx++}`);
+      params.push(exclusiveDateTo.toISOString());
+    }
+    if (search) {
+      where.push(
+        `(user_name ILIKE $${paramIdx} OR entity_id ILIKE $${paramIdx} OR details ILIKE $${paramIdx})`
+      );
+      params.push(`%${search}%`);
+      paramIdx++;
     }
 
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
     const countResult = await this.q(queryable).query<{ count: string | number }>(
-      `SELECT COUNT(*) as count FROM audit_logs ${whereClause}`,
+      `SELECT COUNT(*) as count FROM audit_log ${whereClause}`,
       params
     );
     const total = Number(countResult.rows[0]?.count || 0);
 
-    const queryParams = [...params, limit, offset];
+    const queryParams = [...params, pageSize, offset];
     const limitIdx = paramIdx++;
     const offsetIdx = paramIdx++;
 
     const result = await this.q(queryable).query<AuditLogEntry>(
-      `SELECT * FROM audit_logs ${whereClause} ORDER BY created_at DESC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      `SELECT * FROM audit_log ${whereClause}
+       ORDER BY created_at DESC, id ASC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );
 
@@ -90,9 +93,16 @@ export class AuditLogRepository implements IAuditLogRepository {
 
   async findDistinctActions(queryable?: Queryable): Promise<string[]> {
     const result = await this.q(queryable).query<{ action: string }>(
-      'SELECT DISTINCT action FROM audit_logs ORDER BY action'
+      'SELECT DISTINCT action FROM audit_log ORDER BY action'
     );
     return result.rows.map((r) => r.action);
+  }
+
+  async findDistinctEntityTypes(queryable?: Queryable): Promise<string[]> {
+    const result = await this.q(queryable).query<{ entity_type: string }>(
+      'SELECT DISTINCT entity_type FROM audit_log ORDER BY entity_type'
+    );
+    return result.rows.map((row) => row.entity_type);
   }
 }
 

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAudit } from '../../../../middleware/auditLogger';
+import { PublicError } from '../../../http/errors';
+import { success } from '../../../http/responses';
 import { authService } from './service';
 
 export class AuthController {
@@ -8,8 +10,7 @@ export class AuthController {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
-        res.status(400).json({ success: false, error: 'Email and password required' });
-        return;
+        throw new PublicError('VALIDATION_ERROR', 'Email and password required');
       }
 
       const result = await authService.login({ email, password });
@@ -32,18 +33,8 @@ export class AuthController {
         ipAddress: req.ip || req.socket.remoteAddress,
       });
 
-      res.json({
-        success: true,
-        data: {
-          accessToken: result.accessToken,
-          user: result.user,
-        },
-      });
-    } catch (err: any) {
-      if (err.statusCode) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
-        return;
-      }
+      res.json(success({ accessToken: result.accessToken, user: result.user }));
+    } catch (err) {
       next(err);
     }
   }
@@ -52,17 +43,12 @@ export class AuthController {
     try {
       const refreshToken = req.cookies?.refreshToken;
       if (!refreshToken) {
-        res.status(401).json({ success: false, error: 'Refresh token required' });
-        return;
+        throw new PublicError('UNAUTHORIZED', 'Refresh token required');
       }
 
       const result = await authService.refresh(refreshToken);
-      res.json({ success: true, data: result });
-    } catch (err: any) {
-      if (err.statusCode) {
-        res.status(err.statusCode).json({ success: false, error: err.message });
-        return;
-      }
+      res.json(success(result));
+    } catch (err) {
       next(err);
     }
   }
@@ -72,7 +58,7 @@ export class AuthController {
       const refreshToken = req.cookies?.refreshToken;
       await authService.logout(refreshToken);
       res.clearCookie('refreshToken', { path: '/' });
-      res.json({ success: true, data: { message: 'Logged out successfully' } });
+      res.sendStatus(204);
     } catch (err) {
       next(err);
     }
@@ -83,10 +69,9 @@ export class AuthController {
       const authReq = req as AuthRequest;
       const user = await authService.getMe(authReq.user!.id);
       if (!user) {
-        res.status(404).json({ success: false, error: 'User not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'User not found');
       }
-      res.json({ success: true, data: user });
+      res.json(success(user));
     } catch (err) {
       next(err);
     }

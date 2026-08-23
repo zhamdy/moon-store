@@ -13,7 +13,12 @@ export interface BaseDataTableProps<TData> {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
   isLoading?: boolean;
+  isFetching?: boolean;
+  error?: string;
+  onRetry?: () => void;
   searchPlaceholder?: string;
+  searchError?: string;
+  isFiltered?: boolean;
   enableSearch?: boolean;
   enableRowSelection?: boolean;
   rowSelection?: RowSelectionState;
@@ -24,6 +29,8 @@ export interface BaseDataTableProps<TData> {
   bulkActions?: (selectedRows: TData[], clearSelection: () => void) => ReactNode;
   emptyTitle?: string;
   emptyDescription?: string;
+  filteredEmptyTitle?: string;
+  filteredEmptyDescription?: string;
   className?: string;
 }
 

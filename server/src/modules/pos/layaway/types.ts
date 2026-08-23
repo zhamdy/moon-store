@@ -22,10 +22,28 @@ export interface InstallmentDTO {
 }
 
 export interface LayawayFilters {
-  status?: string;
-  page?: string | number;
-  limit?: string | number;
+  status?: 'active' | 'completed' | 'cancelled';
+  page: number;
+  pageSize: number;
   search?: string;
+  sortBy: 'createdAt' | 'dueDate' | 'remainingBalance';
+  sortOrder: 'asc' | 'desc';
+}
+
+const layawayListQuerySchema = createListQuerySchema([
+  'createdAt',
+  'dueDate',
+  'remainingBalance',
+] as const)
+  .extend({
+    status: z.enum(['active', 'completed', 'cancelled']).optional(),
+    search: z.string().trim().min(1).max(100).optional(),
+  })
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+
+export function parseLayawayListQuery(query: unknown): LayawayFilters {
+  return layawayListQuerySchema.parse(query);
 }
 
 export interface LayawayPlanRow {
@@ -72,3 +90,5 @@ export interface LayawayPlanDetail extends LayawayPlanRow {
   items: LayawayItemRow[];
   payments: LayawayPaymentRow[];
 }
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';

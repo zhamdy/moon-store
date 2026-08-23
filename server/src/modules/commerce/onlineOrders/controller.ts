@@ -2,6 +2,10 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { onlineOrdersService } from './service';
+import { parseOnlineOrderListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
 
 export const createOnlineOrderSchema = z.object({
   customer_name: z.string().min(1).max(100),
@@ -28,12 +32,11 @@ export class OnlineOrdersController {
     try {
       const parsed = createOnlineOrderSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const order = await onlineOrdersService.createOrder(parsed.data);
-      res.status(201).json({ success: true, data: order });
+      res.status(201).json(success(order));
     } catch (err) {
       next(err);
     }
@@ -41,24 +44,13 @@ export class OnlineOrdersController {
 
   async listOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { status, page = '1', limit = '20', search } = req.query;
-
-      const result = await onlineOrdersService.list({
-        status: status as string | undefined,
-        page: Number(page),
-        limit: Number(limit),
-        search: search as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: {
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-        },
-      });
+      const query = parseOnlineOrderListQuery(req.query);
+      const result = await onlineOrdersService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -69,14 +61,10 @@ export class OnlineOrdersController {
       const { id } = req.params;
       const order = await onlineOrdersService.findById(id as string);
       if (!order) {
-        res.status(404).json({ success: false, error: 'Order not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Order not found');
       }
 
-      res.json({
-        success: true,
-        data: order,
-      });
+      res.json(success(order));
     } catch (err) {
       next(err);
     }
@@ -89,18 +77,16 @@ export class OnlineOrdersController {
 
       const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
       if (!validStatuses.includes(status)) {
-        res.status(400).json({ success: false, error: 'Invalid status' });
-        return;
+        throw new PublicError('VALIDATION_ERROR', 'Invalid status');
       }
 
       const updated = await onlineOrdersService.updateStatus(id as string, status);
       if (!updated) {
-        res.status(404).json({ success: false, error: 'Order not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Order not found');
       }
 
       logAuditFromReq(req, 'status_change', 'online_order', Number(id), { status });
-      res.json({ success: true, data: { id, status } });
+      res.json(success({ id, status }));
     } catch (err) {
       next(err);
     }

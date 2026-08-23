@@ -1,14 +1,21 @@
 import type { AxiosError, AxiosInstance } from 'axios';
 import api from './client';
-import { ApiError, type Transport, type TransportRequest, type TransportResult } from './types';
+import {
+  ApiError,
+  type ApiMeta,
+  type StructuredApiError,
+  type Transport,
+  type TransportRequest,
+  type TransportResult,
+} from './types';
 
 const API_PREFIX = '/api/v1';
 
 interface Envelope<T> {
   success?: boolean;
   data: T;
-  meta?: Record<string, unknown>;
-  error?: string;
+  meta?: ApiMeta;
+  error?: string | StructuredApiError;
 }
 
 /**
@@ -40,15 +47,22 @@ export function createHttpTransport(client: AxiosInstance = api): Transport {
           // this adapter's business, so callers still just hand over a body.
           ...(body instanceof FormData ? { headers: { 'Content-Type': undefined } } : {}),
         });
+        if (response.status === 204) return { data: undefined as T };
         // A streamed file has no envelope to unwrap; the blob is the answer.
         if (responseType === 'blob') return { data: response.data as unknown as T };
         return { data: response.data.data, meta: response.data.meta };
       } catch (caught) {
-        const error = caught as AxiosError<{ error?: string }>;
+        const error = caught as AxiosError<{ error?: string | StructuredApiError }>;
+        const publicError = error.response?.data?.error;
         // Only the server's own wording is worth showing a user. Axios's
         // ("Network Error", "timeout of 0ms exceeded") is left out, so callers
         // fall back to something they phrased themselves.
-        throw new ApiError(error.response?.data?.error ?? '', error.response?.status ?? null);
+        throw new ApiError(
+          typeof publicError === 'string' ? publicError : (publicError?.message ?? ''),
+          error.response?.status ?? null,
+          typeof publicError === 'object' ? publicError.code : undefined,
+          typeof publicError === 'object' ? publicError.details : undefined
+        );
       }
     },
   };

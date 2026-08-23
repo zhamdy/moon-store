@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { feedbackService } from './service';
+import { parseFeedbackListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
 
 export const feedbackSchema = z.object({
   customer_id: z.number().int().positive().optional(),
@@ -17,12 +20,11 @@ export class FeedbackController {
     try {
       const parsed = feedbackSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const feedback = await feedbackService.create(parsed.data);
-      res.status(201).json({ success: true, data: feedback });
+      res.status(201).json(success(feedback));
     } catch (err) {
       next(err);
     }
@@ -30,25 +32,14 @@ export class FeedbackController {
 
   async getFeedback(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { rating, category, page = '1', limit = '20' } = req.query;
-
-      const result = await feedbackService.list({
-        rating: rating !== undefined ? Number(rating) : undefined,
-        category: category as string | undefined,
-        page: Number(page),
-        limit: Number(limit),
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        stats: result.stats,
-        meta: {
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-        },
-      });
+      const query = parseFeedbackListQuery(req.query);
+      const result = await feedbackService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+          stats: result.stats,
+        })
+      );
     } catch (err) {
       next(err);
     }

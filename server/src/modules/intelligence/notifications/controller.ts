@@ -1,23 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../../../middleware/auth';
 import { notificationsService } from './service';
+import { parseNotificationListQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
 
 export class NotificationsController {
   async getNotifications(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const { limit, unread_only } = req.query;
-
-      const { rows, unreadCount } = await notificationsService.list(authReq.user!.id, {
-        limit: limit as string | undefined,
-        unread_only: unread_only as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: rows,
-        meta: { unread_count: unreadCount },
-      });
+      const query = parseNotificationListQuery(req.query);
+      const { rows, total, unreadCount } = await notificationsService.list(authReq.user!.id, query);
+      res.json(
+        success(rows, {
+          pagination: paginationMeta(query.page, query.pageSize, total),
+          unreadCount,
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -27,7 +26,7 @@ export class NotificationsController {
     try {
       const authReq = req as AuthRequest;
       const count = await notificationsService.getUnreadCount(authReq.user!.id);
-      res.json({ success: true, data: { count } });
+      res.json(success({ count }));
     } catch (err) {
       next(err);
     }
@@ -37,7 +36,7 @@ export class NotificationsController {
     try {
       const authReq = req as AuthRequest;
       await notificationsService.markAsRead(req.params.id as string, authReq.user!.id);
-      res.json({ success: true, data: { read: true } });
+      res.json(success({ read: true }));
     } catch (err) {
       next(err);
     }
@@ -47,7 +46,7 @@ export class NotificationsController {
     try {
       const authReq = req as AuthRequest;
       await notificationsService.markAllAsRead(authReq.user!.id);
-      res.json({ success: true, data: { read_all: true } });
+      res.json(success({ readAll: true }));
     } catch (err) {
       next(err);
     }

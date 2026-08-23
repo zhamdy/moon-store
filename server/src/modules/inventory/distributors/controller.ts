@@ -2,12 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { distributorSchema } from '../../../../validators/distributorSchema';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { distributorsService } from './service';
+import { success } from '../../../http/responses';
+import { PublicError } from '../../../http/errors';
 
 export class DistributorsController {
   async getDistributors(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await distributorsService.findAll();
-      res.json({ success: true, data });
+      res.json(success(data));
     } catch (err) {
       next(err);
     }
@@ -17,8 +19,7 @@ export class DistributorsController {
     try {
       const parsed = distributorSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const { name, contact_person, phone, email, address, notes } = parsed.data;
@@ -32,7 +33,7 @@ export class DistributorsController {
       });
 
       logAuditFromReq(req, 'create', 'distributor', distributor.id, { name });
-      res.status(201).json({ success: true, data: distributor });
+      res.status(201).json(success(distributor));
     } catch (err) {
       next(err);
     }
@@ -42,8 +43,7 @@ export class DistributorsController {
     try {
       const parsed = distributorSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const { name, contact_person, phone, email, address, notes } = parsed.data;
@@ -57,11 +57,10 @@ export class DistributorsController {
       });
 
       if (!distributor) {
-        res.status(404).json({ success: false, error: 'Distributor not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Distributor not found');
       }
 
-      res.json({ success: true, data: distributor });
+      res.json(success(distributor));
     } catch (err) {
       next(err);
     }
@@ -71,13 +70,12 @@ export class DistributorsController {
     try {
       const result = await distributorsService.delete(req.params.id as string);
       if (!result.success) {
-        const statusCode = result.error === 'Distributor not found' ? 404 : 400;
-        res.status(statusCode).json({ success: false, error: result.error });
-        return;
+        const code = result.error === 'Distributor not found' ? 'NOT_FOUND' : 'CONFLICT';
+        throw new PublicError(code, result.error);
       }
 
       logAuditFromReq(req, 'delete', 'distributor', req.params.id as string);
-      res.json({ success: true, data: { message: 'Distributor deleted' } });
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

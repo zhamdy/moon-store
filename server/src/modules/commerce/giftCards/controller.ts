@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { giftCardsService } from './service';
+import { parseGiftCardListQuery, parseGiftCardTransactionQuery } from './types';
+import { success } from '../../../http/responses';
+import { paginationMeta } from '../../../http/pagination';
+import { PublicError } from '../../../http/errors';
 
 export const createGiftCardSchema = z.object({
   code: z.string().min(4).max(50).optional(),
@@ -23,19 +27,13 @@ export const updateGiftCardSchema = z.object({
 export class GiftCardsController {
   async listGiftCards(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { page, limit, status, search } = req.query;
-      const result = await giftCardsService.list({
-        page: page ? Number(page) : undefined,
-        limit: limit ? Number(limit) : undefined,
-        status: status as string | undefined,
-        search: search as string | undefined,
-      });
-
-      res.json({
-        success: true,
-        data: result.rows,
-        meta: { total: result.total, page: result.page, limit: result.limit },
-      });
+      const query = parseGiftCardListQuery(req.query);
+      const result = await giftCardsService.list(query);
+      res.json(
+        success(result.rows, {
+          pagination: paginationMeta(query.page, query.pageSize, result.total),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -45,8 +43,7 @@ export class GiftCardsController {
     try {
       const parsed = createGiftCardSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const authReq = req as AuthRequest;
@@ -57,12 +54,10 @@ export class GiftCardsController {
         initial_value: parsed.data.initial_value,
       });
 
-      res.status(201).json({ success: true, data: card });
+      res.status(201).json(success(card));
     } catch (err: any) {
       if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
-        res
-          .status(409)
-          .json({ success: false, error: 'Gift card code or barcode already exists' });
+        next(new PublicError('CONFLICT', 'Gift card code or barcode already exists'));
         return;
       }
       next(err);
@@ -75,11 +70,10 @@ export class GiftCardsController {
       const balanceData = await giftCardsService.getBalance(code);
 
       if (!balanceData) {
-        res.status(404).json({ success: false, error: 'Gift card not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Gift card not found');
       }
 
-      res.json({ success: true, data: balanceData });
+      res.json(success(balanceData));
     } catch (err) {
       next(err);
     }
@@ -89,8 +83,7 @@ export class GiftCardsController {
     try {
       const parsed = redeemGiftCardSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const { amount, sale_id } = parsed.data;
@@ -107,9 +100,8 @@ export class GiftCardsController {
           err.message === 'Gift card has expired' ||
           err.message.startsWith('Insufficient balance')
         ) {
-          const statusCode = err.message === 'Gift card not found' ? 404 : 400;
-          res.status(statusCode).json({ success: false, error: err.message });
-          return;
+          const code = err.message === 'Gift card not found' ? 'NOT_FOUND' : 'CONFLICT';
+          throw new PublicError(code, err.message);
         }
         throw err;
       }
@@ -121,7 +113,7 @@ export class GiftCardsController {
         new_balance: result.new_balance,
       });
 
-      res.json({ success: true, data: result });
+      res.json(success(result));
     } catch (err) {
       next(err);
     }
@@ -130,14 +122,21 @@ export class GiftCardsController {
   async getTransactions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = Number(req.params.id as string);
-      const { card, transactions } = await giftCardsService.getTransactions(id);
+      const query = parseGiftCardTransactionQuery(req.query);
+      const { card, transactions, total } = await giftCardsService.getTransactions(
+        id,
+        query.page,
+        query.pageSize,
+        query.sortOrder
+      );
 
       if (!card) {
-        res.status(404).json({ success: false, error: 'Gift card not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Gift card not found');
       }
 
-      res.json({ success: true, data: transactions });
+      res.json(
+        success(transactions, { pagination: paginationMeta(query.page, query.pageSize, total) })
+      );
     } catch (err) {
       next(err);
     }
@@ -147,22 +146,20 @@ export class GiftCardsController {
     try {
       const parsed = updateGiftCardSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ success: false, error: parsed.error.errors[0].message });
-        return;
+        throw parsed.error;
       }
 
       const id = req.params.id as string;
       const updated = await giftCardsService.updateStatus(id, parsed.data.status);
 
       if (!updated) {
-        res.status(404).json({ success: false, error: 'Gift card not found' });
-        return;
+        throw new PublicError('NOT_FOUND', 'Gift card not found');
       }
 
       logAuditFromReq(req, 'status_change', 'gift_card', id, {
         status: parsed.data.status,
       });
-      res.json({ success: true, data: updated });
+      res.json(success(updated));
     } catch (err) {
       next(err);
     }

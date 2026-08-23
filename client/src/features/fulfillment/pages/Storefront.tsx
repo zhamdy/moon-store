@@ -25,9 +25,9 @@ export default function StorefrontPage() {
     'storefront/banners'
   );
   const { data: products } = useApiQuery<StorefrontProduct[]>(
-    ['storefront-products'],
-    'storefront/products',
-    { limit: 8 },
+    ['products', { page: 1, pageSize: 10, status: 'active' }],
+    'products',
+    { page: 1, pageSize: 10, status: 'active' },
     { enabled: tab === 'preview' }
   );
 
