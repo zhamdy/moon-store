@@ -100,6 +100,40 @@ describe('HTTP contract foundations', () => {
     }
   });
 
+  it('covers every mounted verb and path exactly once through its manifest group', () => {
+    type RouteLayer = {
+      route?: { path: string; methods: Record<string, boolean> };
+    };
+    const endpoints = routeTable.flatMap(([mount, router]) =>
+      ((router as unknown as { stack: RouteLayer[] }).stack ?? []).flatMap((layer) => {
+        if (!layer.route) return [];
+        return Object.entries(layer.route.methods)
+          .filter(([, enabled]) => enabled)
+          .map(([method]) => ({
+            method: method.toUpperCase(),
+            path: `${mount}${layer.route?.path}`,
+          }));
+      })
+    );
+    const identities = endpoints.map(({ method, path }) => `${method} ${path}`);
+
+    expect(endpoints.length).toBeGreaterThan(150);
+    expect(new Set(identities).size).toBe(identities.length);
+    for (const endpoint of endpoints) {
+      const mount = Object.keys(endpointManifest).find(
+        (candidate) => endpoint.path === candidate || endpoint.path.startsWith(`${candidate}/`)
+      );
+      expect(mount, `${endpoint.method} ${endpoint.path}`).toBeDefined();
+      const classifications = endpointManifest[mount!].classifications;
+      expect(classifications.length, `${endpoint.method} ${endpoint.path}`).toBeGreaterThan(0);
+      if (endpoint.method === 'GET') {
+        expect(classifications.some((kind) => ['P', 'B', 'S', 'E'].includes(kind))).toBe(true);
+      } else {
+        expect(classifications.some((kind) => ['M', 'E'].includes(kind))).toBe(true);
+      }
+    }
+  });
+
   it('logs only path and allowlisted query-key names, never query values', () => {
     const info = vi.spyOn(logger, 'info').mockImplementation(() => undefined);
     const response = new EventEmitter() as EventEmitter & { statusCode: number };

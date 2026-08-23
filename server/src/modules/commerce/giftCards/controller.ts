@@ -126,7 +126,8 @@ export class GiftCardsController {
       const { card, transactions, total } = await giftCardsService.getTransactions(
         id,
         query.page,
-        query.pageSize
+        query.pageSize,
+        query.sortOrder
       );
 
       if (!card) {

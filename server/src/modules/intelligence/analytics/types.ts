@@ -8,18 +8,40 @@ export interface DashboardKpis {
 }
 
 import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
 
 const dateFilters = {
   from: z.string().date().optional(),
   to: z.string().date().optional(),
 };
-const analyticsDateQuerySchema = z.object(dateFilters).strict();
-const analyticsPageQuerySchema = createListQuerySchema(['value', 'name'] as const)
-  .extend(dateFilters)
+const validateDateRange = (value: { from?: string; to?: string }, ctx: z.RefinementCtx) => {
+  if ((value.from && !value.to) || (!value.from && value.to)) {
+    ctx.addIssue({ code: 'custom', message: 'from and to must be provided together' });
+  } else if (value.from && value.to && value.from > value.to) {
+    ctx.addIssue({ code: 'custom', message: 'from must be on or before to' });
+  }
+};
+const analyticsDateQuerySchema = z.object(dateFilters).strict().superRefine(validateDateRange);
+const pageFields = {
+  page: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive()).default('1'),
+  pageSize: z.enum(['10', '25', '50', '100']).default('25').transform(Number),
+};
+const analyticsPageQuerySchema = z
+  .object({ ...pageFields, ...dateFilters })
+  .strict()
+  .superRefine(validateDateRange);
+const analyticsDaysPageQuerySchema = z
+  .object({
+    ...pageFields,
+    days: z
+      .string()
+      .regex(/^\d+$/)
+      .transform(Number)
+      .pipe(z.number().int().min(1).max(3650))
+      .optional(),
+  })
   .strict();
-const analyticsDaysPageQuerySchema = createListQuerySchema(['value', 'name'] as const)
-  .extend({
+const analyticsDaysQuerySchema = z
+  .object({
     days: z
       .string()
       .regex(/^\d+$/)
@@ -36,6 +58,11 @@ export interface AnalyticsPageQuery {
   to?: string;
 }
 
+export interface AnalyticsPagedResult<T> {
+  items: T[];
+  totalItems: number;
+}
+
 export function parseAnalyticsDateQuery(query: unknown) {
   return analyticsDateQuerySchema.parse(query);
 }
@@ -48,6 +75,11 @@ export function parseAnalyticsPageQuery(query: unknown): AnalyticsPageQuery {
 export function parseAnalyticsDaysPageQuery(query: unknown, defaultDays: number) {
   const parsed = analyticsDaysPageQuerySchema.parse(query);
   return { page: parsed.page, pageSize: parsed.pageSize, days: parsed.days ?? defaultDays };
+}
+
+export function parseAnalyticsDaysQuery(query: unknown, defaultDays: number) {
+  const parsed = analyticsDaysQuerySchema.parse(query);
+  return { days: parsed.days ?? defaultDays };
 }
 
 export interface RevenueByDate {

@@ -32,6 +32,8 @@ export interface PurchaseOrderFilters {
   pageSize: number;
   distributorId?: number;
   status?: string;
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
 }
 
 import { z } from 'zod';
@@ -41,7 +43,8 @@ const purchaseOrderListQuerySchema = createListQuerySchema(['createdAt'] as cons
     distributorId: z.string().regex(/^\d+$/).transform(Number).optional(),
     status: z.string().trim().min(1).max(30).optional(),
   })
-  .strict();
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 export function parsePurchaseOrderListQuery(query: unknown): PurchaseOrderFilters {
   const parsed = purchaseOrderListQuerySchema.parse(query);
   return {
@@ -49,6 +52,8 @@ export function parsePurchaseOrderListQuery(query: unknown): PurchaseOrderFilter
     pageSize: parsed.pageSize,
     distributorId: parsed.distributorId,
     status: parsed.status,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
   };
 }
 

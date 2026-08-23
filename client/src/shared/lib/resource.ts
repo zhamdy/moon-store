@@ -96,7 +96,11 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
      * `useRead('pnl')` for `expenses/pnl`. Returns whatever that endpoint
      * yields, which is rarely the resource's own row type.
      */
-    useRead<R>(segment: string, params?: Record<string, unknown>, enabled = true) {
+    useRead<R, ReadMeta = Record<string, unknown>>(
+      segment: string,
+      params?: Record<string, unknown>,
+      enabled = true
+    ) {
       const transport = useTransport();
       const normalizedParams = normalizeQueryParams(params);
       const query = useQuery({
@@ -110,7 +114,11 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
         enabled,
       });
 
-      return { ...query, data: query.data?.data };
+      return {
+        ...query,
+        data: query.data?.data,
+        meta: query.data?.meta as ReadMeta | undefined,
+      };
     },
 
     useSave(options: WriteOptions = {}) {

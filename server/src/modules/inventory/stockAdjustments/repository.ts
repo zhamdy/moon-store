@@ -20,7 +20,8 @@ export class StockAdjustmentsRepository implements IStockAdjustmentsRepository {
     filters: StockAdjustmentFilters,
     queryable?: Queryable
   ): Promise<{ rows: StockAdjustmentRecord[]; total: number }> {
-    const { page, pageSize } = filters;
+    const { page, pageSize, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
     const offset = (page - 1) * pageSize;
 
     const countResult = await this.q(queryable).query<{ count: string | number }>(
@@ -33,7 +34,7 @@ export class StockAdjustmentsRepository implements IStockAdjustmentsRepository {
        FROM stock_adjustments sa
        LEFT JOIN products p ON sa.product_id = p.id
        LEFT JOIN users u ON sa.user_id = u.id
-       ORDER BY sa.created_at DESC, sa.id DESC
+        ORDER BY sa.created_at ${direction}, sa.id ${direction}
        LIMIT $1 OFFSET $2`,
       [pageSize, offset]
     );

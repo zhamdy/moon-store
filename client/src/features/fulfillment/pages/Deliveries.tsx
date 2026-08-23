@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import toast from 'react-hot-toast';
 import {
   Plus,
@@ -32,6 +33,7 @@ import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 
 import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
@@ -52,6 +54,8 @@ export default function Deliveries() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'Admin';
+  const navigate = useNavigate({ from: '/deliveries' });
+  const routeSearch = useSearch({ strict: false }) as Record<string, unknown>;
 
   const statusLabelMap: Record<string, string> = {
     All: t('common.all'),
@@ -63,7 +67,7 @@ export default function Deliveries() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<DeliveryOrder | null>(null);
-  const [statusFilter, setStatusFilter] = useState('All');
+  const statusFilter = typeof routeSearch.status === 'string' ? routeSearch.status : 'All';
   const [customerSearch, setCustomerSearch] = useState('');
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
   const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null);
@@ -71,8 +75,10 @@ export default function Deliveries() {
   const [timelinePage, setTimelinePage] = useState(1);
   const [companiesDialogOpen, setCompaniesDialogOpen] = useState(false);
   const [productSearch, setProductSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const page = typeof routeSearch.page === 'number' ? routeSearch.page : 1;
+  const pageSize = typeof routeSearch.pageSize === 'number' ? routeSearch.pageSize : 25;
+  const updateListSearch = (changes: Record<string, unknown>) =>
+    navigate({ search: (previous: Record<string, unknown>) => ({ ...previous, ...changes }) });
   const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
   const {
@@ -80,13 +86,22 @@ export default function Deliveries() {
     meta,
     isLoading,
     isFetching,
+    error,
+    refetch,
   } = deliveries.useList({
     page,
     pageSize,
-    status: statusFilter === 'All' ? undefined : statusFilter,
+    status: statusFilter === 'All' ? undefined : statusFilter.toLowerCase(),
   });
-  const pageMeta = meta?.pagination as PaginationMeta | undefined;
+  const paginationMeta = meta?.pagination as PaginationMeta | undefined;
   const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+
+  useLastPageRecovery(
+    page,
+    paginationMeta?.totalItems,
+    paginationMeta?.totalPages,
+    updateListSearch
+  );
 
   const { data: performance } = deliveries.useRead<DeliveryPerformance>(
     'analytics/performance',
@@ -425,8 +440,7 @@ export default function Deliveries() {
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
             onClick={() => {
-              setStatusFilter(s);
-              setPage(1);
+              updateListSearch({ status: s === 'All' ? undefined : s, page: 1 });
             }}
           >
             {statusLabelMap[s] || s}
@@ -440,13 +454,17 @@ export default function Deliveries() {
         data={orders ?? []}
         isLoading={isLoading}
         isFetching={isFetching}
+        error={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
         pagination={pagination}
-        pageCount={pageMeta?.totalPages ?? 0}
-        totalRows={pageMeta?.totalItems ?? 0}
+        pageCount={paginationMeta?.totalPages ?? 0}
+        totalRows={paginationMeta?.totalItems ?? 0}
         onPaginationChange={(updater) => {
           const next = typeof updater === 'function' ? updater(pagination) : updater;
-          setPage(next.pageIndex + 1);
-          setPageSize(next.pageSize);
+          updateListSearch({
+            page: next.pageSize === pageSize ? next.pageIndex + 1 : 1,
+            pageSize: next.pageSize,
+          });
         }}
         searchPlaceholder={t('deliveries.searchPlaceholder')}
       />

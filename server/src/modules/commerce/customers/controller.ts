@@ -77,7 +77,8 @@ export class CustomersController {
       const result = await customersService.getSales(
         req.params.id as string,
         query.page,
-        query.pageSize
+        query.pageSize,
+        query.sortOrder
       );
       res.json(
         success(result.rows, {

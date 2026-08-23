@@ -14,11 +14,17 @@ export interface ForecastItem {
 }
 
 import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const aiListQuerySchema = createListQuerySchema(['value', 'name'] as const).strict();
-const recommendationQuerySchema = createListQuerySchema(['value', 'name'] as const)
-  .extend({ productId: z.string().regex(/^\d+$/).transform(Number).optional() })
+const pageFields = {
+  page: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive()).default('1'),
+  pageSize: z.enum(['10', '25', '50', '100']).default('25').transform(Number),
+};
+const aiListQuerySchema = z.object(pageFields).strict();
+const forecastQuerySchema = z.object({}).strict();
+const recommendationQuerySchema = z
+  .object({
+    ...pageFields,
+    productId: z.string().regex(/^\d+$/).transform(Number).optional(),
+  })
   .strict();
 
 export function parseAiListQuery(query: unknown) {
@@ -26,9 +32,28 @@ export function parseAiListQuery(query: unknown) {
   return { page: parsed.page, pageSize: parsed.pageSize };
 }
 
+export function parseForecastQuery(query: unknown) {
+  return forecastQuerySchema.parse(query);
+}
+
 export function parseRecommendationQuery(query: unknown) {
   const parsed = recommendationQuerySchema.parse(query);
   return { page: parsed.page, pageSize: parsed.pageSize, productId: parsed.productId };
+}
+
+export interface PageRequest {
+  page: number;
+  pageSize: number;
+}
+
+export interface AiPagedResult<T> {
+  items: T[];
+  totalItems: number;
+}
+
+export interface DbPage<T> {
+  rows: T[];
+  totalItems: number;
 }
 
 export interface ForecastResult {

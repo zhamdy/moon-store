@@ -46,6 +46,8 @@ export interface CollectionFilters {
   featured?: boolean;
   page: number;
   pageSize: number;
+  sortBy: 'createdAt' | 'name';
+  sortOrder: 'asc' | 'desc';
 }
 
 import { z } from 'zod';
@@ -69,5 +71,7 @@ export function parseCollectionListQuery(query: unknown): CollectionFilters {
     featured: parsed.featured,
     page: parsed.page,
     pageSize: parsed.pageSize,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
   };
 }

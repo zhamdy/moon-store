@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,6 +8,11 @@ import { useSettingsStore } from '../../../shared/store/settingsStore';
 import { useAuthStore } from '../../auth';
 import type { DeliveryOrder, DeliveryPerformance } from '../types';
 import Deliveries from './Deliveries';
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useSearch: () => ({}),
+}));
 
 const PENDING_ORDER: DeliveryOrder = {
   id: 7,

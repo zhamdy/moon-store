@@ -22,6 +22,8 @@ export interface CustomerFilters {
   search?: string;
   page: number;
   pageSize: number;
+  sortBy: 'name' | 'createdAt';
+  sortOrder: 'asc' | 'desc';
 }
 
 import { z } from 'zod';
@@ -38,12 +40,28 @@ const customerSalesQuerySchema = createListQuerySchema(['createdAt'] as const)
 
 export function parseCustomerListQuery(query: unknown): CustomerFilters {
   const parsed = customerListQuerySchema.parse(query);
-  return { search: parsed.search, page: parsed.page, pageSize: parsed.pageSize };
+  return {
+    search: parsed.search,
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }
 
-export function parseCustomerSalesQuery(query: unknown): { page: number; pageSize: number } {
+export function parseCustomerSalesQuery(query: unknown): {
+  page: number;
+  pageSize: number;
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
+} {
   const parsed = customerSalesQuerySchema.parse(query);
-  return { page: parsed.page, pageSize: parsed.pageSize };
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }
 
 export interface CustomerStats {

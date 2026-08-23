@@ -3,6 +3,8 @@ export interface GiftCardFilters {
   pageSize: number;
   status?: 'active' | 'cancelled' | 'redeemed';
   search?: string;
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
 }
 
 export interface GiftCardListResult {
@@ -19,8 +21,11 @@ const giftCardListQuerySchema = createListQuerySchema(['createdAt'] as const)
     status: z.enum(['active', 'cancelled', 'redeemed']).optional(),
     search: z.string().trim().min(1).max(100).optional(),
   })
-  .strict();
-const giftCardTransactionQuerySchema = createListQuerySchema(['createdAt'] as const).strict();
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
+const giftCardTransactionQuerySchema = createListQuerySchema(['createdAt'] as const)
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 
 export function parseGiftCardListQuery(query: unknown): GiftCardFilters {
   const parsed = giftCardListQuerySchema.parse(query);
@@ -29,12 +34,24 @@ export function parseGiftCardListQuery(query: unknown): GiftCardFilters {
     pageSize: parsed.pageSize,
     status: parsed.status,
     search: parsed.search,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
   };
 }
 
-export function parseGiftCardTransactionQuery(query: unknown): { page: number; pageSize: number } {
+export function parseGiftCardTransactionQuery(query: unknown): {
+  page: number;
+  pageSize: number;
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
+} {
   const parsed = giftCardTransactionQuerySchema.parse(query);
-  return { page: parsed.page, pageSize: parsed.pageSize };
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }
 
 export interface CreateGiftCardInput {

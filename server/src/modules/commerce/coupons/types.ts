@@ -3,6 +3,8 @@ export interface CouponFilters {
   pageSize: number;
   search?: string;
   status?: 'active' | 'inactive' | 'expired';
+  sortBy: 'createdAt' | 'code';
+  sortOrder: 'asc' | 'desc';
 }
 
 export interface CouponListResult {
@@ -19,7 +21,8 @@ const couponListQuerySchema = createListQuerySchema(['createdAt', 'code'] as con
     search: z.string().trim().min(1).max(100).optional(),
     status: z.enum(['active', 'inactive', 'expired']).optional(),
   })
-  .strict();
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 
 export function parseCouponListQuery(query: unknown): CouponFilters {
   const parsed = couponListQuerySchema.parse(query);
@@ -28,6 +31,8 @@ export function parseCouponListQuery(query: unknown): CouponFilters {
     pageSize: parsed.pageSize,
     search: parsed.search,
     status: parsed.status,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
   };
 }
 

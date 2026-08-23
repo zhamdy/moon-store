@@ -44,7 +44,9 @@ export class CollectionsRepository implements ICollectionsRepository {
     filters: CollectionFilters,
     queryable?: Queryable
   ): Promise<{ rows: CollectionRecord[]; total: number }> {
-    const { season, featured, page, pageSize } = filters;
+    const { season, featured, page, pageSize, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'name' ? 'c.name' : 'c.created_at';
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
 
@@ -69,7 +71,7 @@ export class CollectionsRepository implements ICollectionsRepository {
         (SELECT COUNT(*)::int FROM collection_products WHERE collection_id = c.id) as product_count
        FROM collections c
        ${where}
-       ORDER BY c.is_featured DESC, c.created_at DESC, c.id DESC
+        ORDER BY ${sortColumn} ${direction}, c.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, pageSize, (page - 1) * pageSize]
     );

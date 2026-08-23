@@ -34,6 +34,7 @@ export interface IGiftCardsRepository {
     id: number,
     page?: number,
     pageSize?: number,
+    sortOrder?: 'asc' | 'desc',
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number }>;
   updateStatus(
@@ -51,7 +52,8 @@ export class GiftCardsRepository implements IGiftCardsRepository {
   }
 
   async list(filters: GiftCardFilters, queryable?: Queryable): Promise<GiftCardListResult> {
-    const { page, pageSize, status, search } = filters;
+    const { page, pageSize, status, search, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
     const offset = (page - 1) * pageSize;
 
     const where: string[] = [];
@@ -90,7 +92,7 @@ export class GiftCardsRepository implements IGiftCardsRepository {
          FROM gift_card_transactions GROUP BY gift_card_id
        ) t_agg ON t_agg.gift_card_id = gc.id
        ${whereClause}
-       ORDER BY gc.created_at DESC, gc.id DESC
+       ORDER BY gc.created_at ${direction}, gc.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );
@@ -184,6 +186,7 @@ export class GiftCardsRepository implements IGiftCardsRepository {
     id: number,
     page = 1,
     pageSize = 25,
+    sortOrder: 'asc' | 'desc' = 'asc',
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number }> {
     const count = await this.q(queryable).query<{ total: number }>(
@@ -195,7 +198,7 @@ export class GiftCardsRepository implements IGiftCardsRepository {
        FROM gift_card_transactions t
        LEFT JOIN users u ON t.performed_by = u.id
        WHERE t.gift_card_id = $1
-       ORDER BY t.created_at DESC, t.id DESC LIMIT $2 OFFSET $3`,
+       ORDER BY t.created_at ${sortOrder === 'asc' ? 'ASC' : 'DESC'}, t.id ${sortOrder === 'asc' ? 'ASC' : 'DESC'} LIMIT $2 OFFSET $3`,
       [id, pageSize, (page - 1) * pageSize]
     );
     return { rows: result.rows, total: Number(count.rows[0]?.total ?? 0) };

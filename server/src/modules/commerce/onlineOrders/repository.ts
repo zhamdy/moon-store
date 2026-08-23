@@ -148,7 +148,9 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
     filters: OnlineOrderFilters,
     queryable?: Queryable
   ): Promise<{ rows: OnlineOrderRecord[]; total: number }> {
-    const { status, page: pageNum, pageSize: limitNum, search } = filters;
+    const { status, page: pageNum, pageSize: limitNum, search, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'total' ? 'o.total' : 'o.created_at';
     const offset = (pageNum - 1) * limitNum;
 
     const params: unknown[] = [];
@@ -177,7 +179,7 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
         (SELECT COUNT(*)::int FROM online_order_items WHERE order_id = o.id) as item_count
        FROM online_orders o
        ${where}
-       ORDER BY o.created_at DESC
+        ORDER BY ${sortColumn} ${direction}, o.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limitNum, offset]
     );

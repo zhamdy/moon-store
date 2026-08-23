@@ -1,21 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { aiService } from './service';
-import { parseAiListQuery, parseRecommendationQuery } from './types';
+import { parseAiListQuery, parseForecastQuery, parseRecommendationQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
-
-const page = <T>(items: T[], pageNumber: number, pageSize: number) => ({
-  items: items.slice((pageNumber - 1) * pageSize, pageNumber * pageSize),
-  meta: { pagination: paginationMeta(pageNumber, pageSize, items.length) },
-});
 
 export class AiController {
   async getForecast(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await aiService.getForecast();
-      const query = parseAiListQuery(req.query);
-      const result = page(data.forecasts, query.page, query.pageSize);
-      res.json(success({ ...data, forecasts: result.items }, result.meta));
+      parseForecastQuery(req.query);
+      res.json(success(await aiService.getForecast()));
     } catch (err) {
       next(err);
     }
@@ -24,14 +17,16 @@ export class AiController {
   async getRecommendations(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const query = parseRecommendationQuery(req.query);
-      const data = await aiService.getRecommendations(query.productId?.toString());
-      if (data.recommendations) {
-        const result = page(data.recommendations, query.page, query.pageSize);
-        res.json(success({ ...data, recommendations: result.items }, result.meta));
-      } else {
-        const result = page(data.topPairs ?? [], query.page, query.pageSize);
-        res.json(success({ ...data, topPairs: result.items }, result.meta));
-      }
+      const result = await aiService.getRecommendationsPage(
+        query.productId,
+        query.page,
+        query.pageSize
+      );
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -39,10 +34,13 @@ export class AiController {
 
   async getPricingSuggestions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await aiService.getPricingSuggestions();
       const query = parseAiListQuery(req.query);
-      const result = page(data, query.page, query.pageSize);
-      res.json(success(result.items, result.meta));
+      const result = await aiService.getPricingSuggestionsPage(query.page, query.pageSize);
+      res.json(
+        success(result.items, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -50,10 +48,13 @@ export class AiController {
 
   async getChurnRisk(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await aiService.getChurnRisk();
       const query = parseAiListQuery(req.query);
-      const result = page(data.customers, query.page, query.pageSize);
-      res.json(success({ ...data, customers: result.items }, result.meta));
+      const result = await aiService.getChurnRiskPage(query.page, query.pageSize);
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -61,10 +62,13 @@ export class AiController {
 
   async getAnomalies(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await aiService.getAnomalies();
       const query = parseAiListQuery(req.query);
-      const result = page(data.anomalies, query.page, query.pageSize);
-      res.json(success({ ...data, anomalies: result.items }, result.meta));
+      const result = await aiService.getAnomaliesPage(query.page, query.pageSize);
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }

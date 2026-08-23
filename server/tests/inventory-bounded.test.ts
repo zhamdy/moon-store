@@ -69,6 +69,8 @@ describe('paginated inventory query contracts', () => {
       page: 2,
       pageSize: 25,
       status: 'active',
+      sortBy: 'createdAt',
+      sortOrder: 'asc',
     });
     expect(() => parseBundleListQuery({ limit: '20' })).toThrow();
   });
@@ -89,10 +91,14 @@ describe('paginated inventory query contracts', () => {
       page: 2,
       pageSize: 10,
       status: 'completed',
+      sortBy: 'createdAt',
+      sortOrder: 'asc',
     });
     expect(parseStockAdjustmentListQuery({ page: '3', pageSize: '50' })).toEqual({
       page: 3,
       pageSize: 50,
+      sortBy: 'createdAt',
+      sortOrder: 'asc',
     });
     expect(() => parseStockCountListQuery({ limit: '20' })).toThrow();
     expect(() => parseStockAdjustmentListQuery({ limit: '50' })).toThrow();

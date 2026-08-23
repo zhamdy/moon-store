@@ -375,7 +375,7 @@ flowchart TB
 
 **Verification:** No product consumer relies on an oversized first page or treats a paginated result as the complete catalog.
 
-- [ ] **Unit 6A: Retire product compatibility**
+- [x] **Unit 6A: Retire product compatibility**
 
 **Goal:** Remove product aliases only after proving no caller remains, as a separate reversible completion gate.
 
@@ -423,7 +423,7 @@ flowchart TB
 
 **Verification:** Sales demonstrates the same contract without changing its shape, including separately measured count and page query plans.
 
-- [ ] **Unit 7: Roll out Core and remaining POS resources atomically**
+- [x] **Unit 7: Roll out Core and remaining POS resources atomically**
 
 **Goal:** Apply the proven contract to auth/users/settings/audit/branches and register/shifts/exchanges/layaway/reservations, one resource at a time.
 
@@ -446,7 +446,7 @@ flowchart TB
 
 **Verification:** Matrix rows for Core/POS are checked off with contract and consumer coverage; no domain is left half-migrated.
 
-- [ ] **Unit 8: Roll out remaining Inventory and Commerce resources atomically**
+- [x] **Unit 8: Roll out remaining Inventory and Commerce resources atomically**
 
 **Goal:** Migrate categories through label templates and customers through warranty using the same per-resource gate.
 
@@ -468,7 +468,7 @@ flowchart TB
 
 **Verification:** Every Inventory/Commerce matrix row has explicit automated coverage or a documented non-JSON exception.
 
-- [ ] **Unit 9: Roll out Fulfillment and Intelligence resources**
+- [x] **Unit 9: Roll out Fulfillment and Intelligence resources**
 
 **Goal:** Complete the contract across delivery/purchasing, analytics, reports, AI, notifications, and export exceptions.
 
@@ -491,7 +491,7 @@ flowchart TB
 
 **Verification:** All mounted endpoint matrix rows are conformant or explicitly exempt, with corresponding React consumers migrated.
 
-- [ ] **Unit 10: Enforce whole-API conformance and update documentation**
+- [x] **Unit 10: Enforce whole-API conformance and update documentation**
 
 **Goal:** Make contract drift detectable and complete operational/documentation handoff.
 

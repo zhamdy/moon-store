@@ -21,6 +21,7 @@ import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { Product } from '../../../shared/types/index';
 import type { Bundle, BundleItem } from '../types';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
@@ -44,12 +45,14 @@ export default function BundlesPage() {
   const [selectedBundle, setSelectedBundle] = useState<number | null>(null);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [productSearch, setProductSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const { page, pageSize, update } = useListRouteState();
   const debouncedProductSearch = useDebouncedValue(productSearch, 300);
 
-  const { data: rows, meta } = bundles.useList({ page, pageSize: 25 });
+  const { data: rows, meta } = bundles.useList({ page, pageSize });
   const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: detail } = bundles.useOne(selectedBundle);
+
+  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
 
   const {
     products: allProducts,
@@ -381,7 +384,12 @@ export default function BundlesPage() {
 
       {pagination && pagination.totalPages > 1 && (
         <div className="flex justify-center">
-          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
+          <Pagination
+            page={page}
+            total={pagination.totalPages}
+            onChange={(newPage) => update({ page: newPage })}
+            showControls
+          />
         </div>
       )}
 

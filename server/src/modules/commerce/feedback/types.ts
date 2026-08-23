@@ -23,6 +23,8 @@ export interface FeedbackFilters {
   category?: CreateFeedbackDTO['category'];
   page: number;
   pageSize: number;
+  sortBy: 'createdAt' | 'rating';
+  sortOrder: 'asc' | 'desc';
 }
 
 export interface FeedbackStats {
@@ -49,7 +51,8 @@ const feedbackListQuerySchema = createListQuerySchema(['createdAt', 'rating'] as
       .enum(['service', 'product_quality', 'pricing', 'store_ambiance', 'general'])
       .optional(),
   })
-  .strict();
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 
 export function parseFeedbackListQuery(query: unknown): FeedbackFilters {
   const parsed = feedbackListQuerySchema.parse(query);
@@ -58,5 +61,7 @@ export function parseFeedbackListQuery(query: unknown): FeedbackFilters {
     pageSize: parsed.pageSize,
     rating: parsed.rating,
     category: parsed.category,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
   };
 }

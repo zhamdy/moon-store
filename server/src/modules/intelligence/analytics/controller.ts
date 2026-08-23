@@ -3,15 +3,11 @@ import { analyticsService } from './service';
 import {
   parseAnalyticsDateQuery,
   parseAnalyticsDaysPageQuery,
+  parseAnalyticsDaysQuery,
   parseAnalyticsPageQuery,
 } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
-
-const page = <T>(items: T[], pageNumber: number, pageSize: number) => ({
-  items: items.slice((pageNumber - 1) * pageSize, pageNumber * pageSize),
-  meta: { pagination: paginationMeta(pageNumber, pageSize, items.length) },
-});
 
 export class AnalyticsController {
   async getDashboardAll(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -47,9 +43,17 @@ export class AnalyticsController {
     try {
       const query = parseAnalyticsPageQuery(req.query);
       const { from, to } = query;
-      const data = await analyticsService.getTopProducts(from, to);
-      const result = page(data, query.page, query.pageSize);
-      res.json(success(result.items, result.meta));
+      const result = await analyticsService.getTopProductsPage(
+        query.page,
+        query.pageSize,
+        from,
+        to
+      );
+      res.json(
+        success(result.items, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -79,9 +83,17 @@ export class AnalyticsController {
     try {
       const query = parseAnalyticsPageQuery(req.query);
       const { from, to } = query;
-      const data = await analyticsService.getCashierPerformance(from, to);
-      const result = page(data, query.page, query.pageSize);
-      res.json(success(result.items, result.meta));
+      const result = await analyticsService.getCashierPerformancePage(
+        query.page,
+        query.pageSize,
+        from,
+        to
+      );
+      res.json(
+        success(result.items, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -91,9 +103,17 @@ export class AnalyticsController {
     try {
       const query = parseAnalyticsPageQuery(req.query);
       const { from, to } = query;
-      const data = await analyticsService.getSalesByCategory(from, to);
-      const result = page(data, query.page, query.pageSize);
-      res.json(success(result.items, result.meta));
+      const result = await analyticsService.getSalesByCategoryPage(
+        query.page,
+        query.pageSize,
+        from,
+        to
+      );
+      res.json(
+        success(result.items, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -103,9 +123,17 @@ export class AnalyticsController {
     try {
       const query = parseAnalyticsPageQuery(req.query);
       const { from, to } = query;
-      const data = await analyticsService.getSalesByDistributor(from, to);
-      const result = page(data, query.page, query.pageSize);
-      res.json(success(result.items, result.meta));
+      const result = await analyticsService.getSalesByDistributorPage(
+        query.page,
+        query.pageSize,
+        from,
+        to
+      );
+      res.json(
+        success(result.items, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -114,9 +142,16 @@ export class AnalyticsController {
   async getDeadStock(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const query = parseAnalyticsDaysPageQuery(req.query, 90);
-      const data = await analyticsService.getDeadStock(query.days);
-      const result = page(data.products, query.page, query.pageSize);
-      res.json(success({ ...data, products: result.items }, result.meta));
+      const result = await analyticsService.getDeadStockPage(
+        query.days,
+        query.page,
+        query.pageSize
+      );
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -126,9 +161,17 @@ export class AnalyticsController {
     try {
       const query = parseAnalyticsPageQuery(req.query);
       const { from, to } = query;
-      const data = await analyticsService.getCustomerLtv(from, to);
-      const result = page(data.customers, query.page, query.pageSize);
-      res.json(success({ ...data, customers: result.items }, result.meta));
+      const result = await analyticsService.getCustomerLtvPage(
+        query.page,
+        query.pageSize,
+        from,
+        to
+      );
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -136,7 +179,7 @@ export class AnalyticsController {
 
   async getHourlyHeatmap(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { days } = parseAnalyticsDaysPageQuery(req.query, 30);
+      const { days } = parseAnalyticsDaysQuery(req.query, 30);
       const data = await analyticsService.getHourlyHeatmap(days);
       res.json(success(data));
     } catch (err) {
@@ -146,10 +189,13 @@ export class AnalyticsController {
 
   async getAbcClassification(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await analyticsService.getAbcClassification();
       const query = parseAnalyticsPageQuery(req.query);
-      const result = page(data.products, query.page, query.pageSize);
-      res.json(success({ ...data, products: result.items }, result.meta));
+      const result = await analyticsService.getAbcClassificationPage(query.page, query.pageSize);
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -157,10 +203,13 @@ export class AnalyticsController {
 
   async getReorderSuggestions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await analyticsService.getReorderSuggestions();
       const query = parseAnalyticsPageQuery(req.query);
-      const result = page(data, query.page, query.pageSize);
-      res.json(success(result.items, result.meta));
+      const result = await analyticsService.getReorderSuggestionsPage(query.page, query.pageSize);
+      res.json(
+        success(result.items, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }
@@ -177,10 +226,13 @@ export class AnalyticsController {
 
   async getInventorySnapshots(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await analyticsService.getInventorySnapshots();
       const query = parseAnalyticsPageQuery(req.query);
-      const result = page(data, query.page, query.pageSize);
-      res.json(success(result.items, result.meta));
+      const result = await analyticsService.getInventorySnapshotsPage(query.page, query.pageSize);
+      res.json(
+        success(result.items, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
     } catch (err) {
       next(err);
     }

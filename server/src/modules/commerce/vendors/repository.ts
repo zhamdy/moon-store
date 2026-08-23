@@ -41,7 +41,9 @@ export class VendorsRepository implements IVendorsRepository {
     filters: VendorFilters,
     queryable?: Queryable
   ): Promise<{ rows: VendorRecord[]; total: number }> {
-    const { status, page: pageNum, pageSize: limitNum, search } = filters;
+    const { status, page: pageNum, pageSize: limitNum, search, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'createdAt' ? 'v.created_at' : 'v.name';
     const offset = (pageNum - 1) * limitNum;
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
@@ -69,7 +71,7 @@ export class VendorsRepository implements IVendorsRepository {
         (SELECT COUNT(*)::int FROM products WHERE distributor_id = v.id) as product_count
        FROM vendors v
        ${where}
-       ORDER BY v.name ASC
+        ORDER BY ${sortColumn} ${direction}, v.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limitNum, offset]
     );
@@ -140,7 +142,7 @@ export class VendorsRepository implements IVendorsRepository {
        FROM vendor_payouts vp
        JOIN users u ON vp.created_by = u.id
        WHERE vp.vendor_id = $1
-       ORDER BY vp.created_at DESC
+       ORDER BY vp.created_at ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}, vp.id ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}
        LIMIT $2 OFFSET $3`,
       [vendorId, filters.pageSize, (filters.page - 1) * filters.pageSize]
     );

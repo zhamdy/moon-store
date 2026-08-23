@@ -32,7 +32,8 @@ export class WarrantyRepository implements IWarrantyRepository {
     filters: WarrantyFilters,
     queryable?: Queryable
   ): Promise<{ rows: WarrantyClaimRecord[]; total: number }> {
-    const { status, page: pageNum, pageSize: limitNum } = filters;
+    const { status, page: pageNum, pageSize: limitNum, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
     const offset = (pageNum - 1) * limitNum;
     const params: unknown[] = [];
     let where = 'WHERE 1=1';
@@ -56,7 +57,7 @@ export class WarrantyRepository implements IWarrantyRepository {
        FROM warranty_claims w
        JOIN products p ON w.product_id = p.id
        ${where}
-       ORDER BY w.created_at DESC
+        ORDER BY w.created_at ${direction}, w.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limitNum, offset]
     );

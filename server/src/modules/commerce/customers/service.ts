@@ -33,8 +33,8 @@ export class CustomersService {
     return this.repo.getStats(id);
   }
 
-  getSales(id: number | string, page: number, limit: number) {
-    return this.repo.getSales(id, page, limit);
+  getSales(id: number | string, page: number, limit: number, sortOrder: 'asc' | 'desc') {
+    return this.repo.getSales(id, page, limit, sortOrder);
   }
 
   getLoyaltyHistory(id: number | string) {

@@ -20,6 +20,7 @@ import { useAuthStore } from '../../auth';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { PaginationMeta } from '../../../shared/lib/transport';
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import type { User, UserRole } from '../../../shared/types/index';
@@ -52,27 +53,47 @@ const roleBadgeVariant: Record<UserRole, BadgeVariant> = {
   Delivery: 'default',
 };
 
+const sortFieldMap = {
+  name: 'name',
+  email: 'email',
+  role: 'role',
+  created_at: 'createdAt',
+  last_login: 'lastLogin',
+} as const;
+
+const sortParamToId = {
+  name: 'name',
+  email: 'email',
+  role: 'role',
+  createdAt: 'created_at',
+  lastLogin: 'last_login',
+} as const;
+
 export default function UsersPage() {
   const { t } = useTranslation();
   const { user: currentUser } = useAuthStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const { search: routeSearch, page, pageSize, update } = useListRouteState();
+
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 });
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }]);
 
   const sortBy =
-    (
-      {
-        name: 'name',
-        email: 'email',
-        role: 'role',
-        created_at: 'createdAt',
-        last_login: 'lastLogin',
-      } as const
-    )[sorting[0]?.id as 'name' | 'email' | 'role' | 'created_at' | 'last_login'] ?? 'createdAt';
+    (routeSearch.sortBy as keyof typeof sortParamToId) in sortParamToId
+      ? (routeSearch.sortBy as 'name' | 'email' | 'role' | 'createdAt' | 'lastLogin')
+      : 'createdAt';
+  const sortOrder = routeSearch.sortOrder === 'asc' ? 'asc' : 'desc';
+
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+  const sorting: SortingState = [
+    {
+      id: sortParamToId[sortBy] ?? 'created_at',
+      desc: sortOrder === 'desc',
+    },
+  ];
+
   const {
     data: rows,
     meta,
@@ -81,12 +102,14 @@ export default function UsersPage() {
     error,
     refetch,
   } = users.useList({
-    page: pagination.pageIndex + 1,
-    pageSize: pagination.pageSize,
+    page,
+    pageSize,
     search: debouncedSearch || undefined,
     sortBy,
-    sortOrder: sorting[0]?.desc === false ? 'asc' : 'desc',
+    sortOrder,
   });
+
+  useLastPageRecovery(page, meta?.pagination?.totalItems, meta?.pagination?.totalPages, update);
 
   const schema = editingUser ? getEditSchema() : getCreateSchema();
   const {
@@ -238,20 +261,29 @@ export default function UsersPage() {
         error={error instanceof Error ? error.message : undefined}
         onRetry={() => void refetch()}
         pagination={pagination}
-        onPaginationChange={(updater) =>
-          setPagination((current) => (typeof updater === 'function' ? updater(current) : updater))
-        }
+        onPaginationChange={(updater) => {
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          update({ page: next.pageIndex + 1, pageSize: next.pageSize });
+        }}
         pageCount={meta?.pagination.totalPages ?? 0}
         totalRows={meta?.pagination.totalItems ?? 0}
         sorting={sorting}
         onSortingChange={(updater) => {
-          setSorting((current) => (typeof updater === 'function' ? updater(current) : updater));
-          setPagination((current) => ({ ...current, pageIndex: 0 }));
+          const next = typeof updater === 'function' ? updater(sorting) : updater;
+          const sortItem = next[0];
+          const mappedSortBy = sortItem?.id
+            ? (sortFieldMap[sortItem.id as keyof typeof sortFieldMap] ?? 'createdAt')
+            : 'createdAt';
+          update({
+            sortBy: mappedSortBy,
+            sortOrder: sortItem?.desc === false ? 'asc' : 'desc',
+            page: 1,
+          });
         }}
         search={search}
         onSearchChange={(value) => {
           setSearch(value);
-          setPagination((current) => ({ ...current, pageIndex: 0 }));
+          update({ page: 1 });
         }}
         isFiltered={Boolean(search)}
         searchPlaceholder={t('users.searchPlaceholder')}

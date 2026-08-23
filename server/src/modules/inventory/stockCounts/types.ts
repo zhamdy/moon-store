@@ -54,6 +54,8 @@ export interface StockCountFilters {
   page: number;
   pageSize: number;
   status?: 'in_progress' | 'completed' | 'cancelled';
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
 }
 
 import { z } from 'zod';
@@ -66,5 +68,11 @@ const stockCountListQuerySchema = createListQuerySchema(['createdAt'] as const)
 
 export function parseStockCountListQuery(query: unknown): StockCountFilters {
   const parsed = stockCountListQuerySchema.parse(query);
-  return { page: parsed.page, pageSize: parsed.pageSize, status: parsed.status };
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    status: parsed.status,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }

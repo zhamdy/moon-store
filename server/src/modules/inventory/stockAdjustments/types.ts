@@ -15,6 +15,8 @@ export interface StockAdjustmentRecord {
 export interface StockAdjustmentFilters {
   page: number;
   pageSize: number;
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
 }
 
 import { createListQuerySchema } from '../../../http/pagination';
@@ -25,5 +27,10 @@ const stockAdjustmentListQuerySchema = createListQuerySchema(['createdAt'] as co
 
 export function parseStockAdjustmentListQuery(query: unknown): StockAdjustmentFilters {
   const parsed = stockAdjustmentListQuerySchema.parse(query);
-  return { page: parsed.page, pageSize: parsed.pageSize };
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }

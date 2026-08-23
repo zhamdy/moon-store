@@ -21,6 +21,7 @@ import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { CategoryRecord, StockCountDetail, StockCountSummary } from '../types';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
@@ -36,12 +37,14 @@ export default function StockCountPage() {
   const [selectedCount, setSelectedCount] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
-  const [page, setPage] = useState(1);
+  const { page, pageSize, update } = useListRouteState();
 
-  const { data: counts, meta, isLoading } = stockCounts.useList({ page, pageSize: 25 });
+  const { data: counts, meta, isLoading } = stockCounts.useList({ page, pageSize });
   const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: detail } = stockCountDetails.useOne(selectedCount);
   const { data: categories } = categoriesResource.useList();
+
+  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -308,7 +311,12 @@ export default function StockCountPage() {
 
       {pagination && pagination.totalPages > 1 && (
         <div className="flex justify-center">
-          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
+          <Pagination
+            page={page}
+            total={pagination.totalPages}
+            onChange={(newPage) => update({ page: newPage })}
+            showControls
+          />
         </div>
       )}
 

@@ -62,6 +62,8 @@ export class CouponsRepository implements ICouponsRepository {
   }
 
   async list(filters: CouponFilters, queryable?: Queryable): Promise<CouponListResult> {
+    const direction = filters.sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = filters.sortBy === 'code' ? 'c.code' : 'c.created_at';
     const pageNum = filters.page;
     const limitNum = filters.pageSize;
     const offset = (pageNum - 1) * limitNum;
@@ -98,7 +100,7 @@ export class CouponsRepository implements ICouponsRepository {
          SELECT coupon_id, COUNT(*) as usage_count FROM coupon_usage GROUP BY coupon_id
        ) cu_agg ON cu_agg.coupon_id = c.id
        ${whereClause}
-       ORDER BY c.created_at DESC, c.id DESC
+       ORDER BY ${sortColumn} ${direction}, c.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );

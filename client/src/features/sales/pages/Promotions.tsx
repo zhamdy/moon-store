@@ -22,6 +22,7 @@ import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { Coupon } from '../types';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
@@ -57,7 +58,7 @@ const couponToForm = (c: Coupon) => ({
 export default function Promotions() {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const { page, pageSize, update } = useListRouteState();
   const debouncedSearch = useDebouncedValue(search, 300);
   const editor = useEditorDialog(emptyCoupon, couponToForm);
   const form = editor.values;
@@ -68,10 +69,12 @@ export default function Promotions() {
     isLoading,
   } = coupons.useList({
     page,
-    pageSize: 25,
+    pageSize,
     search: debouncedSearch || undefined,
   });
   const pagination = meta?.pagination as PaginationMeta | undefined;
+
+  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
 
   const saver = coupons.useSave({
     message: editor.isEditing ? t('promotions.updated') : t('promotions.created'),
@@ -107,7 +110,7 @@ export default function Promotions() {
           value={search}
           onValueChange={(value) => {
             setSearch(value);
-            setPage(1);
+            update({ page: 1 });
           }}
           startContent={<Search className="h-4 w-4 text-primary" />}
         />
@@ -150,29 +153,41 @@ export default function Promotions() {
                     {c.min_purchase ? formatCurrency(c.min_purchase) : '—'}
                   </td>
                   <td className="p-3 font-data text-muted-foreground">
-                    {c.max_uses ? `${c.usage_count}/${c.max_uses}` : c.usage_count}
+                    {c.usage_count}
+                    {c.max_uses ? ` / ${c.max_uses}` : ''}
                   </td>
                   <td className="p-3">
-                    <Badge size="sm" variant={c.status === 'active' ? 'success' : 'danger'}>
-                      {c.status === 'active' ? t('promotions.active') : t('promotions.inactive')}
+                    <Badge
+                      size="sm"
+                      variant={
+                        c.status === 'active' &&
+                        (!c.expires_at || new Date(c.expires_at) > new Date())
+                          ? 'success'
+                          : 'danger'
+                      }
+                    >
+                      {c.status === 'active' &&
+                      (!c.expires_at || new Date(c.expires_at) > new Date())
+                        ? t('common.active')
+                        : t('promotions.expired')}
                     </Badge>
                   </td>
-                  <td className="p-3 text-end">
-                    <Dropdown>
-                      <DropdownTrigger>
-                        <Button isIconOnly variant="light" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownTrigger>
-                      <DropdownMenu aria-label="Coupon actions">
-                        <DropdownItem
-                          key="edit"
-                          startContent={<Pencil className="h-4 w-4 text-primary" />}
-                          onPress={() => editor.openEdit(c)}
-                        >
-                          {t('common.edit')}
-                        </DropdownItem>
-                        {c.status === 'active' ? (
+                  <td className="p-3">
+                    <div className="flex items-center justify-center gap-1">
+                      <Dropdown>
+                        <DropdownTrigger>
+                          <Button isIconOnly variant="light" size="sm" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownTrigger>
+                        <DropdownMenu aria-label="Coupon actions">
+                          <DropdownItem
+                            key="edit"
+                            startContent={<Pencil className="h-4 w-4" />}
+                            onPress={() => editor.openEdit(c)}
+                          >
+                            {t('common.edit')}
+                          </DropdownItem>
                           <DropdownItem
                             key="delete"
                             className="text-danger"
@@ -182,9 +197,9 @@ export default function Promotions() {
                           >
                             {t('common.delete')}
                           </DropdownItem>
-                        ) : null}
-                      </DropdownMenu>
-                    </Dropdown>
+                        </DropdownMenu>
+                      </Dropdown>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -195,7 +210,12 @@ export default function Promotions() {
 
       {pagination && pagination.totalPages > 1 && (
         <div className="flex justify-center">
-          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
+          <Pagination
+            page={page}
+            total={pagination.totalPages}
+            onChange={(newPage) => update({ page: newPage })}
+            showControls
+          />
         </div>
       )}
 

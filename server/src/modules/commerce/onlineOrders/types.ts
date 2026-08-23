@@ -21,6 +21,8 @@ export interface OnlineOrderFilters {
   page: number;
   pageSize: number;
   search?: string;
+  sortBy: 'createdAt' | 'total';
+  sortOrder: 'asc' | 'desc';
 }
 
 import { z } from 'zod';
@@ -30,7 +32,8 @@ const onlineOrderListQuerySchema = createListQuerySchema(['createdAt', 'total'] 
     status: z.string().trim().min(1).max(30).optional(),
     search: z.string().trim().min(1).max(100).optional(),
   })
-  .strict();
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 export function parseOnlineOrderListQuery(query: unknown): OnlineOrderFilters {
   const parsed = onlineOrderListQuerySchema.parse(query);
   return {
@@ -38,6 +41,8 @@ export function parseOnlineOrderListQuery(query: unknown): OnlineOrderFilters {
     pageSize: parsed.pageSize,
     status: parsed.status,
     search: parsed.search,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
   };
 }
 

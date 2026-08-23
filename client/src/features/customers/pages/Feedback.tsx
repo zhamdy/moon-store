@@ -1,9 +1,9 @@
-import { useState } from 'react';
 import { Star, TrendingUp, MessageSquare } from 'lucide-react';
 import { Pagination } from '@heroui/react';
 import { Badge, PageHeader, StatCard } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { FeedbackEntry, FeedbackStats } from '../types';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
@@ -11,11 +11,13 @@ const feedback = resource<FeedbackEntry, { stats: FeedbackStats }>('feedback');
 
 export default function FeedbackPage() {
   const { t } = useTranslation();
-  const [page, setPage] = useState(1);
+  const { page, pageSize, update } = useListRouteState();
 
-  const { data = [], meta, isLoading } = feedback.useList({ page, pageSize: 25 });
+  const { data = [], meta, isLoading } = feedback.useList({ page, pageSize });
   const stats = meta?.stats;
   const pagination = meta?.pagination as PaginationMeta | undefined;
+
+  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -84,7 +86,12 @@ export default function FeedbackPage() {
       </div>
       {pagination && pagination.totalPages > 1 && (
         <div className="flex justify-center">
-          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
+          <Pagination
+            page={page}
+            total={pagination.totalPages}
+            onChange={(newPage) => update({ page: newPage })}
+            showControls
+          />
         </div>
       )}
     </div>

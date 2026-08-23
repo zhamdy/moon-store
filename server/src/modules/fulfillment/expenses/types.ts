@@ -37,6 +37,8 @@ export interface ExpenseFilters {
   category?: string;
   from?: string;
   to?: string;
+  sortBy: 'date' | 'createdAt';
+  sortOrder: 'asc' | 'desc';
 }
 
 import { z } from 'zod';
@@ -50,7 +52,8 @@ const expenseListQuerySchema = createListQuerySchema(['date', 'createdAt'] as co
     from: z.string().date().optional(),
     to: z.string().date().optional(),
   })
-  .strict();
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'date', ...query }));
 
 export function parseExpenseListQuery(query: unknown): ExpenseFilters {
   const parsed = expenseListQuerySchema.parse(query);
@@ -60,6 +63,8 @@ export function parseExpenseListQuery(query: unknown): ExpenseFilters {
     category: parsed.category,
     from: parsed.from,
     to: parsed.to,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
   };
 }
 

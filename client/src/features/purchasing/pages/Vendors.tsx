@@ -16,6 +16,7 @@ import PageHeader from '../../../shared/components/PageHeader';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 interface Vendor {
@@ -68,9 +69,9 @@ const vendorToForm = (v: Vendor) => ({
 export default function VendorsPage() {
   const { t } = useTranslation();
   const [payoutOpen, setPayoutOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('');
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  const [page, setPage] = useState(1);
+  const { search, page, pageSize, update } = useListRouteState();
+  const statusFilter = typeof search.status === 'string' ? search.status : '';
   const editor = useEditorDialog(emptyVendor, vendorToForm);
   const form = editor.values;
   const [payoutForm, setPayoutForm] = useState({
@@ -82,11 +83,13 @@ export default function VendorsPage() {
 
   const { data: vendors, meta } = vendorsResource.useList({
     page,
-    pageSize: 25,
+    pageSize,
     status: statusFilter || undefined,
   });
   const pagination = meta?.pagination as PaginationMeta | undefined;
   const { data: stats } = vendorsResource.useRead<VendorStats>('dashboard/stats');
+
+  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
 
   const saveVendor = vendorsResource.useSave({
     message: t('vendors.saved'),
@@ -192,8 +195,7 @@ export default function VendorsPage() {
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
             onClick={() => {
-              setStatusFilter(s);
-              setPage(1);
+              update({ status: s || undefined, page: 1 });
             }}
           >
             {s ? t(`vendors.${s}`) : t('common.all')}
@@ -296,7 +298,12 @@ export default function VendorsPage() {
       {/* Vendor dialog */}
       {pagination && pagination.totalPages > 1 && (
         <div className="flex justify-center">
-          <Pagination page={page} total={pagination.totalPages} onChange={setPage} showControls />
+          <Pagination
+            page={page}
+            total={pagination.totalPages}
+            onChange={(newPage) => update({ page: newPage })}
+            showControls
+          />
         </div>
       )}
 

@@ -16,6 +16,8 @@ describe('fulfillment collection contracts', () => {
     expect(parseDeliveryHistoryQuery({ page: '1', pageSize: '25' })).toEqual({
       page: 1,
       pageSize: 25,
+      sortBy: 'createdAt',
+      sortOrder: 'asc',
     });
   });
 
@@ -33,6 +35,8 @@ describe('fulfillment collection contracts', () => {
       category: 'rent',
       from: undefined,
       to: undefined,
+      sortBy: 'date',
+      sortOrder: 'asc',
     });
   });
 

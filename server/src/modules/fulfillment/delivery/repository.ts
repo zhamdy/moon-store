@@ -66,7 +66,9 @@ export class DeliveryRepository implements IDeliveryRepository {
   }
 
   async list(filters: DeliveryOrderFilters, queryable?: Queryable): Promise<DeliveryListResult> {
-    const { page: pageNum, pageSize: limitNum, status, search } = filters;
+    const { page: pageNum, pageSize: limitNum, status, search, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'estimatedDelivery' ? 'd.estimated_delivery' : 'd.created_at';
     const offset = (pageNum - 1) * limitNum;
 
     const where: string[] = [];
@@ -103,7 +105,7 @@ export class DeliveryRepository implements IDeliveryRepository {
          FROM delivery_orders d
          LEFT JOIN shipping_companies sc ON d.shipping_company_id = sc.id
          ${whereClause}
-         ORDER BY d.created_at DESC
+          ORDER BY ${sortColumn} ${direction}, d.id ${direction}
          LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
         queryParams
       )
@@ -347,7 +349,7 @@ export class DeliveryRepository implements IDeliveryRepository {
        FROM delivery_status_history h
        LEFT JOIN users u ON h.changed_by = u.id
        WHERE h.order_id = $1
-       ORDER BY h.created_at ASC
+        ORDER BY h.created_at ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}, h.id ${filters.sortOrder === 'asc' ? 'ASC' : 'DESC'}
        LIMIT $2 OFFSET $3`,
       [id, filters.pageSize, offset]
     );

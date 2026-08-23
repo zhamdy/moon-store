@@ -28,6 +28,8 @@ export interface DeliveryOrderFilters {
   pageSize: number;
   status?: string;
   search?: string;
+  sortBy: 'createdAt' | 'estimatedDelivery';
+  sortOrder: 'asc' | 'desc';
 }
 
 export interface DeliveryListResult {
@@ -42,7 +44,8 @@ const deliveryListQuerySchema = createListQuerySchema(['createdAt', 'estimatedDe
     status: z.string().trim().min(1).max(30).optional(),
     search: z.string().trim().min(1).max(100).optional(),
   })
-  .strict();
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 export function parseDeliveryListQuery(query: unknown): DeliveryOrderFilters {
   const parsed = deliveryListQuerySchema.parse(query);
   return {
@@ -50,19 +53,30 @@ export function parseDeliveryListQuery(query: unknown): DeliveryOrderFilters {
     pageSize: parsed.pageSize,
     status: parsed.status,
     search: parsed.search,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
   };
 }
 
 export interface DeliveryHistoryFilters {
   page: number;
   pageSize: number;
+  sortBy: 'createdAt';
+  sortOrder: 'asc' | 'desc';
 }
 
-const deliveryHistoryQuerySchema = createListQuerySchema(['createdAt'] as const).strict();
+const deliveryHistoryQuerySchema = createListQuerySchema(['createdAt'] as const)
+  .strict()
+  .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 
 export function parseDeliveryHistoryQuery(query: unknown): DeliveryHistoryFilters {
   const parsed = deliveryHistoryQuerySchema.parse(query);
-  return { page: parsed.page, pageSize: parsed.pageSize };
+  return {
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }
 
 export interface PerformanceResult {

@@ -66,7 +66,8 @@ export class PurchaseOrdersRepository implements IPurchaseOrdersRepository {
     filters: PurchaseOrderFilters,
     queryable?: Queryable
   ): Promise<PurchaseOrderListResult> {
-    const { page: pageNum, pageSize: limitNum, distributorId, status } = filters;
+    const { page: pageNum, pageSize: limitNum, distributorId, status, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
     const offset = (pageNum - 1) * limitNum;
 
     const where: string[] = [];
@@ -101,7 +102,7 @@ export class PurchaseOrdersRepository implements IPurchaseOrdersRepository {
        LEFT JOIN distributors d ON po.distributor_id = d.id
        LEFT JOIN users u ON po.created_by = u.id
        ${whereClause}
-       ORDER BY po.created_at DESC
+        ORDER BY po.created_at ${direction}, po.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );

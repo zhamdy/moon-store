@@ -37,7 +37,9 @@ export class FeedbackRepository implements IFeedbackRepository {
     filters: FeedbackFilters,
     queryable?: Queryable
   ): Promise<{ rows: FeedbackRecord[]; total: number }> {
-    const { rating, category, page: pageNum, pageSize: limitNum } = filters;
+    const { rating, category, page: pageNum, pageSize: limitNum, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'rating' ? 'f.rating' : 'f.created_at';
     const offset = (pageNum - 1) * limitNum;
 
     const params: unknown[] = [];
@@ -66,7 +68,7 @@ export class FeedbackRepository implements IFeedbackRepository {
        FROM customer_feedback f
        LEFT JOIN customers c ON f.customer_id = c.id
        ${where}
-       ORDER BY f.created_at DESC, f.id DESC
+        ORDER BY ${sortColumn} ${direction}, f.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limitNum, offset]
     );

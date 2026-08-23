@@ -23,6 +23,7 @@ import { formatCurrency, formatDate } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import type { GiftCard, GiftCardTransaction } from '../types';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
@@ -37,8 +38,7 @@ export default function GiftCards() {
 
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [transactionsCard, setTransactionsCard] = useState<GiftCard | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const { page, pageSize, update } = useListRouteState();
   const [search, setSearch] = useState('');
   const [transactionsPage, setTransactionsPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -58,6 +58,8 @@ export default function GiftCards() {
   });
   const listPagination = meta?.pagination as PaginationMeta | undefined;
   const tablePagination: PaginationState = { pageIndex: page - 1, pageSize };
+
+  useLastPageRecovery(page, listPagination?.totalItems, listPagination?.totalPages, update);
 
   const {
     data: transactions,
@@ -261,15 +263,14 @@ export default function GiftCards() {
         search={search}
         onSearchChange={(value) => {
           setSearch(value);
-          setPage(1);
+          update({ page: 1 });
         }}
         pagination={tablePagination}
         pageCount={listPagination?.totalPages ?? 0}
         totalRows={listPagination?.totalItems ?? 0}
         onPaginationChange={(updater) => {
           const next = typeof updater === 'function' ? updater(tablePagination) : updater;
-          setPage(next.pageIndex + 1);
-          setPageSize(next.pageSize);
+          update({ page: next.pageIndex + 1, pageSize: next.pageSize });
         }}
         searchPlaceholder={t('giftCards.searchPlaceholder')}
       />

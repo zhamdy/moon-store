@@ -37,6 +37,7 @@ import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import type { ReceiptData } from '../../../shared/components/Receipt';
 import type { Sale, SaleDetail, SaleRefund, SalesMeta } from '../types';
@@ -47,12 +48,25 @@ const saleDetails = resource<SaleDetail>('sales');
 export default function SalesHistory() {
   const { t } = useTranslation();
   const transport = useTransport();
-  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
-  const [paymentFilter, setPaymentFilter] = useState('all');
+  const { search: routeSearch, page, pageSize, update } = useListRouteState();
+
+  const paymentFilter =
+    typeof routeSearch.paymentMethod === 'string' ? routeSearch.paymentMethod : 'all';
+  const sortBy = routeSearch.sortBy === 'total' ? 'total' : 'createdAt';
+  const sortOrder = routeSearch.sortOrder === 'asc' ? 'asc' : 'desc';
+
+  const dateRange: DateRange = {
+    start: typeof routeSearch.dateFrom === 'string' ? new Date(routeSearch.dateFrom) : null,
+    end: typeof routeSearch.dateTo === 'string' ? new Date(routeSearch.dateTo) : null,
+  };
+
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
-  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 });
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }]);
+  const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+  const sorting: SortingState = [
+    { id: sortBy === 'total' ? 'total' : 'created_at', desc: sortOrder === 'desc' },
+  ];
+
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
@@ -65,16 +79,18 @@ export default function SalesHistory() {
   } | null>(null);
 
   const params: Record<string, string> = {};
-  if (dateRange.start) params.dateFrom = format(dateRange.start, 'yyyy-MM-dd');
-  if (dateRange.end) params.dateTo = format(dateRange.end, 'yyyy-MM-dd');
+  if (routeSearch.dateFrom) params.dateFrom = String(routeSearch.dateFrom);
+  if (routeSearch.dateTo) params.dateTo = String(routeSearch.dateTo);
   if (paymentFilter !== 'all') params.paymentMethod = paymentFilter;
   if (debouncedSearch) params.search = debouncedSearch;
-  params.page = String(pagination.pageIndex + 1);
-  params.pageSize = String(pagination.pageSize);
-  params.sortBy = sorting[0]?.id === 'total' ? 'total' : 'createdAt';
-  params.sortOrder = sorting[0]?.desc === false ? 'asc' : 'desc';
+  params.page = String(page);
+  params.pageSize = String(pageSize);
+  params.sortBy = sortBy;
+  params.sortOrder = sortOrder;
 
   const { data: rows, meta, isLoading, isFetching, error, refetch } = sales.useList(params);
+
+  useLastPageRecovery(page, meta?.pagination?.totalItems, meta?.pagination?.totalPages, update);
 
   const { data: saleDetail } = saleDetails.useOne(expandedRow);
 
@@ -330,8 +346,11 @@ export default function SalesHistory() {
           <DateRangePicker
             value={dateRange}
             onChange={(range) => {
-              setDateRange(range);
-              setPagination((current) => ({ ...current, pageIndex: 0 }));
+              update({
+                dateFrom: range.start ? format(range.start, 'yyyy-MM-dd') : undefined,
+                dateTo: range.end ? format(range.end, 'yyyy-MM-dd') : undefined,
+                page: 1,
+              });
             }}
           />
         </div>
@@ -343,8 +362,11 @@ export default function SalesHistory() {
             aria-label="Payment Filter"
             selectedKeys={[paymentFilter]}
             onChange={(e) => {
-              setPaymentFilter(e.target.value || 'all');
-              setPagination((current) => ({ ...current, pageIndex: 0 }));
+              update({
+                paymentMethod:
+                  e.target.value && e.target.value !== 'all' ? e.target.value : undefined,
+                page: 1,
+              });
             }}
           >
             <SelectItem key="all" textValue={t('sales.allPayments')}>
@@ -367,9 +389,12 @@ export default function SalesHistory() {
             variant="light"
             size="sm"
             onClick={() => {
-              setDateRange({ start: null, end: null });
-              setPaymentFilter('all');
-              setPagination((current) => ({ ...current, pageIndex: 0 }));
+              update({
+                dateFrom: undefined,
+                dateTo: undefined,
+                paymentMethod: undefined,
+                page: 1,
+              });
             }}
           >
             {t('common.clearFilters')}
@@ -387,19 +412,25 @@ export default function SalesHistory() {
         onRetry={() => void refetch()}
         pagination={pagination}
         onPaginationChange={(updater) => {
-          setPagination((current) => (typeof updater === 'function' ? updater(current) : updater));
+          const next = typeof updater === 'function' ? updater(pagination) : updater;
+          update({ page: next.pageIndex + 1, pageSize: next.pageSize });
         }}
         pageCount={meta?.pagination.totalPages ?? 0}
         totalRows={meta?.pagination.totalItems ?? 0}
         sorting={sorting}
         onSortingChange={(updater) => {
-          setSorting((current) => (typeof updater === 'function' ? updater(current) : updater));
-          setPagination((current) => ({ ...current, pageIndex: 0 }));
+          const next = typeof updater === 'function' ? updater(sorting) : updater;
+          const sortItem = next[0];
+          update({
+            sortBy: sortItem?.id === 'total' ? 'total' : 'createdAt',
+            sortOrder: sortItem?.desc === false ? 'asc' : 'desc',
+            page: 1,
+          });
         }}
         search={search}
         onSearchChange={(value) => {
           setSearch(value);
-          setPagination((current) => ({ ...current, pageIndex: 0 }));
+          update({ page: 1 });
         }}
         isFiltered={Boolean(search || dateRange.start || dateRange.end || paymentFilter !== 'all')}
         searchPlaceholder={t('sales.searchReceipts')}

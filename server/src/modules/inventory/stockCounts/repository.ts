@@ -71,7 +71,8 @@ export class StockCountsRepository implements IStockCountsRepository {
     filters: StockCountFilters,
     queryable?: Queryable
   ): Promise<{ rows: StockCountRecord[]; total: number }> {
-    const { page, pageSize, status } = filters;
+    const { page, pageSize, status, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
     const offset = (page - 1) * pageSize;
 
     const where: string[] = [];
@@ -102,7 +103,7 @@ export class StockCountsRepository implements IStockCountsRepository {
        LEFT JOIN users u ON sc.created_by = u.id
        LEFT JOIN categories c ON sc.category_id = c.id
        ${whereClause}
-       ORDER BY sc.created_at DESC, sc.id DESC
+        ORDER BY sc.created_at ${direction}, sc.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, pageSize, offset]
     );

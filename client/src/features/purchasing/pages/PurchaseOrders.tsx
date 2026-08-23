@@ -11,6 +11,7 @@ import { resource } from '../../../shared/lib/resource';
 import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useTransport } from '../../../shared/lib/transport/index';
+import { useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
 import type { Distributor } from '../../../shared/types/index';
@@ -28,9 +29,11 @@ const distributorsResource = resource<Distributor>('distributors');
 export default function PurchaseOrders() {
   const { t } = useTranslation();
   const transport = useTransport();
+  const { search: routeSearch, page, pageSize, update } = useListRouteState();
 
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [distributorFilter, setDistributorFilter] = useState('all');
+  const statusFilter = typeof routeSearch.status === 'string' ? routeSearch.status : 'All';
+  const distributorFilter =
+    typeof routeSearch.distributorId === 'string' ? routeSearch.distributorId : 'all';
 
   // Create PO state
   const [createOpen, setCreateOpen] = useState(false);
@@ -49,14 +52,14 @@ export default function PurchaseOrders() {
   // Delete/Cancel confirm
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [cancelId, setCancelId] = useState<number | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
 
   const {
     data: orders,
     meta,
     isLoading,
     isFetching,
+    error,
+    refetch,
   } = purchaseOrders.useList({
     page,
     pageSize,
@@ -65,6 +68,8 @@ export default function PurchaseOrders() {
   });
   const pageMeta = meta?.pagination as PaginationMeta | undefined;
   const pagination: PaginationState = { pageIndex: page - 1, pageSize };
+
+  useLastPageRecovery(page, pageMeta?.totalItems, pageMeta?.totalPages, updateListSearch);
 
   const { data: detail } = purchaseOrderDetails.useOne(detailOpen ? detailId : null);
   const { data: distributors } = distributorsResource.useList();
@@ -350,8 +355,7 @@ export default function PurchaseOrders() {
             variant="bordered"
             selectedKeys={[statusFilter]}
             onChange={(e) => {
-              setStatusFilter(e.target.value || 'All');
-              setPage(1);
+              update({ status: e.target.value || 'All', page: 1 });
             }}
           >
             <SelectItem key="All" textValue={t('po.allStatuses')}>
@@ -382,8 +386,7 @@ export default function PurchaseOrders() {
             variant="bordered"
             selectedKeys={[distributorFilter]}
             onChange={(e) => {
-              setDistributorFilter(e.target.value || 'all');
-              setPage(1);
+              update({ distributorId: e.target.value || 'all', page: 1 });
             }}
           >
             <SelectItem key="all" textValue={t('po.allDistributors')}>
@@ -404,13 +407,17 @@ export default function PurchaseOrders() {
         data={orders ?? []}
         isLoading={isLoading}
         isFetching={isFetching}
+        error={error instanceof Error ? error.message : undefined}
+        onRetry={() => void refetch()}
         pagination={pagination}
         pageCount={pageMeta?.totalPages ?? 0}
         totalRows={pageMeta?.totalItems ?? 0}
         onPaginationChange={(updater) => {
           const next = typeof updater === 'function' ? updater(pagination) : updater;
-          setPage(next.pageIndex + 1);
-          setPageSize(next.pageSize);
+          update({
+            page: next.pageSize === pageSize ? next.pageIndex + 1 : 1,
+            pageSize: next.pageSize,
+          });
         }}
         searchPlaceholder={t('common.search')}
       />

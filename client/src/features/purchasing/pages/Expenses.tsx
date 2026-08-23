@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Receipt, Plus, Pencil, Trash2, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import {
   Button,
@@ -22,6 +21,7 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
+import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 
 interface Expense {
   id: number;
@@ -46,9 +46,10 @@ interface PnLData {
 const categories = ['rent', 'salaries', 'utilities', 'marketing', 'supplies', 'other'] as const;
 const recurrences = ['one_time', 'daily', 'weekly', 'monthly', 'yearly'] as const;
 
-const expenses = resource<Expense, { pagination: { totalPages: number }; totalAmount: number }>(
-  'expenses'
-);
+const expenses = resource<
+  Expense,
+  { pagination: { total: number; totalPages: number }; totalAmount: number }
+>('expenses');
 
 const emptyExpense = () => ({
   category: 'other' as string,
@@ -68,13 +69,15 @@ const expenseToForm = (exp: Expense) => ({
 
 export default function ExpensesPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<'list' | 'pnl'>('list');
+  const { search, page, pageSize, update } = useListRouteState();
+  const tab = (search.tab === 'pnl' ? 'pnl' : 'list') as 'list' | 'pnl';
   const editor = useEditorDialog(emptyExpense, expenseToForm);
   const form = editor.values;
-  const [page, setPage] = useState(1);
 
-  const { data: rows, meta } = expenses.useList({ page, pageSize: 25 });
+  const { data: rows, meta } = expenses.useList({ page, pageSize });
   const { data: pnl } = expenses.useRead<PnLData>('pnl', undefined, tab === 'pnl');
+
+  useLastPageRecovery(page, meta?.pagination?.total, meta?.pagination?.totalPages, update);
 
   const saver = expenses.useSave({
     message: editor.isEditing ? t('expenses.updated') : t('expenses.created'),
@@ -138,59 +141,66 @@ export default function ExpensesPage() {
                 <tr>
                   <th className="text-start p-3 font-semibold">{t('expenses.date')}</th>
                   <th className="text-start p-3 font-semibold">{t('expenses.category')}</th>
-                  <th className="text-start p-3 font-semibold">{t('expenses.description')}</th>
-                  <th className="text-start p-3 font-semibold">{t('expenses.recurrence')}</th>
-                  <th className="text-end p-3 font-semibold">{t('expenses.amount')}</th>
-                  <th className="p-3"></th>
+                  <th className="text-start p-3 text-xs font-semibold uppercase text-muted-foreground">
+                    {t('common.date')}
+                  </th>
+                  <th className="text-start p-3 text-xs font-semibold uppercase text-muted-foreground">
+                    {t('expenses.category')}
+                  </th>
+                  <th className="text-start p-3 text-xs font-semibold uppercase text-muted-foreground">
+                    {t('common.description')}
+                  </th>
+                  <th className="text-start p-3 text-xs font-semibold uppercase text-muted-foreground">
+                    {t('expenses.recurring')}
+                  </th>
+                  <th className="text-start p-3 text-xs font-semibold uppercase text-muted-foreground">
+                    {t('expenses.amount')}
+                  </th>
+                  <th className="text-center p-3 text-xs font-semibold uppercase text-muted-foreground">
+                    {t('common.actions')}
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/50">
+              <tbody className="divide-y divide-border">
                 {!rows?.length ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                    <td colSpan={6} className="text-center py-8 text-muted-foreground">
                       {t('common.noResults')}
                     </td>
                   </tr>
                 ) : (
                   rows.map((exp) => (
                     <tr key={exp.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="p-3 font-data text-xs text-muted-foreground">{exp.date}</td>
+                      <td className="p-3 text-muted-foreground font-data">{exp.date}</td>
                       <td className="p-3">
-                        <Badge size="sm" variant="primary">
+                        <Badge size="sm" variant="default">
                           {t(categoryKey(exp.category))}
                         </Badge>
                       </td>
-                      <td className="p-3 text-muted-foreground">{exp.description || '—'}</td>
-                      <td className="p-3 text-xs text-muted-foreground">
-                        {t(
-                          `expenses.${exp.recurring === 'one_time' ? 'oneTime' : exp.recurring}` as never
-                        )}
-                      </td>
-                      <td className="p-3 text-end font-data font-semibold text-danger">
+                      <td className="p-3 text-foreground">{exp.description || '—'}</td>
+                      <td className="p-3 text-muted-foreground">{exp.recurring}</td>
+                      <td className="p-3 font-semibold font-data text-foreground">
                         {formatCurrency(exp.amount)}
                       </td>
                       <td className="p-3">
-                        <div className="flex gap-1 justify-end">
+                        <div className="flex items-center justify-center gap-1">
                           <Button
                             isIconOnly
                             variant="light"
                             size="sm"
-                            className="h-7 w-7"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={() => editor.openEdit(exp)}
                             aria-label={t('common.edit')}
                           >
-                            <Pencil className="h-3.5 w-3.5 text-primary" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             isIconOnly
                             variant="light"
                             color="danger"
                             size="sm"
-                            className="h-7 w-7"
-                            onClick={() => {
-                              if (window.confirm(t('expenses.deleteConfirm')))
-                                remover.remove(exp.id);
-                            }}
+                            className="h-8 w-8"
+                            onClick={() => remover.remove(exp.id)}
                             aria-label={t('common.delete')}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -208,7 +218,7 @@ export default function ExpensesPage() {
               <Pagination
                 page={page}
                 total={meta?.pagination.totalPages ?? 1}
-                onChange={setPage}
+                onChange={(newPage) => update({ page: newPage })}
                 showControls
               />
             </div>

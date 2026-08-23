@@ -20,6 +20,7 @@ export interface ICustomersRepository {
     id: number | string,
     page: number,
     limit: number,
+    sortOrder: 'asc' | 'desc',
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number }>;
   getLoyaltyHistory(id: number | string, queryable?: Queryable): Promise<Record<string, any>[]>;
@@ -37,7 +38,9 @@ export class CustomersRepository implements ICustomersRepository {
     filters: CustomerFilters,
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number }> {
-    const { search, page, pageSize } = filters;
+    const { search, page, pageSize, sortBy, sortOrder } = filters;
+    const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const sortColumn = sortBy === 'createdAt' ? 'created_at' : 'name';
     const offset = (page - 1) * pageSize;
 
     const where: string[] = [];
@@ -60,7 +63,7 @@ export class CustomersRepository implements ICustomersRepository {
     const offsetIdx = params.length + 2;
 
     const rowsRes = await this.q(queryable).query(
-      `SELECT * FROM customers ${whereClause} ORDER BY name ASC, id ASC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      `SELECT * FROM customers ${whereClause} ORDER BY ${sortColumn} ${direction}, id ${direction} LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, pageSize, offset]
     );
 
@@ -127,6 +130,7 @@ export class CustomersRepository implements ICustomersRepository {
     id: number | string,
     page: number,
     pageSize: number,
+    sortOrder: 'asc' | 'desc',
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number }> {
     const offset = (page - 1) * pageSize;
@@ -142,7 +146,7 @@ export class CustomersRepository implements ICustomersRepository {
        FROM sales s
        LEFT JOIN users u ON s.cashier_id = u.id
        WHERE s.customer_id = $1
-       ORDER BY s.created_at DESC, s.id DESC
+       ORDER BY s.created_at ${sortOrder === 'asc' ? 'ASC' : 'DESC'}, s.id ${sortOrder === 'asc' ? 'ASC' : 'DESC'}
        LIMIT $2 OFFSET $3`,
       [id, pageSize, offset]
     );

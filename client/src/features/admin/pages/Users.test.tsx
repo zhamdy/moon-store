@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,6 +7,11 @@ import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib
 import { useSettingsStore } from '../../../shared/store/settingsStore';
 import { useAuthStore } from '../../auth';
 import UsersPage from './Users';
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useSearch: () => ({}),
+}));
 
 function wrapperFor(transport: MemoryTransport) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

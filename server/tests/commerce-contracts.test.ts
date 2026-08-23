@@ -16,14 +16,26 @@ import { parseWarrantyListQuery } from '../src/modules/commerce/warranty/types';
 
 describe('commerce collection contracts', () => {
   it('parses canonical customer collection queries', () => {
-    expect(parseCustomerListQuery({ page: '2', pageSize: '25', search: 'Mona' })).toEqual({
+    expect(
+      parseCustomerListQuery({
+        page: '2',
+        pageSize: '25',
+        search: 'Mona',
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      })
+    ).toEqual({
       page: 2,
       pageSize: 25,
       search: 'Mona',
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
     });
     expect(parseCustomerSalesQuery({ page: '3', pageSize: '10' })).toEqual({
       page: 3,
       pageSize: 10,
+      sortBy: 'createdAt',
+      sortOrder: 'asc',
     });
   });
 
@@ -42,6 +54,8 @@ describe('commerce collection contracts', () => {
     expect(parseGiftCardTransactionQuery({ page: '1', pageSize: '25' })).toEqual({
       page: 1,
       pageSize: 25,
+      sortBy: 'createdAt',
+      sortOrder: 'asc',
     });
     expect(() => parseGiftCardListQuery({ limit: '200' })).toThrow();
   });
@@ -50,6 +64,8 @@ describe('commerce collection contracts', () => {
     expect(parseCouponListQuery({ page: '1', pageSize: '25', search: 'VIP' })).toMatchObject({
       page: 1,
       pageSize: 25,
+      sortBy: 'createdAt',
+      sortOrder: 'asc',
       search: 'VIP',
     });
     expect(parseFeedbackListQuery({ page: '2', pageSize: '10', rating: '5' })).toMatchObject({
@@ -80,6 +96,8 @@ describe('commerce collection contracts', () => {
     expect(parseVendorPayoutQuery({ page: '2', pageSize: '25' })).toEqual({
       page: 2,
       pageSize: 25,
+      sortBy: 'createdAt',
+      sortOrder: 'asc',
     });
     expect(() => parseVendorPayoutQuery({ limit: '20' })).toThrow();
     expect(() => parseWarrantyListQuery({ limit: '20' })).toThrow();

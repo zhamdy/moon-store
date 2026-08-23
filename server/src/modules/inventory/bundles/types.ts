@@ -48,6 +48,8 @@ export interface BundleFilters {
   status?: 'active' | 'inactive';
   page: number;
   pageSize: number;
+  sortBy: 'createdAt' | 'name';
+  sortOrder: 'asc' | 'desc';
 }
 
 import { z } from 'zod';
@@ -60,5 +62,11 @@ const bundleListQuerySchema = createListQuerySchema(['createdAt', 'name'] as con
 
 export function parseBundleListQuery(query: unknown): BundleFilters {
   const parsed = bundleListQuerySchema.parse(query);
-  return { status: parsed.status, page: parsed.page, pageSize: parsed.pageSize };
+  return {
+    status: parsed.status,
+    page: parsed.page,
+    pageSize: parsed.pageSize,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
+  };
 }

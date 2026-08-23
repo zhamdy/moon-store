@@ -162,7 +162,8 @@ export class GiftCardsService {
   async getTransactions(
     id: number,
     page = 1,
-    pageSize = 25
+    pageSize = 25,
+    sortOrder: 'asc' | 'desc' = 'asc'
   ): Promise<{
     card: Record<string, any> | null;
     transactions: Record<string, any>[];
@@ -173,7 +174,7 @@ export class GiftCardsService {
       return { card: null, transactions: [], total: 0 };
     }
 
-    const transactions = await this.repo.getTransactions(id, page, pageSize);
+    const transactions = await this.repo.getTransactions(id, page, pageSize, sortOrder);
     return { card, transactions: transactions.rows, total: transactions.total };
   }
 
