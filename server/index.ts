@@ -5,12 +5,14 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import path from 'path';
+import { apiReference } from '@scalar/express-api-reference';
 import errorHandler from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import { sanitizeBody } from './middleware/sanitize';
 import logger from './lib/logger';
 import db, { closePool } from './src/database/pool';
 import { errorResponse } from './src/http/errors';
+import { openApiSpec } from './src/docs/openapi';
 
 import { routeTable, cleanupExpiredReservations } from './src/router';
 
@@ -30,6 +32,7 @@ const PORT: number = Number(process.env.PORT) || 3001;
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: false,
   })
 );
 const allowedOrigins: string[] = process.env.ALLOWED_ORIGINS
@@ -90,6 +93,22 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 for (const [routePath, router] of routeTable) {
   app.use(routePath, router);
 }
+
+// OpenAPI Spec endpoint
+app.get('/openapi.json', (_req: Request, res: Response) => {
+  res.json(openApiSpec);
+});
+
+// Scalar API Reference documentation UI
+app.use(
+  '/reference',
+  apiReference({
+    theme: 'moon',
+    spec: {
+      content: openApiSpec,
+    },
+  })
+);
 
 // Health check (includes DB connectivity test)
 app.get('/api/health', async (_req: Request, res: Response) => {

@@ -184,6 +184,40 @@ export default function Settings() {
         </CardBody>
       </Card>
 
+      {/* API Reference & Developer Tools */}
+      <Card className="max-w-xl border border-border bg-card shadow-sm">
+        <CardHeader className="border-b border-border/50 px-6 py-4">
+          <h2 className="text-base font-semibold text-foreground">API Reference & Documentation</h2>
+        </CardHeader>
+        <CardBody className="p-6 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Explore interactive API endpoints, test requests in real-time, and view OpenAPI schemas
+            powered by Scalar.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              as="a"
+              href="http://localhost:3001/reference"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="flat"
+              color="primary"
+            >
+              Open Scalar API Docs ↗
+            </Button>
+            <Button
+              as="a"
+              href="http://localhost:3001/openapi.json"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="bordered"
+            >
+              View OpenAPI JSON ↗
+            </Button>
+          </div>
+        </CardBody>
+      </Card>
+
       <div className="max-w-xl">
         <Button color="primary" onClick={handleSave} isLoading={saveMutation.isPending}>
           {t('common.save')}
