@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'Cashier',
   commission_rate NUMERIC DEFAULT 0,
+  favorites TEXT DEFAULT '[]',
   last_login TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -264,23 +265,24 @@ CREATE TABLE IF NOT EXISTS stock_adjustments (
 
 CREATE TABLE IF NOT EXISTS stock_counts (
   id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'in_progress', 'completed', 'cancelled')),
+  name TEXT,
+  status TEXT DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'completed', 'cancelled')),
   category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-  counted_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS stock_count_items (
   id SERIAL PRIMARY KEY,
-  stock_count_id INTEGER NOT NULL REFERENCES stock_counts(id) ON DELETE CASCADE,
+  count_id INTEGER NOT NULL REFERENCES stock_counts(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
   expected_qty INTEGER NOT NULL,
   counted_qty INTEGER,
-  difference INTEGER,
+  variance INTEGER DEFAULT 0,
+  notes TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -302,6 +304,30 @@ CREATE TABLE IF NOT EXISTS inventory_snapshots (
   total_cost_value NUMERIC NOT NULL,
   total_retail_value NUMERIC NOT NULL,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ─── Branches & Registers ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS branches (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  code TEXT UNIQUE NOT NULL,
+  address TEXT,
+  phone TEXT,
+  currency TEXT DEFAULT 'EGP',
+  is_main INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS branch_inventory (
+  id SERIAL PRIMARY KEY,
+  branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  stock INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (branch_id, product_id)
 );
 
 -- ─── Cash Register, Shifts & Expenses ──────────────────────
@@ -331,10 +357,13 @@ CREATE TABLE IF NOT EXISTS register_movements (
 CREATE TABLE IF NOT EXISTS shifts (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
-  start_time TIMESTAMPTZ NOT NULL,
-  end_time TIMESTAMPTZ,
+  branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
+  clock_in TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  clock_out TIMESTAMPTZ,
+  break_start TIMESTAMPTZ,
   break_minutes INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+  total_hours NUMERIC(5,2),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'on_break', 'completed')),
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -350,24 +379,36 @@ CREATE TABLE IF NOT EXISTS expenses (
 );
 
 -- ─── Layaway & Exchanges ───────────────────────────────────
-CREATE TABLE IF NOT EXISTS layaway (
+CREATE TABLE IF NOT EXISTS layaway_plans (
   id SERIAL PRIMARY KEY,
+  plan_number TEXT UNIQUE NOT NULL,
   customer_id INTEGER NOT NULL REFERENCES customers(id),
   total_amount NUMERIC NOT NULL,
   deposit_amount NUMERIC NOT NULL,
-  balance_remaining NUMERIC NOT NULL,
-  items TEXT NOT NULL,
+  remaining_balance NUMERIC NOT NULL,
+  due_date TIMESTAMPTZ NOT NULL,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
-  expires_at TIMESTAMPTZ NOT NULL,
+  notes TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS layaway_items (
+  id SERIAL PRIMARY KEY,
+  plan_id INTEGER NOT NULL REFERENCES layaway_plans(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
+  quantity INTEGER NOT NULL,
+  price NUMERIC NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS layaway_payments (
   id SERIAL PRIMARY KEY,
-  layaway_id INTEGER NOT NULL REFERENCES layaway(id) ON DELETE CASCADE,
+  plan_id INTEGER NOT NULL REFERENCES layaway_plans(id) ON DELETE CASCADE,
   amount NUMERIC NOT NULL,
   payment_method TEXT NOT NULL,
+  notes TEXT,
   cashier_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -396,8 +437,8 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   id SERIAL PRIMARY KEY,
   po_number TEXT UNIQUE NOT NULL,
   distributor_id INTEGER REFERENCES distributors(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'received', 'cancelled')),
-  total_cost NUMERIC DEFAULT 0,
+  status TEXT DEFAULT 'Draft' CHECK (status IN ('Draft', 'Ordered', 'Partial', 'Received', 'Cancelled', 'pending', 'received', 'cancelled')),
+  total NUMERIC DEFAULT 0,
   notes TEXT,
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   received_at TIMESTAMPTZ,
@@ -407,10 +448,11 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
 
 CREATE TABLE IF NOT EXISTS purchase_order_items (
   id SERIAL PRIMARY KEY,
-  po_order_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+  po_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL REFERENCES products(id),
+  variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
   quantity INTEGER NOT NULL,
-  unit_cost NUMERIC NOT NULL,
+  cost_price NUMERIC NOT NULL,
   received_quantity INTEGER DEFAULT 0
 );
 
@@ -458,6 +500,7 @@ CREATE TABLE IF NOT EXISTS shipping_companies (
   name TEXT NOT NULL UNIQUE,
   contact_phone TEXT,
   tracking_url_template TEXT,
+  is_active INTEGER DEFAULT 1,
   active INTEGER DEFAULT 1,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -533,12 +576,25 @@ CREATE TABLE IF NOT EXISTS storefront_config (
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS storefront_banners (
+  id SERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  subtitle TEXT,
+  image_url TEXT NOT NULL,
+  link_url TEXT,
+  position INTEGER DEFAULT 0,
+  is_active INTEGER DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ─── Bundles, Collections & Templates ──────────────────────
-CREATE TABLE IF NOT EXISTS bundles (
+CREATE TABLE IF NOT EXISTS product_bundles (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
-  sku TEXT UNIQUE NOT NULL,
-  price NUMERIC NOT NULL,
+  description TEXT,
+  bundle_price NUMERIC NOT NULL,
+  starts_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -546,7 +602,7 @@ CREATE TABLE IF NOT EXISTS bundles (
 
 CREATE TABLE IF NOT EXISTS bundle_items (
   id SERIAL PRIMARY KEY,
-  bundle_id INTEGER NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
+  bundle_id INTEGER NOT NULL REFERENCES product_bundles(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   quantity INTEGER NOT NULL DEFAULT 1
 );
@@ -573,19 +629,7 @@ CREATE TABLE IF NOT EXISTS label_templates (
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- ─── Multi-location & Branches ─────────────────────────────
-CREATE TABLE IF NOT EXISTS branches (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  code TEXT UNIQUE NOT NULL,
-  address TEXT,
-  phone TEXT,
-  currency TEXT DEFAULT 'EGP',
-  is_main INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'active',
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
+-- ─── Multi-location & Transfers ────────────────────────────
 
 CREATE TABLE IF NOT EXISTS inter_store_transfers (
   id SERIAL PRIMARY KEY,
@@ -642,10 +686,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   type TEXT DEFAULT 'info',
-  is_read INTEGER DEFAULT 0,
+  title TEXT NOT NULL,
+  message TEXT,
+  entity_type TEXT,
+  entity_id TEXT,
+  link TEXT,
+  read INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 

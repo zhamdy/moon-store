@@ -104,8 +104,12 @@ if (require.main === module) {
   (async () => {
     const pool = getPool();
     try {
-      const downIndex = process.argv.indexOf('--down');
-      if (downIndex !== -1) {
+      const isDown = process.argv.includes('--down') || process.argv.includes('down');
+      if (isDown) {
+        const downIndex =
+          process.argv.indexOf('--down') !== -1
+            ? process.argv.indexOf('--down')
+            : process.argv.indexOf('down');
         const count = parseInt(process.argv[downIndex + 1], 10) || 1;
         const rolledBack = await runMigrationsDown(count, pool);
         console.log(`Rolled back ${rolledBack.length} migration(s).`);
