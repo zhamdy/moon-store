@@ -6,7 +6,7 @@ import { recordRefundMovement } from '../register';
 import { saleSchema, refundSchema } from '../../../../validators/saleSchema';
 import { salesService } from './service';
 import { salesRepository } from './repository';
-import { parseSaleListQuery, SalesValidationError } from './types';
+import { parseSaleListQuery, SalesValidationError, InsufficientStockError } from './types';
 import { CouponError } from '../../commerce/coupons/types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
@@ -89,6 +89,12 @@ export class SalesController {
             { field: 'payments', code: err.code, message: err.message },
           ])
         );
+        return;
+      }
+      if (err instanceof InsufficientStockError) {
+        // Same 400 and same wording as before; the error is merely typed now, so the
+        // string-matching list below stops growing.
+        next(new PublicError('VALIDATION_ERROR', err.message));
         return;
       }
       if (err instanceof CouponError) {

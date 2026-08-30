@@ -65,6 +65,16 @@ export interface ISalesRepository {
   ): Promise<Record<string, any> | null>;
   updateProductStock(productId: number, newStock: number, queryable: Queryable): Promise<void>;
   updateVariantStock(variantId: number, newStock: number, queryable: Queryable): Promise<void>;
+  decrementProductStock(
+    productId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
+  decrementVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
   createStockAdjustment(data: Record<string, any>, queryable: Queryable): Promise<void>;
   getSetting(key: string, queryable?: Queryable): Promise<string | undefined>;
   getCouponByCode(code: string, queryable?: Queryable): Promise<Record<string, any> | null>;
@@ -456,6 +466,49 @@ export class SalesRepository implements ISalesRepository {
       'UPDATE product_variants SET stock = $1, updated_at = NOW() WHERE id = $2',
       [newStock, variantId]
     );
+  }
+
+  /**
+   * Conditional relative decrement. Reading a quantity and writing back an absolute
+   * value computed in JavaScript loses updates: two concurrent checkouts both read
+   * stock 5, both write 3, and four units vanish. Folding the sufficiency check into the
+   * WHERE clause removes the stale-read window entirely — under READ COMMITTED
+   * PostgreSQL re-evaluates it after a concurrent writer's row lock is released.
+   *
+   * @returns the resulting stock, or null when there was not enough (rowCount 0).
+   *
+   * `$1::int` is cast explicitly: pg-mem, which backs most of this repo's suites,
+   * evaluates `column - $param` with the operands inverted unless the parameter is
+   * typed, silently turning a decrement into a negation. Addition is commutative, which
+   * is why the existing relative writes never exposed it.
+   */
+  async decrementProductStock(
+    productId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      `UPDATE products SET stock = stock - $1::int, updated_at = NOW()
+        WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
+      [quantity, productId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /** Variant counterpart of {@link decrementProductStock}. */
+  async decrementVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      `UPDATE product_variants SET stock = stock - $1::int, updated_at = NOW()
+        WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
+      [quantity, variantId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
   }
 
   async createStockAdjustment(data: Record<string, any>, queryable: Queryable): Promise<void> {

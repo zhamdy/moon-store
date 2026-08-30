@@ -31,6 +31,7 @@ import {
   ConfirmedPayment,
   SaleCalculationSnapshot,
   SalesValidationError,
+  InsufficientStockError,
   SPLIT_PAYMENT_MISMATCH_CODE,
   STRICT_SPLIT_PAYMENT_VALIDATION,
 } from './types';
@@ -48,9 +49,26 @@ interface ResolvedSaleLine {
   unit_price: number;
   cost_price: number;
   memo?: string | null;
-  previousStock: number;
-  newStock: number;
   isVariant: boolean;
+}
+
+/**
+ * Canonical order for the stock write phase: products before variants, then ascending by
+ * id. Two concurrent multi-line checkouts naming the same rows in opposite request order
+ * would otherwise lock them in opposite order and deadlock. Sorting is what removes the
+ * cycle, so this ordering must be applied by every path that decrements stock.
+ */
+function sortForStockWrites<T extends { product_id: number; variant_id?: number | null }>(
+  lines: T[]
+): T[] {
+  return [...lines].sort((a, b) => {
+    const aVariant = a.variant_id ?? 0;
+    const bVariant = b.variant_id ?? 0;
+    if (aVariant !== bVariant) {
+      return aVariant - bVariant;
+    }
+    return a.product_id - b.product_id;
+  });
 }
 
 interface ResolvedLines {
@@ -260,7 +278,6 @@ export class SalesService {
           throw new Error(`Insufficient stock for variant ID ${item.variant_id}`);
         }
         const unitPrice = Number(variant.price);
-        const previousStock = Number(variant.stock);
         resolvedItems.push({
           product_id: item.product_id,
           variant_id: item.variant_id,
@@ -268,8 +285,6 @@ export class SalesService {
           unit_price: unitPrice,
           cost_price: Number(variant.cost_price || 0),
           memo: item.memo || null,
-          previousStock,
-          newStock: previousStock - item.quantity,
           isVariant: true,
         });
         calcLines.push({ unitPriceMinor: toMinorUnits(unitPrice), quantity: item.quantity });
@@ -280,7 +295,6 @@ export class SalesService {
           throw new Error(`Insufficient stock for product ID ${item.product_id}`);
         }
         const unitPrice = Number(product.price);
-        const previousStock = Number(product.stock);
         resolvedItems.push({
           product_id: item.product_id,
           variant_id: null,
@@ -288,8 +302,6 @@ export class SalesService {
           unit_price: unitPrice,
           cost_price: Number(product.cost_price || 0),
           memo: item.memo || null,
-          previousStock,
-          newStock: previousStock - item.quantity,
           isVariant: false,
         });
         calcLines.push({ unitPriceMinor: toMinorUnits(unitPrice), quantity: item.quantity });
@@ -411,7 +423,6 @@ export class SalesService {
 
       const lineTotalMinor = lineTotalsMinor[i];
       const perUnitMinor = Math.round(lineTotalMinor / requestedQty);
-      const previousStock = Number(product.stock);
 
       resolvedItems.push({
         product_id: bi.product_id,
@@ -420,8 +431,6 @@ export class SalesService {
         unit_price: fromMinorUnits(perUnitMinor),
         cost_price: Number(product.cost_price || 0),
         memo: `[Bundle #${bundleId}] ${bundle.name}`,
-        previousStock,
-        newStock: previousStock - requestedQty,
         isVariant: false,
       });
       // Authoritative line contribution is the exact allocation, folded into
@@ -674,6 +683,8 @@ export class SalesService {
         );
       }
 
+      // Line rows keep the request's order, so the confirmed response's `items` array is
+      // exactly what it always was.
       for (const item of resolvedItems) {
         await this.repo.createSaleItem(
           {
@@ -687,18 +698,39 @@ export class SalesService {
           },
           client
         );
+      }
 
-        if (item.isVariant && item.variant_id) {
-          await this.repo.updateVariantStock(item.variant_id, item.newStock, client);
-        } else {
-          await this.repo.updateProductStock(item.product_id, item.newStock, client);
+      // Stock writes run in a canonical order instead of the request's. Two concurrent
+      // two-line checkouts naming the same products in opposite order would otherwise
+      // take row locks in opposite order and deadlock. Sorting removes the cycle.
+      for (const item of sortForStockWrites(resolvedItems)) {
+        const isVariantLine = Boolean(item.isVariant && item.variant_id);
+
+        const newStock = isVariantLine
+          ? await this.repo.decrementVariantStock(item.variant_id!, item.quantity, client)
+          : await this.repo.decrementProductStock(item.product_id, item.quantity, client);
+
+        if (newStock === null) {
+          // The guarded UPDATE matched nothing: stock was insufficient, or the row was
+          // deleted between resolve and write. Either way the transaction rolls back and
+          // no partial sale survives. The check in resolveLines is only a fail-fast
+          // courtesy; this is the authority.
+          throw new InsufficientStockError(
+            isVariantLine
+              ? `Insufficient stock for variant ID ${item.variant_id}`
+              : `Insufficient stock for product ID ${item.product_id}`,
+            item.product_id,
+            isVariantLine ? item.variant_id! : null
+          );
         }
 
         await this.repo.createStockAdjustment(
           {
             product_id: item.product_id,
-            previous_qty: item.previousStock,
-            new_qty: item.newStock,
+            // Derived from RETURNING, so the audit trail records what actually happened
+            // rather than what the earlier read predicted.
+            previous_qty: newStock + item.quantity,
+            new_qty: newStock,
             delta: -item.quantity,
             reason: 'Sale',
             user_id: cashierId,
