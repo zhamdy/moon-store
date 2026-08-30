@@ -4,6 +4,7 @@ import { ISalesRepository, salesRepository as defaultRepo } from './repository';
 import { bundlesRepository, IBundlesRepository } from '../../inventory/bundles/repository';
 import { couponsService, CouponsService } from '../../commerce/coupons/service';
 import { registerService, IRegisterService } from '../register/service';
+import { sortForStockWrites } from '../stockWriteOrder';
 import {
   parseLoyaltySettings,
   CanonicalLoyaltySettings,
@@ -50,25 +51,6 @@ interface ResolvedSaleLine {
   cost_price: number;
   memo?: string | null;
   isVariant: boolean;
-}
-
-/**
- * Canonical order for the stock write phase: products before variants, then ascending by
- * id. Two concurrent multi-line checkouts naming the same rows in opposite request order
- * would otherwise lock them in opposite order and deadlock. Sorting is what removes the
- * cycle, so this ordering must be applied by every path that decrements stock.
- */
-function sortForStockWrites<T extends { product_id: number; variant_id?: number | null }>(
-  lines: T[]
-): T[] {
-  return [...lines].sort((a, b) => {
-    const aVariant = a.variant_id ?? 0;
-    const bVariant = b.variant_id ?? 0;
-    if (aVariant !== bVariant) {
-      return aVariant - bVariant;
-    }
-    return a.product_id - b.product_id;
-  });
 }
 
 interface ResolvedLines {
