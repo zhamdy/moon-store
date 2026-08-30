@@ -288,6 +288,27 @@ export class SalesValidationError extends Error {
   }
 }
 
+/** Stable, documented code for a checkout rejected because stock ran out. */
+export const INSUFFICIENT_STOCK_CODE = 'INSUFFICIENT_STOCK';
+
+/**
+ * Thrown when the guarded stock decrement matched no row — the line's stock was gone by
+ * the time the write ran. Typed rather than string-matched so the controller's message
+ * list stops growing, while the client-facing wording stays exactly as it was.
+ */
+export class InsufficientStockError extends Error {
+  constructor(
+    message: string,
+    public readonly productId: number,
+    public readonly variantId: number | null = null,
+    public readonly code: string = INSUFFICIENT_STOCK_CODE,
+    public readonly statusCode: number = 400
+  ) {
+    super(message);
+    this.name = 'InsufficientStockError';
+  }
+}
+
 /** A payment entry as persisted to `sale_payments` / returned in the confirmed sale response. Major EGP units, exactly as validated -- never coerced/rounded into balance. */
 export interface ConfirmedPayment {
   method: string;

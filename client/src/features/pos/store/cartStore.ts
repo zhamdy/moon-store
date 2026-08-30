@@ -67,6 +67,15 @@ interface CartState {
    * financial preview is still unconfirmed until the cashier acts.
    */
   needsReview: boolean;
+  /**
+   * The idempotency key for the checkout currently being attempted, paired with a
+   * fingerprint of the payload it was minted for. Persisted with the cart because a till
+   * that reloads mid-checkout must retry under the SAME key — otherwise the server sees
+   * an unrelated request and rings the sale up twice, which is the exact failure the key
+   * exists to prevent. Null whenever no attempt is in flight.
+   */
+  checkoutAttempt: { fingerprint: string; key: string } | null;
+  setCheckoutAttempt: (attempt: { fingerprint: string; key: string } | null) => void;
   addItem: (product: Product) => void;
   addBundle: (bundle: BundleForCart) => void;
   removeItem: (productId: number, variantId?: number | null) => void;
@@ -232,6 +241,9 @@ export const useCartStore = create<CartState>()(
       couponDiscount: 0,
       lastUpdated: Date.now(),
       needsReview: false,
+      checkoutAttempt: null,
+
+      setCheckoutAttempt: (attempt) => set({ checkoutAttempt: attempt }),
 
       addItem: (product) =>
         set((state) => {
@@ -362,6 +374,8 @@ export const useCartStore = create<CartState>()(
           couponDiscount: 0,
           lastUpdated: Date.now(),
           needsReview: false,
+          // A committed or queued sale must never lend its key to the next one.
+          checkoutAttempt: null,
         }),
 
       isRecoveredCart: () => {
@@ -382,6 +396,8 @@ export const useCartStore = create<CartState>()(
           couponDiscount: 0,
           needsReview: true,
           lastUpdated: Date.now(),
+          // A restored held cart is a different checkout attempt.
+          checkoutAttempt: null,
         }),
 
       acknowledgeReview: () => set({ needsReview: false }),
@@ -399,6 +415,9 @@ export const useCartStore = create<CartState>()(
         couponDiscount: state.couponDiscount,
         lastUpdated: state.lastUpdated,
         needsReview: state.needsReview,
+        // Additive and safely absent: a blob persisted before this shipped simply has no
+        // key and falls back to the initial null, so no schema migration is needed.
+        checkoutAttempt: state.checkoutAttempt,
       }),
       migrate: (persistedState) => {
         // Any stored version below CART_SCHEMA_VERSION is v0 -- this is the

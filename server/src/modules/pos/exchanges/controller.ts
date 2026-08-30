@@ -2,8 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
-import { exchangesService, IExchangesService } from './service';
+import { exchangesService, ExchangeStockError, IExchangesService } from './service';
 import { PublicError } from '../../../http/errors';
+import {
+  IDEMPOTENCY_REPLAY_HEADER,
+  readIdempotencyKey,
+  toIdempotencyPublicError,
+  withIdempotency,
+} from '../../../http/idempotency';
 import { paginationMeta } from '../../../http/pagination';
 import { success } from '../../../http/responses';
 import { parseExchangeListQuery } from './types';
@@ -44,15 +50,45 @@ export class ExchangesController {
       const authReq = req as AuthRequest;
       const parsed = exchangeSchema.parse(req.body);
 
-      const result = await this.service.createExchange(parsed, authReq.user!.id);
-
-      logAuditFromReq(req, 'create', 'exchange', result.id, {
-        exchange_number: result.exchange_number,
-        difference: result.difference,
+      const outcome = await withIdempotency({
+        endpoint: 'POST /api/v1/exchanges',
+        key: readIdempotencyKey(req),
+        userId: authReq.user!.id,
+        payload: parsed,
+        run: async (client) => {
+          const exchange = await this.service.createExchange(parsed, authReq.user!.id, client);
+          return {
+            status: 201,
+            body: success(exchange),
+            result: exchange,
+            resourceType: 'exchange',
+            resourceId: Number(exchange.id),
+          };
+        },
       });
 
-      res.status(201).json(success(result));
+      if (outcome.replayed) {
+        // A replay must not write a second audit entry.
+        res.setHeader(IDEMPOTENCY_REPLAY_HEADER, 'true');
+      } else {
+        const result = outcome.result!;
+        logAuditFromReq(req, 'create', 'exchange', result.id, {
+          exchange_number: result.exchange_number,
+          difference: result.difference,
+        });
+      }
+
+      res.status(outcome.status).json(outcome.body);
     } catch (err) {
+      const conflict = toIdempotencyPublicError(err);
+      if (conflict) {
+        next(conflict);
+        return;
+      }
+      if (err instanceof ExchangeStockError) {
+        next(new PublicError('VALIDATION_ERROR', err.message));
+        return;
+      }
       next(
         err instanceof z.ZodError || err instanceof PublicError
           ? err

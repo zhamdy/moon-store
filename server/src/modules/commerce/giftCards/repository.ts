@@ -18,7 +18,11 @@ export interface IGiftCardsRepository {
     },
     queryable?: Queryable
   ): Promise<Record<string, any>>;
-  updateBalance(id: number, newBalance: number, queryable?: Queryable): Promise<void>;
+  redeemBalance(
+    id: number,
+    amount: number,
+    queryable?: Queryable
+  ): Promise<{ balanceBefore: number; balanceAfter: number } | null>;
   createTransaction(
     data: {
       gift_card_id: number;
@@ -149,11 +153,39 @@ export class GiftCardsRepository implements IGiftCardsRepository {
     return result.rows[0];
   }
 
-  async updateBalance(id: number, newBalance: number, queryable?: Queryable): Promise<void> {
-    await this.q(queryable).query(
-      'UPDATE gift_cards SET balance = $1, updated_at = NOW() WHERE id = $2',
-      [newBalance, id]
+  /**
+   * Every condition that makes a redemption legal — active, unexpired, sufficient
+   * balance — lives in the WHERE clause, so one statement decides eligibility and
+   * performs the debit. A read-then-write let two concurrent redemptions both pass the
+   * balance check and spend the same money twice.
+   *
+   * `$1::numeric` is cast because pg-mem evaluates `column - $param` with the operands
+   * inverted unless the parameter carries a type.
+   *
+   * Both balances come from RETURNING rather than from the earlier read, so the
+   * transaction row records what actually happened and cannot drift by a rounding step.
+   *
+   * @returns the balances around the debit, or null when the card was not eligible.
+   */
+  async redeemBalance(
+    id: number,
+    amount: number,
+    queryable?: Queryable
+  ): Promise<{ balanceBefore: number; balanceAfter: number } | null> {
+    const res = await this.q(queryable).query<{ balance: number; balance_before: number }>(
+      `UPDATE gift_cards
+          SET balance = balance - $1::numeric, updated_at = NOW()
+        WHERE id = $2
+          AND balance >= $1::numeric
+          AND status = 'active'
+          AND (expires_at IS NULL OR expires_at > NOW())
+        RETURNING balance, balance + $1::numeric AS balance_before`,
+      [amount, id]
     );
+    const row = res.rows[0];
+    return row
+      ? { balanceBefore: Number(row.balance_before), balanceAfter: Number(row.balance) }
+      : null;
   }
 
   async createTransaction(

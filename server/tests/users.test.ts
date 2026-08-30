@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Request, Response } from 'express';
-import { newDb } from 'pg-mem';
 import type { Pool as PgPool } from 'pg';
 import path from 'path';
+import { createPgMemPool } from './support/pgMem';
 import { parseUserListQuery } from '../src/modules/core/users/types';
 import { UsersRepository } from '../src/modules/core/users/repository';
 import { runMigrationsUp } from '../src/database/migrate';
@@ -42,9 +42,7 @@ describe('Users repository pagination', () => {
   let testPool: PgPool;
 
   beforeAll(async () => {
-    const memory = newDb({ noAstCoverageCheck: true });
-    const { Pool } = memory.adapters.createPg();
-    testPool = new Pool() as unknown as PgPool;
+    testPool = createPgMemPool();
     await runMigrationsUp(testPool, path.join(__dirname, '../src/database/migrations'));
     await testPool.query(
       `INSERT INTO users (name, email, password_hash, role, created_at)

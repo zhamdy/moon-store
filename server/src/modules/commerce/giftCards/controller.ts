@@ -7,6 +7,12 @@ import { parseGiftCardListQuery, parseGiftCardTransactionQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
+import {
+  IDEMPOTENCY_REPLAY_HEADER,
+  readIdempotencyKey,
+  toIdempotencyPublicError,
+  withIdempotency,
+} from '../../../http/idempotency';
 
 export const createGiftCardSchema = z.object({
   code: z.string().min(4).max(50).optional(),
@@ -90,9 +96,26 @@ export class GiftCardsController {
       const authReq = req as AuthRequest;
       const code = req.params.code as string;
 
-      let result;
+      let outcome;
       try {
-        result = await giftCardsService.redeem(code, amount, sale_id, authReq.user!.id);
+        outcome = await withIdempotency({
+          // Stable per endpoint: the card code is fingerprinted through the payload
+          // instead, so one key cannot straddle two different cards.
+          endpoint: 'POST /api/v1/gift-cards/:code/redeem',
+          key: readIdempotencyKey(req),
+          userId: authReq.user!.id,
+          payload: { ...parsed.data, code },
+          run: async (client) => {
+            const redeemed = await giftCardsService.redeem(
+              code,
+              amount,
+              sale_id,
+              authReq.user!.id,
+              client
+            );
+            return { status: 200, body: success(redeemed), result: redeemed };
+          },
+        });
       } catch (err: any) {
         if (
           err.message === 'Gift card not found' ||
@@ -106,15 +129,26 @@ export class GiftCardsController {
         throw err;
       }
 
-      logAuditFromReq(req, 'redeem', 'gift_card', undefined, {
-        code: result.code,
-        amount,
-        sale_id,
-        new_balance: result.new_balance,
-      });
+      if (outcome.replayed) {
+        // A replay must not write a second audit entry.
+        res.setHeader(IDEMPOTENCY_REPLAY_HEADER, 'true');
+      } else {
+        const result = outcome.result!;
+        logAuditFromReq(req, 'redeem', 'gift_card', undefined, {
+          code: result.code,
+          amount,
+          sale_id,
+          new_balance: result.new_balance,
+        });
+      }
 
-      res.json(success(result));
+      res.status(outcome.status).json(outcome.body);
     } catch (err) {
+      const conflict = toIdempotencyPublicError(err);
+      if (conflict) {
+        next(conflict);
+        return;
+      }
       next(err);
     }
   }

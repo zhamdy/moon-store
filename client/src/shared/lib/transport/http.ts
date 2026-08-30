@@ -33,7 +33,16 @@ export function createHttpTransport(client: AxiosInstance = api): Transport {
       params,
       body,
       responseType = 'json',
+      idempotencyKey,
     }: TransportRequest): Promise<TransportResult<T>> {
+      const headers: Record<string, string | undefined> = {};
+      if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+      // The shared client pins JSON, which makes axios serialise a FormData
+      // body to "{}" instead of uploading it. Clearing the header lets the
+      // browser set multipart/form-data with its own boundary. Encoding is
+      // this adapter's business, so callers still just hand over a body.
+      if (body instanceof FormData) headers['Content-Type'] = undefined;
+
       try {
         const response = await client.request<Envelope<T>>({
           method,
@@ -41,11 +50,7 @@ export function createHttpTransport(client: AxiosInstance = api): Transport {
           params,
           data: body,
           ...(responseType === 'blob' ? { responseType: 'blob' as const } : {}),
-          // The shared client pins JSON, which makes axios serialise a FormData
-          // body to "{}" instead of uploading it. Clearing the header lets the
-          // browser set multipart/form-data with its own boundary. Encoding is
-          // this adapter's business, so callers still just hand over a body.
-          ...(body instanceof FormData ? { headers: { 'Content-Type': undefined } } : {}),
+          ...(Object.keys(headers).length > 0 ? { headers } : {}),
         });
         if (response.status === 204) return { data: undefined as T };
         // A streamed file has no envelope to unwrap; the blob is the answer.

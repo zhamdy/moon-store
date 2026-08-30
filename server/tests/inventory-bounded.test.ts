@@ -1,5 +1,11 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
+import path from 'path';
+import { Pool as PgPool } from 'pg';
+import { createPgMemPool } from './support/pgMem';
+import { setPool, closePool } from '../src/database/pool';
+import { runMigrationsUp } from '../src/database/migrate';
+import { adjustStock } from '../services/productService';
 import { CategoriesController } from '../src/modules/inventory/categories/controller';
 import { categoriesService } from '../src/modules/inventory/categories/service';
 import { DistributorsController } from '../src/modules/inventory/distributors/controller';
@@ -102,5 +108,78 @@ describe('paginated inventory query contracts', () => {
     });
     expect(() => parseStockCountListQuery({ limit: '20' })).toThrow();
     expect(() => parseStockAdjustmentListQuery({ limit: '50' })).toThrow();
+  });
+});
+
+describe('manual stock adjustment invariants', () => {
+  let testPool: PgPool;
+  let userId: number;
+  let productId: number;
+
+  beforeAll(async () => {
+    testPool = createPgMemPool();
+    setPool(testPool);
+    await runMigrationsUp(testPool, path.join(__dirname, '../src/database/migrations'));
+  });
+
+  afterAll(async () => {
+    await closePool();
+  });
+
+  beforeEach(async () => {
+    await testPool.query('DELETE FROM stock_adjustments');
+    await testPool.query('DELETE FROM products');
+    await testPool.query('DELETE FROM users');
+
+    const users = await testPool.query<{ id: number }>(
+      `INSERT INTO users (name, email, password_hash, role)
+       VALUES ('Admin', 'adj@moon.com', 'x', 'Admin') RETURNING id`
+    );
+    userId = users.rows[0].id;
+
+    const products = await testPool.query<{ id: number }>(
+      `INSERT INTO products (name, sku, price, stock, min_stock)
+       VALUES ('Scarf', 'SKU-ADJ', 100, 10, 0) RETURNING id`
+    );
+    productId = products.rows[0].id;
+  });
+
+  async function stockOf(): Promise<number> {
+    const { rows } = await testPool.query<{ stock: number }>(
+      'SELECT stock FROM products WHERE id = $1',
+      [productId]
+    );
+    return Number(rows[0].stock);
+  }
+
+  async function adjustmentRows(): Promise<Array<{ previous_qty: number; new_qty: number }>> {
+    const { rows } = await testPool.query<{ previous_qty: number; new_qty: number }>(
+      'SELECT previous_qty, new_qty FROM stock_adjustments'
+    );
+    return rows;
+  }
+
+  it('applies a positive delta and records both quantities', async () => {
+    const result = await adjustStock(productId, { delta: 5, reason: 'Restock' }, userId);
+
+    expect(result).toEqual({ previous_qty: 10, new_qty: 15, delta: 5 });
+    expect(await stockOf()).toBe(15);
+    expect(await adjustmentRows()).toEqual([{ previous_qty: 10, new_qty: 15 }]);
+  });
+
+  it('allows a delta that lands exactly on zero', async () => {
+    const result = await adjustStock(productId, { delta: -10, reason: 'Shrinkage' }, userId);
+
+    expect(result.new_qty).toBe(0);
+    expect(await stockOf()).toBe(0);
+  });
+
+  it('refuses a delta below zero with the existing message and writes nothing', async () => {
+    await expect(
+      adjustStock(productId, { delta: -11, reason: 'Shrinkage' }, userId)
+    ).rejects.toThrow('Stock cannot go below zero');
+
+    expect(await stockOf()).toBe(10);
+    expect(await adjustmentRows()).toEqual([]);
   });
 });

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import path from 'path';
-import { Pool as PgPool } from 'pg';
 import { newDb } from 'pg-mem';
+import { toPgMemCompatibleSql } from '../support/pgMem';
+import { Pool as PgPool } from 'pg';
 import { setPool, closePool } from '../../src/database/pool';
 import { runMigrationsUp } from '../../src/database/migrate';
 import { seedDatabase } from '../../src/database/seed';
@@ -182,7 +183,7 @@ beforeAll(async () => {
   const rawPool = new Pool() as unknown as PgPool;
 
   function sanitizeSql(text: string): string {
-    let s = text;
+    let s = toPgMemCompatibleSql(text);
     if (s.toUpperCase().includes('SET TRANSACTION ISOLATION LEVEL')) {
       return '';
     }

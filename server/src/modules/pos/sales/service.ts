@@ -4,6 +4,7 @@ import { ISalesRepository, salesRepository as defaultRepo } from './repository';
 import { bundlesRepository, IBundlesRepository } from '../../inventory/bundles/repository';
 import { couponsService, CouponsService } from '../../commerce/coupons/service';
 import { registerService, IRegisterService } from '../register/service';
+import { sortForStockWrites } from '../stockWriteOrder';
 import {
   parseLoyaltySettings,
   CanonicalLoyaltySettings,
@@ -31,6 +32,7 @@ import {
   ConfirmedPayment,
   SaleCalculationSnapshot,
   SalesValidationError,
+  InsufficientStockError,
   SPLIT_PAYMENT_MISMATCH_CODE,
   STRICT_SPLIT_PAYMENT_VALIDATION,
 } from './types';
@@ -48,8 +50,6 @@ interface ResolvedSaleLine {
   unit_price: number;
   cost_price: number;
   memo?: string | null;
-  previousStock: number;
-  newStock: number;
   isVariant: boolean;
 }
 
@@ -260,7 +260,6 @@ export class SalesService {
           throw new Error(`Insufficient stock for variant ID ${item.variant_id}`);
         }
         const unitPrice = Number(variant.price);
-        const previousStock = Number(variant.stock);
         resolvedItems.push({
           product_id: item.product_id,
           variant_id: item.variant_id,
@@ -268,8 +267,6 @@ export class SalesService {
           unit_price: unitPrice,
           cost_price: Number(variant.cost_price || 0),
           memo: item.memo || null,
-          previousStock,
-          newStock: previousStock - item.quantity,
           isVariant: true,
         });
         calcLines.push({ unitPriceMinor: toMinorUnits(unitPrice), quantity: item.quantity });
@@ -280,7 +277,6 @@ export class SalesService {
           throw new Error(`Insufficient stock for product ID ${item.product_id}`);
         }
         const unitPrice = Number(product.price);
-        const previousStock = Number(product.stock);
         resolvedItems.push({
           product_id: item.product_id,
           variant_id: null,
@@ -288,8 +284,6 @@ export class SalesService {
           unit_price: unitPrice,
           cost_price: Number(product.cost_price || 0),
           memo: item.memo || null,
-          previousStock,
-          newStock: previousStock - item.quantity,
           isVariant: false,
         });
         calcLines.push({ unitPriceMinor: toMinorUnits(unitPrice), quantity: item.quantity });
@@ -411,7 +405,6 @@ export class SalesService {
 
       const lineTotalMinor = lineTotalsMinor[i];
       const perUnitMinor = Math.round(lineTotalMinor / requestedQty);
-      const previousStock = Number(product.stock);
 
       resolvedItems.push({
         product_id: bi.product_id,
@@ -420,8 +413,6 @@ export class SalesService {
         unit_price: fromMinorUnits(perUnitMinor),
         cost_price: Number(product.cost_price || 0),
         memo: `[Bundle #${bundleId}] ${bundle.name}`,
-        previousStock,
-        newStock: previousStock - requestedQty,
         isVariant: false,
       });
       // Authoritative line contribution is the exact allocation, folded into
@@ -441,10 +432,16 @@ export class SalesService {
    * (preview/legacy shape) and `executeSale` (persistence) so there is no
    * second, weaker calculation path.
    */
+  /**
+   * @param forConsumption true only on the path that is about to persist the sale. It
+   *   turns on the fail-fast stock pre-check and makes the coupon lookup take a row lock,
+   *   because this is the call that will record a `coupon_usage` row. Preview callers
+   *   pass false and take no locks.
+   */
   private async buildBreakdown(
     input: CreateSaleDTO,
     queryable: Queryable,
-    checkStock: boolean
+    forConsumption: boolean
   ): Promise<{
     breakdown: SaleCalculationBreakdown;
     resolvedItems: ResolvedSaleLine[];
@@ -453,7 +450,7 @@ export class SalesService {
     const { resolvedItems, calcLines } = await this.resolveLines(
       input.items,
       queryable,
-      checkStock
+      forConsumption
     );
     const subtotalMinor = calcLines.reduce((sum, l) => sum + l.unitPriceMinor * l.quantity, 0);
 
@@ -479,7 +476,8 @@ export class SalesService {
           customer_id: input.customer_id ?? null,
           item_product_ids: input.items.map((i) => i.product_id),
         },
-        queryable
+        queryable,
+        { forConsumption }
       );
       couponId = result.coupon_id;
       couponDiscountMinor = toMinorUnits(result.discount);
@@ -674,6 +672,8 @@ export class SalesService {
         );
       }
 
+      // Line rows keep the request's order, so the confirmed response's `items` array is
+      // exactly what it always was.
       for (const item of resolvedItems) {
         await this.repo.createSaleItem(
           {
@@ -687,18 +687,39 @@ export class SalesService {
           },
           client
         );
+      }
 
-        if (item.isVariant && item.variant_id) {
-          await this.repo.updateVariantStock(item.variant_id, item.newStock, client);
-        } else {
-          await this.repo.updateProductStock(item.product_id, item.newStock, client);
+      // Stock writes run in a canonical order instead of the request's. Two concurrent
+      // two-line checkouts naming the same products in opposite order would otherwise
+      // take row locks in opposite order and deadlock. Sorting removes the cycle.
+      for (const item of sortForStockWrites(resolvedItems)) {
+        const isVariantLine = Boolean(item.isVariant && item.variant_id);
+
+        const newStock = isVariantLine
+          ? await this.repo.decrementVariantStock(item.variant_id!, item.quantity, client)
+          : await this.repo.decrementProductStock(item.product_id, item.quantity, client);
+
+        if (newStock === null) {
+          // The guarded UPDATE matched nothing: stock was insufficient, or the row was
+          // deleted between resolve and write. Either way the transaction rolls back and
+          // no partial sale survives. The check in resolveLines is only a fail-fast
+          // courtesy; this is the authority.
+          throw new InsufficientStockError(
+            isVariantLine
+              ? `Insufficient stock for variant ID ${item.variant_id}`
+              : `Insufficient stock for product ID ${item.product_id}`,
+            item.product_id,
+            isVariantLine ? item.variant_id! : null
+          );
         }
 
         await this.repo.createStockAdjustment(
           {
             product_id: item.product_id,
-            previous_qty: item.previousStock,
-            new_qty: item.newStock,
+            // Derived from RETURNING, so the audit trail records what actually happened
+            // rather than what the earlier read predicted.
+            previous_qty: newStock + item.quantity,
+            new_qty: newStock,
             delta: -item.quantity,
             reason: 'Sale',
             user_id: cashierId,
@@ -709,11 +730,16 @@ export class SalesService {
 
       if (input.customer_id && customer) {
         if (breakdown.pointsRedeemed > 0) {
-          await this.repo.updateCustomerLoyalty(
+          const remaining = await this.repo.redeemCustomerLoyalty(
             input.customer_id,
-            -breakdown.pointsRedeemed,
+            breakdown.pointsRedeemed,
             client
           );
+          if (remaining === null) {
+            // The balance moved between the breakdown's read and this write. Same
+            // wording the stale check produces, so the client sees no change.
+            throw new Error('Insufficient loyalty points');
+          }
           await this.repo.createLoyaltyTransaction(
             input.customer_id,
             sale.id,
@@ -807,7 +833,10 @@ export class SalesService {
     clientOrPool?: any
   ): Promise<{ refund: Record<string, any>; refundStatus: string; newRefundedTotal: number }> {
     return withTransaction(async (client) => {
-      const sale = await this.repo.findById(saleId, client);
+      // Lock the sale for the rest of this transaction BEFORE reading `refunded_amount`:
+      // the cumulative check below is only correct while no sibling refund can commit
+      // between the read and the write.
+      const sale = await this.repo.findByIdForUpdate(saleId, client);
       if (!sale) throw new Error('Sale not found');
       if (sale.refund_status === 'full') throw new Error('Sale already fully refunded');
 
@@ -851,12 +880,19 @@ export class SalesService {
       await this.repo.updateSaleRefundStatus(saleId, refundStatus, newRefundedTotal, client);
 
       if (input.restock) {
-        for (const item of input.items) {
-          const product = await this.repo.getProductById(item.product_id, client);
-          const currentStock = Number(product?.stock || 0);
-          await this.repo.updateProductStock(item.product_id, currentStock + item.quantity, client);
+        // Ascending by product id, the same canonical order the checkout write phase
+        // uses, so a refund and a checkout touching the same two products cannot lock
+        // them in opposite order and deadlock.
+        const restockOrder = [...input.items].sort((a, b) => a.product_id - b.product_id);
+        for (const item of restockOrder) {
+          await this.repo.incrementProductStock(item.product_id, item.quantity, client);
         }
       }
+
+      // Inside the transaction (R4): the previous after-the-fact, error-swallowing call
+      // from the controller could leave a drawer movement behind for a refund that
+      // rolled back. Mirrors `executeSale`'s in-transaction sale movement.
+      await this.register.recordRefundMovement(cashierId, refundAmount, client);
 
       return { refund, refundStatus, newRefundedTotal };
     }, clientOrPool);

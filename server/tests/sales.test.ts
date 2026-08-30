@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
-import { newDb } from 'pg-mem';
 import { Pool as PgPool } from 'pg';
 import path from 'path';
 import fs from 'fs';
+import { createPgMemPool } from './support/pgMem';
 import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
 import {
@@ -67,6 +67,7 @@ describe('Sales - Mutation Contract', () => {
           payment_method: 'Card',
         },
         user: { id: 1, name: 'Cashier' },
+        headers: {},
       } as unknown as Request,
       { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response,
       next as NextFunction
@@ -86,6 +87,7 @@ describe('Sales - Mutation Contract', () => {
         params: { id: '42' },
         body: { items: [{ product_id: 1, quantity: 1, unit_price: 10 }], reason: 'Returned' },
         user: { id: 1, name: 'Cashier' },
+        headers: {},
       } as unknown as Request,
       { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response,
       next as NextFunction
@@ -133,9 +135,7 @@ describe('Sales - List Contract', () => {
 let testPool: PgPool;
 
 beforeAll(async () => {
-  const memDb = newDb({ noAstCoverageCheck: true });
-  const { Pool } = memDb.adapters.createPg();
-  testPool = new Pool() as unknown as PgPool;
+  testPool = createPgMemPool();
   setPool(testPool);
 
   const migrationsDir = path.join(__dirname, '../src/database/migrations');
@@ -309,6 +309,136 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
       [1]
     );
     expect(prod.rows[0].stock).toBe(9); // 8 + 1 restocked
+  });
+
+  describe('refund cumulative accounting', () => {
+    /** A two-unit cash sale of Silk Dress: total 1000, stock 10 -> 8. */
+    async function sellTwoDresses(): Promise<Record<string, any>> {
+      const input = {
+        items: [{ product_id: 1, quantity: 2, unit_price: 500 }],
+        discount: 0,
+        discount_type: 'fixed',
+        payment_method: 'Cash',
+      };
+      const totals = await calculateSaleTotals(input, testPool);
+      return executeSaleTransaction(input, totals, 1, testPool);
+    }
+
+    async function readSale(saleId: number) {
+      const res = await testPool.query<{ refund_status: string; refunded_amount: string }>(
+        'SELECT refund_status, refunded_amount FROM sales WHERE id = $1',
+        [saleId]
+      );
+      return res.rows[0];
+    }
+
+    async function readStock(productId: number): Promise<number> {
+      const res = await testPool.query<{ stock: number }>(
+        'SELECT stock FROM products WHERE id = $1',
+        [productId]
+      );
+      return Number(res.rows[0].stock);
+    }
+
+    it('persists partial status and the cumulative refunded amount', async () => {
+      const sale = await sellTwoDresses();
+
+      await executeRefundTransaction(
+        sale.id,
+        { items: [{ product_id: 1, quantity: 1, unit_price: 500 }], reason: 'Wrong size' },
+        1,
+        testPool
+      );
+
+      expect(await readSale(sale.id)).toMatchObject({ refund_status: 'partial' });
+      expect(Number((await readSale(sale.id)).refunded_amount)).toBe(500);
+    });
+
+    it('restocks exactly the refunded quantity', async () => {
+      const sale = await sellTwoDresses();
+      expect(await readStock(1)).toBe(8);
+
+      await executeRefundTransaction(
+        sale.id,
+        {
+          items: [{ product_id: 1, quantity: 2, unit_price: 500 }],
+          reason: 'Returned',
+          restock: true,
+        },
+        1,
+        testPool
+      );
+
+      expect(await readStock(1)).toBe(10);
+    });
+
+    it('marks the sale full once the cumulative refunds reach the total exactly', async () => {
+      const sale = await sellTwoDresses();
+
+      const first = await executeRefundTransaction(
+        sale.id,
+        { items: [{ product_id: 1, quantity: 1, unit_price: 500 }], reason: 'Wrong size' },
+        1,
+        testPool
+      );
+      expect(first.refundStatus).toBe('partial');
+
+      const second = await executeRefundTransaction(
+        sale.id,
+        { items: [{ product_id: 1, quantity: 1, unit_price: 500 }], reason: 'Wrong size too' },
+        1,
+        testPool
+      );
+
+      expect(second.refundStatus).toBe('full');
+      expect(second.newRefundedTotal).toBe(1000);
+      expect(await readSale(sale.id)).toMatchObject({ refund_status: 'full' });
+    });
+
+    it('rejects a refund exceeding what is left to refund, and writes nothing', async () => {
+      const sale = await sellTwoDresses();
+
+      await executeRefundTransaction(
+        sale.id,
+        { items: [{ product_id: 1, quantity: 1, unit_price: 500 }], reason: 'Wrong size' },
+        1,
+        testPool
+      );
+
+      // 500 already refunded, so a second 1000 would take the cumulative past the total.
+      await expect(
+        executeRefundTransaction(
+          sale.id,
+          { items: [{ product_id: 1, quantity: 2, unit_price: 500 }], reason: 'Too much' },
+          1,
+          testPool
+        )
+      ).rejects.toThrow('Refund amount exceeds sale total');
+
+      expect(Number((await readSale(sale.id)).refunded_amount)).toBe(500);
+      const refunds = await testPool.query('SELECT * FROM refunds WHERE sale_id = $1', [sale.id]);
+      expect(refunds.rows).toHaveLength(1);
+    });
+
+    it('refuses a further refund once the sale is fully refunded', async () => {
+      const sale = await sellTwoDresses();
+
+      await executeRefundTransaction(
+        sale.id,
+        { items: [{ product_id: 1, quantity: 2, unit_price: 500 }], reason: 'Returned' },
+        1,
+        testPool
+      );
+
+      await expect(
+        executeRefundTransaction(
+          sale.id,
+          { items: [{ product_id: 1, quantity: 1, unit_price: 500 }], reason: 'Again' },
+          1,
+          testPool
+        )
+      ).rejects.toThrow('Sale already fully refunded');
+    });
   });
 
   it('should auto-fetch catalog price if unit_price is not provided', async () => {
@@ -1341,6 +1471,7 @@ describe('Unit 4 - Controller: stable validation error mapping', () => {
           payments: [{ method: 'Cash', amount: 50 }],
         },
         user: { id: 1, name: 'Cashier' },
+        headers: {},
       } as unknown as Request,
       { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response,
       next as NextFunction
@@ -1367,8 +1498,9 @@ describe('Unit 4 - OpenAPI documentation: additive confirmed response is scoped 
   });
 
   it('documents the additive calculation/items/payments fields on the confirmed create response', () => {
+    // 201, matching what the controller actually returns; the spec previously said 200.
     const dataSchema =
-      salesPost.responses['200'].content['application/json'].schema.properties.data;
+      salesPost.responses['201'].content['application/json'].schema.properties.data;
     expect(dataSchema.properties.calculation.$ref).toBe(
       '#/components/schemas/SaleCalculationSnapshot'
     );

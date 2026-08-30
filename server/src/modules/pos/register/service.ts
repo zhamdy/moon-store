@@ -41,7 +41,7 @@ export interface IRegisterService {
     cashAmount: number,
     queryable?: Queryable
   ): Promise<void>;
-  recordRefundMovement(cashierId: number, amount: number): Promise<void>;
+  recordRefundMovement(cashierId: number, amount: number, queryable?: Queryable): Promise<void>;
 }
 
 export class RegisterService implements IRegisterService {
@@ -196,17 +196,24 @@ export class RegisterService implements IRegisterService {
     await this.repo.updateSaleRegisterSession(saleId, sessionId, queryable);
   }
 
-  async recordRefundMovement(cashierId: number, amount: number): Promise<void> {
-    try {
-      const session = await this.repo.findOpenSessionByCashierId(cashierId);
-      if (!session) return;
+  /**
+   * Refund counterpart of {@link recordSaleMovement}, with the same contract: when
+   * `queryable` is the refund transaction's client, the movement commits or rolls back
+   * with the refund. It previously ran after the transaction and swallowed its own
+   * errors, so a rolled-back refund could leave a drawer movement behind and a failed
+   * movement could silently desync the drawer. Both are now impossible.
+   */
+  async recordRefundMovement(
+    cashierId: number,
+    amount: number,
+    queryable?: Queryable
+  ): Promise<void> {
+    const session = await this.repo.findOpenSessionByCashierId(cashierId, queryable);
+    if (!session) return;
 
-      const sessionId = session.id;
-      await this.repo.createMovement(sessionId, 'refund', amount);
-      await this.repo.updateSessionExpectedCash(sessionId, -amount);
-    } catch {
-      // Don't fail the refund if register tracking fails
-    }
+    const sessionId = session.id;
+    await this.repo.createMovement(sessionId, 'refund', amount, null, null, queryable);
+    await this.repo.updateSessionExpectedCash(sessionId, -amount, queryable);
   }
 }
 
@@ -236,5 +243,5 @@ export const recordSaleMovement = (
   cashAmount: number,
   queryable?: Queryable
 ) => registerService.recordSaleMovement(cashierId, saleId, cashAmount, queryable);
-export const recordRefundMovement = (cashierId: number, amount: number) =>
-  registerService.recordRefundMovement(cashierId, amount);
+export const recordRefundMovement = (cashierId: number, amount: number, queryable?: Queryable) =>
+  registerService.recordRefundMovement(cashierId, amount, queryable);

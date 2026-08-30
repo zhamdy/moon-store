@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { OFFLINE_QUEUE_STORAGE_KEY } from '@/shared/lib/storageKeys';
 import { useOfflineStore, isQuarantined, SALE_QUEUE_CONTRACT_VERSION } from './offlineStore';
 
 beforeEach(() => {
@@ -18,6 +19,41 @@ describe('offlineStore - addToQueue', () => {
     useOfflineStore.getState().addToQueue({ type: 'sale', payload: {} });
 
     expect(useOfflineStore.getState().queue[0].contractVersion).toBeUndefined();
+  });
+
+  it('carries an idempotency key when the caller passes one, and leaves it unset otherwise', () => {
+    const { addToQueue } = useOfflineStore.getState();
+    addToQueue({ type: 'sale', payload: {}, idempotencyKey: 'key-abc' });
+    addToQueue({ type: 'sale', payload: {} });
+
+    expect(useOfflineStore.getState().queue[0].idempotencyKey).toBe('key-abc');
+    // A legacy entry has no key at all -- not an empty string, which would be
+    // sent as a malformed header on replay.
+    expect(useOfflineStore.getState().queue[1].idempotencyKey).toBeUndefined();
+  });
+});
+
+describe('offlineStore - persistence', () => {
+  it('preserves the idempotency key across a reload between queueing and replay', async () => {
+    useOfflineStore.getState().addToQueue({
+      type: 'sale',
+      payload: { items: [] },
+      contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+      idempotencyKey: 'key-survives-reload',
+    });
+
+    // What the persist middleware actually wrote is the only thing a reloaded
+    // till gets to see, so assert on storage rather than on live state.
+    const raw = localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY);
+    expect(JSON.parse(raw ?? '{}').state.queue[0].idempotencyKey).toBe('key-survives-reload');
+
+    // A reload starts from empty in-memory state plus whatever storage holds.
+    // (Clearing the state also rewrites storage, so put the snapshot back.)
+    useOfflineStore.setState({ queue: [], isSyncing: false });
+    localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, raw as string);
+    await useOfflineStore.persist.rehydrate();
+
+    expect(useOfflineStore.getState().queue[0].idempotencyKey).toBe('key-survives-reload');
   });
 });
 

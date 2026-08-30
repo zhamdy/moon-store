@@ -18,6 +18,14 @@ export interface OfflineAction {
   /** Present on any 'sale' entry queued under the current checkout contract. */
   contractVersion?: string;
   /**
+   * The `Idempotency-Key` the checkout attempt was stamped with, replayed
+   * verbatim by useOffline.ts so a sale that reaches the server twice (queued
+   * offline, then also delivered by a late-succeeding request) is committed
+   * once. Optional: entries persisted before this shipped carry no key and
+   * replay keyless, exactly as they did before.
+   */
+  idempotencyKey?: string;
+  /**
    * Set once a sync attempt is rejected with SPLIT_PAYMENT_MISMATCH: the
    * catalog/tax/coupon/loyalty state changed since this sale was queued and
    * its split no longer balances. A mismatched entry is quarantined the same

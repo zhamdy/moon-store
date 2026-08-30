@@ -6,6 +6,7 @@ export interface ICouponsRepository {
   list(filters: CouponFilters, queryable?: Queryable): Promise<CouponListResult>;
   findById(id: number | string, queryable?: Queryable): Promise<Record<string, any> | null>;
   findByCode(code: string, queryable?: Queryable): Promise<Record<string, any> | null>;
+  findByCodeForUpdate(code: string, queryable: Queryable): Promise<Record<string, any> | null>;
   create(data: CouponData, queryable?: Queryable): Promise<Record<string, any>>;
   update(
     id: string | number,
@@ -117,6 +118,25 @@ export class CouponsRepository implements ICouponsRepository {
   async findByCode(code: string, queryable?: Queryable): Promise<Record<string, any> | null> {
     const res = await this.q(queryable).query(
       `SELECT * FROM coupons WHERE code = $1 AND status = 'active'`,
+      [code.toUpperCase().trim()]
+    );
+    return res.rows[0] ? this.parseScopeIds(res.rows[0]) : null;
+  }
+
+  /**
+   * `findByCode` that also takes a row lock on the coupon.
+   *
+   * `max_uses` counts rows in `coupon_usage`, so the invariant spans rows and cannot be
+   * expressed as one conditional write the way a stock decrement can. Locking the parent
+   * coupon row serializes everyone counting against the same limit. Consuming path only:
+   * a preview that took this lock would block live checkouts for no benefit.
+   */
+  async findByCodeForUpdate(
+    code: string,
+    queryable: Queryable
+  ): Promise<Record<string, any> | null> {
+    const res = await queryable.query(
+      `SELECT * FROM coupons WHERE code = $1 AND status = 'active' FOR UPDATE`,
       [code.toUpperCase().trim()]
     );
     return res.rows[0] ? this.parseScopeIds(res.rows[0]) : null;

@@ -64,7 +64,15 @@ export function useOffline(): UseOfflineReturn {
           // "revalidates against the current authoritative total before
           // submission" the plan calls for -- the check happens server-side,
           // not by recomputing the total here first.
-          await transport.request({ method: 'POST', path: 'sales', body: item.payload });
+          await transport.request({
+            method: 'POST',
+            path: 'sales',
+            body: item.payload,
+            // Omitted entirely for an entry queued before keys existed, so it
+            // replays exactly as it did before rather than under a key the
+            // server never saw.
+            ...(item.idempotencyKey ? { idempotencyKey: item.idempotencyKey } : {}),
+          });
           removeFromQueue(item.id);
           synced++;
         }

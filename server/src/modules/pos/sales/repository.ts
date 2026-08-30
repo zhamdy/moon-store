@@ -4,6 +4,7 @@ import { SaleFilters, SaleCalculationSnapshot, CreateSaleCalculationInput } from
 
 export interface ISalesRepository {
   findById(id: number | string, queryable?: Queryable): Promise<Record<string, any> | null>;
+  findByIdForUpdate(id: number, queryable: Queryable): Promise<Record<string, any> | null>;
   findItemsBySaleId(saleId: number | string, queryable?: Queryable): Promise<Record<string, any>[]>;
   findPaymentsBySaleId(
     saleId: number | string,
@@ -37,6 +38,11 @@ export interface ISalesRepository {
     discount: number,
     queryable: Queryable
   ): Promise<void>;
+  redeemCustomerLoyalty(
+    customerId: number,
+    points: number,
+    queryable: Queryable
+  ): Promise<number | null>;
   updateCustomerLoyalty(
     customerId: number,
     deltaPoints: number,
@@ -63,8 +69,21 @@ export interface ISalesRepository {
     productId: number,
     queryable?: Queryable
   ): Promise<Record<string, any> | null>;
-  updateProductStock(productId: number, newStock: number, queryable: Queryable): Promise<void>;
-  updateVariantStock(variantId: number, newStock: number, queryable: Queryable): Promise<void>;
+  decrementProductStock(
+    productId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
+  incrementProductStock(
+    productId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
+  decrementVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
   createStockAdjustment(data: Record<string, any>, queryable: Queryable): Promise<void>;
   getSetting(key: string, queryable?: Queryable): Promise<string | undefined>;
   getCouponByCode(code: string, queryable?: Queryable): Promise<Record<string, any> | null>;
@@ -95,6 +114,23 @@ export class SalesRepository implements ISalesRepository {
     // so historical receipts/reads never depend on current settings/formulas.
     const calculation = await this.getSaleCalculationBySaleId(sale.id, queryable);
     return calculation ? { ...sale, calculation } : sale;
+  }
+
+  /**
+   * Locks one sale row for the rest of the caller's transaction.
+   *
+   * The refund cumulative check (`refunded_amount + amount <= total`) spans sibling
+   * refund rows, so no single conditional write can express it: three concurrent partial
+   * refunds would each read the same `refunded_amount`, each pass the check, and together
+   * exceed the sale total. Locking the parent row serializes them.
+   *
+   * Deliberately not {@link findById}'s query: `FOR UPDATE` cannot be applied to the
+   * nullable side of the outer joins that attach `cashier_name`/`customer_name`, and the
+   * caller needs the authoritative `sales` columns, not the display ones.
+   */
+  async findByIdForUpdate(id: number, queryable: Queryable): Promise<Record<string, any> | null> {
+    const res = await queryable.query('SELECT * FROM sales WHERE id = $1 FOR UPDATE', [id]);
+    return res.rows[0] || null;
   }
 
   async findItemsBySaleId(
@@ -371,6 +407,29 @@ export class SalesRepository implements ISalesRepository {
     );
   }
 
+  /**
+   * Guarded loyalty debit. The balance check in `buildBreakdown` is a stale read, so it
+   * can only produce the user-facing message; this write is what actually decides, and
+   * it cannot drive a balance negative.
+   *
+   * `$1::int` is cast for the same pg-mem reason as {@link decrementProductStock}.
+   *
+   * @returns the remaining balance, or null when there were not enough points.
+   */
+  async redeemCustomerLoyalty(
+    customerId: number,
+    points: number,
+    queryable: Queryable
+  ): Promise<number | null> {
+    const res = await queryable.query<{ loyalty_points: number }>(
+      `UPDATE customers SET loyalty_points = loyalty_points - $1::int, updated_at = NOW()
+        WHERE id = $2 AND loyalty_points >= $1::int
+        RETURNING loyalty_points`,
+      [points, customerId]
+    );
+    return res.rows[0] ? Number(res.rows[0].loyalty_points) : null;
+  }
+
   async createLoyaltyTransaction(
     customerId: number,
     saleId: number,
@@ -436,26 +495,70 @@ export class SalesRepository implements ISalesRepository {
     return res.rows[0] || null;
   }
 
-  async updateProductStock(
+  /**
+   * Conditional relative decrement. Reading a quantity and writing back an absolute
+   * value computed in JavaScript loses updates: two concurrent checkouts both read
+   * stock 5, both write 3, and four units vanish. Folding the sufficiency check into the
+   * WHERE clause removes the stale-read window entirely — under READ COMMITTED
+   * PostgreSQL re-evaluates it after a concurrent writer's row lock is released.
+   *
+   * @returns the resulting stock, or null when there was not enough (rowCount 0).
+   *
+   * `$1::int` is cast explicitly: pg-mem, which backs most of this repo's suites,
+   * evaluates `column - $param` with the operands inverted unless the parameter is
+   * typed, silently turning a decrement into a negation. Addition is commutative, which
+   * is why the existing relative writes never exposed it.
+   */
+  async decrementProductStock(
     productId: number,
-    newStock: number,
+    quantity: number,
     queryable: Queryable
-  ): Promise<void> {
-    await queryable.query('UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2', [
-      newStock,
-      productId,
-    ]);
+  ): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      `UPDATE products SET stock = stock - $1::int, updated_at = NOW()
+        WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
+      [quantity, productId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
   }
 
-  async updateVariantStock(
-    variantId: number,
-    newStock: number,
+  /**
+   * Relative restock, the inverse of {@link decrementProductStock}. A refund used to read
+   * `products.stock` and write back `currentStock + quantity`, which loses one of two
+   * concurrent restocks exactly as the checkout path did.
+   *
+   * No `WHERE stock >= ...` guard: adding stock has no insufficiency to guard against.
+   *
+   * @returns the resulting stock, or null when no such product exists.
+   */
+  async incrementProductStock(
+    productId: number,
+    quantity: number,
     queryable: Queryable
-  ): Promise<void> {
-    await queryable.query(
-      'UPDATE product_variants SET stock = $1, updated_at = NOW() WHERE id = $2',
-      [newStock, variantId]
+  ): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      `UPDATE products SET stock = stock + $1::int, updated_at = NOW()
+        WHERE id = $2
+        RETURNING stock`,
+      [quantity, productId]
     );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /** Variant counterpart of {@link decrementProductStock}. */
+  async decrementVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      `UPDATE product_variants SET stock = stock - $1::int, updated_at = NOW()
+        WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
+      [quantity, variantId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
   }
 
   async createStockAdjustment(data: Record<string, any>, queryable: Queryable): Promise<void> {

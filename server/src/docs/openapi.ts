@@ -212,6 +212,36 @@ export const openApiSpec = {
           },
         },
       },
+      IdempotencyConflict: {
+        type: 'object',
+        description:
+          'Returned when an Idempotency-Key is reused with a different payload, on a different ' +
+          'endpoint, or by a different user. Deliberately discloses nothing about the original ' +
+          'request: the caller replaying a key is not necessarily the caller that created it.',
+        properties: {
+          error: {
+            type: 'object',
+            properties: {
+              code: { type: 'string', example: 'CONFLICT' },
+              message: {
+                type: 'string',
+                example: 'This Idempotency-Key was already used for a different request.',
+              },
+              details: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    field: { type: 'string', example: 'idempotency-key' },
+                    code: { type: 'string', example: 'IDEMPOTENCY_KEY_REUSED' },
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       ApiError: {
         type: 'object',
         properties: {
@@ -231,6 +261,39 @@ export const openApiSpec = {
                 example: 'Invalid input data',
               },
             },
+          },
+        },
+      },
+    },
+    parameters: {
+      IdempotencyKey: {
+        name: 'Idempotency-Key',
+        in: 'header',
+        required: false,
+        description:
+          'Makes a retried request return the ORIGINAL outcome instead of creating a second one. ' +
+          'Non-empty printable ASCII, at most 255 characters; generate one per rung-up sale, not ' +
+          'per HTTP request, so a transport retry and an offline replay share it. A key identifies ' +
+          'a COMMITTED outcome and lives 24 hours: a failed mutation releases its key, so a ' +
+          'corrected retry under the same key runs normally. Optional while IDEMPOTENCY_REQUIRED ' +
+          'is false; a request without one behaves exactly as it did before idempotency existed.',
+        schema: { type: 'string', maxLength: 255, example: '0f6a2b1c-1d3e-4f50-9a7b-2c8d9e0f1a2b' },
+      },
+    },
+    headers: {
+      IdempotentReplay: {
+        description:
+          'Present and "true" when this response was replayed from a previous request with the ' +
+          'same Idempotency-Key. The status and body are byte-identical to the original.',
+        schema: { type: 'string', example: 'true' },
+      },
+    },
+    responses: {
+      IdempotencyKeyReused: {
+        description: 'Idempotency-Key reused for a different request',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/IdempotencyConflict' },
           },
         },
       },
@@ -1591,7 +1654,13 @@ export const openApiSpec = {
           'entries) are allowed. Omitting `payments` is the unchanged single-tender compatibility path: ' +
           'no `sale_payments` rows are created and no sum check applies. A mismatched/invalid split is ' +
           'rejected with `400 VALIDATION_ERROR` and a `details[].code` of `SPLIT_PAYMENT_MISMATCH`, and ' +
-          'persists nothing (no sale, items, payments, or register movement).',
+          'persists nothing (no sale, items, payments, or register movement).\n\n' +
+          '**Idempotency:** supply an `Idempotency-Key` header to make a retry return the original ' +
+          'sale instead of ringing up a second one. A replayed response is byte-identical and carries ' +
+          '`Idempotent-Replay: true`; it also suppresses the sale notification and the audit entry, so ' +
+          'a retry never sends a second SMS. Reusing a key with a different cart returns 409 ' +
+          '`IDEMPOTENCY_KEY_REUSED` and creates no sale.',
+        parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }],
         security: [
           {
             BearerAuth: [],
@@ -1632,8 +1701,12 @@ export const openApiSpec = {
           },
         },
         responses: {
-          '200': {
+          '409': { $ref: '#/components/responses/IdempotencyKeyReused' },
+          '201': {
             description: 'Successful operation',
+            headers: {
+              'Idempotent-Replay': { $ref: '#/components/headers/IdempotentReplay' },
+            },
             content: {
               'application/json': {
                 schema: {
@@ -1775,6 +1848,7 @@ export const openApiSpec = {
           },
         ],
         parameters: [
+          { $ref: '#/components/parameters/IdempotencyKey' },
           {
             name: 'id',
             in: 'path',
@@ -1797,8 +1871,12 @@ export const openApiSpec = {
           },
         },
         responses: {
-          '200': {
+          '409': { $ref: '#/components/responses/IdempotencyKeyReused' },
+          '201': {
             description: 'Successful operation',
+            headers: {
+              'Idempotent-Replay': { $ref: '#/components/headers/IdempotentReplay' },
+            },
             content: {
               'application/json': {
                 schema: {
@@ -2572,7 +2650,15 @@ export const openApiSpec = {
       post: {
         tags: ['POS Exchanges'],
         summary: 'Create / Submit Exchanges (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
+        description:
+          'Endpoint classification: M. Allowed Roles: Admin, Cashier.\n\n' +
+          '**Stock is now guarded.** A `new_items` line exceeding available stock is rejected with ' +
+          '`400 VALIDATION_ERROR` and persists nothing — no exchange, no returned-item restock. ' +
+          'Previously such a request succeeded and drove stock negative.\n\n' +
+          '**Idempotency:** supply an `Idempotency-Key` header to make a retry return the original ' +
+          'exchange instead of processing a second one. A replayed response is byte-identical and ' +
+          'carries `Idempotent-Replay: true`.',
+        parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }],
         security: [
           {
             BearerAuth: [],
@@ -2590,8 +2676,12 @@ export const openApiSpec = {
           },
         },
         responses: {
-          '200': {
+          '409': { $ref: '#/components/responses/IdempotencyKeyReused' },
+          '201': {
             description: 'Successful operation',
+            headers: {
+              'Idempotent-Replay': { $ref: '#/components/headers/IdempotentReplay' },
+            },
             content: {
               'application/json': {
                 schema: {
@@ -7364,6 +7454,7 @@ export const openApiSpec = {
           },
         ],
         parameters: [
+          { $ref: '#/components/parameters/IdempotencyKey' },
           {
             name: 'code',
             in: 'path',
@@ -7386,8 +7477,12 @@ export const openApiSpec = {
           },
         },
         responses: {
+          '409': { $ref: '#/components/responses/IdempotencyKeyReused' },
           '200': {
             description: 'Successful operation',
+            headers: {
+              'Idempotent-Replay': { $ref: '#/components/headers/IdempotentReplay' },
+            },
             content: {
               'application/json': {
                 schema: {

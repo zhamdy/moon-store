@@ -21,6 +21,13 @@ export interface TransportRequest {
    * reach past it to `fetch` and lose the token-refresh retry.
    */
   responseType?: 'json' | 'blob';
+  /**
+   * Sent as the `Idempotency-Key` header. Stamped once per checkout attempt
+   * rather than per request, so a transport-level retry (after a token
+   * refresh) and an offline replay collapse onto the same key and the server
+   * returns the original outcome instead of creating a second sale.
+   */
+  idempotencyKey?: string;
 }
 
 export interface TransportResult<T> {
