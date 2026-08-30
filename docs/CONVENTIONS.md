@@ -254,12 +254,33 @@ refunds. Neither fits in one conditional write, so lock the parent row (`coupons
 `sales`) and let it serialize the counters. Consuming paths only — a preview that takes a
 lock blocks live checkouts for no benefit.
 
-**3. Touch resources in one canonical order:** `idempotency_keys` → `products` /
-`product_variants` (ascending by id) → `coupons` → `customers` → `gift_cards` → `sales` →
-`register_sessions`. Two concurrent multi-line checkouts naming the same products in
-opposite request order would otherwise deadlock; sorting the write phase removes the
-cycle. `withTransaction` also accepts an opt-in bounded retry on SQLSTATE `40001`/`40P01`,
-but only for callbacks with no non-transactional side effect — it re-runs them.
+**3. Take locks in an order that cannot cycle against any other path.**
+
+The rule that is mechanically enforced: **all product and variant rows a transaction
+touches are locked in one pass, sorted by `sortForStockWrites`**
+(`server/src/modules/pos/stockWriteOrder.ts`). Every path that mutates stock must route
+through that one comparator — two concurrent checkouts naming the same products in
+opposite request order would otherwise deadlock. A path with more than one stock phase
+(an exchange restocks returns and deducts new items) must sort the **combined** set;
+sorting each phase separately still lets two callers interleave them in opposite order.
+
+The order the paths actually take across resource *kinds* is per-path, not global:
+
+| Path | Order |
+| --- | --- |
+| checkout | `idempotency_keys` → `coupons` (FOR UPDATE) → `sales` → `products`/`variants` → `customers` → `register_sessions` |
+| refund | `idempotency_keys` → `sales` (FOR UPDATE) → `products` → `register_sessions` |
+| exchange | `idempotency_keys` → `exchanges` → `products`/`variants` |
+| gift card | `idempotency_keys` → `gift_cards` |
+
+These do not cycle against each other today, because no two of them take the same pair of
+kinds in opposite order. That is a weaker invariant than a single global order, so when
+adding a path, check it against this table rather than assuming one exists.
+
+`withTransaction` accepts an opt-in bounded retry on SQLSTATE `40001`/`40P01`, enabled by
+`withIdempotency` for the whole business transaction. It re-runs the callback, so it is
+only safe while every non-transactional side effect stays in the controller, after the
+transaction — which is also why notifications and audit writes live there.
 
 **Retry-prone mutations take an `Idempotency-Key`.** Wrap them in `withIdempotency`
 (`server/src/http/idempotency.ts`), which claims the key as the first statement inside the

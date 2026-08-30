@@ -6,8 +6,26 @@
  * concurrency and idempotency proof into a green no-op. This asserts they actually ran.
  */
 import fs from 'fs';
+import path from 'path';
 
-const REQUIRED_SUITE_PATTERN = /tests[/\\](support[/\\]realPostgres|concurrency[/\\])/;
+/**
+ * Discovered rather than pattern-matched against a couple of directories: a guard that
+ * only knows about `concurrency/` silently stops covering the next real-PostgreSQL suite
+ * someone adds elsewhere, which is exactly the failure it exists to prevent.
+ */
+function findGuardedSuites(dir, found = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      findGuardedSuites(full, found);
+    } else if (entry.name.endsWith('.test.ts')) {
+      if (fs.readFileSync(full, 'utf8').includes('describeWithPostgres')) {
+        found.push(path.resolve(full));
+      }
+    }
+  }
+  return found;
+}
 
 const reportPath = process.argv[2];
 
@@ -17,12 +35,24 @@ if (!reportPath || !fs.existsSync(reportPath)) {
 }
 
 const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-const suites = (report.testResults ?? []).filter((s) => REQUIRED_SUITE_PATTERN.test(s.name));
 
-if (suites.length === 0) {
-  console.error('[ci-guard] No real-PostgreSQL suite files were found in the vitest report.');
+const expected = findGuardedSuites(path.resolve('tests'));
+if (expected.length === 0) {
+  console.error('[ci-guard] No describeWithPostgres suites found under tests/.');
   process.exit(1);
 }
+
+const reported = new Map((report.testResults ?? []).map((s) => [path.resolve(s.name), s]));
+const missing = expected.filter((f) => !reported.has(f));
+if (missing.length > 0) {
+  console.error('[ci-guard] These real-PostgreSQL suites are absent from the vitest report:');
+  for (const f of missing) {
+    console.error(`  - ${path.relative(process.cwd(), f)}`);
+  }
+  process.exit(1);
+}
+
+const suites = expected.map((f) => reported.get(f));
 
 let executed = 0;
 const skipped = [];

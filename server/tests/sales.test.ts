@@ -1498,8 +1498,9 @@ describe('Unit 4 - OpenAPI documentation: additive confirmed response is scoped 
   });
 
   it('documents the additive calculation/items/payments fields on the confirmed create response', () => {
+    // 201, matching what the controller actually returns; the spec previously said 200.
     const dataSchema =
-      salesPost.responses['200'].content['application/json'].schema.properties.data;
+      salesPost.responses['201'].content['application/json'].schema.properties.data;
     expect(dataSchema.properties.calculation.$ref).toBe(
       '#/components/schemas/SaleCalculationSnapshot'
     );

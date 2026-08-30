@@ -1702,7 +1702,7 @@ export const openApiSpec = {
         },
         responses: {
           '409': { $ref: '#/components/responses/IdempotencyKeyReused' },
-          '200': {
+          '201': {
             description: 'Successful operation',
             headers: {
               'Idempotent-Replay': { $ref: '#/components/headers/IdempotentReplay' },
@@ -1872,7 +1872,7 @@ export const openApiSpec = {
         },
         responses: {
           '409': { $ref: '#/components/responses/IdempotencyKeyReused' },
-          '200': {
+          '201': {
             description: 'Successful operation',
             headers: {
               'Idempotent-Replay': { $ref: '#/components/headers/IdempotentReplay' },
@@ -2650,7 +2650,14 @@ export const openApiSpec = {
       post: {
         tags: ['POS Exchanges'],
         summary: 'Create / Submit Exchanges (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
+        description:
+          'Endpoint classification: M. Allowed Roles: Admin, Cashier.\n\n' +
+          '**Stock is now guarded.** A `new_items` line exceeding available stock is rejected with ' +
+          '`400 VALIDATION_ERROR` and persists nothing — no exchange, no returned-item restock. ' +
+          'Previously such a request succeeded and drove stock negative.\n\n' +
+          '**Idempotency:** supply an `Idempotency-Key` header to make a retry return the original ' +
+          'exchange instead of processing a second one. A replayed response is byte-identical and ' +
+          'carries `Idempotent-Replay: true`.',
         parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }],
         security: [
           {
@@ -2670,7 +2677,7 @@ export const openApiSpec = {
         },
         responses: {
           '409': { $ref: '#/components/responses/IdempotencyKeyReused' },
-          '200': {
+          '201': {
             description: 'Successful operation',
             headers: {
               'Idempotent-Replay': { $ref: '#/components/headers/IdempotentReplay' },

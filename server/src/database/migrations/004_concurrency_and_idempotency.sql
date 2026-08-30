@@ -2,8 +2,18 @@
 -- Unit 2 of the POS concurrency/idempotency fix (see
 -- docs/plans/2026-08-30-002-fix-pos-concurrency-idempotency-plan.md, "Unit 2").
 --
--- Two additions, both additive and online — a new table plus four NOT VALID
--- check constraints. No table rewrite, no lock on a large table.
+-- Two additions: a new table plus four NOT VALID check constraints. Neither
+-- rewrites a table, and NOT VALID skips the full-table validation scan.
+--
+-- It is NOT, however, a lock-free operation. ADD CONSTRAINT still takes an
+-- ACCESS EXCLUSIVE lock on the target table to write the catalog entry --
+-- NOT VALID removes the scan, and therefore how LONG the lock is held, but not
+-- the lock itself. On a live POS these four tables are exactly the ones
+-- checkout, refund, and redemption hold open transactions against, and a
+-- waiting ACCESS EXCLUSIVE queues every later reader behind it. So each ALTER
+-- runs under a short lock_timeout: if a till is mid-checkout, this migration
+-- fails fast and can be re-run, instead of stalling the shop. Prefer a quiet
+-- window anyway.
 --
 -- 1. `idempotency_keys` — a caller-supplied Idempotency-Key claims a row as the
 --    FIRST statement inside the business transaction. The unique primary key on
@@ -44,6 +54,11 @@
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   key TEXT PRIMARY KEY,
   endpoint TEXT NOT NULL,
+  -- Known narrow gap: deleting a user nulls this column, and a replay compares it
+  -- against the live caller's id, so a retry of that user's own claim inside the 24h
+  -- TTL would be answered with a conflict instead of the stored outcome. Deleting a
+  -- user mid-TTL while their token is still valid is rare enough to accept; the
+  -- alternative (RESTRICT) would block user deletion on unrelated key rows.
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   request_fingerprint TEXT NOT NULL,
   response_status INTEGER,
@@ -66,6 +81,10 @@ CREATE INDEX IF NOT EXISTS idx_idempotency_keys_expires_at ON idempotency_keys (
 -- Lets an operator trace a key back to the row it produced without parsing JSON.
 CREATE INDEX IF NOT EXISTS idx_idempotency_keys_resource
   ON idempotency_keys (resource_type, resource_id);
+
+-- Bounds only the catalog lock each ALTER waits for. The whole file already runs
+-- in one transaction, so SET LOCAL reverts at COMMIT.
+SET LOCAL lock_timeout = '3s';
 
 -- ADD CONSTRAINT has no IF NOT EXISTS. It does not need one: the migration
 -- runner applies each file at most once, and the paired .down.sql drops these,
