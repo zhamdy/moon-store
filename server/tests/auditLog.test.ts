@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { newDb } from 'pg-mem';
 import type { Pool as PgPool } from 'pg';
 import path from 'path';
+import { createPgMemPool } from './support/pgMem';
 import { parseAuditLogListQuery } from '../src/modules/core/auditLog/types';
 import { AuditLogRepository } from '../src/modules/core/auditLog/repository';
 import { runMigrationsUp } from '../src/database/migrate';
@@ -41,9 +41,7 @@ describe('Audit Log repository', () => {
   let testPool: PgPool;
 
   beforeAll(async () => {
-    const memory = newDb({ noAstCoverageCheck: true });
-    const { Pool } = memory.adapters.createPg();
-    testPool = new Pool() as unknown as PgPool;
+    testPool = createPgMemPool();
     await runMigrationsUp(testPool, path.join(__dirname, '../src/database/migrations'));
     await testPool.query(
       `INSERT INTO audit_log (user_id, user_name, action, entity_type, entity_id, details, created_at)

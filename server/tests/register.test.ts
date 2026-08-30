@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import type { Request, Response } from 'express';
-import { newDb } from 'pg-mem';
 import { Pool as PgPool } from 'pg';
 import path from 'path';
+import { createPgMemPool } from './support/pgMem';
 import { parseSessionHistoryQuery } from '../src/modules/pos/register/types';
 import { RegisterController } from '../src/modules/pos/register/controller';
 import { RegisterService, IRegisterService } from '../src/modules/pos/register/service';
@@ -74,9 +74,7 @@ describe('RegisterService.recordSaleMovement - transaction threading', () => {
   const service = new RegisterService(repo);
 
   beforeAll(async () => {
-    const memDb = newDb({ noAstCoverageCheck: true });
-    const { Pool } = memDb.adapters.createPg();
-    testPool = new Pool() as unknown as PgPool;
+    testPool = createPgMemPool();
     setPool(testPool);
 
     const migrationsDir = path.join(__dirname, '../src/database/migrations');

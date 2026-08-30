@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { newDb } from 'pg-mem';
 import { Pool as PgPool } from 'pg';
 import path from 'path';
+import { createPgMemPool } from '../support/pgMem';
 import {
   runMigrationsUp,
   runMigrationsDown,
@@ -14,9 +14,7 @@ describe('PostgreSQL Migration Runner', () => {
   const migrationsDir = path.join(__dirname, '../../src/database/migrations');
 
   beforeEach(() => {
-    const memDb = newDb({ noAstCoverageCheck: true });
-    const { Pool } = memDb.adapters.createPg();
-    memPool = new Pool() as unknown as PgPool;
+    memPool = createPgMemPool();
   });
 
   afterEach(async () => {
@@ -49,6 +47,7 @@ describe('PostgreSQL Migration Runner', () => {
       '001_initial_schema.sql',
       '002_checkout_financial_contract.sql',
       '003_sale_calculation_snapshot.sql',
+      '004_concurrency_and_idempotency.sql',
     ]);
   });
 
@@ -60,8 +59,9 @@ describe('PostgreSQL Migration Runner', () => {
 
   it('should rollback migrations with down runner', async () => {
     await runMigrationsUp(memPool, migrationsDir);
-    const rolledBack = await runMigrationsDown(3, memPool, migrationsDir);
+    const rolledBack = await runMigrationsDown(4, memPool, migrationsDir);
     expect(rolledBack).toEqual([
+      '004_concurrency_and_idempotency.sql',
       '003_sale_calculation_snapshot.sql',
       '002_checkout_financial_contract.sql',
       '001_initial_schema.sql',
@@ -77,9 +77,7 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
   const migrationsDir = path.join(__dirname, '../../src/database/migrations');
 
   beforeEach(() => {
-    const memDb = newDb({ noAstCoverageCheck: true });
-    const { Pool } = memDb.adapters.createPg();
-    memPool = new Pool() as unknown as PgPool;
+    memPool = createPgMemPool();
   });
 
   afterEach(async () => {
@@ -99,6 +97,7 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
       '001_initial_schema.sql',
       '002_checkout_financial_contract.sql',
       '003_sale_calculation_snapshot.sql',
+      '004_concurrency_and_idempotency.sql',
     ]);
 
     const applied = await getAppliedMigrations(memPool);
@@ -106,6 +105,7 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
       '001_initial_schema.sql',
       '002_checkout_financial_contract.sql',
       '003_sale_calculation_snapshot.sql',
+      '004_concurrency_and_idempotency.sql',
     ]);
   });
 
@@ -123,9 +123,7 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
     // alias settings, then run the remaining migrations (002).
     await memPool.end();
 
-    const memDb = newDb({ noAstCoverageCheck: true });
-    const { Pool } = memDb.adapters.createPg();
-    const upgradePool = new Pool() as unknown as PgPool;
+    const upgradePool = createPgMemPool();
 
     const fs = await import('fs');
     const sql001 = fs.readFileSync(path.join(migrationsDir, '001_initial_schema.sql'), 'utf8');
@@ -141,6 +139,7 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
     expect(applied).toEqual([
       '002_checkout_financial_contract.sql',
       '003_sale_calculation_snapshot.sql',
+      '004_concurrency_and_idempotency.sql',
     ]);
 
     const settings = await settingsMap(upgradePool);
@@ -156,9 +155,7 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
   it('precedence: canonical and alias both exist -> canonical value wins deterministically', async () => {
     await memPool.end();
 
-    const memDb = newDb({ noAstCoverageCheck: true });
-    const { Pool } = memDb.adapters.createPg();
-    const upgradePool = new Pool() as unknown as PgPool;
+    const upgradePool = createPgMemPool();
 
     const fs = await import('fs');
     const sql001 = fs.readFileSync(path.join(migrationsDir, '001_initial_schema.sql'), 'utf8');
@@ -187,9 +184,7 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
   it('down migration preserves a pre-existing canonical value (no destructive rollback)', async () => {
     await memPool.end();
 
-    const memDb = newDb({ noAstCoverageCheck: true });
-    const { Pool } = memDb.adapters.createPg();
-    const upgradePool = new Pool() as unknown as PgPool;
+    const upgradePool = createPgMemPool();
 
     const fs = await import('fs');
     const sql001 = fs.readFileSync(path.join(migrationsDir, '001_initial_schema.sql'), 'utf8');
@@ -201,10 +196,11 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
     );
 
     await runMigrationsUp(upgradePool, migrationsDir);
-    // Roll back both 003 (unrelated to loyalty settings) and 002 (the
-    // migration under test) to exercise 002's down migration specifically.
-    const rolledBack = await runMigrationsDown(2, upgradePool, migrationsDir);
+    // Roll back 004 and 003 (both unrelated to loyalty settings) down to and
+    // including 002, to exercise 002's down migration specifically.
+    const rolledBack = await runMigrationsDown(3, upgradePool, migrationsDir);
     expect(rolledBack).toEqual([
+      '004_concurrency_and_idempotency.sql',
       '003_sale_calculation_snapshot.sql',
       '002_checkout_financial_contract.sql',
     ]);

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
-import { newDb } from 'pg-mem';
 import { Pool as PgPool } from 'pg';
 import path from 'path';
 import fs from 'fs';
+import { createPgMemPool } from './support/pgMem';
 import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
 import {
@@ -133,9 +133,7 @@ describe('Sales - List Contract', () => {
 let testPool: PgPool;
 
 beforeAll(async () => {
-  const memDb = newDb({ noAstCoverageCheck: true });
-  const { Pool } = memDb.adapters.createPg();
-  testPool = new Pool() as unknown as PgPool;
+  testPool = createPgMemPool();
   setPool(testPool);
 
   const migrationsDir = path.join(__dirname, '../src/database/migrations');

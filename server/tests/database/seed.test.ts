@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { newDb } from 'pg-mem';
 import { Pool as PgPool } from 'pg';
 import path from 'path';
+import { createPgMemPool } from '../support/pgMem';
 import { runMigrationsUp } from '../../src/database/migrate';
 import { seedDatabase } from '../../src/database/seed';
 
@@ -10,9 +10,7 @@ describe('PostgreSQL Seed System', () => {
   const migrationsDir = path.join(__dirname, '../../src/database/migrations');
 
   beforeEach(async () => {
-    const memDb = newDb({ noAstCoverageCheck: true });
-    const { Pool } = memDb.adapters.createPg();
-    memPool = new Pool() as unknown as PgPool;
+    memPool = createPgMemPool();
     await runMigrationsUp(memPool, migrationsDir);
   });
 
