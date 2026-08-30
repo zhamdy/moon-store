@@ -13,3 +13,6 @@ nul
 .playwright-mcp/
 .tanstack/
 *.tsbuildinfo
+
+# vitest JSON report, written by CI to check the real-PostgreSQL suites actually ran
+vitest-report.json

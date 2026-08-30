@@ -211,17 +211,65 @@ router.get('/stats/summary', handler);  // never reached
 
 ### Database Queries
 
-```typescript
-// pg-compatible wrapper (async, returns { rows })
-const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+PostgreSQL via `pg`. Every mutation routes through `withTransaction`, which accepts an
+already-open client so a service can join its caller's transaction rather than opening a
+second one.
 
-// Raw better-sqlite3 for transactions
-const rawDb = db.db;
-rawDb.transaction(() => {
-  rawDb.prepare('INSERT INTO ...').run(...);
-  rawDb.prepare('UPDATE ...').run(...);
-})();
+```typescript
+const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+
+await withTransaction(async (client) => {
+  await repo.createSale(data, client);
+  await repo.createSaleItem(item, client);
+});
 ```
+
+### Concurrency and idempotency
+
+The pool runs at `READ COMMITTED`. That is atomic against torn writes but **not** against
+lost updates, so these three rules are what keep quantities and balances correct. The next
+read-then-write is the next oversell.
+
+**1. Never write a quantity or balance you read earlier in the same request.**
+
+```typescript
+// WRONG — two concurrent callers both read 5, both write 3, and four units vanish.
+const product = await repo.getProductById(id, client);
+if (product.stock < qty) throw new Error('Insufficient stock');
+await repo.updateProductStock(id, product.stock - qty, client);
+
+// RIGHT — one statement decides. rowCount 0 means it did not fit.
+// Cast the parameter: pg-mem inverts `column - $1` unless it is typed.
+const newStock = await repo.decrementProductStock(id, qty, client);
+if (newStock === null) throw new InsufficientStockError(...);
+```
+
+An earlier check may stay as a fail-fast courtesy — a better error, sooner — but it is
+advisory. The guarded write is the authority, and the audit trail derives from its
+`RETURNING` value, not from the earlier read.
+
+**2. Reach for `SELECT ... FOR UPDATE` only when the invariant spans rows.** Coupon
+`max_uses` counts rows in `coupon_usage`; a cumulative refund compares against sibling
+refunds. Neither fits in one conditional write, so lock the parent row (`coupons`,
+`sales`) and let it serialize the counters. Consuming paths only — a preview that takes a
+lock blocks live checkouts for no benefit.
+
+**3. Touch resources in one canonical order:** `idempotency_keys` → `products` /
+`product_variants` (ascending by id) → `coupons` → `customers` → `gift_cards` → `sales` →
+`register_sessions`. Two concurrent multi-line checkouts naming the same products in
+opposite request order would otherwise deadlock; sorting the write phase removes the
+cycle. `withTransaction` also accepts an opt-in bounded retry on SQLSTATE `40001`/`40P01`,
+but only for callbacks with no non-transactional side effect — it re-runs them.
+
+**Retry-prone mutations take an `Idempotency-Key`.** Wrap them in `withIdempotency`
+(`server/src/http/idempotency.ts`), which claims the key as the first statement inside the
+business transaction so the claim shares its fate: a commit makes the outcome replayable,
+a failure releases the key. Keep slow work (notifications, audit writes, external calls)
+outside the transaction, and suppress it on a replay — see `SalesController.createSale`.
+
+The header is optional while `IDEMPOTENCY_REQUIRED` is false. See `CLAUDE.md` for the
+compatibility window and for running the real-PostgreSQL suites, which are the only place
+these invariants can actually be proven.
 
 ### Response Format
 
