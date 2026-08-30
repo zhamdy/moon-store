@@ -533,6 +533,7 @@
   "settings.saveFailed": "فشل حفظ الإعدادات",
 
   "tax.vat": "ضريبة القيمة المضافة",
+  "tax.included": "(شامل)",
 
   "loyalty.title": "برنامج الولاء",
   "loyalty.enabled": "تفعيل نقاط الولاء",
@@ -600,6 +601,7 @@
   "offline.offlineBanner": "أنت غير متصل بالإنترنت.",
   "offline.queuedForSync": "{count} عنصر(عناصر) في انتظار المزامنة.",
   "offline.synced": "تمت مزامنة {count} عملية بيع",
+  "offline.splitMismatch": "{count} عملية بيع في الانتظار لم تعد متوازنة -- يرجى المراجعة قبل إعادة المحاولة",
 
   "pwa.installApp": "تثبيت تطبيق MOON",
   "pwa.installDesc": "ثبّت التطبيق للوصول السريع والعمل بدون إنترنت",
@@ -727,6 +729,8 @@
   "cart.addMemo": "إضافة ملاحظة",
   "cart.memoPlaceholder": "ملاحظة للصنف...",
   "cart.recoveredCart": "لديك أصناف غير محفوظة من جلسة سابقة",
+  "cart.needsReviewWarning": "تم استرجاع هذه السلة من جلسة سابقة أو من سلة معلّقة. يرجى مراجعة الخصم والإكرامية والكوبون قبل الدفع -- يجب إعادة تطبيق أي كوبون.",
+  "cart.needsReviewAcknowledge": "تمت المراجعة",
   "cart.keepCart": "الاحتفاظ",
   "cart.discardCart": "تجاهل",
 

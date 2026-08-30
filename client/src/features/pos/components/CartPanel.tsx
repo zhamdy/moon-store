@@ -30,7 +30,7 @@ import {
   Divider,
 } from '@heroui/react';
 import { useCartStore } from '../store/cartStore';
-import { useOfflineStore } from '../../../shared/store/offlineStore';
+import { useOfflineStore, SALE_QUEUE_CONTRACT_VERSION } from '../../../shared/store/offlineStore';
 import { useHeldCartsStore } from '../store/heldCartsStore';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
@@ -41,7 +41,7 @@ import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { calculateTotals, allocateSplit, type TaxMode } from '../../../shared/lib/checkout';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { ReceiptData } from '../../../shared/components/Receipt';
+import type { ReceiptData, ReceiptItem, ReceiptPayment } from '../../../shared/components/Receipt';
 import type { AppSettings, Customer } from '../../../shared/types/index';
 
 const customers = resource<Customer>('customers');
@@ -80,17 +80,56 @@ interface CustomerLoyalty {
   points: number;
 }
 
+/** A resolved sale line as the server actually persisted it (Unit 4's
+ * `resolvedItems` -- authoritative product/variant identity, quantity and
+ * price; no product name, which is why the receipt looks names up against
+ * the cart the cashier just rang up, display-only, never for a monetary
+ * figure). */
+interface ConfirmedSaleItem {
+  product_id: number;
+  variant_id?: number | null;
+  quantity: number;
+  unit_price: number;
+  memo?: string | null;
+}
+
+/** A validated payment entry exactly as persisted (`ConfirmedPayment` in
+ * server/src/modules/pos/sales/types.ts). */
+interface ConfirmedSalePayment {
+  method: string;
+  amount: number;
+}
+
+/** Mirrors the server's immutable `SaleCalculationSnapshot` (Units 2/4) --
+ * see client/src/shared/components/Receipt.tsx's `ReceiptCalculation`, which
+ * this is mapped into 1:1. Every figure is the CONFIRMED, persisted amount
+ * for this sale; the receipt renders these directly rather than the client's
+ * own (possibly stale-by-then) preview. */
+interface ConfirmedSaleCalculation {
+  subtotal: number;
+  manualDiscount: number;
+  couponDiscount: number;
+  pointsDiscount: number;
+  taxAmount: number;
+  taxMode: 'inclusive' | 'exclusive';
+  taxRatePercent: number;
+  tipAmount: number;
+  amountDue: number;
+}
+
 /** What POST /api/v1/sales hands back, as far as the receipt needs it. */
 interface SaleResponse {
   id: number;
-  items?: { product_name: string; quantity: number; unit_price: number }[];
   discount?: number;
   discount_type?: string;
   total: number;
-  tax_amount?: number;
   payment_method: string;
   cashier_name?: string;
   created_at: string;
+  /** Additive since Unit 4 -- present on every response from this branch's server. */
+  calculation?: ConfirmedSaleCalculation;
+  items?: ConfirmedSaleItem[];
+  payments?: ConfirmedSalePayment[];
 }
 
 /** What POST /api/v1/coupons/validate hands back, as far as the cart needs it. */
@@ -124,6 +163,8 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     getSubtotal,
     getTotal,
     clearCart,
+    needsReview,
+    acknowledgeReview,
   } = useCartStore();
   const { addToQueue } = useOfflineStore();
   const { carts: heldCarts, holdCart } = useHeldCartsStore();
@@ -252,29 +293,51 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       transport.request<SaleResponse>({ method: 'POST', path: 'sales', body: saleData }),
     onSuccess: (response) => {
       const sale = response.data;
-      const receiptItems = (sale.items || []).map(
-        (item: { product_name: string; quantity: number; unit_price: number }) => ({
-          name: item.product_name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-        })
+      const calc = sale.calculation;
+
+      // Display name only -- looked up against the cart the cashier just
+      // rang up (captured here, before `clearCart()` below empties it). Every
+      // MONETARY figure in the receipt (quantity, unit_price, every
+      // calculation line, total, payments) comes solely from `sale`/`calc`,
+      // the server's confirmed response -- never recomputed client-side. The
+      // server's resolved line items (Unit 4) carry product/variant identity
+      // and price but not the product name, so this lookup is purely
+      // cosmetic and never substitutes for a server-confirmed amount.
+      const nameByLine = new Map(
+        items.map((i) => [`${i.product_id}:${i.variant_id ?? 0}`, i.name])
       );
-      const subtotal = receiptItems.reduce(
-        (sum: number, item: { unit_price: number; quantity: number }) =>
-          sum + item.unit_price * item.quantity,
-        0
-      );
+      const receiptItems: ReceiptItem[] = (sale.items ?? []).map((item) => ({
+        name: nameByLine.get(`${item.product_id}:${item.variant_id ?? 0}`) ?? item.memo ?? '',
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      }));
+
+      const receiptPayments: ReceiptPayment[] =
+        sale.payments && sale.payments.length > 0
+          ? sale.payments
+          : [{ method: sale.payment_method, amount: calc?.amountDue ?? sale.total }];
 
       const newReceipt: ReceiptData = {
         saleId: sale.id,
         items: receiptItems,
-        subtotal,
-        discount: sale.discount || 0,
-        discountType: sale.discount_type || 'fixed',
-        total: sale.total,
-        taxAmount: sale.tax_amount || 0,
-        taxRate: taxInfo.enabled ? taxInfo.rate : 0,
-        paymentMethod: sale.payment_method,
+        discountType: sale.discount_type || discountType,
+        discountValue: sale.discount ?? discount,
+        couponCode: couponCode || undefined,
+        // `calc` is additive-but-guaranteed within this branch (Unit 4 ships
+        // alongside this unit); the fallback only guards a response shaped
+        // like the pre-Unit-4 contract so the receipt never crashes.
+        calculation: calc ?? {
+          subtotal: receiptItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0),
+          manualDiscount: 0,
+          couponDiscount: 0,
+          pointsDiscount: 0,
+          taxAmount: 0,
+          taxMode: taxInfo.mode,
+          taxRatePercent: taxInfo.rate,
+          tipAmount: 0,
+          amountDue: sale.total,
+        },
+        payments: receiptPayments,
         cashierName: sale.cashier_name || '',
         customerName: selectedCustomer?.name,
         date: sale.created_at,
@@ -308,7 +371,15 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           payment_method: paymentMethod,
           ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
         };
-        addToQueue({ type: 'sale', payload: saleData as unknown as Record<string, unknown> });
+        addToQueue({
+          type: 'sale',
+          payload: saleData as unknown as Record<string, unknown>,
+          // Stamps this entry as composed under the current (corrected)
+          // checkout contract, so useOffline.ts's replay never quarantines
+          // it. A legacy entry already sitting in a user's queue from before
+          // this deploy has no such field and is left for manual review.
+          contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+        });
         toast.success(t('cart.savedOffline'));
         clearCart();
         setCheckoutOpen(false);
@@ -374,7 +445,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const handleHoldCart = () => {
     if (items.length === 0) return;
     const name = `Cart #${heldCarts.length + 1}`;
-    holdCart(name, items, discount, discountType);
+    // couponDiscount is deliberately NOT passed through -- a held cart never
+    // stores a cached discount amount; it must be revalidated on retrieval
+    // (see heldCartsStore.ts / cartStore.restoreFromHeld).
+    holdCart(name, items, discount, discountType, { notes, tip, couponCode });
     clearCart();
     toast.success(t('cart.holdSuccess'));
   };
@@ -435,6 +509,20 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           )}
         </div>
       </div>
+
+      {/* Recovered/restored cart review banner (Unit 6 cart-schema migration --
+          see cartStore.ts's `needsReview`). Distinct from POS.tsx's
+          time-based `isRecoveredCart()` banner: this one is set explicitly by
+          a v0->v1 migration or a held-cart restore, and is cleared only by
+          the cashier acknowledging it. */}
+      {needsReview && (
+        <div className="mx-4 mt-3 p-3 rounded-lg border border-warning/40 bg-warning/10 flex items-start gap-2">
+          <p className="text-xs text-foreground flex-1">{t('cart.needsReviewWarning')}</p>
+          <Button size="sm" variant="flat" color="warning" onClick={acknowledgeReview}>
+            {t('cart.needsReviewAcknowledge')}
+          </Button>
+        </div>
+      )}
 
       {/* Items */}
       <div ref={animateParent} className="flex-1 overflow-y-auto p-4 space-y-2">

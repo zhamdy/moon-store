@@ -21,8 +21,11 @@ const SILK_DRESS = {
 
 /**
  * The memory transport echoes a POST body back as the created row, but a real
- * sale returns server-side columns the receipt reads. Those are layered on so
- * the success path completes; every assertion here is about the request.
+ * sale returns the additive `calculation`/`items`/`payments` fields (Unit 4)
+ * the receipt is built from. Those are layered on so the success path
+ * completes with a realistic confirmed response; request-shape assertions
+ * are unaffected, and receipt-construction tests assert against these exact
+ * confirmed values.
  */
 function withSaleReply(memory: MemoryTransport): MemoryTransport {
   return {
@@ -36,6 +39,23 @@ function withSaleReply(memory: MemoryTransport): MemoryTransport {
             total: 480,
             cashier_name: 'Sarah',
             created_at: '2026-02-01T10:00:00.000Z',
+            // Deliberately DIFFERENT numbers than a naive client recomputation
+            // from the cart (discount 10%, tip 5, coupon 20 on a 500 subtotal
+            // would preview 425) -- proving the receipt renders the
+            // server-CONFIRMED breakdown, not a client-side reconstruction.
+            calculation: {
+              subtotal: 500,
+              manualDiscount: 50,
+              couponDiscount: 20,
+              pointsDiscount: 0,
+              taxAmount: 0,
+              taxMode: 'exclusive',
+              taxRatePercent: 0,
+              tipAmount: 5,
+              amountDue: 435,
+            },
+            items: [{ product_id: 7, variant_id: null, quantity: 2, unit_price: 250 }],
+            payments: [{ method: 'Cash', amount: 435 }],
           } as T,
         };
       }
@@ -124,6 +144,47 @@ describe('CartPanel checkout', () => {
     expect(useOfflineStore.getState().queue).toHaveLength(0);
   });
 
+  it('builds the receipt solely from the confirmed server response, not a client recomputation', async () => {
+    const transport = makeTransport();
+
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await openCheckout());
+
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+
+    // The confirmed amountDue (435), not the client preview total the cart
+    // would have shown pre-checkout for this same discount/tip/coupon combo.
+    expect(await screen.findByText('435 EG')).toBeInTheDocument();
+    // Manual discount amount from `calculation.manualDiscount` (50), not a
+    // client-recomputed 10% of the subtotal. (The closing checkout drawer can
+    // still show its own now-stale line as it animates out, so assert
+    // presence rather than uniqueness here.)
+    expect(screen.getAllByText('-50 EG').length).toBeGreaterThan(0);
+    // Coupon discount from the confirmed response.
+    expect(screen.getAllByText('-20 EG').length).toBeGreaterThan(0);
+    // Tip, added, from the confirmed response.
+    expect(screen.getAllByText('+5 EG').length).toBeGreaterThan(0);
+  });
+
+  it('stamps a new offline queue entry with the current contract version', async () => {
+    const transport = makeTransport();
+    const online = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine');
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+
+    try {
+      render(<CartPanel />, { wrapper: wrapperFor(transport) });
+
+      transport.failNext('', 500);
+      fireEvent.click(await openCheckout());
+
+      await waitFor(() => expect(useOfflineStore.getState().queue).toHaveLength(1));
+      expect(useOfflineStore.getState().queue[0].contractVersion).toBe('v1');
+    } finally {
+      if (online) Object.defineProperty(Navigator.prototype, 'onLine', online);
+    }
+  });
+
   it('queues the sale offline when the post fails with no connection', async () => {
     const transport = makeTransport();
     const online = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine');
@@ -152,5 +213,38 @@ describe('CartPanel checkout', () => {
     } finally {
       if (online) Object.defineProperty(Navigator.prototype, 'onLine', online);
     }
+  });
+});
+
+describe('CartPanel recovered-cart review banner', () => {
+  beforeEach(() => {
+    useSettingsStore.setState({ locale: 'en' });
+    useOfflineStore.setState({ queue: [], isSyncing: false });
+  });
+
+  it('shows a review banner for a cart flagged needsReview, and clears it on acknowledgement', async () => {
+    useCartStore.setState({ items: [SILK_DRESS], needsReview: true });
+    const transport = makeTransport();
+
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+
+    const banner = await screen.findByText(/review its discount, tip and coupon/i);
+    expect(banner).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reviewed' }));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/review its discount, tip and coupon/i)).not.toBeInTheDocument()
+    );
+    expect(useCartStore.getState().needsReview).toBe(false);
+  });
+
+  it('does not show the review banner for a normal cart', () => {
+    useCartStore.setState({ items: [SILK_DRESS], needsReview: false });
+    const transport = makeTransport();
+
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+
+    expect(screen.queryByText(/review its discount, tip and coupon/i)).not.toBeInTheDocument();
   });
 });
