@@ -39,11 +39,35 @@ export const IDEMPOTENCY_REPLAY_HEADER = 'Idempotent-Replay';
 /** Stable, client-matchable code for a key reused with different request details. */
 export const IDEMPOTENCY_KEY_REUSED = 'IDEMPOTENCY_KEY_REUSED';
 
+/**
+ * Distinct from {@link IDEMPOTENCY_KEY_REUSED}: nothing conflicts, we simply could not
+ * resolve the key against a settled outcome. Separate because the two demand opposite
+ * client behavior — a reused key must NOT be retried, this one should be.
+ */
+export const IDEMPOTENCY_UNRESOLVED = 'IDEMPOTENCY_UNRESOLVED';
+
+/**
+ * Bounds how long a duplicate blocks on the claim's unique index. Without it the wait is
+ * the winner's entire transaction, and each waiter holds a pooled connection meanwhile —
+ * so a storm of duplicates on one key could starve the pool for every other till. Failing
+ * fast turns that into a retryable error for the duplicate alone.
+ */
+const CLAIM_LOCK_TIMEOUT = '3s';
+
+/**
+ * The transaction rolls back wholesale on a deadlock, claim included, so a retry is a
+ * genuinely fresh attempt. Safe here specifically because the non-transactional side
+ * effects (notifications, audit) live in the controller, after this returns.
+ */
+const RETRY_DEADLOCKS = { retryOnSerializationFailure: true } as const;
+
 export const IDEMPOTENCY_KEY_TTL_HOURS = 24;
 
 const MAX_KEY_LENGTH = 255;
 const PRINTABLE_ASCII = /^[\x20-\x7E]+$/;
 const UNIQUE_VIOLATION = '23505';
+/** Raised when `lock_timeout` expires while waiting to acquire a lock. */
+const LOCK_NOT_AVAILABLE = '55P03';
 
 /**
  * Raised when a key arrives with a different payload, endpoint, or user than the one it
@@ -117,6 +141,40 @@ export function assertValidIdempotencyKey(key: string): void {
   }
 }
 
+/**
+ * Reads the caller's key off the request. Returns null when absent, which is what keeps
+ * every wrapped endpoint working unchanged for a till that has not been updated yet.
+ *
+ * Shared rather than per-controller: the header name, the repeated-header rule, and the
+ * absent-means-null contract have to be identical everywhere or the guarantee is uneven.
+ */
+export function readIdempotencyKey(req: {
+  headers: Record<string, string | string[] | undefined>;
+}): string | null {
+  const raw = req.headers[IDEMPOTENCY_HEADER];
+  if (Array.isArray(raw)) {
+    // A repeated header has no single unambiguous key; refusing beats guessing.
+    throw new PublicError('VALIDATION_ERROR', `Only one ${IDEMPOTENCY_HEADER} header is allowed.`);
+  }
+  return raw ?? null;
+}
+
+/**
+ * Translates an idempotency conflict into the public error every wrapped endpoint
+ * returns. Shared so the code, field, and status stay identical across them — a client
+ * branching on `details[].code` must not have to learn per-endpoint variants.
+ *
+ * Returns null when the error is not a conflict, so a controller can fall through.
+ */
+export function toIdempotencyPublicError(error: unknown): PublicError | null {
+  if (!(error instanceof IdempotencyConflictError)) {
+    return null;
+  }
+  return new PublicError('CONFLICT', error.message, [
+    { field: IDEMPOTENCY_HEADER, code: error.code, message: error.message },
+  ]);
+}
+
 /** What the wrapped mutation produced, and how it should be replayed later. */
 export interface IdempotentRun<T> {
   status: number;
@@ -177,7 +235,7 @@ export async function withIdempotency<T>(
       );
     }
     // Exactly today's behavior, minus the concurrency bugs: no row, no claim.
-    const outcome = await withTransaction(run);
+    const outcome = await withTransaction(run, undefined, RETRY_DEADLOCKS);
     return { status: outcome.status, body: outcome.body, replayed: false, result: outcome.result };
   }
 
@@ -237,9 +295,12 @@ export async function withIdempotency<T>(
   }
 
   // Two claim collisions in a row where the row then vanished each time. Refusing beats
-  // looping: the caller can retry the request itself.
+  // looping. This is transient and carries no conflicting request, so it must NOT reuse
+  // the reused-key code: a client that treats that code as permanent would give up on a
+  // request it should simply send again.
   throw new IdempotencyConflictError(
-    'Could not resolve this Idempotency-Key against a stable outcome. Please retry.'
+    'Could not resolve this Idempotency-Key against a stable outcome. Please retry.',
+    IDEMPOTENCY_UNRESOLVED
   );
 }
 
@@ -252,42 +313,62 @@ async function claimAndRun<T>(args: {
 }): Promise<IdempotentOutcome<T>> {
   const { key, endpoint, userId, fingerprint, run } = args;
 
-  const outcome = await withTransaction(async (client) => {
-    // FIRST statement in the transaction. A concurrent duplicate blocks here until this
-    // transaction ends, then either sees 23505 (we committed) or claims it (we rolled back).
-    try {
-      await client.query(
-        `INSERT INTO idempotency_keys (key, endpoint, user_id, request_fingerprint, expires_at)
+  const outcome = await withTransaction(
+    async (client) => {
+      // Bounds only the claim's own wait; cleared immediately after so the business
+      // callback's own statements are not held to a lock budget meant for the claim.
+      await client.query(`SET LOCAL lock_timeout = '${CLAIM_LOCK_TIMEOUT}'`);
+
+      // FIRST statement in the transaction. A concurrent duplicate blocks here until this
+      // transaction ends, then either sees 23505 (we committed) or claims it (we rolled back).
+      try {
+        await client.query(
+          `INSERT INTO idempotency_keys (key, endpoint, user_id, request_fingerprint, expires_at)
          VALUES ($1, $2, $3, $4, NOW() + ($5 || ' hours')::interval)`,
-        [key, endpoint, userId, fingerprint, String(IDEMPOTENCY_KEY_TTL_HOURS)]
-      );
-    } catch (error) {
-      // Only THIS statement's unique violation means "a twin already holds the key".
-      // A 23505 raised later by the business callback (a duplicate SKU, say) is a real
-      // failure and must surface as itself, not be mistaken for a replay.
-      if (isUniqueViolation(error)) {
-        throw new ClaimCollision();
+          [key, endpoint, userId, fingerprint, String(IDEMPOTENCY_KEY_TTL_HOURS)]
+        );
+      } catch (error) {
+        // Only THIS statement's unique violation means "a twin already holds the key".
+        // A 23505 raised later by the business callback (a duplicate SKU, say) is a real
+        // failure and must surface as itself, not be mistaken for a replay.
+        if (isUniqueViolation(error)) {
+          throw new ClaimCollision();
+        }
+        // The winner is taking longer than the claim's lock budget. Nothing is wrong and
+        // nothing conflicts — tell the caller to try again rather than holding a pooled
+        // connection for the rest of the winner's transaction.
+        if (sqlState(error) === LOCK_NOT_AVAILABLE) {
+          throw new IdempotencyConflictError(
+            'This request is still being processed. Please retry.',
+            IDEMPOTENCY_UNRESOLVED
+          );
+        }
+        throw error;
       }
-      throw error;
-    }
 
-    const produced = await run(client);
+      // The claim is held; the business callback takes as long as it legitimately needs.
+      await client.query(`SET LOCAL lock_timeout = 0`);
 
-    await client.query(
-      `UPDATE idempotency_keys
+      const produced = await run(client);
+
+      await client.query(
+        `UPDATE idempotency_keys
           SET response_status = $2, response_body = $3, resource_type = $4, resource_id = $5
         WHERE key = $1`,
-      [
-        key,
-        produced.status,
-        JSON.stringify(produced.body),
-        produced.resourceType ?? null,
-        produced.resourceId ?? null,
-      ]
-    );
+        [
+          key,
+          produced.status,
+          JSON.stringify(produced.body),
+          produced.resourceType ?? null,
+          produced.resourceId ?? null,
+        ]
+      );
 
-    return produced;
-  });
+      return produced;
+    },
+    undefined,
+    RETRY_DEADLOCKS
+  );
 
   return { status: outcome.status, body: outcome.body, replayed: false, result: outcome.result };
 }
@@ -303,11 +384,14 @@ async function readKeyRow(key: string): Promise<KeyRow | null> {
   return rows[0] ?? null;
 }
 
+function sqlState(error: unknown): string | undefined {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+}
+
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: unknown }).code === UNIQUE_VIOLATION
-  );
+  return sqlState(error) === UNIQUE_VIOLATION;
 }

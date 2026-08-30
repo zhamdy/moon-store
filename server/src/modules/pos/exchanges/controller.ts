@@ -5,9 +5,9 @@ import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { exchangesService, ExchangeStockError, IExchangesService } from './service';
 import { PublicError } from '../../../http/errors';
 import {
-  IDEMPOTENCY_HEADER,
   IDEMPOTENCY_REPLAY_HEADER,
-  IdempotencyConflictError,
+  readIdempotencyKey,
+  toIdempotencyPublicError,
   withIdempotency,
 } from '../../../http/idempotency';
 import { paginationMeta } from '../../../http/pagination';
@@ -41,19 +41,6 @@ const exchangeSchema = z.object({
   payment_method: z.enum(['cash', 'card', 'store_credit']).optional(),
   notes: z.string().max(500).optional(),
 });
-
-/**
- * Express lowercases header names. Returns null when absent, which is what keeps the
- * endpoint working unchanged for a till that has not been updated yet.
- */
-function readIdempotencyKey(req: Request): string | null {
-  const raw = req.headers[IDEMPOTENCY_HEADER];
-  if (Array.isArray(raw)) {
-    // A repeated header has no single unambiguous key; refusing beats guessing.
-    throw new PublicError('VALIDATION_ERROR', `Only one ${IDEMPOTENCY_HEADER} header is allowed.`);
-  }
-  return raw ?? null;
-}
 
 export class ExchangesController {
   constructor(private service: IExchangesService = exchangesService) {}
@@ -93,12 +80,9 @@ export class ExchangesController {
 
       res.status(outcome.status).json(outcome.body);
     } catch (err) {
-      if (err instanceof IdempotencyConflictError) {
-        next(
-          new PublicError('CONFLICT', err.message, [
-            { field: IDEMPOTENCY_HEADER, code: err.code, message: err.message },
-          ])
-        );
+      const conflict = toIdempotencyPublicError(err);
+      if (conflict) {
+        next(conflict);
         return;
       }
       if (err instanceof ExchangeStockError) {

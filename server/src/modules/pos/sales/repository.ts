@@ -69,8 +69,6 @@ export interface ISalesRepository {
     productId: number,
     queryable?: Queryable
   ): Promise<Record<string, any> | null>;
-  updateProductStock(productId: number, newStock: number, queryable: Queryable): Promise<void>;
-  updateVariantStock(variantId: number, newStock: number, queryable: Queryable): Promise<void>;
   decrementProductStock(
     productId: number,
     quantity: number,
@@ -495,28 +493,6 @@ export class SalesRepository implements ISalesRepository {
       [variantId, productId]
     );
     return res.rows[0] || null;
-  }
-
-  async updateProductStock(
-    productId: number,
-    newStock: number,
-    queryable: Queryable
-  ): Promise<void> {
-    await queryable.query('UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2', [
-      newStock,
-      productId,
-    ]);
-  }
-
-  async updateVariantStock(
-    variantId: number,
-    newStock: number,
-    queryable: Queryable
-  ): Promise<void> {
-    await queryable.query(
-      'UPDATE product_variants SET stock = $1, updated_at = NOW() WHERE id = $2',
-      [newStock, variantId]
-    );
   }
 
   /**
