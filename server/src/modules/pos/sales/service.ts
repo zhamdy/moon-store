@@ -851,7 +851,10 @@ export class SalesService {
     clientOrPool?: any
   ): Promise<{ refund: Record<string, any>; refundStatus: string; newRefundedTotal: number }> {
     return withTransaction(async (client) => {
-      const sale = await this.repo.findById(saleId, client);
+      // Lock the sale for the rest of this transaction BEFORE reading `refunded_amount`:
+      // the cumulative check below is only correct while no sibling refund can commit
+      // between the read and the write.
+      const sale = await this.repo.findByIdForUpdate(saleId, client);
       if (!sale) throw new Error('Sale not found');
       if (sale.refund_status === 'full') throw new Error('Sale already fully refunded');
 
@@ -895,12 +898,19 @@ export class SalesService {
       await this.repo.updateSaleRefundStatus(saleId, refundStatus, newRefundedTotal, client);
 
       if (input.restock) {
-        for (const item of input.items) {
-          const product = await this.repo.getProductById(item.product_id, client);
-          const currentStock = Number(product?.stock || 0);
-          await this.repo.updateProductStock(item.product_id, currentStock + item.quantity, client);
+        // Ascending by product id, the same canonical order the checkout write phase
+        // uses, so a refund and a checkout touching the same two products cannot lock
+        // them in opposite order and deadlock.
+        const restockOrder = [...input.items].sort((a, b) => a.product_id - b.product_id);
+        for (const item of restockOrder) {
+          await this.repo.incrementProductStock(item.product_id, item.quantity, client);
         }
       }
+
+      // Inside the transaction (R4): the previous after-the-fact, error-swallowing call
+      // from the controller could leave a drawer movement behind for a refund that
+      // rolled back. Mirrors `executeSale`'s in-transaction sale movement.
+      await this.register.recordRefundMovement(cashierId, refundAmount, client);
 
       return { refund, refundStatus, newRefundedTotal };
     }, clientOrPool);

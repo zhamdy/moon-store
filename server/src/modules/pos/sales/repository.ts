@@ -4,6 +4,7 @@ import { SaleFilters, SaleCalculationSnapshot, CreateSaleCalculationInput } from
 
 export interface ISalesRepository {
   findById(id: number | string, queryable?: Queryable): Promise<Record<string, any> | null>;
+  findByIdForUpdate(id: number, queryable: Queryable): Promise<Record<string, any> | null>;
   findItemsBySaleId(saleId: number | string, queryable?: Queryable): Promise<Record<string, any>[]>;
   findPaymentsBySaleId(
     saleId: number | string,
@@ -75,6 +76,11 @@ export interface ISalesRepository {
     quantity: number,
     queryable: Queryable
   ): Promise<number | null>;
+  incrementProductStock(
+    productId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
   decrementVariantStock(
     variantId: number,
     quantity: number,
@@ -110,6 +116,23 @@ export class SalesRepository implements ISalesRepository {
     // so historical receipts/reads never depend on current settings/formulas.
     const calculation = await this.getSaleCalculationBySaleId(sale.id, queryable);
     return calculation ? { ...sale, calculation } : sale;
+  }
+
+  /**
+   * Locks one sale row for the rest of the caller's transaction.
+   *
+   * The refund cumulative check (`refunded_amount + amount <= total`) spans sibling
+   * refund rows, so no single conditional write can express it: three concurrent partial
+   * refunds would each read the same `refunded_amount`, each pass the check, and together
+   * exceed the sale total. Locking the parent row serializes them.
+   *
+   * Deliberately not {@link findById}'s query: `FOR UPDATE` cannot be applied to the
+   * nullable side of the outer joins that attach `cashier_name`/`customer_name`, and the
+   * caller needs the authoritative `sales` columns, not the display ones.
+   */
+  async findByIdForUpdate(id: number, queryable: Queryable): Promise<Record<string, any> | null> {
+    const res = await queryable.query('SELECT * FROM sales WHERE id = $1 FOR UPDATE', [id]);
+    return res.rows[0] || null;
   }
 
   async findItemsBySaleId(
@@ -518,6 +541,29 @@ export class SalesRepository implements ISalesRepository {
     const res = await queryable.query<{ stock: number }>(
       `UPDATE products SET stock = stock - $1::int, updated_at = NOW()
         WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
+      [quantity, productId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /**
+   * Relative restock, the inverse of {@link decrementProductStock}. A refund used to read
+   * `products.stock` and write back `currentStock + quantity`, which loses one of two
+   * concurrent restocks exactly as the checkout path did.
+   *
+   * No `WHERE stock >= ...` guard: adding stock has no insufficiency to guard against.
+   *
+   * @returns the resulting stock, or null when no such product exists.
+   */
+  async incrementProductStock(
+    productId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      `UPDATE products SET stock = stock + $1::int, updated_at = NOW()
+        WHERE id = $2
         RETURNING stock`,
       [quantity, productId]
     );
