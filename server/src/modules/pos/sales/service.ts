@@ -4,6 +4,7 @@ import { ISalesRepository, salesRepository as defaultRepo } from './repository';
 import { bundlesRepository, IBundlesRepository } from '../../inventory/bundles/repository';
 import { couponsService, CouponsService } from '../../commerce/coupons/service';
 import { CouponError } from '../../commerce/coupons/types';
+import { registerService, IRegisterService } from '../register/service';
 import {
   parseLoyaltySettings,
   CanonicalLoyaltySettings,
@@ -17,6 +18,7 @@ import {
 import {
   CreateSaleDTO,
   SaleItemInput,
+  PaymentInput,
   SaleTotals,
   TaxSettings,
   LoyaltySettings,
@@ -28,6 +30,11 @@ import {
   TaxMode,
   toMinorUnits,
   fromMinorUnits,
+  ConfirmedPayment,
+  SaleCalculationSnapshot,
+  SalesValidationError,
+  SPLIT_PAYMENT_MISMATCH_CODE,
+  STRICT_SPLIT_PAYMENT_VALIDATION,
 } from './types';
 
 /**
@@ -175,7 +182,8 @@ export class SalesService {
   constructor(
     private repo: ISalesRepository = defaultRepo,
     private bundles: IBundlesRepository = bundlesRepository,
-    private coupons: CouponsService = couponsService
+    private coupons: CouponsService = couponsService,
+    private register: IRegisterService = registerService
   ) {}
 
   getRepository(): ISalesRepository {
@@ -538,6 +546,60 @@ export class SalesService {
     return { breakdown, resolvedItems, customer };
   }
 
+  /**
+   * Validate the request's `payments` entries against the authoritative
+   * `amountDueMinor` from `buildBreakdown` and return exactly the entries to
+   * persist -- never coerced/rounded into balance. See types.ts for the full
+   * documented split-payment policy (methods, duplicates, precision, zero-
+   * due, and the compatibility gate).
+   *
+   * Returns `[]` (no `sale_payments` rows) when `payments` is omitted --
+   * the unchanged, non-split compatibility path.
+   */
+  private resolvePayments(
+    payments: PaymentInput[] | undefined,
+    amountDueMinor: number
+  ): ConfirmedPayment[] {
+    if (!payments) return [];
+
+    if (!STRICT_SPLIT_PAYMENT_VALIDATION) {
+      // Compatibility gate disabled (emergency rollback only -- see
+      // STRICT_SPLIT_PAYMENT_VALIDATION in types.ts): persist entries as
+      // provided, without enforcing sum equality.
+      return payments.map((p) => ({ method: p.method, amount: p.amount }));
+    }
+
+    if (payments.length === 0) {
+      throw new SalesValidationError(
+        'Split payment entries cannot be empty',
+        SPLIT_PAYMENT_MISMATCH_CODE
+      );
+    }
+
+    let sumMinor = 0;
+    for (const p of payments) {
+      const amountMinor = toMinorUnits(p.amount);
+      if (!Number.isFinite(amountMinor) || amountMinor < 0) {
+        throw new SalesValidationError(
+          'Payment amount must be a non-negative finite value',
+          SPLIT_PAYMENT_MISMATCH_CODE
+        );
+      }
+      sumMinor += amountMinor;
+    }
+
+    // Exact integer minor-unit equality -- no float tolerance. Matches the
+    // client's allocateSplit (client/src/shared/lib/checkout.ts, Unit 3).
+    if (sumMinor !== amountDueMinor) {
+      throw new SalesValidationError(
+        `Split payment total (${fromMinorUnits(sumMinor)}) does not equal the authoritative amount due (${fromMinorUnits(amountDueMinor)})`,
+        SPLIT_PAYMENT_MISMATCH_CODE
+      );
+    }
+
+    return payments.map((p) => ({ method: p.method, amount: p.amount }));
+  }
+
   async calculateSaleTotals(
     input: CreateSaleDTO,
     queryable: Queryable = pool
@@ -564,13 +626,18 @@ export class SalesService {
     return withTransaction(async (client) => {
       const { breakdown, resolvedItems, customer } = await this.buildBreakdown(input, client, true);
 
+      // Validate BEFORE persisting anything: a mismatched/invalid split must
+      // create no sale, items, payments, coupon usage, loyalty change, or
+      // register movement. `withTransaction` rolls back on any thrown error,
+      // but failing fast here avoids doing pointless work first.
+      const confirmedPayments = this.resolvePayments(input.payments, breakdown.amountDueMinor);
+
       const sale = await this.repo.createSale(
         {
           total: fromMinorUnits(breakdown.amountDueMinor),
           discount: input.discount || 0,
           discount_type: input.discount_type || 'fixed',
-          payment_method:
-            input.payments && input.payments.length > 1 ? 'Split' : input.payment_method,
+          payment_method: confirmedPayments.length > 1 ? 'Split' : input.payment_method,
           cashier_id: cashierId,
           customer_id: input.customer_id || null,
           tax_amount: fromMinorUnits(breakdown.taxAmountMinor),
@@ -604,10 +671,8 @@ export class SalesService {
         client
       );
 
-      if (input.payments && input.payments.length > 0) {
-        for (const p of input.payments) {
-          await this.repo.createSalePayment(sale.id, p.method, p.amount, client);
-        }
+      for (const p of confirmedPayments) {
+        await this.repo.createSalePayment(sale.id, p.method, p.amount, client);
       }
 
       if (breakdown.couponId && breakdown.couponDiscountMinor > 0) {
@@ -683,7 +748,66 @@ export class SalesService {
         }
       }
 
-      return sale;
+      // Derive the cash-register movement from the confirmed, validated
+      // split (never raw request values). Split mode: sum every 'Cash'
+      // entry (duplicates allowed, see types.ts policy). Non-split
+      // compatibility mode: the whole amount due, only when the single
+      // declared method is 'Cash' -- matching current behavior. Runs inside
+      // this same checkout transaction (via `client`) so it commits or
+      // rolls back atomically with the sale; failures are NOT swallowed.
+      const cashComponentMinor =
+        confirmedPayments.length > 0
+          ? confirmedPayments
+              .filter((p) => p.method === 'Cash')
+              .reduce((sum, p) => sum + toMinorUnits(p.amount), 0)
+          : input.payment_method === 'Cash'
+            ? breakdown.amountDueMinor
+            : 0;
+
+      if (cashComponentMinor > 0) {
+        await this.register.recordSaleMovement(
+          cashierId,
+          sale.id,
+          fromMinorUnits(cashComponentMinor),
+          client
+        );
+      }
+
+      const calculation: SaleCalculationSnapshot = {
+        contractVersion: `v${breakdown.contractVersion}`,
+        subtotal: fromMinorUnits(breakdown.subtotalMinor),
+        manualDiscount: fromMinorUnits(breakdown.manualDiscountMinor),
+        couponId: breakdown.couponId,
+        couponDiscount: fromMinorUnits(breakdown.couponDiscountMinor),
+        pointsRedeemed: breakdown.pointsRedeemed,
+        pointsDiscount: fromMinorUnits(breakdown.pointsDiscountMinor),
+        taxableBase: fromMinorUnits(breakdown.taxableBaseMinor),
+        taxMode: breakdown.taxMode,
+        taxRatePercent: breakdown.taxRatePercent,
+        taxAmount: fromMinorUnits(breakdown.taxAmountMinor),
+        tipAmount: fromMinorUnits(breakdown.tipMinor),
+        amountDue: fromMinorUnits(breakdown.amountDueMinor),
+        earnedPoints: breakdown.earnedPoints,
+      };
+
+      // Additive confirmed-response fields (R6/R9): existing consumers keep
+      // every existing field on `sale` untouched; `calculation`/`items`/
+      // `payments` are new. `items`/`payments` mirror exactly what was just
+      // persisted -- authoritative prices and validated entries, never
+      // re-derived from the request.
+      return {
+        ...sale,
+        calculation,
+        items: resolvedItems.map((item) => ({
+          product_id: item.product_id,
+          variant_id: item.variant_id ?? null,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          cost_price: item.cost_price,
+          memo: item.memo ?? null,
+        })),
+        payments: confirmedPayments,
+      };
     }, clientOrPool);
   }
 

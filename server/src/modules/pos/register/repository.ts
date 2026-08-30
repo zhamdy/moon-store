@@ -3,6 +3,13 @@ import pool from '../../../database/pool';
 import { SessionRow, MovementRow, SessionHistoryFilters, SessionHistoryResult } from './types';
 
 export interface IRegisterRepository {
+  /**
+   * All mutation methods below already accept an optional `Queryable` (see
+   * `server/src/database/transaction.ts`). `RegisterService.recordSaleMovement`
+   * relies on this to thread the checkout transaction's client through
+   * lookup/insert/update so register mutations commit or roll back
+   * atomically with the sale (Unit 4 of the checkout total-parity plan).
+   */
   findOpenSessionByCashierId(
     cashierId: number,
     queryable?: Queryable

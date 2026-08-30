@@ -208,6 +208,79 @@ export interface SaleCalculationSnapshot {
   earnedPoints: number;
 }
 
+// ─── Split-payment integrity (Unit 4) ──────────────────────────────────────
+//
+// See docs/plans/2026-08-30-001-fix-pos-checkout-total-parity-plan.md,
+// Unit 4. `SalesService.executeSale` sums the request's `payments` entries
+// (converted via `toMinorUnits`) and compares them, with EXACT integer
+// minor-unit equality (no float tolerance), against `SaleCalculationBreakdown
+// .amountDueMinor` -- the same equality rule the client's `allocateSplit`
+// (client/src/shared/lib/checkout.ts, Unit 3) already enforces.
+//
+// Documented policy (R5/R9):
+// - Supported payment methods: 'Cash' | 'Card' | 'Other' | 'Gift Card'
+//   (server/validators/saleSchema.ts `paymentEntrySchema`).
+// - Duplicate methods ARE allowed (e.g. two 'Cash' entries): nothing about
+//   persisted integrity depends on method uniqueness, only on the exact
+//   minor-unit sum; register cash movement sums every 'Cash' entry.
+// - Entry count is capped (`saleSchema.ts` `MAX_PAYMENT_ENTRIES`) and each
+//   entry's amount must be finite, non-negative, at most two decimal places,
+//   and under `MAX_PAYMENT_AMOUNT_MAJOR` -- deterministic Zod boundary
+//   rejections, not service-level validation failures.
+// - A `payments` array, when present (even with exactly one entry), is the
+//   sole source of truth for split tender; `payment_method` is never
+//   cross-checked against it. This is the resolution to "ambiguous mixed
+//   single/split representation": there is no ambiguity because `payments`
+//   always wins when present. An empty `payments` array is rejected as
+//   ambiguous (is this a 0-entry split, or was `payments` meant to be
+//   omitted?) by both the Zod `.min(1)` boundary and this module's runtime
+//   check (for callers that bypass the HTTP schema, e.g. tests calling
+//   `SalesService.executeSale` directly).
+// - Zero-due sales (e.g. fully comped by discount/coupon/loyalty): omitting
+//   `payments` entirely continues to work (no `sale_payments` rows, matching
+//   existing non-split compatibility behavior). If `payments` IS provided,
+//   its entries must sum to exactly 0 -- e.g. a single `{ method: 'Cash',
+//   amount: 0 }` entry -- which the schema allows via `nonnegative()`.
+// - Ordinary single-tender checkout (no `payments` array) is UNCHANGED by
+//   this unit: it persists no `sale_payments` rows and is never subject to
+//   the equality check. It continues to represent the sale amount, not a
+//   cash-tendered/change pair.
+
+/** Stable, documented validation error code the client can match on (Unit 5). */
+export const SPLIT_PAYMENT_MISMATCH_CODE = 'SPLIT_PAYMENT_MISMATCH';
+
+/**
+ * Compatibility gate for strict split-payment enforcement (see block comment
+ * above). Defaults to `true` because Units 5 (checkout UI) and 6 (cart/
+ * receipt/queue compatibility) land in this same branch/PR -- there is no
+ * window where an old, unmigrated client can reach this server with this
+ * flag on. If a rollback is ever needed (e.g. Units 5/6 have to be reverted
+ * independently, or a since-deployed client still submits mismatched
+ * splits), set this constant back to `false` and redeploy the server; no
+ * database migration is required either way. Never gate this per-request or
+ * via a runtime env var -- a single reviewable code constant is the
+ * intentional kill switch.
+ */
+export const STRICT_SPLIT_PAYMENT_VALIDATION = true;
+
+/** Thrown by `SalesService` for a stable, client-matchable financial validation failure (e.g. split-payment mismatch). */
+export class SalesValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly statusCode: number = 400
+  ) {
+    super(message);
+    this.name = 'SalesValidationError';
+  }
+}
+
+/** A payment entry as persisted to `sale_payments` / returned in the confirmed sale response. Major EGP units, exactly as validated -- never coerced/rounded into balance. */
+export interface ConfirmedPayment {
+  method: string;
+  amount: number;
+}
+
 export interface RefundItemInput {
   product_id: number;
   quantity: number;

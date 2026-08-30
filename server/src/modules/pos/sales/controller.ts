@@ -2,11 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { notifySale } from '../../../../services/notifications';
-import { recordSaleMovement, recordRefundMovement } from '../register';
+import { recordRefundMovement } from '../register';
 import { saleSchema, refundSchema } from '../../../../validators/saleSchema';
 import { salesService } from './service';
 import { salesRepository } from './repository';
-import { parseSaleListQuery } from './types';
+import { parseSaleListQuery, SalesValidationError } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
@@ -63,18 +63,10 @@ export class SalesController {
       const cashierId = authReq.user!.id;
       const cashierName = authReq.user!.name;
 
+      // Cash-register movement is now recorded INSIDE executeSale's checkout
+      // transaction (Unit 4), derived from the confirmed/validated split --
+      // not here, and not from unchecked request values.
       const sale = await salesService.executeSale(parsed.data, cashierId);
-
-      const isCash =
-        parsed.data.payment_method === 'Cash' ||
-        parsed.data.payments?.some((p) => p.method === 'Cash');
-      if (isCash) {
-        const cashAmount =
-          parsed.data.payment_method === 'Cash'
-            ? Number(sale.total)
-            : Number(parsed.data.payments?.find((p) => p.method === 'Cash')?.amount || 0);
-        recordSaleMovement(cashierId, sale.id, cashAmount);
-      }
 
       logAuditFromReq(req, 'create', 'sale', sale.id, {
         total: sale.total,
@@ -84,8 +76,20 @@ export class SalesController {
 
       notifySale(Number(sale.total), sale.id, cashierName);
 
-      res.status(201).json(success(sale));
+      // Additive cashier metadata (R6): `sale` from `repo.createSale`'s
+      // RETURNING * has no join, so attach the display name the request
+      // already carries; every other confirmed-response field (calculation,
+      // items, payments) is attached by SalesService itself.
+      res.status(201).json(success({ ...sale, cashier_name: cashierName }));
     } catch (err: any) {
+      if (err instanceof SalesValidationError) {
+        next(
+          new PublicError('VALIDATION_ERROR', err.message, [
+            { field: 'payments', code: err.code, message: err.message },
+          ])
+        );
+        return;
+      }
       if (
         err.message?.includes('Insufficient stock') ||
         err.message?.includes('Insufficient loyalty points') ||

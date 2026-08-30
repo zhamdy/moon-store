@@ -4,7 +4,6 @@ import { newDb } from 'pg-mem';
 import { Pool as PgPool } from 'pg';
 import path from 'path';
 import fs from 'fs';
-import { saleSchema } from '../validators/saleSchema';
 import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
 import {
@@ -12,11 +11,20 @@ import {
   executeSaleTransaction,
   executeRefundTransaction,
 } from '../services/saleService';
-import { parseSaleListQuery, toMinorUnits, fromMinorUnits } from '../src/modules/pos/sales/types';
+import {
+  parseSaleListQuery,
+  toMinorUnits,
+  fromMinorUnits,
+  STRICT_SPLIT_PAYMENT_VALIDATION,
+  SPLIT_PAYMENT_MISMATCH_CODE,
+  SalesValidationError,
+} from '../src/modules/pos/sales/types';
 import { SalesRepository } from '../src/modules/pos/sales/repository';
 import { SalesController } from '../src/modules/pos/sales/controller';
 import { salesService, calculateSaleBreakdown } from '../src/modules/pos/sales/service';
 import { PublicError } from '../src/modules/http/errors';
+import { paymentEntrySchema, saleSchema, MAX_PAYMENT_AMOUNT_MAJOR } from '../validators/saleSchema';
+import { openApiSpec } from '../src/docs/openapi';
 import {
   parseLoyaltySettings,
   LOYALTY_SETTINGS_DEFAULTS,
@@ -920,5 +928,462 @@ describe('Unit 2 - SalesService authoritative calculation and snapshot persisten
     expect(toMinorUnits(19.99)).toBe(1999);
     expect(fromMinorUnits(1999)).toBe(19.99);
     expect(toMinorUnits(0)).toBe(0);
+  });
+});
+
+// ─── Unit 4: split-payment integrity, confirmed response, register threading ─
+
+describe('Unit 4 - Schema Validation: payment entry boundaries', () => {
+  it('accepts a zero-amount entry (zero-due sale policy)', () => {
+    expect(paymentEntrySchema.safeParse({ method: 'Cash', amount: 0 }).success).toBe(true);
+    expect(paymentEntrySchema.safeParse({ method: 'Cash', amount: -0 }).success).toBe(true);
+  });
+
+  it('rejects a negative amount', () => {
+    expect(paymentEntrySchema.safeParse({ method: 'Cash', amount: -1 }).success).toBe(false);
+  });
+
+  it('rejects a non-finite amount', () => {
+    expect(paymentEntrySchema.safeParse({ method: 'Cash', amount: Infinity }).success).toBe(false);
+    expect(paymentEntrySchema.safeParse({ method: 'Cash', amount: NaN }).success).toBe(false);
+  });
+
+  it('rejects more than two decimal places', () => {
+    expect(paymentEntrySchema.safeParse({ method: 'Cash', amount: 33.333 }).success).toBe(false);
+    expect(paymentEntrySchema.safeParse({ method: 'Cash', amount: 33.33 }).success).toBe(true);
+  });
+
+  it('rejects an unsupported payment method', () => {
+    expect(paymentEntrySchema.safeParse({ method: 'Bitcoin', amount: 10 }).success).toBe(false);
+  });
+
+  it('rejects a huge amount beyond the sanity ceiling', () => {
+    expect(
+      paymentEntrySchema.safeParse({ method: 'Cash', amount: MAX_PAYMENT_AMOUNT_MAJOR + 1 }).success
+    ).toBe(false);
+  });
+
+  it('rejects an empty payments array as ambiguous', () => {
+    const result = saleSchema.safeParse({
+      items: [{ product_id: 1, quantity: 1, unit_price: 100 }],
+      payments: [],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects more payment entries than the documented cap', () => {
+    const result = saleSchema.safeParse({
+      items: [{ product_id: 1, quantity: 1, unit_price: 100 }],
+      payments: Array.from({ length: 11 }, () => ({ method: 'Cash', amount: 1 })),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('allows duplicate payment methods at the schema boundary (documented policy: duplicates allowed)', () => {
+    const result = saleSchema.safeParse({
+      items: [{ product_id: 1, quantity: 1, unit_price: 100 }],
+      payments: [
+        { method: 'Cash', amount: 50 },
+        { method: 'Cash', amount: 50 },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('Unit 4 - SalesService split-payment integrity and confirmed response', () => {
+  const repo = new SalesRepository();
+
+  beforeEach(async () => {
+    await testPool.query('DELETE FROM register_movements');
+    await testPool.query('DELETE FROM register_sessions');
+    await testPool.query('DELETE FROM sale_payments');
+    await testPool.query('DELETE FROM sale_calculations');
+    await testPool.query('DELETE FROM coupon_usage');
+    await testPool.query('DELETE FROM sale_items');
+    await testPool.query('DELETE FROM sales');
+    await testPool.query('DELETE FROM products');
+    await testPool.query('DELETE FROM users');
+    await testPool.query('DELETE FROM settings');
+
+    await testPool.query(
+      'INSERT INTO users (id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
+      [1, 'Admin', 'admin@moon.com', 'hash', 'Admin']
+    );
+    await testPool.query(
+      'INSERT INTO products (id, name, sku, price, cost_price, stock) VALUES ($1, $2, $3, $4, $5, $6)',
+      [1, 'Silk Dress', 'SKU-001', 100, 50, 10]
+    );
+  });
+
+  it('the compatibility gate defaults to strict (enabled) in this branch/PR (see types.ts for the rollback flip)', () => {
+    expect(STRICT_SPLIT_PAYMENT_VALIDATION).toBe(true);
+  });
+
+  it('happy path: Cash/Card entries summing exactly to the server amount persist unchanged and are returned verbatim', async () => {
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }], // 100 EGP
+        payment_method: 'Card',
+        payments: [
+          { method: 'Cash', amount: 40 },
+          { method: 'Card', amount: 60 },
+        ],
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(100);
+    expect(sale.payments).toEqual([
+      { method: 'Cash', amount: 40 },
+      { method: 'Card', amount: 60 },
+    ]);
+    expect(sale.calculation).toMatchObject({ amountDue: 100 });
+    expect(sale.items).toEqual([
+      expect.objectContaining({ product_id: 1, quantity: 1, unit_price: 100 }),
+    ]);
+
+    const persisted = await repo.findPaymentsBySaleId(sale.id, testPool);
+    expect(persisted.map((p: any) => ({ method: p.method, amount: Number(p.amount) }))).toEqual([
+      { method: 'Cash', amount: 40 },
+      { method: 'Card', amount: 60 },
+    ]);
+  });
+
+  it('edge case: three-way split with fractional cents (33.33 + 33.33 + 33.34) balances to exactly 100.00', async () => {
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }], // 100 EGP
+        payment_method: 'Cash',
+        payments: [
+          { method: 'Cash', amount: 33.33 },
+          { method: 'Card', amount: 33.33 },
+          { method: 'Other', amount: 33.34 },
+        ],
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(100);
+  });
+
+  it('edge case: a classic 0.1 + 0.2 float trap balances exactly at the minor-unit boundary', async () => {
+    await testPool.query('UPDATE products SET price = 0.30 WHERE id = 1');
+
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }], // 0.30 EGP
+        payment_method: 'Cash',
+        payments: [
+          { method: 'Cash', amount: 0.1 },
+          { method: 'Card', amount: 0.2 },
+        ],
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(0.3);
+  });
+
+  it('edge case: a negative-zero entry amount is treated as zero, not rejected', async () => {
+    // Fully discount the sale to zero-due, then confirm a -0 Cash entry balances it.
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }],
+        discount: 100,
+        discount_type: 'fixed',
+        payment_method: 'Cash',
+        payments: [{ method: 'Cash', amount: -0 }],
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(0);
+  });
+
+  it('zero-due policy: a fully-comped sale with omitted payments continues the non-split compatibility path', async () => {
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }],
+        discount: 100,
+        discount_type: 'fixed',
+        payment_method: 'Cash',
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(0);
+    expect(sale.payments).toEqual([]);
+  });
+
+  it('error path: an empty payments array is rejected at the service boundary even when the request bypasses Zod', async () => {
+    await expect(
+      salesService.executeSale(
+        {
+          items: [{ product_id: 1, quantity: 1 }],
+          payment_method: 'Cash',
+          payments: [],
+        } as any,
+        1
+      )
+    ).rejects.toMatchObject({ code: SPLIT_PAYMENT_MISMATCH_CODE });
+  });
+
+  it('error path: a negative payment amount is rejected at the service boundary even when the request bypasses Zod', async () => {
+    await expect(
+      salesService.executeSale(
+        {
+          items: [{ product_id: 1, quantity: 1 }],
+          payment_method: 'Cash',
+          payments: [{ method: 'Cash', amount: -50 }],
+        } as any,
+        1
+      )
+    ).rejects.toBeInstanceOf(SalesValidationError);
+  });
+
+  it('error path: underpayment is rejected with the stable SPLIT_PAYMENT_MISMATCH code and persists nothing', async () => {
+    await expect(
+      salesService.executeSale(
+        {
+          items: [{ product_id: 1, quantity: 1 }], // 100 EGP due
+          payment_method: 'Cash',
+          payments: [{ method: 'Cash', amount: 90 }],
+        } as any,
+        1
+      )
+    ).rejects.toMatchObject({ code: SPLIT_PAYMENT_MISMATCH_CODE });
+
+    expect((await testPool.query('SELECT * FROM sales')).rows).toHaveLength(0);
+    expect((await testPool.query('SELECT * FROM sale_items')).rows).toHaveLength(0);
+    expect((await testPool.query('SELECT * FROM sale_payments')).rows).toHaveLength(0);
+  });
+
+  it('error path: overpayment (a tampered/stale client split) is rejected and persists nothing, including no register movement', async () => {
+    const session = await testPool.query(
+      'INSERT INTO register_sessions (cashier_id, opening_float, expected_cash) VALUES ($1, $2, $2) RETURNING *',
+      [1, 0]
+    );
+
+    await expect(
+      salesService.executeSale(
+        {
+          items: [{ product_id: 1, quantity: 1 }], // 100 EGP due
+          payment_method: 'Cash',
+          payments: [{ method: 'Cash', amount: 150 }],
+        } as any,
+        1
+      )
+    ).rejects.toMatchObject({ code: SPLIT_PAYMENT_MISMATCH_CODE });
+
+    expect((await testPool.query('SELECT * FROM sales')).rows).toHaveLength(0);
+    expect((await testPool.query('SELECT * FROM register_movements')).rows).toHaveLength(0);
+    const reread = await testPool.query(
+      'SELECT expected_cash FROM register_sessions WHERE id = $1',
+      [session.rows[0].id]
+    );
+    expect(Number(reread.rows[0].expected_cash)).toBe(0);
+  });
+
+  it('duplicate-method policy: two Cash entries that sum correctly are allowed and both count toward the register movement', async () => {
+    await testPool.query(
+      'INSERT INTO register_sessions (cashier_id, opening_float, expected_cash) VALUES ($1, $2, $2)',
+      [1, 0]
+    );
+
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }], // 100 EGP due
+        payment_method: 'Cash',
+        payments: [
+          { method: 'Cash', amount: 60 },
+          { method: 'Cash', amount: 40 },
+        ],
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(100);
+
+    const movements = await testPool.query('SELECT * FROM register_movements WHERE sale_id = $1', [
+      sale.id,
+    ]);
+    expect(movements.rows).toHaveLength(1);
+    expect(Number(movements.rows[0].amount)).toBe(100); // sum of both Cash entries
+
+    const session = await testPool.query('SELECT expected_cash FROM register_sessions');
+    expect(Number(session.rows[0].expected_cash)).toBe(100);
+  });
+
+  it('integration: the confirmed cash-register movement equals only the confirmed Cash component of a mixed split, not the whole total', async () => {
+    await testPool.query(
+      'INSERT INTO register_sessions (cashier_id, opening_float, expected_cash) VALUES ($1, $2, $2)',
+      [1, 0]
+    );
+
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }], // 100 EGP due
+        payment_method: 'Card',
+        payments: [
+          { method: 'Cash', amount: 25 },
+          { method: 'Card', amount: 75 },
+        ],
+      } as any,
+      1
+    );
+
+    const movements = await testPool.query('SELECT * FROM register_movements WHERE sale_id = $1', [
+      sale.id,
+    ]);
+    expect(movements.rows).toHaveLength(1);
+    expect(Number(movements.rows[0].amount)).toBe(25);
+  });
+
+  it('compatibility: a non-split Cash sale (no payments array) still records the whole amount as the register movement, unchanged', async () => {
+    await testPool.query(
+      'INSERT INTO register_sessions (cashier_id, opening_float, expected_cash) VALUES ($1, $2, $2)',
+      [1, 0]
+    );
+
+    const sale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 1 }], payment_method: 'Cash' } as any,
+      1
+    );
+
+    const movements = await testPool.query('SELECT * FROM register_movements WHERE sale_id = $1', [
+      sale.id,
+    ]);
+    expect(movements.rows).toHaveLength(1);
+    expect(Number(movements.rows[0].amount)).toBe(100);
+  });
+
+  it('compatibility: a non-split Card sale records no register movement, unchanged', async () => {
+    await testPool.query(
+      'INSERT INTO register_sessions (cashier_id, opening_float, expected_cash) VALUES ($1, $2, $2)',
+      [1, 0]
+    );
+
+    const sale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 1 }], payment_method: 'Card' } as any,
+      1
+    );
+
+    const movements = await testPool.query('SELECT * FROM register_movements WHERE sale_id = $1', [
+      sale.id,
+    ]);
+    expect(movements.rows).toHaveLength(0);
+  });
+
+  it('when no open register session exists, a Cash sale still succeeds (register tracking is best-effort, not a checkout precondition)', async () => {
+    const sale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 1 }], payment_method: 'Cash' } as any,
+      1
+    );
+    expect(Number(sale.total)).toBe(100);
+  });
+
+  it('integration: the confirmed response calculation/items/payments exactly equal the persisted rows', async () => {
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 2 }], // 200 EGP
+        discount: 20,
+        discount_type: 'fixed',
+        payment_method: 'Card',
+        payments: [
+          { method: 'Cash', amount: 80 },
+          { method: 'Card', amount: 100 },
+        ],
+      } as any,
+      1
+    );
+
+    const snapshot = await repo.getSaleCalculationBySaleId(sale.id, testPool);
+    expect(sale.calculation).toEqual(snapshot);
+
+    const persistedItems = await testPool.query(
+      'SELECT product_id, variant_id, quantity, unit_price, cost_price, memo FROM sale_items WHERE sale_id = $1',
+      [sale.id]
+    );
+    expect(sale.items).toEqual(
+      persistedItems.rows.map((r: any) => ({
+        product_id: r.product_id,
+        variant_id: r.variant_id,
+        quantity: r.quantity,
+        unit_price: Number(r.unit_price),
+        cost_price: Number(r.cost_price),
+        memo: r.memo,
+      }))
+    );
+
+    const persistedPayments = await repo.findPaymentsBySaleId(sale.id, testPool);
+    expect(sale.payments).toEqual(
+      persistedPayments.map((p: any) => ({ method: p.method, amount: Number(p.amount) }))
+    );
+  });
+});
+
+describe('Unit 4 - Controller: stable validation error mapping', () => {
+  it('maps a SalesValidationError to a 400 VALIDATION_ERROR with the stable SPLIT_PAYMENT_MISMATCH detail code', async () => {
+    vi.spyOn(salesService, 'executeSale').mockRejectedValueOnce(
+      new SalesValidationError(
+        'Split payment total does not equal the amount due',
+        SPLIT_PAYMENT_MISMATCH_CODE
+      )
+    );
+    const next = vi.fn();
+
+    await new SalesController().createSale(
+      {
+        body: {
+          items: [{ product_id: 1, quantity: 1, unit_price: 100 }],
+          payment_method: 'Cash',
+          payments: [{ method: 'Cash', amount: 50 }],
+        },
+        user: { id: 1, name: 'Cashier' },
+      } as unknown as Request,
+      { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response,
+      next as NextFunction
+    );
+
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'VALIDATION_ERROR',
+        details: [
+          expect.objectContaining({ field: 'payments', code: SPLIT_PAYMENT_MISMATCH_CODE }),
+        ],
+      })
+    );
+  });
+});
+
+describe('Unit 4 - OpenAPI documentation: additive confirmed response is scoped to sale endpoints', () => {
+  const salesPost = (openApiSpec.paths as any)['/api/v1/sales'].post;
+  const saleGet = (openApiSpec.paths as any)['/api/v1/sales/{id}'].get;
+
+  it('documents the SPLIT_PAYMENT_MISMATCH stable error code on sale creation', () => {
+    expect(salesPost.description).toContain('SPLIT_PAYMENT_MISMATCH');
+    expect(JSON.stringify(salesPost.responses['400'])).toContain('SPLIT_PAYMENT_MISMATCH');
+  });
+
+  it('documents the additive calculation/items/payments fields on the confirmed create response', () => {
+    const dataSchema =
+      salesPost.responses['200'].content['application/json'].schema.properties.data;
+    expect(dataSchema.properties.calculation.$ref).toBe(
+      '#/components/schemas/SaleCalculationSnapshot'
+    );
+    expect(dataSchema.properties.payments).toBeDefined();
+    expect(dataSchema.properties.items).toBeDefined();
+  });
+
+  it('documents the immutable calculation snapshot on the sale detail response', () => {
+    const dataSchema = saleGet.responses['200'].content['application/json'].schema.properties.data;
+    expect(dataSchema.properties.calculation.$ref).toBe(
+      '#/components/schemas/SaleCalculationSnapshot'
+    );
+  });
+
+  it('defines the SaleCalculationSnapshot schema referenced by both endpoints', () => {
+    expect((openApiSpec.components.schemas as any).SaleCalculationSnapshot).toBeDefined();
   });
 });
