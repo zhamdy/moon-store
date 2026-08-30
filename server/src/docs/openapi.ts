@@ -179,6 +179,28 @@ export const openApiSpec = {
       },
     },
     schemas: {
+      SaleCalculationSnapshot: {
+        type: 'object',
+        description:
+          'Immutable, confirmed financial breakdown for one sale (checkout total-parity plan, Unit 2 ' +
+          'snapshot / Unit 4 additive response). All monetary fields are EGP major units.',
+        properties: {
+          contractVersion: { type: 'string', example: 'v1' },
+          subtotal: { type: 'number' },
+          manualDiscount: { type: 'number' },
+          couponId: { type: 'integer', nullable: true },
+          couponDiscount: { type: 'number' },
+          pointsRedeemed: { type: 'integer' },
+          pointsDiscount: { type: 'number' },
+          taxableBase: { type: 'number' },
+          taxMode: { type: 'string', enum: ['inclusive', 'exclusive'] },
+          taxRatePercent: { type: 'number' },
+          taxAmount: { type: 'number' },
+          tipAmount: { type: 'number' },
+          amountDue: { type: 'number' },
+          earnedPoints: { type: 'integer' },
+        },
+      },
       ApiResponse: {
         type: 'object',
         properties: {
@@ -1560,7 +1582,16 @@ export const openApiSpec = {
       post: {
         tags: ['POS Sales'],
         summary: 'Create / Submit Sales (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
+        description:
+          'Endpoint classification: M. Allowed Roles: Admin, Cashier.\n\n' +
+          '**Split-payment integrity (checkout total-parity plan, Unit 4):** when `payments` is provided, ' +
+          'it is the sole source of truth for the tender and its entries must sum, in exact minor units ' +
+          '(no float tolerance), to the server-authoritative amount due. `payment_method` is never ' +
+          'cross-checked against `payments` when both are present. Duplicate methods (e.g. two `Cash` ' +
+          'entries) are allowed. Omitting `payments` is the unchanged single-tender compatibility path: ' +
+          'no `sale_payments` rows are created and no sum check applies. A mismatched/invalid split is ' +
+          'rejected with `400 VALIDATION_ERROR` and a `details[].code` of `SPLIT_PAYMENT_MISMATCH`, and ' +
+          'persists nothing (no sale, items, payments, or register movement).',
         security: [
           {
             BearerAuth: [],
@@ -1573,6 +1604,29 @@ export const openApiSpec = {
               schema: {
                 type: 'object',
                 additionalProperties: true,
+                properties: {
+                  items: { type: 'array', items: { type: 'object' } },
+                  payment_method: {
+                    type: 'string',
+                    enum: ['Cash', 'Card', 'Other'],
+                  },
+                  payments: {
+                    type: 'array',
+                    description:
+                      'Split-tender entries. When present, sole source of truth for the tender; ' +
+                      'must sum in minor units to the authoritative amount due.',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        method: {
+                          type: 'string',
+                          enum: ['Cash', 'Card', 'Other', 'Gift Card'],
+                        },
+                        amount: { type: 'number', minimum: 0 },
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -1591,6 +1645,31 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      description:
+                        'The persisted sale row, additively extended with the confirmed calculation, ' +
+                        'authoritative items, and validated payments used to persist it. Every field ' +
+                        'present before Unit 4 is unchanged.',
+                      properties: {
+                        calculation: { $ref: '#/components/schemas/SaleCalculationSnapshot' },
+                        items: {
+                          type: 'array',
+                          description:
+                            'Authoritative, server-resolved line prices exactly as persisted.',
+                          items: { type: 'object' },
+                        },
+                        payments: {
+                          type: 'array',
+                          description:
+                            'Validated payment entries exactly as persisted (empty for a non-split sale).',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              method: { type: 'string' },
+                              amount: { type: 'number' },
+                            },
+                          },
+                        },
+                      },
                     },
                   },
                 },
@@ -1598,7 +1677,9 @@ export const openApiSpec = {
             },
           },
           '400': {
-            description: 'Validation error / Bad request',
+            description:
+              'Validation error / Bad request. A split-payment mismatch is reported here with ' +
+              '`details[].code === "SPLIT_PAYMENT_MISMATCH"`.',
           },
           '401': {
             description: 'Unauthorized / Missing or invalid token',
@@ -1619,7 +1700,10 @@ export const openApiSpec = {
       get: {
         tags: ['POS Sales'],
         summary: 'Get Sales by ID (Admin, Cashier)',
-        description: 'Endpoint classification: S. Allowed Roles: Admin, Cashier.',
+        description:
+          'Endpoint classification: S. Allowed Roles: Admin, Cashier.\n\n' +
+          '`data.calculation` is the immutable snapshot persisted at sale time (checkout total-parity ' +
+          'plan, Unit 2/4) -- it never depends on settings changed after the sale.',
         security: [
           {
             BearerAuth: [],
@@ -1650,6 +1734,12 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        calculation: { $ref: '#/components/schemas/SaleCalculationSnapshot' },
+                        items: { type: 'array', items: { type: 'object' } },
+                        payments: { type: 'array', items: { type: 'object' } },
+                        refunds: { type: 'array', items: { type: 'object' } },
+                      },
                     },
                   },
                 },

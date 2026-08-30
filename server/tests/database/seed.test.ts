@@ -36,7 +36,7 @@ describe('PostgreSQL Seed System', () => {
     expect(customers.rows.length).toBe(15);
 
     const settings = await memPool.query('SELECT * FROM settings');
-    expect(settings.rows.length).toBe(13);
+    expect(settings.rows.length).toBe(14);
   });
 
   it('should be idempotent and clear previous rows when re-seeded', async () => {

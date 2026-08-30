@@ -1,3 +1,4 @@
+import { Queryable } from '../../../database/transaction';
 import { IRegisterRepository, registerRepository as defaultRepo } from './repository';
 import {
   SessionRow,
@@ -19,7 +20,9 @@ export interface IRegisterService {
     type: 'cash_in' | 'cash_out',
     amount: number,
     note?: string
-  ): Promise<{ movement: MovementRow; error?: undefined } | { movement?: undefined; error: string }>;
+  ): Promise<
+    { movement: MovementRow; error?: undefined } | { movement?: undefined; error: string }
+  >;
   closeSession(
     userId: number,
     countedCash: number,
@@ -32,7 +35,12 @@ export interface IRegisterService {
   forceCloseSession(
     sessionId: number | string
   ): Promise<{ session: SessionRow; error?: undefined } | { session?: undefined; error: string }>;
-  recordSaleMovement(cashierId: number, saleId: number, cashAmount: number): Promise<void>;
+  recordSaleMovement(
+    cashierId: number,
+    saleId: number,
+    cashAmount: number,
+    queryable?: Queryable
+  ): Promise<void>;
   recordRefundMovement(cashierId: number, amount: number): Promise<void>;
 }
 
@@ -65,7 +73,9 @@ export class RegisterService implements IRegisterService {
     type: 'cash_in' | 'cash_out',
     amount: number,
     note?: string
-  ): Promise<{ movement: MovementRow; error?: undefined } | { movement?: undefined; error: string }> {
+  ): Promise<
+    { movement: MovementRow; error?: undefined } | { movement?: undefined; error: string }
+  > {
     const session = await this.repo.findOpenSessionByCashierId(userId);
     if (!session) {
       return { error: 'No open register session' };
@@ -160,22 +170,30 @@ export class RegisterService implements IRegisterService {
     return { session };
   }
 
+  /**
+   * Record the cash component of a confirmed sale against the cashier's open
+   * register session. When `queryable` is a checkout transaction client (see
+   * `SalesService.executeSale`, Unit 4 of the checkout total-parity plan),
+   * these mutations run and roll back atomically with the sale, items,
+   * payments, and calculation snapshot -- register state can never diverge
+   * from a sale that fails to persist. Unlike the previous standalone
+   * behavior, failures here are NOT swallowed: a register-tracking failure
+   * must fail (and roll back) the whole checkout, not silently desync the
+   * drawer from recorded sales.
+   */
   async recordSaleMovement(
     cashierId: number,
     saleId: number,
-    cashAmount: number
+    cashAmount: number,
+    queryable?: Queryable
   ): Promise<void> {
-    try {
-      const session = await this.repo.findOpenSessionByCashierId(cashierId);
-      if (!session) return;
+    const session = await this.repo.findOpenSessionByCashierId(cashierId, queryable);
+    if (!session) return;
 
-      const sessionId = session.id;
-      await this.repo.createMovement(sessionId, 'sale', cashAmount, null, saleId);
-      await this.repo.updateSessionExpectedCash(sessionId, cashAmount);
-      await this.repo.updateSaleRegisterSession(saleId, sessionId);
-    } catch {
-      // Don't fail the sale if register tracking fails
-    }
+    const sessionId = session.id;
+    await this.repo.createMovement(sessionId, 'sale', cashAmount, null, saleId, queryable);
+    await this.repo.updateSessionExpectedCash(sessionId, cashAmount, queryable);
+    await this.repo.updateSaleRegisterSession(saleId, sessionId, queryable);
   }
 
   async recordRefundMovement(cashierId: number, amount: number): Promise<void> {
@@ -212,7 +230,11 @@ export const getSessionHistory = (filters: SessionHistoryFilters) =>
   registerService.getSessionHistory(filters);
 export const forceCloseSession = (sessionId: number | string) =>
   registerService.forceCloseSession(sessionId);
-export const recordSaleMovement = (cashierId: number, saleId: number, cashAmount: number) =>
-  registerService.recordSaleMovement(cashierId, saleId, cashAmount);
+export const recordSaleMovement = (
+  cashierId: number,
+  saleId: number,
+  cashAmount: number,
+  queryable?: Queryable
+) => registerService.recordSaleMovement(cashierId, saleId, cashAmount, queryable);
 export const recordRefundMovement = (cashierId: number, amount: number) =>
   registerService.recordRefundMovement(cashierId, amount);

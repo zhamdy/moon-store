@@ -15,8 +15,26 @@ export interface MemoryTransport extends Transport {
    * reproduce. Assert on what was asked for instead.
    */
   calls(): TransportRequest[];
-  /** Make the next request fail, to exercise how callers handle errors. */
-  failNext(message: string, status?: number): void;
+  /**
+   * Make a request fail, to exercise how callers handle errors. `code`/
+   * `details` let a test simulate a structured server error such as the
+   * sales endpoint's `SPLIT_PAYMENT_MISMATCH` validation detail.
+   *
+   * Without `matchPath`, the very NEXT request of any kind fails -- fine
+   * when a test controls every request precisely. With `matchPath`, only a
+   * request to that exact path is failed; anything else (a background
+   * settings/customer read a component issues incidentally) passes through
+   * untouched and the pending failure keeps waiting for its match. Prefer
+   * `matchPath` whenever the component under test can plausibly issue more
+   * than one request before the one under test.
+   */
+  failNext(
+    message: string,
+    status?: number,
+    code?: string,
+    details?: { field: string; code: string; message: string }[],
+    matchPath?: string
+  ): void;
 }
 
 interface MemoryOptions {
@@ -50,7 +68,7 @@ export function createMemoryTransport(
     return store[name];
   };
 
-  let pendingFailure: ApiError | null = null;
+  let pendingFailure: { error: ApiError; matchPath?: string } | null = null;
   const received: TransportRequest[] = [];
 
   return {
@@ -58,16 +76,16 @@ export function createMemoryTransport(
 
     calls: () => received.map((call) => ({ ...call })),
 
-    failNext: (message, status = 400) => {
-      pendingFailure = new ApiError(message, status);
+    failNext: (message, status = 400, code, details, matchPath) => {
+      pendingFailure = { error: new ApiError(message, status, code, details), matchPath };
     },
 
     async request<T>(req: TransportRequest): Promise<TransportResult<T>> {
       received.push(req);
       const { method, path, body } = req;
 
-      if (pendingFailure) {
-        const failure = pendingFailure;
+      if (pendingFailure && (!pendingFailure.matchPath || pendingFailure.matchPath === path)) {
+        const failure = pendingFailure.error;
         pendingFailure = null;
         throw failure;
       }

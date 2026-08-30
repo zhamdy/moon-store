@@ -117,6 +117,30 @@ export interface SalesMeta {
   aggregates: { totalRevenue: number; totalSales: number };
 }
 
+/**
+ * The immutable calculation snapshot persisted alongside a sale (migration
+ * 003 / server `SaleCalculationSnapshot`). Absent on a sale recorded before
+ * that migration landed -- callers must handle its absence rather than
+ * assuming it always exists on a historical row.
+ */
+export interface SaleCalculationSnapshotDTO {
+  subtotal: number;
+  manualDiscount: number;
+  couponDiscount: number;
+  pointsDiscount: number;
+  taxAmount: number;
+  taxMode: 'inclusive' | 'exclusive';
+  taxRatePercent: number;
+  tipAmount: number;
+  amountDue: number;
+}
+
+/** A payment entry from GET /api/v1/sales/:id (`sale_payments`, Unit 4). */
+export interface SalePaymentEntry {
+  method: string;
+  amount: number;
+}
+
 /** GET /api/v1/sales/:id — the same sale, with its lines attached. */
 export interface SaleDetail {
   id: number;
@@ -127,6 +151,10 @@ export interface SaleDetail {
   cashier_name: string | null;
   created_at: string;
   items: SaleItem[];
+  /** Additive since Unit 2 -- absent only for a sale recorded before migration 003. */
+  calculation?: SaleCalculationSnapshotDTO;
+  /** Additive since Unit 4 -- present only when the sale used split-tender payments. */
+  payments?: SalePaymentEntry[];
 }
 
 /** One refund against a sale, from GET /api/v1/sales/:id/refunds. */

@@ -32,22 +32,18 @@ export default function HeldCartsDialog({ open, onOpenChange }: HeldCartsDialogP
   };
 
   const doRetrieve = (id: string) => {
+    // Non-destructive lookup first: the held cart is only removed from
+    // storage AFTER its contents have actually landed in the active cart
+    // (see heldCartsStore.ts) -- never eagerly, so a failure between the two
+    // steps can't drop the cart's data.
     const cart = retrieveCart(id);
     if (cart) {
-      cartStore.clearCart();
-      for (const item of cart.items) {
-        cartStore.addItem({
-          id: item.product_id,
-          name: item.name,
-          price: item.unit_price,
-          stock: item.stock,
-        });
-        if (item.quantity > 1) {
-          cartStore.updateQuantity(item.product_id, item.quantity);
-        }
-      }
-      cartStore.setDiscount(cart.discount);
-      cartStore.setDiscountType(cart.discountType);
+      // Preserves item identity (variant_id, quantity) and discount
+      // type/value exactly; couponDiscount is intentionally never carried
+      // forward and the restored cart is flagged for a financial-preview
+      // recalculation (see cartStore.restoreFromHeld).
+      cartStore.restoreFromHeld(cart);
+      deleteCart(id);
       toast.success(t('cart.retrieveSuccess'));
       onOpenChange(false);
     }

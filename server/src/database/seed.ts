@@ -702,6 +702,7 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       ['tax_name', 'ضريبة القيمة المضافة'],
       ['phone', '+201001112233'],
       ['address', 'شارع 9، المعادي، القاهرة، مصر'],
+      ['loyalty_enabled', 'true'],
       ['loyalty_points_per_egp', '1'],
       ['loyalty_egp_per_point', '0.1'],
       ['receipt_footer', 'شكراً لتسوقكم في مون! 🌙'],

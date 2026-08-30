@@ -137,16 +137,35 @@ export default function SalesHistory() {
         quantity: item.quantity,
         unit_price: item.unit_price,
       }));
-      const subtotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+
+      // A reprint renders the same immutable, server-persisted calculation
+      // snapshot as the original receipt did (Unit 6) -- never a client
+      // recomputation from current settings, which may have changed since
+      // the sale was rung up. A sale recorded before migration 003 has no
+      // snapshot; the fallback derives only display totals from the row's
+      // own persisted fields, never from current settings.
+      const calc = sale.calculation;
 
       setReceiptData({
         saleId: sale.id,
         items,
-        subtotal,
-        discount: sale.discount || 0,
         discountType: sale.discount_type || 'fixed',
-        total: sale.total,
-        paymentMethod: sale.payment_method,
+        discountValue: sale.discount || 0,
+        calculation: calc ?? {
+          subtotal: items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0),
+          manualDiscount: 0,
+          couponDiscount: 0,
+          pointsDiscount: 0,
+          taxAmount: 0,
+          taxMode: 'exclusive',
+          taxRatePercent: 0,
+          tipAmount: 0,
+          amountDue: sale.total,
+        },
+        payments:
+          sale.payments && sale.payments.length > 0
+            ? sale.payments
+            : [{ method: sale.payment_method, amount: calc?.amountDue ?? sale.total }],
         cashierName: sale.cashier_name || '',
         date: sale.created_at,
       });

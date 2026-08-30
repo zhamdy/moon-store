@@ -30,7 +30,7 @@ import {
   Divider,
 } from '@heroui/react';
 import { useCartStore } from '../store/cartStore';
-import { useOfflineStore } from '../../../shared/store/offlineStore';
+import { useOfflineStore, SALE_QUEUE_CONTRACT_VERSION } from '../../../shared/store/offlineStore';
 import { useHeldCartsStore } from '../store/heldCartsStore';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
@@ -38,10 +38,17 @@ import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import HeldCartsDialog from './HeldCartsDialog';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import { calculateTotals, allocateSplit, type TaxMode } from '../../../shared/lib/checkout';
+import {
+  calculateTotals,
+  allocateSplit,
+  maxRedeemablePoints,
+  SPLIT_PAYMENT_MISMATCH_CODE,
+  type TaxMode,
+} from '../../../shared/lib/checkout';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
-import type { ReceiptData } from '../../../shared/components/Receipt';
+import { ApiError } from '../../../shared/lib/transport/types';
+import type { ReceiptData, ReceiptItem, ReceiptPayment } from '../../../shared/components/Receipt';
 import type { AppSettings, Customer } from '../../../shared/types/index';
 
 const customers = resource<Customer>('customers');
@@ -80,17 +87,56 @@ interface CustomerLoyalty {
   points: number;
 }
 
+/** A resolved sale line as the server actually persisted it (Unit 4's
+ * `resolvedItems` -- authoritative product/variant identity, quantity and
+ * price; no product name, which is why the receipt looks names up against
+ * the cart the cashier just rang up, display-only, never for a monetary
+ * figure). */
+interface ConfirmedSaleItem {
+  product_id: number;
+  variant_id?: number | null;
+  quantity: number;
+  unit_price: number;
+  memo?: string | null;
+}
+
+/** A validated payment entry exactly as persisted (`ConfirmedPayment` in
+ * server/src/modules/pos/sales/types.ts). */
+interface ConfirmedSalePayment {
+  method: string;
+  amount: number;
+}
+
+/** Mirrors the server's immutable `SaleCalculationSnapshot` (Units 2/4) --
+ * see client/src/shared/components/Receipt.tsx's `ReceiptCalculation`, which
+ * this is mapped into 1:1. Every figure is the CONFIRMED, persisted amount
+ * for this sale; the receipt renders these directly rather than the client's
+ * own (possibly stale-by-then) preview. */
+interface ConfirmedSaleCalculation {
+  subtotal: number;
+  manualDiscount: number;
+  couponDiscount: number;
+  pointsDiscount: number;
+  taxAmount: number;
+  taxMode: 'inclusive' | 'exclusive';
+  taxRatePercent: number;
+  tipAmount: number;
+  amountDue: number;
+}
+
 /** What POST /api/v1/sales hands back, as far as the receipt needs it. */
 interface SaleResponse {
   id: number;
-  items?: { product_name: string; quantity: number; unit_price: number }[];
   discount?: number;
   discount_type?: string;
   total: number;
-  tax_amount?: number;
   payment_method: string;
   cashier_name?: string;
   created_at: string;
+  /** Additive since Unit 4 -- present on every response from this branch's server. */
+  calculation?: ConfirmedSaleCalculation;
+  items?: ConfirmedSaleItem[];
+  payments?: ConfirmedSalePayment[];
 }
 
 /** What POST /api/v1/coupons/validate hands back, as far as the cart needs it. */
@@ -122,8 +168,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     setCoupon,
     clearCoupon,
     getSubtotal,
-    getTotal,
     clearCart,
+    needsReview,
+    acknowledgeReview,
   } = useCartStore();
   const { addToQueue } = useOfflineStore();
   const { carts: heldCarts, holdCart } = useHeldCartsStore();
@@ -169,10 +216,13 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
 
   const loyaltyInfo = useMemo(() => {
     const enabled = appSettings?.loyalty_enabled === 'true';
-    const earnRate = parseFloat(appSettings?.loyalty_earn_rate || '1');
-    const redeemValue = parseFloat(appSettings?.loyalty_redeem_value || '5');
+    // Canonical, direct-unit settings (Unit 1) -- never the legacy
+    // `loyalty_earn_rate`/`loyalty_redeem_value` aliases. Defaults match
+    // `server/src/database/seed.ts`.
+    const pointsPerEgp = parseFloat(appSettings?.loyalty_points_per_egp || '1');
+    const egpPerPoint = parseFloat(appSettings?.loyalty_egp_per_point || '0.1');
     const customerPoints = customerLoyalty?.points || 0;
-    return { enabled, earnRate, redeemValue, customerPoints };
+    return { enabled, pointsPerEgp, egpPerPoint, customerPoints };
   }, [appSettings, customerLoyalty]);
 
   const taxInfo = useMemo(() => {
@@ -191,8 +241,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         couponDiscount,
         tax: taxInfo,
         pointsToRedeem: redeemPoints && loyaltyInfo.enabled ? pointsToRedeem : 0,
-        redeemValue: loyaltyInfo.redeemValue,
+        redeemValue: loyaltyInfo.egpPerPoint,
+        pointsBalance: loyaltyInfo.customerPoints,
         tip,
+        loyaltyEnabled: loyaltyInfo.enabled,
+        pointsPerEgp: loyaltyInfo.pointsPerEgp,
       }),
     [
       items,
@@ -207,7 +260,67 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     ]
   );
 
+  // The most the selected customer may redeem on THIS sale: never more than
+  // their balance, and never more value than the sale (before loyalty) is
+  // worth. `netOfDiscounts + pointsDiscount` recovers the remaining value
+  // after manual discount/coupon but BEFORE loyalty, regardless of how many
+  // points are currently requested (see checkout.ts's calculation order).
+  const maxPoints = useMemo(
+    () =>
+      maxRedeemablePoints(
+        loyaltyInfo.customerPoints,
+        totals.netOfDiscounts + totals.pointsDiscount,
+        loyaltyInfo.egpPerPoint
+      ),
+    [loyaltyInfo, totals.netOfDiscounts, totals.pointsDiscount]
+  );
+
+  // A stale redeemed-points value must never silently outlive the subtotal,
+  // coupon, or tax change that shrank how much can actually be redeemed.
+  useEffect(() => {
+    if (pointsToRedeem > maxPoints) {
+      setPointsToRedeem(maxPoints);
+    }
+  }, [maxPoints, pointsToRedeem]);
+
   const split = useMemo(() => allocateSplit(payments, totals.amountDue), [payments, totals]);
+
+  // Broadcast the SAME projected breakdown the cart footer/checkout drawer
+  // render -- never a separately-derived total -- so the customer display
+  // always agrees to the cent with what the cashier sees (Unit 5). This
+  // owns the channel entirely; POS.tsx no longer posts its own (partial,
+  // tax/loyalty-blind) projection.
+  useEffect(() => {
+    const channel = new BroadcastChannel('moon-customer-display');
+    if (items.length > 0) {
+      channel.postMessage({
+        type: 'cart-update',
+        cart: {
+          items: items.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            memo: i.memo,
+          })),
+          subtotal: totals.subtotal,
+          discount,
+          discountType,
+          discountAmount: totals.discountAmount,
+          couponCode: couponCode || undefined,
+          couponDiscount: totals.couponDiscount,
+          taxEnabled: taxInfo.enabled,
+          taxRate: taxInfo.rate,
+          taxAmount: totals.taxAmount,
+          pointsDiscount: totals.pointsDiscount,
+          tip: totals.tip,
+          amountDue: totals.amountDue,
+        },
+      });
+    } else {
+      channel.postMessage({ type: 'cart-clear' });
+    }
+    channel.close();
+  }, [items, discount, discountType, couponCode, taxInfo, totals]);
 
   useEffect(() => {
     if (checkoutTriggerRef) {
@@ -252,29 +365,51 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       transport.request<SaleResponse>({ method: 'POST', path: 'sales', body: saleData }),
     onSuccess: (response) => {
       const sale = response.data;
-      const receiptItems = (sale.items || []).map(
-        (item: { product_name: string; quantity: number; unit_price: number }) => ({
-          name: item.product_name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-        })
+      const calc = sale.calculation;
+
+      // Display name only -- looked up against the cart the cashier just
+      // rang up (captured here, before `clearCart()` below empties it). Every
+      // MONETARY figure in the receipt (quantity, unit_price, every
+      // calculation line, total, payments) comes solely from `sale`/`calc`,
+      // the server's confirmed response -- never recomputed client-side. The
+      // server's resolved line items (Unit 4) carry product/variant identity
+      // and price but not the product name, so this lookup is purely
+      // cosmetic and never substitutes for a server-confirmed amount.
+      const nameByLine = new Map(
+        items.map((i) => [`${i.product_id}:${i.variant_id ?? 0}`, i.name])
       );
-      const subtotal = receiptItems.reduce(
-        (sum: number, item: { unit_price: number; quantity: number }) =>
-          sum + item.unit_price * item.quantity,
-        0
-      );
+      const receiptItems: ReceiptItem[] = (sale.items ?? []).map((item) => ({
+        name: nameByLine.get(`${item.product_id}:${item.variant_id ?? 0}`) ?? item.memo ?? '',
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      }));
+
+      const receiptPayments: ReceiptPayment[] =
+        sale.payments && sale.payments.length > 0
+          ? sale.payments
+          : [{ method: sale.payment_method, amount: calc?.amountDue ?? sale.total }];
 
       const newReceipt: ReceiptData = {
         saleId: sale.id,
         items: receiptItems,
-        subtotal,
-        discount: sale.discount || 0,
-        discountType: sale.discount_type || 'fixed',
-        total: sale.total,
-        taxAmount: sale.tax_amount || 0,
-        taxRate: taxInfo.enabled ? taxInfo.rate : 0,
-        paymentMethod: sale.payment_method,
+        discountType: sale.discount_type || discountType,
+        discountValue: sale.discount ?? discount,
+        couponCode: couponCode || undefined,
+        // `calc` is additive-but-guaranteed within this branch (Unit 4 ships
+        // alongside this unit); the fallback only guards a response shaped
+        // like the pre-Unit-4 contract so the receipt never crashes.
+        calculation: calc ?? {
+          subtotal: receiptItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0),
+          manualDiscount: 0,
+          couponDiscount: 0,
+          pointsDiscount: 0,
+          taxAmount: 0,
+          taxMode: taxInfo.mode,
+          taxRatePercent: taxInfo.rate,
+          tipAmount: 0,
+          amountDue: sale.total,
+        },
+        payments: receiptPayments,
         cashierName: sale.cashier_name || '',
         customerName: selectedCustomer?.name,
         date: sale.created_at,
@@ -308,20 +443,44 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           payment_method: paymentMethod,
           ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
         };
-        addToQueue({ type: 'sale', payload: saleData as unknown as Record<string, unknown> });
+        addToQueue({
+          type: 'sale',
+          payload: saleData as unknown as Record<string, unknown>,
+          // Stamps this entry as composed under the current (corrected)
+          // checkout contract, so useOffline.ts's replay never quarantines
+          // it. A legacy entry already sitting in a user's queue from before
+          // this deploy has no such field and is left for manual review.
+          contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+        });
         toast.success(t('cart.savedOffline'));
         clearCart();
         setCheckoutOpen(false);
         setSelectedCustomer(null);
         setCustomerSearch('');
       } else {
-        toast.error(error.message || t('cart.saleFailed'));
+        // Authoritative data (catalog price, tax, coupon, or loyalty
+        // settings) changed between preview and submission and the split no
+        // longer balances against the server's recalculated total. The cart
+        // is intentionally left untouched (no clearCart/close above) so the
+        // cashier can review and rebalance rather than seeing a generic
+        // failure or a false success.
+        const isSplitMismatch =
+          error instanceof ApiError &&
+          error.details?.some((d) => d.code === SPLIT_PAYMENT_MISMATCH_CODE);
+        toast.error(
+          isSplitMismatch ? t('cart.splitMismatchError') : error.message || t('cart.saleFailed')
+        );
       }
     },
   });
 
   const handleCheckout = (): void => {
-    if (items.length === 0) return;
+    // A recovered/restored cart is not fully trusted for checkout until the
+    // cashier explicitly acknowledges its review banner (Unit 6's
+    // `needsReview`/`acknowledgeReview`) -- enforced here too, not just via
+    // the disabled footer button, since a keyboard shortcut can open the
+    // checkout drawer directly.
+    if (items.length === 0 || needsReview) return;
 
     const saleData: SaleData = {
       items: items.map((i) => ({
@@ -374,15 +533,19 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const handleHoldCart = () => {
     if (items.length === 0) return;
     const name = `Cart #${heldCarts.length + 1}`;
-    holdCart(name, items, discount, discountType);
+    // couponDiscount is deliberately NOT passed through -- a held cart never
+    // stores a cached discount amount; it must be revalidated on retrieval
+    // (see heldCartsStore.ts / cartStore.restoreFromHeld).
+    holdCart(name, items, discount, discountType, { notes, tip, couponCode });
     clearCart();
     toast.success(t('cart.holdSuccess'));
   };
 
-  const paymentLabels: Record<PaymentMethod, string> = {
+  const paymentLabels: Record<PaymentMethod | 'Gift Card', string> = {
     Cash: t('cart.cash'),
     Card: t('cart.card'),
     Other: t('cart.other'),
+    'Gift Card': t('cart.giftCard'),
   };
 
   return (
@@ -435,6 +598,20 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           )}
         </div>
       </div>
+
+      {/* Recovered/restored cart review banner (Unit 6 cart-schema migration --
+          see cartStore.ts's `needsReview`). Distinct from POS.tsx's
+          time-based `isRecoveredCart()` banner: this one is set explicitly by
+          a v0->v1 migration or a held-cart restore, and is cleared only by
+          the cashier acknowledging it. */}
+      {needsReview && (
+        <div className="mx-4 mt-3 p-3 rounded-lg border border-warning/40 bg-warning/10 flex items-start gap-2">
+          <p className="text-xs text-foreground flex-1">{t('cart.needsReviewWarning')}</p>
+          <Button size="sm" variant="flat" color="warning" onClick={acknowledgeReview}>
+            {t('cart.needsReviewAcknowledge')}
+          </Button>
+        </div>
+      )}
 
       {/* Items */}
       <div ref={animateParent} className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -647,7 +824,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
             <span>{t('cart.subtotal')}</span>
             <span className="text-foreground">{formatCurrency(getSubtotal())}</span>
           </div>
-          {discount > 0 && (
+          {totals.discountAmount > 0 && (
             <div className="flex justify-between text-sm text-danger font-data">
               <span>
                 {t('cart.discount')}
@@ -655,12 +832,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   ({discountType === 'percentage' ? `${discount}%` : formatCurrency(discount)})
                 </span>
               </span>
-              <span>
-                -
-                {formatCurrency(
-                  discountType === 'percentage' ? (getSubtotal() * discount) / 100 : discount
-                )}
-              </span>
+              <span>-{formatCurrency(totals.discountAmount)}</span>
             </div>
           )}
           {taxInfo.enabled && (
@@ -672,9 +844,17 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               <span className="text-foreground">{formatCurrency(totals.taxAmount)}</span>
             </div>
           )}
+          {totals.tip > 0 && (
+            <div className="flex justify-between text-sm text-primary font-data">
+              <span>{t('cart.tip')}</span>
+              <span>+{formatCurrency(totals.tip)}</span>
+            </div>
+          )}
+          {/* The SAME `amountDue` the checkout drawer and customer display
+              use -- never a separately-derived figure (Unit 5 parity). */}
           <div className="flex justify-between text-lg font-semibold font-data text-foreground">
             <span>{t('cart.total')}</span>
-            <span className="text-primary font-bold">{formatCurrency(totals.totalWithTax)}</span>
+            <span className="text-primary font-bold">{formatCurrency(totals.amountDue)}</span>
           </div>
         </div>
 
@@ -683,7 +863,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           size="md"
           className="w-full font-semibold shadow-sm"
           onClick={() => setCheckoutOpen(true)}
-          isDisabled={items.length === 0}
+          isDisabled={items.length === 0 || needsReview}
         >
           {t('cart.checkout')}
         </Button>
@@ -735,7 +915,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                     <span>{t('cart.subtotal')}</span>
                     <span className="text-foreground">{formatCurrency(getSubtotal())}</span>
                   </div>
-                  {discount > 0 && (
+                  {totals.discountAmount > 0 && (
                     <div className="flex justify-between text-sm text-danger font-data">
                       <span>
                         {t('cart.discount')}
@@ -747,14 +927,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                           )
                         </span>
                       </span>
-                      <span>
-                        -
-                        {formatCurrency(
-                          discountType === 'percentage'
-                            ? (getSubtotal() * discount) / 100
-                            : discount
-                        )}
-                      </span>
+                      <span>-{formatCurrency(totals.discountAmount)}</span>
                     </div>
                   )}
                   {taxInfo.enabled && (
@@ -765,12 +938,12 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                       <span className="text-foreground">{formatCurrency(totals.taxAmount)}</span>
                     </div>
                   )}
-                  {couponDiscount > 0 && (
+                  {totals.couponDiscount > 0 && (
                     <div className="flex justify-between text-sm text-primary font-data">
                       <span>
                         {t('cart.coupon')} ({couponCode})
                       </span>
-                      <span>-{formatCurrency(couponDiscount)}</span>
+                      <span>-{formatCurrency(totals.couponDiscount)}</span>
                     </div>
                   )}
                   {totals.pointsDiscount > 0 && (
@@ -779,10 +952,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                       <span>-{formatCurrency(totals.pointsDiscount)}</span>
                     </div>
                   )}
-                  {tip > 0 && (
+                  {totals.tip > 0 && (
                     <div className="flex justify-between text-sm text-primary font-data">
-                      <span>{t('cart.quickDiscount')}</span>
-                      <span>-{formatCurrency(tip)}</span>
+                      <span>{t('cart.tip')}</span>
+                      <span>+{formatCurrency(totals.tip)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-base font-bold font-data text-foreground">
@@ -977,13 +1150,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                             min="0"
                             size="sm"
                             variant="bordered"
-                            max={loyaltyInfo.customerPoints}
+                            max={maxPoints}
                             value={pointsToRedeem ? String(pointsToRedeem) : ''}
                             onValueChange={(val) => {
-                              const v = Math.min(
-                                Math.max(0, parseInt(val) || 0),
-                                loyaltyInfo.customerPoints
-                              );
+                              const v = Math.min(Math.max(0, parseInt(val) || 0), maxPoints);
                               setPointsToRedeem(v);
                             }}
                             className="font-data w-36"
@@ -1046,7 +1216,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   )}
                 </div>
 
-                {/* Quick Discount */}
+                {/* Quick Discount -- writes ONLY into the manual discount/discount_type
+                    state, never `tip`. This is the fix for the historical bug
+                    where these buttons silently wrote a "discount" amount
+                    into the tip field (see Unit 3/5 of
+                    docs/plans/2026-08-30-001-fix-pos-checkout-total-parity-plan.md). */}
                 <Divider />
                 <div className="space-y-2">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -1054,33 +1228,65 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                     {t('cart.quickDiscount')}
                   </h3>
                   <div className="flex gap-1.5 items-center">
-                    {[5, 10, 15].map((pct) => {
-                      const discAmount = Math.round(((getTotal() * pct) / 100) * 100) / 100;
-                      return (
-                        <Button
-                          key={pct}
-                          size="sm"
-                          variant={tip === discAmount ? 'solid' : 'bordered'}
-                          color={tip === discAmount ? 'primary' : 'default'}
-                          className="flex-1 h-7 min-w-0 text-[11px] font-data font-medium"
-                          onClick={() => setTip(discAmount)}
-                        >
-                          {pct}%
-                        </Button>
-                      );
-                    })}
+                    {[5, 10, 15].map((pct) => (
+                      <Button
+                        key={pct}
+                        size="sm"
+                        variant={
+                          discountType === 'percentage' && discount === pct ? 'solid' : 'bordered'
+                        }
+                        color={
+                          discountType === 'percentage' && discount === pct ? 'primary' : 'default'
+                        }
+                        className="flex-1 h-7 min-w-0 text-[11px] font-data font-medium"
+                        onClick={() => {
+                          setDiscountType('percentage');
+                          setDiscount(pct);
+                        }}
+                      >
+                        {pct}%
+                      </Button>
+                    ))}
                     <Input
                       type="number"
                       min="0"
+                      max={discountType === 'percentage' ? 100 : undefined}
                       step="0.01"
                       size="sm"
                       variant="bordered"
                       placeholder={t('cart.customAmount')}
-                      value={tip ? String(tip) : ''}
-                      onValueChange={(val) => setTip(parseFloat(val) || 0)}
+                      aria-label={t('cart.quickDiscount')}
+                      value={discountType === 'percentage' && discount ? String(discount) : ''}
+                      onValueChange={(val) => {
+                        setDiscountType('percentage');
+                        setDiscount(parseFloat(val) || 0);
+                      }}
                       className="flex-1 font-data"
                     />
                   </div>
+                </div>
+
+                {/* Tip -- its own, separately labeled, always-positive control.
+                    Never written to by Quick Discount above. Rendered as an
+                    added line (`+`) in the summary and in the receipt. */}
+                <Divider />
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <StickyNote className="h-3.5 w-3.5 text-primary" />
+                    {t('cart.tip')}
+                  </h3>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    size="sm"
+                    variant="bordered"
+                    placeholder={t('cart.customTip')}
+                    aria-label={t('cart.tip')}
+                    value={tip ? String(tip) : ''}
+                    onValueChange={(val) => setTip(Math.max(0, parseFloat(val) || 0))}
+                    className="font-data"
+                  />
                 </div>
 
                 {/* Sale Notes */}
@@ -1176,6 +1382,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                             step="0.01"
                             size="sm"
                             variant="bordered"
+                            aria-label={`${paymentLabels[p.method] ?? p.method} ${t('cart.splitPayment')} #${idx + 1}`}
                             value={p.amount ? String(p.amount) : ''}
                             onValueChange={(val) => {
                               const next = [...payments];
@@ -1222,7 +1429,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   size="md"
                   className="w-full font-semibold shadow-sm"
                   onClick={handleCheckout}
-                  isDisabled={checkoutMutation.isPending || (splitPayment && !split.isBalanced)}
+                  isDisabled={
+                    checkoutMutation.isPending || needsReview || (splitPayment && !split.isBalanced)
+                  }
                   isLoading={checkoutMutation.isPending}
                 >
                   {checkoutMutation.isPending ? t('cart.processing') : t('cart.confirmSale')}

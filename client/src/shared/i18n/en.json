@@ -534,12 +534,13 @@
   "settings.saveFailed": "Failed to save settings",
 
   "tax.vat": "VAT",
+  "tax.included": "(included)",
 
   "loyalty.title": "Loyalty Program",
   "loyalty.enabled": "Enable Loyalty Points",
   "loyalty.enabledDesc": "Customers earn and redeem points on purchases",
-  "loyalty.earnRate": "Points per $1 spent",
-  "loyalty.redeemValue": "Redemption value ($ per 100 points)",
+  "loyalty.earnRate": "Points earned per 1 EGP spent",
+  "loyalty.redeemValue": "Redemption value (EGP per point)",
   "loyalty.points": "Points",
   "loyalty.pointsBalance": "{points} pts",
   "loyalty.redeemPoints": "Redeem Points",
@@ -601,6 +602,8 @@
   "offline.offlineBanner": "You are offline.",
   "offline.queuedForSync": "{count} item(s) queued for sync.",
   "offline.synced": "{count} offline sale(s) synced",
+  "offline.splitMismatch": "{count} queued sale(s) no longer balance -- please review before retrying",
+  "offline.quarantinedForReview": "{count} of these need manual review before they can sync.",
 
   "pwa.installApp": "Install MOON App",
   "pwa.installDesc": "Install for quick access and offline support",
@@ -728,6 +731,9 @@
   "cart.addMemo": "Add memo",
   "cart.memoPlaceholder": "Item note...",
   "cart.recoveredCart": "You have unsaved items from a previous session",
+  "cart.needsReviewWarning": "This cart was recovered or restored from a held cart. Please review its discount, tip and coupon before checkout -- any coupon must be re-applied.",
+  "cart.needsReviewAcknowledge": "Reviewed",
+  "cart.splitMismatchError": "The total or payments changed since checkout was opened. Review the amount due and rebalance payments before confirming.",
   "cart.keepCart": "Keep",
   "cart.discardCart": "Discard",
 

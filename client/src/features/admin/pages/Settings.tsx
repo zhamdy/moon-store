@@ -27,8 +27,10 @@ export default function Settings() {
   const [taxMode, setTaxMode] = useState('exclusive');
 
   const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
-  const [loyaltyEarnRate, setLoyaltyEarnRate] = useState('1');
-  const [loyaltyRedeemValue, setLoyaltyRedeemValue] = useState('5');
+  // Canonical, direct-unit loyalty settings (see AppSettings). Defaults match
+  // LOYALTY_SETTINGS_DEFAULTS on the server.
+  const [loyaltyPointsPerEgp, setLoyaltyPointsPerEgp] = useState('1');
+  const [loyaltyEgpPerPoint, setLoyaltyEgpPerPoint] = useState('0.1');
 
   const { data: settings, isLoading } = useApiQuery<AppSettings>(['settings'], 'settings');
 
@@ -38,8 +40,8 @@ export default function Settings() {
       setTaxRate(settings.tax_rate || '15');
       setTaxMode(settings.tax_mode || 'exclusive');
       setLoyaltyEnabled(settings.loyalty_enabled === 'true');
-      setLoyaltyEarnRate(settings.loyalty_earn_rate || '1');
-      setLoyaltyRedeemValue(settings.loyalty_redeem_value || '5');
+      setLoyaltyPointsPerEgp(settings.loyalty_points_per_egp || '1');
+      setLoyaltyEgpPerPoint(settings.loyalty_egp_per_point || '0.1');
     }
   }, [settings]);
 
@@ -59,8 +61,8 @@ export default function Settings() {
       tax_rate: taxRate,
       tax_mode: taxMode === 'inclusive' ? 'inclusive' : 'exclusive',
       loyalty_enabled: loyaltyEnabled ? 'true' : 'false',
-      loyalty_earn_rate: loyaltyEarnRate,
-      loyalty_redeem_value: loyaltyRedeemValue,
+      loyalty_points_per_egp: loyaltyPointsPerEgp,
+      loyalty_egp_per_point: loyaltyEgpPerPoint,
     });
   };
 
@@ -159,8 +161,11 @@ export default function Settings() {
                   label={t('loyalty.earnRate')}
                   size="sm"
                   variant="bordered"
-                  value={loyaltyEarnRate}
-                  onValueChange={setLoyaltyEarnRate}
+                  value={loyaltyPointsPerEgp}
+                  onValueChange={setLoyaltyPointsPerEgp}
+                  endContent={
+                    <span className="text-xs text-muted-foreground font-data">pts / EGP</span>
+                  }
                 />
               </div>
 
@@ -168,14 +173,14 @@ export default function Settings() {
                 <Input
                   type="number"
                   min="0"
-                  step="0.5"
+                  step="0.01"
                   label={t('loyalty.redeemValue')}
                   size="sm"
                   variant="bordered"
-                  value={loyaltyRedeemValue}
-                  onValueChange={setLoyaltyRedeemValue}
+                  value={loyaltyEgpPerPoint}
+                  onValueChange={setLoyaltyEgpPerPoint}
                   endContent={
-                    <span className="text-xs text-muted-foreground font-data">$ / 100 pts</span>
+                    <span className="text-xs text-muted-foreground font-data">EGP / pt</span>
                   }
                 />
               </div>
