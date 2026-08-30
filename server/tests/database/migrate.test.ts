@@ -45,7 +45,11 @@ describe('PostgreSQL Migration Runner', () => {
     expect(tableNames).toContain('customers');
 
     const records = await getAppliedMigrations(memPool);
-    expect(records).toEqual(['001_initial_schema.sql', '002_checkout_financial_contract.sql']);
+    expect(records).toEqual([
+      '001_initial_schema.sql',
+      '002_checkout_financial_contract.sql',
+      '003_sale_calculation_snapshot.sql',
+    ]);
   });
 
   it('should skip already applied migrations on subsequent run', async () => {
@@ -56,8 +60,12 @@ describe('PostgreSQL Migration Runner', () => {
 
   it('should rollback migrations with down runner', async () => {
     await runMigrationsUp(memPool, migrationsDir);
-    const rolledBack = await runMigrationsDown(2, memPool, migrationsDir);
-    expect(rolledBack).toEqual(['002_checkout_financial_contract.sql', '001_initial_schema.sql']);
+    const rolledBack = await runMigrationsDown(3, memPool, migrationsDir);
+    expect(rolledBack).toEqual([
+      '003_sale_calculation_snapshot.sql',
+      '002_checkout_financial_contract.sql',
+      '001_initial_schema.sql',
+    ]);
 
     const records = await getAppliedMigrations(memPool);
     expect(records).toHaveLength(0);
@@ -87,10 +95,18 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
 
   it('applies 002 on top of an already-applied 001 (upgrade path)', async () => {
     const firstRun = await runMigrationsUp(memPool, migrationsDir);
-    expect(firstRun).toEqual(['001_initial_schema.sql', '002_checkout_financial_contract.sql']);
+    expect(firstRun).toEqual([
+      '001_initial_schema.sql',
+      '002_checkout_financial_contract.sql',
+      '003_sale_calculation_snapshot.sql',
+    ]);
 
     const applied = await getAppliedMigrations(memPool);
-    expect(applied).toEqual(['001_initial_schema.sql', '002_checkout_financial_contract.sql']);
+    expect(applied).toEqual([
+      '001_initial_schema.sql',
+      '002_checkout_financial_contract.sql',
+      '003_sale_calculation_snapshot.sql',
+    ]);
   });
 
   it('fresh database: resolves canonical loyalty settings with documented safe defaults', async () => {
@@ -122,7 +138,10 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
     );
 
     const applied = await runMigrationsUp(upgradePool, migrationsDir);
-    expect(applied).toEqual(['002_checkout_financial_contract.sql']);
+    expect(applied).toEqual([
+      '002_checkout_financial_contract.sql',
+      '003_sale_calculation_snapshot.sql',
+    ]);
 
     const settings = await settingsMap(upgradePool);
     expect(settings.loyalty_points_per_egp).toBe('3');
@@ -182,8 +201,13 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
     );
 
     await runMigrationsUp(upgradePool, migrationsDir);
-    const rolledBack = await runMigrationsDown(1, upgradePool, migrationsDir);
-    expect(rolledBack).toEqual(['002_checkout_financial_contract.sql']);
+    // Roll back both 003 (unrelated to loyalty settings) and 002 (the
+    // migration under test) to exercise 002's down migration specifically.
+    const rolledBack = await runMigrationsDown(2, upgradePool, migrationsDir);
+    expect(rolledBack).toEqual([
+      '003_sale_calculation_snapshot.sql',
+      '002_checkout_financial_contract.sql',
+    ]);
 
     const settings = await settingsMap(upgradePool);
     expect(settings.loyalty_points_per_egp).toBe('2');

@@ -1,3 +1,5 @@
+import { Queryable } from '../../../database/transaction';
+import pool from '../../../database/pool';
 import { ICouponsRepository, couponsRepository as defaultRepo } from './repository';
 import {
   CouponData,
@@ -67,10 +69,20 @@ export class CouponsService {
     }
   }
 
-  async validate(input: ValidateCouponInput): Promise<ValidateCouponResult> {
+  /**
+   * Validate a coupon against the canonical eligibility/scope/limit rules.
+   * Accepts an optional transaction-scoped `queryable` (see
+   * `server/src/database/transaction.ts`) so callers such as
+   * `SalesService.executeSale` can run this validation inside the checkout
+   * transaction instead of maintaining a weaker, parallel coupon lookup.
+   */
+  async validate(
+    input: ValidateCouponInput,
+    queryable: Queryable = pool
+  ): Promise<ValidateCouponResult> {
     const { code, subtotal, customer_id, item_product_ids } = input;
 
-    const coupon = await this.repo.findByCode(code);
+    const coupon = await this.repo.findByCode(code, queryable);
     if (!coupon) {
       throw new CouponError('Coupon not found or inactive', 404);
     }
@@ -90,14 +102,18 @@ export class CouponsService {
     }
 
     if (coupon.max_uses) {
-      const usageCount = await this.repo.getUsageCount(coupon.id);
+      const usageCount = await this.repo.getUsageCount(coupon.id, queryable);
       if (usageCount >= coupon.max_uses) {
         throw new CouponError('Coupon usage limit reached', 400);
       }
     }
 
     if (coupon.max_uses_per_customer && customer_id) {
-      const customerUsageCount = await this.repo.getCustomerUsageCount(coupon.id, customer_id);
+      const customerUsageCount = await this.repo.getCustomerUsageCount(
+        coupon.id,
+        customer_id,
+        queryable
+      );
       if (customerUsageCount >= coupon.max_uses_per_customer) {
         throw new CouponError('Coupon usage limit reached for this customer', 400);
       }
@@ -117,9 +133,16 @@ export class CouponsService {
             throw new CouponError('Coupon does not apply to any products in the cart', 400);
           }
         } else if (coupon.scope === 'category') {
-          const matchCount = await this.repo.checkProductCategoriesMatch(item_product_ids, scopeIds);
+          const matchCount = await this.repo.checkProductCategoriesMatch(
+            item_product_ids,
+            scopeIds,
+            queryable
+          );
           if (matchCount === 0) {
-            throw new CouponError('Coupon does not apply to any product categories in the cart', 400);
+            throw new CouponError(
+              'Coupon does not apply to any product categories in the cart',
+              400
+            );
           }
         }
       }

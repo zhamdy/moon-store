@@ -4,6 +4,14 @@ export interface SaleItemInput {
   quantity: number;
   unit_price?: number;
   memo?: string | null;
+  /**
+   * Identity of a server-known bundle definition this line belongs to.
+   * When set, the server validates the bundle definition/allocation and
+   * NEVER trusts `unit_price` for this line — see Unit 2's "Bundle
+   * allocation" handling in `service.ts`. Absent for ordinary catalog lines,
+   * which are always priced from the catalog/variant, never from the client.
+   */
+  bundle_id?: number | null;
 }
 
 export interface PaymentInput {
@@ -112,6 +120,91 @@ export interface SaleCalculationBreakdown {
    * Compatibility rule — computed after redemption and from the final
    * amount due (including tax and tip), matching current server semantics.
    */
+  earnedPoints: number;
+}
+
+// ─── Pure calculation input (Unit 2) ───────────────────────────────────────
+//
+// Shape consumed by the pure, DB-free `calculateSaleBreakdown` function in
+// `service.ts`. Mirrors `contracts/checkout-totals.v1.json` cases exactly so
+// both the fixture and production callers (server catalog/coupon/loyalty/tax
+// resolution) drive the identical calculation. All monetary fields are
+// integer MINOR units; convert at the DB/HTTP boundary with `toMinorUnits`/
+// `fromMinorUnits` below.
+
+export const MINOR_UNITS_PER_MAJOR_UNIT = 100;
+
+/** Convert a decimal EGP amount (e.g. a NUMERIC column or HTTP number) to integer minor units. */
+export function toMinorUnits(amountMajor: number): number {
+  return Math.round((amountMajor || 0) * MINOR_UNITS_PER_MAJOR_UNIT);
+}
+
+/** Convert integer minor units back to a decimal EGP amount for persistence/response. */
+export function fromMinorUnits(amountMinor: number): number {
+  return amountMinor / MINOR_UNITS_PER_MAJOR_UNIT;
+}
+
+export interface SaleCalculationLineInput {
+  unitPriceMinor: number;
+  quantity: number;
+}
+
+export type ManualDiscountType = 'fixed' | 'percentage';
+
+export interface ManualDiscountInput {
+  type: ManualDiscountType;
+  /** Required when `type === 'fixed'`. */
+  valueMinor?: number;
+  /** Required when `type === 'percentage'`, e.g. 15 for 15%. */
+  valuePercent?: number;
+}
+
+export interface LoyaltyCalculationInput {
+  enabled: boolean;
+  /** Points earned per 1 EGP of confirmed amount due. */
+  pointsPerEgp: number;
+  /** Minor units (piasters) redeemed per 1 point spent. */
+  egpPerPointMinor: number;
+  /** Points the customer is requesting to redeem on this sale. */
+  pointsRedeemed: number;
+  /** The customer's current point balance, if known. Uncapped when omitted. */
+  pointsBalance?: number;
+}
+
+export interface TaxCalculationInput {
+  enabled: boolean;
+  /** Percentage rate, e.g. 14 for 14%. */
+  ratePercent: number;
+  mode: TaxMode;
+}
+
+export interface SaleCalculationInput {
+  items: SaleCalculationLineInput[];
+  manualDiscount: ManualDiscountInput;
+  /** Identity of an already-validated coupon, or null when none is applied. */
+  couponId: number | null;
+  /** Coupon discount already resolved (e.g. via canonical coupon validation), pre-cap. */
+  couponDiscountMinor: number;
+  loyalty: LoyaltyCalculationInput;
+  tax: TaxCalculationInput;
+  tipMinor: number;
+}
+
+/** Immutable calculation snapshot as persisted by migration 003, in EGP major units. */
+export interface SaleCalculationSnapshot {
+  contractVersion: string;
+  subtotal: number;
+  manualDiscount: number;
+  couponId: number | null;
+  couponDiscount: number;
+  pointsRedeemed: number;
+  pointsDiscount: number;
+  taxableBase: number;
+  taxMode: TaxMode;
+  taxRatePercent: number;
+  taxAmount: number;
+  tipAmount: number;
+  amountDue: number;
   earnedPoints: number;
 }
 

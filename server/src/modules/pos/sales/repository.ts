@@ -1,6 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import { SaleFilters } from './types';
+import { SaleFilters, SaleCalculationSnapshot } from './types';
 
 export interface ISalesRepository {
   findById(id: number | string, queryable?: Queryable): Promise<Record<string, any> | null>;
@@ -18,6 +18,30 @@ export interface ISalesRepository {
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number; totalRevenue: number }>;
   createSale(data: Record<string, any>, queryable: Queryable): Promise<Record<string, any>>;
+  createSaleCalculation(
+    data: {
+      sale_id: number;
+      contract_version: string;
+      subtotal: number;
+      manual_discount: number;
+      coupon_id: number | null;
+      coupon_discount: number;
+      points_redeemed: number;
+      points_discount: number;
+      taxable_base: number;
+      tax_mode: string;
+      tax_rate_percent: number;
+      tax_amount: number;
+      tip_amount: number;
+      amount_due: number;
+      earned_points: number;
+    },
+    queryable: Queryable
+  ): Promise<void>;
+  getSaleCalculationBySaleId(
+    saleId: number | string,
+    queryable?: Queryable
+  ): Promise<SaleCalculationSnapshot | null>;
   createSaleItem(data: Record<string, any>, queryable: Queryable): Promise<Record<string, any>>;
   createSalePayment(
     saleId: number,
@@ -83,7 +107,13 @@ export class SalesRepository implements ISalesRepository {
        WHERE s.id = $1`,
       [id]
     );
-    return res.rows[0] || null;
+    const sale = res.rows[0];
+    if (!sale) return null;
+
+    // Attach the immutable calculation snapshot (migration 003), when present,
+    // so historical receipts/reads never depend on current settings/formulas.
+    const calculation = await this.getSaleCalculationBySaleId(sale.id, queryable);
+    return calculation ? { ...sale, calculation } : sale;
   }
 
   async findItemsBySaleId(
@@ -243,6 +273,81 @@ export class SalesRepository implements ISalesRepository {
       ]
     );
     return res.rows[0];
+  }
+
+  async createSaleCalculation(
+    data: {
+      sale_id: number;
+      contract_version: string;
+      subtotal: number;
+      manual_discount: number;
+      coupon_id: number | null;
+      coupon_discount: number;
+      points_redeemed: number;
+      points_discount: number;
+      taxable_base: number;
+      tax_mode: string;
+      tax_rate_percent: number;
+      tax_amount: number;
+      tip_amount: number;
+      amount_due: number;
+      earned_points: number;
+    },
+    queryable: Queryable
+  ): Promise<void> {
+    await queryable.query(
+      `INSERT INTO sale_calculations (
+        sale_id, contract_version, subtotal, manual_discount, coupon_id, coupon_discount,
+        points_redeemed, points_discount, taxable_base, tax_mode, tax_rate_percent,
+        tax_amount, tip_amount, amount_due, earned_points
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      [
+        data.sale_id,
+        data.contract_version,
+        data.subtotal,
+        data.manual_discount,
+        data.coupon_id,
+        data.coupon_discount,
+        data.points_redeemed,
+        data.points_discount,
+        data.taxable_base,
+        data.tax_mode,
+        data.tax_rate_percent,
+        data.tax_amount,
+        data.tip_amount,
+        data.amount_due,
+        data.earned_points,
+      ]
+    );
+  }
+
+  async getSaleCalculationBySaleId(
+    saleId: number | string,
+    queryable?: Queryable
+  ): Promise<SaleCalculationSnapshot | null> {
+    const res = await this.q(queryable).query(
+      'SELECT * FROM sale_calculations WHERE sale_id = $1',
+      [saleId]
+    );
+    const row = res.rows[0];
+    if (!row) return null;
+
+    return {
+      contractVersion: row.contract_version,
+      subtotal: Number(row.subtotal),
+      manualDiscount: Number(row.manual_discount),
+      couponId: row.coupon_id ?? null,
+      couponDiscount: Number(row.coupon_discount),
+      pointsRedeemed: Number(row.points_redeemed),
+      pointsDiscount: Number(row.points_discount),
+      taxableBase: Number(row.taxable_base),
+      taxMode: row.tax_mode,
+      taxRatePercent: Number(row.tax_rate_percent),
+      taxAmount: Number(row.tax_amount),
+      tipAmount: Number(row.tip_amount),
+      amountDue: Number(row.amount_due),
+      earnedPoints: Number(row.earned_points),
+    };
   }
 
   async createSaleItem(

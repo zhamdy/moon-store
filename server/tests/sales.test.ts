@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { newDb } from 'pg-mem';
 import { Pool as PgPool } from 'pg';
 import path from 'path';
+import fs from 'fs';
 import { saleSchema } from '../validators/saleSchema';
 import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
@@ -11,15 +12,19 @@ import {
   executeSaleTransaction,
   executeRefundTransaction,
 } from '../services/saleService';
-import { parseSaleListQuery } from '../src/modules/pos/sales/types';
+import { parseSaleListQuery, toMinorUnits, fromMinorUnits } from '../src/modules/pos/sales/types';
 import { SalesRepository } from '../src/modules/pos/sales/repository';
 import { SalesController } from '../src/modules/pos/sales/controller';
-import { salesService } from '../src/modules/pos/sales/service';
+import { salesService, calculateSaleBreakdown } from '../src/modules/pos/sales/service';
 import { PublicError } from '../src/modules/http/errors';
 import {
   parseLoyaltySettings,
   LOYALTY_SETTINGS_DEFAULTS,
 } from '../src/modules/core/settings/types';
+
+const checkoutTotalsFixture = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '../../contracts/checkout-totals.v1.json'), 'utf8')
+);
 
 describe('Sales - Mutation Contract', () => {
   afterEach(() => {
@@ -463,5 +468,457 @@ describe('Canonical loyalty settings parsing (issue #31 / checkout financial con
     expect(parseLoyaltySettings({ loyalty_enabled: 'false' }).enabled).toBe(false);
     expect(parseLoyaltySettings({ loyalty_enabled: 'yes' }).enabled).toBe(false);
     expect(parseLoyaltySettings({}).enabled).toBe(false);
+  });
+});
+
+// ─── Unit 2: pure server calculation vs. the shared checkout-totals fixture ─
+
+function fixtureCaseToCalculationInput(fixtureCase: any) {
+  const { input } = fixtureCase;
+  return {
+    items: input.items.map((item: any) => ({
+      unitPriceMinor: item.unitPriceMinor,
+      quantity: item.quantity,
+    })),
+    manualDiscount:
+      input.manualDiscount.type === 'percentage'
+        ? { type: 'percentage' as const, valuePercent: input.manualDiscount.valuePercent }
+        : { type: 'fixed' as const, valueMinor: input.manualDiscount.valueMinor },
+    couponId: null,
+    couponDiscountMinor: input.couponDiscountMinor,
+    loyalty: {
+      enabled: input.loyalty.enabled,
+      pointsPerEgp: input.loyalty.pointsPerEgp,
+      egpPerPointMinor: input.loyalty.egpPerPointMinor,
+      pointsRedeemed: input.loyalty.pointsRedeemed,
+    },
+    tax: {
+      enabled: input.tax.enabled,
+      ratePercent: input.tax.ratePercent,
+      mode: input.tax.mode,
+    },
+    tipMinor: input.tipMinor,
+  };
+}
+
+describe('Unit 2 - calculateSaleBreakdown vs. contracts/checkout-totals.v1.json', () => {
+  it.each(checkoutTotalsFixture.cases.map((c: any) => [c.name, c]))(
+    'reproduces the "%s" fixture case exactly, in integer minor units',
+    (_name: string, fixtureCase: any) => {
+      const breakdown = calculateSaleBreakdown(fixtureCaseToCalculationInput(fixtureCase));
+      expect(breakdown).toMatchObject(fixtureCase.expected);
+    }
+  );
+
+  it('caps manual discount, coupon, and loyalty at the remaining value so tax base never goes negative, and tip remains payable', () => {
+    const breakdown = calculateSaleBreakdown({
+      items: [{ unitPriceMinor: 10000, quantity: 1 }],
+      manualDiscount: { type: 'fixed', valueMinor: 50000 }, // far exceeds subtotal
+      couponId: 7,
+      couponDiscountMinor: 50000, // remaining is already 0 by this stage
+      loyalty: {
+        enabled: true,
+        pointsPerEgp: 2,
+        egpPerPointMinor: 10,
+        pointsRedeemed: 500,
+        pointsBalance: 500,
+      },
+      tax: { enabled: true, ratePercent: 14, mode: 'exclusive' },
+      tipMinor: 500,
+    });
+
+    expect(breakdown.manualDiscountMinor).toBe(10000);
+    expect(breakdown.couponDiscountMinor).toBe(0);
+    expect(breakdown.pointsRedeemed).toBe(0);
+    expect(breakdown.pointsDiscountMinor).toBe(0);
+    expect(breakdown.taxableBaseMinor).toBe(0);
+    expect(breakdown.taxAmountMinor).toBe(0);
+    expect(breakdown.tipMinor).toBe(500);
+    expect(breakdown.amountDueMinor).toBe(500);
+  });
+
+  it('caps loyalty redemption by point balance even when the monetary value would still fit', () => {
+    const breakdown = calculateSaleBreakdown({
+      items: [{ unitPriceMinor: 100000, quantity: 1 }],
+      manualDiscount: { type: 'fixed', valueMinor: 0 },
+      couponId: null,
+      couponDiscountMinor: 0,
+      loyalty: {
+        enabled: true,
+        pointsPerEgp: 2,
+        egpPerPointMinor: 10,
+        pointsRedeemed: 1000,
+        pointsBalance: 50, // customer only has 50 points
+      },
+      tax: { enabled: false, ratePercent: 0, mode: 'exclusive' },
+      tipMinor: 0,
+    });
+
+    expect(breakdown.pointsRedeemed).toBe(50);
+    expect(breakdown.pointsDiscountMinor).toBe(500);
+    expect(breakdown.amountDueMinor).toBe(99500);
+  });
+
+  it('never trusts a caller-supplied couponId as evidence that a discount was actually applied to a zero-remaining sale', () => {
+    // Even though a couponId is passed, if manual discount already consumed
+    // the subtotal, the coupon's monetary effect is correctly zero -- but the
+    // identity is preserved so the caller (SalesService) can still decide
+    // whether to record coupon usage.
+    const breakdown = calculateSaleBreakdown({
+      items: [{ unitPriceMinor: 1000, quantity: 1 }],
+      manualDiscount: { type: 'fixed', valueMinor: 1000 },
+      couponId: 3,
+      couponDiscountMinor: 500,
+      loyalty: { enabled: false, pointsPerEgp: 0, egpPerPointMinor: 0, pointsRedeemed: 0 },
+      tax: { enabled: false, ratePercent: 0, mode: 'exclusive' },
+      tipMinor: 0,
+    });
+
+    expect(breakdown.couponId).toBe(3);
+    expect(breakdown.couponDiscountMinor).toBe(0);
+  });
+});
+
+// ─── Unit 2: authoritative server pricing, coupon reuse, loyalty, snapshot ──
+
+describe('Unit 2 - SalesService authoritative calculation and snapshot persistence', () => {
+  const repo = new SalesRepository();
+
+  beforeEach(async () => {
+    await testPool.query('DELETE FROM sale_calculations');
+    await testPool.query('DELETE FROM coupon_usage');
+    await testPool.query('DELETE FROM sale_payments');
+    await testPool.query('DELETE FROM sale_items');
+    await testPool.query('DELETE FROM sales');
+    await testPool.query('DELETE FROM loyalty_transactions');
+    await testPool.query('DELETE FROM bundle_items');
+    await testPool.query('DELETE FROM product_bundles');
+    await testPool.query('DELETE FROM coupons');
+    await testPool.query('DELETE FROM customers');
+    await testPool.query('DELETE FROM products');
+    await testPool.query('DELETE FROM users');
+    await testPool.query('DELETE FROM settings');
+
+    await testPool.query(
+      'INSERT INTO users (id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
+      [1, 'Admin', 'admin@moon.com', 'hash', 'Admin']
+    );
+    await testPool.query(
+      'INSERT INTO products (id, name, sku, price, cost_price, stock) VALUES ($1, $2, $3, $4, $5, $6)',
+      [1, 'Silk Dress', 'SKU-001', 500, 250, 10]
+    );
+    await testPool.query(
+      'INSERT INTO products (id, name, sku, price, cost_price, stock) VALUES ($1, $2, $3, $4, $5, $6)',
+      [2, 'Cotton Shirt', 'SKU-002', 200, 100, 5]
+    );
+  });
+
+  it('happy path: a fixed manual discount from the server catalog price persists an authoritative snapshot', async () => {
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 2 }],
+        discount: 100,
+        discount_type: 'fixed',
+        payment_method: 'Cash',
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(900); // (500*2) - 100
+
+    const snapshot = await repo.getSaleCalculationBySaleId(sale.id, testPool);
+    expect(snapshot).toMatchObject({
+      contractVersion: 'v1',
+      subtotal: 1000,
+      manualDiscount: 100,
+      amountDue: 900,
+      earnedPoints: 0,
+    });
+  });
+
+  it('happy path: a percentage manual discount is capped and rounded from server catalog prices', async () => {
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }],
+        discount: 15,
+        discount_type: 'percentage',
+        payment_method: 'Cash',
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(425); // 500 - 15% = 425
+  });
+
+  it('security: a tampered client unit_price never changes the persisted subtotal or item price for a non-bundle line', async () => {
+    const sale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 1, unit_price: 1 }], payment_method: 'Cash' } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(500); // catalog price, not the tampered 1
+
+    const items = await testPool.query('SELECT unit_price FROM sale_items WHERE sale_id = $1', [
+      sale.id,
+    ]);
+    expect(Number(items.rows[0].unit_price)).toBe(500);
+  });
+
+  it('error path: a missing product produces a deterministic validation failure and persists nothing', async () => {
+    await expect(
+      salesService.executeSale(
+        { items: [{ product_id: 999, quantity: 1 }], payment_method: 'Cash' } as any,
+        1
+      )
+    ).rejects.toThrow(/Product not found/);
+
+    const sales = await testPool.query('SELECT * FROM sales');
+    expect(sales.rows).toHaveLength(0);
+  });
+
+  it('error path: an invalid coupon code is rejected deterministically -- never silently omitted from the total', async () => {
+    await expect(
+      salesService.executeSale(
+        {
+          items: [{ product_id: 1, quantity: 1 }],
+          payment_method: 'Cash',
+          coupon_code: 'DOES-NOT-EXIST',
+        } as any,
+        1
+      )
+    ).rejects.toThrow(/Coupon not found or inactive/);
+
+    const sales = await testPool.query('SELECT * FROM sales');
+    expect(sales.rows).toHaveLength(0);
+  });
+
+  it('applies the canonical coupon rules (scope/limits) inside the sale transaction rather than a weaker parallel lookup', async () => {
+    await testPool.query(
+      `INSERT INTO coupons (code, type, value, scope, status) VALUES ($1, $2, $3, $4, $5)`,
+      ['SAVE10', 'percentage', 10, 'all', 'active']
+    );
+
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }],
+        payment_method: 'Cash',
+        coupon_code: 'save10',
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(450); // 500 - 10%
+
+    const usage = await testPool.query('SELECT * FROM coupon_usage WHERE sale_id = $1', [sale.id]);
+    expect(usage.rows).toHaveLength(1);
+    expect(Number(usage.rows[0].discount_applied)).toBe(50);
+  });
+
+  it('error path: redeeming loyalty points without selecting a customer is rejected deterministically', async () => {
+    await testPool.query(
+      "INSERT INTO settings (key, value) VALUES ('loyalty_enabled', 'true'), ('loyalty_points_per_egp', '2'), ('loyalty_egp_per_point', '0.1')"
+    );
+
+    await expect(
+      salesService.executeSale(
+        {
+          items: [{ product_id: 1, quantity: 1 }],
+          payment_method: 'Cash',
+          points_redeemed: 100,
+        } as any,
+        1
+      )
+    ).rejects.toThrow(/customer must be selected/i);
+  });
+
+  it('error path: redeeming loyalty points while the program is disabled is rejected deterministically', async () => {
+    await testPool.query(
+      'INSERT INTO customers (id, name, phone, loyalty_points) VALUES ($1, $2, $3, $4)',
+      [1, 'Mona', '0100000000', 500]
+    );
+
+    await expect(
+      salesService.executeSale(
+        {
+          items: [{ product_id: 1, quantity: 1 }],
+          payment_method: 'Cash',
+          customer_id: 1,
+          points_redeemed: 100,
+        } as any,
+        1
+      )
+    ).rejects.toThrow(/loyalty program is disabled/i);
+  });
+
+  it('error path: redeeming more points than the customer holds is rejected deterministically', async () => {
+    await testPool.query(
+      "INSERT INTO settings (key, value) VALUES ('loyalty_enabled', 'true'), ('loyalty_points_per_egp', '2'), ('loyalty_egp_per_point', '0.1')"
+    );
+    await testPool.query(
+      'INSERT INTO customers (id, name, phone, loyalty_points) VALUES ($1, $2, $3, $4)',
+      [1, 'Mona', '0100000000', 10]
+    );
+
+    await expect(
+      salesService.executeSale(
+        {
+          items: [{ product_id: 1, quantity: 1 }],
+          payment_method: 'Cash',
+          customer_id: 1,
+          points_redeemed: 100,
+        } as any,
+        1
+      )
+    ).rejects.toThrow(/Insufficient loyalty points/);
+  });
+
+  it('loyalty parity: redemption and earning use the canonical settings and direct units', async () => {
+    await testPool.query(
+      "INSERT INTO settings (key, value) VALUES ('loyalty_enabled', 'true'), ('loyalty_points_per_egp', '2'), ('loyalty_egp_per_point', '0.1')"
+    );
+    await testPool.query(
+      'INSERT INTO customers (id, name, phone, loyalty_points) VALUES ($1, $2, $3, $4)',
+      [1, 'Mona', '0100000000', 200]
+    );
+
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 2 }], // 1000 EGP subtotal
+        payment_method: 'Cash',
+        customer_id: 1,
+        points_redeemed: 200,
+      } as any,
+      1
+    );
+
+    // 200 points * 0.10 EGP/point = 20 EGP discount -> 980 due.
+    expect(Number(sale.total)).toBe(980);
+
+    const customer = await testPool.query(
+      'SELECT loyalty_points FROM customers WHERE id = $1',
+      [1]
+    );
+    // 200 - 200 redeemed + floor(980 * 2) = 1960 earned.
+    expect(Number(customer.rows[0].loyalty_points)).toBe(1960);
+
+    const snapshot = await repo.getSaleCalculationBySaleId(sale.id, testPool);
+    expect(snapshot).toMatchObject({
+      pointsRedeemed: 200,
+      pointsDiscount: 20,
+      earnedPoints: 1960,
+    });
+  });
+
+  it('tax modes: the same discounted inputs under inclusive and exclusive tax return the contract-defined amount due', async () => {
+    await testPool.query(
+      "INSERT INTO settings (key, value) VALUES ('tax_enabled', 'true'), ('tax_rate', '14'), ('tax_mode', 'exclusive')"
+    );
+    const exclusiveSale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 2 }], payment_method: 'Cash' } as any,
+      1
+    );
+    expect(Number(exclusiveSale.total)).toBe(1140); // 1000 + 14%
+
+    await testPool.query("UPDATE settings SET value = 'inclusive' WHERE key = 'tax_mode'");
+    const inclusiveSale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 2 }], payment_method: 'Cash' } as any,
+      1
+    );
+    expect(Number(inclusiveSale.total)).toBe(1000); // tax already included in the taxable base
+  });
+
+  it('integration: a valid bundle checkout persists the server-validated allocated bundle price, not the catalog total', async () => {
+    await testPool.query(
+      `INSERT INTO product_bundles (id, name, bundle_price, status) VALUES ($1, $2, $3, $4)`,
+      [1, 'Outfit Bundle', 630, 'active']
+    );
+    await testPool.query(
+      'INSERT INTO bundle_items (bundle_id, product_id, quantity) VALUES ($1, $2, $3), ($1, $4, $5)',
+      [1, 1, 1, 2, 1]
+    );
+    // Catalog total would be 500 + 200 = 700; the bundle sells for 630.
+
+    const sale = await salesService.executeSale(
+      {
+        items: [
+          { product_id: 1, quantity: 1, bundle_id: 1, unit_price: 999 }, // tampered price ignored
+          { product_id: 2, quantity: 1, bundle_id: 1 },
+        ],
+        payment_method: 'Cash',
+      } as any,
+      1
+    );
+
+    expect(Number(sale.total)).toBe(630);
+
+    const items = await testPool.query(
+      'SELECT product_id, unit_price, quantity FROM sale_items WHERE sale_id = $1 ORDER BY product_id',
+      [sale.id]
+    );
+    const allocatedTotal = items.rows.reduce(
+      (sum: number, row: any) => sum + Number(row.unit_price) * Number(row.quantity),
+      0
+    );
+    expect(allocatedTotal).toBe(630);
+
+    const snapshot = await repo.getSaleCalculationBySaleId(sale.id, testPool);
+    expect(snapshot?.subtotal).toBe(630);
+  });
+
+  it('error path: a bundle allocation that does not match its definition is rejected', async () => {
+    await testPool.query(
+      `INSERT INTO product_bundles (id, name, bundle_price, status) VALUES ($1, $2, $3, $4)`,
+      [1, 'Outfit Bundle', 630, 'active']
+    );
+    await testPool.query(
+      'INSERT INTO bundle_items (bundle_id, product_id, quantity) VALUES ($1, $2, $3), ($1, $4, $5)',
+      [1, 1, 1, 2, 1]
+    );
+
+    await expect(
+      salesService.executeSale(
+        {
+          items: [{ product_id: 1, quantity: 1, bundle_id: 1 }], // missing product 2
+          payment_method: 'Cash',
+        } as any,
+        1
+      )
+    ).rejects.toThrow(/Bundle allocation does not match its definition/);
+  });
+
+  it('historical read: the persisted snapshot is stable after settings change, unlike a value recomputed from current settings', async () => {
+    await testPool.query(
+      "INSERT INTO settings (key, value) VALUES ('tax_enabled', 'true'), ('tax_rate', '14'), ('tax_mode', 'exclusive')"
+    );
+
+    const sale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 2 }], payment_method: 'Cash' } as any,
+      1
+    );
+    expect(Number(sale.total)).toBe(1140);
+
+    // Settings change after the sale.
+    await testPool.query("UPDATE settings SET value = '20' WHERE key = 'tax_rate'");
+
+    const reread = await repo.findById(sale.id, testPool);
+    expect(reread?.calculation).toMatchObject({
+      taxRatePercent: 14,
+      taxAmount: 140,
+      amountDue: 1140,
+    });
+
+    // A fresh sale under the new setting differs, proving the snapshot -- not
+    // a live recomputation -- is what the historical read returned above.
+    const newSale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 2 }], payment_method: 'Cash' } as any,
+      1
+    );
+    expect(Number(newSale.total)).toBe(1200); // 1000 + 20%
+  });
+
+  it('rounding: EGP <-> minor-unit boundary conversion round-trips exactly', () => {
+    expect(toMinorUnits(19.99)).toBe(1999);
+    expect(fromMinorUnits(1999)).toBe(19.99);
+    expect(toMinorUnits(0)).toBe(0);
   });
 });
