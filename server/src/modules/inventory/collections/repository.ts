@@ -67,11 +67,13 @@ export class CollectionsRepository implements ICollectionsRepository {
     const offsetIdx = params.length + 2;
 
     const collections = await this.q(queryable).query<CollectionRecord>(
-      `SELECT c.*,
-        (SELECT COUNT(*)::int FROM collection_products WHERE collection_id = c.id) as product_count
+      `SELECT c.id, c.name, c.description, c.image_url, c.is_featured, c.season, c.status, c.created_at, c.updated_at,
+              COUNT(cp.product_id)::int as product_count
        FROM collections c
+       LEFT JOIN collection_products cp ON cp.collection_id = c.id
        ${where}
-        ORDER BY ${sortColumn} ${direction}, c.id ${direction}
+       GROUP BY c.id, c.name, c.description, c.image_url, c.is_featured, c.season, c.status, c.created_at, c.updated_at
+       ORDER BY ${sortColumn} ${direction}, c.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, pageSize, (page - 1) * pageSize]
     );

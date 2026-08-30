@@ -95,15 +95,18 @@ export class StockCountsRepository implements IStockCountsRepository {
     const offsetIdx = params.length + 2;
 
     const result = await this.q(queryable).query<StockCountRecord>(
-      `SELECT sc.*, u.name as created_by_name, c.name as category_name,
-              (SELECT COUNT(*)::int FROM stock_count_items WHERE count_id = sc.id) as total_items,
-              (SELECT COUNT(*)::int FROM stock_count_items WHERE count_id = sc.id AND counted_qty IS NOT NULL) as counted_items,
-              (SELECT COALESCE(SUM(variance), 0)::int FROM stock_count_items WHERE count_id = sc.id) as total_variance
+      `SELECT sc.id, sc.status, sc.category_id, sc.notes, sc.created_by, sc.created_at, sc.completed_at,
+              u.name as created_by_name, c.name as category_name,
+              COUNT(sci.id)::int as total_items,
+              COUNT(CASE WHEN sci.counted_qty IS NOT NULL THEN sci.id END)::int as counted_items,
+              COALESCE(SUM(sci.variance), 0)::int as total_variance
        FROM stock_counts sc
        LEFT JOIN users u ON sc.created_by = u.id
        LEFT JOIN categories c ON sc.category_id = c.id
+       LEFT JOIN stock_count_items sci ON sci.count_id = sc.id
        ${whereClause}
-        ORDER BY sc.created_at ${direction}, sc.id ${direction}
+       GROUP BY sc.id, sc.status, sc.category_id, sc.notes, sc.created_by, sc.created_at, sc.completed_at, u.name, c.name
+       ORDER BY sc.created_at ${direction}, sc.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, pageSize, offset]
     );

@@ -141,11 +141,16 @@ export class CustomersRepository implements ICustomersRepository {
     const total = Number(countRes.rows[0]?.count || 0);
 
     const rowsRes = await this.q(queryable).query(
-      `SELECT s.*, u.name as cashier_name,
-       (SELECT COUNT(*)::int FROM sale_items WHERE sale_id = s.id) as items_count
+      `SELECT s.id, s.customer_id, s.cashier_id, s.subtotal, s.discount, s.tax, s.total,
+              s.payment_method, s.receipt_number, s.status, s.notes, s.created_at, s.updated_at,
+              u.name as cashier_name,
+              COUNT(si.id)::int as items_count
        FROM sales s
        LEFT JOIN users u ON s.cashier_id = u.id
+       LEFT JOIN sale_items si ON si.sale_id = s.id
        WHERE s.customer_id = $1
+       GROUP BY s.id, s.customer_id, s.cashier_id, s.subtotal, s.discount, s.tax, s.total,
+                s.payment_method, s.receipt_number, s.status, s.notes, s.created_at, s.updated_at, u.name
        ORDER BY s.created_at ${sortOrder === 'asc' ? 'ASC' : 'DESC'}, s.id ${sortOrder === 'asc' ? 'ASC' : 'DESC'}
        LIMIT $2 OFFSET $3`,
       [id, pageSize, offset]

@@ -96,13 +96,19 @@ export class PurchaseOrdersRepository implements IPurchaseOrdersRepository {
     const offsetIdx = paramIdx++;
 
     const orders = await this.q(queryable).query(
-      `SELECT po.*, d.name as distributor_name, u.name as created_by_name,
-              (SELECT COUNT(*)::int FROM purchase_order_items WHERE po_id = po.id) as item_count
+      `SELECT po.id, po.po_number, po.distributor_id, po.total_amount, po.status,
+              po.expected_delivery, po.notes, po.created_by, po.created_at, po.updated_at,
+              d.name as distributor_name, u.name as created_by_name,
+              COUNT(poi.id)::int as item_count
        FROM purchase_orders po
        LEFT JOIN distributors d ON po.distributor_id = d.id
        LEFT JOIN users u ON po.created_by = u.id
+       LEFT JOIN purchase_order_items poi ON poi.po_id = po.id
        ${whereClause}
-        ORDER BY po.created_at ${direction}, po.id ${direction}
+       GROUP BY po.id, po.po_number, po.distributor_id, po.total_amount, po.status,
+                po.expected_delivery, po.notes, po.created_by, po.created_at, po.updated_at,
+                d.name, u.name
+       ORDER BY po.created_at ${direction}, po.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
     );

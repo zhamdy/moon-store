@@ -286,37 +286,12 @@ export class AiService {
     page: number,
     pageSize: number
   ): Promise<{ data: AnomaliesResult; totalItems: number }> {
-    const result = await this.repo.getComputedPage<Anomaly & Record<string, unknown>>(
-      `SELECT type, severity, description, details, timestamp FROM (
-        SELECT 'high_discount'::text AS type,
-          CASE WHEN ROUND((s.discount / s.subtotal) * 100) >= 50 THEN 'high' ELSE 'medium' END::text AS severity,
-          'Sale ' || s.receipt_number || ' had a ' || ROUND((s.discount / s.subtotal) * 100) || '% discount applied by ' || COALESCE(u.name, 'unknown') AS description,
-          jsonb_build_object('saleId', s.id, 'receiptNumber', s.receipt_number, 'subtotal', s.subtotal, 'discount', s.discount, 'cashier', u.name) AS details,
-          s.created_at::text AS timestamp, 'sale:' || s.id::text AS sort_key
-        FROM sales s LEFT JOIN users u ON s.cashier_id = u.id
-        WHERE s.subtotal > 0 AND (s.discount / s.subtotal) >= 0.3 AND s.status != 'voided'
-        UNION ALL
-        SELECT 'large_damage_writeoff', 'high',
-          'Large damaged stock write-off of ' || ABS(sa.delta) || ' units for "' || p.name || '" by ' || COALESCE(u.name, 'unknown'),
-          jsonb_build_object('adjustmentId', sa.id, 'product', p.name, 'quantity', ABS(sa.delta), 'user', u.name), sa.created_at::text,
-          'adjustment:' || sa.id::text
-        FROM stock_adjustments sa JOIN products p ON sa.product_id = p.id LEFT JOIN users u ON sa.user_id = u.id
-        WHERE sa.delta < -10 AND sa.reason = 'Damaged'
-        UNION ALL
-        SELECT 'high_cashier_refund_rate', 'medium',
-          'Cashier ' || u.name || ' has a ' || ROUND((SUM(CASE WHEN s.status IN ('refunded', 'partially_refunded') THEN 1 ELSE 0 END) / COUNT(s.id)::float) * 100) || '% refund rate over the last 30 days',
-          jsonb_build_object('cashier', u.name, 'totalSales', COUNT(s.id), 'refundCount', SUM(CASE WHEN s.status IN ('refunded', 'partially_refunded') THEN 1 ELSE 0 END), 'totalRefunded', COALESCE(SUM(s.refunded_amount), 0)),
-          NOW()::text, 'cashier:' || u.id::text
-        FROM sales s JOIN users u ON s.cashier_id = u.id WHERE s.created_at >= NOW() - INTERVAL '30 days'
-        GROUP BY u.id, u.name HAVING COUNT(s.id) >= 10 AND (SUM(CASE WHEN s.status IN ('refunded', 'partially_refunded') THEN 1 ELSE 0 END) / COUNT(s.id)::float) >= 0.15
-      ) anomalies ORDER BY timestamp DESC, type ASC, sort_key ASC`,
-      [],
-      page,
-      pageSize
-    );
+    const { anomalies } = await this.getAnomalies();
+    const offset = (page - 1) * pageSize;
+    const pagedAnomalies = anomalies.slice(offset, offset + pageSize);
     return {
-      data: { totalAnomalies: result.totalItems, anomalies: result.rows },
-      totalItems: result.totalItems,
+      data: { totalAnomalies: anomalies.length, anomalies: pagedAnomalies },
+      totalItems: anomalies.length,
     };
   }
 

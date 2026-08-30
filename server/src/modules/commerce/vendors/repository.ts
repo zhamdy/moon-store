@@ -67,11 +67,13 @@ export class VendorsRepository implements IVendorsRepository {
     const offsetIdx = params.length + 2;
 
     const vendors = await this.q(queryable).query<VendorRecord>(
-      `SELECT v.*,
-        (SELECT COUNT(*)::int FROM products WHERE distributor_id = v.id) as product_count
+      `SELECT v.id, v.name, v.contact_person, v.email, v.phone, v.address, v.tax_number, v.commission_rate, v.status, v.created_at, v.updated_at,
+              COUNT(p.id)::int as product_count
        FROM vendors v
+       LEFT JOIN products p ON p.distributor_id = v.id
        ${where}
-        ORDER BY ${sortColumn} ${direction}, v.id ${direction}
+       GROUP BY v.id, v.name, v.contact_person, v.email, v.phone, v.address, v.tax_number, v.commission_rate, v.status, v.created_at, v.updated_at
+       ORDER BY ${sortColumn} ${direction}, v.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limitNum, offset]
     );

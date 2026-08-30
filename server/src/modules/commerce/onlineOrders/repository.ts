@@ -175,11 +175,17 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
     const offsetIdx = params.length + 2;
 
     const orders = await this.q(queryable).query<OnlineOrderRecord>(
-      `SELECT o.*,
-        (SELECT COUNT(*)::int FROM online_order_items WHERE order_id = o.id) as item_count
+      `SELECT o.id, o.order_number, o.customer_id, o.customer_name, o.customer_phone, o.customer_email,
+              o.phone, o.email, o.shipping_address, o.address, o.city, o.subtotal, o.shipping_fee, o.total,
+              o.status, o.items, o.notes, o.created_at, o.updated_at,
+              COUNT(ooi.id)::int as item_count
        FROM online_orders o
+       LEFT JOIN online_order_items ooi ON ooi.order_id = o.id
        ${where}
-        ORDER BY ${sortColumn} ${direction}, o.id ${direction}
+       GROUP BY o.id, o.order_number, o.customer_id, o.customer_name, o.customer_phone, o.customer_email,
+                o.phone, o.email, o.shipping_address, o.address, o.city, o.subtotal, o.shipping_fee, o.total,
+                o.status, o.items, o.notes, o.created_at, o.updated_at
+       ORDER BY ${sortColumn} ${direction}, o.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, limitNum, offset]
     );
