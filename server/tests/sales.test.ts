@@ -16,6 +16,10 @@ import { SalesRepository } from '../src/modules/pos/sales/repository';
 import { SalesController } from '../src/modules/pos/sales/controller';
 import { salesService } from '../src/modules/pos/sales/service';
 import { PublicError } from '../src/modules/http/errors';
+import {
+  parseLoyaltySettings,
+  LOYALTY_SETTINGS_DEFAULTS,
+} from '../src/modules/core/settings/types';
 
 describe('Sales - Mutation Contract', () => {
   afterEach(() => {
@@ -383,5 +387,81 @@ describe('Sales - Tax Calculation', () => {
     const taxRate = 0;
     const taxAmount = Math.round(afterDiscount * (taxRate / 100) * 100) / 100;
     expect(taxAmount).toBe(0);
+  });
+});
+
+describe('Canonical loyalty settings parsing (issue #31 / checkout financial contract)', () => {
+  it('happy path: canonical settings enabled with direct units parse exactly', () => {
+    const parsed = parseLoyaltySettings({
+      loyalty_enabled: 'true',
+      loyalty_points_per_egp: '2',
+      loyalty_egp_per_point: '0.1',
+    });
+
+    expect(parsed).toEqual({ enabled: true, pointsPerEgp: 2, egpPerPoint: 0.1 });
+  });
+
+  it('compatibility: only legacy alias keys exist -> their configured value is preserved under canonical names', () => {
+    const parsed = parseLoyaltySettings({
+      loyalty_enabled: 'true',
+      loyalty_earn_rate: '3',
+      loyalty_redeem_value: '0.25',
+    });
+
+    expect(parsed).toEqual({ enabled: true, pointsPerEgp: 3, egpPerPoint: 0.25 });
+  });
+
+  it('precedence: canonical and alias both exist -> canonical wins deterministically', () => {
+    const parsed = parseLoyaltySettings({
+      loyalty_enabled: 'true',
+      loyalty_points_per_egp: '2',
+      loyalty_earn_rate: '999',
+      loyalty_egp_per_point: '0.1',
+      loyalty_redeem_value: '999',
+    });
+
+    expect(parsed.pointsPerEgp).toBe(2);
+    expect(parsed.egpPerPoint).toBe(0.1);
+  });
+
+  it('missing settings resolve to the documented safe defaults', () => {
+    expect(parseLoyaltySettings({})).toEqual(LOYALTY_SETTINGS_DEFAULTS);
+  });
+
+  it.each([
+    ['zero', '0'],
+    ['negative', '-1'],
+    ['non-numeric', 'abc'],
+    ['reciprocal-looking (per-100 style value left over from the old UI)', 'NaN'],
+    ['empty string', ''],
+  ])(
+    'error path: %s canonical value falls back to the safe default, not the alias',
+    (_label, bad) => {
+      const parsed = parseLoyaltySettings({
+        loyalty_points_per_egp: bad,
+        loyalty_earn_rate: '5', // must NOT be used once the canonical key is present
+        loyalty_egp_per_point: bad,
+        loyalty_redeem_value: '5',
+      });
+
+      expect(parsed.pointsPerEgp).toBe(LOYALTY_SETTINGS_DEFAULTS.pointsPerEgp);
+      expect(parsed.egpPerPoint).toBe(LOYALTY_SETTINGS_DEFAULTS.egpPerPoint);
+    }
+  );
+
+  it('error path: an invalid alias value (no canonical key present) also falls back to the safe default', () => {
+    const parsed = parseLoyaltySettings({
+      loyalty_earn_rate: '-5',
+      loyalty_redeem_value: 'not-a-number',
+    });
+
+    expect(parsed.pointsPerEgp).toBe(LOYALTY_SETTINGS_DEFAULTS.pointsPerEgp);
+    expect(parsed.egpPerPoint).toBe(LOYALTY_SETTINGS_DEFAULTS.egpPerPoint);
+  });
+
+  it('loyalty_enabled is false unless explicitly the string "true"', () => {
+    expect(parseLoyaltySettings({ loyalty_enabled: 'false' }).enabled).toBe(false);
+    expect(parseLoyaltySettings({ loyalty_enabled: 'yes' }).enabled).toBe(false);
+    expect(parseLoyaltySettings({}).enabled).toBe(false);
   });
 });

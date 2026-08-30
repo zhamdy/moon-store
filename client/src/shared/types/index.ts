@@ -112,12 +112,26 @@ export interface AuthResponseData {
 /**
  * Settings map from GET /api/settings. The route builds it from whatever rows
  * exist, so every key is optional.
+ *
+ * Loyalty settings use direct (non-reciprocal) units and canonical key names
+ * — see `server/src/modules/core/settings/types.ts` and
+ * docs/plans/2026-08-30-001-fix-pos-checkout-total-parity-plan.md. Read and
+ * write only the canonical keys; the `loyalty_earn_rate` /
+ * `loyalty_redeem_value` aliases are retained here only so this type does not
+ * break while a not-yet-migrated database still returns them, and are never
+ * written by the client.
  */
 export interface AppSettings {
   tax_enabled?: 'true' | 'false';
   tax_rate?: string;
   tax_mode?: 'inclusive' | 'exclusive';
   loyalty_enabled?: 'true' | 'false';
+  /** Canonical: points earned per 1 EGP of confirmed sale total. */
+  loyalty_points_per_egp?: string;
+  /** Canonical: EGP value redeemed per 1 point spent. */
+  loyalty_egp_per_point?: string;
+  /** @deprecated legacy alias for `loyalty_points_per_egp`; read-only compatibility. */
   loyalty_earn_rate?: string;
+  /** @deprecated legacy alias for `loyalty_egp_per_point`; read-only compatibility. */
   loyalty_redeem_value?: string;
 }

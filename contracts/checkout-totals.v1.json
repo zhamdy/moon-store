@@ -1,0 +1,276 @@
+{
+  "contractVersion": 1,
+  "description": "Neutral, runtime-agnostic fixture for the POS checkout financial contract (see docs/plans/2026-08-30-001-fix-pos-checkout-total-parity-plan.md, 'Canonical Calculation Contract'). Both the server calculator (Unit 2) and the client projection (Unit 3) must consume these cases and reproduce every 'expected' field exactly, in integer minor units. This file defines the behavior contract; it does not implement it, and Unit 1 does not yet wire it into either calculator.",
+  "currency": {
+    "code": "EGP",
+    "minorUnit": "piaster",
+    "minorUnitsPerMajorUnit": 100
+  },
+  "calculationOrder": [
+    "subtotal",
+    "manualDiscount",
+    "couponDiscount",
+    "loyaltyRedemption",
+    "taxableBase",
+    "tax",
+    "tip",
+    "amountDue",
+    "earnedPoints"
+  ],
+  "notes": [
+    "All currency fields are integer minor units (piasters). Convert database NUMERIC and HTTP decimal values to minor units only at the boundary; never carry floats through the calculation.",
+    "Loyalty units are direct, not reciprocal: pointsPerEgp is points earned per 1 EGP of confirmed amount due; egpPerPointMinor is minor units redeemed per 1 point spent. Neither is expressed 'per 100 points'.",
+    "Rounding rule: round to the nearest whole minor unit, ties rounding away from zero (JavaScript Math.round semantics for non-negative amounts).",
+    "manualDiscount and couponDiscount are each capped at the remaining amount at the stage they are applied; loyalty pointsDiscountMinor is capped by the customer's point balance and by the remaining taxable amount (caps are exercised by Units 2/3, not by this fixture's simple cases).",
+    "taxableBaseMinor is clamped at zero before tax is computed.",
+    "tipMinor is clamped to a non-negative value and is added after tax; it is never discounted or taxed.",
+    "earnedPoints uses floor(amountDueMinor / 100 * pointsPerEgp), computed from the confirmed amount due (post-redemption, including tax and tip), matching current server compatibility semantics."
+  ],
+  "cases": [
+    {
+      "name": "no-adjustments-tax-disabled",
+      "input": {
+        "items": [{ "unitPriceMinor": 15000, "quantity": 1 }],
+        "manualDiscount": { "type": "fixed", "valueMinor": 0 },
+        "couponDiscountMinor": 0,
+        "loyalty": { "enabled": false, "pointsPerEgp": 0, "egpPerPointMinor": 0, "pointsRedeemed": 0 },
+        "tax": { "enabled": false, "ratePercent": 0, "mode": "exclusive" },
+        "tipMinor": 0
+      },
+      "expected": {
+        "subtotalMinor": 15000,
+        "manualDiscountMinor": 0,
+        "couponDiscountMinor": 0,
+        "pointsDiscountMinor": 0,
+        "taxableBaseMinor": 15000,
+        "taxAmountMinor": 0,
+        "tipMinor": 0,
+        "amountDueMinor": 15000,
+        "earnedPoints": 0
+      }
+    },
+    {
+      "name": "fixed-manual-discount",
+      "input": {
+        "items": [{ "unitPriceMinor": 100000, "quantity": 1 }],
+        "manualDiscount": { "type": "fixed", "valueMinor": 10000 },
+        "couponDiscountMinor": 0,
+        "loyalty": { "enabled": false, "pointsPerEgp": 0, "egpPerPointMinor": 0, "pointsRedeemed": 0 },
+        "tax": { "enabled": false, "ratePercent": 0, "mode": "exclusive" },
+        "tipMinor": 0
+      },
+      "expected": {
+        "subtotalMinor": 100000,
+        "manualDiscountMinor": 10000,
+        "couponDiscountMinor": 0,
+        "pointsDiscountMinor": 0,
+        "taxableBaseMinor": 90000,
+        "taxAmountMinor": 0,
+        "tipMinor": 0,
+        "amountDueMinor": 90000,
+        "earnedPoints": 0
+      }
+    },
+    {
+      "name": "percentage-manual-discount",
+      "input": {
+        "items": [{ "unitPriceMinor": 100000, "quantity": 1 }],
+        "manualDiscount": { "type": "percentage", "valuePercent": 15 },
+        "couponDiscountMinor": 0,
+        "loyalty": { "enabled": false, "pointsPerEgp": 0, "egpPerPointMinor": 0, "pointsRedeemed": 0 },
+        "tax": { "enabled": false, "ratePercent": 0, "mode": "exclusive" },
+        "tipMinor": 0
+      },
+      "expected": {
+        "subtotalMinor": 100000,
+        "manualDiscountMinor": 15000,
+        "couponDiscountMinor": 0,
+        "pointsDiscountMinor": 0,
+        "taxableBaseMinor": 85000,
+        "taxAmountMinor": 0,
+        "tipMinor": 0,
+        "amountDueMinor": 85000,
+        "earnedPoints": 0
+      }
+    },
+    {
+      "name": "coupon-discount",
+      "input": {
+        "items": [{ "unitPriceMinor": 50000, "quantity": 1 }],
+        "manualDiscount": { "type": "fixed", "valueMinor": 0 },
+        "couponDiscountMinor": 5000,
+        "loyalty": { "enabled": false, "pointsPerEgp": 0, "egpPerPointMinor": 0, "pointsRedeemed": 0 },
+        "tax": { "enabled": false, "ratePercent": 0, "mode": "exclusive" },
+        "tipMinor": 0
+      },
+      "expected": {
+        "subtotalMinor": 50000,
+        "manualDiscountMinor": 0,
+        "couponDiscountMinor": 5000,
+        "pointsDiscountMinor": 0,
+        "taxableBaseMinor": 45000,
+        "taxAmountMinor": 0,
+        "tipMinor": 0,
+        "amountDueMinor": 45000,
+        "earnedPoints": 0
+      }
+    },
+    {
+      "name": "loyalty-redemption-and-earning",
+      "description": "200 points redeemed at 0.10 EGP/point discounts 20.00 EGP; 2 points/EGP earns from the resulting amount due.",
+      "input": {
+        "items": [{ "unitPriceMinor": 100000, "quantity": 1 }],
+        "manualDiscount": { "type": "fixed", "valueMinor": 0 },
+        "couponDiscountMinor": 0,
+        "loyalty": { "enabled": true, "pointsPerEgp": 2, "egpPerPointMinor": 10, "pointsRedeemed": 200 },
+        "tax": { "enabled": false, "ratePercent": 0, "mode": "exclusive" },
+        "tipMinor": 0
+      },
+      "expected": {
+        "subtotalMinor": 100000,
+        "manualDiscountMinor": 0,
+        "couponDiscountMinor": 0,
+        "pointsDiscountMinor": 2000,
+        "taxableBaseMinor": 98000,
+        "taxAmountMinor": 0,
+        "tipMinor": 0,
+        "amountDueMinor": 98000,
+        "earnedPoints": 1960
+      }
+    },
+    {
+      "name": "inclusive-tax",
+      "input": {
+        "items": [{ "unitPriceMinor": 114000, "quantity": 1 }],
+        "manualDiscount": { "type": "fixed", "valueMinor": 0 },
+        "couponDiscountMinor": 0,
+        "loyalty": { "enabled": false, "pointsPerEgp": 0, "egpPerPointMinor": 0, "pointsRedeemed": 0 },
+        "tax": { "enabled": true, "ratePercent": 14, "mode": "inclusive" },
+        "tipMinor": 0
+      },
+      "expected": {
+        "subtotalMinor": 114000,
+        "manualDiscountMinor": 0,
+        "couponDiscountMinor": 0,
+        "pointsDiscountMinor": 0,
+        "taxableBaseMinor": 114000,
+        "taxAmountMinor": 14000,
+        "tipMinor": 0,
+        "amountDueMinor": 114000,
+        "earnedPoints": 0
+      }
+    },
+    {
+      "name": "exclusive-tax",
+      "input": {
+        "items": [{ "unitPriceMinor": 100000, "quantity": 1 }],
+        "manualDiscount": { "type": "fixed", "valueMinor": 0 },
+        "couponDiscountMinor": 0,
+        "loyalty": { "enabled": false, "pointsPerEgp": 0, "egpPerPointMinor": 0, "pointsRedeemed": 0 },
+        "tax": { "enabled": true, "ratePercent": 14, "mode": "exclusive" },
+        "tipMinor": 0
+      },
+      "expected": {
+        "subtotalMinor": 100000,
+        "manualDiscountMinor": 0,
+        "couponDiscountMinor": 0,
+        "pointsDiscountMinor": 0,
+        "taxableBaseMinor": 100000,
+        "taxAmountMinor": 14000,
+        "tipMinor": 0,
+        "amountDueMinor": 114000,
+        "earnedPoints": 0
+      }
+    },
+    {
+      "name": "tip-after-tax-regression",
+      "description": "Regression fixture for the historical tip-sign bug: a 25.00 EGP tip on an 850.00 EGP post-discount amount must yield 875.00 EGP due, never 825.00 EGP.",
+      "input": {
+        "items": [{ "unitPriceMinor": 85000, "quantity": 1 }],
+        "manualDiscount": { "type": "fixed", "valueMinor": 0 },
+        "couponDiscountMinor": 0,
+        "loyalty": { "enabled": false, "pointsPerEgp": 0, "egpPerPointMinor": 0, "pointsRedeemed": 0 },
+        "tax": { "enabled": false, "ratePercent": 0, "mode": "exclusive" },
+        "tipMinor": 2500
+      },
+      "expected": {
+        "subtotalMinor": 85000,
+        "manualDiscountMinor": 0,
+        "couponDiscountMinor": 0,
+        "pointsDiscountMinor": 0,
+        "taxableBaseMinor": 85000,
+        "taxAmountMinor": 0,
+        "tipMinor": 2500,
+        "amountDueMinor": 87500,
+        "earnedPoints": 0
+      }
+    },
+    {
+      "name": "full-combination-exclusive-tax",
+      "description": "Manual percentage discount + coupon + loyalty redemption + exclusive tax + tip, in canonical order.",
+      "input": {
+        "items": [{ "unitPriceMinor": 200000, "quantity": 1 }],
+        "manualDiscount": { "type": "percentage", "valuePercent": 10 },
+        "couponDiscountMinor": 5000,
+        "loyalty": { "enabled": true, "pointsPerEgp": 2, "egpPerPointMinor": 10, "pointsRedeemed": 300 },
+        "tax": { "enabled": true, "ratePercent": 14, "mode": "exclusive" },
+        "tipMinor": 5000
+      },
+      "expected": {
+        "subtotalMinor": 200000,
+        "manualDiscountMinor": 20000,
+        "couponDiscountMinor": 5000,
+        "pointsDiscountMinor": 3000,
+        "taxableBaseMinor": 172000,
+        "taxAmountMinor": 24080,
+        "tipMinor": 5000,
+        "amountDueMinor": 201080,
+        "earnedPoints": 4021
+      }
+    },
+    {
+      "name": "half-minor-unit-rounding-boundary",
+      "description": "Exercises the tie-rounding rule: a raw tax of 166.5 piasters rounds up to 167.",
+      "input": {
+        "items": [{ "unitPriceMinor": 333, "quantity": 1 }],
+        "manualDiscount": { "type": "fixed", "valueMinor": 0 },
+        "couponDiscountMinor": 0,
+        "loyalty": { "enabled": false, "pointsPerEgp": 0, "egpPerPointMinor": 0, "pointsRedeemed": 0 },
+        "tax": { "enabled": true, "ratePercent": 50, "mode": "exclusive" },
+        "tipMinor": 0
+      },
+      "expected": {
+        "subtotalMinor": 333,
+        "manualDiscountMinor": 0,
+        "couponDiscountMinor": 0,
+        "pointsDiscountMinor": 0,
+        "taxableBaseMinor": 333,
+        "taxAmountMinor": 167,
+        "tipMinor": 0,
+        "amountDueMinor": 500,
+        "earnedPoints": 0
+      }
+    }
+  ],
+  "splitPaymentCases": [
+    {
+      "name": "three-way-split-balances-to-the-cent",
+      "amountDueMinor": 10000,
+      "payments": [
+        { "method": "Cash", "amountMinor": 3333 },
+        { "method": "Cash", "amountMinor": 3333 },
+        { "method": "Card", "amountMinor": 3334 }
+      ],
+      "expected": { "allocatedMinor": 10000, "isBalanced": true, "isOverpaid": false }
+    },
+    {
+      "name": "underpaid-split-is-rejected",
+      "amountDueMinor": 10000,
+      "payments": [
+        { "method": "Cash", "amountMinor": 3333 },
+        { "method": "Card", "amountMinor": 3333 }
+      ],
+      "expected": { "allocatedMinor": 6666, "isBalanced": false, "isOverpaid": false }
+    }
+  ]
+}
