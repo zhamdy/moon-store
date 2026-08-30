@@ -2,6 +2,7 @@ import db from '../src/database/pool';
 import { withTransaction, Queryable } from '../src/database/transaction';
 import { productSchema } from '../validators/productSchema';
 import { notifyLowStock } from './notifications';
+import { stockAdjustmentsService } from '../src/modules/inventory/stockAdjustments/service';
 
 // --- Types ---
 
@@ -416,28 +417,27 @@ export async function adjustStock(
       throw new Error('Cannot adjust stock on a discontinued product');
     }
 
-    const previousQty = product.stock;
-    const newQty = previousQty + delta;
+    // The read above only decides eligibility (exists, not discontinued). The quantity
+    // it saw is deliberately not used to compute the new total: the guarded relative
+    // write below is the authority, so two concurrent adjustments cannot lose one
+    // another's delta or drive stock negative.
+    const applied = await stockAdjustmentsService.applyDelta(
+      productId,
+      delta,
+      reason,
+      userId,
+      client
+    );
 
-    if (newQty < 0) {
+    if (applied === null) {
       throw new Error('Stock cannot go below zero');
     }
 
-    await client.query('UPDATE products SET stock = $1, updated_at = NOW() WHERE id = $2', [
-      newQty,
-      productId,
-    ]);
-
-    await client.query(
-      'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
-      [productId, previousQty, newQty, delta, reason, userId]
-    );
-
-    if (newQty <= product.min_stock) {
-      notifyLowStock(product.name, newQty, productId);
+    if (applied.newQty <= product.min_stock) {
+      notifyLowStock(product.name, applied.newQty, productId);
     }
 
-    return { previous_qty: previousQty, new_qty: newQty, delta };
+    return { previous_qty: applied.previousQty, new_qty: applied.newQty, delta };
   });
 }
 

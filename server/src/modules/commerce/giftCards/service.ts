@@ -1,4 +1,4 @@
-import { withTransaction } from '../../../database/transaction';
+import { Queryable, withTransaction } from '../../../database/transaction';
 import { IGiftCardsRepository, giftCardsRepository as defaultRepo } from './repository';
 import {
   CreateGiftCardInput,
@@ -110,53 +110,72 @@ export class GiftCardsService {
     };
   }
 
+  /**
+   * @param client joins an existing transaction (the idempotency claim's) instead of
+   * opening one, so the claim and the debit commit or roll back together.
+   */
   async redeem(
     code: string,
     amount: number,
     saleId: number,
-    performedByUserId: number
+    performedByUserId: number,
+    client?: Queryable
   ): Promise<RedeemResult> {
-    return withTransaction(async (client) => {
-      const card = await this.repo.findByCode(code, client);
+    if (client) {
+      return this.executeRedeem(code, amount, saleId, performedByUserId, client);
+    }
+    return withTransaction((tx) => this.executeRedeem(code, amount, saleId, performedByUserId, tx));
+  }
 
-      if (!card) {
+  private async executeRedeem(
+    code: string,
+    amount: number,
+    saleId: number,
+    performedByUserId: number,
+    client: Queryable
+  ): Promise<RedeemResult> {
+    const card = await this.repo.findByCode(code, client);
+
+    if (!card) {
+      throw new Error('Gift card not found');
+    }
+
+    const debited = await this.repo.redeemBalance(card.id, amount, client);
+
+    if (!debited) {
+      // The guarded UPDATE decided the card was ineligible but cannot say why. This
+      // read exists only to pick the message, in the same precedence as before.
+      const current = await this.repo.findById(card.id, client);
+
+      if (!current) {
         throw new Error('Gift card not found');
       }
-
-      if (card.status !== 'active') {
+      if (current.status !== 'active') {
         throw new Error('Gift card is not active');
       }
-
-      if (card.expires_at && new Date(card.expires_at) < new Date()) {
+      if (current.expires_at && new Date(current.expires_at) < new Date()) {
         throw new Error('Gift card has expired');
       }
+      throw new Error(`Insufficient balance. Available: ${Number(current.balance)}`);
+    }
 
-      const currentBalance = Number(card.balance);
-      if (currentBalance < amount) {
-        throw new Error(`Insufficient balance. Available: ${currentBalance}`);
-      }
+    const transaction = await this.repo.createTransaction(
+      {
+        gift_card_id: card.id,
+        sale_id: saleId,
+        amount,
+        balance_before: debited.balanceBefore,
+        balance_after: debited.balanceAfter,
+        performed_by: performedByUserId,
+      },
+      client
+    );
 
-      const newBalance = currentBalance - amount;
-      await this.repo.updateBalance(card.id, newBalance, client);
-
-      const transaction = await this.repo.createTransaction(
-        {
-          gift_card_id: card.id,
-          sale_id: saleId,
-          amount,
-          balance_before: currentBalance,
-          balance_after: newBalance,
-          performed_by: performedByUserId,
-        },
-        client
-      );
-
-      return {
-        transaction,
-        new_balance: newBalance,
-        code: card.code,
-      };
-    });
+    return {
+      transaction,
+      new_balance: debited.balanceAfter,
+      code: card.code,
+    };
   }
 
   async getTransactions(

@@ -26,8 +26,16 @@ export interface IExchangesRepository {
   createNewItem(exchangeId: number, item: NewItemInput, queryable: Queryable): Promise<void>;
   restockVariant(variantId: number, quantity: number, queryable: Queryable): Promise<void>;
   restockProduct(productId: number, quantity: number, queryable: Queryable): Promise<void>;
-  deductVariantStock(variantId: number, quantity: number, queryable: Queryable): Promise<void>;
-  deductProductStock(productId: number, quantity: number, queryable: Queryable): Promise<void>;
+  deductVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
+  deductProductStock(
+    productId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
   listExchanges(
     filters: {
       search?: string;
@@ -129,26 +137,41 @@ export class ExchangesRepository implements IExchangesRepository {
     );
   }
 
+  /**
+   * `AND stock >= $1::int` is what stops an exchange driving stock negative; without it
+   * the relative write was atomic but unbounded. `$1::int` is cast because pg-mem
+   * evaluates `column - $param` with the operands inverted unless the parameter is typed
+   * — which is why the unguarded subtraction here never misbehaved on the addition side.
+   *
+   * @returns the remaining stock, or null when there was not enough.
+   */
   async deductVariantStock(
     variantId: number,
     quantity: number,
     queryable: Queryable
-  ): Promise<void> {
-    await this.q(queryable).query(`UPDATE product_variants SET stock = stock - $1 WHERE id = $2`, [
-      quantity,
-      variantId,
-    ]);
+  ): Promise<number | null> {
+    const res = await this.q(queryable).query<{ stock: number }>(
+      `UPDATE product_variants SET stock = stock - $1::int
+        WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
+      [quantity, variantId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
   }
 
+  /** @returns the remaining stock, or null when there was not enough. */
   async deductProductStock(
     productId: number,
     quantity: number,
     queryable: Queryable
-  ): Promise<void> {
-    await this.q(queryable).query(
-      `UPDATE products SET stock = stock - $1, updated_at = NOW() WHERE id = $2`,
+  ): Promise<number | null> {
+    const res = await this.q(queryable).query<{ stock: number }>(
+      `UPDATE products SET stock = stock - $1::int, updated_at = NOW()
+        WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
       [quantity, productId]
     );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
   }
 
   async listExchanges(
