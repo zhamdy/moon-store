@@ -200,6 +200,44 @@ describe('CartPanel checkout', () => {
     expect(keys[0]).toBe(keys[1]);
   });
 
+  it('reuses the same key after a reload, because the cart survives one too', async () => {
+    const transport = makeTransport();
+
+    const first = render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    const confirm = await openCheckout();
+    transport.failNext('Gateway timeout', 502, undefined, undefined, 'sales');
+    fireEvent.click(confirm);
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+
+    // A reload tears the component down; the persisted cart (and its attempt) remain.
+    first.unmount();
+    const attempt = useCartStore.getState().checkoutAttempt;
+    expect(attempt).not.toBeNull();
+
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    const confirmAgain = await openCheckout();
+    fireEvent.click(confirmAgain);
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+
+    // If the key had lived only in a ref, the remount would have minted a new one and
+    // the server would have rung this sale up twice.
+    const keys = transport.idempotencyKeys();
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[1]).toBe(attempt!.key);
+  });
+
+  it('drops the stored attempt once the sale lands, so the next sale gets a new key', async () => {
+    const transport = makeTransport();
+
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    const confirm = await openCheckout();
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+    expect(useCartStore.getState().checkoutAttempt).toBeNull();
+  });
+
   it('clears the cart once the sale lands', async () => {
     const transport = makeTransport();
 

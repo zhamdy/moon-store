@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
+import { useState, useEffect, useMemo, type MutableRefObject } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -177,6 +177,8 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     clearCart,
     needsReview,
     acknowledgeReview,
+    checkoutAttempt,
+    setCheckoutAttempt,
   } = useCartStore();
   const { addToQueue } = useOfflineStore();
   const { carts: heldCarts, holdCart } = useHeldCartsStore();
@@ -367,21 +369,25 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   };
 
   /**
-   * The idempotency key identifies one rung-up sale, not one HTTP request. It
-   * is keyed on the composed payload so a cashier who hits Confirm again after
-   * a failure retries under the SAME key (letting the server return the
-   * original outcome rather than committing a second sale), while a cart that
-   * has changed gets a fresh one. Cleared once a sale is committed or queued,
-   * so the next sale never inherits a key -- even an identical repeat order.
+   * The idempotency key identifies one rung-up sale, not one HTTP request. It is keyed on
+   * the composed payload so a cashier who hits Confirm again after a failure retries under
+   * the SAME key (letting the server return the original outcome rather than committing a
+   * second sale), while a cart that has changed gets a fresh one. Cleared once a sale is
+   * committed or queued, so the next sale never inherits a key — even an identical repeat
+   * order.
+   *
+   * It lives in the persisted cart store rather than a ref: the cart survives a reload, so
+   * the key protecting it has to as well. A till that refreshes while a checkout is in
+   * flight would otherwise mint a new key and ring the same sale up twice.
    */
-  const checkoutAttemptRef = useRef<{ fingerprint: string; key: string } | null>(null);
-
   const idempotencyKeyFor = (saleData: SaleData): string => {
     const fingerprint = JSON.stringify(saleData);
-    if (checkoutAttemptRef.current?.fingerprint !== fingerprint) {
-      checkoutAttemptRef.current = { fingerprint, key: createIdempotencyKey() };
+    if (checkoutAttempt?.fingerprint === fingerprint) {
+      return checkoutAttempt.key;
     }
-    return checkoutAttemptRef.current.key;
+    const attempt = { fingerprint, key: createIdempotencyKey() };
+    setCheckoutAttempt(attempt);
+    return attempt.key;
   };
 
   const checkoutMutation = useMutation({
@@ -393,7 +399,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         idempotencyKey,
       }),
     onSuccess: (response) => {
-      checkoutAttemptRef.current = null;
+      setCheckoutAttempt(null);
       const sale = response.data;
       const calc = sale.calculation;
 
@@ -487,7 +493,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           idempotencyKey: attempt.idempotencyKey,
         });
         toast.success(t('cart.savedOffline'));
-        checkoutAttemptRef.current = null;
+        setCheckoutAttempt(null);
         clearCart();
         setCheckoutOpen(false);
         setSelectedCustomer(null);
