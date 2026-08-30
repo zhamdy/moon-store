@@ -88,6 +88,44 @@ describe('offline sale replay', () => {
     expect(transport.calls()[0].body).toBe(QUEUED_SALE);
   });
 
+  it('replays a queued sale under the idempotency key it was stamped with', async () => {
+    const transport: MemoryTransport = createMemoryTransport({ sales: [] });
+    useOfflineStore.setState({
+      queue: [
+        {
+          id: 1,
+          createdAt: '2026-02-01T10:00:00.000Z',
+          type: 'sale',
+          payload: QUEUED_SALE,
+          contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+          idempotencyKey: 'checkout-attempt-key',
+        },
+      ],
+      isSyncing: false,
+    });
+
+    renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
+
+    await waitFor(() => expect(useOfflineStore.getState().queue).toHaveLength(0));
+
+    // The key the till stamped at ring-up, unchanged -- a replay under a fresh
+    // key would let the server commit the sale a second time.
+    expect(transport.idempotencyKeys()).toEqual(['checkout-attempt-key']);
+  });
+
+  it('replays a legacy entry that predates idempotency keys with no key at all', async () => {
+    const transport: MemoryTransport = createMemoryTransport({ sales: [] });
+    // Versioned (so not quarantined) but queued before keys existed.
+    queueOneSale();
+
+    renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
+
+    await waitFor(() => expect(useOfflineStore.getState().queue).toHaveLength(0));
+
+    expect(transport.idempotencyKeys()).toEqual([]);
+    expect(transport.calls()[0]).not.toHaveProperty('idempotencyKey');
+  });
+
   it('leaves a sale queued when the replay fails', async () => {
     const { transport, attempts } = failingTransport();
     queueOneSale();

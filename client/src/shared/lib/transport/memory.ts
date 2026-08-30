@@ -1,3 +1,4 @@
+import { isValidIdempotencyKey } from './idempotency';
 import { ApiError, type Transport, type TransportRequest, type TransportResult } from './types';
 
 type Row = Record<string, unknown>;
@@ -15,6 +16,12 @@ export interface MemoryTransport extends Transport {
    * reproduce. Assert on what was asked for instead.
    */
   calls(): TransportRequest[];
+  /**
+   * Idempotency keys seen so far, in order, for the requests that carried one.
+   * Recorded separately from `calls()` so a test can assert on stability
+   * across a retry without reconstructing which call was which.
+   */
+  idempotencyKeys(): string[];
   /**
    * Make a request fail, to exercise how callers handle errors. `code`/
    * `details` let a test simulate a structured server error such as the
@@ -76,13 +83,24 @@ export function createMemoryTransport(
 
     calls: () => received.map((call) => ({ ...call })),
 
+    idempotencyKeys: () =>
+      received.map((call) => call.idempotencyKey).filter((key): key is string => key !== undefined),
+
     failNext: (message, status = 400, code, details, matchPath) => {
       pendingFailure = { error: new ApiError(message, status, code, details), matchPath };
     },
 
     async request<T>(req: TransportRequest): Promise<TransportResult<T>> {
       received.push(req);
-      const { method, path, body } = req;
+      const { method, path, body, idempotencyKey } = req;
+
+      // The server rejects a malformed key with a 400 before doing any work.
+      // Reproducing that here means a test exercising the offline/retry paths
+      // fails on a key the real endpoint would refuse, rather than passing
+      // against a fake that accepts anything.
+      if (idempotencyKey !== undefined && !isValidIdempotencyKey(idempotencyKey)) {
+        throw new ApiError('Invalid Idempotency-Key', 400, 'VALIDATION_ERROR');
+      }
 
       if (pendingFailure && (!pendingFailure.matchPath || pendingFailure.matchPath === path)) {
         const failure = pendingFailure.error;

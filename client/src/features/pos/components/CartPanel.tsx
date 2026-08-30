@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type MutableRefObject } from 'react';
+import { useState, useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -46,7 +46,7 @@ import {
   type TaxMode,
 } from '../../../shared/lib/checkout';
 import { resource } from '../../../shared/lib/resource';
-import { useTransport } from '../../../shared/lib/transport/index';
+import { useTransport, createIdempotencyKey } from '../../../shared/lib/transport/index';
 import { ApiError } from '../../../shared/lib/transport/types';
 import type { ReceiptData, ReceiptItem, ReceiptPayment } from '../../../shared/components/Receipt';
 import type { AppSettings, Customer } from '../../../shared/types/index';
@@ -81,6 +81,12 @@ interface SaleData {
   notes?: string;
   tip?: number;
   coupon_code?: string;
+}
+
+/** One checkout attempt: the composed body plus the key that dedupes its retries. */
+interface CheckoutAttempt {
+  saleData: SaleData;
+  idempotencyKey: string;
 }
 
 interface CustomerLoyalty {
@@ -360,10 +366,34 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     );
   };
 
+  /**
+   * The idempotency key identifies one rung-up sale, not one HTTP request. It
+   * is keyed on the composed payload so a cashier who hits Confirm again after
+   * a failure retries under the SAME key (letting the server return the
+   * original outcome rather than committing a second sale), while a cart that
+   * has changed gets a fresh one. Cleared once a sale is committed or queued,
+   * so the next sale never inherits a key -- even an identical repeat order.
+   */
+  const checkoutAttemptRef = useRef<{ fingerprint: string; key: string } | null>(null);
+
+  const idempotencyKeyFor = (saleData: SaleData): string => {
+    const fingerprint = JSON.stringify(saleData);
+    if (checkoutAttemptRef.current?.fingerprint !== fingerprint) {
+      checkoutAttemptRef.current = { fingerprint, key: createIdempotencyKey() };
+    }
+    return checkoutAttemptRef.current.key;
+  };
+
   const checkoutMutation = useMutation({
-    mutationFn: (saleData: SaleData) =>
-      transport.request<SaleResponse>({ method: 'POST', path: 'sales', body: saleData }),
+    mutationFn: ({ saleData, idempotencyKey }: CheckoutAttempt) =>
+      transport.request<SaleResponse>({
+        method: 'POST',
+        path: 'sales',
+        body: saleData,
+        idempotencyKey,
+      }),
     onSuccess: (response) => {
+      checkoutAttemptRef.current = null;
       const sale = response.data;
       const calc = sale.calculation;
 
@@ -429,7 +459,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       setReceiptData(newReceipt);
       setReceiptOpen(true);
     },
-    onError: (error: Error) => {
+    onError: (error: Error, attempt: CheckoutAttempt) => {
       if (!navigator.onLine) {
         const saleData: SaleData = {
           items: items.map((i) => ({
@@ -451,8 +481,13 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           // it. A legacy entry already sitting in a user's queue from before
           // this deploy has no such field and is left for manual review.
           contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+          // The same key the failed POST carried: if that request did reach
+          // the server after all, the replay is recognised as a duplicate
+          // instead of ringing the sale up twice.
+          idempotencyKey: attempt.idempotencyKey,
         });
         toast.success(t('cart.savedOffline'));
+        checkoutAttemptRef.current = null;
         clearCart();
         setCheckoutOpen(false);
         setSelectedCustomer(null);
@@ -501,7 +536,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       ...(couponCode ? { coupon_code: couponCode } : {}),
     };
 
-    checkoutMutation.mutate(saleData);
+    checkoutMutation.mutate({ saleData, idempotencyKey: idempotencyKeyFor(saleData) });
   };
 
   const handleApplyCoupon = async () => {

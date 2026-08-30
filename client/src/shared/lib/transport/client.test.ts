@@ -263,4 +263,50 @@ describe('HTTP transport contract', () => {
       transport.request<Blob>({ method: 'GET', path: 'exports/1', responseType: 'blob' })
     ).resolves.toEqual({ data: blob });
   });
+
+  it('sends an idempotency key as the Idempotency-Key header', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 200, data: { data: { id: 1 } } });
+    const { createHttpTransport } = await import('./http');
+    const transport = createHttpTransport({ request } as never);
+
+    await transport.request({
+      method: 'POST',
+      path: 'sales',
+      body: { total: 10 },
+      idempotencyKey: 'a1b2c3',
+    });
+
+    expect(request.mock.calls[0][0].headers).toEqual({ 'Idempotency-Key': 'a1b2c3' });
+  });
+
+  it('sends no headers at all when no key is supplied', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 200, data: { data: { id: 1 } } });
+    const { createHttpTransport } = await import('./http');
+    const transport = createHttpTransport({ request } as never);
+
+    await transport.request({ method: 'POST', path: 'sales', body: { total: 10 } });
+
+    // The shared client's own JSON headers must stay in force -- an empty
+    // per-request `headers` object would be harmless, but asserting its
+    // absence keeps the no-key path byte-identical to pre-idempotency behaviour.
+    expect(request.mock.calls[0][0]).not.toHaveProperty('headers');
+  });
+
+  it('still clears Content-Type for a FormData body, alongside a key', async () => {
+    const request = vi.fn().mockResolvedValue({ status: 200, data: { data: {} } });
+    const { createHttpTransport } = await import('./http');
+    const transport = createHttpTransport({ request } as never);
+
+    await transport.request({
+      method: 'POST',
+      path: 'products/import',
+      body: new FormData(),
+      idempotencyKey: 'k-1',
+    });
+
+    expect(request.mock.calls[0][0].headers).toEqual({
+      'Content-Type': undefined,
+      'Idempotency-Key': 'k-1',
+    });
+  });
 });

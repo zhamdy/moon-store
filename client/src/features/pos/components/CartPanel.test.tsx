@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { TransportProvider } from '../../../shared/lib/transport/index';
+import { TransportProvider, isValidIdempotencyKey } from '../../../shared/lib/transport/index';
 import type { TransportRequest, TransportResult } from '../../../shared/lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
 import { useSettingsStore } from '../../../shared/store/settingsStore';
@@ -138,6 +138,68 @@ describe('CartPanel checkout', () => {
     expect(sale?.body).not.toHaveProperty('payments');
   });
 
+  it('stamps the sale with a well-formed idempotency key', async () => {
+    const transport = makeTransport();
+
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await openCheckout());
+
+    await waitFor(() => expect(transport.idempotencyKeys()).toHaveLength(1));
+
+    const [key] = transport.idempotencyKeys();
+    // The server 400s anything outside its format, so a key the fallback
+    // generator produced has to satisfy the same rule as `crypto.randomUUID`.
+    expect(isValidIdempotencyKey(key)).toBe(true);
+    // It travels as a header, not as part of the sale the cashier rang up.
+    expect(transport.calls().find((call) => call.path === 'sales')?.body).not.toHaveProperty(
+      'idempotencyKey'
+    );
+  });
+
+  it('gives a second, different sale its own key', async () => {
+    const transport = makeTransport();
+
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await openCheckout());
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+
+    // The receipt modal owns the screen until it is dismissed.
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Close' }))[0]);
+
+    useCartStore.setState({ items: [{ ...SILK_DRESS, product_id: 9, quantity: 1 }] });
+    fireEvent.click(await screen.findByRole('button', { name: 'Checkout' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm Sale' }));
+
+    await waitFor(() => expect(transport.idempotencyKeys()).toHaveLength(2));
+    const [first, second] = transport.idempotencyKeys();
+    expect(second).not.toBe(first);
+  });
+
+  it('reuses the same key when the cashier immediately retries the same cart', async () => {
+    const transport = makeTransport();
+
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+
+    const confirm = await openCheckout();
+    transport.failNext('Gateway timeout', 502, undefined, undefined, 'sales');
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    // The failure left the cart and the drawer alone, so the cashier can retry.
+    expect(useCartStore.getState().items).toHaveLength(1);
+
+    fireEvent.click(confirm);
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+
+    // Same key on both attempts: the first POST may have committed before the
+    // response was lost, and the server has to recognise the second as its replay.
+    const keys = transport.idempotencyKeys();
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+  });
+
   it('clears the cart once the sale lands', async () => {
     const transport = makeTransport();
 
@@ -184,6 +246,11 @@ describe('CartPanel checkout', () => {
 
       await waitFor(() => expect(useOfflineStore.getState().queue).toHaveLength(1));
       expect(useOfflineStore.getState().queue[0].contractVersion).toBe('v1');
+      // The queued entry carries the very key the failed POST went out under,
+      // so a replay of a request that did land is deduped rather than doubled.
+      const [attemptKey] = transport.idempotencyKeys();
+      expect(useOfflineStore.getState().queue[0].idempotencyKey).toBe(attemptKey);
+      expect(isValidIdempotencyKey(attemptKey)).toBe(true);
     } finally {
       // `defineProperty` above created an OWN property on the `navigator`
       // instance, shadowing the prototype's real getter -- restoring a
