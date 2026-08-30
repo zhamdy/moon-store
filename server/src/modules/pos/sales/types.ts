@@ -50,12 +50,6 @@ export interface TaxSettings {
   mode: string;
 }
 
-export interface LoyaltySettings {
-  enabled: boolean;
-  earnRate: number;
-  redeemValue: number;
-}
-
 // ─── Checkout financial contract (Unit 1) ──────────────────────────────────
 //
 // See docs/plans/2026-08-30-001-fix-pos-checkout-total-parity-plan.md,

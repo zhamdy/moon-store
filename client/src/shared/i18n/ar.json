@@ -602,6 +602,7 @@
   "offline.queuedForSync": "{count} عنصر(عناصر) في انتظار المزامنة.",
   "offline.synced": "تمت مزامنة {count} عملية بيع",
   "offline.splitMismatch": "{count} عملية بيع في الانتظار لم تعد متوازنة -- يرجى المراجعة قبل إعادة المحاولة",
+  "offline.quarantinedForReview": "{count} منها يحتاج إلى مراجعة يدوية قبل المزامنة.",
 
   "pwa.installApp": "تثبيت تطبيق MOON",
   "pwa.installDesc": "ثبّت التطبيق للوصول السريع والعمل بدون إنترنت",

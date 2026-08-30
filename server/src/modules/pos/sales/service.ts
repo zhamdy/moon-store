@@ -3,7 +3,6 @@ import pool from '../../../database/pool';
 import { ISalesRepository, salesRepository as defaultRepo } from './repository';
 import { bundlesRepository, IBundlesRepository } from '../../inventory/bundles/repository';
 import { couponsService, CouponsService } from '../../commerce/coupons/service';
-import { CouponError } from '../../commerce/coupons/types';
 import { registerService, IRegisterService } from '../register/service';
 import {
   parseLoyaltySettings,
@@ -21,7 +20,6 @@ import {
   PaymentInput,
   SaleTotals,
   TaxSettings,
-  LoyaltySettings,
   CreateRefundDTO,
   SaleCalculationBreakdown,
   SaleCalculationInput,
@@ -199,16 +197,6 @@ export class SalesService {
       enabled: taxEnabledStr === 'true',
       rate: Number(taxRateStr || 0),
       mode: taxModeStr || 'inclusive',
-    };
-  }
-
-  /** @deprecated Legacy alias-keyed reader, kept only for external callers that still expect this shape. Use `getCanonicalLoyaltySettings`. */
-  async getLoyaltySettings(queryable: Queryable = pool): Promise<LoyaltySettings> {
-    const canonical = await this.getCanonicalLoyaltySettings(queryable);
-    return {
-      enabled: canonical.enabled,
-      earnRate: canonical.pointsPerEgp,
-      redeemValue: canonical.egpPerPoint,
     };
   }
 
@@ -479,26 +467,22 @@ export class SalesService {
     if (input.coupon_code) {
       const manualDiscountMinor = computeManualDiscountMinor(subtotalMinor, manualDiscount);
       const postManualDiscountMajor = fromMinorUnits(subtotalMinor - manualDiscountMinor);
-      try {
-        const result = await this.coupons.validate(
-          {
-            code: input.coupon_code,
-            subtotal: postManualDiscountMajor,
-            customer_id: input.customer_id ?? null,
-            item_product_ids: input.items.map((i) => i.product_id),
-          },
-          queryable
-        );
-        couponId = result.coupon_id;
-        couponDiscountMinor = toMinorUnits(result.discount);
-      } catch (err) {
-        if (err instanceof CouponError) {
-          // Deterministic validation failure — never silently omit an
-          // explicitly requested coupon from the authoritative calculation.
-          throw new Error(err.message);
-        }
-        throw err;
-      }
+      // A CouponError (or any other failure) is intentionally left uncaught
+      // here and propagates as-is: a deterministic validation failure must
+      // never silently omit an explicitly requested coupon from the
+      // authoritative calculation, and preserving CouponError's type lets the
+      // controller map it to a 400 regardless of its message wording.
+      const result = await this.coupons.validate(
+        {
+          code: input.coupon_code,
+          subtotal: postManualDiscountMajor,
+          customer_id: input.customer_id ?? null,
+          item_product_ids: input.items.map((i) => i.product_id),
+        },
+        queryable
+      );
+      couponId = result.coupon_id;
+      couponDiscountMinor = toMinorUnits(result.discount);
     }
 
     let customer: Record<string, any> | null = null;
@@ -637,7 +621,12 @@ export class SalesService {
           total: fromMinorUnits(breakdown.amountDueMinor),
           discount: input.discount || 0,
           discount_type: input.discount_type || 'fixed',
-          payment_method: confirmedPayments.length > 1 ? 'Split' : input.payment_method,
+          payment_method:
+            confirmedPayments.length > 1
+              ? 'Split'
+              : confirmedPayments.length === 1
+                ? confirmedPayments[0].method
+                : input.payment_method,
           cashier_id: cashierId,
           customer_id: input.customer_id || null,
           tax_amount: fromMinorUnits(breakdown.taxAmountMinor),

@@ -22,7 +22,7 @@ interface UseOfflineReturn {
 
 export function useOffline(): UseOfflineReturn {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const { queue, removeFromQueue, setSyncing, isSyncing } = useOfflineStore();
+  const { queue, removeFromQueue, markMismatched, setSyncing, isSyncing } = useOfflineStore();
   // Taken here, at the top of the hook, so the replay below runs on the same
   // transport CartPanel posted the sale on. The replay itself happens in a
   // callback long after render, but the transport it closes over is stable for
@@ -80,9 +80,11 @@ export function useOffline(): UseOfflineReturn {
           err.details?.some((d) => d.code === SPLIT_PAYMENT_MISMATCH_CODE);
         if (isSplitMismatch) {
           // Something changed since this sale was queued (catalog price, tax,
-          // coupon/loyalty settings) and its split no longer balances. Leave
-          // it queued for a cashier to review and rebalance/re-ring -- do not
-          // keep silently retrying it every sync, and do not drop it.
+          // coupon/loyalty settings) and its split no longer balances. Flag it
+          // as quarantined so it stays queued for a cashier to review and
+          // rebalance/re-ring, instead of being silently re-posted (and
+          // re-failing) on every subsequent sync.
+          markMismatched(item.id);
           mismatched++;
         }
         // Any other failure (still offline, server error): keep in queue and
@@ -97,7 +99,7 @@ export function useOffline(): UseOfflineReturn {
     if (mismatched > 0) {
       toast.error(t('offline.splitMismatch', { count: mismatched }));
     }
-  }, [isOnline, isSyncing, queue, removeFromQueue, setSyncing, transport]);
+  }, [isOnline, isSyncing, queue, removeFromQueue, markMismatched, setSyncing, transport]);
 
   // Auto-sync when coming back online
   useEffect(() => {

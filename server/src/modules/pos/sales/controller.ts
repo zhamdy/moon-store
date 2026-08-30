@@ -7,6 +7,7 @@ import { saleSchema, refundSchema } from '../../../../validators/saleSchema';
 import { salesService } from './service';
 import { salesRepository } from './repository';
 import { parseSaleListQuery, SalesValidationError } from './types';
+import { CouponError } from '../../commerce/coupons/types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
@@ -90,11 +91,19 @@ export class SalesController {
         );
         return;
       }
+      if (err instanceof CouponError) {
+        next(new PublicError('VALIDATION_ERROR', err.message));
+        return;
+      }
       if (
         err.message?.includes('Insufficient stock') ||
         err.message?.includes('Insufficient loyalty points') ||
         err.message?.includes('Product not found') ||
-        err.message?.includes('Variant not found')
+        err.message?.includes('Variant not found') ||
+        err.message?.includes('Customer not found') ||
+        err.message?.includes('A customer must be selected to redeem loyalty points') ||
+        err.message?.includes('Loyalty program is disabled') ||
+        err.message?.includes('Bundle')
       ) {
         next(new PublicError('VALIDATION_ERROR', err.message));
         return;

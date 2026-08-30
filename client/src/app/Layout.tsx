@@ -11,7 +11,7 @@ import { useSettingsStore } from '../shared/store/settingsStore';
 import { WifiOff, Languages, Moon, Sun, Menu } from 'lucide-react';
 
 export default function Layout(): React.JSX.Element {
-  const { isOnline, queueLength } = useOffline();
+  const { isOnline, queueLength, quarantinedCount } = useOffline();
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const { toggleLocale, toggleTheme, theme } = useSettingsStore();
@@ -76,6 +76,18 @@ export default function Layout(): React.JSX.Element {
             <WifiOff className="h-4 w-4" />
             {t('offline.offlineBanner')}
             {queueLength > 0 && ` ${t('offline.queuedForSync', { count: queueLength })}`}
+            {quarantinedCount > 0 &&
+              ` ${t('offline.quarantinedForReview', { count: quarantinedCount })}`}
+          </div>
+        )}
+
+        {/* Quarantined queued sale(s) needing manual review -- shown even once
+            back online, since these never auto-resolve on their own (see
+            `isQuarantined` in offlineStore.ts). */}
+        {isOnline && quarantinedCount > 0 && (
+          <div className="bg-warning/10 border-b border-warning/30 text-warning px-4 py-2 text-sm flex items-center gap-2">
+            <WifiOff className="h-4 w-4" />
+            {t('offline.quarantinedForReview', { count: quarantinedCount })}
           </div>
         )}
 

@@ -17,6 +17,14 @@ export interface OfflineAction {
   payload: Record<string, unknown>;
   /** Present on any 'sale' entry queued under the current checkout contract. */
   contractVersion?: string;
+  /**
+   * Set once a sync attempt is rejected with SPLIT_PAYMENT_MISMATCH: the
+   * catalog/tax/coupon/loyalty state changed since this sale was queued and
+   * its split no longer balances. A mismatched entry is quarantined the same
+   * way an unversioned legacy entry is -- it must not be silently re-posted
+   * (and re-fail) on every subsequent sync; a cashier must review/re-ring it.
+   */
+  mismatched?: boolean;
 }
 
 export interface OfflineQueueItem extends OfflineAction {
@@ -25,17 +33,24 @@ export interface OfflineQueueItem extends OfflineAction {
 }
 
 /**
- * A legacy, unversioned 'sale' entry is quarantined: it is never
- * auto-replayed, because doing so could silently charge the wrong amount
- * (e.g. a `tip` field that was actually a mislabeled Quick Discount under
- * the old UI bug -- see docs/plans/2026-08-30-001-fix-pos-checkout-total-
- * parity-plan.md, "Key Technical Decisions"). It remains visible in the
- * queue for a cashier to review and manually resolve (re-ring the sale, or
- * discard it) rather than being dropped. Non-'sale' entries and any 'sale'
- * entry stamped with the current contract version are never quarantined.
+ * A 'sale' entry is quarantined -- never auto-replayed -- in two cases:
+ *
+ * 1. Legacy/unversioned: it predates the checkout total-parity fix, so a
+ *    `tip` field could actually be a mislabeled Quick Discount under the old
+ *    UI bug (see docs/plans/2026-08-30-001-fix-pos-checkout-total-parity-
+ *    plan.md, "Key Technical Decisions"), and replaying it could silently
+ *    charge the wrong amount.
+ * 2. Mismatched: a sync attempt was rejected with SPLIT_PAYMENT_MISMATCH,
+ *    meaning catalog/tax/coupon/loyalty state changed since it was queued
+ *    and its split no longer balances (see `markMismatched`).
+ *
+ * Either way the entry remains visible in the queue for a cashier to review
+ * and manually resolve (re-ring the sale, or discard it) rather than being
+ * dropped or silently retried forever. Non-'sale' entries are never
+ * quarantined.
  */
 export function isQuarantined(item: OfflineAction): boolean {
-  return item.type === 'sale' && !item.contractVersion;
+  return item.type === 'sale' && (!item.contractVersion || item.mismatched === true);
 }
 
 interface OfflineState {
@@ -43,6 +58,8 @@ interface OfflineState {
   isSyncing: boolean;
   addToQueue: (action: OfflineAction) => void;
   removeFromQueue: (id: number) => void;
+  /** Flags a queued entry as quarantined after a SPLIT_PAYMENT_MISMATCH rejection. */
+  markMismatched: (id: number) => void;
   clearQueue: () => void;
   setSyncing: (isSyncing: boolean) => void;
   getQueueLength: () => number;
@@ -67,6 +84,11 @@ export const useOfflineStore = create<OfflineState>()(
       removeFromQueue: (id) =>
         set((state) => ({
           queue: state.queue.filter((item) => item.id !== id),
+        })),
+
+      markMismatched: (id) =>
+        set((state) => ({
+          queue: state.queue.map((item) => (item.id === id ? { ...item, mismatched: true } : item)),
         })),
 
       clearQueue: () => set({ queue: [] }),

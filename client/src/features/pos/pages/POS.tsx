@@ -51,6 +51,9 @@ export default function POS() {
     clearCart,
     discount,
     discountType,
+    notes,
+    tip,
+    couponCode,
   } = useCartStore();
   const { holdCart, carts: heldCarts } = useHeldCartsStore();
   const { t } = useTranslation();
@@ -107,7 +110,7 @@ export default function POS() {
       holdCart: () => {
         if (items.length > 0) {
           const name = `Cart #${heldCarts.length + 1}`;
-          holdCart(name, items, discount, discountType);
+          holdCart(name, items, discount, discountType, { notes, tip, couponCode });
           clearCart();
           toast.success(t('cart.holdSuccess'));
         }
@@ -130,7 +133,20 @@ export default function POS() {
       },
       showHelp: () => setShowShortcuts(true),
     }),
-    [items, updateQuantity, removeItem, clearCart, holdCart, heldCarts, discount, discountType, t]
+    [
+      items,
+      updateQuantity,
+      removeItem,
+      clearCart,
+      holdCart,
+      heldCarts,
+      discount,
+      discountType,
+      notes,
+      tip,
+      couponCode,
+      t,
+    ]
   );
 
   usePosShortcuts(shortcutActions);
