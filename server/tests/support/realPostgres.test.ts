@@ -5,7 +5,7 @@ describeWithPostgres('real-PostgreSQL harness', () => {
   let harness: RealPostgresHarness;
 
   beforeAll(async () => {
-    harness = await setupRealPostgres('harness-self-test');
+    harness = await setupRealPostgres('harness-self-test', { maxConnections: 4 });
   });
 
   afterAll(async () => {
@@ -104,7 +104,10 @@ describeWithPostgres('real-PostgreSQL harness', () => {
   });
 
   it('isolates one harness from another so parallel test files cannot cross-contaminate', async () => {
-    const other = await setupRealPostgres('harness-isolation', { installAsAppPool: false });
+    const other = await setupRealPostgres('harness-isolation', {
+      installAsAppPool: false,
+      maxConnections: 2,
+    });
 
     try {
       await harness.pool.query(

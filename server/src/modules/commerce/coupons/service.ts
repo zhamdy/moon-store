@@ -75,14 +75,24 @@ export class CouponsService {
    * `server/src/database/transaction.ts`) so callers such as
    * `SalesService.executeSale` can run this validation inside the checkout
    * transaction instead of maintaining a weaker, parallel coupon lookup.
+   *
+   * `forConsumption` marks the path that is about to record a `coupon_usage` row. It
+   * locks the coupon before counting usage, which is what makes `max_uses` hold under
+   * concurrency: without it, N concurrent checkouts all read the same count and all pass.
+   * The preview paths (`calculateSaleTotals`, the standalone validate endpoint) leave it
+   * false and take no lock — a preview that blocked a checkout would be a self-inflicted
+   * contention source.
    */
   async validate(
     input: ValidateCouponInput,
-    queryable: Queryable = pool
+    queryable: Queryable = pool,
+    options: { forConsumption?: boolean } = {}
   ): Promise<ValidateCouponResult> {
     const { code, subtotal, customer_id, item_product_ids } = input;
 
-    const coupon = await this.repo.findByCode(code, queryable);
+    const coupon = options.forConsumption
+      ? await this.repo.findByCodeForUpdate(code, queryable)
+      : await this.repo.findByCode(code, queryable);
     if (!coupon) {
       throw new CouponError('Coupon not found or inactive', 404);
     }

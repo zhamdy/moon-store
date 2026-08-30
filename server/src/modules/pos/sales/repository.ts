@@ -37,6 +37,11 @@ export interface ISalesRepository {
     discount: number,
     queryable: Queryable
   ): Promise<void>;
+  redeemCustomerLoyalty(
+    customerId: number,
+    points: number,
+    queryable: Queryable
+  ): Promise<number | null>;
   updateCustomerLoyalty(
     customerId: number,
     deltaPoints: number,
@@ -379,6 +384,29 @@ export class SalesRepository implements ISalesRepository {
       'UPDATE customers SET loyalty_points = loyalty_points + $1, updated_at = NOW() WHERE id = $2',
       [deltaPoints, customerId]
     );
+  }
+
+  /**
+   * Guarded loyalty debit. The balance check in `buildBreakdown` is a stale read, so it
+   * can only produce the user-facing message; this write is what actually decides, and
+   * it cannot drive a balance negative.
+   *
+   * `$1::int` is cast for the same pg-mem reason as {@link decrementProductStock}.
+   *
+   * @returns the remaining balance, or null when there were not enough points.
+   */
+  async redeemCustomerLoyalty(
+    customerId: number,
+    points: number,
+    queryable: Queryable
+  ): Promise<number | null> {
+    const res = await queryable.query<{ loyalty_points: number }>(
+      `UPDATE customers SET loyalty_points = loyalty_points - $1::int, updated_at = NOW()
+        WHERE id = $2 AND loyalty_points >= $1::int
+        RETURNING loyalty_points`,
+      [points, customerId]
+    );
+    return res.rows[0] ? Number(res.rows[0].loyalty_points) : null;
   }
 
   async createLoyaltyTransaction(

@@ -450,10 +450,16 @@ export class SalesService {
    * (preview/legacy shape) and `executeSale` (persistence) so there is no
    * second, weaker calculation path.
    */
+  /**
+   * @param forConsumption true only on the path that is about to persist the sale. It
+   *   turns on the fail-fast stock pre-check and makes the coupon lookup take a row lock,
+   *   because this is the call that will record a `coupon_usage` row. Preview callers
+   *   pass false and take no locks.
+   */
   private async buildBreakdown(
     input: CreateSaleDTO,
     queryable: Queryable,
-    checkStock: boolean
+    forConsumption: boolean
   ): Promise<{
     breakdown: SaleCalculationBreakdown;
     resolvedItems: ResolvedSaleLine[];
@@ -462,7 +468,7 @@ export class SalesService {
     const { resolvedItems, calcLines } = await this.resolveLines(
       input.items,
       queryable,
-      checkStock
+      forConsumption
     );
     const subtotalMinor = calcLines.reduce((sum, l) => sum + l.unitPriceMinor * l.quantity, 0);
 
@@ -488,7 +494,8 @@ export class SalesService {
           customer_id: input.customer_id ?? null,
           item_product_ids: input.items.map((i) => i.product_id),
         },
-        queryable
+        queryable,
+        { forConsumption }
       );
       couponId = result.coupon_id;
       couponDiscountMinor = toMinorUnits(result.discount);
@@ -741,11 +748,16 @@ export class SalesService {
 
       if (input.customer_id && customer) {
         if (breakdown.pointsRedeemed > 0) {
-          await this.repo.updateCustomerLoyalty(
+          const remaining = await this.repo.redeemCustomerLoyalty(
             input.customer_id,
-            -breakdown.pointsRedeemed,
+            breakdown.pointsRedeemed,
             client
           );
+          if (remaining === null) {
+            // The balance moved between the breakdown's read and this write. Same
+            // wording the stale check produces, so the client sees no change.
+            throw new Error('Insufficient loyalty points');
+          }
           await this.repo.createLoyaltyTransaction(
             input.customer_id,
             sale.id,

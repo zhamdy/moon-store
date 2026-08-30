@@ -35,7 +35,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
   let harness: RealPostgresHarness;
 
   beforeAll(async () => {
-    harness = await setupRealPostgres('migration-004');
+    harness = await setupRealPostgres('migration-004', { maxConnections: 3 });
   });
 
   afterAll(async () => {
@@ -181,7 +181,10 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
   it('applies over pre-existing negative rows because the constraints are NOT VALID', async () => {
     // A database that predates this migration: 001-003 applied, stock already negative
     // because nothing guarded exchanges. Applying 004 must not fail on that legacy row.
-    const legacy = await setupRealPostgres('migration-004-legacy', { installAsAppPool: false });
+    const legacy = await setupRealPostgres('migration-004-legacy', {
+      installAsAppPool: false,
+      maxConnections: 2,
+    });
 
     try {
       await runMigrationsDown(1, legacy.pool, MIGRATIONS_DIR);
@@ -209,7 +212,10 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
   });
 
   it('rolls back cleanly and re-applies (down then up leaves _migrations consistent)', async () => {
-    const cycle = await setupRealPostgres('migration-004-cycle', { installAsAppPool: false });
+    const cycle = await setupRealPostgres('migration-004-cycle', {
+      installAsAppPool: false,
+      maxConnections: 2,
+    });
 
     try {
       const rolledBack = await runMigrationsDown(1, cycle.pool, MIGRATIONS_DIR);
@@ -253,6 +259,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
 
     const pool = new Pool({
       connectionString: TEST_DATABASE_URL,
+      max: 2,
       options: `-c search_path=${schema}`,
     });
 

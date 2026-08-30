@@ -20,7 +20,8 @@ describeWithPostgres('checkout stock under concurrency', () => {
   let cashierId: number;
 
   beforeAll(async () => {
-    harness = await setupRealPostgres('checkout-concurrency');
+    // The oversell race needs 10 genuinely simultaneous checkouts.
+    harness = await setupRealPostgres('checkout-concurrency', { maxConnections: 12 });
   });
 
   afterAll(async () => {

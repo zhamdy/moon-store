@@ -83,7 +83,17 @@ export interface RealPostgresOptions {
    * secondary harness so it does not displace the primary one.
    */
   installAsAppPool?: boolean;
+  /**
+   * Pool size. Kept deliberately small by default: vitest runs test files in parallel
+   * across every core, and each file (sometimes each test) builds its own harness, so a
+   * generous per-harness pool exhausts PostgreSQL's max_connections and surfaces as
+   * connection timeouts rather than as an obvious resource error. Suites that need real
+   * parallelism — a 10-way oversell race, say — raise this deliberately.
+   */
+  maxConnections?: number;
 }
+
+const DEFAULT_MAX_CONNECTIONS = 5;
 
 /**
  * Creates an isolated schema, migrates it, and installs it as the application pool.
@@ -107,7 +117,7 @@ export async function setupRealPostgres(
 
   const pool = new Pool({
     connectionString: TEST_DATABASE_URL,
-    max: 12,
+    max: options.maxConnections ?? DEFAULT_MAX_CONNECTIONS,
     idleTimeoutMillis: 5_000,
     connectionTimeoutMillis: 10_000,
     // Every connection from this pool resolves unqualified names inside the schema,

@@ -28,7 +28,8 @@ describeWithPostgres('withIdempotency against real PostgreSQL', () => {
   let userId: number;
 
   beforeAll(async () => {
-    harness = await setupRealPostgres('idempotency');
+    // The duplicate-suppression race fires 8 simultaneous requests with one key.
+    harness = await setupRealPostgres('idempotency', { maxConnections: 12 });
   });
 
   afterAll(async () => {
