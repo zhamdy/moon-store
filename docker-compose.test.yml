@@ -1,0 +1,27 @@
+# Local PostgreSQL for the concurrency and idempotency suites.
+#
+#   docker compose -f docker-compose.test.yml up -d
+#   TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/moon_store_test \
+#     npm test --prefix server
+#
+# Port 5433 keeps this clear of a PostgreSQL already listening on 5432. If you already
+# have a local PostgreSQL, you do not need this file — point TEST_DATABASE_URL at a
+# throwaway database on it instead. The suites create and drop their own schemas, so the
+# target database only needs CREATE privileges.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: moon_store_test
+    ports:
+      - '5433:5432'
+    tmpfs:
+      # Test data is disposable; keeping it off disk makes the suite meaningfully faster.
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 20
