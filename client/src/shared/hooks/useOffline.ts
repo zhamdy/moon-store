@@ -4,13 +4,7 @@ import { useTransport } from '../lib/transport/index';
 import { ApiError } from '../lib/transport/types';
 import { useOfflineStore, isQuarantined } from '../store/offlineStore';
 import { t } from '../i18n/index';
-
-/** Stable code the server returns when a split-tender sum no longer matches
- * the authoritative amount due (see server/src/modules/pos/sales/types.ts
- * `SPLIT_PAYMENT_MISMATCH_CODE`). Catalog prices, tax, or coupon/loyalty
- * settings can change while a sale sits queued offline, so a previously
- * balanced split can go stale by the time it replays. */
-const SPLIT_PAYMENT_MISMATCH_CODE = 'SPLIT_PAYMENT_MISMATCH';
+import { SPLIT_PAYMENT_MISMATCH_CODE } from '../lib/checkout';
 
 interface UseOfflineReturn {
   isOnline: boolean;

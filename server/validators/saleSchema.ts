@@ -53,7 +53,12 @@ export const saleSchema = z.object({
   customer_id: z.number().int().positive().optional().nullable(),
   points_redeemed: z.number().int().min(0).default(0),
   notes: z.string().max(500).optional().nullable(),
-  tip: z.number().min(0).default(0),
+  tip: z
+    .number()
+    .finite('Tip must be finite')
+    .min(0)
+    .max(MAX_PAYMENT_AMOUNT_MAJOR, `Tip cannot exceed ${MAX_PAYMENT_AMOUNT_MAJOR}`)
+    .default(0),
   coupon_code: z.string().optional().nullable(),
 });
 

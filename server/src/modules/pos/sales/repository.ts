@@ -1,6 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import { SaleFilters, SaleCalculationSnapshot } from './types';
+import { SaleFilters, SaleCalculationSnapshot, CreateSaleCalculationInput } from './types';
 
 export interface ISalesRepository {
   findById(id: number | string, queryable?: Queryable): Promise<Record<string, any> | null>;
@@ -18,26 +18,7 @@ export interface ISalesRepository {
     queryable?: Queryable
   ): Promise<{ rows: Record<string, any>[]; total: number; totalRevenue: number }>;
   createSale(data: Record<string, any>, queryable: Queryable): Promise<Record<string, any>>;
-  createSaleCalculation(
-    data: {
-      sale_id: number;
-      contract_version: string;
-      subtotal: number;
-      manual_discount: number;
-      coupon_id: number | null;
-      coupon_discount: number;
-      points_redeemed: number;
-      points_discount: number;
-      taxable_base: number;
-      tax_mode: string;
-      tax_rate_percent: number;
-      tax_amount: number;
-      tip_amount: number;
-      amount_due: number;
-      earned_points: number;
-    },
-    queryable: Queryable
-  ): Promise<void>;
+  createSaleCalculation(data: CreateSaleCalculationInput, queryable: Queryable): Promise<void>;
   getSaleCalculationBySaleId(
     saleId: number | string,
     queryable?: Queryable
@@ -276,23 +257,7 @@ export class SalesRepository implements ISalesRepository {
   }
 
   async createSaleCalculation(
-    data: {
-      sale_id: number;
-      contract_version: string;
-      subtotal: number;
-      manual_discount: number;
-      coupon_id: number | null;
-      coupon_discount: number;
-      points_redeemed: number;
-      points_discount: number;
-      taxable_base: number;
-      tax_mode: string;
-      tax_rate_percent: number;
-      tax_amount: number;
-      tip_amount: number;
-      amount_due: number;
-      earned_points: number;
-    },
+    data: CreateSaleCalculationInput,
     queryable: Queryable
   ): Promise<void> {
     await queryable.query(

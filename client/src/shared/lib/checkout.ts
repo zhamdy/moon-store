@@ -28,6 +28,14 @@
  * "per 100 points" reciprocal figure.
  */
 
+/**
+ * Stable validation code the server returns (`SalesValidationError`) when a
+ * split-payment sum no longer matches the authoritative amount due. Shared
+ * here so callers that branch on it (`CartPanel.tsx`, `useOffline.ts`) stay
+ * in sync with the server's literal instead of redeclaring it independently.
+ */
+export const SPLIT_PAYMENT_MISMATCH_CODE = 'SPLIT_PAYMENT_MISMATCH';
+
 export type DiscountType = 'fixed' | 'percentage';
 export type TaxMode = 'inclusive' | 'exclusive';
 

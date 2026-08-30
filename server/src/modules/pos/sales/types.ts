@@ -202,6 +202,25 @@ export interface SaleCalculationSnapshot {
   earnedPoints: number;
 }
 
+/** Row shape for `ISalesRepository.createSaleCalculation` -- the persisted (snake_case, DB-column) mirror of `SaleCalculationSnapshot` plus the owning `sale_id`. */
+export interface CreateSaleCalculationInput {
+  sale_id: number;
+  contract_version: string;
+  subtotal: number;
+  manual_discount: number;
+  coupon_id: number | null;
+  coupon_discount: number;
+  points_redeemed: number;
+  points_discount: number;
+  taxable_base: number;
+  tax_mode: string;
+  tax_rate_percent: number;
+  tax_amount: number;
+  tip_amount: number;
+  amount_due: number;
+  earned_points: number;
+}
+
 // ─── Split-payment integrity (Unit 4) ──────────────────────────────────────
 //
 // See docs/plans/2026-08-30-001-fix-pos-checkout-total-parity-plan.md,

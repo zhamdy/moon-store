@@ -42,6 +42,7 @@ import {
   calculateTotals,
   allocateSplit,
   maxRedeemablePoints,
+  SPLIT_PAYMENT_MISMATCH_CODE,
   type TaxMode,
 } from '../../../shared/lib/checkout';
 import { resource } from '../../../shared/lib/resource';
@@ -51,12 +52,6 @@ import type { ReceiptData, ReceiptItem, ReceiptPayment } from '../../../shared/c
 import type { AppSettings, Customer } from '../../../shared/types/index';
 
 const customers = resource<Customer>('customers');
-
-/** Stable code the server returns when a split-tender sum no longer matches
- * the authoritative amount due (see server/src/modules/pos/sales/types.ts
- * `SPLIT_PAYMENT_MISMATCH_CODE`). Catalog prices, tax, coupon, or loyalty
- * settings can change between preview and submission. */
-const SPLIT_PAYMENT_MISMATCH_CODE = 'SPLIT_PAYMENT_MISMATCH';
 
 type PaymentMethod = 'Cash' | 'Card' | 'Other';
 
@@ -546,10 +541,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     toast.success(t('cart.holdSuccess'));
   };
 
-  const paymentLabels: Record<PaymentMethod, string> = {
+  const paymentLabels: Record<PaymentMethod | 'Gift Card', string> = {
     Cash: t('cart.cash'),
     Card: t('cart.card'),
     Other: t('cart.other'),
+    'Gift Card': t('cart.giftCard'),
   };
 
   return (
@@ -1386,7 +1382,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                             step="0.01"
                             size="sm"
                             variant="bordered"
-                            aria-label={`${paymentLabels[p.method as PaymentMethod] ?? p.method} ${t('cart.splitPayment')} #${idx + 1}`}
+                            aria-label={`${paymentLabels[p.method] ?? p.method} ${t('cart.splitPayment')} #${idx + 1}`}
                             value={p.amount ? String(p.amount) : ''}
                             onValueChange={(val) => {
                               const next = [...payments];
