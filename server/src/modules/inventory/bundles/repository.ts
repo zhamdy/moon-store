@@ -66,14 +66,15 @@ export class BundlesRepository implements IBundlesRepository {
     const offsetIdx = params.length + 2;
 
     const bundles = await this.q(queryable).query<BundleRecord>(
-      `SELECT b.*,
-        (SELECT COUNT(*)::int FROM bundle_items WHERE bundle_id = b.id) as item_count,
-        (SELECT COALESCE(SUM(p.price * bi.quantity), 0)
-         FROM bundle_items bi JOIN products p ON bi.product_id = p.id
-         WHERE bi.bundle_id = b.id) as original_price
+      `SELECT b.id, b.name, b.description, b.price, b.discount_type, b.discount_value, b.status, b.created_at, b.updated_at,
+              COUNT(bi.id)::int as item_count,
+              COALESCE(SUM(p.price * bi.quantity), 0) as original_price
        FROM product_bundles b
+       LEFT JOIN bundle_items bi ON bi.bundle_id = b.id
+       LEFT JOIN products p ON bi.product_id = p.id
        ${where}
-        ORDER BY ${sortColumn} ${direction}, b.id ${direction}
+       GROUP BY b.id, b.name, b.description, b.price, b.discount_type, b.discount_value, b.status, b.created_at, b.updated_at
+       ORDER BY ${sortColumn} ${direction}, b.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, pageSize, offset]
     );

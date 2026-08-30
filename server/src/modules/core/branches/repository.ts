@@ -40,10 +40,13 @@ export class BranchesRepository implements IBranchesRepository {
 
   async findAllWithInventory(queryable?: Queryable): Promise<Branch[]> {
     const result = await this.q(queryable).query<Branch>(
-      `SELECT b.*,
-       (SELECT COUNT(*)::int FROM branch_inventory WHERE branch_id = b.id) as product_count,
-       (SELECT COALESCE(SUM(stock), 0)::int FROM branch_inventory WHERE branch_id = b.id) as total_stock
-       FROM branches b ORDER BY b.is_main DESC, b.name ASC`
+      `SELECT b.id, b.name, b.code, b.address, b.phone, b.currency, b.is_main, b.status, b.created_at, b.updated_at,
+              COUNT(bi.id)::int as product_count,
+              COALESCE(SUM(bi.stock), 0)::int as total_stock
+       FROM branches b
+       LEFT JOIN branch_inventory bi ON bi.branch_id = b.id
+       GROUP BY b.id, b.name, b.code, b.address, b.phone, b.currency, b.is_main, b.status, b.created_at, b.updated_at
+       ORDER BY b.is_main DESC, b.name ASC`
     );
     return result.rows;
   }

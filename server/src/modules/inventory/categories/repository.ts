@@ -24,9 +24,11 @@ export class CategoriesRepository implements ICategoriesRepository {
 
   async findAll(queryable?: Queryable): Promise<CategoryRecord[]> {
     const res = await this.q(queryable).query<CategoryRecord>(
-      `SELECT c.*,
-              (SELECT COUNT(*)::int FROM products p WHERE p.category_id = c.id AND p.status = 'active') as product_count
+      `SELECT c.id, c.name, c.code, c.created_at, c.updated_at,
+              COUNT(CASE WHEN p.status = 'active' THEN p.id END)::int as product_count
        FROM categories c
+       LEFT JOIN products p ON p.category_id = c.id
+       GROUP BY c.id, c.name, c.code, c.created_at, c.updated_at
        ORDER BY c.name`
     );
     return res.rows;
@@ -34,10 +36,12 @@ export class CategoriesRepository implements ICategoriesRepository {
 
   async findById(id: number | string, queryable?: Queryable): Promise<CategoryRecord | null> {
     const res = await this.q(queryable).query<CategoryRecord>(
-      `SELECT c.*,
-              (SELECT COUNT(*)::int FROM products p WHERE p.category_id = c.id AND p.status = 'active') as product_count
+      `SELECT c.id, c.name, c.code, c.created_at, c.updated_at,
+              COUNT(CASE WHEN p.status = 'active' THEN p.id END)::int as product_count
        FROM categories c
-       WHERE c.id = $1`,
+       LEFT JOIN products p ON p.category_id = c.id
+       WHERE c.id = $1
+       GROUP BY c.id, c.name, c.code, c.created_at, c.updated_at`,
       [id]
     );
     return res.rows[0] || null;
@@ -72,10 +76,9 @@ export class CategoriesRepository implements ICategoriesRepository {
   }
 
   async delete(id: number | string, queryable?: Queryable): Promise<boolean> {
-    const res = await this.q(queryable).query(
-      'DELETE FROM categories WHERE id = $1 RETURNING id',
-      [id]
-    );
+    const res = await this.q(queryable).query('DELETE FROM categories WHERE id = $1 RETURNING id', [
+      id,
+    ]);
     return res.rows.length > 0;
   }
 }

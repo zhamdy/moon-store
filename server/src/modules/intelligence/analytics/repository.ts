@@ -491,14 +491,12 @@ export class AnalyticsRepository implements IAnalyticsRepository {
     }>(
       `SELECT p.id, p.name, p.sku, p.stock, p.min_stock, p.price, p.cost_price,
               p.lead_time_days, p.reorder_qty,
-              COALESCE(
-                (SELECT SUM(si.quantity) FROM sale_items si
-                 JOIN sales s ON si.sale_id = s.id
-                 WHERE si.product_id = p.id AND s.created_at >= CURRENT_DATE - INTERVAL '30 days'),
-                0
-              ) as sold_last_30d
+              COALESCE(SUM(si.quantity) FILTER (WHERE s.id IS NOT NULL), 0) as sold_last_30d
        FROM products p
+       LEFT JOIN sale_items si ON si.product_id = p.id
+       LEFT JOIN sales s ON si.sale_id = s.id AND s.created_at >= NOW() - INTERVAL '30 days'
        WHERE p.status = 'active' AND p.stock <= p.min_stock
+       GROUP BY p.id, p.name, p.sku, p.stock, p.min_stock, p.price, p.cost_price, p.lead_time_days, p.reorder_qty
        ORDER BY p.stock ASC`
     );
     return result.rows;

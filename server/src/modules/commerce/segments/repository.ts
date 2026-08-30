@@ -23,9 +23,11 @@ export class SegmentsRepository implements ISegmentsRepository {
 
   async list(queryable?: Queryable): Promise<SegmentRecord[]> {
     const segments = await this.q(queryable).query<SegmentRecord>(
-      `SELECT s.*,
-        (SELECT COUNT(*)::int FROM customer_segment_members WHERE segment_id = s.id) as member_count
+      `SELECT s.id, s.name, s.description, s.criteria, s.rules_json, s.created_at, s.updated_at,
+              COUNT(csm.customer_id)::int as member_count
        FROM customer_segments s
+       LEFT JOIN customer_segment_members csm ON csm.segment_id = s.id
+       GROUP BY s.id, s.name, s.description, s.criteria, s.rules_json, s.created_at, s.updated_at
        ORDER BY s.name ASC`
     );
     return segments.rows;
@@ -33,10 +35,12 @@ export class SegmentsRepository implements ISegmentsRepository {
 
   async findById(id: number | string, queryable?: Queryable): Promise<SegmentRecord | null> {
     const res = await this.q(queryable).query<SegmentRecord>(
-      `SELECT s.*,
-        (SELECT COUNT(*)::int FROM customer_segment_members WHERE segment_id = s.id) as member_count
+      `SELECT s.id, s.name, s.description, s.criteria, s.rules_json, s.created_at, s.updated_at,
+              COUNT(csm.customer_id)::int as member_count
        FROM customer_segments s
-       WHERE s.id = $1`,
+       LEFT JOIN customer_segment_members csm ON csm.segment_id = s.id
+       WHERE s.id = $1
+       GROUP BY s.id, s.name, s.description, s.criteria, s.rules_json, s.created_at, s.updated_at`,
       [id]
     );
     return res.rows[0] || null;

@@ -23,19 +23,20 @@ export class ShippingCompaniesRepository implements IShippingCompaniesRepository
 
   async list(queryable?: Queryable): Promise<Record<string, any>[]> {
     const res = await this.q(queryable).query(
-      `SELECT sc.*,
-        (SELECT COUNT(*)::int FROM delivery_orders WHERE shipping_company_id = sc.id) as order_count
+      `SELECT sc.id, sc.name, sc.phone, sc.email, sc.tracking_url_template, sc.is_active, sc.created_at, sc.updated_at,
+              COUNT(del_o.id)::int as order_count
        FROM shipping_companies sc
+       LEFT JOIN delivery_orders del_o ON del_o.shipping_company_id = sc.id
+       GROUP BY sc.id, sc.name, sc.phone, sc.email, sc.tracking_url_template, sc.is_active, sc.created_at, sc.updated_at
        ORDER BY sc.is_active DESC, sc.name ASC`
     );
     return res.rows;
   }
 
   async findById(id: number | string, queryable?: Queryable): Promise<Record<string, any> | null> {
-    const res = await this.q(queryable).query(
-      'SELECT * FROM shipping_companies WHERE id = $1',
-      [id]
-    );
+    const res = await this.q(queryable).query('SELECT * FROM shipping_companies WHERE id = $1', [
+      id,
+    ]);
     return res.rows[0] || null;
   }
 

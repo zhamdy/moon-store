@@ -24,9 +24,11 @@ export class DistributorsRepository implements IDistributorsRepository {
 
   async findAll(queryable?: Queryable): Promise<DistributorRecord[]> {
     const res = await this.q(queryable).query<DistributorRecord>(
-      `SELECT d.*,
-              (SELECT COUNT(*)::int FROM products p WHERE p.distributor_id = d.id AND p.status = 'active') as product_count
+      `SELECT d.id, d.name, d.contact_info, d.phone, d.email, d.address, d.notes, d.created_at, d.updated_at,
+              COUNT(CASE WHEN p.status = 'active' THEN p.id END)::int as product_count
        FROM distributors d
+       LEFT JOIN products p ON p.distributor_id = d.id
+       GROUP BY d.id, d.name, d.contact_info, d.phone, d.email, d.address, d.notes, d.created_at, d.updated_at
        ORDER BY d.name`
     );
     return res.rows;
@@ -34,10 +36,12 @@ export class DistributorsRepository implements IDistributorsRepository {
 
   async findById(id: number | string, queryable?: Queryable): Promise<DistributorRecord | null> {
     const res = await this.q(queryable).query<DistributorRecord>(
-      `SELECT d.*,
-              (SELECT COUNT(*)::int FROM products p WHERE p.distributor_id = d.id AND p.status = 'active') as product_count
+      `SELECT d.id, d.name, d.contact_info, d.phone, d.email, d.address, d.notes, d.created_at, d.updated_at,
+              COUNT(CASE WHEN p.status = 'active' THEN p.id END)::int as product_count
        FROM distributors d
-       WHERE d.id = $1`,
+       LEFT JOIN products p ON p.distributor_id = d.id
+       WHERE d.id = $1
+       GROUP BY d.id, d.name, d.contact_info, d.phone, d.email, d.address, d.notes, d.created_at, d.updated_at`,
       [id]
     );
     return res.rows[0] || null;

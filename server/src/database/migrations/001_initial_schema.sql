@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS distributors (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   contact_person TEXT,
+  contact_info TEXT,
   phone TEXT,
   email TEXT,
   address TEXT,
@@ -58,10 +59,13 @@ CREATE TABLE IF NOT EXISTS products (
   category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
   distributor_id INTEGER REFERENCES distributors(id) ON DELETE SET NULL,
   min_stock INTEGER DEFAULT 5,
+  lead_time_days INTEGER DEFAULT 7,
+  reorder_qty INTEGER DEFAULT 10,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'discontinued')),
   image_url TEXT,
   has_variants INTEGER DEFAULT 0,
   abc_classification TEXT DEFAULT 'C',
+  abc_class TEXT DEFAULT 'C',
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -119,7 +123,9 @@ CREATE TABLE IF NOT EXISTS customer_segments (
   name TEXT NOT NULL UNIQUE,
   description TEXT,
   criteria TEXT NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  rules_json TEXT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS customer_segment_members (
@@ -134,9 +140,12 @@ CREATE TABLE IF NOT EXISTS customer_feedback (
   customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   sale_id INTEGER,
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  category TEXT DEFAULT 'general',
+  comment TEXT,
   comments TEXT,
   source TEXT DEFAULT 'POS',
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ─── Settings & Global Config ──────────────────────────────
@@ -149,13 +158,17 @@ CREATE TABLE IF NOT EXISTS settings (
 -- ─── Sales & Payments ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sales (
   id SERIAL PRIMARY KEY,
+  receipt_number TEXT,
+  subtotal NUMERIC DEFAULT 0,
+  tax NUMERIC DEFAULT 0,
+  tax_amount NUMERIC DEFAULT 0,
   total NUMERIC NOT NULL,
   discount NUMERIC DEFAULT 0,
   discount_type TEXT DEFAULT 'fixed',
   payment_method TEXT DEFAULT 'Cash',
+  status TEXT DEFAULT 'completed',
   cashier_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
-  tax_amount NUMERIC DEFAULT 0,
   points_redeemed INTEGER DEFAULT 0,
   notes TEXT,
   tip_amount NUMERIC DEFAULT 0,
@@ -165,7 +178,8 @@ CREATE TABLE IF NOT EXISTS sales (
   refunded_amount NUMERIC DEFAULT 0,
   receipt_sent_via TEXT,
   register_session_id INTEGER,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS sale_items (
@@ -175,7 +189,10 @@ CREATE TABLE IF NOT EXISTS sale_items (
   variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   unit_price NUMERIC NOT NULL,
+  price NUMERIC,
   cost_price NUMERIC DEFAULT 0,
+  discount NUMERIC DEFAULT 0,
+  subtotal NUMERIC DEFAULT 0,
   memo TEXT
 );
 
@@ -214,7 +231,8 @@ CREATE TABLE IF NOT EXISTS coupons (
   scope_ids TEXT,
   stackable INTEGER DEFAULT 0,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS coupon_usage (
@@ -289,21 +307,27 @@ CREATE TABLE IF NOT EXISTS stock_count_items (
 CREATE TABLE IF NOT EXISTS stock_reservations (
   id SERIAL PRIMARY KEY,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
   quantity INTEGER NOT NULL,
-  reference_type TEXT NOT NULL,
-  reference_id TEXT NOT NULL,
+  reference_type TEXT,
+  reference_id TEXT,
+  source_type TEXT DEFAULT 'cart',
+  source_id TEXT,
   expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS inventory_snapshots (
   id SERIAL PRIMARY KEY,
-  snapshot_date DATE NOT NULL,
+  snapshot_date DATE DEFAULT CURRENT_DATE,
   total_products INTEGER NOT NULL,
   total_units INTEGER NOT NULL,
   total_cost_value NUMERIC NOT NULL,
   total_retail_value NUMERIC NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  snapshot_data TEXT DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ─── Branches & Registers ──────────────────────────────────
@@ -415,12 +439,20 @@ CREATE TABLE IF NOT EXISTS layaway_payments (
 
 CREATE TABLE IF NOT EXISTS exchanges (
   id SERIAL PRIMARY KEY,
+  exchange_number TEXT,
   original_sale_id INTEGER NOT NULL REFERENCES sales(id),
   new_sale_id INTEGER REFERENCES sales(id),
-  price_difference NUMERIC DEFAULT 0,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   cashier_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  return_total NUMERIC DEFAULT 0,
+  new_total NUMERIC DEFAULT 0,
+  difference NUMERIC DEFAULT 0,
+  price_difference NUMERIC DEFAULT 0,
+  payment_method TEXT DEFAULT 'Cash',
   reason TEXT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS exchange_items (
@@ -432,6 +464,26 @@ CREATE TABLE IF NOT EXISTS exchange_items (
   new_quantity INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS exchange_returned_items (
+  id SERIAL PRIMARY KEY,
+  exchange_id INTEGER NOT NULL REFERENCES exchanges(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
+  quantity INTEGER NOT NULL,
+  price NUMERIC NOT NULL DEFAULT 0,
+  reason TEXT,
+  condition TEXT DEFAULT 'good'
+);
+
+CREATE TABLE IF NOT EXISTS exchange_new_items (
+  id SERIAL PRIMARY KEY,
+  exchange_id INTEGER NOT NULL REFERENCES exchanges(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
+  quantity INTEGER NOT NULL,
+  price NUMERIC NOT NULL DEFAULT 0
+);
+
 -- ─── Purchases & Vendors ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS purchase_orders (
   id SERIAL PRIMARY KEY,
@@ -439,6 +491,8 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   distributor_id INTEGER REFERENCES distributors(id) ON DELETE SET NULL,
   status TEXT DEFAULT 'Draft' CHECK (status IN ('Draft', 'Ordered', 'Partial', 'Received', 'Cancelled', 'pending', 'received', 'cancelled')),
   total NUMERIC DEFAULT 0,
+  total_amount NUMERIC DEFAULT 0,
+  expected_delivery TIMESTAMPTZ,
   notes TEXT,
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   received_at TIMESTAMPTZ,
@@ -464,9 +518,11 @@ CREATE TABLE IF NOT EXISTS vendors (
   email TEXT,
   address TEXT,
   notes TEXT,
+  tax_number TEXT,
   commission_rate NUMERIC DEFAULT 0,
   status TEXT DEFAULT 'active',
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS vendor_products (
@@ -486,6 +542,17 @@ CREATE TABLE IF NOT EXISTS vendor_commissions (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS vendor_payouts (
+  id SERIAL PRIMARY KEY,
+  vendor_id INTEGER NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL,
+  period_start TIMESTAMPTZ,
+  period_end TIMESTAMPTZ,
+  notes TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS vendor_reviews (
   id SERIAL PRIMARY KEY,
   vendor_id INTEGER NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
@@ -498,11 +565,14 @@ CREATE TABLE IF NOT EXISTS vendor_reviews (
 CREATE TABLE IF NOT EXISTS shipping_companies (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
+  phone TEXT,
+  email TEXT,
   contact_phone TEXT,
   tracking_url_template TEXT,
   is_active INTEGER DEFAULT 1,
   active INTEGER DEFAULT 1,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS delivery_orders (
@@ -551,13 +621,21 @@ CREATE TABLE IF NOT EXISTS delivery_tracking (
 CREATE TABLE IF NOT EXISTS online_orders (
   id SERIAL PRIMARY KEY,
   order_number TEXT UNIQUE NOT NULL,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   customer_name TEXT NOT NULL,
-  phone TEXT NOT NULL,
+  customer_phone TEXT,
+  customer_email TEXT,
+  phone TEXT,
   email TEXT,
-  address TEXT NOT NULL,
+  shipping_address TEXT,
+  address TEXT,
+  city TEXT,
+  subtotal NUMERIC DEFAULT 0,
+  shipping_fee NUMERIC DEFAULT 0,
   total NUMERIC NOT NULL,
-  status TEXT DEFAULT 'Pending',
-  items TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  items TEXT,
+  notes TEXT,
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -566,8 +644,10 @@ CREATE TABLE IF NOT EXISTS online_order_items (
   id SERIAL PRIMARY KEY,
   order_id INTEGER NOT NULL REFERENCES online_orders(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL REFERENCES products(id),
+  variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
   quantity INTEGER NOT NULL,
-  unit_price NUMERIC NOT NULL
+  price NUMERIC NOT NULL,
+  unit_price NUMERIC
 );
 
 CREATE TABLE IF NOT EXISTS storefront_config (
@@ -592,7 +672,10 @@ CREATE TABLE IF NOT EXISTS product_bundles (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
-  bundle_price NUMERIC NOT NULL,
+  price NUMERIC DEFAULT 0,
+  bundle_price NUMERIC DEFAULT 0,
+  discount_type TEXT DEFAULT 'fixed',
+  discount_value NUMERIC DEFAULT 0,
   starts_at TIMESTAMPTZ,
   expires_at TIMESTAMPTZ,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
@@ -611,7 +694,12 @@ CREATE TABLE IF NOT EXISTS collections (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   description TEXT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  image_url TEXT,
+  season TEXT,
+  is_featured INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS collection_products (
@@ -643,6 +731,21 @@ CREATE TABLE IF NOT EXISTS inter_store_transfers (
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS branch_transfers (
+  id SERIAL PRIMARY KEY,
+  source_branch_id INTEGER NOT NULL REFERENCES branches(id),
+  target_branch_id INTEGER NOT NULL REFERENCES branches(id),
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL,
+  quantity INTEGER NOT NULL,
+  notes TEXT,
+  status TEXT DEFAULT 'pending',
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS store_performance (
   id SERIAL PRIMARY KEY,
   branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
@@ -663,12 +766,19 @@ CREATE TABLE IF NOT EXISTS warranties (
 
 CREATE TABLE IF NOT EXISTS warranty_claims (
   id SERIAL PRIMARY KEY,
-  warranty_id INTEGER NOT NULL REFERENCES warranties(id) ON DELETE CASCADE,
-  sale_id INTEGER NOT NULL REFERENCES sales(id),
+  warranty_id INTEGER REFERENCES warranties(id) ON DELETE CASCADE,
+  sale_id INTEGER REFERENCES sales(id),
+  product_id INTEGER REFERENCES products(id),
   customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed')),
+  customer_name TEXT,
+  customer_phone TEXT,
+  issue_description TEXT,
+  resolution TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed', 'resolved', 'replaced', 'refunded')),
   notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  resolved_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ─── Audit, Notifications & Offline ────────────────────────

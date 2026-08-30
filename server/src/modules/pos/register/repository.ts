@@ -66,7 +66,9 @@ export class RegisterRepository implements IRegisterRepository {
 
   async getCurrentSession(cashierId: number, queryable?: Queryable): Promise<SessionRow | null> {
     const res = await this.q(queryable).query(
-      `SELECT rs.*, u.name as cashier_name,
+      `SELECT rs.id, rs.cashier_id, rs.opening_float, rs.expected_cash, rs.counted_cash,
+              rs.variance, rs.status, rs.notes, rs.opened_at, rs.closed_at,
+              u.name as cashier_name,
               COUNT(CASE WHEN rm.type = 'sale' THEN 1 END)::int as sale_count,
               COALESCE(SUM(CASE WHEN rm.type IN ('sale','cash_in') THEN rm.amount ELSE 0 END), 0) as total_in,
               COALESCE(SUM(CASE WHEN rm.type IN ('refund','cash_out') THEN rm.amount ELSE 0 END), 0) as total_out
@@ -74,7 +76,8 @@ export class RegisterRepository implements IRegisterRepository {
        JOIN users u ON rs.cashier_id = u.id
        LEFT JOIN register_movements rm ON rm.session_id = rs.id
        WHERE rs.cashier_id = $1 AND rs.status = 'open'
-       GROUP BY rs.id, u.name
+       GROUP BY rs.id, rs.cashier_id, rs.opening_float, rs.expected_cash, rs.counted_cash,
+                rs.variance, rs.status, rs.notes, rs.opened_at, rs.closed_at, u.name
        ORDER BY rs.opened_at DESC LIMIT 1`,
       [cashierId]
     );
@@ -197,12 +200,17 @@ export class RegisterRepository implements IRegisterRepository {
     const offsetIdx = paramIdx++;
 
     const result = await this.q(queryable).query(
-      `SELECT rs.*, u.name as cashier_name,
-              (SELECT COUNT(*) FROM register_movements WHERE session_id = rs.id AND type = 'sale')::int as sale_count,
-              (SELECT COALESCE(SUM(amount), 0) FROM register_movements WHERE session_id = rs.id AND type = 'sale') as total_sales
+      `SELECT rs.id, rs.cashier_id, rs.opening_float, rs.expected_cash, rs.counted_cash,
+              rs.variance, rs.status, rs.notes, rs.opened_at, rs.closed_at,
+              u.name as cashier_name,
+              COUNT(CASE WHEN rm.type = 'sale' THEN 1 END)::int as sale_count,
+              COALESCE(SUM(CASE WHEN rm.type = 'sale' THEN rm.amount ELSE 0 END), 0) as total_sales
        FROM register_sessions rs
        JOIN users u ON rs.cashier_id = u.id
+       LEFT JOIN register_movements rm ON rm.session_id = rs.id
        ${whereClause}
+       GROUP BY rs.id, rs.cashier_id, rs.opening_float, rs.expected_cash, rs.counted_cash,
+                rs.variance, rs.status, rs.notes, rs.opened_at, rs.closed_at, u.name
        ORDER BY ${sortBy === 'closedAt' ? 'rs.closed_at' : 'rs.opened_at'} ${sortOrder.toUpperCase()}, rs.id ${sortOrder.toUpperCase()}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams

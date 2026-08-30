@@ -118,12 +118,18 @@ export class ReportsRepository implements IReportsRepository {
   ): Promise<Record<string, unknown>[]> {
     const queryParams = [...params, limit, offset];
     const result = await this.q(queryable).query<Record<string, unknown>>(
-      `SELECT s.*, u.name as cashier_name, c.name as customer_name,
-        (SELECT COUNT(*)::int FROM sale_items WHERE sale_id = s.id) as item_count
+      `SELECT s.id, s.receipt_number, s.subtotal, s.tax, s.tax_amount, s.total, s.discount, s.discount_type,
+              s.payment_method, s.status, s.cashier_id, s.customer_id, s.notes, s.created_at, s.updated_at,
+              u.name as cashier_name, c.name as customer_name,
+              COUNT(si.id)::int as item_count
        FROM sales s
        LEFT JOIN users u ON s.cashier_id = u.id
        LEFT JOIN customers c ON s.customer_id = c.id
+       LEFT JOIN sale_items si ON si.sale_id = s.id
        ${whereClause}
+       GROUP BY s.id, s.receipt_number, s.subtotal, s.tax, s.tax_amount, s.total, s.discount, s.discount_type,
+                s.payment_method, s.status, s.cashier_id, s.customer_id, s.notes, s.created_at, s.updated_at,
+                u.name, c.name
        ORDER BY s.created_at DESC
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       queryParams
@@ -192,12 +198,12 @@ export class ReportsRepository implements IReportsRepository {
   ): Promise<Record<string, unknown> | null> {
     const result = await this.q(queryable).query<Record<string, unknown>>(
       `SELECT
-        COALESCE(SUM(si.quantity * si.price), 0) as gross_revenue,
+        COALESCE(SUM(si.quantity * si.unit_price), 0) as gross_revenue,
         COALESCE(SUM(si.discount), 0) + COALESCE((SELECT SUM(discount) FROM sales s WHERE s.status != 'voided' ${dateFilterSales}), 0) as total_discount,
         COALESCE((SELECT SUM(total) FROM sales s WHERE s.status != 'voided' ${dateFilterSales}), 0) as net_revenue,
         COALESCE((SELECT SUM(tax) FROM sales s WHERE s.status != 'voided' ${dateFilterSales}), 0) as total_tax,
         COALESCE(SUM(si.quantity * si.cost_price), 0) as cogs,
-        COALESCE(SUM(si.quantity * (si.price - si.cost_price)), 0) as gross_profit
+        COALESCE(SUM(si.quantity * (si.unit_price - si.cost_price)), 0) as gross_profit
        FROM sale_items si
        JOIN sales s ON si.sale_id = s.id
        WHERE s.status != 'voided' ${dateFilterSales}`,

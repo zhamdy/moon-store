@@ -141,7 +141,7 @@ export class ExpensesRepository implements IExpensesRepository {
   async getPnl(from: string, to: string, queryable?: Queryable): Promise<PnlResult> {
     const revenueResult = await this.q(queryable).query<{ revenue: string | number }>(
       `SELECT COALESCE(SUM(total - COALESCE(refunded_amount, 0)), 0) as revenue
-       FROM sales WHERE created_at::date >= $1::date AND created_at::date <= $2::date`,
+       FROM sales WHERE TO_CHAR(created_at, 'YYYY-MM-DD') >= $1 AND TO_CHAR(created_at, 'YYYY-MM-DD') <= $2`,
       [from, to]
     );
 
@@ -149,7 +149,7 @@ export class ExpensesRepository implements IExpensesRepository {
       `SELECT COALESCE(SUM(si.cost_price * si.quantity), 0) as cogs
        FROM sale_items si
        JOIN sales s ON si.sale_id = s.id
-       WHERE s.created_at::date >= $1::date AND s.created_at::date <= $2::date`,
+       WHERE TO_CHAR(s.created_at, 'YYYY-MM-DD') >= $1 AND TO_CHAR(s.created_at, 'YYYY-MM-DD') <= $2`,
       [from, to]
     );
 
