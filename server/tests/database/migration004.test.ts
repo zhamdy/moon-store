@@ -73,7 +73,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
       'user_id',
     ]);
 
-    expect(byName.response_body.data_type).toBe('jsonb');
+    expect(byName.response_body.data_type).toBe('json');
     expect(byName.expires_at.is_nullable).toBe('NO');
     expect(byName.request_fingerprint.is_nullable).toBe('NO');
     expect(byName.endpoint.is_nullable).toBe('NO');
@@ -99,7 +99,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     await expect(harness.pool.query(insert, ['dup-key'])).rejects.toMatchObject({ code: '23505' });
   });
 
-  it('round-trips a stored response body through JSONB unchanged', async () => {
+  it('round-trips a stored response body through JSON with its key order intact', async () => {
     const body = { success: true, data: { id: 7, total: '199.99', items: [{ product_id: 3 }] } };
 
     await harness.pool.query(
@@ -116,6 +116,9 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
 
     expect(rows[0].response_body).toEqual(body);
     expect(rows[0].response_status).toBe(201);
+    // Byte-identity, not just deep equality: a replay must serialize exactly as the
+    // original response did. jsonb would reorder these keys; json does not.
+    expect(JSON.stringify(rows[0].response_body)).toBe(JSON.stringify(body));
   });
 
   it('adds all four non-negative constraints as NOT VALID', async () => {

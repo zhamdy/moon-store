@@ -47,7 +47,12 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   request_fingerprint TEXT NOT NULL,
   response_status INTEGER,
-  response_body JSONB,
+  -- JSON, not JSONB, and deliberately so: jsonb normalizes an object's key order, so a
+  -- replayed body would serialize differently from the one the first caller received.
+  -- A replay must be byte-identical to the original response, and json preserves the
+  -- stored text exactly. Nothing queries inside this column -- resource_type/resource_id
+  -- exist so an operator can trace a key without needing to.
+  response_body JSON,
   resource_type TEXT,
   resource_id INTEGER,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
