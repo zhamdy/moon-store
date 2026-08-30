@@ -85,33 +85,11 @@ export default function POS() {
     if (isRecovered) setShowRecoveryBanner(true);
   }, []);
 
-  // BroadcastChannel for customer display
-  useEffect(() => {
-    const channel = new BroadcastChannel('moon-customer-display');
-    const subtotal = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
-    const total = useCartStore.getState().getTotal();
-    if (items.length > 0) {
-      channel.postMessage({
-        type: 'cart-update',
-        cart: {
-          items: items.map((i) => ({
-            name: i.name,
-            quantity: i.quantity,
-            unit_price: i.unit_price,
-            memo: i.memo,
-          })),
-          subtotal,
-          discount: useCartStore.getState().discount,
-          discountType: useCartStore.getState().discountType,
-          total,
-          tip: useCartStore.getState().tip,
-        },
-      });
-    } else {
-      channel.postMessage({ type: 'cart-clear' });
-    }
-    channel.close();
-  }, [items]);
+  // Customer-display broadcasting now lives entirely in CartPanel (Unit 5):
+  // it owns the corrected tax/coupon/loyalty-aware total projection, so it
+  // is the only place that should post to the `moon-customer-display`
+  // channel -- a second, partial broadcast here would race it and could
+  // show the customer display a different figure than the cart footer.
 
   // Keyboard shortcuts
   const shortcutActions = useMemo(

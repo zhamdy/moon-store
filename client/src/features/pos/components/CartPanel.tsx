@@ -38,13 +38,25 @@ import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import HeldCartsDialog from './HeldCartsDialog';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import { calculateTotals, allocateSplit, type TaxMode } from '../../../shared/lib/checkout';
+import {
+  calculateTotals,
+  allocateSplit,
+  maxRedeemablePoints,
+  type TaxMode,
+} from '../../../shared/lib/checkout';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
+import { ApiError } from '../../../shared/lib/transport/types';
 import type { ReceiptData, ReceiptItem, ReceiptPayment } from '../../../shared/components/Receipt';
 import type { AppSettings, Customer } from '../../../shared/types/index';
 
 const customers = resource<Customer>('customers');
+
+/** Stable code the server returns when a split-tender sum no longer matches
+ * the authoritative amount due (see server/src/modules/pos/sales/types.ts
+ * `SPLIT_PAYMENT_MISMATCH_CODE`). Catalog prices, tax, coupon, or loyalty
+ * settings can change between preview and submission. */
+const SPLIT_PAYMENT_MISMATCH_CODE = 'SPLIT_PAYMENT_MISMATCH';
 
 type PaymentMethod = 'Cash' | 'Card' | 'Other';
 
@@ -161,7 +173,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     setCoupon,
     clearCoupon,
     getSubtotal,
-    getTotal,
     clearCart,
     needsReview,
     acknowledgeReview,
@@ -210,10 +221,13 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
 
   const loyaltyInfo = useMemo(() => {
     const enabled = appSettings?.loyalty_enabled === 'true';
-    const earnRate = parseFloat(appSettings?.loyalty_earn_rate || '1');
-    const redeemValue = parseFloat(appSettings?.loyalty_redeem_value || '5');
+    // Canonical, direct-unit settings (Unit 1) -- never the legacy
+    // `loyalty_earn_rate`/`loyalty_redeem_value` aliases. Defaults match
+    // `server/src/database/seed.ts`.
+    const pointsPerEgp = parseFloat(appSettings?.loyalty_points_per_egp || '1');
+    const egpPerPoint = parseFloat(appSettings?.loyalty_egp_per_point || '0.1');
     const customerPoints = customerLoyalty?.points || 0;
-    return { enabled, earnRate, redeemValue, customerPoints };
+    return { enabled, pointsPerEgp, egpPerPoint, customerPoints };
   }, [appSettings, customerLoyalty]);
 
   const taxInfo = useMemo(() => {
@@ -232,8 +246,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         couponDiscount,
         tax: taxInfo,
         pointsToRedeem: redeemPoints && loyaltyInfo.enabled ? pointsToRedeem : 0,
-        redeemValue: loyaltyInfo.redeemValue,
+        redeemValue: loyaltyInfo.egpPerPoint,
+        pointsBalance: loyaltyInfo.customerPoints,
         tip,
+        loyaltyEnabled: loyaltyInfo.enabled,
+        pointsPerEgp: loyaltyInfo.pointsPerEgp,
       }),
     [
       items,
@@ -248,7 +265,67 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     ]
   );
 
+  // The most the selected customer may redeem on THIS sale: never more than
+  // their balance, and never more value than the sale (before loyalty) is
+  // worth. `netOfDiscounts + pointsDiscount` recovers the remaining value
+  // after manual discount/coupon but BEFORE loyalty, regardless of how many
+  // points are currently requested (see checkout.ts's calculation order).
+  const maxPoints = useMemo(
+    () =>
+      maxRedeemablePoints(
+        loyaltyInfo.customerPoints,
+        totals.netOfDiscounts + totals.pointsDiscount,
+        loyaltyInfo.egpPerPoint
+      ),
+    [loyaltyInfo, totals.netOfDiscounts, totals.pointsDiscount]
+  );
+
+  // A stale redeemed-points value must never silently outlive the subtotal,
+  // coupon, or tax change that shrank how much can actually be redeemed.
+  useEffect(() => {
+    if (pointsToRedeem > maxPoints) {
+      setPointsToRedeem(maxPoints);
+    }
+  }, [maxPoints, pointsToRedeem]);
+
   const split = useMemo(() => allocateSplit(payments, totals.amountDue), [payments, totals]);
+
+  // Broadcast the SAME projected breakdown the cart footer/checkout drawer
+  // render -- never a separately-derived total -- so the customer display
+  // always agrees to the cent with what the cashier sees (Unit 5). This
+  // owns the channel entirely; POS.tsx no longer posts its own (partial,
+  // tax/loyalty-blind) projection.
+  useEffect(() => {
+    const channel = new BroadcastChannel('moon-customer-display');
+    if (items.length > 0) {
+      channel.postMessage({
+        type: 'cart-update',
+        cart: {
+          items: items.map((i) => ({
+            name: i.name,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            memo: i.memo,
+          })),
+          subtotal: totals.subtotal,
+          discount,
+          discountType,
+          discountAmount: totals.discountAmount,
+          couponCode: couponCode || undefined,
+          couponDiscount: totals.couponDiscount,
+          taxEnabled: taxInfo.enabled,
+          taxRate: taxInfo.rate,
+          taxAmount: totals.taxAmount,
+          pointsDiscount: totals.pointsDiscount,
+          tip: totals.tip,
+          amountDue: totals.amountDue,
+        },
+      });
+    } else {
+      channel.postMessage({ type: 'cart-clear' });
+    }
+    channel.close();
+  }, [items, discount, discountType, couponCode, taxInfo, totals]);
 
   useEffect(() => {
     if (checkoutTriggerRef) {
@@ -386,13 +463,29 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         setSelectedCustomer(null);
         setCustomerSearch('');
       } else {
-        toast.error(error.message || t('cart.saleFailed'));
+        // Authoritative data (catalog price, tax, coupon, or loyalty
+        // settings) changed between preview and submission and the split no
+        // longer balances against the server's recalculated total. The cart
+        // is intentionally left untouched (no clearCart/close above) so the
+        // cashier can review and rebalance rather than seeing a generic
+        // failure or a false success.
+        const isSplitMismatch =
+          error instanceof ApiError &&
+          error.details?.some((d) => d.code === SPLIT_PAYMENT_MISMATCH_CODE);
+        toast.error(
+          isSplitMismatch ? t('cart.splitMismatchError') : error.message || t('cart.saleFailed')
+        );
       }
     },
   });
 
   const handleCheckout = (): void => {
-    if (items.length === 0) return;
+    // A recovered/restored cart is not fully trusted for checkout until the
+    // cashier explicitly acknowledges its review banner (Unit 6's
+    // `needsReview`/`acknowledgeReview`) -- enforced here too, not just via
+    // the disabled footer button, since a keyboard shortcut can open the
+    // checkout drawer directly.
+    if (items.length === 0 || needsReview) return;
 
     const saleData: SaleData = {
       items: items.map((i) => ({
@@ -735,7 +828,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
             <span>{t('cart.subtotal')}</span>
             <span className="text-foreground">{formatCurrency(getSubtotal())}</span>
           </div>
-          {discount > 0 && (
+          {totals.discountAmount > 0 && (
             <div className="flex justify-between text-sm text-danger font-data">
               <span>
                 {t('cart.discount')}
@@ -743,12 +836,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   ({discountType === 'percentage' ? `${discount}%` : formatCurrency(discount)})
                 </span>
               </span>
-              <span>
-                -
-                {formatCurrency(
-                  discountType === 'percentage' ? (getSubtotal() * discount) / 100 : discount
-                )}
-              </span>
+              <span>-{formatCurrency(totals.discountAmount)}</span>
             </div>
           )}
           {taxInfo.enabled && (
@@ -760,9 +848,17 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               <span className="text-foreground">{formatCurrency(totals.taxAmount)}</span>
             </div>
           )}
+          {totals.tip > 0 && (
+            <div className="flex justify-between text-sm text-primary font-data">
+              <span>{t('cart.tip')}</span>
+              <span>+{formatCurrency(totals.tip)}</span>
+            </div>
+          )}
+          {/* The SAME `amountDue` the checkout drawer and customer display
+              use -- never a separately-derived figure (Unit 5 parity). */}
           <div className="flex justify-between text-lg font-semibold font-data text-foreground">
             <span>{t('cart.total')}</span>
-            <span className="text-primary font-bold">{formatCurrency(totals.totalWithTax)}</span>
+            <span className="text-primary font-bold">{formatCurrency(totals.amountDue)}</span>
           </div>
         </div>
 
@@ -771,7 +867,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           size="md"
           className="w-full font-semibold shadow-sm"
           onClick={() => setCheckoutOpen(true)}
-          isDisabled={items.length === 0}
+          isDisabled={items.length === 0 || needsReview}
         >
           {t('cart.checkout')}
         </Button>
@@ -823,7 +919,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                     <span>{t('cart.subtotal')}</span>
                     <span className="text-foreground">{formatCurrency(getSubtotal())}</span>
                   </div>
-                  {discount > 0 && (
+                  {totals.discountAmount > 0 && (
                     <div className="flex justify-between text-sm text-danger font-data">
                       <span>
                         {t('cart.discount')}
@@ -835,14 +931,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                           )
                         </span>
                       </span>
-                      <span>
-                        -
-                        {formatCurrency(
-                          discountType === 'percentage'
-                            ? (getSubtotal() * discount) / 100
-                            : discount
-                        )}
-                      </span>
+                      <span>-{formatCurrency(totals.discountAmount)}</span>
                     </div>
                   )}
                   {taxInfo.enabled && (
@@ -853,12 +942,12 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                       <span className="text-foreground">{formatCurrency(totals.taxAmount)}</span>
                     </div>
                   )}
-                  {couponDiscount > 0 && (
+                  {totals.couponDiscount > 0 && (
                     <div className="flex justify-between text-sm text-primary font-data">
                       <span>
                         {t('cart.coupon')} ({couponCode})
                       </span>
-                      <span>-{formatCurrency(couponDiscount)}</span>
+                      <span>-{formatCurrency(totals.couponDiscount)}</span>
                     </div>
                   )}
                   {totals.pointsDiscount > 0 && (
@@ -867,10 +956,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                       <span>-{formatCurrency(totals.pointsDiscount)}</span>
                     </div>
                   )}
-                  {tip > 0 && (
+                  {totals.tip > 0 && (
                     <div className="flex justify-between text-sm text-primary font-data">
-                      <span>{t('cart.quickDiscount')}</span>
-                      <span>-{formatCurrency(tip)}</span>
+                      <span>{t('cart.tip')}</span>
+                      <span>+{formatCurrency(totals.tip)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-base font-bold font-data text-foreground">
@@ -1065,13 +1154,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                             min="0"
                             size="sm"
                             variant="bordered"
-                            max={loyaltyInfo.customerPoints}
+                            max={maxPoints}
                             value={pointsToRedeem ? String(pointsToRedeem) : ''}
                             onValueChange={(val) => {
-                              const v = Math.min(
-                                Math.max(0, parseInt(val) || 0),
-                                loyaltyInfo.customerPoints
-                              );
+                              const v = Math.min(Math.max(0, parseInt(val) || 0), maxPoints);
                               setPointsToRedeem(v);
                             }}
                             className="font-data w-36"
@@ -1134,7 +1220,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   )}
                 </div>
 
-                {/* Quick Discount */}
+                {/* Quick Discount -- writes ONLY into the manual discount/discount_type
+                    state, never `tip`. This is the fix for the historical bug
+                    where these buttons silently wrote a "discount" amount
+                    into the tip field (see Unit 3/5 of
+                    docs/plans/2026-08-30-001-fix-pos-checkout-total-parity-plan.md). */}
                 <Divider />
                 <div className="space-y-2">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -1142,33 +1232,65 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                     {t('cart.quickDiscount')}
                   </h3>
                   <div className="flex gap-1.5 items-center">
-                    {[5, 10, 15].map((pct) => {
-                      const discAmount = Math.round(((getTotal() * pct) / 100) * 100) / 100;
-                      return (
-                        <Button
-                          key={pct}
-                          size="sm"
-                          variant={tip === discAmount ? 'solid' : 'bordered'}
-                          color={tip === discAmount ? 'primary' : 'default'}
-                          className="flex-1 h-7 min-w-0 text-[11px] font-data font-medium"
-                          onClick={() => setTip(discAmount)}
-                        >
-                          {pct}%
-                        </Button>
-                      );
-                    })}
+                    {[5, 10, 15].map((pct) => (
+                      <Button
+                        key={pct}
+                        size="sm"
+                        variant={
+                          discountType === 'percentage' && discount === pct ? 'solid' : 'bordered'
+                        }
+                        color={
+                          discountType === 'percentage' && discount === pct ? 'primary' : 'default'
+                        }
+                        className="flex-1 h-7 min-w-0 text-[11px] font-data font-medium"
+                        onClick={() => {
+                          setDiscountType('percentage');
+                          setDiscount(pct);
+                        }}
+                      >
+                        {pct}%
+                      </Button>
+                    ))}
                     <Input
                       type="number"
                       min="0"
+                      max={discountType === 'percentage' ? 100 : undefined}
                       step="0.01"
                       size="sm"
                       variant="bordered"
                       placeholder={t('cart.customAmount')}
-                      value={tip ? String(tip) : ''}
-                      onValueChange={(val) => setTip(parseFloat(val) || 0)}
+                      aria-label={t('cart.quickDiscount')}
+                      value={discountType === 'percentage' && discount ? String(discount) : ''}
+                      onValueChange={(val) => {
+                        setDiscountType('percentage');
+                        setDiscount(parseFloat(val) || 0);
+                      }}
                       className="flex-1 font-data"
                     />
                   </div>
+                </div>
+
+                {/* Tip -- its own, separately labeled, always-positive control.
+                    Never written to by Quick Discount above. Rendered as an
+                    added line (`+`) in the summary and in the receipt. */}
+                <Divider />
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <StickyNote className="h-3.5 w-3.5 text-primary" />
+                    {t('cart.tip')}
+                  </h3>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    size="sm"
+                    variant="bordered"
+                    placeholder={t('cart.customTip')}
+                    aria-label={t('cart.tip')}
+                    value={tip ? String(tip) : ''}
+                    onValueChange={(val) => setTip(Math.max(0, parseFloat(val) || 0))}
+                    className="font-data"
+                  />
                 </div>
 
                 {/* Sale Notes */}
@@ -1264,6 +1386,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                             step="0.01"
                             size="sm"
                             variant="bordered"
+                            aria-label={`${paymentLabels[p.method as PaymentMethod] ?? p.method} ${t('cart.splitPayment')} #${idx + 1}`}
                             value={p.amount ? String(p.amount) : ''}
                             onValueChange={(val) => {
                               const next = [...payments];
@@ -1310,7 +1433,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   size="md"
                   className="w-full font-semibold shadow-sm"
                   onClick={handleCheckout}
-                  isDisabled={checkoutMutation.isPending || (splitPayment && !split.isBalanced)}
+                  isDisabled={
+                    checkoutMutation.isPending || needsReview || (splitPayment && !split.isBalanced)
+                  }
                   isLoading={checkoutMutation.isPending}
                 >
                   {checkoutMutation.isPending ? t('cart.processing') : t('cart.confirmSale')}

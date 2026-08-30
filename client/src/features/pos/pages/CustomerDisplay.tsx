@@ -10,13 +10,29 @@ interface DisplayItem {
   memo?: string;
 }
 
+/**
+ * Mirrors the SAME projected breakdown `CartPanel.tsx` computes via
+ * `calculateTotals` (Unit 3) and renders in the cart footer/checkout
+ * drawer -- posted over the `moon-customer-display` BroadcastChannel so all
+ * three surfaces agree to the cent for a given cart state (Unit 5). Never a
+ * separately-derived total.
+ */
 interface CartData {
   items: DisplayItem[];
   subtotal: number;
   discount: number;
   discountType: string;
-  total: number;
+  /** Manual discount amount, already resolved from percentage/fixed. */
+  discountAmount: number;
+  couponCode?: string;
+  couponDiscount: number;
+  taxEnabled: boolean;
+  taxRate: number;
+  taxAmount: number;
+  pointsDiscount: number;
   tip: number;
+  /** The one figure the customer owes -- taxed amount plus tip. */
+  amountDue: number;
 }
 
 export default function CustomerDisplay() {
@@ -105,7 +121,7 @@ export default function CustomerDisplay() {
                 <span>{t('cart.subtotal')}</span>
                 <span className="font-data">{formatCurrency(cart.subtotal)}</span>
               </div>
-              {cart.discount > 0 && (
+              {cart.discountAmount > 0 && (
                 <div className="flex justify-between text-lg text-red-400">
                   <span>
                     {t('cart.discount')}{' '}
@@ -117,25 +133,41 @@ export default function CustomerDisplay() {
                       )
                     </span>
                   </span>
-                  <span className="font-data">
-                    -
-                    {formatCurrency(
-                      cart.discountType === 'percentage'
-                        ? (cart.subtotal * cart.discount) / 100
-                        : cart.discount
-                    )}
+                  <span className="font-data">-{formatCurrency(cart.discountAmount)}</span>
+                </div>
+              )}
+              {cart.couponDiscount > 0 && (
+                <div className="flex justify-between text-lg text-[#c9a96e]/70">
+                  <span>
+                    {t('cart.coupon')}
+                    {cart.couponCode ? ` (${cart.couponCode})` : ''}
                   </span>
+                  <span className="font-data">-{formatCurrency(cart.couponDiscount)}</span>
+                </div>
+              )}
+              {cart.pointsDiscount > 0 && (
+                <div className="flex justify-between text-lg text-[#c9a96e]/70">
+                  <span>{t('loyalty.pointsDiscount')}</span>
+                  <span className="font-data">-{formatCurrency(cart.pointsDiscount)}</span>
+                </div>
+              )}
+              {cart.taxEnabled && (
+                <div className="flex justify-between text-lg text-white/60">
+                  <span>
+                    {t('tax.vat')} <span className="text-sm opacity-70">({cart.taxRate}%)</span>
+                  </span>
+                  <span className="font-data">{formatCurrency(cart.taxAmount)}</span>
                 </div>
               )}
               {cart.tip > 0 && (
                 <div className="flex justify-between text-lg text-[#c9a96e]/70">
                   <span>{t('cart.tip')}</span>
-                  <span className="font-data">{formatCurrency(cart.tip)}</span>
+                  <span className="font-data">+{formatCurrency(cart.tip)}</span>
                 </div>
               )}
               <div className="flex justify-between text-3xl font-semibold pt-3 border-t border-[#c9a96e]/20">
                 <span>{t('cart.total')}</span>
-                <span className="text-[#c9a96e] font-data">{formatCurrency(cart.total)}</span>
+                <span className="text-[#c9a96e] font-data">{formatCurrency(cart.amountDue)}</span>
               </div>
             </div>
           </div>

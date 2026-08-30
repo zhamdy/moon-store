@@ -732,6 +732,7 @@
   "cart.recoveredCart": "You have unsaved items from a previous session",
   "cart.needsReviewWarning": "This cart was recovered or restored from a held cart. Please review its discount, tip and coupon before checkout -- any coupon must be re-applied.",
   "cart.needsReviewAcknowledge": "Reviewed",
+  "cart.splitMismatchError": "The total or payments changed since checkout was opened. Review the amount due and rebalance payments before confirming.",
   "cart.keepCart": "Keep",
   "cart.discardCart": "Discard",
 
