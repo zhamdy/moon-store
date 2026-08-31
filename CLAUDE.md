@@ -120,10 +120,18 @@ adding specs.
 
 ## Offline queue
 
-Sales rung up offline are queued in `localStorage` and replayed by
-`client/src/shared/hooks/useOffline.ts`. A failed replay backs off, and a rejection the server will
-repeat parks for a cashier rather than retrying forever — see the **Offline queue replay contract**
-in `docs/CONVENTIONS.md` before changing the hook or its store.
+The queue in `localStorage` is replayed by `client/src/shared/hooks/useOffline.ts`. A failed
+replay backs off, and a rejection the server will repeat parks for a cashier rather than
+retrying forever — see the **Offline queue replay contract** in `docs/CONVENTIONS.md`
+before changing the hook or its store.
+
+> **The checkout path does not currently reach that queue.** `queryClient` sets no
+> `networkMode`, so React Query's default pauses a mutation fired while `navigator.onLine`
+> is false rather than failing it. No request goes out, `onError` never runs, and
+> `CartPanel`'s offline fallback — the only writer to `moon-offline-queue`— is unreachable.
+> The sale resumes and completes on reconnect if the tab stays open, but does not survive a
+> reload. Measured in `e2e/specs/offline.spec.ts`; the machinery above is sound, what is
+> missing is the path into it.
 
 ## Idempotency compatibility window
 
