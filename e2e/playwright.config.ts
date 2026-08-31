@@ -53,6 +53,16 @@ export default defineConfig({
   outputDir: './test-results',
   globalSetup: './support/globalSetup.ts',
 
+  /**
+   * Generous next to a unit suite, and deliberately so. Every assertion here waits on a
+   * real browser rendering a real production bundle against a real server and database,
+   * under whatever parallel load the run has. The default 5s expect timeout produced
+   * timeouts that looked like application bugs but were pure contention — a slow machine
+   * is not a failing till.
+   */
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
+
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -74,6 +84,8 @@ export default defineConfig({
      * behavior is explicitly out of scope — see README.md.
      */
     serviceWorkers: 'block',
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
     trace: 'on-first-retry',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
