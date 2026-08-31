@@ -1,7 +1,7 @@
 ---
 title: 'test: End-to-end coverage for critical POS workflows'
 type: test
-status: active
+status: phase-1-complete
 date: 2026-08-31
 deepened: 2026-08-31
 issue: 50
@@ -586,7 +586,7 @@ Units 1 and 2 are independent and can land in parallel.
 
 ### Phase 1 — Harness
 
-- [ ] **Unit 1: Scaffold the `e2e/` project and Playwright config**
+- [x] **Unit 1: Scaffold the `e2e/` project and Playwright config**
 
 **Goal:** A runnable, empty Playwright project that boots both servers and produces artifacts.
 
@@ -659,7 +659,7 @@ the installed package and drop or substitute anything that does not resolve.
 
 ---
 
-- [ ] **Unit 2: Make the server's rate limits test-operable**
+- [x] **Unit 2: Make the server's rate limits test-operable**
 
 **Goal:** Stop **both** rate limiters from throttling the suite, without weakening production defaults.
 
@@ -733,7 +733,7 @@ env-driven, defaulting to the pre-existing behavior, documented in `CLAUDE.md`.
 
 ---
 
-- [ ] **Unit 3: Database lifecycle, global setup, and the settings baseline**
+- [x] **Unit 3: Database lifecycle, global setup, and the settings baseline**
 
 **Goal:** A deterministic, known-state E2E database and a pinned settings baseline before any spec runs.
 
@@ -804,7 +804,7 @@ production refusal (`FORCE_SEED`) is the same instinct.
 
 ---
 
-- [ ] **Unit 4: Worker-scoped fixtures — auth, per-worker cashier, namespaced data**
+- [x] **Unit 4: Worker-scoped fixtures — auth, per-worker cashier, namespaced data**
 
 **Goal:** Every worker gets an isolated cashier, an open shift and register, and a namespace it owns.
 
@@ -880,7 +880,7 @@ retype them).
 
 ---
 
-- [ ] **Unit 5: Locator affordances — accessible names, i18n-driven selectors, minimal test ids**
+- [x] **Unit 5: Locator affordances — accessible names, i18n-driven selectors, minimal test ids**
 
 **Goal:** POS, cart, checkout and login are addressable by role and label in both locales.
 
