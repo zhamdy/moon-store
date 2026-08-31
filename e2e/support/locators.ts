@@ -187,3 +187,22 @@ export function reviewBanner(page: Page, { locale = DEFAULT_TEST_LOCALE }: Local
     acknowledge: page.getByRole('button', { name: tr('cart.needsReviewAcknowledge', locale) }),
   };
 }
+
+/** Customer selection and loyalty controls, both inside the checkout drawer. */
+export function loyaltyControls(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOptions = {}) {
+  const dialog = page.getByRole('dialog', {
+    name: new RegExp(escapeRegExp(tr('cart.completeSale', locale))),
+  });
+  return {
+    dialog,
+    customerSearch: dialog.getByPlaceholder(tr('cart.searchCustomer', locale)),
+    /**
+     * Gated on `appSettings.loyalty_enabled === 'true'`. A stale settings cache hides
+     * these entirely, which is why every settings write is followed by a reload.
+     */
+    redeemToggle: dialog.getByRole('checkbox', { name: tr('loyalty.redeemToggle', locale) }),
+    pointsToRedeem: dialog.getByRole('spinbutton', { name: tr('loyalty.pointsToRedeem', locale) }),
+    pointsDiscountLabel: dialog.getByText(tr('loyalty.pointsDiscount', locale)),
+    vatLabel: dialog.getByText(tr('tax.vat', locale)),
+  };
+}

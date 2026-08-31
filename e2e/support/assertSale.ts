@@ -27,6 +27,7 @@ export interface PersistedSale {
   payment_method: string;
   cashier_id: number | null;
   customer_id: number | null;
+  points_redeemed: number | string | null;
   status: string;
   items: PersistedSaleItem[];
   payments: Array<{ method: string; amount: string | number }>;
@@ -157,4 +158,11 @@ export async function completeSaleAndReadId(
   const saleId = await latestSaleIdForCashier(cashierId);
   if (saleId === undefined) throw new Error('No sale row found after a confirmed checkout.');
   return saleId;
+}
+
+/** The seeded Admin's user id and a live token, for the few Admin-gated paths. */
+export async function adminUserId(adminApi: APIRequestContext): Promise<number> {
+  const response = await adminApi.get('/api/v1/auth/me');
+  const body = (await response.json()) as { data: { id: number } };
+  return body.data.id;
 }

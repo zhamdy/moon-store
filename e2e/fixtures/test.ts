@@ -60,6 +60,18 @@ export interface TestFixtures {
   };
   /** Mints a product owned by this test, namespaced so no other spec can see it. */
   seedProduct: (label: string, seed?: ProductSeed) => Promise<Product>;
+  /**
+   * A browser context signed in as the seeded Admin, reusing the setup project's
+   * storage state so no second login is needed (issue #62).
+   *
+   * Needed only where a path is genuinely Admin-gated. `GET /api/v1/customers` is one:
+   * a Cashier can create a customer and read their loyalty balance but cannot *search*
+   * for one, so attaching a customer to a sale — and therefore loyalty redemption — is
+   * not reachable from a cashier's till. That asymmetry looks like an oversight rather
+   * than a policy, but widening an authorization rule is not this suite's call, so the
+   * loyalty specs drive it as Admin and `tax-loyalty.spec.ts` pins the gap explicitly.
+   */
+  adminContext: BrowserContext;
 }
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -271,6 +283,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     // Deliberately NOT dismissing the startup prompt — this fixture exists to face it.
 
     await use({ context, id: cashier.id, email, accessToken: session.accessToken });
+    await context.close();
+  },
+
+  adminContext: async ({ browser, appLocale }, use) => {
+    const context = await browser.newContext({ storageState: adminStatePath });
+    await seedLocale(context, appLocale);
+    await dismissStartupPrompt(context);
+    await use(context);
     await context.close();
   },
 
