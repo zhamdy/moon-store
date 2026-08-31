@@ -102,6 +102,20 @@ export function checkoutDrawer(page: Page, { locale = DEFAULT_TEST_LOCALE }: Loc
       dialog.getByRole('radio', { name: tr(`cart.${method}`, locale) }),
     total: dialog.getByTestId('checkout-total'),
     confirm: dialog.getByRole('button', { name: tr('cart.confirmSale', locale) }),
+    /**
+     * The confirm control regardless of which label it is currently showing.
+     *
+     * `isLoading` swaps the text from "Confirm Sale" to "Processing…" while the checkout
+     * is in flight, so a strict-name locator stops matching the moment the button is
+     * clicked. Anything that interacts with it *during* a checkout — a double-click test,
+     * above all — must use this instead, or it waits out its timeout on an element that
+     * no longer answers to that name.
+     */
+    confirmAny: dialog.getByRole('button', {
+      name: new RegExp(
+        `${escapeRegExp(tr('cart.confirmSale', locale))}|${escapeRegExp(tr('cart.processing', locale))}`
+      ),
+    }),
   };
 }
 
