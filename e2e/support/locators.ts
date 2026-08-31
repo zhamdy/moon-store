@@ -75,7 +75,15 @@ export function cartPanel(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOp
     quantity: (productId: number, variantId = 0) =>
       line(productId, variantId).getByTestId('cart-line-qty'),
     total: page.getByTestId('cart-total'),
-    empty: page.getByText(tr('cart.empty', locale)),
+    /**
+     * `.first()` because the cart list animates its exits: while a line is leaving, the
+     * animation library keeps a detached clone in the DOM, so the empty-state text can
+     * briefly match twice. The count assertion below is the precise one.
+     */
+    empty: page.getByText(tr('cart.empty', locale)).first(),
+    /** `Cart (N)` — a single heading, and the unambiguous way to assert the line count. */
+    heading: (count: number) =>
+      page.getByRole('heading', { name: `${tr('cart.title', locale)} (${count})` }),
     checkout: page.getByRole('button', { name: tr('cart.checkout', locale) }),
   };
 }
@@ -112,4 +120,70 @@ export function receiptDialog(page: Page, { locale = DEFAULT_TEST_LOCALE }: Loca
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Adjustment controls inside the checkout drawer (discount, tip, coupon, split). */
+export function adjustments(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOptions = {}) {
+  const dialog = page.getByRole('dialog', {
+    name: new RegExp(escapeRegExp(tr('cart.completeSale', locale))),
+  });
+  return {
+    /** Forces percentage mode — the drawer has no fixed-amount option. */
+    discountPercent: (percent: 5 | 10 | 15) =>
+      dialog.getByRole('button', { name: `${percent}%`, exact: true }),
+    discountCustom: dialog.getByRole('spinbutton', { name: tr('cart.quickDiscount', locale) }),
+    tip: dialog.getByRole('spinbutton', { name: tr('cart.tip', locale) }),
+    couponInput: dialog.getByPlaceholder(tr('cart.couponPlaceholder', locale)),
+    applyCoupon: dialog.getByRole('button', { name: tr('cart.applyCoupon', locale) }),
+    /** Hardcoded English aria-label in the component; deliberately not from the catalog. */
+    removeCoupon: dialog.getByRole('button', { name: 'Remove coupon' }),
+    splitToggle: dialog.getByRole('checkbox', { name: tr('cart.splitPayment', locale) }),
+    addPayment: dialog.getByRole('button', { name: tr('cart.addPayment', locale) }),
+    /**
+     * Split rows have no labelled `<select>`, so the method dropdown is positional. The
+     * amount input's accessible name embeds the row's *current* method, so it changes
+     * when the method does — read it after setting the method, never before.
+     */
+    splitMethod: (index: number) => dialog.getByRole('combobox').nth(index),
+    splitAmount: (method: 'Cash' | 'Card' | 'Gift Card' | 'Other', row: number) =>
+      dialog.getByRole('spinbutton', {
+        name: `${method} ${tr('cart.splitPayment', locale)} #${row}`,
+      }),
+  };
+}
+
+/** The cart footer's own discount controls, which offer fixed mode as well. */
+export function footerDiscount(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOptions = {}) {
+  return {
+    percentMode: page.getByRole('button', { name: '%', exact: true }),
+    fixedMode: page.getByRole('button', { name: '$', exact: true }),
+    amount: page.getByPlaceholder('0', { exact: true }),
+    clear: page.getByRole('button', { name: tr('cart.clearDiscount', locale) }),
+  };
+}
+
+/** Hold / resume. The hold control lives in the cart header. */
+export function heldCarts(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOptions = {}) {
+  const dialog = page.getByRole('dialog', { name: tr('cart.heldCarts', locale) });
+  return {
+    /**
+     * `exact` matters here: product cards are buttons whose accessible name folds in the
+     * SKU, so a substring match on "Hold" also matches any product whose SKU contains it.
+     */
+    hold: page.getByRole('button', { name: tr('cart.hold', locale), exact: true }),
+    open: page.getByRole('button', { name: tr('cart.heldCarts', locale), exact: true }),
+    dialog,
+    empty: dialog.getByText(tr('cart.noHeldCarts', locale)),
+    row: (name: string) => dialog.locator('li, div').filter({ hasText: name }).last(),
+    retrieve: dialog.getByRole('button', { name: tr('cart.retrieve', locale) }),
+    delete: dialog.getByRole('button', { name: tr('cart.deleteHeld', locale) }),
+  };
+}
+
+/** The recovered/restored-cart gate. Blocks checkout until acknowledged. */
+export function reviewBanner(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOptions = {}) {
+  return {
+    warning: page.getByText(tr('cart.needsReviewWarning', locale)),
+    acknowledge: page.getByRole('button', { name: tr('cart.needsReviewAcknowledge', locale) }),
+  };
 }
