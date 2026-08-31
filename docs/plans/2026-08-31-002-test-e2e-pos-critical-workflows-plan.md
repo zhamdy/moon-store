@@ -943,7 +943,7 @@ retype them).
 
 ### Phase 2 — Money paths
 
-- [ ] **Unit 6: The critical cash sale, end to end (`@smoke`)**
+- [x] **Unit 6: The critical cash sale, end to end (`@smoke`)**
 
 **Goal:** The spine of R1 — login through receipt — proven against the real stack.
 
