@@ -1,6 +1,28 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { OFFLINE_QUEUE_STORAGE_KEY } from '@/shared/lib/storageKeys';
+import { createIdempotencyKey } from '@/shared/lib/transport/idempotency';
+
+/**
+ * A queue entry's identity. Entries minted since collision-free ids shipped
+ * carry an opaque string; entries already in a cashier's `localStorage` from
+ * before carry the `Date.now()` number they were given. Both keep matching
+ * under the `===`/`!==` lookups below, so no rehydrate migration is needed.
+ */
+export type OfflineQueueItemId = string | number;
+
+/**
+ * Deliberately the same generator as the `Idempotency-Key`, and deliberately
+ * a different name: a queue id identifies a row in this device's queue, a key
+ * identifies a mutation to the server. Reusing the generator inherits its
+ * documented non-secure-context fallback, which a till served over plain HTTP
+ * on a shop LAN actually needs -- and `Date.now()` alone collides whenever two
+ * sales are rung up in the same millisecond, at which point syncing one
+ * silently deletes the other.
+ */
+export function createQueueItemId(): OfflineQueueItemId {
+  return createIdempotencyKey();
+}
 
 /**
  * Sale-payload contract version stamped onto every NEW `type: 'sale'` queue
@@ -36,7 +58,7 @@ export interface OfflineAction {
 }
 
 export interface OfflineQueueItem extends OfflineAction {
-  id: number;
+  id: OfflineQueueItemId;
   createdAt: string;
 }
 
@@ -65,9 +87,9 @@ interface OfflineState {
   queue: OfflineQueueItem[];
   isSyncing: boolean;
   addToQueue: (action: OfflineAction) => void;
-  removeFromQueue: (id: number) => void;
+  removeFromQueue: (id: OfflineQueueItemId) => void;
   /** Flags a queued entry as quarantined after a SPLIT_PAYMENT_MISMATCH rejection. */
-  markMismatched: (id: number) => void;
+  markMismatched: (id: OfflineQueueItemId) => void;
   clearQueue: () => void;
   setSyncing: (isSyncing: boolean) => void;
   getQueueLength: () => number;
@@ -85,7 +107,7 @@ export const useOfflineStore = create<OfflineState>()(
         set((state) => ({
           queue: [
             ...state.queue,
-            { ...action, id: Date.now(), createdAt: new Date().toISOString() },
+            { ...action, id: createQueueItemId(), createdAt: new Date().toISOString() },
           ],
         })),
 

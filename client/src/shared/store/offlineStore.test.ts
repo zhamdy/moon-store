@@ -94,3 +94,71 @@ describe('offlineStore - getQuarantinedCount', () => {
     expect(useOfflineStore.getState().getQueueLength()).toBe(3);
   });
 });
+
+describe('offlineStore - queue entry identity', () => {
+  it('gives two entries queued in the same millisecond distinct ids', () => {
+    const { addToQueue } = useOfflineStore.getState();
+    addToQueue({ type: 'sale', payload: { n: 1 } });
+    addToQueue({ type: 'sale', payload: { n: 2 } });
+
+    const [first, second] = useOfflineStore.getState().queue;
+    expect(first.id).not.toBe(second.id);
+  });
+
+  it('removes exactly the entry asked for when two were queued back to back', () => {
+    const { addToQueue } = useOfflineStore.getState();
+    addToQueue({ type: 'sale', payload: { n: 1 } });
+    addToQueue({ type: 'sale', payload: { n: 2 } });
+
+    const [first, second] = useOfflineStore.getState().queue;
+    useOfflineStore.getState().removeFromQueue(first.id);
+
+    // Under `Date.now()` ids these two collided and this deleted both -- an
+    // unrecoverable, silent loss of a rung-up sale.
+    const remaining = useOfflineStore.getState().queue;
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).toBe(second.id);
+    expect(remaining[0].payload).toEqual({ n: 2 });
+  });
+
+  it('flags exactly one entry when two were queued back to back', () => {
+    const { addToQueue } = useOfflineStore.getState();
+    addToQueue({ type: 'sale', payload: { n: 1 } });
+    addToQueue({ type: 'sale', payload: { n: 2 } });
+
+    const [first] = useOfflineStore.getState().queue;
+    useOfflineStore.getState().markMismatched(first.id);
+
+    expect(useOfflineStore.getState().queue.map((item) => item.mismatched)).toEqual([
+      true,
+      undefined,
+    ]);
+  });
+
+  it('still removes an entry rehydrated with a legacy numeric id', () => {
+    // The shape a till that updated mid-shift finds in its localStorage.
+    useOfflineStore.setState({
+      queue: [
+        { id: 1738000000000, createdAt: '', type: 'sale', payload: {} },
+        { id: 'str-id', createdAt: '', type: 'sale', payload: {} },
+      ],
+      isSyncing: false,
+    });
+
+    useOfflineStore.getState().removeFromQueue(1738000000000);
+
+    expect(useOfflineStore.getState().queue.map((item) => item.id)).toEqual(['str-id']);
+  });
+
+  it('preserves generated ids across a persist round-trip', async () => {
+    useOfflineStore.getState().addToQueue({ type: 'sale', payload: {} });
+    const id = useOfflineStore.getState().queue[0].id;
+    const raw = localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY) as string;
+
+    useOfflineStore.setState({ queue: [], isSyncing: false });
+    localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, raw);
+    await useOfflineStore.persist.rehydrate();
+
+    expect(useOfflineStore.getState().queue[0].id).toBe(id);
+  });
+});
