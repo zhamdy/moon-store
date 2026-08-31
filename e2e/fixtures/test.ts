@@ -85,9 +85,17 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   workerCashier: [
     async ({ adminApi }, use, workerInfo) => {
       const index = workerInfo.workerIndex;
-      const namespace = `e2e-w${index}`;
+      /**
+       * Namespaced by run as well as worker. `--shard` is a separate Playwright process
+       * per shard and `workerIndex` restarts at 0 in each, so shard 1's worker 0 and
+       * shard 2's worker 0 would otherwise both claim `e2e-w0@moon.test` — and
+       * `users.email` is UNIQUE, so the loser fails with a confusing 409 mid-run.
+       * CI sets E2E_RUN_ID per shard; locally it is absent and the name is unchanged.
+       */
+      const runId = process.env.E2E_RUN_ID?.trim();
+      const namespace = runId ? `e2e-${runId}w${index}` : `e2e-w${index}`;
       const email = `${namespace}@moon.test`;
-      const name = `E2E Worker ${index}`;
+      const name = `E2E Worker ${runId ? `${runId}/` : ''}${index}`;
 
       /**
        * Refresh tokens are `jwt.sign({ id }, …, { expiresIn: '7d' })` — user id plus
