@@ -1,7 +1,7 @@
 ---
 title: 'fix: Stop the offline sale queue busy-looping and make failures visible'
 type: fix
-status: active
+status: completed
 date: 2026-08-31
 origin: https://github.com/zhamdy/moon-store/issues/30
 ---
@@ -323,7 +323,7 @@ The `online` event handler additionally clears pending `nextAttemptAt` values (w
 
 ## Implementation Units
 
-- [ ] **Unit 1: Collision-free queue-entry identity**
+- [x] **Unit 1: Collision-free queue-entry identity**
 
 **Goal:** Make a queue entry's id unique, so syncing one entry can never delete another — and so
 the per-entry retry state Units 2-3 add is addressable at all.
@@ -369,7 +369,7 @@ the per-entry retry state Units 2-3 add is addressable at all.
 
 ---
 
-- [ ] **Unit 2: Retry state on the persisted queue entry**
+- [x] **Unit 2: Retry state on the persisted queue entry**
 
 **Goal:** Give each entry an attempt count, a next-attempt time, and a terminal-failure flag, plus
 the store actions that move it between those states — with entries persisted before this change
@@ -436,7 +436,7 @@ behaving exactly as they do today.
 
 ---
 
-- [ ] **Unit 3: Classify failures and replace the busy loop with a scheduler**
+- [x] **Unit 3: Classify failures and replace the busy loop with a scheduler**
 
 **Goal:** Stop the unbounded retry. Classify each replay failure, apply the retry state from Unit 2,
 and drive auto-sync from a timer keyed on the earliest due entry rather than from callback identity.
@@ -542,7 +542,7 @@ to get backwards.
 
 ---
 
-- [ ] **Unit 4: Surface parked entries and give the cashier a way back**
+- [x] **Unit 4: Surface parked entries and give the cashier a way back**
 
 **Goal:** Make "this sale failed to sync" visible where the cashier already looks for queue trouble,
 with an explicit action that puts the entry back in play.
@@ -596,7 +596,7 @@ with an explicit action that puts the entry back in play.
 
 ---
 
-- [ ] **Unit 5: Record the replay contract**
+- [x] **Unit 5: Record the replay contract**
 
 **Goal:** Write down the retry/park semantics so the next change to this file does not reintroduce
 the loop.
