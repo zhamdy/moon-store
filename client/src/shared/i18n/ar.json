@@ -603,6 +603,8 @@
   "offline.synced": "تمت مزامنة {count} عملية بيع",
   "offline.splitMismatch": "{count} عملية بيع في الانتظار لم تعد متوازنة -- يرجى المراجعة قبل إعادة المحاولة",
   "offline.quarantinedForReview": "{count} منها يحتاج إلى مراجعة يدوية قبل المزامنة.",
+  "offline.failedToSync": "فشلت مزامنة {count} عملية بيع -- لن تتم إعادة المحاولة تلقائياً.",
+  "offline.retry": "إعادة المحاولة",
 
   "pwa.installApp": "تثبيت تطبيق MOON",
   "pwa.installDesc": "ثبّت التطبيق للوصول السريع والعمل بدون إنترنت",

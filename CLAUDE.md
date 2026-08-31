@@ -78,6 +78,13 @@ on teardown, so files cannot contaminate each other. The target database only ne
 privileges. CI (`.github/workflows/ci.yml`) always sets `TEST_DATABASE_URL` and fails the
 build if these suites were skipped.
 
+## Offline queue
+
+Sales rung up offline are queued in `localStorage` and replayed by
+`client/src/shared/hooks/useOffline.ts`. A failed replay backs off, and a rejection the server will
+repeat parks for a cashier rather than retrying forever — see the **Offline queue replay contract**
+in `docs/CONVENTIONS.md` before changing the hook or its store.
+
 ## Idempotency compatibility window
 
 Retry-prone mutations (`POST /api/v1/sales` and the other wrapped endpoints) accept an

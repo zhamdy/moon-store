@@ -11,7 +11,7 @@ import { useSettingsStore } from '../shared/store/settingsStore';
 import { WifiOff, Languages, Moon, Sun, Menu } from 'lucide-react';
 
 export default function Layout(): React.JSX.Element {
-  const { isOnline, queueLength, quarantinedCount } = useOffline();
+  const { isOnline, queueLength, quarantinedCount, failedCount, retryFailed } = useOffline();
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const { toggleLocale, toggleTheme, theme } = useSettingsStore();
@@ -72,22 +72,47 @@ export default function Layout(): React.JSX.Element {
 
         {/* Offline banner */}
         {!isOnline && (
-          <div className="bg-warning/10 border-b border-warning/30 text-warning px-4 py-2 text-sm flex items-center gap-2">
+          <div
+            role="status"
+            className="bg-warning/10 border-b border-warning/30 text-warning px-4 py-2 text-sm flex items-center gap-2"
+          >
             <WifiOff className="h-4 w-4" />
             {t('offline.offlineBanner')}
             {queueLength > 0 && ` ${t('offline.queuedForSync', { count: queueLength })}`}
             {quarantinedCount > 0 &&
               ` ${t('offline.quarantinedForReview', { count: quarantinedCount })}`}
+            {/* Parked sales are otherwise only named in the online branch below,
+                so dropping the link would hide them behind "queued for sync" --
+                which promises they will go on their own, and they will not. */}
+            {failedCount > 0 && ` ${t('offline.failedToSync', { count: failedCount })}`}
           </div>
         )}
 
-        {/* Quarantined queued sale(s) needing manual review -- shown even once
-            back online, since these never auto-resolve on their own (see
-            `isQuarantined` in offlineStore.ts). */}
-        {isOnline && quarantinedCount > 0 && (
-          <div className="bg-warning/10 border-b border-warning/30 text-warning px-4 py-2 text-sm flex items-center gap-2">
+        {/* Queued sale(s) needing a human -- shown even once back online, since
+            neither state auto-resolves. Quarantined (legacy or no longer
+            balanced) needs a re-ring; parked (`syncFailed`) just needs putting
+            back in the queue, which is what Retry does. Counted separately
+            because the answers differ. */}
+        {isOnline && (quarantinedCount > 0 || failedCount > 0) && (
+          <div
+            role="status"
+            className="bg-warning/10 border-b border-warning/30 text-warning px-4 py-2 text-sm flex items-center gap-2 flex-wrap"
+          >
             <WifiOff className="h-4 w-4" />
-            {t('offline.quarantinedForReview', { count: quarantinedCount })}
+            {quarantinedCount > 0 && (
+              <span>{t('offline.quarantinedForReview', { count: quarantinedCount })}</span>
+            )}
+            {failedCount > 0 && <span>{t('offline.failedToSync', { count: failedCount })}</span>}
+            {failedCount > 0 && (
+              <Button
+                size="sm"
+                variant="light"
+                onClick={retryFailed}
+                className="h-7 min-w-0 px-3 text-warning underline"
+              >
+                {t('offline.retry')}
+              </Button>
+            )}
           </div>
         )}
 
