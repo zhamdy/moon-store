@@ -146,6 +146,10 @@ export async function completeSaleAndReadId(
   const before = await countSalesForCashier(cashierId);
 
   await expect(confirm, 'the confirm control must be actionable before clicking').toBeEnabled();
+  // The confirm button is the last child of a scrollable drawer body, so anything that
+  // adds height above it — the offline banner, a coupon chip, a loyalty row — can push it
+  // out of view. Scroll it in explicitly rather than relying on the click's own attempt.
+  await confirm.scrollIntoViewIfNeeded();
   await confirm.click();
   await expect(receipt, 'the receipt confirms the server accepted the sale').toBeVisible();
 

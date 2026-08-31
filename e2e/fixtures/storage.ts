@@ -25,10 +25,16 @@ import type { AuthUser } from './types';
 import {
   AUTH_STORAGE_KEY,
   HELD_CARTS_STORAGE_KEY,
+  OFFLINE_QUEUE_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
 } from '../../client/src/shared/lib/storageKeys';
 
-export { AUTH_STORAGE_KEY, HELD_CARTS_STORAGE_KEY, SETTINGS_STORAGE_KEY };
+export {
+  AUTH_STORAGE_KEY,
+  HELD_CARTS_STORAGE_KEY,
+  OFFLINE_QUEUE_STORAGE_KEY,
+  SETTINGS_STORAGE_KEY,
+};
 
 /**
  * Not in `storageKeys.ts`: it is a `sessionStorage` key private to `StartupPrompt.tsx`,
