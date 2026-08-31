@@ -101,9 +101,9 @@ export const RETRY_JITTER = 0.2;
  * Delay before attempt `attempts + 1`, given `attempts` consecutive failures
  * so far. Exported so tests assert the policy rather than a hard-coded ladder.
  */
-export function nextAttemptDelay(attempts: number): number {
+export function nextAttemptDelay(attempts: number, minDelayMs = 0): number {
   const exponential = RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1);
-  const capped = Math.min(exponential, RETRY_CEILING_MS);
+  const capped = Math.min(Math.max(exponential, minDelayMs), RETRY_CEILING_MS);
   return Math.round(capped * (1 - RETRY_JITTER + Math.random() * 2 * RETRY_JITTER));
 }
 
@@ -111,6 +111,8 @@ export function nextAttemptDelay(attempts: number): number {
 export interface FailureOutcome {
   retryable: boolean;
   reason: string;
+  /** Floor for the next backoff step, for a failure that says how long to wait. */
+  minDelayMs?: number;
 }
 
 export interface OfflineQueueItem extends OfflineAction {
@@ -154,9 +156,19 @@ export function isDue(item: OfflineAction, now: number = Date.now()): boolean {
   return !item.nextAttemptAt || Date.parse(item.nextAttemptAt) <= now;
 }
 
+/**
+ * `sale` is the only type anything enqueues, and the only type useOffline
+ * knows how to replay. Anything else is inert -- it must not be counted as
+ * work waiting to happen, or the scheduler would arm a timer for a sweep that
+ * can never do anything.
+ */
+export function isReplayable(item: OfflineAction): boolean {
+  return item.type === 'sale';
+}
+
 /** Whether an entry may be auto-replayed right now. */
 export function isEligible(item: OfflineAction, now: number = Date.now()): boolean {
-  return !needsReview(item) && isDue(item, now);
+  return isReplayable(item) && !needsReview(item) && isDue(item, now);
 }
 
 /**
@@ -168,7 +180,7 @@ export function isEligible(item: OfflineAction, now: number = Date.now()): boole
 export function earliestAttemptAt(queue: OfflineQueueItem[]): number | null {
   let earliest: number | null = null;
   for (const item of queue) {
-    if (needsReview(item)) continue;
+    if (!isReplayable(item) || needsReview(item)) continue;
     const at = item.nextAttemptAt ? Date.parse(item.nextAttemptAt) : 0;
     if (earliest === null || at < earliest) earliest = at;
   }
@@ -234,7 +246,7 @@ export const useOfflineStore = create<OfflineState>()(
           queue: state.queue.map((item) => (item.id === id ? { ...item, mismatched: true } : item)),
         })),
 
-      recordFailure: (id, { retryable, reason }) =>
+      recordFailure: (id, { retryable, reason, minDelayMs }) =>
         set((state) => ({
           queue: state.queue.map((item) => {
             if (item.id !== id) return item;
@@ -247,7 +259,9 @@ export const useOfflineStore = create<OfflineState>()(
               ...item,
               attempts,
               lastFailure: reason,
-              nextAttemptAt: new Date(Date.now() + nextAttemptDelay(attempts)).toISOString(),
+              nextAttemptAt: new Date(
+                Date.now() + nextAttemptDelay(attempts, minDelayMs)
+              ).toISOString(),
             };
           }),
         })),
