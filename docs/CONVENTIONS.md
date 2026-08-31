@@ -86,23 +86,35 @@ govern how they are replayed; `client/src/shared/hooks/useOffline.ts` and
 
 1. **Every queued entry has a unique, opaque id.** Ids come from `createQueueItemId()`, not from
    `Date.now()` — two sales rung up in the same millisecond used to share an id, and syncing one
-   silently deleted the other. `id` is typed `string | number` so entries persisted under the old
-   scheme keep matching.
+   silently deleted the other. Widening `id` to `string | number` only made old entries
+   *addressable*; `migrateQueueIds` on rehydrate is what makes them *unique*, and it is what closes
+   the defect for the tills that already have queued money.
 2. **A failed replay is classified before it is counted.** `client/src/shared/lib/offlineRetry.ts`
-   is the single place that decides retryable vs terminal. A new server error code that should be
-   retried is added there and nowhere else.
+   is the single place that decides retryable vs terminal, and owns the backoff policy. A new
+   server error code that should be retried is added there and nowhere else.
 3. **A retryable failure backs off; a deterministic one parks immediately.** Backoff doubles from
    `RETRY_BASE_MS` to `RETRY_CEILING_MS` with ±`RETRY_JITTER` (tills in one shop reconnect on the
-   same event and must not retry in lockstep), for at most `MAX_RETRYABLE_ATTEMPTS`. Auto-sync is
-   driven by a timer keyed on the earliest due entry — when nothing is eligible, no timer is armed
-   at all.
+   same event and must not retry in lockstep), for at most `MAX_RETRYABLE_ATTEMPTS` — currently
+   about 43 minutes of trying. If you change either constant, recompute that figure: the budget is
+   sized to outlast a routine server restart, and the ladder reaching the ceiling is what makes it
+   do so. Auto-sync is driven by a timer keyed on the earliest due entry — when nothing is
+   eligible, no timer is armed at all.
 4. **A parked entry is never dropped.** It keeps its payload *and its idempotency key*, and only
    an explicit cashier Retry (`clearRetryState`) revives it.
 
 The retry budget is deliberately generous **because** every replay carries the same
 `Idempotency-Key` (see `docs/plans/2026-08-30-002-fix-pos-concurrency-idempotency-plan.md`, Unit 9),
 so retrying cannot double-charge. The two decisions are coupled: anyone removing the key would have
-to shrink the budget.
+to shrink the budget. That coupling is enforced per entry, not just by convention — an entry with
+no `idempotencyKey` (queued in the window between the `contractVersion` and idempotency-key
+deploys) is parked on its **first** failure rather than replayed, because each unguarded retry of a
+sale that may already have committed is another charge.
+
+Two things the scheduler must keep doing, both learned the hard way: a replay carries an explicit
+deadline (the axios instance sets no timeout, and one black-holed request otherwise holds the
+in-flight guard for the life of the tab, silently freezing the queue), and reconnect-driven retries
+are throttled (attempts are spent per `online` event, so a flapping link would otherwise burn a
+40-minute budget in seconds and park healthy sales).
 
 **Persisted-field rule.** A new field on a queue entry is optional and documents what its *absence*
 means for an entry persisted before it existed. `contractVersion`, `idempotencyKey` and the retry

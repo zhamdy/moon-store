@@ -72,12 +72,19 @@ export default function Layout(): React.JSX.Element {
 
         {/* Offline banner */}
         {!isOnline && (
-          <div className="bg-warning/10 border-b border-warning/30 text-warning px-4 py-2 text-sm flex items-center gap-2">
+          <div
+            role="status"
+            className="bg-warning/10 border-b border-warning/30 text-warning px-4 py-2 text-sm flex items-center gap-2"
+          >
             <WifiOff className="h-4 w-4" />
             {t('offline.offlineBanner')}
             {queueLength > 0 && ` ${t('offline.queuedForSync', { count: queueLength })}`}
             {quarantinedCount > 0 &&
               ` ${t('offline.quarantinedForReview', { count: quarantinedCount })}`}
+            {/* Parked sales are otherwise only named in the online branch below,
+                so dropping the link would hide them behind "queued for sync" --
+                which promises they will go on their own, and they will not. */}
+            {failedCount > 0 && ` ${t('offline.failedToSync', { count: failedCount })}`}
           </div>
         )}
 
@@ -87,7 +94,10 @@ export default function Layout(): React.JSX.Element {
             back in the queue, which is what Retry does. Counted separately
             because the answers differ. */}
         {isOnline && (quarantinedCount > 0 || failedCount > 0) && (
-          <div className="bg-warning/10 border-b border-warning/30 text-warning px-4 py-2 text-sm flex items-center gap-2 flex-wrap">
+          <div
+            role="status"
+            className="bg-warning/10 border-b border-warning/30 text-warning px-4 py-2 text-sm flex items-center gap-2 flex-wrap"
+          >
             <WifiOff className="h-4 w-4" />
             {quarantinedCount > 0 && (
               <span>{t('offline.quarantinedForReview', { count: quarantinedCount })}</span>

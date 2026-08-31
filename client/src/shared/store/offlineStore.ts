@@ -2,12 +2,25 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { OFFLINE_QUEUE_STORAGE_KEY } from '@/shared/lib/storageKeys';
 import { createIdempotencyKey } from '@/shared/lib/transport/idempotency';
+import {
+  jitter,
+  nextAttemptDelay,
+  MAX_RETRYABLE_ATTEMPTS,
+  RETRY_BASE_MS,
+  type FailureOutcome,
+} from '@/shared/lib/offlineRetry';
 
 /**
  * A queue entry's identity. Entries minted since collision-free ids shipped
- * carry an opaque string; entries already in a cashier's `localStorage` from
- * before carry the `Date.now()` number they were given. Both keep matching
- * under the `===`/`!==` lookups below, so no rehydrate migration is needed.
+ * carry an opaque string; entries persisted before that carry the `Date.now()`
+ * number they were given.
+ *
+ * Widening the type is not on its own enough. A numeric id still *matches*
+ * under the `===`/`!==` lookups below, but two pre-upgrade entries rung up in
+ * the same millisecond still share one -- which is the whole defect, surviving
+ * in exactly the population that already has queued money. `migrateQueueIds`
+ * on rehydrate is what actually closes it; the union type is here so entries
+ * are addressable in the window before that runs.
  */
 export type OfflineQueueItemId = string | number;
 
@@ -79,42 +92,6 @@ export interface OfflineAction {
   lastFailure?: string;
 }
 
-/** First backoff step. Doubles per consecutive retryable failure. */
-export const RETRY_BASE_MS = 1_000;
-/** Backoff never grows past this, so a recovered server is retried promptly. */
-export const RETRY_CEILING_MS = 5 * 60 * 1_000;
-/**
- * Attempts a retryable failure may consume before the entry parks. Sized for
- * roughly 40 minutes of trying -- affordable only because every replay carries
- * the same `Idempotency-Key`, so retrying cannot double-charge. Parking a
- * legitimate sale during a ten-minute server restart would force the cashier
- * to re-ring it, which is the more expensive mistake.
- */
-export const MAX_RETRYABLE_ATTEMPTS = 10;
-/**
- * Every till in the shop comes back on the same `online` event and would
- * otherwise retry in lockstep against a server that just restarted.
- */
-export const RETRY_JITTER = 0.2;
-
-/**
- * Delay before attempt `attempts + 1`, given `attempts` consecutive failures
- * so far. Exported so tests assert the policy rather than a hard-coded ladder.
- */
-export function nextAttemptDelay(attempts: number, minDelayMs = 0): number {
-  const exponential = RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1);
-  const capped = Math.min(Math.max(exponential, minDelayMs), RETRY_CEILING_MS);
-  return Math.round(capped * (1 - RETRY_JITTER + Math.random() * 2 * RETRY_JITTER));
-}
-
-/** How a failed replay should be recorded -- see `client/src/shared/lib/offlineRetry.ts`. */
-export interface FailureOutcome {
-  retryable: boolean;
-  reason: string;
-  /** Floor for the next backoff step, for a failure that says how long to wait. */
-  minDelayMs?: number;
-}
-
 export interface OfflineQueueItem extends OfflineAction {
   id: OfflineQueueItemId;
   createdAt: string;
@@ -148,12 +125,29 @@ export function isQuarantined(item: OfflineAction): boolean {
  * and tests around it stay true -- a parked entry is not quarantined.
  */
 export function needsReview(item: OfflineAction): boolean {
-  return isQuarantined(item) || item.syncFailed === true;
+  return isQuarantined(item) || isParked(item);
+}
+
+/** Parked after a failed replay -- see `syncFailed`. Never auto-replayed. */
+export function isParked(item: OfflineAction): boolean {
+  return item.syncFailed === true;
+}
+
+/**
+ * The instant an entry may next be replayed, as epoch ms. No `nextAttemptAt`
+ * means due now -- and so does an unparseable one: a corrupt `localStorage`
+ * value must make the entry retry, not vanish from every code path that could
+ * ever surface it (`NaN` compares false against everything).
+ */
+function attemptAt(item: OfflineAction): number {
+  if (!item.nextAttemptAt) return 0;
+  const parsed = Date.parse(item.nextAttemptAt);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 /** Whether an entry's backoff has elapsed. No `nextAttemptAt` means due now. */
 export function isDue(item: OfflineAction, now: number = Date.now()): boolean {
-  return !item.nextAttemptAt || Date.parse(item.nextAttemptAt) <= now;
+  return attemptAt(item) <= now;
 }
 
 /**
@@ -162,7 +156,7 @@ export function isDue(item: OfflineAction, now: number = Date.now()): boolean {
  * work waiting to happen, or the scheduler would arm a timer for a sweep that
  * can never do anything.
  */
-export function isReplayable(item: OfflineAction): boolean {
+function isReplayable(item: OfflineAction): boolean {
   return item.type === 'sale';
 }
 
@@ -181,7 +175,7 @@ export function earliestAttemptAt(queue: OfflineQueueItem[]): number | null {
   let earliest: number | null = null;
   for (const item of queue) {
     if (!isReplayable(item) || needsReview(item)) continue;
-    const at = item.nextAttemptAt ? Date.parse(item.nextAttemptAt) : 0;
+    const at = attemptAt(item);
     if (earliest === null || at < earliest) earliest = at;
   }
   return earliest;
@@ -208,18 +202,37 @@ interface OfflineState {
    */
   clearRetryState: (id?: OfflineQueueItemId) => void;
   /**
-   * Drops pending backoff on reconnect without forgiving any attempts, so a
-   * network change retries at once while a poison entry still parks on
-   * schedule.
+   * Pulls every pending backoff in to a short jittered delay on reconnect,
+   * without forgiving any attempts -- so a network change retries promptly
+   * while a poison entry still parks on schedule.
+   *
+   * Deliberately not "due immediately": every till in the shop gets the same
+   * `online` event, and setting them all to zero restores exactly the lockstep
+   * stampede the jitter exists to break.
    */
-  clearBackoff: () => void;
+  retrySoon: () => void;
   clearQueue: () => void;
   setSyncing: (isSyncing: boolean) => void;
   getQueueLength: () => number;
   /** Legacy unversioned 'sale' entries awaiting manual cashier review -- see `isQuarantined`. */
   getQuarantinedCount: () => number;
-  /** Entries parked after a failed replay, awaiting an explicit cashier Retry. */
-  getFailedCount: () => number;
+}
+
+/**
+ * Replaces every legacy `Date.now()` id with a collision-free one, in place,
+ * on rehydrate.
+ *
+ * Widening the id type made old entries addressable but left them colliding:
+ * two sales rung up in the same millisecond before the upgrade still share an
+ * id, so removing one drops both and `recordFailure` on one charges attempts
+ * to the other. Ids are internal to this store -- nothing persists or
+ * transmits them -- so restamping is safe, and it is the only thing that makes
+ * R5 true for the tills that already have queued money.
+ */
+export function migrateQueueIds(queue: OfflineQueueItem[]): OfflineQueueItem[] {
+  return queue.map((item) =>
+    typeof item.id === 'number' ? { ...item, id: createQueueItemId() } : item
+  );
 }
 
 export const useOfflineStore = create<OfflineState>()(
@@ -282,14 +295,19 @@ export const useOfflineStore = create<OfflineState>()(
           }),
         })),
 
-      clearBackoff: () =>
-        set((state) => ({
-          queue: state.queue.map((item) => {
-            if (!item.nextAttemptAt) return item;
-            const { nextAttemptAt: _dropped, ...rest } = item;
-            return rest;
-          }),
-        })),
+      retrySoon: () =>
+        set((state) => {
+          const now = Date.now();
+          return {
+            queue: state.queue.map((item) => {
+              if (attemptAt(item) <= now) return item;
+              return {
+                ...item,
+                nextAttemptAt: new Date(now + jitter(RETRY_BASE_MS)).toISOString(),
+              };
+            }),
+          };
+        }),
 
       clearQueue: () => set({ queue: [] }),
 
@@ -298,8 +316,6 @@ export const useOfflineStore = create<OfflineState>()(
       getQueueLength: () => get().queue.length,
 
       getQuarantinedCount: () => get().queue.filter(isQuarantined).length,
-
-      getFailedCount: () => get().queue.filter((item) => item.syncFailed === true).length,
     }),
     {
       name: OFFLINE_QUEUE_STORAGE_KEY,
@@ -310,7 +326,9 @@ export const useOfflineStore = create<OfflineState>()(
       // what rescues a blob already carrying `true`.
       partialize: (state) => ({ queue: state.queue }),
       onRehydrateStorage: () => (state) => {
-        if (state) state.isSyncing = false;
+        if (!state) return;
+        state.isSyncing = false;
+        state.queue = migrateQueueIds(state.queue);
       },
     }
   )

@@ -1,11 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/features/auth';
 import { useSettingsStore } from '@/shared/store/settingsStore';
 import { useOfflineStore, SALE_QUEUE_CONTRACT_VERSION } from '@/shared/store/offlineStore';
 import { TransportProvider } from '@/shared/lib/transport/index';
 import { createMemoryTransport } from '@/shared/lib/transport/memory';
-import { renderWithRouter } from '@/shared/tests/routerTestUtils';
 import en from '@/shared/i18n/en.json';
 import ar from '@/shared/i18n/ar.json';
 import Layout from '../Layout';
@@ -21,17 +28,47 @@ const healthySale = (id: string) => ({
   contractVersion: SALE_QUEUE_CONTRACT_VERSION,
 });
 
+/**
+ * Layout renders an `<Outlet/>`, so handing it to `renderWithRouter` as the
+ * `ui` mounts it as both the root and the index component -- Layout nested
+ * inside itself, two schedulers, two banners, and every assertion needing
+ * `getAllBy*`. That is not the shipped environment, so this builds the router
+ * the real app has: Layout at the root, a page inside it.
+ */
 function renderLayout() {
   const transport = createMemoryTransport({ sales: [] });
-  return {
-    transport,
-    ...renderWithRouter(
+  const rootRoute = createRootRoute({
+    component: () => (
       <TransportProvider transport={transport}>
         <Layout />
-      </TransportProvider>,
-      { initialRoute: '/', authState: { isAuthenticated: true, user: ADMIN } }
+      </TransportProvider>
+    ),
+  });
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/',
+    component: () => <div>page</div>,
+  });
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  });
+
+  return {
+    transport,
+    ...render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <RouterProvider router={router} />
+      </QueryClientProvider>
     ),
   };
+}
+
+/** The shipped English copy, so a wording change is not a test failure. */
+function copy(key: string, count: number): string {
+  return (en as Record<string, string>)[key].replace('{count}', String(count));
 }
 
 describe('Layout - queued sale review banner', () => {
@@ -61,7 +98,10 @@ describe('Layout - queued sale review banner', () => {
 
     renderLayout();
 
-    expect(await screen.findAllByText(/2 queued sale\(s\) failed to sync/i)).not.toHaveLength(0);
+    // One banner, not two: Layout must not be mounted inside itself here, or
+    // every count below would be asserted against a duplicate render.
+    const banner = await screen.findByRole('status');
+    expect(banner).toHaveTextContent(copy('offline.failedToSync', 2));
   });
 
   it('puts every parked sale back in play when Retry is pressed', async () => {
@@ -74,18 +114,26 @@ describe('Layout - queued sale review banner', () => {
     });
 
     const { transport } = renderLayout();
-
-    // Parked means parked: nothing was replayed on its own.
-    await waitFor(() =>
-      expect(screen.queryAllByRole('button', { name: /retry/i })).not.toHaveLength(0)
-    );
     const salePosts = () =>
       transport.calls().filter((call) => call.method === 'POST' && call.path === 'sales');
+
+    // Parked means parked: nothing was replayed on its own.
+    const retry = await screen.findByRole('button', { name: en['offline.retry'] });
     expect(salePosts()).toEqual([]);
 
-    fireEvent.click((await screen.findAllByRole('button', { name: /retry/i }))[0]);
+    fireEvent.click(retry);
 
-    // Back in play: the scheduler picks them up and both replay.
+    // Retry clears the parked state itself...
+    await waitFor(() =>
+      expect(useOfflineStore.getState().queue.every((item) => item.syncFailed === undefined)).toBe(
+        true
+      )
+    );
+    expect(useOfflineStore.getState().queue.every((item) => item.attempts === undefined)).toBe(
+      true
+    );
+
+    // ...and the scheduler takes it from there.
     await waitFor(() => expect(useOfflineStore.getState().queue).toHaveLength(0));
     expect(salePosts()).toHaveLength(2);
   });
@@ -101,8 +149,10 @@ describe('Layout - queued sale review banner', () => {
 
     renderLayout();
 
-    expect(await screen.findAllByText(/1 of these need manual review/i)).not.toHaveLength(0);
-    expect(screen.getAllByText(/1 queued sale\(s\) failed to sync/i)).not.toHaveLength(0);
+    // A parked sale is not a quarantined one: the cashier's next step differs.
+    const banner = await screen.findByRole('status');
+    expect(banner).toHaveTextContent(copy('offline.quarantinedForReview', 1));
+    expect(banner).toHaveTextContent(copy('offline.failedToSync', 1));
   });
 
   it('renders no review banner for a healthy queue', async () => {
@@ -110,12 +160,27 @@ describe('Layout - queued sale review banner', () => {
 
     renderLayout();
 
-    await waitFor(() => expect(screen.queryAllByText(/failed to sync/i)).toHaveLength(0));
-    expect(screen.queryAllByText(/need manual review/i)).toHaveLength(0);
-    expect(screen.queryAllByRole('button', { name: /^retry$/i })).toHaveLength(0);
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: en['offline.retry'] })).not.toBeInTheDocument();
   });
 
-  it('composes the offline banner exactly as it did before', async () => {
+  it('still names parked sales while the till is offline', async () => {
+    // The review banner is gated on being online, so without this the one sale
+    // that will never sync on its own hides behind "queued for sync" -- which
+    // promises the opposite.
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+    useOfflineStore.setState({
+      queue: [healthySale('a'), { ...healthySale('b'), syncFailed: true, attempts: 17 }],
+      isSyncing: false,
+    });
+
+    renderLayout();
+
+    const banner = await screen.findByRole('status');
+    expect(banner).toHaveTextContent(copy('offline.failedToSync', 1));
+  });
+
+  it('composes the offline banner as it did before', async () => {
     Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
     useOfflineStore.setState({
       queue: [healthySale('a'), { id: 'legacy', createdAt: '', type: 'sale', payload: {} }],
@@ -124,9 +189,10 @@ describe('Layout - queued sale review banner', () => {
 
     renderLayout();
 
-    expect(await screen.findAllByText(/You are offline\./)).not.toHaveLength(0);
-    expect(screen.getAllByText(/2 item\(s\) queued for sync/i)).not.toHaveLength(0);
-    expect(screen.getAllByText(/1 of these need manual review/i)).not.toHaveLength(0);
+    const banner = await screen.findByRole('status');
+    expect(banner).toHaveTextContent(en['offline.offlineBanner']);
+    expect(banner).toHaveTextContent(copy('offline.queuedForSync', 2));
+    expect(banner).toHaveTextContent(copy('offline.quarantinedForReview', 1));
   });
 
   it('gives the Retry control an accessible name and keyboard reach', async () => {
@@ -137,7 +203,7 @@ describe('Layout - queued sale review banner', () => {
 
     renderLayout();
 
-    const [retry] = await screen.findAllByRole('button', { name: /retry/i });
+    const retry = await screen.findByRole('button', { name: en['offline.retry'] });
     retry.focus();
     expect(retry).toHaveFocus();
   });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ApiError } from './transport/types';
 import { classifyFailure, FAILURE_REASON } from './offlineRetry';
-import { RETRY_CEILING_MS } from '@/shared/store/offlineStore';
+import { RETRY_CEILING_MS } from './offlineRetry';
 
 describe('classifyFailure - retryable', () => {
   it('treats a network failure as retryable', () => {

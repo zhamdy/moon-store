@@ -4,13 +4,9 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { ApiError, TransportProvider } from '../lib/transport/index';
 import type { Transport, TransportRequest, TransportResult } from '../lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../lib/transport/memory';
-import {
-  useOfflineStore,
-  SALE_QUEUE_CONTRACT_VERSION,
-  MAX_RETRYABLE_ATTEMPTS,
-  RETRY_CEILING_MS,
-} from '../store/offlineStore';
-import { useOffline } from './useOffline';
+import { useOfflineStore, SALE_QUEUE_CONTRACT_VERSION, isParked } from '../store/offlineStore';
+import { MAX_RETRYABLE_ATTEMPTS, RETRY_CEILING_MS } from '../lib/offlineRetry';
+import { useOffline, resetOfflineSchedulerForTests } from './useOffline';
 
 /**
  * The body CartPanel queues when the till loses its connection mid-checkout —
@@ -36,6 +32,27 @@ function queueOneSale() {
         // Composed under the current checkout contract (Unit 6) -- see the
         // "quarantined legacy sale" tests below for the unversioned case.
         contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+      },
+    ],
+    isSyncing: false,
+  });
+}
+
+/**
+ * The same sale, carrying the key it was stamped with at ring-up. Retrying is
+ * only safe under a key, so the backoff tests need one: a keyless entry is
+ * deliberately parked on its first failure rather than replayed unguarded.
+ */
+function queueOneKeyedSale() {
+  useOfflineStore.setState({
+    queue: [
+      {
+        id: 1,
+        createdAt: '2026-02-01T10:00:00.000Z',
+        type: 'sale',
+        payload: QUEUED_SALE,
+        contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+        idempotencyKey: 'checkout-attempt-key',
       },
     ],
     isSyncing: false,
@@ -85,12 +102,14 @@ describe('offline sale replay', () => {
     online = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine');
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
     useOfflineStore.setState({ queue: [], isSyncing: false });
+    resetOfflineSchedulerForTests();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     if (online) Object.defineProperty(Navigator.prototype, 'onLine', online);
     useOfflineStore.setState({ queue: [], isSyncing: false });
+    resetOfflineSchedulerForTests();
   });
 
   it('replays a queued sale with the exact body it was queued with', async () => {
@@ -266,6 +285,7 @@ describe('offline sale replay - backoff and parking', () => {
     online = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine');
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
     useOfflineStore.setState({ queue: [], isSyncing: false });
+    resetOfflineSchedulerForTests();
     vi.useFakeTimers();
   });
 
@@ -273,6 +293,7 @@ describe('offline sale replay - backoff and parking', () => {
     vi.useRealTimers();
     if (online) Object.defineProperty(Navigator.prototype, 'onLine', online);
     useOfflineStore.setState({ queue: [], isSyncing: false });
+    resetOfflineSchedulerForTests();
   });
 
   it('makes exactly one attempt before any backoff has elapsed', async () => {
@@ -281,7 +302,7 @@ describe('offline sale replay - backoff and parking', () => {
     // was unbounded and a test could only observe state by hanging the second
     // attempt.
     const { transport, attempts } = rejectingTransport(() => new ApiError('', 500));
-    queueOneSale();
+    queueOneKeyedSale();
 
     const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
 
@@ -297,7 +318,7 @@ describe('offline sale replay - backoff and parking', () => {
 
   it('spaces each further attempt by a strictly longer backoff', async () => {
     const { transport, attempts } = rejectingTransport(() => new ApiError('', 500));
-    queueOneSale();
+    queueOneKeyedSale();
 
     const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
 
@@ -334,14 +355,18 @@ describe('offline sale replay - backoff and parking', () => {
         return Promise.resolve({ data: undefined as T });
       },
     };
-    queueOneSale();
+    queueOneKeyedSale();
 
     const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
 
     await advance(0);
     expect(useOfflineStore.getState().queue[0].attempts).toBe(1);
 
-    await advance(10_000);
+    // Stepped: each attempt's next wake-up is armed by a React effect that has
+    // to run between them, so one long jump would outrun the scheduler.
+    for (let step = 0; step < 4; step++) {
+      await advance(2_500);
+    }
 
     expect(useOfflineStore.getState().queue).toHaveLength(0);
     expect(failures).toBe(3);
@@ -353,7 +378,7 @@ describe('offline sale replay - backoff and parking', () => {
     const { transport, attempts } = rejectingTransport(
       () => new ApiError('bad request', 400, 'VALIDATION_ERROR')
     );
-    queueOneSale();
+    queueOneKeyedSale();
 
     const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
 
@@ -373,7 +398,7 @@ describe('offline sale replay - backoff and parking', () => {
 
   it('parks an entry once the retryable budget runs out, and stops attempting', async () => {
     const { transport, attempts } = rejectingTransport(() => new ApiError('', 500));
-    queueOneSale();
+    queueOneKeyedSale();
 
     const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
 
@@ -495,6 +520,7 @@ describe('offline sale replay - backoff and parking', () => {
           type: 'sale',
           payload: { poison: true },
           contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+          idempotencyKey: 'poison-key',
         },
         {
           id: 2,
@@ -502,6 +528,7 @@ describe('offline sale replay - backoff and parking', () => {
           type: 'sale',
           payload: { poison: false },
           contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+          idempotencyKey: 'healthy-key',
         },
       ],
       isSyncing: false,
@@ -528,6 +555,7 @@ describe('offline sale replay - backoff and parking', () => {
           type: 'sale',
           payload: QUEUED_SALE,
           contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+          idempotencyKey: 'checkout-attempt-key',
           attempts: 3,
           nextAttemptAt: new Date(Date.now() + RETRY_CEILING_MS).toISOString(),
         },
@@ -544,7 +572,12 @@ describe('offline sale replay - backoff and parking', () => {
     await act(async () => {
       window.dispatchEvent(new Event('online'));
     });
+    // Pulled in to about a second, not to zero -- every till in the shop gets
+    // this same event, and firing them all on the same instant is the stampede
+    // the jitter exists to prevent.
     await advance(0);
+    expect(attempts).toEqual([]);
+    await advance(1_500);
 
     expect(attempts).toHaveLength(1);
     // Attempt 4, not attempt 1: reconnecting is not a free pass for a sale the
@@ -587,7 +620,7 @@ describe('offline sale replay - backoff and parking', () => {
 
   it('clears its pending backoff timer on unmount', async () => {
     const { transport } = rejectingTransport(() => new ApiError('', 500));
-    queueOneSale();
+    queueOneKeyedSale();
 
     const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
 
@@ -607,7 +640,7 @@ describe('offline sale replay - backoff and parking', () => {
         return Promise.resolve({ data: undefined as T });
       },
     };
-    queueOneSale();
+    queueOneKeyedSale();
 
     const { result, unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
 
@@ -622,6 +655,217 @@ describe('offline sale replay - backoff and parking', () => {
     await advance(0);
 
     expect(useOfflineStore.getState().queue).toHaveLength(0);
+
+    unmount();
+  });
+});
+
+describe('offline sale replay - scheduler robustness', () => {
+  let online: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    online = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine');
+    Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+    useOfflineStore.setState({ queue: [], isSyncing: false });
+    resetOfflineSchedulerForTests();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    if (online) Object.defineProperty(Navigator.prototype, 'onLine', online);
+    useOfflineStore.setState({ queue: [], isSyncing: false });
+    resetOfflineSchedulerForTests();
+  });
+
+  it('picks up a sale rung up while a sweep was already running', async () => {
+    // The sweep captured its work list before this entry existed, and the
+    // scheduler's scalar is already zero so no dependency changes -- the
+    // sweep's own tail check is the only thing that can catch it.
+    let release: (() => void) | undefined;
+    const posted: unknown[] = [];
+    const transport: Transport = {
+      request<T>(req: TransportRequest): Promise<TransportResult<T>> {
+        posted.push(req.body);
+        if (posted.length === 1) {
+          return new Promise<TransportResult<T>>((resolve) => {
+            release = () => resolve({ data: undefined as T });
+          });
+        }
+        return Promise.resolve({ data: undefined as T });
+      },
+    };
+    queueOneKeyedSale();
+
+    const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
+
+    await advance(0);
+    expect(posted).toHaveLength(1);
+
+    // Second sale rung up mid-sweep.
+    await act(async () => {
+      useOfflineStore.getState().addToQueue({
+        type: 'sale',
+        payload: { late: true },
+        contractVersion: SALE_QUEUE_CONTRACT_VERSION,
+        idempotencyKey: 'late-key',
+      });
+    });
+    expect(posted).toHaveLength(1);
+
+    await act(async () => {
+      release?.();
+    });
+    await advance(0);
+
+    expect(posted).toHaveLength(2);
+    expect(useOfflineStore.getState().queue).toHaveLength(0);
+
+    unmount();
+  });
+
+  it('recovers from a replay that never settles instead of wedging the queue forever', async () => {
+    // No axios timeout backs this transport in production either, so without
+    // an explicit deadline the in-flight guard would stay raised for the life
+    // of the tab and every later sweep -- including the cashier's Retry --
+    // would silently no-op.
+    const attempts: TransportRequest[] = [];
+    const transport: Transport = {
+      request<T>(req: TransportRequest): Promise<TransportResult<T>> {
+        attempts.push(req);
+        return new Promise<TransportResult<T>>(() => {});
+      },
+    };
+    queueOneKeyedSale();
+
+    const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
+
+    await advance(0);
+    expect(attempts).toHaveLength(1);
+    // Still hanging: nothing has been recorded against the entry yet.
+    expect(useOfflineStore.getState().queue[0].attempts).toBeUndefined();
+
+    // Past the replay deadline.
+    await advance(31_000);
+
+    expect(useOfflineStore.getState().queue[0].attempts).toBe(1);
+    expect(useOfflineStore.getState().queue[0].syncFailed).toBeUndefined();
+
+    // And the queue keeps moving afterwards.
+    for (let step = 0; step < 3; step++) {
+      await advance(35_000);
+    }
+    expect(attempts.length).toBeGreaterThan(1);
+
+    unmount();
+  });
+
+  it('parks a keyless entry on its first failure rather than replaying it unguarded', async () => {
+    // Without a key the server cannot collapse a duplicate: if the original
+    // POST committed and only the response was lost, every retry rings the
+    // sale up again. A human decides instead.
+    const { transport, attempts } = rejectingTransport(() => new ApiError('', 500));
+    queueOneSale();
+
+    const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
+
+    await advance(0);
+
+    expect(attempts).toHaveLength(1);
+    expect(isParked(useOfflineStore.getState().queue[0])).toBe(true);
+
+    for (let step = 0; step < 3; step++) {
+      await advance(RETRY_CEILING_MS);
+    }
+    expect(attempts).toHaveLength(1);
+
+    unmount();
+  });
+
+  it('does not burn the attempt budget when the link flaps', async () => {
+    // Attempts are spent per event, not per elapsed minute. Ten reconnects in
+    // a few seconds must not park a sale the budget was sized to carry through
+    // a multi-minute outage.
+    const { transport, attempts } = rejectingTransport(() => new ApiError('', 500));
+    queueOneKeyedSale();
+
+    const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
+
+    await advance(0);
+    expect(attempts).toHaveLength(1);
+
+    for (let flap = 0; flap < 10; flap++) {
+      await act(async () => {
+        window.dispatchEvent(new Event('offline'));
+        window.dispatchEvent(new Event('online'));
+      });
+      await advance(100);
+    }
+
+    // The throttle means the flapping produced at most the one reconnect
+    // retry, not ten -- nowhere near the budget.
+    expect(attempts.length).toBeLessThanOrEqual(3);
+    expect(useOfflineStore.getState().queue[0].syncFailed).toBeUndefined();
+
+    unmount();
+  });
+
+  it('replays what was queued offline once the till comes back', async () => {
+    // The end-to-end path: offline, nothing attempted; online, drained.
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+    const transport: MemoryTransport = createMemoryTransport({ sales: [] });
+    queueOneKeyedSale();
+
+    const { result, unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
+
+    await advance(0);
+    expect(result.current.isOnline).toBe(false);
+    expect(transport.calls()).toEqual([]);
+    expect(result.current.queueLength).toBe(1);
+
+    Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+    });
+    await advance(1_500);
+
+    expect(result.current.isOnline).toBe(true);
+    expect(transport.calls()).toHaveLength(1);
+    // The counts the banner renders track the store at every step.
+    expect(result.current.queueLength).toBe(0);
+    expect(result.current.failedCount).toBe(0);
+    expect(result.current.quarantinedCount).toBe(0);
+
+    unmount();
+  });
+
+  it('does not re-render its consumer on every store write', async () => {
+    // The plan's named root cause: the old hook destructured the whole store,
+    // so each sweep's setSyncing re-rendered it -- and Layout beneath it,
+    // which wraps every authenticated page. Counting attempts alone would not
+    // catch a regression here, because the scheduler now gates those.
+    const { transport } = rejectingTransport(() => new ApiError('', 500));
+    queueOneKeyedSale();
+
+    let renders = 0;
+    const { unmount } = renderHook(
+      () => {
+        renders++;
+        return useOffline();
+      },
+      { wrapper: wrapperFor(transport) }
+    );
+
+    await advance(0);
+    const afterFirstSweep = renders;
+
+    // setSyncing is written twice per sweep and nothing here subscribes to it.
+    await act(async () => {
+      useOfflineStore.getState().setSyncing(true);
+      useOfflineStore.getState().setSyncing(false);
+    });
+
+    expect(renders).toBe(afterFirstSweep);
 
     unmount();
   });

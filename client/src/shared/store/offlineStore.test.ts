@@ -1,20 +1,24 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { OFFLINE_QUEUE_STORAGE_KEY } from '@/shared/lib/storageKeys';
 import {
   useOfflineStore,
   isQuarantined,
   needsReview,
+  isParked,
   isDue,
   isEligible,
   earliestAttemptAt,
-  nextAttemptDelay,
+  migrateQueueIds,
   SALE_QUEUE_CONTRACT_VERSION,
+  type OfflineQueueItemId,
+} from './offlineStore';
+import {
+  nextAttemptDelay,
   MAX_RETRYABLE_ATTEMPTS,
   RETRY_BASE_MS,
   RETRY_CEILING_MS,
   RETRY_JITTER,
-  type OfflineQueueItemId,
-} from './offlineStore';
+} from '@/shared/lib/offlineRetry';
 
 beforeEach(() => {
   useOfflineStore.setState({ queue: [], isSyncing: false });
@@ -111,6 +115,19 @@ describe('offlineStore - getQuarantinedCount', () => {
 });
 
 describe('offlineStore - queue entry identity', () => {
+  // Freeze the clock. Without this these tests only exercise the collision
+  // when two addToQueue calls happen to land in the same millisecond -- so
+  // reintroducing `id: Date.now()` would pass whenever the clock ticked
+  // between them, which on a loaded CI box is most of the time.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-31T12:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('gives two entries queued in the same millisecond distinct ids', () => {
     const { addToQueue } = useOfflineStore.getState();
     addToQueue({ type: 'sale', payload: { n: 1 } });
@@ -232,11 +249,14 @@ describe('offlineStore - recordFailure', () => {
     }
 
     // Jitter makes strict monotonicity a flaky assertion; the doubling band is
-    // the actual policy, so assert that instead.
+    // the actual policy, so assert that instead. The few ms of slack absorb the
+    // real-clock drift between `before` and the store's own Date.now() -- the
+    // band is otherwise exact at the top, and a single millisecond would fail.
+    const SLACK_MS = 50;
     delays.forEach((delay, i) => {
       const expected = Math.min(RETRY_BASE_MS * 2 ** i, RETRY_CEILING_MS);
-      expect(delay).toBeGreaterThanOrEqual(Math.floor(expected * (1 - RETRY_JITTER)));
-      expect(delay).toBeLessThanOrEqual(Math.ceil(expected * (1 + RETRY_JITTER)));
+      expect(delay).toBeGreaterThanOrEqual(Math.floor(expected * (1 - RETRY_JITTER)) - SLACK_MS);
+      expect(delay).toBeLessThanOrEqual(Math.ceil(expected * (1 + RETRY_JITTER)) + SLACK_MS);
     });
   });
 
@@ -315,7 +335,18 @@ describe('offlineStore - clearRetryState and clearBackoff', () => {
   it('revives every parked entry when called with no id, and leaves healthy ones alone', () => {
     useOfflineStore.setState({
       queue: [
-        { id: 'a', createdAt: '', type: 'sale', payload: {}, attempts: 10, syncFailed: true },
+        // Carries a backoff as well as the parked flag: a Retry that cleared
+        // syncFailed but left nextAttemptAt would un-park the sale into a wait
+        // the cashier cannot see and did not ask for.
+        {
+          id: 'a',
+          createdAt: '',
+          type: 'sale',
+          payload: {},
+          attempts: 10,
+          syncFailed: true,
+          nextAttemptAt: '2999-01-01T00:00:00.000Z',
+        },
         { id: 'b', createdAt: '', type: 'sale', payload: {}, attempts: 10, syncFailed: true },
         { id: 'c', createdAt: '', type: 'sale', payload: {}, attempts: 2, nextAttemptAt: 'x' },
       ],
@@ -327,6 +358,8 @@ describe('offlineStore - clearRetryState and clearBackoff', () => {
     const [a, b, c] = useOfflineStore.getState().queue;
     expect(a.syncFailed).toBeUndefined();
     expect(a.attempts).toBeUndefined();
+    expect(a.nextAttemptAt).toBeUndefined();
+    expect(isParked(a)).toBe(false);
     expect(b.syncFailed).toBeUndefined();
     expect(c.attempts).toBe(2);
   });
@@ -346,10 +379,14 @@ describe('offlineStore - clearRetryState and clearBackoff', () => {
       isSyncing: false,
     });
 
-    useOfflineStore.getState().clearBackoff();
+    const before = Date.now();
+    useOfflineStore.getState().retrySoon();
 
-    expect(useOfflineStore.getState().queue[0].nextAttemptAt).toBeUndefined();
-    expect(useOfflineStore.getState().queue[0].attempts).toBe(3);
+    const item = useOfflineStore.getState().queue[0];
+    // Pulled in to the next second or so, not to zero -- see the retrySoon
+    // block below for why the difference matters across a shop full of tills.
+    expect(Date.parse(item.nextAttemptAt as string) - before).toBeLessThan(2_000);
+    expect(item.attempts).toBe(3);
   });
 });
 
@@ -421,7 +458,7 @@ describe('offlineStore - review and eligibility predicates', () => {
     });
 
     expect(useOfflineStore.getState().getQuarantinedCount()).toBe(1);
-    expect(useOfflineStore.getState().getFailedCount()).toBe(1);
+    expect(useOfflineStore.getState().queue.filter(isParked)).toHaveLength(1);
   });
 });
 
@@ -465,5 +502,160 @@ describe('offlineStore - retry state persistence', () => {
     await useOfflineStore.persist.rehydrate();
 
     expect(useOfflineStore.getState().queue[0]).toEqual(before);
+  });
+});
+
+describe('offlineStore - legacy id migration', () => {
+  it('restamps every numeric id so pre-upgrade entries stop colliding', () => {
+    // Two sales rung up in the same millisecond before the upgrade: the whole
+    // defect, preserved verbatim in a real cashier's localStorage.
+    const collided = migrateQueueIds([
+      { id: 1738000000000, createdAt: '', type: 'sale', payload: { n: 1 } },
+      { id: 1738000000000, createdAt: '', type: 'sale', payload: { n: 2 } },
+    ]);
+
+    expect(collided[0].id).not.toBe(collided[1].id);
+    expect(typeof collided[0].id).toBe('string');
+    // Payloads are untouched -- this restamps identity, nothing else.
+    expect(collided.map((item) => item.payload)).toEqual([{ n: 1 }, { n: 2 }]);
+  });
+
+  it('leaves an already-migrated string id alone', () => {
+    const migrated = migrateQueueIds([
+      { id: 'already-opaque', createdAt: '', type: 'sale', payload: {} },
+    ]);
+
+    expect(migrated[0].id).toBe('already-opaque');
+  });
+
+  it('runs on rehydrate, so a collided queue is repaired before anything reads it', async () => {
+    localStorage.setItem(
+      OFFLINE_QUEUE_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          queue: [
+            { id: 1738000000000, createdAt: '', type: 'sale', payload: { n: 1 } },
+            { id: 1738000000000, createdAt: '', type: 'sale', payload: { n: 2 } },
+          ],
+        },
+        version: 0,
+      })
+    );
+
+    await useOfflineStore.persist.rehydrate();
+
+    const [first, second] = useOfflineStore.getState().queue;
+    expect(first.id).not.toBe(second.id);
+
+    // The behaviour that mattered: removing one no longer deletes the other.
+    useOfflineStore.getState().removeFromQueue(first.id);
+    expect(useOfflineStore.getState().queue).toHaveLength(1);
+    expect(useOfflineStore.getState().queue[0].payload).toEqual({ n: 2 });
+  });
+});
+
+describe('offlineStore - rate-limit backoff floor', () => {
+  it('honours a failure that carries its own minimum delay', () => {
+    // The classifier returns minDelayMs for a 429. If recordFailure ignored
+    // it, a till would retry a rate limiter on the 1s base step and earn a
+    // longer ban -- and nothing downstream would notice.
+    useOfflineStore.getState().addToQueue({ type: 'sale', payload: {} });
+    const id = useOfflineStore.getState().queue[0].id;
+    const before = Date.now();
+
+    useOfflineStore
+      .getState()
+      .recordFailure(id, { retryable: true, reason: 'rate-limited', minDelayMs: RETRY_CEILING_MS });
+
+    const delay = Date.parse(useOfflineStore.getState().queue[0].nextAttemptAt as string) - before;
+    // Jittered, but never back down at the base step.
+    expect(delay).toBeGreaterThanOrEqual(Math.floor(RETRY_CEILING_MS * (1 - RETRY_JITTER)) - 5);
+  });
+
+  it('applies the floor through nextAttemptDelay itself', () => {
+    for (let sample = 0; sample < 50; sample++) {
+      expect(nextAttemptDelay(1, RETRY_CEILING_MS)).toBeGreaterThanOrEqual(
+        Math.floor(RETRY_CEILING_MS * (1 - RETRY_JITTER))
+      );
+    }
+  });
+});
+
+describe('offlineStore - retrySoon', () => {
+  it('pulls a pending backoff in without dropping it to zero', () => {
+    // Dropping to zero would put every till in the shop on the same instant --
+    // the lockstep stampede the jitter exists to break.
+    useOfflineStore.setState({
+      queue: [
+        {
+          id: 'a',
+          createdAt: '',
+          type: 'sale',
+          payload: {},
+          attempts: 5,
+          nextAttemptAt: new Date(Date.now() + RETRY_CEILING_MS).toISOString(),
+        },
+      ],
+      isSyncing: false,
+    });
+
+    const before = Date.now();
+    useOfflineStore.getState().retrySoon();
+
+    const item = useOfflineStore.getState().queue[0];
+    const delay = Date.parse(item.nextAttemptAt as string) - before;
+    expect(delay).toBeGreaterThan(0);
+    expect(delay).toBeLessThanOrEqual(Math.ceil(RETRY_BASE_MS * (1 + RETRY_JITTER)) + 5);
+    // Reconnecting is not a free pass for a sale the server keeps rejecting.
+    expect(item.attempts).toBe(5);
+  });
+
+  it('leaves an already-due entry exactly as it is', () => {
+    useOfflineStore.setState({
+      queue: [{ id: 'a', createdAt: '', type: 'sale', payload: {}, attempts: 2 }],
+      isSyncing: false,
+    });
+    const before = useOfflineStore.getState().queue[0];
+
+    useOfflineStore.getState().retrySoon();
+
+    expect(useOfflineStore.getState().queue[0]).toEqual(before);
+  });
+});
+
+describe('offlineStore - corrupt nextAttemptAt', () => {
+  it('treats an unparseable timestamp as due now rather than stranding the entry', () => {
+    // A NaN compares false against everything, so a corrupt localStorage value
+    // would otherwise make the entry never due, never parked and never
+    // quarantined -- invisible in every banner and replayed by nothing.
+    const corrupt = { type: 'sale', payload: {}, nextAttemptAt: 'not-a-date' };
+
+    expect(isDue(corrupt)).toBe(true);
+    expect(earliestAttemptAt([{ id: 'a', createdAt: '', ...corrupt, contractVersion: 'v1' }])).toBe(
+      0
+    );
+  });
+
+  it('does not let one corrupt entry poison the whole scheduler scalar', () => {
+    const at = earliestAttemptAt([
+      {
+        id: 'a',
+        createdAt: '',
+        type: 'sale',
+        payload: {},
+        contractVersion: 'v1',
+        nextAttemptAt: 'garbage',
+      },
+      {
+        id: 'b',
+        createdAt: '',
+        type: 'sale',
+        payload: {},
+        contractVersion: 'v1',
+        nextAttemptAt: '2999-01-01T00:00:00.000Z',
+      },
+    ]);
+
+    expect(at).toBe(0);
   });
 });
