@@ -73,6 +73,9 @@ async function advance(ms: number) {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(ms);
   });
+  // The next timer is armed by a React effect, which only runs once the sweep's
+  // state updates have been committed -- so give that a turn before asserting.
+  await act(async () => {});
 }
 
 describe('offline sale replay', () => {
@@ -298,20 +301,27 @@ describe('offline sale replay - backoff and parking', () => {
 
     const { unmount } = renderHook(() => useOffline(), { wrapper: wrapperFor(transport) });
 
+    // Elapsed times chosen so jitter cannot make any of these ambiguous.
+    // Steps are 1s, 2s and 4s at +/-20%, so attempt 2 lands in [800, 1200],
+    // attempt 3 in [2400, 3600] and attempt 4 in [5600, 8400] -- non-overlapping
+    // windows, which is what "each gap is longer than the last" means here.
     await advance(0);
     expect(attempts).toHaveLength(1);
 
-    // Past the first backoff step (1s base, +/-20% jitter).
     await advance(1_500);
     expect(attempts).toHaveLength(2);
 
-    // The second step is ~2s, so the window that produced attempt 2 is not
-    // enough on its own to produce attempt 3.
-    await advance(1_500);
+    // t=2000: still short of the earliest attempt 3.
+    await advance(500);
     expect(attempts).toHaveLength(2);
 
-    await advance(1_500);
+    // t=4000: past the latest attempt 3, short of the earliest attempt 4.
+    await advance(2_000);
     expect(attempts).toHaveLength(3);
+
+    // t=9000: past the latest attempt 4, short of the earliest attempt 5.
+    await advance(5_000);
+    expect(attempts).toHaveLength(4);
 
     unmount();
   });
