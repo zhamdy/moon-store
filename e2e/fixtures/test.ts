@@ -13,7 +13,7 @@ import {
   type APIRequestContext,
   type BrowserContext,
 } from '@playwright/test';
-import { API_URL } from '../support/config';
+import { API_URL, BASE_URL } from '../support/config';
 import { DEFAULT_TEST_LOCALE, type Locale } from '../support/i18n';
 import { readAdminAccessToken } from './adminToken';
 import { adminStatePath } from './authPaths';
@@ -27,7 +27,7 @@ import {
   type ProductSeed,
 } from './seed';
 import { authStorageValue, dismissStartupPrompt, seedLocale, AUTH_STORAGE_KEY } from './storage';
-import type { Product, RegisterSession, Shift, WorkerCashier } from './types';
+import type { Product, RegisterSession, Shift, StorageState, WorkerCashier } from './types';
 
 export const OPENING_FLOAT = 500;
 
@@ -108,7 +108,40 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         );
       }
 
-      const session = await login(adminApi, email, WORKER_PASSWORD);
+      // Logged in through its own context so the `Set-Cookie` carrying the refresh token
+      // lands in a jar this fixture can read. `adminApi` would swallow it into the admin
+      // context's jar, and the browser would then have no way to refresh.
+      const loginContext = await playwrightRequest.newContext({ baseURL: API_URL });
+      const session = await login(loginContext, email, WORKER_PASSWORD);
+      const { cookies } = await loginContext.storageState();
+      await loginContext.dispose();
+
+      const refreshCookie = cookies.find((c) => c.name === 'refreshToken');
+      if (!refreshCookie) {
+        throw new Error(
+          `Worker ${index}: login as ${email} returned no refreshToken cookie. ` +
+            'Without it the client cannot refresh an expired access token, and specs ' +
+            'would redirect to /login partway through the run.'
+        );
+      }
+
+      const storageState: StorageState = {
+        cookies,
+        origins: [
+          {
+            origin: BASE_URL,
+            localStorage: [
+              {
+                name: AUTH_STORAGE_KEY,
+                value: authStorageValue(
+                  { id: cashier.id, name, email, role: 'Cashier' },
+                  session.accessToken
+                ),
+              },
+            ],
+          },
+        ],
+      };
 
       await use({
         id: cashier.id,
@@ -118,6 +151,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
         workerIndex: index,
         namespace,
         accessToken: session.accessToken,
+        storageState,
       });
     },
     { scope: 'worker' },
@@ -146,29 +180,25 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   appLocale: [DEFAULT_TEST_LOCALE, { option: true }],
   skipStartupPrompt: [true, { option: true }],
 
+  /**
+   * A context holding a *complete* session: the `moon-auth` localStorage entry **and**
+   * the httpOnly `refreshToken` cookie.
+   *
+   * Both halves matter. Seeding only the access token would leave the app unable to
+   * refresh — `client.ts`'s 401 interceptor would POST to `/auth/refresh` with no cookie,
+   * fail, and redirect to `/login` mid-spec once the 15-minute token expired. And
+   * `addInitScript` re-runs on *every* navigation, so injecting the token that way would
+   * additionally overwrite any rotated token the app had just stored, defeating refresh
+   * even when the cookie was present. `storageState` is applied once at context creation,
+   * which is the behavior this needs.
+   */
   cashierContext: async (
     { browser, appLocale, skipStartupPrompt, workerCashier, workerRegister: _register },
     use
   ) => {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ storageState: workerCashier.storageState });
     await seedLocale(context, appLocale);
     if (skipStartupPrompt) await dismissStartupPrompt(context);
-
-    const authValue = authStorageValue(
-      {
-        id: workerCashier.id,
-        name: workerCashier.name,
-        email: workerCashier.email,
-        role: 'Cashier',
-      },
-      workerCashier.accessToken
-    );
-    await context.addInitScript(
-      ([key, json]) => {
-        window.localStorage.setItem(key as string, json as string);
-      },
-      [AUTH_STORAGE_KEY, authValue]
-    );
 
     await use(context);
     await context.close();
@@ -190,10 +220,19 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
       return product;
     });
 
-    // Best-effort: the E2E database is disposable, and a failed cleanup must never fail a
-    // passing test.
+    // `DELETE /products/:id` is a *soft* delete — it sets status='discontinued'. The rows,
+    // SKUs and barcodes survive the whole run, which is safe only because every seeded SKU
+    // carries a timestamp+random suffix. A spec needing a fixed barcode must namespace it
+    // the same way rather than assuming this removed anything.
+    //
+    // Best-effort: the E2E database is disposable and a failed cleanup must never fail a
+    // passing test. `.delete()` resolves for any HTTP status, so a broken cleanup would
+    // otherwise be completely silent — hence the explicit status check.
     for (const product of created) {
-      await adminApi.delete(`/api/v1/products/${product.id}`).catch(() => {});
+      const response = await adminApi.delete(`/api/v1/products/${product.id}`).catch(() => null);
+      if (response && !response.ok()) {
+        console.warn(`[e2e] could not discontinue product ${product.sku}: ${response.status()}`);
+      }
     }
   },
 });

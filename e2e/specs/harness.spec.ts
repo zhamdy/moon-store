@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { API_URL } from '../support/config';
 
 /**
  * Unit 1's own verification: the production client build is served, the API answers, and
@@ -12,7 +13,7 @@ test('the preview build serves the login page', async ({ page }) => {
 });
 
 test('the API answers its health check against the E2E database', async ({ request }) => {
-  const response = await request.get('http://localhost:3001/api/health');
+  const response = await request.get(`${API_URL}/api/health`);
   expect(response.ok()).toBe(true);
   expect(await response.json()).toMatchObject({ data: { status: 'ok' } });
 });

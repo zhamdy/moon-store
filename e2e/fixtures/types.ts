@@ -67,6 +67,21 @@ export interface Credentials {
   password: string;
 }
 
+/** Playwright's storage-state shape, narrowed to what the fixtures build. */
+export interface StorageState {
+  cookies: Array<{
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    expires: number;
+    httpOnly: boolean;
+    secure: boolean;
+    sameSite: 'Strict' | 'Lax' | 'None';
+  }>;
+  origins: Array<{ origin: string; localStorage: Array<{ name: string; value: string }> }>;
+}
+
 /** A cashier owned by exactly one worker, with its own shift and register. */
 export interface WorkerCashier extends Credentials {
   id: number;
@@ -75,4 +90,6 @@ export interface WorkerCashier extends Credentials {
   /** `e2e-w{N}` — the prefix every row this worker creates must carry. */
   namespace: string;
   accessToken: string;
+  /** A complete session: the moon-auth entry AND the httpOnly refresh cookie. */
+  storageState: StorageState;
 }

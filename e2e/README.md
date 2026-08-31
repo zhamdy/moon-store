@@ -25,7 +25,9 @@ npm ci --prefix e2e
 npx --prefix e2e playwright install --with-deps chromium
 
 # 3. Build the client. Deliberately a separate step, not part of webServer.
-npm run build --prefix client
+#    VITE_API_URL is baked in HERE, at build time — setting it on `vite preview` does
+#    nothing. If your client/.env points somewhere else, pass it explicitly:
+VITE_API_URL=http://localhost:3001 npm run build --prefix client
 
 # 4. Run
 cd e2e
@@ -44,6 +46,8 @@ why the preflight below exists.
 | Variable | Default | Why the E2E run sets it |
 | --- | --- | --- |
 | `E2E_DATABASE_URL` | **none — the run aborts** | The database the suite owns and resets. Also passed to the server as its `DATABASE_URL`. |
+| `E2E_ALLOW_SHARED_DB` | unset | Set to `1` to allow it to name the same database as `DATABASE_URL`. |
+| `PGAPPNAME` | `moon-api` | Tags the server's PostgreSQL backends; the preflight requires `moon-e2e-server`. Set automatically. |
 | `CLIENT_URL` | `http://localhost:5173` | The preview origin `:4173` is otherwise rejected by CORS. Set automatically by the config. |
 | `RATE_LIMIT_MAX` | `200` | Global ceiling, per 15 min. Set automatically. |
 | `AUTH_RATE_LIMIT_MAX` | `10` | The *binding* ceiling, on `/login` and `/refresh`. Set automatically. |
@@ -59,19 +63,32 @@ bucket. The binding constraint is the **auth** ceiling of 10 per 15 minutes, not
 land on the session-expiry specs, where it is indistinguishable from the refresh-storm bug
 those specs exist to catch.
 
-## Safety: the two guards
+## Safety: four guards
 
 Seeding is destructive, and the process that writes almost all test data is the **server**,
 not this one. Guarding only the setup path would guard the wrong process. So:
 
 1. **`E2E_DATABASE_URL` has no default.** Resolved at config load, so an unset variable
    aborts before any server starts. It never falls back to `DATABASE_URL`.
-2. **A preflight asserts the running API is on that same database**, before any delete.
-   The API exposes no database identity, so the check asks PostgreSQL: after `/api/health`
-   (a real `SELECT 1`) succeeds, the server's pool must be visible in `pg_stat_activity`
-   for the target database. Zero connections means the server is somewhere else — the
-   realistic case being `reuseExistingServer` attaching to a dev server — and the run
-   aborts rather than resetting a database nothing under test is reading.
+2. **It is refused when it names the database the dev server uses.** Having no default
+   protects against *forgetting* to set it; it protects against nothing once it is set to
+   the wrong value, and the obvious wrong value is the connection string copied out of
+   `server/.env` because a database already existed and `createdb` looked skippable. The
+   value is compared against `DATABASE_URL` (environment, else `server/.env`). Override
+   with `E2E_ALLOW_SHARED_DB=1` if sharing is genuinely intended.
+3. **A preflight asserts the running API is on that same database**, before any delete.
+   The check is *identity-based, not count-based* — and that distinction is the guard.
+   Playwright starts the server with `PGAPPNAME=moon-e2e-server`, and the preflight
+   requires a `pg_stat_activity` backend on the target database carrying that name.
+   Counting anonymous connections instead would pass as soon as any `psql` or GUI client
+   held an idle session on the E2E database — which is common on exactly the machine where
+   someone is debugging E2E, and is exactly when `reuseExistingServer` may have attached
+   to a dev server on the dev database.
+4. **A PostgreSQL advisory lock refuses a second concurrent run.** Ports are fixed and
+   `reuseExistingServer` is true locally, so a second invocation does not collide on a
+   port — it attaches to the first run's servers and resets the database underneath it.
+   The preflight cannot catch that (the first run's server genuinely is on the target
+   database), so the lock is what makes it fail loudly. It releases if the process dies.
 
 ## Layout
 

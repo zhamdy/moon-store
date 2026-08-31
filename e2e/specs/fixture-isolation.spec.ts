@@ -7,6 +7,7 @@
  */
 import { dbOne, dbQuery } from '../support/db';
 import { getJson } from '../fixtures/seed';
+import { AUTH_STORAGE_KEY, STARTUP_DISMISSED_KEY } from '../fixtures/storage';
 import { OPENING_FLOAT, expect, test } from '../fixtures/test';
 import type { RegisterSession, Shift } from '../fixtures/types';
 
@@ -66,13 +67,34 @@ test.describe('worker isolation', () => {
     expect(Number(rows[0]?.n)).toBe(1);
   });
 
-  test('every worker cashier is a distinct user row', async ({ workerCashier }) => {
-    const rows = await dbQuery<{ id: number; email: string }>(
-      `SELECT id, email FROM users WHERE email LIKE 'e2e-w%@moon.test'`
+  test('this worker’s cashier owns its own shift and register, not a shared one', async ({
+    workerCashier,
+    workerShift,
+    workerRegister,
+  }) => {
+    // Deliberately not "all worker emails are unique" — `users.email` is UNIQUE, so the
+    // database makes that impossible to violate and the assertion could never fail. What
+    // *can* break is two workers ending up on the same cashier's drawer, so assert the
+    // ownership chain instead.
+    const shiftOwners = await dbQuery<{ user_id: number }>(
+      'SELECT user_id FROM shifts WHERE id = $1',
+      [workerShift.id]
     );
-    const emails = rows.map((r) => r.email);
-    expect(new Set(emails).size).toBe(emails.length);
-    expect(emails).toContain(workerCashier.email);
+    expect(shiftOwners[0]?.user_id).toBe(workerCashier.id);
+
+    const registerOwners = await dbQuery<{ cashier_id: number }>(
+      'SELECT cashier_id FROM register_sessions WHERE id = $1',
+      [workerRegister.id]
+    );
+    expect(registerOwners[0]?.cashier_id).toBe(workerCashier.id);
+
+    // And no other e2e worker account shares this cashier's id.
+    const sharing = await dbQuery<{ n: string }>(
+      `SELECT count(*)::text AS n FROM users
+        WHERE id = $1 AND email <> $2 AND email LIKE 'e2e-w%@moon.test'`,
+      [workerCashier.id, workerCashier.email]
+    );
+    expect(Number(sharing[0]?.n)).toBe(0);
   });
 });
 
@@ -120,16 +142,34 @@ test.describe('browser context seeding', () => {
     await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   });
 
-  test('the startup prompt is dismissed via sessionStorage, not storageState', async ({
+  test('the session carries the refresh cookie, not just the access token', async ({
     cashierContext,
   }) => {
-    // `storageState` serializes cookies and localStorage only. If this ever regresses to
-    // being seeded through storage state it will silently do nothing, and every spec
-    // meant to skip the gate would sit behind it looking like an app bug.
+    // Half a session is worse than none: without the httpOnly refresh cookie the client's
+    // 401 interceptor cannot refresh, and every spec still running after the 15-minute
+    // access token expires would redirect to /login and fail as an auth regression.
+    const cookies = await cashierContext.cookies();
+    expect(cookies.map((c) => c.name)).toContain('refreshToken');
+
     const page = await cashierContext.newPage();
     await page.goto('/pos');
-    const dismissed = await page.evaluate(() =>
-      window.sessionStorage.getItem('moon-startup-dismissed')
+    const stored = await page.evaluate((key) => window.localStorage.getItem(key), AUTH_STORAGE_KEY);
+    expect(stored).toBeTruthy();
+  });
+
+  test('the startup gate is actually skipped, not merely flagged', async ({ cashierContext }) => {
+    // Asserting the sessionStorage value would only prove the init script ran — it would
+    // stay green if `StartupPrompt` renamed its key or changed its sentinel, while every
+    // POS spec sat behind an undismissed modal. Assert the observable effect instead, and
+    // read the key from the shared constant rather than a fourth copy of the literal.
+    const page = await cashierContext.newPage();
+    await page.goto('/pos');
+
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    const dismissed = await page.evaluate(
+      (key) => window.sessionStorage.getItem(key),
+      STARTUP_DISMISSED_KEY
     );
     expect(dismissed).toBe('1');
   });

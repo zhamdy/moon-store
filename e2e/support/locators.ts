@@ -25,27 +25,3 @@ export function loginPage(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOp
     heading: page.getByRole('heading', { name: tr('login.title', locale) }),
   };
 }
-
-export function posPage(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOptions = {}) {
-  return {
-    search: page.getByPlaceholder(tr('pos.searchPlaceholder', locale)),
-    heading: page.getByRole('heading', { name: tr('pos.title', locale) }),
-  };
-}
-
-/**
- * Logs in through the real form rather than by minting a token, so every path that uses
- * this is also exercising the login flow the cashier actually uses.
- */
-export async function loginThroughForm(
-  page: Page,
-  email: string,
-  password: string,
-  options: LocaleOptions = {}
-): Promise<void> {
-  const form = loginPage(page, options);
-  await page.goto('/login');
-  await form.email.fill(email);
-  await form.password.fill(password);
-  await form.submit.click();
-}

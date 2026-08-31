@@ -15,14 +15,22 @@ import type { BrowserContext } from '@playwright/test';
 import { DEFAULT_TEST_LOCALE, type Locale } from '../support/i18n';
 import type { AuthUser } from './types';
 
-/** Literal persist keys, mirroring `client/src/shared/lib/storageKeys.ts`. */
-export const AUTH_STORAGE_KEY = 'moon-auth';
-export const SETTINGS_STORAGE_KEY = 'moon-settings';
-export const CART_RECOVERY_STORAGE_KEY = 'moon-cart-recovery';
-export const HELD_CARTS_STORAGE_KEY = 'moon-held-carts';
-export const OFFLINE_QUEUE_STORAGE_KEY = 'moon-offline-queue';
+/**
+ * Imported from the client rather than retyped. These are literal `localStorage` keys
+ * under the global string-coupling contract, and a stale copy fails quietly — the app
+ * would boot unauthenticated or in Arabic and the specs would report locator misses
+ * rather than "the key changed". `support/i18n.ts` crosses the same boundary the same
+ * way for the translation catalogs.
+ */
+import { AUTH_STORAGE_KEY, SETTINGS_STORAGE_KEY } from '../../client/src/shared/lib/storageKeys';
 
-/** sessionStorage, not localStorage — see the note above. */
+export { AUTH_STORAGE_KEY, SETTINGS_STORAGE_KEY };
+
+/**
+ * Not in `storageKeys.ts`: it is a `sessionStorage` key private to `StartupPrompt.tsx`,
+ * which declares its own `SESSION_KEY` literal. Duplicated here because there is nothing
+ * to import — the coupling is real and is asserted by the startup-prompt spec.
+ */
 export const STARTUP_DISMISSED_KEY = 'moon-startup-dismissed';
 
 /** The zustand-persist envelope both stores are written in. */

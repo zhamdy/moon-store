@@ -54,6 +54,13 @@ async function unwrap<T>(
     throw new Error(`${what} failed: ${response.status()} ${await response.text()}`);
   }
   const body = (await response.json()) as Envelope<T>;
+  if (body.data === null || body.data === undefined) {
+    // `shifts/current` and `register/current` legitimately answer 200 with `{ data: null }`
+    // when nothing is open. Returning that as T would surface later as a null dereference
+    // inside a spec — which reads as an application bug rather than "nothing is open".
+    // Callers that treat null as a real answer should use `getJsonOrNull`.
+    throw new Error(`${what}: server returned 200 with no data.`);
+  }
   return body.data;
 }
 
@@ -146,6 +153,19 @@ export async function createProduct(
     },
   });
   return unwrap<Product>(response, `create product ${unique}`);
+}
+
+/** For endpoints where `{ data: null }` is a meaningful answer, not an error. */
+export async function getJsonOrNull<T>(
+  request: APIRequestContext,
+  token: string,
+  path: string
+): Promise<T | null> {
+  const response = await request.get(`${API_BASE}/${path}`, { headers: authHeaders(token) });
+  if (!response.ok()) {
+    throw new Error(`GET ${path} failed: ${response.status()} ${await response.text()}`);
+  }
+  return ((await response.json()) as Envelope<T | null>).data ?? null;
 }
 
 export async function getJson<T>(

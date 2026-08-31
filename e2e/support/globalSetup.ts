@@ -9,8 +9,14 @@
  */
 import { spawn } from 'node:child_process';
 import { Client } from 'pg';
-import { API_URL, SERVER_DIR, requireE2eDatabaseUrl } from './config';
-import { clearIdempotencyKeys, closeE2ePool, databaseNameOf, dbQuery } from './db';
+import {
+  API_URL,
+  E2E_SERVER_APP_NAME,
+  SERVER_DIR,
+  databaseNameOf,
+  requireE2eDatabaseUrl,
+} from './config';
+import { clearIdempotencyKeys, closeE2ePool, dbQuery } from './db';
 import { BASELINE_KEYS, SETTINGS_BASELINE } from './settingsBaseline';
 
 const PREFLIGHT_APP_NAME = 'moon-e2e-preflight';
@@ -18,12 +24,17 @@ const PREFLIGHT_APP_NAME = 'moon-e2e-preflight';
 /**
  * Asserts the *running* API is on the database this setup is about to reset.
  *
- * The API exposes no database identity, so this asks PostgreSQL instead: after
- * `/api/health` (a real `SELECT 1`) succeeds, the server's pool holds at least one
- * connection, and it will be visible in `pg_stat_activity` for the target database. Zero
- * connections there means the server answered from somewhere else — a stale
- * `reuseExistingServer` attach to a dev server being the realistic case — and the reset
- * would then destroy a database nothing under test is even reading.
+ * The API exposes no database identity, so this asks PostgreSQL instead. The check is
+ * **identity-based, not count-based**, and that distinction is the whole guard: counting
+ * "any backend on this database" would pass as soon as a `psql`, a GUI client, or an
+ * orphaned process from an earlier run held an idle connection — which is common on the
+ * very machine where someone is debugging E2E, and is exactly when the dangerous case
+ * (`reuseExistingServer` attaching to a dev server on the dev database) occurs.
+ *
+ * So Playwright starts the server with `PGAPPNAME=E2E_SERVER_APP_NAME`, and this looks
+ * for a backend carrying *that* name. A reused dev server does not have it, and correctly
+ * aborts. `/api/health` runs a real `SELECT 1` and the pool's idle timeout is 30s, so a
+ * connection is guaranteed to be present by the time this query runs.
  */
 async function preflightServerDatabase(connectionString: string): Promise<void> {
   const dbName = databaseNameOf(connectionString);
@@ -40,35 +51,74 @@ async function preflightServerDatabase(connectionString: string): Promise<void> 
 
   const client = new Client({ connectionString, application_name: PREFLIGHT_APP_NAME });
   await client.connect();
-  let connections = 0;
+  let serverBackends = 0;
   try {
     const { rows } = await client.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM pg_stat_activity
         WHERE datname = $1
           AND pid <> pg_backend_pid()
-          AND (application_name IS DISTINCT FROM $2)`,
-      [dbName, PREFLIGHT_APP_NAME]
+          AND application_name = $2`,
+      [dbName, E2E_SERVER_APP_NAME]
     );
-    connections = Number(rows[0]?.n ?? '0');
+    serverBackends = Number(rows[0]?.n ?? '0');
   } finally {
     await client.end();
   }
 
-  if (connections === 0) {
+  if (serverBackends === 0) {
     throw new Error(
       [
         `E2E preflight FAILED — refusing to reset "${dbName}".`,
         '',
-        `The API answered /api/health but holds no connection to "${dbName}", so it is`,
-        'connected to a different database. Resetting now would delete every row in 77',
-        'tables of a database nothing under test is reading.',
+        `The API answered /api/health, but no connection to "${dbName}" is tagged`,
+        `application_name="${E2E_SERVER_APP_NAME}". The API under test is therefore a`,
+        'different process, on a different database. Resetting now would delete every row',
+        'in 77 tables of a database nothing under test is reading.',
         '',
         'The usual cause is `reuseExistingServer` attaching to a dev server already',
-        'listening on port 3001. Stop it and re-run, or set E2E_DATABASE_URL to the',
-        'database that server actually uses.',
+        'listening on port 3001. Stop that server and re-run.',
       ].join('\n')
     );
   }
+}
+
+/**
+ * Refuses to run when a second E2E run already owns this database.
+ *
+ * Ports are fixed and `reuseExistingServer` is true locally, so a second invocation does
+ * not collide on a port — it attaches to the first run's servers and resets the database
+ * underneath it. The preflight cannot catch that: the first run's server genuinely *is*
+ * on the target database, so the identity check passes. A session-scoped advisory lock
+ * held for the run is the missing piece; it releases automatically if the process dies.
+ */
+const RUN_LOCK_ID = 0x4d4f4f4e; // 'MOON'
+let lockClient: Client | null = null;
+
+async function acquireRunLock(connectionString: string): Promise<void> {
+  const client = new Client({ connectionString, application_name: 'moon-e2e-runlock' });
+  await client.connect();
+  const { rows } = await client.query<{ locked: boolean }>(
+    'SELECT pg_try_advisory_lock($1) AS locked',
+    [RUN_LOCK_ID]
+  );
+  if (!rows[0]?.locked) {
+    await client.end();
+    throw new Error(
+      [
+        'E2E run ABORTED — another run already owns this database.',
+        '',
+        'Resetting it now would delete the other run’s worker cashiers, open registers',
+        'and in-flight sales, and its failures would look like application bugs.',
+        '',
+        'Wait for that run to finish, or point this one at a different database.',
+      ].join('\n')
+    );
+  }
+  // Held for the lifetime of the Playwright process; released on exit.
+  lockClient = client;
+  process.once('exit', () => {
+    void lockClient?.end();
+  });
 }
 
 async function pinSettingsBaseline(): Promise<void> {
@@ -134,6 +184,7 @@ function runServerScript(script: 'migrate' | 'seed', connectionString: string): 
 export default async function globalSetup(): Promise<void> {
   const connectionString = requireE2eDatabaseUrl();
 
+  await acquireRunLock(connectionString);
   await preflightServerDatabase(connectionString);
 
   try {

@@ -42,19 +42,6 @@ export async function dbOne<T extends QueryResultRow = QueryResultRow>(
   return rows[0];
 }
 
-/** Raw stock, bypassing any client or service-worker cache. */
-export async function readStock(productId: number): Promise<number | undefined> {
-  const row = await dbOne<{ stock: string }>('SELECT stock FROM products WHERE id = $1', [
-    productId,
-  ]);
-  return row ? Number(row.stock) : undefined;
-}
-
-/** Idempotency rows for a key. The suite's sharpest assertions read this table directly. */
-export async function readIdempotencyKeys(key: string): Promise<QueryResultRow[]> {
-  return dbQuery('SELECT * FROM idempotency_keys WHERE key = $1', [key]);
-}
-
 /**
  * `seedDatabase()` deletes 77 tables but `idempotency_keys` is not among them, and its
  * only user link is `ON DELETE SET NULL`, so nothing else clears it either. Rows
@@ -66,12 +53,4 @@ export async function readIdempotencyKeys(key: string): Promise<QueryResultRow[]
  */
 export async function clearIdempotencyKeys(): Promise<void> {
   await dbQuery('DELETE FROM idempotency_keys');
-}
-
-/**
- * The database name the given connection string points at, used by the preflight guard
- * to compare the suite's target against the one the running API actually holds open.
- */
-export function databaseNameOf(connectionString: string): string {
-  return decodeURIComponent(new URL(connectionString).pathname.replace(/^\//, ''));
 }

@@ -49,7 +49,3 @@ export function tr(
 export function keysOf(locale: Locale): string[] {
   return Object.keys(catalogs[locale]);
 }
-
-export function hasKey(key: string, locale: Locale): boolean {
-  return key in catalogs[locale];
-}

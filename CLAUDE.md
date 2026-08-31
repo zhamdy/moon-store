@@ -78,6 +78,35 @@ on teardown, so files cannot contaminate each other. The target database only ne
 privileges. CI (`.github/workflows/ci.yml`) always sets `TEST_DATABASE_URL` and fails the
 build if these suites were skipped.
 
+### End-to-end suite (`e2e/`)
+
+Playwright driving the real client production build against the real server and a real
+PostgreSQL database — the wire between the two halves the unit suites already cover.
+Chromium only. Full detail in `e2e/README.md`.
+
+```bash
+npm ci --prefix e2e && npx --prefix e2e playwright install --with-deps chromium
+npm run build --prefix client                 # deliberately its own step, not webServer
+cd e2e && E2E_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/moon_store_e2e npm test
+```
+
+> **This suite deletes every row in 77 tables and restarts their sequences.** Point it at a
+> disposable database only. `E2E_DATABASE_URL` has **no default** and the run aborts without
+> it; a second guard aborts if the running API is not on that same database, which is what
+> makes `reuseExistingServer` safe when a dev server is already on port 3001.
+
+Two new production-facing knobs, both defaulting to today's values so an unset server
+behaves exactly as before:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `RATE_LIMIT_MAX` | `200` | Global ceiling per 15 min. |
+| `AUTH_RATE_LIMIT_MAX` | `10` | Ceiling on `/auth/login` and `/auth/refresh`. |
+
+They are deliberately separate: one variable raising both would let a config written to
+unblock a test run silently relax the credential brute-force ceiling. A value that is not a
+positive integer falls back to the default, and any override is warned about at boot.
+
 ## Offline queue
 
 Sales rung up offline are queued in `localStorage` and replayed by

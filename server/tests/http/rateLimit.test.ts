@@ -19,7 +19,9 @@ import {
   DEFAULT_RATE_LIMIT_MAX,
   RATE_LIMIT_WINDOW_MS,
   createAuthLimiter,
+  authRateLimitMax,
   createGlobalLimiter,
+  globalRateLimitMax,
   logRateLimitOverrides,
   resolveCeiling,
 } from '../../src/http/rateLimits';
@@ -205,6 +207,15 @@ describe('auth limiter', () => {
       const over = await hit(`${h.url}/login`, 'POST');
       expect(over.status).toBe(429);
       expect(h.reached()).toBe(DEFAULT_AUTH_RATE_LIMIT_MAX);
+
+      // The credential path has its own message. Asserting it here is what would fail if
+      // the two factories were ever collapsed into one parameterized helper.
+      expect(await over.json()).toEqual({
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many login attempts, please try again later',
+        },
+      });
     } finally {
       await h.close();
     }
@@ -237,6 +248,16 @@ describe('auth limiter', () => {
     }
   });
 
+  it('does NOT relax the global limiter — separation holds in both directions', async () => {
+    // The mirror of the test above. A resolver bug where `globalRateLimitMax()` read
+    // AUTH_RATE_LIMIT_MAX — a plausible copy-paste in a two-line function — would
+    // silently raise the global abuse ceiling with every other test still green.
+    process.env.AUTH_RATE_LIMIT_MAX = '100000';
+    resetEnvCache();
+    expect(globalRateLimitMax()).toBe(DEFAULT_RATE_LIMIT_MAX);
+    expect(authRateLimitMax()).toBe(100000);
+  });
+
   it('honours its own raised ceiling', async () => {
     process.env.AUTH_RATE_LIMIT_MAX = '50';
     resetEnvCache();
@@ -245,6 +266,48 @@ describe('auth limiter', () => {
     try {
       const statuses = await hitMany(`${h.url}/login`, 25, 'POST');
       expect(statuses.filter((s) => s !== 200)).toEqual([]);
+    } finally {
+      await h.close();
+    }
+  });
+});
+
+describe('production wiring', () => {
+  /**
+   * The tests above prove the factories. This one proves they are actually *mounted* —
+   * which is the change under review. Without it, reverting `auth/routes.ts` to an inline
+   * `rateLimit({ max: 10 })` would leave the whole file green while the env knob the E2E
+   * suite depends on silently stopped working.
+   */
+  it('the real auth router rate-limits /login and /refresh through the env-driven ceiling', async () => {
+    process.env.AUTH_RATE_LIMIT_MAX = '3';
+    resetEnvCache();
+
+    // Imported after the env is set: the router builds its limiter at module scope.
+    const { default: authRouter } = await import('../../src/modules/core/auth/routes');
+
+    const counter = { n: 0 };
+    const h = await serve((app) => {
+      app.use('/api/v1/auth', authRouter);
+      // A route past the router, to prove a limited request never reaches a handler.
+      app.post('/api/v1/auth/login', (_req, res) => {
+        counter.n += 1;
+        res.json({ ok: true });
+      });
+    }, counter);
+
+    try {
+      // The controller rejects these bodies, but the limiter sits ahead of it and counts
+      // every attempt — which is exactly the brute-force property being asserted.
+      const statuses = await hitMany(`${h.url}/api/v1/auth/login`, 3, 'POST');
+      expect(statuses).not.toContain(429);
+
+      const overLogin = await hit(`${h.url}/api/v1/auth/login`, 'POST');
+      expect(overLogin.status).toBe(429);
+
+      // The budget is shared with /refresh, on the real router's own mounting.
+      const overRefresh = await hit(`${h.url}/api/v1/auth/refresh`, 'POST');
+      expect(overRefresh.status).toBe(429);
     } finally {
       await h.close();
     }
@@ -269,6 +332,30 @@ describe('override visibility', () => {
     const message = String(warn.mock.calls[0]?.[0]);
     expect(message).toContain('100000');
     expect(message).toMatch(/rate limit/i);
+  });
+
+  it('warns that an unparseable override was ignored', () => {
+    // The quiet failure: without this, a typo produces a boot log identical to an unset
+    // server, and the ceiling the operator thought they set never applies.
+    process.env.AUTH_RATE_LIMIT_MAX = '1O';
+    resetEnvCache();
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    logRateLimitOverrides();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    const message = String(warn.mock.calls[0]?.[0]);
+    expect(message).toContain('AUTH_RATE_LIMIT_MAX');
+    expect(message).toMatch(/ignored/i);
+  });
+
+  it('does not warn when a variable is explicitly set to its default', () => {
+    process.env.RATE_LIMIT_MAX = String(DEFAULT_RATE_LIMIT_MAX);
+    resetEnvCache();
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    logRateLimitOverrides();
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('warns when only the auth ceiling is overridden', () => {

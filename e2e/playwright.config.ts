@@ -3,6 +3,7 @@ import {
   API_URL,
   BASE_URL,
   CLIENT_DIR,
+  E2E_SERVER_APP_NAME,
   PREVIEW_PORT,
   SERVER_DIR,
   requireE2eDatabaseUrl,
@@ -26,6 +27,10 @@ const serverEnv: Record<string, string> = {
   NODE_ENV: 'test',
   PORT: '3001',
   DATABASE_URL: E2E_DATABASE_URL,
+  // Tags this server's PostgreSQL backends so `globalSetup`'s preflight can identify
+  // them by name. Without it the guard could only count anonymous connections, and any
+  // idle psql session would let a reused dev server pass as the server under test.
+  PGAPPNAME: E2E_SERVER_APP_NAME,
   // The CORS allowlist is `CLIENT_URL` plus localhost:5173/5174/5175 under
   // `credentials: true`, so the preview origin is on no list by default and every API
   // call would fail preflight. The fix is this variable — never widening
@@ -36,10 +41,11 @@ const serverEnv: Record<string, string> = {
   // bucket. The binding constraint is the auth ceiling of 10, not the global 200.
   RATE_LIMIT_MAX: '100000',
   AUTH_RATE_LIMIT_MAX: '100000',
-  // Mirrors the literals in `.github/workflows/ci.yml`'s server job rather than reaching
-  // for repository secrets — this is a disposable database with published credentials.
-  JWT_SECRET: 'test-secret-key-for-e2e-at-least-32-characters-long',
-  JWT_REFRESH_SECRET: 'test-refresh-secret-key-for-e2e-at-least-32-chars',
+  // The same literals `.github/workflows/ci.yml`'s server job uses, so one rotation
+  // covers both. Deliberately not repository secrets: this is a throwaway server on a
+  // disposable database whose seeded credentials are already published in CLAUDE.md.
+  JWT_SECRET: 'ci-jwt-secret-key-at-least-32-characters-long',
+  JWT_REFRESH_SECRET: 'ci-jwt-refresh-secret-key-at-least-32-chars',
 };
 
 export default defineConfig({
@@ -123,7 +129,9 @@ export default defineConfig({
       command: `npx vite preview --port ${PREVIEW_PORT} --strictPort`,
       cwd: CLIENT_DIR,
       url: BASE_URL,
-      env: { VITE_API_URL: API_URL },
+      // No `VITE_API_URL` here: `import.meta.env` is substituted at BUILD time, so setting
+      // it on the preview process does nothing while reading as though it binds the
+      // browser to this API. It belongs on the build step — see README.
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       stdout: 'pipe',
