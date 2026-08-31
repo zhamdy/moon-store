@@ -74,17 +74,20 @@ export async function login(
 }
 
 /**
- * An empty token means the caller's request context already carries the header (the
- * worker-scoped `adminApi` does), so no per-call override is needed.
+ * Omit the token when the caller's request context already carries the header — the
+ * worker-scoped `adminApi` does. Optional rather than an empty-string sentinel, so
+ * "deliberately omitted" is visible in the type and cannot be confused with a token
+ * variable that happened to be empty (which would send no Authorization at all and
+ * surface as a 401 that reads like an auth bug).
  */
-function authHeaders(token: string): Record<string, string> {
+function authHeaders(token?: string): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function createUser(
   request: APIRequestContext,
-  adminToken: string,
-  user: { name: string; email: string; password: string; role: Role }
+  user: { name: string; email: string; password: string; role: Role },
+  adminToken?: string
 ): Promise<CreatedUser> {
   const response = await request.post(`${API_BASE}/users`, {
     headers: authHeaders(adminToken),
@@ -133,12 +136,18 @@ export interface ProductSeed {
  * workers asking for one get the same value and the loser's create fails with a confusing
  * 409 mid-test.
  */
+export interface CreateProductOptions extends ProductSeed {
+  /** Worker+test namespace the SKU is derived from. */
+  namespace: string;
+  /** Short label distinguishing products within one test. */
+  label: string;
+  /** Omit when the request context already carries an admin header. */
+  adminToken?: string;
+}
+
 export async function createProduct(
   request: APIRequestContext,
-  adminToken: string,
-  namespace: string,
-  label: string,
-  seed: ProductSeed = {}
+  { namespace, label, adminToken, ...seed }: CreateProductOptions
 ): Promise<Product> {
   const unique = `${namespace}-${label}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const response = await request.post(`${API_BASE}/products`, {

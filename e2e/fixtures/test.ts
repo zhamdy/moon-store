@@ -94,7 +94,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
        */
       let cashier;
       try {
-        cashier = await createUser(adminApi, '', {
+        cashier = await createUser(adminApi, {
           name,
           email,
           password: WORKER_PASSWORD,
@@ -209,13 +209,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     const testTag = testInfo.testId.slice(0, 8);
 
     await use(async (label, seed) => {
-      const product = await createProduct(
-        adminApi,
-        '',
-        `${workerCashier.namespace}-t${testTag}`,
+      const product = await createProduct(adminApi, {
+        namespace: `${workerCashier.namespace}-t${testTag}`,
         label,
-        seed
-      );
+        ...seed,
+      });
       created.push(product);
       return product;
     });
