@@ -1480,10 +1480,15 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   )}
                 </div>
 
+                {/* `shrink-0` is load-bearing, not cosmetic. This button is the last child
+                    of a flex-column DrawerBody, and once the drawer's content is taller
+                    than the viewport the default `flex-shrink: 1` compresses it to zero
+                    height — leaving a cashier unable to complete a sale on any screen
+                    under roughly 1000px tall. Covered by checkout-cash.spec.ts. */}
                 <Button
                   color="primary"
                   size="md"
-                  className="w-full font-semibold shadow-sm"
+                  className="w-full shrink-0 font-semibold shadow-sm"
                   onClick={handleCheckout}
                   isDisabled={
                     checkoutMutation.isPending || needsReview || (splitPayment && !split.isBalanced)
