@@ -125,8 +125,8 @@ the UI and still reach the total the contract records.
 
 `npm run test:smoke` runs the tag intended for the pull-request gate.
 
-**Budget: under 3 minutes.** Measured at 32s for 7 tests (2 workers, warm build, local
-PostgreSQL) — full suite 27 tests in ~30s at 4 workers. If the smoke subset ever exceeds
+**Budget: under 3 minutes.** Measured at ~35s for 11 tests (2 workers, warm build, local
+PostgreSQL); the full suite is 78 tests in ~1.4 min at 4 workers. If the smoke subset ever exceeds
 the budget, move cases *out* of `@smoke` rather than raising the budget; a PR gate people
 wait on is a PR gate people learn to skip.
 
@@ -158,6 +158,43 @@ Actions artifacts are downloadable by anyone. Against a disposable database seed
 credentials already published in `CLAUDE.md` the live exposure is small, which is exactly
 why it would go unexamined. `e2e/playwright/.auth/` is gitignored and kept outside
 `outputDir` so session state is never swept into an artifact.
+
+## Owning this suite
+
+A post-merge job with no defined response is not a gate, and two thirds of this suite's
+coverage lives behind one. So, explicitly:
+
+- **Who owns it.** Whoever merges a change that turns `e2e-full` red on `main` owns getting
+  it green — by fix or by revert, same day. It is not "the test suite's" problem.
+- **What counts as flaky.** A spec that fails on `main` without a code change, more than
+  once in ten runs, is flaky. Fix it or delete it; **do not `test.skip` it**. A skipped
+  money spec is worse than a missing one, because the suite still reports green.
+- **When `e2e-full` is red.** Treat it as a blocked deploy until someone has looked. The
+  suite exists to catch double-charges and lost sales; "probably flaky" is not a diagnosis.
+- **When `@smoke` is red on a PR.** It is a real gate. Do not merge past it.
+
+## Known findings
+
+Things this suite established that are worth acting on, recorded here so they are not
+rediscovered from scratch:
+
+- **Offline sales are not persisted.** `queryClient` sets no `networkMode`, so React Query
+  pauses a mutation fired while `navigator.onLine` is false rather than failing it. No
+  request goes out, `onError` never runs, and `CartPanel`'s offline fallback — the only
+  writer to `moon-offline-queue` — is unreachable. The sale resumes and completes on
+  reconnect if the tab stays open, but does not survive a reload. See
+  `specs/offline.spec.ts`.
+- **A Cashier cannot attach a customer to a sale.** `GET /api/v1/customers` is Admin-only
+  while `POST /customers` and the loyalty read allow Cashier, so loyalty redemption is not
+  reachable from a real till. Pinned in `specs/tax-loyalty.spec.ts`.
+- **The checkout drawer's layout is fragile.** Its confirm button lives at the end of a
+  flex-column scrolling body inside a `w-screen overflow-x-auto` wrapper. It was compressed
+  to zero height until `shrink-0` was added, and its layout position still sits about a
+  viewport width right of the visible area, which is why the offline specs dispatch the
+  click rather than performing one.
+- **`Idempotent-Replay` is not readable cross-origin.** The server sets it, but `cors()`
+  declares no `exposedHeaders`. No client code reads it today; anything that wants to will
+  need the header exposed.
 
 ## Not covered
 

@@ -107,6 +107,17 @@ They are deliberately separate: one variable raising both would let a config wri
 unblock a test run silently relax the credential brute-force ceiling. A value that is not a
 positive integer falls back to the default, and any override is warned about at boot.
 
+The suite is Chromium-only and split into three projects: a `setup` project that logs in
+through the real form, a `fullyParallel` `pos-parallel` project, and a serial
+`pos-settings` project that is the **only** place permitted to write
+`PUT /api/v1/settings` — tax and loyalty are global rows, so a write from a parallel
+worker changes the totals every other worker is asserting on.
+
+`@smoke` is the pull-request gate, budgeted under three minutes; the full sharded suite
+runs on `main`. See `e2e/README.md` for ownership, the flake policy, and the findings the
+suite has already produced, and `docs/CONVENTIONS.md` → *E2E test conventions* before
+adding specs.
+
 ## Offline queue
 
 Sales rung up offline are queued in `localStorage` and replayed by
