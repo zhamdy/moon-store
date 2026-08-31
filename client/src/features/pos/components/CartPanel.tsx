@@ -665,6 +665,9 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           items.map((item) => (
             <div
               key={`${item.product_id}-${item.variant_id || 0}`}
+              /* E2E: a cart line has no role and shows only the product name, so there is
+                 no accessible name to scope its per-line controls by. */
+              data-testid={`cart-line-${item.product_id}-${item.variant_id || 0}`}
               className="flex items-center gap-3 p-3 bg-muted/20 hover:bg-muted/40 transition-colors rounded-lg border border-border/50"
             >
               <div className="flex-1 min-w-0">
@@ -722,7 +725,12 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                 >
                   <Minus className="h-3.5 w-3.5 text-primary" />
                 </Button>
-                <span className="w-7 text-center text-sm font-data font-medium text-foreground">
+                {/* E2E: a bare number with no accessible name. The +/- buttons are
+                    reachable by aria-label; the value itself is not. */}
+                <span
+                  data-testid="cart-line-qty"
+                  className="w-7 text-center text-sm font-data font-medium text-foreground"
+                >
                   {item.quantity}
                 </span>
                 <Button
@@ -895,7 +903,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               use -- never a separately-derived figure (Unit 5 parity). */}
           <div className="flex justify-between text-lg font-semibold font-data text-foreground">
             <span>{t('cart.total')}</span>
-            <span className="text-primary font-bold">{formatCurrency(totals.amountDue)}</span>
+            {/* E2E: the amount is a nameless sibling of its label, and "Total" renders
+                simultaneously here, in the checkout drawer and on the receipt. */}
+            <span data-testid="cart-total" className="text-primary font-bold">
+              {formatCurrency(totals.amountDue)}
+            </span>
           </div>
         </div>
 
@@ -1001,7 +1013,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   )}
                   <div className="flex justify-between text-base font-bold font-data text-foreground">
                     <span>{t('cart.total')}</span>
-                    <span className="text-primary">{formatCurrency(totals.amountDue)}</span>
+                    {/* E2E: see cart-total — same nameless sibling, same label collision. */}
+                    <span data-testid="checkout-total" className="text-primary">
+                      {formatCurrency(totals.amountDue)}
+                    </span>
                   </div>
                 </div>
 

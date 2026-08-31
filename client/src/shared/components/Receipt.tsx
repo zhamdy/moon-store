@@ -172,7 +172,9 @@ export default function Receipt({ data }: ReceiptProps) {
         <div className="border-t border-gray-300 my-1" />
         <div className="flex justify-between text-sm font-bold">
           <span>{t('cart.total')}</span>
-          <span>{formatCurrency(calc.amountDue)}</span>
+          {/* E2E: the server-confirmed total, nameless and sharing its label with the
+              cart footer and the checkout drawer. */}
+          <span data-testid="receipt-total">{formatCurrency(calc.amountDue)}</span>
         </div>
       </div>
 
