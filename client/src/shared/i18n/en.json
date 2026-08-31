@@ -604,6 +604,8 @@
   "offline.synced": "{count} offline sale(s) synced",
   "offline.splitMismatch": "{count} queued sale(s) no longer balance -- please review before retrying",
   "offline.quarantinedForReview": "{count} of these need manual review before they can sync.",
+  "offline.failedToSync": "{count} queued sale(s) failed to sync -- they will not retry on their own.",
+  "offline.retry": "Retry",
 
   "pwa.installApp": "Install MOON App",
   "pwa.installDesc": "Install for quick access and offline support",

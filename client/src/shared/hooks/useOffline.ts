@@ -10,6 +10,18 @@ import {
 import { t } from '../i18n/index';
 import { classifyFailure, FAILURE_REASON } from '../lib/offlineRetry';
 
+/**
+ * Guards a sweep against re-entry. Module-scoped, not a ref, because the queue
+ * it protects is a single global store: two mounted consumers would otherwise
+ * each hold their own guard and post the same sale twice. (The shared
+ * `Idempotency-Key` means the server would still commit it once -- this keeps
+ * the till from making the request at all.)
+ *
+ * Deliberately not the store's `isSyncing`, which is a UI indicator and used
+ * to deadlock the queue when a killed tab persisted it as true.
+ */
+let sweepInFlight = false;
+
 interface UseOfflineReturn {
   isOnline: boolean;
   syncQueue: () => Promise<void>;
@@ -41,10 +53,6 @@ export function useOffline(): UseOfflineReturn {
   // callback long after render, but the transport it closes over is stable for
   // the life of the component, so nothing has to reach for it at call time.
   const transport = useTransport();
-  // Guards re-entry within this session. Deliberately not the store's
-  // `isSyncing`, which is a UI indicator and used to deadlock the queue when a
-  // killed tab persisted it as true.
-  const inFlight = useRef(false);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -73,7 +81,7 @@ export function useOffline(): UseOfflineReturn {
   const syncQueueRef = useRef<() => Promise<void>>(async () => {});
 
   const syncQueue = useCallback(async () => {
-    if (!isOnline || inFlight.current) return;
+    if (!isOnline || sweepInFlight) return;
 
     // Read at call time rather than closing over the queue: a callback whose
     // identity changes on every store write is what drove the old effect to
@@ -86,7 +94,7 @@ export function useOffline(): UseOfflineReturn {
     // queue holding only quarantined, parked or backing-off entries lands here.
     if (due.length === 0) return;
 
-    inFlight.current = true;
+    sweepInFlight = true;
     setSyncing(true);
     let synced = 0;
     let mismatched = 0;
@@ -125,7 +133,7 @@ export function useOffline(): UseOfflineReturn {
         }
       }
     } finally {
-      inFlight.current = false;
+      sweepInFlight = false;
       setSyncing(false);
     }
 
