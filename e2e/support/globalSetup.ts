@@ -13,6 +13,7 @@ import {
   API_URL,
   E2E_SERVER_APP_NAME,
   SERVER_DIR,
+  TEST_JWT_ENV,
   databaseNameOf,
   requireE2eDatabaseUrl,
 } from './config';
@@ -162,6 +163,7 @@ function runServerScript(script: 'migrate' | 'seed', connectionString: string): 
       cwd: SERVER_DIR,
       env: {
         ...process.env,
+        ...TEST_JWT_ENV,
         DATABASE_URL: connectionString,
         NODE_ENV: 'test',
       },

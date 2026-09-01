@@ -6,6 +6,7 @@ import {
   E2E_SERVER_APP_NAME,
   PREVIEW_PORT,
   SERVER_DIR,
+  TEST_JWT_ENV,
   requireE2eDatabaseUrl,
 } from './support/config';
 
@@ -41,11 +42,8 @@ const serverEnv: Record<string, string> = {
   // bucket. The binding constraint is the auth ceiling of 10, not the global 200.
   RATE_LIMIT_MAX: '100000',
   AUTH_RATE_LIMIT_MAX: '100000',
-  // The same literals `.github/workflows/ci.yml`'s server job uses, so one rotation
-  // covers both. Deliberately not repository secrets: this is a throwaway server on a
-  // disposable database whose seeded credentials are already published in CLAUDE.md.
-  JWT_SECRET: 'ci-jwt-secret-key-at-least-32-characters-long',
-  JWT_REFRESH_SECRET: 'ci-jwt-refresh-secret-key-at-least-32-chars',
+  // Shared with the migrate/seed child processes in `globalSetup` — see TEST_JWT_ENV.
+  ...TEST_JWT_ENV,
 };
 
 export default defineConfig({

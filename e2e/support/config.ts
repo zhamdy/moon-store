@@ -119,3 +119,22 @@ export function requireE2eDatabaseUrl(): string {
 
   return url;
 }
+
+/**
+ * JWT secrets for anything this suite starts in the server's own runtime — the API under
+ * test, and the `migrate`/`seed` child processes in `globalSetup`.
+ *
+ * They are needed by more than the API. `server/src/config/env.ts` validates the whole
+ * environment the moment `pool.ts` is imported, so `npm run migrate` hard-fails without
+ * them. Locally `server/.env` supplies them and the omission is invisible; in CI there is
+ * no `.env` and setup dies before the first spec. Sharing one block is what keeps those
+ * two situations honest with each other.
+ *
+ * The same literals `.github/workflows/ci.yml`'s server job uses, so one rotation covers
+ * both. Deliberately not repository secrets: a throwaway server on a disposable database
+ * whose seeded credentials are already published in CLAUDE.md.
+ */
+export const TEST_JWT_ENV: Record<string, string> = {
+  JWT_SECRET: 'ci-jwt-secret-key-at-least-32-characters-long',
+  JWT_REFRESH_SECRET: 'ci-jwt-refresh-secret-key-at-least-32-chars',
+};
