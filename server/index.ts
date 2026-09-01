@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import { createGlobalLimiter, logRateLimitOverrides } from './src/http/rateLimits';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import { apiReference } from '@scalar/express-api-reference';
@@ -67,14 +67,8 @@ app.use(
 );
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: errorResponse('RATE_LIMITED'),
-});
-app.use(limiter);
+logRateLimitOverrides();
+app.use(createGlobalLimiter());
 
 // Parsing
 app.use(express.json({ limit: '10mb' }));

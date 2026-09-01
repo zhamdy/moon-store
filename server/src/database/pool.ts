@@ -10,6 +10,14 @@ export function getPoolConfig() {
 
   return {
     connectionString: env.DATABASE_URL,
+    /**
+     * Names this process's backends in `pg_stat_activity`. Useful for ordinary ops
+     * triage, and load-bearing for the E2E suite: its preflight identifies the server's
+     * own connections by this name before it resets the database, so a count of
+     * anonymous backends cannot be mistaken for the API being present.
+     * `PGAPPNAME` lets a caller override it.
+     */
+    application_name: process.env.PGAPPNAME || 'moon-api',
     max: isProduction ? 20 : 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,

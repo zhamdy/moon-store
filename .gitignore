@@ -16,3 +16,9 @@ nul
 
 # vitest JSON report, written by CI to check the real-PostgreSQL suites actually ran
 vitest-report.json
+
+# Playwright E2E artifacts
+e2e/playwright-report/
+e2e/blob-report/
+e2e/test-results/
+e2e/playwright/.auth/

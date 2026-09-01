@@ -22,6 +22,16 @@ const envSchema = z.object({
     .enum(['true', 'false', '1', '0'])
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
+  /**
+   * Ceilings for the two rate limiters, resolved by `src/http/rateLimits.ts`. Kept as
+   * raw strings here so a typo falls back to today's value instead of failing the whole
+   * environment parse. They are deliberately separate variables: the global ceiling and
+   * the credential brute-force ceiling guard different things, and one variable raising
+   * both would let a config written to unblock a test suite silently relax the login
+   * limit too.
+   */
+  RATE_LIMIT_MAX: z.string().optional(),
+  AUTH_RATE_LIMIT_MAX: z.string().optional(),
   CLIENT_URL: z.string().optional().default('http://localhost:5173'),
   ALLOWED_ORIGINS: z.string().optional(),
   TWILIO_ACCOUNT_SID: z.string().optional(),

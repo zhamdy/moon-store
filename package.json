@@ -23,6 +23,10 @@
     "server/**/*.ts": [
       "eslint --fix --config server/eslint.config.mjs",
       "prettier --write"
+    ],
+    "e2e/**/*.ts": [
+      "eslint --fix --config e2e/eslint.config.mjs",
+      "prettier --write"
     ]
   }
 }
