@@ -142,6 +142,61 @@ describe('Auth - Refresh Token Storage', () => {
   });
 });
 
+/**
+ * Regression cover for issue #62. The collision itself is a concurrency defect and its
+ * real proof lives in `tests/concurrency/auth.concurrency.test.ts`; these cases pin the
+ * claim that makes the fix work — one login is one session, even when the clock (which
+ * `iat`/`exp` resolve to whole seconds) cannot tell two logins apart.
+ */
+describe('Auth - refresh tokens are unique per session', () => {
+  // Frozen on a whole-second boundary at the current wall clock: freezing at a fixed
+  // literal instead would date the stored `expires_at` against the database's own NOW().
+  const sameSecond = new Date(Math.floor(Date.now() / 1000) * 1000);
+
+  it('signs different refresh tokens for two logins in the same second', async () => {
+    vi.setSystemTime(sameSecond);
+    try {
+      const first = await authService.login({ email: 'admin@moon.com', password: 'admin123' });
+      const second = await authService.login({ email: 'admin@moon.com', password: 'admin123' });
+
+      const firstClaims = jwt.verify(first.refreshToken, JWT_REFRESH_SECRET) as Record<
+        string,
+        unknown
+      >;
+      const secondClaims = jwt.verify(second.refreshToken, JWT_REFRESH_SECRET) as Record<
+        string,
+        unknown
+      >;
+
+      // Same user, same `iat` — the exact condition that used to produce equal tokens.
+      expect(firstClaims.id).toBe(secondClaims.id);
+      expect(firstClaims.iat).toBe(secondClaims.iat);
+
+      expect(firstClaims.jti).toEqual(expect.any(String));
+      expect(secondClaims.jti).not.toBe(firstClaims.jti);
+      expect(second.refreshToken).not.toBe(first.refreshToken);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('logging out of one same-second session leaves the other usable', async () => {
+    vi.setSystemTime(sameSecond);
+    try {
+      const till1 = await authService.login({ email: 'sarah@moon.com', password: 'cashier123' });
+      const till2 = await authService.login({ email: 'sarah@moon.com', password: 'cashier123' });
+
+      await authService.logout(till1.refreshToken);
+
+      await expect(authService.refresh(till1.refreshToken)).rejects.toBeInstanceOf(PublicError);
+      const refreshed = await authService.refresh(till2.refreshToken);
+      expect(refreshed.user.email).toBe('sarah@moon.com');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('Auth - Role Checking', () => {
   it('should enforce Admin role correctly', async () => {
     const result = await testPool.query('SELECT role FROM users WHERE email = $1', [
