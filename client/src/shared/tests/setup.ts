@@ -56,18 +56,26 @@ if (!window.scrollTo) {
 }
 
 /**
- * `@formkit/auto-animate` is stubbed to a plain ref.
+ * `framer-motion`'s `LazyMotion` is flattened, and `m` is mapped to the full `motion`.
  *
- * It drives real animations through `requestAnimationFrame` and a `MutationObserver`, and
- * those callbacks can outlive the jsdom environment: vitest tears the environment down,
- * a queued frame fires, and the callback touches `window` that no longer exists. The
- * result is `ReferenceError: window is not defined` reported as an *unhandled* error —
- * every test still passes, and the run fails anyway.
+ * HeroUI renders its components inside `LazyMotion`, which loads its feature bundle
+ * asynchronously and then calls `setState`. When vitest tears the jsdom environment down
+ * before that promise settles, the update lands in React's scheduler, reaches
+ * `getCurrentEventPriority`, and touches a `window` that no longer exists — surfacing as
+ * an *unhandled* `ReferenceError` that fails the run while every test still passes.
  *
- * It surfaced on CI (deterministically) while never reproducing locally, which is exactly
- * the shape of a teardown race. Nothing in the suite asserts on animation, so a no-op ref
- * loses no coverage. Same instinct as the ResizeObserver and Element.animate stubs above.
+ * Flattening `LazyMotion` removes the async load entirely. `m` must then map to `motion`,
+ * because `m` components rely on features that `LazyMotion` would otherwise have supplied.
+ *
+ * Diagnosed from the CI stack (LazyMotion/index.mjs -> dispatchSetState ->
+ * getCurrentEventPriority); it is deterministic there and has never reproduced locally,
+ * which is the shape of a teardown race.
  */
-vi.mock('@formkit/auto-animate/react', () => ({
-  useAutoAnimate: () => [{ current: null }, () => {}],
-}));
+vi.mock('framer-motion', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    LazyMotion: ({ children }: { children: React.ReactNode }) => children,
+    m: actual.motion,
+  };
+});
