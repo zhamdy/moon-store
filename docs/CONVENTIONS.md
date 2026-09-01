@@ -555,6 +555,63 @@ When adding routes in `server/index.ts`, order doesn't matter since each route f
 
 ---
 
+## E2E test conventions
+
+Rules for `e2e/` that will otherwise erode. Full detail and the run instructions live in
+`e2e/README.md`.
+
+### Locators
+
+- **Build them from the i18n catalog**, never from hardcoded user-facing strings. The app
+  ships Arabic RTL by default, so an English literal tests a configuration most tills never
+  run. `support/i18n.ts` throws on a missing key rather than falling back, so a rename fails
+  loudly instead of matching nothing.
+- **A missing accessible name is a defect, not a reason for a test id.** Fix the name first.
+  A test id is for surfaces that genuinely have none — a cart line container, a bare number.
+- **Every production `data-testid` carries a one-line comment** saying why a role query was
+  insufficient. There are six; adding a seventh should feel like a decision.
+- Some `aria-label`s in `CartPanel` are hardcoded English rather than `t()` calls
+  ("Increase quantity", "Remove item", "Remove coupon"). Those are deliberately *not* read
+  from the catalog — they do not change under `ar`, and pretending otherwise breaks the RTL
+  spec.
+
+### Assertions
+
+- **Every money assertion is two-sided**: the value the cashier sees *and* the persisted
+  row. One POST that writes two rows and two POSTs that write one are different bugs, and
+  each looks fine from one side.
+- **Expected totals come from `contracts/checkout-totals.v1.json`**, never hardcoded. Both
+  calculators are already proven against that file; restating a number here would put the
+  money rules in a third place. Where the contract deliberately names no case — caps and
+  clamps — assert the documented *behaviour* instead.
+- **Complete a sale through `completeSaleAndReadId`.** Reading "the latest sale for this
+  cashier" is unsafe on its own: a confirm click that lands before the drawer opens creates
+  no sale, and the assertion then reads a neighbouring test's row and reports a money
+  mismatch. The helper pins the count either side.
+- **Never assert on a global aggregate.** Scope every count to the worker's own cashier,
+  product or session, or it races every other worker.
+
+### Isolation
+
+- Every test creates the rows it mutates. A spec may *authenticate* as a seeded account but
+  must never mutate its shift, register or sale state — those are one-per-user and two
+  workers on the same drawer will race.
+- Worker accounts are namespaced by `E2E_RUN_ID` as well as worker index, because
+  `--shard` restarts `workerIndex` at 0 per shard and `users.email` is UNIQUE.
+- **Only `tax-loyalty.spec.ts` writes `PUT /api/v1/settings`,** and only from the serial
+  `pos-settings` project. Tax and loyalty are global rows; a write from a parallel worker
+  silently changes the totals every other worker is asserting on. Every settings write is
+  followed by a reload — the client caches settings for five minutes, so a page loaded
+  before the write keeps submitting under the old mode and the assertion passes for the
+  wrong reason.
+
+### The `@smoke` subset
+
+The pull-request gate, budgeted under three minutes. Adding to it is a deliberate decision
+with a cost; if it grows past the budget, move cases out rather than raising the budget.
+`scripts/assertSmokeTestsRan.mjs` fails the build if the tag ever matches nothing, because
+a green run of zero tests is the failure mode most likely to go unnoticed.
+
 ## Git Workflow
 
 - **Always branch from `main`** before starting a feature

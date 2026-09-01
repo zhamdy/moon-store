@@ -107,12 +107,31 @@ They are deliberately separate: one variable raising both would let a config wri
 unblock a test run silently relax the credential brute-force ceiling. A value that is not a
 positive integer falls back to the default, and any override is warned about at boot.
 
+The suite is Chromium-only and split into three projects: a `setup` project that logs in
+through the real form, a `fullyParallel` `pos-parallel` project, and a serial
+`pos-settings` project that is the **only** place permitted to write
+`PUT /api/v1/settings` — tax and loyalty are global rows, so a write from a parallel
+worker changes the totals every other worker is asserting on.
+
+`@smoke` is the pull-request gate, budgeted under three minutes; the full sharded suite
+runs on `main`. See `e2e/README.md` for ownership, the flake policy, and the findings the
+suite has already produced, and `docs/CONVENTIONS.md` → *E2E test conventions* before
+adding specs.
+
 ## Offline queue
 
-Sales rung up offline are queued in `localStorage` and replayed by
-`client/src/shared/hooks/useOffline.ts`. A failed replay backs off, and a rejection the server will
-repeat parks for a cashier rather than retrying forever — see the **Offline queue replay contract**
-in `docs/CONVENTIONS.md` before changing the hook or its store.
+The queue in `localStorage` is replayed by `client/src/shared/hooks/useOffline.ts`. A failed
+replay backs off, and a rejection the server will repeat parks for a cashier rather than
+retrying forever — see the **Offline queue replay contract** in `docs/CONVENTIONS.md`
+before changing the hook or its store.
+
+> **The checkout path does not currently reach that queue.** `queryClient` sets no
+> `networkMode`, so React Query's default pauses a mutation fired while `navigator.onLine`
+> is false rather than failing it. No request goes out, `onError` never runs, and
+> `CartPanel`'s offline fallback — the only writer to `moon-offline-queue`— is unreachable.
+> The sale resumes and completes on reconnect if the tab stays open, but does not survive a
+> reload. Measured in `e2e/specs/offline.spec.ts`; the machinery above is sound, what is
+> missing is the path into it.
 
 ## Idempotency compatibility window
 

@@ -6,6 +6,7 @@ import {
   E2E_SERVER_APP_NAME,
   PREVIEW_PORT,
   SERVER_DIR,
+  TEST_JWT_ENV,
   requireE2eDatabaseUrl,
 } from './support/config';
 
@@ -41,17 +42,24 @@ const serverEnv: Record<string, string> = {
   // bucket. The binding constraint is the auth ceiling of 10, not the global 200.
   RATE_LIMIT_MAX: '100000',
   AUTH_RATE_LIMIT_MAX: '100000',
-  // The same literals `.github/workflows/ci.yml`'s server job uses, so one rotation
-  // covers both. Deliberately not repository secrets: this is a throwaway server on a
-  // disposable database whose seeded credentials are already published in CLAUDE.md.
-  JWT_SECRET: 'ci-jwt-secret-key-at-least-32-characters-long',
-  JWT_REFRESH_SECRET: 'ci-jwt-refresh-secret-key-at-least-32-chars',
+  // Shared with the migrate/seed child processes in `globalSetup` — see TEST_JWT_ENV.
+  ...TEST_JWT_ENV,
 };
 
 export default defineConfig({
   testDir: './specs',
   outputDir: './test-results',
   globalSetup: './support/globalSetup.ts',
+
+  /**
+   * Generous next to a unit suite, and deliberately so. Every assertion here waits on a
+   * real browser rendering a real production bundle against a real server and database,
+   * under whatever parallel load the run has. The default 5s expect timeout produced
+   * timeouts that looked like application bugs but were pure contention — a slow machine
+   * is not a failing till.
+   */
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
 
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -74,6 +82,8 @@ export default defineConfig({
      * behavior is explicitly out of scope — see README.md.
      */
     serviceWorkers: 'block',
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
     trace: 'on-first-retry',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',

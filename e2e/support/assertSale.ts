@@ -22,10 +22,12 @@ export interface PersistedSale {
   subtotal: string | number;
   tax_amount: string | number;
   discount: string | number;
+  discount_type: string;
   tip_amount: string | number;
   payment_method: string;
   cashier_id: number | null;
   customer_id: number | null;
+  points_redeemed: number | string | null;
   status: string;
   items: PersistedSaleItem[];
   payments: Array<{ method: string; amount: string | number }>;
@@ -121,4 +123,50 @@ export async function assertStockDecremented(
   soldQuantity: number
 ): Promise<void> {
   expect(await readStock(productId), 'stock after the sale').toBe(stockBefore - soldQuantity);
+}
+
+/**
+ * Completes the sale in the open checkout drawer and returns *this sale's* id.
+ *
+ * Reading "the latest sale for this cashier" on its own is not safe: if the confirm click
+ * lands before the drawer has opened, or `handleCheckout` silently returns (it does that
+ * for an empty cart and for an unacknowledged recovered cart), no sale is created and the
+ * caller happily asserts against the previous test's row. That failure reads as a money
+ * bug in whichever spec is unlucky, which is far worse than a timeout.
+ *
+ * So this pins the count before and after, and refuses to return an id unless exactly one
+ * new sale exists.
+ */
+export async function completeSaleAndReadId(
+  page: import('@playwright/test').Page,
+  cashierId: number,
+  confirm: import('@playwright/test').Locator,
+  receipt: import('@playwright/test').Locator
+): Promise<number> {
+  const before = await countSalesForCashier(cashierId);
+
+  await expect(confirm, 'the confirm control must be actionable before clicking').toBeEnabled();
+  // The confirm button is the last child of a scrollable drawer body, so anything that
+  // adds height above it — the offline banner, a coupon chip, a loyalty row — can push it
+  // out of view. Scroll it in explicitly rather than relying on the click's own attempt.
+  await confirm.scrollIntoViewIfNeeded();
+  await confirm.click();
+  await expect(receipt, 'the receipt confirms the server accepted the sale').toBeVisible();
+
+  await expect
+    .poll(() => countSalesForCashier(cashierId), {
+      message: 'exactly one new sale should exist for this cashier',
+    })
+    .toBe(before + 1);
+
+  const saleId = await latestSaleIdForCashier(cashierId);
+  if (saleId === undefined) throw new Error('No sale row found after a confirmed checkout.');
+  return saleId;
+}
+
+/** The seeded Admin's user id and a live token, for the few Admin-gated paths. */
+export async function adminUserId(adminApi: APIRequestContext): Promise<number> {
+  const response = await adminApi.get('/api/v1/auth/me');
+  const body = (await response.json()) as { data: { id: number } };
+  return body.data.id;
 }

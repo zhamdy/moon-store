@@ -88,3 +88,186 @@ jobs:
       # pre-existing errors unrelated to this workflow. Add the step once they are cleared.
 
       - run: npm test
+
+  e2e-smoke:
+    name: E2E smoke (pull requests)
+    # The PR gate: the money paths that would be catastrophic to break silently, held to
+    # a ~3 minute budget so it stays a gate people wait for rather than learn to skip.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: moon_store_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/moon_store_e2e
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+            e2e/package-lock.json
+
+      - run: npm ci --prefix server
+      - run: npm ci --prefix client
+      - run: npm ci --prefix e2e
+
+      # Browser binaries are deliberately not cached: restore costs about as much as the
+      # download, and the OS dependencies are not cacheable anyway.
+      - run: npx --prefix e2e playwright install --with-deps chromium
+
+      # Its own step, never folded into webServer.command — otherwise the boot timeout
+      # silently covers compilation and a build failure reports as a readiness timeout.
+      # VITE_API_URL is baked in HERE; setting it on `vite preview` would do nothing.
+      - name: Build the client
+        run: npm run build --prefix client
+        env:
+          VITE_API_URL: http://localhost:3001
+
+      - name: Run @smoke
+        working-directory: e2e
+        run: npx playwright test --grep @smoke --reporter=list,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: smoke-report.json
+
+      - name: Fail if the @smoke subset ran nothing
+        # A renamed tag would otherwise turn this gate into a green no-op.
+        if: always()
+        run: node e2e/scripts/assertSmokeTestsRan.mjs e2e/smoke-report.json
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ failure() }}
+        with:
+          name: e2e-smoke-artifacts
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          # Traces record Authorization headers, Set-Cookie and login bodies. This repo is
+          # public, so keep the window short. `e2e/playwright/.auth/` sits outside
+          # outputDir and is never collected here.
+          retention-days: 7
+
+  e2e-full:
+    name: E2E full (main)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    services:
+      postgres:
+        # REQUIRED INVARIANT: each shard gets its own server process and its own database.
+        # A matrix gives every shard its own service container, which is what makes that
+        # true here. Consolidating to one shared service to save CI minutes would silently
+        # break the settings isolation: shard 3's pos-settings project could rewrite global
+        # settings while shard 1's pos-parallel asserted totals against them, and each
+        # shard's reseed would wipe the others mid-run.
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: moon_store_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/moon_store_e2e
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+            e2e/package-lock.json
+
+      - run: npm ci --prefix server
+      - run: npm ci --prefix client
+      - run: npm ci --prefix e2e
+      - run: npx --prefix e2e playwright install --with-deps chromium
+
+      - name: Build the client
+        run: npm run build --prefix client
+        env:
+          VITE_API_URL: http://localhost:3001
+
+      - name: Run shard ${{ matrix.shard }}/4
+        working-directory: e2e
+        # --fail-on-flaky-tests so retries surface flakes instead of absorbing them.
+        run: npx playwright test --shard=${{ matrix.shard }}/4 --fail-on-flaky-tests
+        env:
+          # Namespaces this shard's worker accounts. workerIndex restarts at 0 per shard,
+          # so without this two shards would collide on the same cashier email.
+          E2E_RUN_ID: s${{ matrix.shard }}
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-blob-${{ matrix.shard }}
+          path: e2e/blob-report/
+          retention-days: 7
+
+  e2e-report:
+    name: E2E merged report
+    # `!cancelled()` rather than `always()`: the report is most valuable precisely when a
+    # shard failed, and without this it would be lost exactly then.
+    if: ${{ !cancelled() && github.event_name == 'push' }}
+    needs: [e2e-full]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - run: npm ci --prefix e2e
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: e2e/all-blob-reports
+          pattern: e2e-blob-*
+          merge-multiple: true
+
+      - name: Merge into one HTML report
+        working-directory: e2e
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-html-report
+          path: e2e/playwright-report/
+          retention-days: 7

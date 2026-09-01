@@ -1,7 +1,7 @@
 ---
 title: 'test: End-to-end coverage for critical POS workflows'
 type: test
-status: phase-1-complete
+status: completed
 date: 2026-08-31
 deepened: 2026-08-31
 issue: 50
@@ -1008,7 +1008,7 @@ retype them).
 
 ---
 
-- [ ] **Unit 7: Payment, adjustment, and cart-operation variants**
+- [x] **Unit 7: Payment, adjustment, and cart-operation variants**
 
 **Goal:** R2's breadth (minus the two settings-driven modes), plus the cart operations R1 names.
 
@@ -1079,7 +1079,7 @@ Cart operations (`cart-operations.spec.ts`):
 
 ---
 
-- [ ] **Unit 8: Tax modes and loyalty (serial settings project)**
+- [x] **Unit 8: Tax modes and loyalty (serial settings project)**
 
 **Goal:** The settings-driven half of R2, without destabilizing the parallel suite.
 
@@ -1155,7 +1155,7 @@ diagnose than the bug it was chasing.
 
 ### Phase 3 — Failure and resilience
 
-- [ ] **Unit 9: Duplicate submission and idempotent retry**
+- [x] **Unit 9: Duplicate submission and idempotent retry**
 
 **Goal:** R8 — prove in a real browser that a double interaction cannot create two sales.
 
@@ -1219,7 +1219,7 @@ diagnose than the bug it was chasing.
 
 ---
 
-- [ ] **Unit 10: Stock conflicts, rejected sales, and cart preservation**
+- [x] **Unit 10: Stock conflicts, rejected sales, and cart preservation**
 
 **Goal:** R3's rejection paths and R9's recovery guarantee.
 
@@ -1263,7 +1263,7 @@ diagnose than the bug it was chasing.
 
 ---
 
-- [ ] **Unit 11: Expired session, token refresh, and cart recovery**
+- [x] **Unit 11: Expired session, token refresh, and cart recovery**
 
 **Goal:** R3's session-expiry path, and R9 across a forced logout.
 
@@ -1305,7 +1305,7 @@ diagnose than the bug it was chasing.
 
 ---
 
-- [ ] **Unit 12: Offline queueing and reconnection replay**
+- [x] **Unit 12: Offline queueing and reconnection replay**
 
 **Goal:** R4 — prove the queue in a real browser, closing the loop on issues #30 and #42 together.
 
@@ -1359,7 +1359,7 @@ diagnose than the bug it was chasing.
 
 ### Phase 4 — CI and documentation
 
-- [ ] **Unit 13: CI workflow — smoke on PRs, sharded full suite on `main`**
+- [x] **Unit 13: CI workflow — smoke on PRs, sharded full suite on `main`**
 
 **Goal:** R10 and R11, with the smoke subset genuinely fast and the full suite genuinely enforced.
 
@@ -1441,7 +1441,7 @@ diagnose than the bug it was chasing.
 
 ---
 
-- [ ] **Unit 14: Documentation**
+- [x] **Unit 14: Documentation**
 
 **Goal:** The suite is runnable and extendable by someone who did not write it.
 
