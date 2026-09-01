@@ -118,6 +118,29 @@ runs on `main`. See `e2e/README.md` for ownership, the flake policy, and the fin
 suite has already produced, and `docs/CONVENTIONS.md` → *E2E test conventions* before
 adding specs.
 
+## Rate-limit bucketing
+
+The global limiter is keyed on the **authenticated user**, not on the IP. Several tills
+behind one shop router share one address, so an IP-keyed budget is a per-shop budget and
+one busy till can push a colleague into a `RATE_LIMITED` mid-checkout. The limiter runs
+ahead of `verifyToken`, so the identity comes from verifying the bearer token's signature
+inside the key generator — verifying, never decoding: an unverified token would let a
+caller choose its own bucket. Unauthenticated requests keep the IP bucket, and
+`GET /api/health` is exempt so an uptime probe cannot be starved by, or starve, the tills.
+
+`authLimiter` on `/auth/login` and `/auth/refresh` deliberately stays IP-keyed: a
+credential-guessing attacker is unauthenticated by definition, so there is no verified
+user to key on.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `TRUST_PROXY` | unset (off) | How far to trust `X-Forwarded-For` when deriving `req.ip`. |
+
+Accepts a hop count (`1`), a comma list of addresses/CIDRs/`loopback`-style presets, or
+`true`. Unset reproduces Express's default exactly. Prefer a hop count: `true` trusts the
+whole client-supplied chain, which lets a client pick its own IP bucket — it is accepted
+but warned about at boot, as is a value that could not be parsed.
+
 ## Offline queue
 
 The queue in `localStorage` is replayed by `client/src/shared/hooks/useOffline.ts`. A failed

@@ -32,6 +32,17 @@ const envSchema = z.object({
    */
   RATE_LIMIT_MAX: z.string().optional(),
   AUTH_RATE_LIMIT_MAX: z.string().optional(),
+  /**
+   * How many reverse proxies sit in front of this API, resolved by
+   * `src/http/rateLimits.ts`. Unset means "none", which is exactly today's behaviour:
+   * Express leaves `trust proxy` off and `req.ip` is the socket address.
+   *
+   * Raw string for the same reason as the ceilings above — a typo must fall back to the
+   * safe value rather than fail the whole environment parse — and because the accepted
+   * values are not one type: a hop count, a list of trusted addresses, or the
+   * deliberately-discouraged `true`.
+   */
+  TRUST_PROXY: z.string().optional(),
   CLIENT_URL: z.string().optional().default('http://localhost:5173'),
   ALLOWED_ORIGINS: z.string().optional(),
   TWILIO_ACCOUNT_SID: z.string().optional(),
