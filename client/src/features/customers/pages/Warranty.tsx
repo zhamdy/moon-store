@@ -87,13 +87,13 @@ export default function WarrantyPage() {
     },
     {
       accessorKey: 'product_name',
-      header: 'Product',
+      header: t('warranty.product'),
       cell: ({ getValue }) => (
         <span className="font-medium text-foreground">{getValue() as string}</span>
       ),
     },
     {
-      accessorKey: 'issue',
+      accessorKey: 'issue_description',
       header: t('warranty.issue'),
       cell: ({ getValue }) => (
         <span className="text-muted-foreground max-w-48 truncate block">

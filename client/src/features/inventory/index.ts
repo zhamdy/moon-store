@@ -5,11 +5,10 @@
 // R7: cross-slice imports must go through this barrel only; importing a path
 // inside another slice's internals (features/inventory/pages/..., etc.) is a
 // boundaries lint violation.
-//
-// Collections is unrouted and intentionally not exported here.
 
 export { default as Inventory } from './pages/Inventory';
 export { default as Categories } from './pages/Categories';
+export { default as Collections } from './pages/Collections';
 export { default as StockCount } from './pages/StockCount';
 export { default as Bundles } from './pages/Bundles';
 export { default as SmartPricing } from './pages/SmartPricing';

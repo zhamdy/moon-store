@@ -58,7 +58,7 @@ export interface WarrantyClaim {
   sale_id: number;
   product_name: string;
   customer_name: string | null;
-  issue: string;
+  issue_description: string;
   status: string;
   resolution: string | null;
   created_at: string;

@@ -5,9 +5,8 @@
 // R7: cross-slice imports must go through this barrel only; importing a path
 // inside another slice's internals (features/customers/pages/..., etc.) is a
 // boundaries lint violation.
-//
-// Warranty is unrouted and intentionally not exported here.
 
 export { default as Customers } from './pages/Customers';
 export { default as Feedback } from './pages/Feedback';
 export { default as Segments } from './pages/Segments';
+export { default as Warranty } from './pages/Warranty';
