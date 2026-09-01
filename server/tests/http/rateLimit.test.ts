@@ -23,10 +23,16 @@ import {
   createGlobalLimiter,
   globalRateLimitMax,
   logRateLimitOverrides,
+  logTrustProxyOverride,
+  isRateLimitExempt,
+  rateLimitKey,
   resolveCeiling,
+  resolveTrustProxy,
+  trustProxySetting,
 } from '../../src/http/rateLimits';
+import jwt from 'jsonwebtoken';
 
-const ENV_KEYS = ['RATE_LIMIT_MAX', 'AUTH_RATE_LIMIT_MAX'] as const;
+const ENV_KEYS = ['RATE_LIMIT_MAX', 'AUTH_RATE_LIMIT_MAX', 'TRUST_PROXY'] as const;
 const savedEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
 
 beforeEach(() => {
@@ -94,14 +100,49 @@ async function authHarness(): Promise<Harness> {
   }, counter);
 }
 
-async function hit(url: string, method: 'GET' | 'POST' = 'GET'): Promise<Response> {
-  return fetch(url, { method });
+/**
+ * The global limiter with per-user keying, over both a normal route and the exempt
+ * health route, under a given `trust proxy` setting.
+ */
+async function keyedHarness(): Promise<Harness> {
+  const counter = { n: 0 };
+  return serve((app) => {
+    app.set('trust proxy', trustProxySetting());
+    app.use(createGlobalLimiter());
+    const handler = (_req: express.Request, res: express.Response) => {
+      counter.n += 1;
+      res.json({ ok: true });
+    };
+    app.get('/ping', handler);
+    app.get('/api/health', handler);
+  }, counter);
 }
 
-async function hitMany(url: string, times: number, method: 'GET' | 'POST' = 'GET') {
+function bearer(userId: number | string): Record<string, string> {
+  const token = jwt.sign(
+    { id: userId, email: `u${userId}@moon.com`, role: 'Cashier', name: `User ${userId}` },
+    process.env.JWT_SECRET as string
+  );
+  return { authorization: `Bearer ${token}` };
+}
+
+async function hit(
+  url: string,
+  method: 'GET' | 'POST' = 'GET',
+  headers: Record<string, string> = {}
+): Promise<Response> {
+  return fetch(url, { method, headers });
+}
+
+async function hitMany(
+  url: string,
+  times: number,
+  method: 'GET' | 'POST' = 'GET',
+  headers: Record<string, string> = {}
+) {
   const statuses: number[] = [];
   for (let i = 0; i < times; i += 1) {
-    statuses.push((await hit(url, method)).status);
+    statuses.push((await hit(url, method, headers)).status);
   }
   return statuses;
 }
@@ -367,5 +408,271 @@ describe('override visibility', () => {
 
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain('500');
+  });
+});
+
+/**
+ * Per-till keying — the fix for #63.
+ *
+ * An IP-keyed global budget is a *per shop* budget: several tills behind one NAT share
+ * 200 requests / 15 min, and the failure lands as a `RATE_LIMITED` mid-checkout on
+ * whichever cashier happens to be next. The bucket is therefore the authenticated user.
+ *
+ * The limiter runs before `verifyToken`, so the identity has to come from the token
+ * itself — and it must be a *verified* signature. The spoofing tests below are the ones
+ * that matter: an unverified `jwt.decode` would let anyone pick their own bucket, which
+ * is strictly worse than the IP keying being replaced.
+ */
+describe('per-user keying', () => {
+  it('gives two authenticated users separate budgets from the same IP', async () => {
+    process.env.RATE_LIMIT_MAX = '3';
+    resetEnvCache();
+
+    const h = await keyedHarness();
+    try {
+      // Both tills call from 127.0.0.1 — the NAT case from the issue.
+      expect(await hitMany(`${h.url}/ping`, 3, 'GET', bearer(1))).toEqual([200, 200, 200]);
+      expect((await hit(`${h.url}/ping`, 'GET', bearer(1))).status).toBe(429);
+
+      // User 2's budget is untouched by user 1 exhausting theirs.
+      expect(await hitMany(`${h.url}/ping`, 3, 'GET', bearer(2))).toEqual([200, 200, 200]);
+      expect((await hit(`${h.url}/ping`, 'GET', bearer(2))).status).toBe(429);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('keeps one user in one bucket across separate tokens for the same id', async () => {
+    // A till that refreshes its access token mid-shift gets a different token string but
+    // the same identity; a token-keyed bucket would hand it a fresh budget on every
+    // refresh and make the ceiling meaningless.
+    process.env.RATE_LIMIT_MAX = '2';
+    resetEnvCache();
+
+    const h = await keyedHarness();
+    try {
+      await hitMany(`${h.url}/ping`, 2, 'GET', bearer(7));
+      expect((await hit(`${h.url}/ping`, 'GET', bearer(7))).status).toBe(429);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('falls back to the IP bucket for unauthenticated requests', async () => {
+    process.env.RATE_LIMIT_MAX = '2';
+    resetEnvCache();
+
+    const h = await keyedHarness();
+    try {
+      expect(await hitMany(`${h.url}/ping`, 2)).toEqual([200, 200]);
+      expect((await hit(`${h.url}/ping`)).status).toBe(429);
+
+      // And an authenticated till is not caught by the anonymous bucket being spent.
+      expect((await hit(`${h.url}/ping`, 'GET', bearer(3))).status).toBe(200);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('does not let a forged token buy a fresh bucket', async () => {
+    // The whole security of the scheme. A token signed with the wrong secret is treated
+    // as anonymous, so it lands in the caller's IP bucket rather than one of its choosing.
+    process.env.RATE_LIMIT_MAX = '2';
+    resetEnvCache();
+
+    const forged = jwt.sign({ id: 99, role: 'Admin' }, 'not-the-real-signing-secret-at-all');
+    const h = await keyedHarness();
+    try {
+      await hitMany(`${h.url}/ping`, 2, 'GET', { authorization: `Bearer ${forged}` });
+
+      // A second forged token claiming a different id is still the same IP bucket.
+      const other = jwt.sign({ id: 1234 }, 'not-the-real-signing-secret-at-all');
+      const over = await hit(`${h.url}/ping`, 'GET', { authorization: `Bearer ${other}` });
+      expect(over.status).toBe(429);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('treats an expired token as anonymous rather than as its claimed user', () => {
+    const expired = jwt.sign({ id: 5 }, process.env.JWT_SECRET as string, { expiresIn: '-1s' });
+    expect(rateLimitKey({ headers: { authorization: `Bearer ${expired}` }, ip: '10.0.0.9' })).toBe(
+      'ip:10.0.0.9'
+    );
+  });
+
+  it.each([
+    ['no header', {}],
+    ['a non-bearer scheme', { authorization: 'Basic abc' }],
+    ['an empty bearer', { authorization: 'Bearer ' }],
+    ['a garbage token', { authorization: 'Bearer not-a-jwt' }],
+  ])('keys %s by IP', (_label, headers) => {
+    expect(rateLimitKey({ headers: headers as never, ip: '10.0.0.1' })).toBe('ip:10.0.0.1');
+  });
+
+  it('keys a validly signed token by its user id', () => {
+    const token = jwt.sign({ id: 42 }, process.env.JWT_SECRET as string);
+    expect(rateLimitKey({ headers: { authorization: `Bearer ${token}` }, ip: '10.0.0.1' })).toBe(
+      'user:42'
+    );
+  });
+
+  it('falls back to IP for a signed token carrying no usable id', () => {
+    // A valid signature is not by itself an identity: without an `id` there is nothing to
+    // bucket on, and `user:undefined` would be one shared bucket for all such callers.
+    const token = jwt.sign({ role: 'Admin' }, process.env.JWT_SECRET as string);
+    expect(rateLimitKey({ headers: { authorization: `Bearer ${token}` }, ip: '10.0.0.2' })).toBe(
+      'ip:10.0.0.2'
+    );
+  });
+});
+
+describe('trust proxy', () => {
+  it('defaults to off, reproducing today’s behaviour exactly', () => {
+    expect(resolveTrustProxy(undefined)).toBe(false);
+    expect(trustProxySetting()).toBe(false);
+  });
+
+  it.each([
+    ['false', false],
+    ['', false],
+    ['  ', false],
+    ['true', true],
+    ['1', 1],
+    ['2', 2],
+  ])('resolves %j to %j', (raw, expected) => {
+    expect(resolveTrustProxy(raw as string)).toEqual(expected);
+  });
+
+  it('resolves an address list', () => {
+    expect(resolveTrustProxy('10.0.0.1, 192.168.0.0/16, loopback')).toEqual([
+      '10.0.0.1',
+      '192.168.0.0/16',
+      'loopback',
+    ]);
+  });
+
+  it('ignores an unparseable value rather than trusting something arbitrary', () => {
+    // The failure has to land closed: a typo that resolved to `true` would make every
+    // IP-keyed bucket client-selectable.
+    expect(resolveTrustProxy('yes please')).toBe(false);
+    expect(resolveTrustProxy('all')).toBe(false);
+  });
+
+  it('does not let a spoofed X-Forwarded-For escape the IP bucket by default', async () => {
+    // With TRUST_PROXY unset, `req.ip` is the socket address and the header is inert —
+    // so an unauthenticated client cannot mint itself a fresh budget per request.
+    process.env.RATE_LIMIT_MAX = '2';
+    resetEnvCache();
+
+    const h = await keyedHarness();
+    try {
+      await hit(`${h.url}/ping`, 'GET', { 'x-forwarded-for': '203.0.113.1' });
+      await hit(`${h.url}/ping`, 'GET', { 'x-forwarded-for': '203.0.113.2' });
+      const over = await hit(`${h.url}/ping`, 'GET', { 'x-forwarded-for': '203.0.113.3' });
+      expect(over.status).toBe(429);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('under a hop count, only the trusted hop’s entry moves the bucket', async () => {
+    // TRUST_PROXY=1 trusts exactly one hop, so Express takes the address that hop
+    // appended — the right-hand entry — and everything further left is whatever the
+    // client chose to prepend. Those prepended entries must not create a new bucket per
+    // request, which is precisely what `trust proxy: true` would have allowed.
+    process.env.RATE_LIMIT_MAX = '2';
+    process.env.TRUST_PROXY = '1';
+    resetEnvCache();
+
+    const h = await keyedHarness();
+    try {
+      const asProxied = (spoofed: string) => ({
+        'x-forwarded-for': `${spoofed}, 198.51.100.7`,
+      });
+      await hit(`${h.url}/ping`, 'GET', asProxied('203.0.113.1'));
+      await hit(`${h.url}/ping`, 'GET', asProxied('203.0.113.2'));
+      const over = await hit(`${h.url}/ping`, 'GET', asProxied('203.0.113.3'));
+      expect(over.status).toBe(429);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('warns loudly about the permissive setting', () => {
+    process.env.TRUST_PROXY = 'true';
+    resetEnvCache();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    logTrustProxyOverride();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toMatch(/X-Forwarded-For/i);
+  });
+
+  it('warns that an unparseable setting was ignored', () => {
+    process.env.TRUST_PROXY = 'yes';
+    resetEnvCache();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    logTrustProxyOverride();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toMatch(/ignored/i);
+  });
+
+  it('says nothing when unset', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    logTrustProxyOverride();
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('health check exemption', () => {
+  it('does not spend the shop’s budget on the uptime probe', async () => {
+    // Counting the probe means a shop that has spent its budget also fails its own health
+    // check — monitoring reporting an outage that the monitoring caused.
+    process.env.RATE_LIMIT_MAX = '2';
+    resetEnvCache();
+
+    const h = await keyedHarness();
+    try {
+      const statuses = await hitMany(`${h.url}/api/health`, 10);
+      expect(statuses.filter((s) => s !== 200)).toEqual([]);
+
+      // …and the probe has not eaten the budget the tills need.
+      expect((await hit(`${h.url}/ping`)).status).toBe(200);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('exempts only GET /api/health', () => {
+    expect(isRateLimitExempt({ method: 'GET', path: '/api/health' })).toBe(true);
+    expect(isRateLimitExempt({ method: 'POST', path: '/api/health' })).toBe(false);
+    expect(isRateLimitExempt({ method: 'GET', path: '/api/v1/sales' })).toBe(false);
+    expect(isRateLimitExempt({ method: 'GET', path: '/api/health/extra' })).toBe(false);
+  });
+});
+
+/**
+ * The auth limiter deliberately keeps IP keying, and this suite pins that.
+ *
+ * Per-user keying there would *weaken* it: an attacker guessing passwords is by
+ * definition unauthenticated, so there is no verified user to key on, and keying on the
+ * submitted email would hand the attacker a fresh 10-attempt budget per address they
+ * try — turning a brute-force control into a rate limit on the victim rather than on the
+ * attacker. IP is the only identity a credential attempt actually has.
+ */
+describe('auth limiter keying', () => {
+  it('is not widened by a bearer token — the credential budget stays per IP', async () => {
+    process.env.AUTH_RATE_LIMIT_MAX = '3';
+    resetEnvCache();
+
+    const h = await authHarness();
+    try {
+      await hitMany(`${h.url}/login`, 3, 'POST');
+      // A caller holding a valid token for some user is still the same credential bucket.
+      const over = await hit(`${h.url}/login`, 'POST', bearer(1));
+      expect(over.status).toBe(429);
+    } finally {
+      await h.close();
+    }
   });
 });

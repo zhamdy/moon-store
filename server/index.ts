@@ -2,7 +2,12 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { createGlobalLimiter, logRateLimitOverrides } from './src/http/rateLimits';
+import {
+  createGlobalLimiter,
+  logRateLimitOverrides,
+  logTrustProxyOverride,
+  trustProxySetting,
+} from './src/http/rateLimits';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import { apiReference } from '@scalar/express-api-reference';
@@ -27,6 +32,12 @@ for (const envVar of requiredEnvVars) {
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 3001;
+
+// How far to trust X-Forwarded-For when deriving `req.ip`, which is the rate-limit
+// bucket for unauthenticated traffic. Defaults to off — Express's own default — so an
+// unset TRUST_PROXY behaves exactly as before. See `src/http/rateLimits.ts`.
+logTrustProxyOverride();
+app.set('trust proxy', trustProxySetting());
 
 // Security
 app.use(
