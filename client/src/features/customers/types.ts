@@ -52,14 +52,32 @@ export interface FeedbackResponse {
   stats: FeedbackStats;
 }
 
+/**
+ * The seven values `warranty_claims.status` allows. The column carries a CHECK
+ * constraint over exactly this set, so it is the database's vocabulary rather
+ * than a client-side convention, and widening it here would only move the
+ * rejection from the type checker to a 500 at runtime.
+ */
+export type WarrantyStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'completed'
+  | 'resolved'
+  | 'replaced'
+  | 'refunded';
+
 /** Warranty claim from GET /api/warranty */
 export interface WarrantyClaim {
   id: number;
-  sale_id: number;
+  /** Null when the claim was filed before its original sale was located. */
+  sale_id: number | null;
+  product_id: number;
   product_name: string;
   customer_name: string | null;
-  issue: string;
-  status: string;
+  customer_phone: string | null;
+  issue_description: string;
+  status: WarrantyStatus;
   resolution: string | null;
   created_at: string;
 }

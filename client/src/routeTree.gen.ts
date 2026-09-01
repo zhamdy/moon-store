@@ -31,6 +31,7 @@ import { Route as AuthenticatedAdminBackupRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/_admin/branches'
 import { Route as AuthenticatedAdminBundlesRouteImport } from './routes/_authenticated/_admin/bundles'
 import { Route as AuthenticatedAdminCategoriesRouteImport } from './routes/_authenticated/_admin/categories'
+import { Route as AuthenticatedAdminCollectionsRouteImport } from './routes/_authenticated/_admin/collections'
 import { Route as AuthenticatedAdminCustomersRouteImport } from './routes/_authenticated/_admin/customers'
 import { Route as AuthenticatedAdminDistributorsRouteImport } from './routes/_authenticated/_admin/distributors'
 import { Route as AuthenticatedAdminExpensesRouteImport } from './routes/_authenticated/_admin/expenses'
@@ -48,6 +49,7 @@ import { Route as AuthenticatedAdminStockCountRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminStorefrontRouteImport } from './routes/_authenticated/_admin/storefront'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/_admin/users'
 import { Route as AuthenticatedAdminVendorsRouteImport } from './routes/_authenticated/_admin/vendors'
+import { Route as AuthenticatedAdminWarrantyRouteImport } from './routes/_authenticated/_admin/warranty'
 
 const SplatRoute = SplatRouteImport.update({
   id: '/$',
@@ -164,6 +166,12 @@ const AuthenticatedAdminCategoriesRoute =
     path: '/categories',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminCollectionsRoute =
+  AuthenticatedAdminCollectionsRouteImport.update({
+    id: '/collections',
+    path: '/collections',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCustomersRoute =
   AuthenticatedAdminCustomersRouteImport.update({
     id: '/customers',
@@ -265,6 +273,12 @@ const AuthenticatedAdminVendorsRoute =
     path: '/vendors',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminWarrantyRoute =
+  AuthenticatedAdminWarrantyRouteImport.update({
+    id: '/warranty',
+    path: '/warranty',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
@@ -287,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/branches': typeof AuthenticatedAdminBranchesRoute
   '/bundles': typeof AuthenticatedAdminBundlesRoute
   '/categories': typeof AuthenticatedAdminCategoriesRoute
+  '/collections': typeof AuthenticatedAdminCollectionsRoute
   '/customers': typeof AuthenticatedAdminCustomersRoute
   '/distributors': typeof AuthenticatedAdminDistributorsRoute
   '/expenses': typeof AuthenticatedAdminExpensesRoute
@@ -304,6 +319,7 @@ export interface FileRoutesByFullPath {
   '/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/users': typeof AuthenticatedAdminUsersRoute
   '/vendors': typeof AuthenticatedAdminVendorsRoute
+  '/warranty': typeof AuthenticatedAdminWarrantyRoute
 }
 export interface FileRoutesByTo {
   '/$': typeof SplatRoute
@@ -326,6 +342,7 @@ export interface FileRoutesByTo {
   '/branches': typeof AuthenticatedAdminBranchesRoute
   '/bundles': typeof AuthenticatedAdminBundlesRoute
   '/categories': typeof AuthenticatedAdminCategoriesRoute
+  '/collections': typeof AuthenticatedAdminCollectionsRoute
   '/customers': typeof AuthenticatedAdminCustomersRoute
   '/distributors': typeof AuthenticatedAdminDistributorsRoute
   '/expenses': typeof AuthenticatedAdminExpensesRoute
@@ -343,6 +360,7 @@ export interface FileRoutesByTo {
   '/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/users': typeof AuthenticatedAdminUsersRoute
   '/vendors': typeof AuthenticatedAdminVendorsRoute
+  '/warranty': typeof AuthenticatedAdminWarrantyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -367,6 +385,7 @@ export interface FileRoutesById {
   '/_authenticated/_admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/_admin/bundles': typeof AuthenticatedAdminBundlesRoute
   '/_authenticated/_admin/categories': typeof AuthenticatedAdminCategoriesRoute
+  '/_authenticated/_admin/collections': typeof AuthenticatedAdminCollectionsRoute
   '/_authenticated/_admin/customers': typeof AuthenticatedAdminCustomersRoute
   '/_authenticated/_admin/distributors': typeof AuthenticatedAdminDistributorsRoute
   '/_authenticated/_admin/expenses': typeof AuthenticatedAdminExpensesRoute
@@ -384,6 +403,7 @@ export interface FileRoutesById {
   '/_authenticated/_admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/_authenticated/_admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/_admin/vendors': typeof AuthenticatedAdminVendorsRoute
+  '/_authenticated/_admin/warranty': typeof AuthenticatedAdminWarrantyRoute
   '/_authenticated/_admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -409,6 +429,7 @@ export interface FileRouteTypes {
     | '/branches'
     | '/bundles'
     | '/categories'
+    | '/collections'
     | '/customers'
     | '/distributors'
     | '/expenses'
@@ -426,6 +447,7 @@ export interface FileRouteTypes {
     | '/storefront'
     | '/users'
     | '/vendors'
+    | '/warranty'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$'
@@ -448,6 +470,7 @@ export interface FileRouteTypes {
     | '/branches'
     | '/bundles'
     | '/categories'
+    | '/collections'
     | '/customers'
     | '/distributors'
     | '/expenses'
@@ -465,6 +488,7 @@ export interface FileRouteTypes {
     | '/storefront'
     | '/users'
     | '/vendors'
+    | '/warranty'
   id:
     | '__root__'
     | '/$'
@@ -488,6 +512,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin/branches'
     | '/_authenticated/_admin/bundles'
     | '/_authenticated/_admin/categories'
+    | '/_authenticated/_admin/collections'
     | '/_authenticated/_admin/customers'
     | '/_authenticated/_admin/distributors'
     | '/_authenticated/_admin/expenses'
@@ -505,6 +530,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin/storefront'
     | '/_authenticated/_admin/users'
     | '/_authenticated/_admin/vendors'
+    | '/_authenticated/_admin/warranty'
     | '/_authenticated/_admin/'
   fileRoutesById: FileRoutesById
 }
@@ -672,6 +698,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCategoriesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/_admin/collections': {
+      id: '/_authenticated/_admin/collections'
+      path: '/collections'
+      fullPath: '/collections'
+      preLoaderRoute: typeof AuthenticatedAdminCollectionsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/_admin/customers': {
       id: '/_authenticated/_admin/customers'
       path: '/customers'
@@ -791,6 +824,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminVendorsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/_admin/warranty': {
+      id: '/_authenticated/_admin/warranty'
+      path: '/warranty'
+      fullPath: '/warranty'
+      preLoaderRoute: typeof AuthenticatedAdminWarrantyRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
   }
 }
 
@@ -802,6 +842,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
   AuthenticatedAdminBundlesRoute: typeof AuthenticatedAdminBundlesRoute
   AuthenticatedAdminCategoriesRoute: typeof AuthenticatedAdminCategoriesRoute
+  AuthenticatedAdminCollectionsRoute: typeof AuthenticatedAdminCollectionsRoute
   AuthenticatedAdminCustomersRoute: typeof AuthenticatedAdminCustomersRoute
   AuthenticatedAdminDistributorsRoute: typeof AuthenticatedAdminDistributorsRoute
   AuthenticatedAdminExpensesRoute: typeof AuthenticatedAdminExpensesRoute
@@ -819,6 +860,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminStorefrontRoute: typeof AuthenticatedAdminStorefrontRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminVendorsRoute: typeof AuthenticatedAdminVendorsRoute
+  AuthenticatedAdminWarrantyRoute: typeof AuthenticatedAdminWarrantyRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
@@ -830,6 +872,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
   AuthenticatedAdminBundlesRoute: AuthenticatedAdminBundlesRoute,
   AuthenticatedAdminCategoriesRoute: AuthenticatedAdminCategoriesRoute,
+  AuthenticatedAdminCollectionsRoute: AuthenticatedAdminCollectionsRoute,
   AuthenticatedAdminCustomersRoute: AuthenticatedAdminCustomersRoute,
   AuthenticatedAdminDistributorsRoute: AuthenticatedAdminDistributorsRoute,
   AuthenticatedAdminExpensesRoute: AuthenticatedAdminExpensesRoute,
@@ -847,6 +890,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminStorefrontRoute: AuthenticatedAdminStorefrontRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminVendorsRoute: AuthenticatedAdminVendorsRoute,
+  AuthenticatedAdminWarrantyRoute: AuthenticatedAdminWarrantyRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 

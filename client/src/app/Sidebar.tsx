@@ -33,6 +33,8 @@ import {
   Zap,
   Brain,
   TrendingUp,
+  Palette,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -86,6 +88,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/inventory', icon: Package, labelKey: 'nav.inventory', roles: ['Admin', 'Cashier'] },
       { to: '/categories', icon: Layers, labelKey: 'nav.categories', roles: ['Admin'] },
+      { to: '/collections', icon: Palette, labelKey: 'nav.collections', roles: ['Admin'] },
       { to: '/barcode', icon: ScanBarcode, labelKey: 'nav.barcode', roles: ['Admin', 'Cashier'] },
       {
         to: '/purchase-orders',
@@ -105,6 +108,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/deliveries', icon: Truck, labelKey: 'nav.deliveries', roles: ['Admin', 'Delivery'] },
       { to: '/customers', icon: UserRound, labelKey: 'nav.customers', roles: ['Admin'] },
+      { to: '/warranty', icon: ShieldCheck, labelKey: 'nav.warranty', roles: ['Admin'] },
     ],
   },
   {

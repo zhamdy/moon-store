@@ -173,7 +173,7 @@ export default function CollectionsPage() {
                       {formatCurrency(Number(p.price))}
                     </span>
                     <span className="text-xs text-muted-foreground font-data">
-                      {t('collections.stock')}: {p.stock_quantity}
+                      {t('collections.stock')}: {p.stock}
                     </span>
                   </div>
                 </CardBody>

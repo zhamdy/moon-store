@@ -149,4 +149,55 @@ describe('Route rendering and access control', () => {
       expect(router.state.location.pathname).toBe('/pos');
     });
   });
+it('allows Admin to access collections (/collections)', async () => {
+    const router = createTestRouter('/collections', {
+      isAuthenticated: true,
+      user: adminUser,
+    });
+
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/collections');
+    });
+  });
+
+  it('prevents Cashier from accessing collections (/collections) and redirects to /pos', async () => {
+    const router = createTestRouter('/collections', {
+      isAuthenticated: true,
+      user: cashierUser,
+    });
+
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/pos');
+    });
+  });
+
+  it('allows Admin to access warranty (/warranty)', async () => {
+    const router = createTestRouter('/warranty', {
+      isAuthenticated: true,
+      user: adminUser,
+    });
+
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/warranty');
+    });
+  });
+
+  it('prevents Cashier from accessing warranty (/warranty) and redirects to /pos', async () => {
+    const router = createTestRouter('/warranty', {
+      isAuthenticated: true,
+      user: cashierUser,
+    });
+
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/pos');
+    });
+  });
 });
