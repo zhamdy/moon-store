@@ -17,7 +17,17 @@ test.describe('worker isolation', () => {
     workerShift,
     workerRegister,
   }) => {
-    expect(workerCashier.email).toBe(`e2e-w${workerCashier.workerIndex}@moon.test`);
+    /**
+     * The namespace carries this worker's index, and the email is derived from it.
+     *
+     * Deliberately not `e2e-w{index}@moon.test`: under `--shard` the namespace is prefixed
+     * with the run id (`e2e-s1w3`), because `workerIndex` restarts at 0 in every shard and
+     * `users.email` is UNIQUE. Hardcoding the unsharded form made this spec pass locally
+     * and fail on the first real sharded run — the assertion has to follow the same rule
+     * the fixture does.
+     */
+    expect(workerCashier.namespace).toMatch(new RegExp(`w${workerCashier.workerIndex}$`));
+    expect(workerCashier.email).toBe(`${workerCashier.namespace}@moon.test`);
     expect(workerShift.status).toBe('active');
     expect(workerShift.user_id).toBe(workerCashier.id);
     expect(workerRegister.status).toBe('open');
@@ -91,7 +101,7 @@ test.describe('worker isolation', () => {
     // And no other e2e worker account shares this cashier's id.
     const sharing = await dbQuery<{ n: string }>(
       `SELECT count(*)::text AS n FROM users
-        WHERE id = $1 AND email <> $2 AND email LIKE 'e2e-w%@moon.test'`,
+        WHERE id = $1 AND email <> $2 AND email LIKE 'e2e-%@moon.test'`,
       [workerCashier.id, workerCashier.email]
     );
     expect(Number(sharing[0]?.n)).toBe(0);

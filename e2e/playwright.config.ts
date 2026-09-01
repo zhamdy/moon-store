@@ -110,7 +110,20 @@ export default defineConfig({
        * parallel project has finished.
        */
       name: 'pos-settings',
-      dependencies: ['setup', 'pos-parallel'],
+      /**
+       * Ordered after `pos-parallel` locally, but **not** under sharding.
+       *
+       * Playwright will not split a project-dependency chain across shards. With
+       * `pos-settings` depending on `pos-parallel`, a `--shard=1/4` run puts the whole
+       * suite in shard 1 and leaves shards 2-4 executing **zero tests** — worse than not
+       * sharding at all, because three jobs then report green having run nothing.
+       *
+       * So CI sets `E2E_SHARDED=1`, shards `pos-parallel` alone, and runs this project as
+       * its own unsharded job afterwards — the fallback the plan named. The ordering
+       * guarantee moves from Playwright to the CI job graph, which is why that job
+       * `needs` the sharded one. Locally the stronger in-process guarantee is kept.
+       */
+      dependencies: process.env.E2E_SHARDED === '1' ? ['setup'] : ['setup', 'pos-parallel'],
       workers: 1,
       use: { ...devices['Desktop Chrome'] },
       testMatch: /tax-loyalty\.spec\.ts/,

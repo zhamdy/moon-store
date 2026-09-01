@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 
 // jsdom implements neither the Pointer Capture API nor ResizeObserver, both of
@@ -53,3 +54,28 @@ if (!Element.prototype.animate) {
 if (!window.scrollTo) {
   window.scrollTo = () => {};
 }
+
+/**
+ * `framer-motion`'s `LazyMotion` is flattened, and `m` is mapped to the full `motion`.
+ *
+ * HeroUI renders its components inside `LazyMotion`, which loads its feature bundle
+ * asynchronously and then calls `setState`. When vitest tears the jsdom environment down
+ * before that promise settles, the update lands in React's scheduler, reaches
+ * `getCurrentEventPriority`, and touches a `window` that no longer exists — surfacing as
+ * an *unhandled* `ReferenceError` that fails the run while every test still passes.
+ *
+ * Flattening `LazyMotion` removes the async load entirely. `m` must then map to `motion`,
+ * because `m` components rely on features that `LazyMotion` would otherwise have supplied.
+ *
+ * Diagnosed from the CI stack (LazyMotion/index.mjs -> dispatchSetState ->
+ * getCurrentEventPriority); it is deterministic there and has never reproduced locally,
+ * which is the shape of a teardown race.
+ */
+vi.mock('framer-motion', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    LazyMotion: ({ children }: { children: React.ReactNode }) => children,
+    m: actual.motion,
+  };
+});

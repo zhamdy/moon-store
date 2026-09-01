@@ -14,6 +14,8 @@ import fs from 'fs';
 const reportPath = process.argv[2];
 /** Raised deliberately when specs are added; lowered only with a reason. */
 const MINIMUM_SMOKE_TESTS = Number(process.argv[3] ?? '5');
+/** What this invocation is guarding, for the message. Defaults to the smoke tag. */
+const LABEL = process.argv[4] ?? 'The @smoke subset';
 
 if (!reportPath || !fs.existsSync(reportPath)) {
   console.error(`[e2e-guard] Playwright JSON report not found at "${reportPath}".`);
@@ -43,7 +45,7 @@ const executed = specs.filter((spec) => (spec.tests ?? []).some((t) => t.status 
 if (executed.length < MINIMUM_SMOKE_TESTS) {
   console.error(
     [
-      `[e2e-guard] The @smoke subset ran ${executed.length} test(s); at least ` +
+      `[e2e-guard] ${LABEL} ran ${executed.length} test(s); at least ` +
         `${MINIMUM_SMOKE_TESTS} were expected.`,
       '',
       'A green run of zero tests is not a passing gate. The usual causes are a renamed or',
@@ -53,4 +55,4 @@ if (executed.length < MINIMUM_SMOKE_TESTS) {
   process.exit(1);
 }
 
-console.log(`[e2e-guard] @smoke ran ${executed.length} test(s).`);
+console.log(`[e2e-guard] ${LABEL} ran ${executed.length} test(s).`);
