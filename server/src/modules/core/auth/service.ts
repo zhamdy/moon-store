@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 import { IAuthRepository, authRepository as defaultRepo } from './repository';
 import { LoginDTO, AuthTokens } from './types';
 import { PublicError } from '../../../http/errors';
@@ -27,8 +28,14 @@ export class AuthService {
       { expiresIn: '15m' }
     );
 
+    // `jti` is what makes one login one session. Without it the payload is only the user
+    // id plus `iat`/`exp` at one-second resolution, so two logins by the same user in the
+    // same second sign byte-identical tokens: the second insert violates
+    // `refresh_tokens.token UNIQUE` (500 instead of a login), and a logout by either
+    // session deletes the single row both were relying on.
     const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET as string, {
       expiresIn: '7d',
+      jwtid: randomUUID(),
     });
 
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
