@@ -414,6 +414,10 @@ export default function POS() {
               {products?.map((product) => (
                 <Card
                   key={product.id}
+                  /* E2E: the card's accessible name concatenates stock badge, category,
+                     name, SKU and price, and it nests a favourite button — so an exact
+                     role+name query is not usable. */
+                  data-testid={`product-card-${product.sku}`}
                   isPressable={getEffectiveStock(product) > 0}
                   className={`relative transition-all border border-border bg-card shadow-sm ${
                     getEffectiveStock(product) === 0

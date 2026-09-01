@@ -51,6 +51,13 @@ export interface TestFixtures {
   skipStartupPrompt: boolean;
   /** A context already authenticated as this worker's cashier. */
   cashierContext: BrowserContext;
+  /** A throwaway cashier with no shift and no register, for the startup-gate path. */
+  freshCashierContext: {
+    context: BrowserContext;
+    id: number;
+    email: string;
+    accessToken: string;
+  };
   /** Mints a product owned by this test, namespaced so no other spec can see it. */
   seedProduct: (label: string, seed?: ProductSeed) => Promise<Product>;
 }
@@ -201,6 +208,61 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
     if (skipStartupPrompt) await dismissStartupPrompt(context);
 
     await use(context);
+    await context.close();
+  },
+
+  /**
+   * A cashier with **no shift and no register**, and a context logged in as them.
+   *
+   * The register-readiness path needs its own identity, and this is not a detail. The
+   * worker cashier already has both open (that is the point of `workerRegister`), so it
+   * has nothing for `StartupPrompt` to do — and suppressing `moon-startup-dismissed` is
+   * not the same as genuinely having no open shift. Driving the shared seeded
+   * `sarah@moon.com` instead would violate the per-worker ownership rule and race any
+   * other worker on the same drawer.
+   *
+   * So this mints a throwaway cashier per test. Every *other* spec uses `cashierContext`.
+   */
+  freshCashierContext: async ({ adminApi, browser, appLocale }, use, testInfo) => {
+    const tag = `${testInfo.testId.slice(0, 8)}${Math.random().toString(36).slice(2, 6)}`;
+    const email = `e2e-fresh-${tag}@moon.test`;
+    const name = `E2E Fresh ${tag}`;
+
+    const cashier = await createUser(adminApi, {
+      name,
+      email,
+      password: WORKER_PASSWORD,
+      role: 'Cashier',
+    });
+
+    const loginContext = await playwrightRequest.newContext({ baseURL: API_URL });
+    const session = await login(loginContext, email, WORKER_PASSWORD);
+    const { cookies } = await loginContext.storageState();
+    await loginContext.dispose();
+
+    const context = await browser.newContext({
+      storageState: {
+        cookies,
+        origins: [
+          {
+            origin: BASE_URL,
+            localStorage: [
+              {
+                name: AUTH_STORAGE_KEY,
+                value: authStorageValue(
+                  { id: cashier.id, name, email, role: 'Cashier' },
+                  session.accessToken
+                ),
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await seedLocale(context, appLocale);
+    // Deliberately NOT dismissing the startup prompt — this fixture exists to face it.
+
+    await use({ context, id: cashier.id, email, accessToken: session.accessToken });
     await context.close();
   },
 

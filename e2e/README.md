@@ -121,6 +121,20 @@ configuration in `contracts/checkout-totals.v1.json`, six of whose ten cases spe
 `tax.enabled: false`. Under a tax-enabled baseline those six could not be entered through
 the UI and still reach the total the contract records.
 
+## The `@smoke` subset
+
+`npm run test:smoke` runs the tag intended for the pull-request gate.
+
+**Budget: under 3 minutes.** Measured at 32s for 7 tests (2 workers, warm build, local
+PostgreSQL) — full suite 27 tests in ~30s at 4 workers. If the smoke subset ever exceeds
+the budget, move cases *out* of `@smoke` rather than raising the budget; a PR gate people
+wait on is a PR gate people learn to skip.
+
+What qualifies: the paths that carry money and would be catastrophic to break silently —
+the cash sale spine, the shipped Arabic default, duplicate submission, and one offline
+queue-and-replay case. Adding to the tag is a deliberate decision with a cost, not a
+default for new specs.
+
 ## Conventions
 
 - **Expected totals come from `contracts/checkout-totals.v1.json`, never hardcoded.** Both
