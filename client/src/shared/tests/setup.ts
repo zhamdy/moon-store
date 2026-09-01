@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 
 // jsdom implements neither the Pointer Capture API nor ResizeObserver, both of
@@ -53,3 +54,20 @@ if (!Element.prototype.animate) {
 if (!window.scrollTo) {
   window.scrollTo = () => {};
 }
+
+/**
+ * `@formkit/auto-animate` is stubbed to a plain ref.
+ *
+ * It drives real animations through `requestAnimationFrame` and a `MutationObserver`, and
+ * those callbacks can outlive the jsdom environment: vitest tears the environment down,
+ * a queued frame fires, and the callback touches `window` that no longer exists. The
+ * result is `ReferenceError: window is not defined` reported as an *unhandled* error —
+ * every test still passes, and the run fails anyway.
+ *
+ * It surfaced on CI (deterministically) while never reproducing locally, which is exactly
+ * the shape of a teardown race. Nothing in the suite asserts on animation, so a no-op ref
+ * loses no coverage. Same instinct as the ResizeObserver and Element.animate stubs above.
+ */
+vi.mock('@formkit/auto-animate/react', () => ({
+  useAutoAnimate: () => [{ current: null }, () => {}],
+}));
