@@ -1,7 +1,9 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
+import { buildPartialUpdate, orNull } from '../../../database/partialUpdate';
 import {
   CreateVendorPayoutDTO,
+  UpdateVendorDTO,
   VendorDTO,
   VendorFilters,
   VendorPayoutRecord,
@@ -16,7 +18,11 @@ export interface IVendorsRepository {
   ): Promise<{ rows: VendorRecord[]; total: number }>;
   findById(id: number | string, queryable?: Queryable): Promise<VendorRecord | null>;
   create(data: VendorDTO, queryable?: Queryable): Promise<VendorRecord>;
-  update(id: number | string, data: VendorDTO, queryable?: Queryable): Promise<VendorRecord | null>;
+  update(
+    id: number | string,
+    data: UpdateVendorDTO,
+    queryable?: Queryable
+  ): Promise<VendorRecord | null>;
   getPayouts(
     vendorId: number | string,
     filters: VendorPayoutFilters,
@@ -106,26 +112,33 @@ export class VendorsRepository implements IVendorsRepository {
     return result.rows[0];
   }
 
+  /**
+   * Merges a partial update onto the stored row — see `buildPartialUpdate` for the rule.
+   *
+   * This used to SET all eight columns from an all-optional body, so the fields the client
+   * did not send were written back as defaults: `status` reverted to `'active'`,
+   * reactivating a vendor an admin had just deactivated, and `contact_person` and
+   * `tax_number` were cleared on every edit.
+   */
   async update(
     id: number | string,
-    data: VendorDTO,
+    data: UpdateVendorDTO,
     queryable?: Queryable
   ): Promise<VendorRecord | null> {
+    const { setClause, params, nextIndex } = buildPartialUpdate({
+      name: data.name,
+      contact_person: orNull(data.contact_person),
+      email: orNull(data.email),
+      phone: orNull(data.phone),
+      address: orNull(data.address),
+      tax_number: orNull(data.tax_number),
+      commission_rate: data.commission_rate,
+      status: data.status,
+    });
+
     const result = await this.q(queryable).query<VendorRecord>(
-      `UPDATE vendors SET name = $1, contact_person = $2, email = $3, phone = $4, address = $5,
-              tax_number = $6, commission_rate = $7, status = $8, updated_at = NOW()
-       WHERE id = $9 RETURNING *`,
-      [
-        data.name,
-        data.contact_person || null,
-        data.email || null,
-        data.phone || null,
-        data.address || null,
-        data.tax_number || null,
-        data.commission_rate ?? 0,
-        data.status || 'active',
-        id,
-      ]
+      `UPDATE vendors SET ${setClause} WHERE id = $${nextIndex} RETURNING *`,
+      [...params, id]
     );
     return result.rows[0] || null;
   }

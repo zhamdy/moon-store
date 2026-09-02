@@ -1,6 +1,7 @@
 import { IVendorsRepository, vendorsRepository as defaultRepo } from './repository';
 import {
   CreateVendorPayoutDTO,
+  UpdateVendorDTO,
   VendorDTO,
   VendorFilters,
   VendorPayoutRecord,
@@ -42,7 +43,7 @@ export class VendorsService {
     return this.repo.create(data);
   }
 
-  async update(id: number | string, data: VendorDTO): Promise<VendorRecord | null> {
+  async update(id: number | string, data: UpdateVendorDTO): Promise<VendorRecord | null> {
     return this.repo.update(id, data);
   }
 

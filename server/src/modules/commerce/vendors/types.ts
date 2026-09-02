@@ -24,6 +24,22 @@ export interface VendorDTO {
   status?: 'active' | 'inactive';
 }
 
+/**
+ * A *partial* update: absent means "leave the stored value alone", an explicit `null`
+ * means "clear it". Not `VendorDTO`, because sharing the create DTO is what let an
+ * omitted `status` reactivate a deactivated vendor.
+ */
+export interface UpdateVendorDTO {
+  name?: string;
+  contact_person?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  tax_number?: string | null;
+  commission_rate?: number;
+  status?: 'active' | 'inactive';
+}
+
 export interface VendorPayoutRecord {
   id: number;
   vendor_id: number;
