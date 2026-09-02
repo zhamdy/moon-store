@@ -161,19 +161,11 @@ export default function Deliveries() {
   };
 
   const handleStatusChange = (orderId: number, status: string) => {
-    updateStatus.run({ id: orderId, status });
+    updateStatus.run({ id: orderId, body: { status } });
   };
 
   const handleCopyCustomerInfo = (order: DeliveryOrder) => {
-    const text = [
-      order.customer_name,
-      order.customer_phone,
-      order.address,
-      order.city ? `${order.city}` : '',
-      order.cod_amount ? `COD: ${formatCurrency(order.cod_amount)}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
+    const text = [order.customer_name, order.phone, order.address].filter(Boolean).join('\n');
 
     navigator.clipboard.writeText(text).then(
       () => toast.success(t('deliveries.copied')),
@@ -195,7 +187,7 @@ export default function Deliveries() {
       cell: ({ row }) => (
         <div>
           <p className="font-medium text-foreground">{row.original.customer_name}</p>
-          <p className="text-xs text-muted-foreground">{row.original.customer_phone}</p>
+          <p className="text-xs text-muted-foreground">{row.original.phone}</p>
         </div>
       ),
     },
@@ -205,9 +197,6 @@ export default function Deliveries() {
       cell: ({ row }) => (
         <div className="max-w-xs">
           <p className="text-foreground truncate">{row.original.address}</p>
-          {row.original.city && (
-            <p className="text-xs text-muted-foreground">{row.original.city}</p>
-          )}
         </div>
       ),
     },

@@ -9,6 +9,7 @@ import {
   FileText,
   Clock,
   X,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   Button,
@@ -267,12 +268,12 @@ export default function RegisterPage() {
             <StatCard
               title={t('register.totalCashIn')}
               value={`+${formatCurrency(currentSession.total_in || 0)}`}
-              trend={{ direction: 'up', value: 'Cash in' }}
+              delta={{ type: 'increase', value: t('register.cashIn') }}
             />
             <StatCard
               title={t('register.totalCashOut')}
               value={`-${formatCurrency(currentSession.total_out || 0)}`}
-              trend={{ direction: 'down', value: 'Cash out' }}
+              delta={{ type: 'decrease', value: t('register.cashOut') }}
             />
           </div>
         </>
