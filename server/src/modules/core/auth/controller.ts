@@ -4,11 +4,7 @@ import { logAudit } from '../../../../middleware/auditLogger';
 import { PublicError } from '../../../http/errors';
 import { success } from '../../../http/responses';
 import { authService } from './service';
-import {
-  REFRESH_COOKIE_NAME,
-  clearRefreshCookieOptions,
-  refreshCookieOptions,
-} from './config';
+import { REFRESH_COOKIE_NAME, clearRefreshCookieOptions, refreshCookieOptions } from './config';
 
 export class AuthController {
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {

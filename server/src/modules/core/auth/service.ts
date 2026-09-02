@@ -2,7 +2,14 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { IAuthRepository, authRepository as defaultRepo } from './repository';
-import { AuthTokens, LoginDTO, RefreshTokenRecord, UserRecord, UserSummary } from './types';
+import {
+  AuthTokens,
+  LoginDTO,
+  RefreshRevocationReason,
+  RefreshTokenRecord,
+  UserRecord,
+  UserSummary,
+} from './types';
 import { jwtConfig, rotationGraceMs } from './config';
 import { digestRefreshToken } from './tokens';
 import { PublicError } from '../../../http/errors';
@@ -26,6 +33,22 @@ export interface RefreshResult {
  * it.
  */
 const REFRESH_REJECTED = 'Refresh token expired or revoked';
+
+/**
+ * A rejection that must also revoke a session family. Carried out of the rotation
+ * transaction rather than thrown from inside it: throwing rolls the transaction back, and
+ * a revocation that disappears with the rejection protects nobody.
+ */
+interface RevokeOutcome {
+  kind: 'revoke';
+  reason: RefreshRevocationReason;
+  familyId: string;
+  userId: number;
+  /** What had already invalidated the presented token, for the log line. */
+  invalidatedBy: RefreshRevocationReason | null;
+}
+
+type RotationOutcome = { kind: 'rotated'; result: RefreshResult } | RevokeOutcome;
 
 /** How often, at most, expired session rows are swept. See `purgeExpiredSessions`. */
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
@@ -78,81 +101,141 @@ export class AuthService {
    * Validates a refresh token and rotates it: the presented token is invalidated and a
    * successor is issued in the same family. A token is therefore usable exactly once.
    *
-   * The whole decision runs in one transaction with the presented row locked, because the
-   * interesting cases are all races. Two tabs sharing a cookie, or one till retrying after
-   * a dropped response, present the same token at the same moment; without serialization
-   * both would read a live row and both would rotate it, forking one session into two.
+   * The whole decision runs in one transaction with the user row and the presented token
+   * row locked, because the interesting cases are all races. Two tabs sharing a cookie,
+   * or one till retrying after a dropped response, present the same token at the same
+   * moment; without serialization both would read a live row and both would rotate it,
+   * forking one session into two.
    */
   async refresh(presentedToken: string): Promise<RefreshResult> {
     const claims = this.verifyRefreshToken(presentedToken);
     const presentedHash = digestRefreshToken(presentedToken);
 
-    return withTransaction(async (client) => {
-      const locked = await this.repo.lockRefreshTokenByHash(presentedHash, client);
-      if (!locked) {
-        // A signature-valid token with no row at all: already cleaned up after expiry, or
-        // issued by an environment this database has never seen. There is no family to
-        // punish, so this is a plain rejection.
-        throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
-      }
+    const outcome = await withTransaction((client) =>
+      this.rotateWithinTransaction(client, claims.id, presentedHash)
+    );
 
-      const { token: presented, now } = locked;
+    if (outcome.kind === 'rotated') {
+      return outcome.result;
+    }
 
-      // Which row this refresh actually rotates. Normally the presented one; on a
-      // tolerated replay, the family's current head instead — see `resolveReplay`.
-      const target = presented.revoked_at
-        ? await this.resolveReplay(presented, now, client)
-        : presented;
+    // Revocation cannot live in the transaction that rejects: throwing from inside rolls
+    // it back, and the family the server just decided was compromised would quietly stay
+    // alive. It runs in its own transaction, after the first one has committed.
+    const revokedSessions = await withTransaction(async (client) => {
+      await this.repo.lockUserForSessionChange(outcome.userId, client);
+      return this.repo.revokeFamily(outcome.familyId, outcome.reason, client);
+    });
 
-      if (new Date(target.expires_at) <= now) {
-        throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
-      }
+    if (outcome.reason === 'reuse') {
+      // No token material in this log line or any other: a digest prefix is enough to
+      // correlate with a row and cannot be presented to anything.
+      logger.warn('Refresh token reuse detected; session family revoked', {
+        userId: outcome.userId,
+        familyId: outcome.familyId,
+        tokenDigestPrefix: presentedHash.slice(0, 12),
+        invalidatedBy: outcome.invalidatedBy,
+        revokedSessions,
+      });
+    }
 
-      // The user is re-read on every refresh, which is what makes a session revocable at
-      // all: a deleted user's rows are gone with them, and any future account-status flag
-      // is enforced here rather than waiting for the 7-day token to lapse.
-      const user = await this.repo.findUserById(presented.user_id, client);
-      if (!user) {
-        await this.repo.revokeFamily(presented.family_id, 'revoked_all', client);
-        throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
-      }
+    throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
+  }
 
-      // The token's own subject must still match the row it was found under. These can
-      // only disagree if a token were minted for one user and stored against another, but
-      // the check costs nothing and the failure mode it guards is total.
-      if (claims.id !== presented.user_id) {
-        await this.repo.revokeFamily(presented.family_id, 'reuse', client);
-        throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
-      }
+  /**
+   * The rotation itself. Returns rather than throws for the cases that must revoke a
+   * family, because the caller has to do that outside this transaction.
+   */
+  private async rotateWithinTransaction(
+    client: Queryable,
+    claimedUserId: number,
+    presentedHash: string
+  ): Promise<RotationOutcome> {
+    // The user row is locked first, always, and by every path that changes this user's
+    // sessions. It is what orders a rotation against a concurrent global revocation --
+    // see `lockUserForSessionChange`. The id comes from the token's verified signature,
+    // and is cross-checked against the row below.
+    const user = await this.repo.lockUserForSessionChange(claimedUserId, client);
 
-      // The successor inherits the family's original expiry rather than starting a fresh
-      // 7 days. Rotation must not quietly turn a bounded session into a perpetual one:
-      // a session still ends 7 days after the login that created it.
-      const familyExpiresAt = new Date(target.expires_at);
-      const successor = this.signRefreshToken(user.id, familyExpiresAt, now);
-      const successorHash = digestRefreshToken(successor);
+    const locked = await this.repo.lockRefreshTokenByHash(presentedHash, client);
+    if (!locked) {
+      // A signature-valid token with no row at all: already swept after expiry, or issued
+      // by an environment this database has never seen. There is no family to punish.
+      throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
+    }
 
-      // Guarded on `revoked_at IS NULL`. Losing this means something invalidated the row
-      // between the lock and here, so the safe answer is to issue nothing.
-      const rotated = await this.repo.markRotated(target.id, successorHash, client);
-      if (!rotated) {
-        throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
-      }
+    const { token: presented, now } = locked;
 
-      await this.repo.createRefreshToken(
-        user.id,
-        successorHash,
-        presented.family_id,
-        familyExpiresAt.toISOString(),
-        client
-      );
-
+    // The token's subject must still match the row it was found under. These can only
+    // disagree if a token minted for one user were stored against another, but the check
+    // costs nothing and the failure it guards against is total.
+    if (claimedUserId !== presented.user_id) {
       return {
+        kind: 'revoke',
+        reason: 'reuse',
+        familyId: presented.family_id,
+        userId: presented.user_id,
+        invalidatedBy: presented.revoked_reason,
+      };
+    }
+
+    // Re-read on every refresh is what makes a session revocable at all: a deleted user's
+    // rows are gone with them, and any future account-status flag is enforced here rather
+    // than waiting for the 7-day token to lapse.
+    if (!user) {
+      return {
+        kind: 'revoke',
+        reason: 'revoked_all',
+        familyId: presented.family_id,
+        userId: presented.user_id,
+        invalidatedBy: presented.revoked_reason,
+      };
+    }
+
+    // Which row this refresh actually rotates: normally the presented one, and on a
+    // tolerated replay the family's current head instead -- see `resolveReplay`.
+    const target = presented.revoked_at
+      ? await this.resolveReplay(presented, now, client)
+      : ({ kind: 'head', row: presented } as const);
+    if (target.kind === 'revoke') {
+      return target;
+    }
+
+    const head = target.row;
+    if (new Date(head.expires_at) <= now) {
+      throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
+    }
+
+    // The successor inherits the family's original expiry rather than starting a fresh 7
+    // days. Rotation must not quietly turn a bounded session into a perpetual one: a
+    // session still ends 7 days after the login that created it.
+    const familyExpiresAt = new Date(head.expires_at);
+    const successor = this.signRefreshToken(user.id, familyExpiresAt, now);
+    const successorHash = digestRefreshToken(successor);
+
+    // Guarded on `revoked_at IS NULL`. Losing this means something invalidated the row
+    // between the lock and here, so the safe answer is to issue nothing.
+    const rotated = await this.repo.markRotated(head.id, successorHash, client);
+    if (!rotated) {
+      throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
+    }
+
+    await this.repo.createRefreshToken(
+      user.id,
+      successorHash,
+      presented.family_id,
+      familyExpiresAt.toISOString(),
+      client
+    );
+
+    return {
+      kind: 'rotated',
+      result: {
         accessToken: this.signAccessToken(user),
         refreshToken: successor,
         user: this.toSummary(user),
-      };
-    });
+      },
+    };
   }
 
   /**
@@ -168,12 +251,11 @@ export class AuthService {
    * The line between them is time and cause. Within `REFRESH_ROTATION_GRACE_SECONDS` of
    * the row being *rotated*, the presentation is a replay of an in-flight refresh: it
    * rotates the family's current head, so the caller gets a usable token and the family
-   * stays single-lineage. Anything else — a rotated token replayed after the window, or a
-   * token invalidated by a logout or an earlier reuse — is treated as compromise and
-   * revokes the family.
+   * stays single-lineage. Anything else -- a rotated token replayed after the window, or
+   * one invalidated by a logout or an earlier reuse -- is treated as compromise.
    *
    * The residual risk is explicit: a thief racing the legitimate holder inside the window
-   * gets one session. That window is seconds by configuration and can be set to zero for
+   * gets one session. The window is seconds by configuration and can be set to zero for
    * strict semantics; the alternative is a spurious logout every time a user has two tabs
    * open.
    */
@@ -181,45 +263,67 @@ export class AuthService {
     presented: RefreshTokenRecord,
     now: Date,
     client: Queryable
-  ): Promise<RefreshTokenRecord> {
+  ): Promise<{ kind: 'head'; row: RefreshTokenRecord } | RevokeOutcome> {
     const revokedAt = new Date(presented.revoked_at as Date);
     const withinGrace =
       presented.revoked_reason === 'rotated' &&
       now.getTime() - revokedAt.getTime() <= rotationGraceMs();
 
     if (!withinGrace) {
-      const revokedSessions = await this.repo.revokeFamily(presented.family_id, 'reuse', client);
-      // No token material here, in this log line or any other: the digest prefix is
-      // enough to correlate with a row, and cannot be presented to anything.
-      logger.warn('Refresh token reuse detected; session family revoked', {
-        userId: presented.user_id,
+      return {
+        kind: 'revoke',
+        reason: 'reuse',
         familyId: presented.family_id,
-        tokenDigestPrefix: presented.token_hash.slice(0, 12),
+        userId: presented.user_id,
         invalidatedBy: presented.revoked_reason,
-        revokedSessions,
-      });
-      throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
+      };
     }
 
     const head = await this.repo.lockFamilyHead(presented.family_id, client);
     if (!head) {
-      // The family was rotated within the window but has no live head — a logout or a
+      // Rotated within the window, but the family has no live head: a logout or a
       // revocation landed in between. Nothing to issue, and nothing to accuse.
       throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
     }
-    return head;
+    return { kind: 'head', row: head };
   }
 
-  /** Ends the session the presented token belongs to, including any token still live in it. */
+  /**
+   * Ends the session the presented token belongs to, including any token still live in it.
+   *
+   * Takes the user lock first, in the same order as a rotation, for the same reason: a
+   * logout whose revoking statement started before an in-flight rotation committed simply
+   * does not see the successor row that rotation inserted, and the session survives its
+   * own logout. Ordering the two makes the loser either see the successor or find its own
+   * target already gone.
+   */
   async logout(refreshToken?: string): Promise<void> {
     if (!refreshToken) return;
 
-    const locked = await this.repo.lockRefreshTokenByHash(digestRefreshToken(refreshToken));
-    if (!locked) return;
+    let claimedUserId: number | null = null;
+    try {
+      claimedUserId = this.verifyRefreshToken(refreshToken).id;
+    } catch {
+      // An expired or unparseable token still deserves a best-effort revocation: there is
+      // no verified user to lock on, but the digest may still match a row, and the family
+      // behind an expired token cannot be rotated anyway.
+      claimedUserId = null;
+    }
 
-    // The whole lineage, not just the row in hand: a mid-flight rotation may already have
-    // issued a successor, and a logout that leaves it alive is not a logout.
-    await this.repo.revokeFamily(locked.token.family_id, 'logout');
+    const tokenHash = digestRefreshToken(refreshToken);
+
+    await withTransaction(async (client) => {
+      if (claimedUserId !== null) {
+        await this.repo.lockUserForSessionChange(claimedUserId, client);
+      }
+
+      const locked = await this.repo.lockRefreshTokenByHash(tokenHash, client);
+      if (!locked) return;
+
+      // The whole lineage, not just the row in hand: a mid-flight rotation may already
+      // have issued a successor, and a logout that leaves it alive is not a logout.
+      await this.repo.revokeFamily(locked.token.family_id, 'logout', client);
+    });
   }
 
   /**
@@ -232,7 +336,13 @@ export class AuthService {
    * @returns how many live sessions were revoked.
    */
   async revokeAllSessions(userId: number): Promise<number> {
-    return this.repo.revokeAllForUser(userId, 'revoked_all');
+    return withTransaction(async (client) => {
+      // Same lock, same order as a rotation. Without it a refresh already in flight
+      // commits its successor after this statement's snapshot was taken, and the session
+      // an administrator just killed is alive again a millisecond later.
+      await this.repo.lockUserForSessionChange(userId, client);
+      return this.repo.revokeAllForUser(userId, 'revoked_all', client);
+    });
   }
 
   async getMe(userId: number): Promise<UserSummary | null> {
@@ -300,10 +410,7 @@ export class AuthService {
     const { refreshSecret } = jwtConfig();
     // Rounded up so a sub-second remainder never signs `expiresIn: 0`, which
     // jsonwebtoken reads as an already-expired token.
-    const remainingSeconds = Math.max(
-      1,
-      Math.ceil((expiresAt.getTime() - now.getTime()) / 1000)
-    );
+    const remainingSeconds = Math.max(1, Math.ceil((expiresAt.getTime() - now.getTime()) / 1000));
 
     return jwt.sign({ id: userId }, refreshSecret, {
       expiresIn: remainingSeconds,
