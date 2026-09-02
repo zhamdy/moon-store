@@ -21,6 +21,7 @@ import { openApiSpec } from './src/docs/openapi';
 
 import { routeTable } from './src/router';
 import { startScheduler } from './src/scheduler';
+import { getStorage, LocalStorageDriver } from './src/storage';
 
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
@@ -92,8 +93,21 @@ app.use(sanitizeBody);
 // Request logging
 app.use(requestLogger);
 
-// Static files (product images)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+/**
+ * Static files (product images).
+ *
+ * Only the filesystem driver needs a mount, and it serves the driver's own root rather
+ * than a path spelled out again here — so pointing `MEDIA_LOCAL_ROOT` at a mounted volume
+ * moves both the writes and the reads. A remote driver serves its own URLs and this mount
+ * stays in place only to keep already-stored `/uploads/...` rows resolvable.
+ */
+const storage = getStorage();
+app.use(
+  '/uploads',
+  express.static(
+    storage instanceof LocalStorageDriver ? storage.rootDir : path.join(__dirname, 'uploads')
+  )
+);
 
 // Routes
 for (const [routePath, router] of routeTable) {

@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import path from 'path';
-import fs from 'fs';
+import logger from '../../../../lib/logger';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import {
@@ -15,6 +14,7 @@ import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 import { parseProductListQuery, parseProductLookupQuery } from './types';
+import { getStorage, productImageKey } from '../../../storage';
 
 const bulkUpdateSchema = z.object({
   ids: z.array(z.number().int().positive()).min(1),
@@ -321,6 +321,15 @@ export class ProductsController {
     }
   }
 
+  /**
+   * Replaces a product's image.
+   *
+   * Ordering is the whole design. The product is validated *before* anything is written,
+   * so a rejected upload leaves no object at all; the new object is written before the row
+   * so the row never points at something absent; and the previous object is deleted only
+   * after the row stops referencing it. Each step's failure mode is a temporary orphan the
+   * sweep collects, never a broken image or a lost upload.
+   */
   async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.file) {
@@ -328,25 +337,44 @@ export class ProductsController {
       }
 
       const productId = Number(req.params.id);
-      const imageUrl = `/uploads/products/${req.file.filename}`;
+      const storage = getStorage();
 
       const existing = await productsRepository.findById(productId);
       if (!existing) {
-        fs.unlinkSync(req.file.path);
         throw new PublicError('NOT_FOUND', 'Product not found');
       }
       if (existing.status === 'discontinued') {
-        fs.unlinkSync(req.file.path);
         throw new PublicError('FORBIDDEN', 'Cannot modify a discontinued product');
       }
-      if (existing.image_url) {
-        const oldPath = path.join(__dirname, '../../../../..', existing.image_url);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+
+      const key = productImageKey(req.file.mimetype);
+      await storage.put(key, req.file.buffer, { contentType: req.file.mimetype });
+      const imageUrl = storage.publicUrl(key);
+
+      try {
+        await productsRepository.updateImage(productId, imageUrl);
+      } catch (err) {
+        // Nothing references the object yet, so it is an orphan the moment the write
+        // fails. Undo it here rather than leave it for the sweep.
+        await storage.delete(key).catch((cleanupErr: Error) =>
+          logger.error('Could not remove image after a failed product update', {
+            key,
+            error: cleanupErr.message,
+          })
+        );
+        throw err;
       }
 
-      await productsRepository.updateImage(productId, imageUrl);
+      const previousKey = existing.image_url ? storage.keyFromUrl(existing.image_url) : null;
+      if (previousKey && previousKey !== key) {
+        await storage.delete(previousKey).catch((err: Error) =>
+          logger.warn('Replaced product image could not be removed; left for the sweep', {
+            key: previousKey,
+            error: err.message,
+          })
+        );
+      }
+
       res.json(success({ image_url: imageUrl }));
     } catch (err) {
       next(err);
@@ -356,6 +384,8 @@ export class ProductsController {
   async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const productId = Number(req.params.id);
+      const storage = getStorage();
+
       const existing = await productsRepository.findById(productId);
       if (!existing) {
         throw new PublicError('NOT_FOUND', 'Product not found');
@@ -363,14 +393,21 @@ export class ProductsController {
       if (existing.status === 'discontinued') {
         throw new PublicError('FORBIDDEN', 'Cannot modify a discontinued product');
       }
-      if (existing.image_url) {
-        const oldPath = path.join(__dirname, '../../../../..', existing.image_url);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
+
+      // The row is dropped first: an object that outlives its reference is collectable,
+      // while a reference that outlives its object is a broken image on the shop floor.
+      await productsRepository.updateImage(productId, null);
+
+      const key = existing.image_url ? storage.keyFromUrl(existing.image_url) : null;
+      if (key) {
+        await storage.delete(key).catch((err: Error) =>
+          logger.warn('Deleted product image could not be removed; left for the sweep', {
+            key,
+            error: err.message,
+          })
+        );
       }
 
-      await productsRepository.updateImage(productId, null);
       res.status(204).send();
     } catch (err) {
       next(err);

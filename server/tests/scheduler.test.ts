@@ -72,7 +72,10 @@ afterEach(() => {
 describe('runScheduledJob', () => {
   it('claims the slot, runs once, and records the outcome it reports', async () => {
     const fake = fakePool();
-    const result = await runScheduledJob(job(async () => ({ deleted: 3 })), { pool: fake.pool });
+    const result = await runScheduledJob(
+      job(async () => ({ deleted: 3 })),
+      { pool: fake.pool }
+    );
 
     expect(result).toMatchObject({ job: 'test-job', status: 'completed', outcome: { deleted: 3 } });
 
@@ -151,7 +154,10 @@ describe('runScheduledJob', () => {
 
   it('bypasses the due window under force, but never the lock', async () => {
     const fake = fakePool();
-    await runScheduledJob(job(async () => null), { pool: fake.pool, force: true });
+    await runScheduledJob(
+      job(async () => null),
+      { pool: fake.pool, force: true }
+    );
     expect(fake.matched('INSERT INTO scheduled_jobs')[0].params).toEqual(['test-job', 0]);
 
     const locked = fakePool({ locked: false });

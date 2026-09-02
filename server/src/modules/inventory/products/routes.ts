@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { verifyToken, requireRole } from '../../../../middleware/auth';
-import { createUpload, validateMagic, uploadRateLimit } from '../../../../middleware/upload';
+import { uploadRateLimit } from '../../../../middleware/upload';
+import { createImageUpload, validateImageBytes } from '../../../storage/upload';
 import { cacheControl } from '../../../../middleware/cache';
 import { productsController } from './controller';
 
-const upload = createUpload({ maxSize: 2 * 1024 * 1024, destination: 'uploads/products' });
+// Memory-backed: the bytes go to the configured storage driver, not to this container's
+// disk. Size, extension and magic-byte checks are unchanged and still run before the write.
+const upload = createImageUpload({ maxSize: 2 * 1024 * 1024 });
 const router: Router = Router();
 
 router.get('/', verifyToken, (req, res, next) => productsController.getProducts(req, res, next));
@@ -59,7 +62,7 @@ router.post(
   requireRole('Admin'),
   uploadRateLimit,
   upload.single('image'),
-  validateMagic,
+  validateImageBytes,
   (req, res, next) => productsController.uploadImage(req, res, next)
 );
 router.delete('/:id/image', verifyToken, requireRole('Admin'), (req, res, next) =>

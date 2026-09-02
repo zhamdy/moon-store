@@ -15,13 +15,14 @@
  */
 import type { Pool } from 'pg';
 import logger from '../../lib/logger';
-import { reservationCleanupJob } from './jobs';
+import { orphanedMediaCleanupJob, reservationCleanupJob } from './jobs';
 import { runScheduledJob } from './runner';
 import type { ScheduledJob } from './types';
 
 export * from './types';
 export { runScheduledJob, ADVISORY_LOCK_NAMESPACE } from './runner';
-export { reservationCleanupJob, JOB_LOCK_IDS } from './jobs';
+export { reservationCleanupJob, orphanedMediaCleanupJob, JOB_LOCK_IDS } from './jobs';
+export { sweepOrphanedMedia, type SweepOutcome } from './mediaSweep';
 
 /**
  * How often an instance offers to run due jobs. Shorter than the shortest job interval so
@@ -29,7 +30,10 @@ export { reservationCleanupJob, JOB_LOCK_IDS } from './jobs';
  */
 export const DEFAULT_TICK_MS = 60 * 1000;
 
-export const defaultJobs: ScheduledJob<unknown>[] = [reservationCleanupJob];
+export const defaultJobs: ScheduledJob<unknown>[] = [
+  reservationCleanupJob,
+  orphanedMediaCleanupJob,
+];
 
 export interface Scheduler {
   /** Runs one pass over the job list. Exposed for tests and for a manual trigger. */
