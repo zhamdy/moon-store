@@ -155,6 +155,62 @@ fields all follow this shape; it is what lets a cashier update mid-shift without
 
 ---
 
+## Partial-update contract (server)
+
+Every `PUT /:id` in this codebase is **PATCH-style**: a field the body omits is left alone,
+a field it sets to `null` is cleared. This is a contract, not an implementation detail, and
+it exists because the alternative produced a silent data-loss bug (#78).
+
+The shape to recognise and never write again:
+
+```ts
+// The create schema. Every field optional, some with defaults.
+const thingSchema = z.object({ name: z.string(), is_featured: z.boolean().optional() });
+// The update handler re-parses with it...
+const parsed = thingSchema.parse(req.body);
+// ...and the repository SETs every column from it.
+`UPDATE things SET name = $1, is_featured = $2 ...`
+```
+
+A body that names three of four fields parses cleanly — the missing one is optional, so it
+is not a validation error — and the fourth column is then written back as its default. The
+request returns 200 and a field nobody mentioned is gone, with nothing in the logs. An audit
+in #78 found this in fourteen update paths; four were losing data in production.
+
+**The rules.**
+
+1. An update endpoint gets its **own** schema, never the create schema. Name it
+   `<thing>UpdateSchema` and export it, so a test can assert on it directly.
+2. That schema carries **no `.default()`**. A default is exactly what turns "absent" back
+   into "write this value", and it does so below the point where the repository could tell
+   the difference.
+3. Nullable columns are `.nullable().optional()` — the schema has to distinguish *absent*
+   from *explicitly null*, because they mean different things.
+4. The repository builds its SET clause with `buildPartialUpdate`
+   (`server/src/database/partialUpdate.ts`). Guard on `!== undefined`, never on truthiness:
+   `0`, `''` and `false` are values a caller needs to be able to set.
+5. Nullable text columns pass through `orNull`, which preserves the existing "an empty
+   string means NULL" behaviour for a *present* field while leaving an absent one absent.
+6. Anything the update DTO drops from the create DTO is a **separate interface**
+   (`UpdateThingDTO`), not `export type UpdateThingDTO = CreateThingDTO`. The alias is what
+   let the two shapes drift into one in the first place.
+7. If a service validates a cross-field invariant (a percentage ceiling, a date range), it
+   validates the **effective row** — the stored values merged with the body — not the body
+   alone. A partial body can otherwise walk past a check by simply not mentioning the field
+   the check reads.
+
+**The client side of the same contract.** `resource().useSave` PUTs exactly the keys a page
+put in its draft, so every page already sends a partial body. A dialog therefore sends what
+it *changed*, not a re-serialization of the record it happens to be holding. Echoing back
+fields the dialog does not own is what made #78 reachable, and it widens the window for
+overwriting a concurrent edit (#81).
+
+**Still to convert.** Ten update paths carry the old shape but are not losing data today —
+their client sends a full body, or 400s before reaching the repository: customers, segments,
+storefront banners, branches, delivery orders, expenses, bundles, distributors, label
+templates, products (and product variants), stock-count items. Any change to one of those
+clients' payloads makes its module's loss live, so convert the server side first.
+
 ## When to split or merge a slice
 
 Split a slice when **both** of these are true:

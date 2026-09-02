@@ -1,5 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
+import { buildPartialUpdate, orNull } from '../../../database/partialUpdate';
 import { CreateShippingCompanyDTO, UpdateShippingCompanyDTO } from './types';
 
 export interface IShippingCompaniesRepository {
@@ -58,22 +59,29 @@ export class ShippingCompaniesRepository implements IShippingCompaniesRepository
     return res.rows[0];
   }
 
+  /**
+   * Merges a partial update onto the stored row — see `buildPartialUpdate` for the rule.
+   *
+   * Note the `is_active` default that used to sit on the last parameter: an absent flag
+   * meant `1`, so every edit re-enabled a disabled company. That is the whole class of bug
+   * in one expression.
+   */
   async update(
     id: number | string,
     data: UpdateShippingCompanyDTO,
     queryable?: Queryable
   ): Promise<Record<string, any> | null> {
+    const { setClause, params, nextIndex } = buildPartialUpdate({
+      name: data.name,
+      phone: orNull(data.phone),
+      email: orNull(data.email),
+      tracking_url_template: orNull(data.tracking_url_template),
+      is_active: data.is_active === undefined ? undefined : data.is_active ? 1 : 0,
+    });
+
     const res = await this.q(queryable).query(
-      `UPDATE shipping_companies SET name = $1, phone = $2, email = $3, tracking_url_template = $4, is_active = $5, updated_at = NOW()
-       WHERE id = $6 RETURNING *`,
-      [
-        data.name,
-        data.phone || null,
-        data.email || null,
-        data.tracking_url_template || null,
-        data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1,
-        id,
-      ]
+      `UPDATE shipping_companies SET ${setClause} WHERE id = $${nextIndex} RETURNING *`,
+      [...params, id]
     );
     return res.rows[0] || null;
   }

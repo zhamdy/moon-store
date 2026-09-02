@@ -1,5 +1,6 @@
 import { Queryable, withTransaction } from '../../../database/transaction';
 import pool from '../../../database/pool';
+import { buildPartialUpdate, orNull } from '../../../database/partialUpdate';
 import {
   CollectionRecord,
   CollectionProductRecord,
@@ -113,15 +114,35 @@ export class CollectionsRepository implements ICollectionsRepository {
     return res.rows[0];
   }
 
+  /**
+   * Merges a partial update onto the stored row: only the columns the caller actually
+   * named are written.
+   *
+   * The previous shape set every column on every call, from a body whose fields were all
+   * optional — so a request that mentioned three of four fields wrote the default over the
+   * fourth. That is #78: editing a collection's product list cleared `is_featured`, with a
+   * 200 and nothing in the logs. Absent now means untouched; an explicit `null` on a
+   * nullable column still clears it, which is why the guard is `!== undefined` rather than
+   * a truthiness test.
+   *
+   * `updated_at` is bumped unconditionally, including when the only change was the product
+   * set, so the column stays an honest "when was this collection last changed".
+   */
   async update(
     id: number | string,
     data: UpdateCollectionDTO,
     queryable?: Queryable
   ): Promise<CollectionRecord | null> {
+    const { setClause, params, nextIndex } = buildPartialUpdate({
+      name: data.name,
+      description: orNull(data.description),
+      season: orNull(data.season),
+      is_featured: data.is_featured === undefined ? undefined : data.is_featured ? 1 : 0,
+    });
+
     const res = await this.q(queryable).query<CollectionRecord>(
-      `UPDATE collections SET name = $1, description = $2, season = $3, is_featured = $4, updated_at = NOW()
-       WHERE id = $5 RETURNING *`,
-      [data.name, data.description || null, data.season || null, data.is_featured ? 1 : 0, id]
+      `UPDATE collections SET ${setClause} WHERE id = $${nextIndex} RETURNING *`,
+      [...params, id]
     );
     return res.rows[0] || null;
   }

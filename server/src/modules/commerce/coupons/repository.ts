@@ -1,6 +1,7 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import { CouponData, CouponFilters, CouponListResult } from './types';
+import { buildPartialUpdate } from '../../../database/partialUpdate';
+import { CouponData, CouponFilters, CouponListResult, UpdateCouponData } from './types';
 
 export interface ICouponsRepository {
   list(filters: CouponFilters, queryable?: Queryable): Promise<CouponListResult>;
@@ -10,7 +11,7 @@ export interface ICouponsRepository {
   create(data: CouponData, queryable?: Queryable): Promise<Record<string, any>>;
   update(
     id: string | number,
-    data: CouponData,
+    data: UpdateCouponData,
     queryable?: Queryable
   ): Promise<Record<string, any> | null>;
   delete(id: string | number, queryable?: Queryable): Promise<boolean>;
@@ -151,15 +152,41 @@ export class CouponsRepository implements ICouponsRepository {
     return this.parseScopeIds(result.rows[0]);
   }
 
+  /**
+   * Merges a partial update onto the stored row — see `buildPartialUpdate` for the rule.
+   *
+   * This used to write all twelve columns from an all-optional body, so a field the client
+   * did not send was written back as NULL (or as the schema's default). The Promotions form
+   * has no input for `max_uses_per_customer` or `scope_ids`, so every edit dropped a
+   * per-customer limit and widened a category-scoped coupon to everything.
+   *
+   * `scope_ids` is the one column whose SQL value is not its DTO value: it is stored as
+   * JSON text. `null` still means "clear it"; only `undefined` skips the column.
+   */
   async update(
     id: string | number,
-    data: CouponData,
+    data: UpdateCouponData,
     queryable?: Queryable
   ): Promise<Record<string, any> | null> {
+    const { setClause, params, nextIndex } = buildPartialUpdate({
+      code: data.code,
+      type: data.type,
+      value: data.value,
+      min_purchase: data.min_purchase,
+      max_discount: data.max_discount,
+      starts_at: data.starts_at,
+      expires_at: data.expires_at,
+      max_uses: data.max_uses,
+      max_uses_per_customer: data.max_uses_per_customer,
+      scope: data.scope,
+      scope_ids:
+        data.scope_ids === undefined ? undefined : data.scope_ids && JSON.stringify(data.scope_ids),
+      stackable: data.stackable === undefined ? undefined : data.stackable ? 1 : 0,
+    });
+
     const result = await this.q(queryable).query(
-      `UPDATE coupons SET code=$1, type=$2, value=$3, min_purchase=$4, max_discount=$5, starts_at=$6, expires_at=$7, max_uses=$8, max_uses_per_customer=$9, scope=$10, scope_ids=$11, stackable=$12, updated_at=NOW()
-       WHERE id=$13 AND status='active' RETURNING *`,
-      [...this.buildCouponParams(data), id]
+      `UPDATE coupons SET ${setClause} WHERE id=$${nextIndex} AND status='active' RETURNING *`,
+      [...params, id]
     );
     return result.rows[0] ? this.parseScopeIds(result.rows[0]) : null;
   }

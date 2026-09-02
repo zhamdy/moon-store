@@ -158,3 +158,123 @@ describe('collection product ordering', () => {
     expect(detail!.products.map((p) => p.id)).toEqual([10, 12, 13]);
   });
 });
+
+/**
+ * Partial updates must not clear the fields they do not mention (#78).
+ *
+ * `PUT /api/v1/collections/:id` is reached from a client that sends a *partial* record:
+ * `resource().useSave` PUTs exactly the keys the page put in the draft, and the
+ * Collections page's product-editing path sends name/season/description/product_ids and
+ * nothing else. Every field the body omits must therefore be left alone, not written back
+ * as its default. `is_featured` is the field that exposed this, but the rule is the shape,
+ * not the field.
+ */
+describe('collections partial update', () => {
+  let testPool: PgPool;
+  const repo = new CollectionsRepository();
+  const service = new CollectionsService(repo);
+
+  beforeAll(async () => {
+    testPool = createPgMemPool();
+    setPool(testPool);
+    await runMigrationsUp(testPool, MIGRATIONS_DIR);
+  });
+
+  afterAll(async () => {
+    await closePool();
+  });
+
+  beforeEach(async () => {
+    await testPool.query('DELETE FROM collection_products');
+    await testPool.query('DELETE FROM collections');
+    await testPool.query('DELETE FROM products');
+    await testPool.query(
+      `INSERT INTO products (id, name, sku, price, stock)
+       VALUES (20, 'Ivory coat', 'SKU-20', 100, 5),
+              (21, 'Slate dress', 'SKU-21', 200, 5)`
+    );
+  });
+
+  const featuredCollection = async () => {
+    const { rows } = await testPool.query<{ id: number }>(
+      `INSERT INTO collections (name, description, season, is_featured, status)
+       VALUES ('Autumn window', 'The window', 'Fall', 1, 'active') RETURNING id`
+    );
+    return rows[0].id;
+  };
+
+  const rowOf = async (id: number) => {
+    const { rows } = await testPool.query('SELECT * FROM collections WHERE id = $1', [id]);
+    return rows[0];
+  };
+
+  it('keeps a collection featured when only its product list is edited', async () => {
+    const id = await featuredCollection();
+    await repo.addProducts(id, [20]);
+
+    // Exactly what the Collections page sends when a merchandiser adds a product:
+    // the identifying fields it happens to hold, plus the new product set. No
+    // `is_featured` — because the page never loaded one.
+    const result = await service.update(id, {
+      name: 'Autumn window',
+      season: 'Fall',
+      description: 'The window',
+      product_ids: [20, 21],
+    });
+
+    expect(result.success).toBe(true);
+    expect(Number((await rowOf(id)).is_featured)).toBe(1);
+    const detail = await service.findById(id);
+    expect(detail!.products.map((p) => p.id)).toEqual([20, 21]);
+  });
+
+  it('leaves every unmentioned column alone, not just is_featured', async () => {
+    const id = await featuredCollection();
+
+    const result = await service.update(id, { product_ids: [20] });
+
+    expect(result.success).toBe(true);
+    const row = await rowOf(id);
+    expect(row.name).toBe('Autumn window');
+    expect(row.description).toBe('The window');
+    expect(row.season).toBe('Fall');
+    expect(Number(row.is_featured)).toBe(1);
+  });
+
+  it('still applies the fields the body does mention', async () => {
+    const id = await featuredCollection();
+
+    await service.update(id, { name: 'Autumn window II', is_featured: false });
+
+    const row = await rowOf(id);
+    expect(row.name).toBe('Autumn window II');
+    expect(Number(row.is_featured)).toBe(0);
+    // ...and does not disturb the ones it did not.
+    expect(row.season).toBe('Fall');
+  });
+
+  it('clears a nullable field when the body says null explicitly', async () => {
+    const id = await featuredCollection();
+
+    await service.update(id, { description: null, season: null });
+
+    const row = await rowOf(id);
+    expect(row.description).toBeNull();
+    expect(row.season).toBeNull();
+    expect(row.name).toBe('Autumn window');
+    expect(Number(row.is_featured)).toBe(1);
+  });
+
+  it('is a no-op on the row when the body carries only a product set', async () => {
+    const id = await featuredCollection();
+    const before = await rowOf(id);
+
+    await service.update(id, { product_ids: [21] });
+
+    const after = await rowOf(id);
+    expect(after.name).toBe(before.name);
+    expect(after.is_featured).toBe(before.is_featured);
+    const detail = await service.findById(id);
+    expect(detail!.products.map((p) => p.id)).toEqual([21]);
+  });
+});

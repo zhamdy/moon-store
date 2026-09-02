@@ -19,6 +19,29 @@ export const vendorSchema = z.object({
   status: z.enum(['active', 'inactive']).default('active'),
 });
 
+/**
+ * The update body is a genuine partial, and deliberately not `vendorSchema`.
+ *
+ * Re-using the create schema here meant every field was optional *and* two of them carried
+ * a `.default()`, so a body that named only some fields parsed cleanly and the repository
+ * then wrote defaults over the rest. The Vendors page never sends `contact_person`,
+ * `tax_number` or `status` — so editing an inactive vendor silently reactivated it and
+ * cleared its tax number. Same shape as #78 on collections.
+ *
+ * No `.default()` here: a default is what turns "absent" back into "write this value",
+ * which is exactly what a partial update must not do.
+ */
+export const vendorUpdateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  contact_person: z.string().max(100).nullable().optional(),
+  email: z.string().email().nullable().optional(),
+  phone: z.string().max(30).nullable().optional(),
+  address: z.string().max(255).nullable().optional(),
+  tax_number: z.string().max(50).nullable().optional(),
+  commission_rate: z.number().min(0).max(100).optional(),
+  status: z.enum(['active', 'inactive']).optional(),
+});
+
 export class VendorsController {
   async listVendors(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -52,7 +75,7 @@ export class VendorsController {
   async updateVendor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const parsed = vendorSchema.safeParse(req.body);
+      const parsed = vendorUpdateSchema.safeParse(req.body);
       if (!parsed.success) {
         throw parsed.error;
       }

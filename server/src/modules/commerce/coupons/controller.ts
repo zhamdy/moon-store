@@ -39,6 +39,37 @@ export const couponSchema = z.object({
   stackable: z.boolean().optional().default(false),
 });
 
+/**
+ * The update body is a genuine partial — same reasoning as #78 on collections.
+ *
+ * The create schema is all-optional-with-defaults, and the repository wrote all twelve
+ * columns from it, so the Promotions page — whose form has no field for
+ * `max_uses_per_customer` or `scope_ids` — cleared a per-customer limit and a
+ * category/product restriction on every edit. A coupon scoped to one category quietly
+ * became valid on everything.
+ *
+ * No `.default()` here: a default turns "absent" back into "write this value".
+ */
+export const couponUpdateSchema = z.object({
+  code: z
+    .string()
+    .min(3, 'Coupon code must be at least 3 characters')
+    .max(50)
+    .transform((v) => v.toUpperCase().trim())
+    .optional(),
+  type: z.enum(['percentage', 'fixed']).optional(),
+  value: z.number().positive('Value must be positive').optional(),
+  min_purchase: z.number().min(0).nullable().optional(),
+  max_discount: z.number().positive().nullable().optional(),
+  starts_at: z.string().nullable().optional(),
+  expires_at: z.string().nullable().optional(),
+  max_uses: z.number().int().positive().nullable().optional(),
+  max_uses_per_customer: z.number().int().positive().nullable().optional(),
+  scope: z.enum(['all', 'category', 'product']).optional(),
+  scope_ids: z.array(z.number().int().positive()).nullable().optional(),
+  stackable: z.boolean().optional(),
+});
+
 export const validateCouponSchema = z.object({
   code: z.string().min(1, 'Coupon code is required'),
   subtotal: z.number().min(0, 'Subtotal must be non-negative'),
@@ -87,17 +118,20 @@ export class CouponsController {
 
   async updateCoupon(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = couponSchema.safeParse(req.body);
+      const parsed = couponUpdateSchema.safeParse(req.body);
       if (!parsed.success) {
         throw parsed.error;
       }
 
       const id = req.params.id as string;
       const coupon = await couponsService.update(id, parsed.data);
+      // The audit entry reads the *result*, not the request: a partial body may not
+      // mention code/type/value at all, and an audit line of three undefineds records
+      // nothing about what the coupon now is.
       logAuditFromReq(req, 'update', 'coupon', id, {
-        code: parsed.data.code,
-        type: parsed.data.type,
-        value: parsed.data.value,
+        code: coupon.code,
+        type: coupon.type,
+        value: coupon.value,
       });
 
       res.json(success(coupon));

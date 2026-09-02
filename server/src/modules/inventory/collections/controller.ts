@@ -15,6 +15,29 @@ const collectionSchema = z.object({
   product_ids: z.array(z.number().int().positive()).optional(),
 });
 
+/**
+ * The update body is a genuine partial, and deliberately not the create schema.
+ *
+ * `PUT /api/v1/collections/:id` is PATCH-style: a field the body omits is left alone, a
+ * field it sets to `null` is cleared. Re-using the create schema here is what caused #78 —
+ * every field was optional, so an omitted `is_featured` parsed cleanly and was then written
+ * back as the default. The distinction the schema has to carry is *absent* vs *explicitly
+ * null*, which is why the nullable columns are `.nullable().optional()` and `name` — a
+ * NOT NULL column — is only `.optional()`.
+ *
+ * PATCH-style rather than requiring a whole record because the client is already written as
+ * if this were true: `resource().useSave` PUTs exactly the keys a page put in its draft, so
+ * every page in the app sends a partial body. Demanding a full record would have meant every
+ * caller learning every column — the same coupling, moved rather than removed.
+ */
+const collectionUpdateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).nullable().optional(),
+  season: z.string().max(50).nullable().optional(),
+  is_featured: z.boolean().optional(),
+  product_ids: z.array(z.number().int().positive()).optional(),
+});
+
 export class CollectionsController {
   async getCollections(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -58,7 +81,7 @@ export class CollectionsController {
   async updateCollection(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const parsed = collectionSchema.parse(req.body);
+      const parsed = collectionUpdateSchema.parse(req.body);
 
       const result = await collectionsService.update(id as string, parsed);
       if (!result.success) {

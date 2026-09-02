@@ -13,6 +13,22 @@ const shippingCompanySchema = z.object({
   is_active: z.boolean().default(true),
 });
 
+/**
+ * The update body is a genuine partial — same reasoning as #78 on collections, and this is
+ * one of the modules where it was losing data today.
+ *
+ * `ShippingCompaniesDialog` sends `{ name, phone, website }`. Re-using the create schema
+ * meant `email` and `tracking_url_template` were absent-but-valid and got written back as
+ * NULL, and `is_active`'s `.default(true)` reactivated a company someone had disabled.
+ */
+export const shippingCompanyUpdateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  phone: z.string().max(30).nullable().optional(),
+  email: z.string().email().nullable().optional(),
+  tracking_url_template: z.string().max(255).nullable().optional(),
+  is_active: z.boolean().optional(),
+});
+
 export class ShippingCompaniesController {
   async getShippingCompanies(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -45,7 +61,7 @@ export class ShippingCompaniesController {
   async updateShippingCompany(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const parsed = shippingCompanySchema.safeParse(req.body);
+      const parsed = shippingCompanyUpdateSchema.safeParse(req.body);
       if (!parsed.success) {
         throw parsed.error;
       }
