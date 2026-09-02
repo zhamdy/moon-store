@@ -5,7 +5,7 @@ import { Badge, type BadgeVariant, PageHeader, DataTable } from '../../../shared
 import { useTranslation } from '../../../shared/i18n/index';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import type { SegmentsResponse, SegmentCustomer } from '../types';
+import type { SegmentsResponse, CustomerRFM } from '../types';
 
 const segmentIcons: Record<string, React.ReactNode> = {
   champions: <Crown className="h-5 w-5 text-amber-500" />,
@@ -61,7 +61,7 @@ export default function SegmentsPage() {
       : data.customers;
   }, [data?.customers, selectedSegment]);
 
-  const columns: ColumnDef<SegmentCustomer>[] = [
+  const columns: ColumnDef<CustomerRFM>[] = [
     {
       accessorKey: 'name',
       header: t('common.name'),
