@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type MutableRefObject } from 'react';
+import { useState, useEffect, type MutableRefObject } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -38,16 +38,12 @@ import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import HeldCartsDialog from './HeldCartsDialog';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import {
-  calculateTotals,
-  allocateSplit,
-  maxRedeemablePoints,
-  SPLIT_PAYMENT_MISMATCH_CODE,
-} from '../../../shared/lib/checkout';
+import { SPLIT_PAYMENT_MISMATCH_CODE } from '../../../shared/lib/checkout';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport, createIdempotencyKey } from '../../../shared/lib/transport/index';
 import { ApiError } from '../../../shared/lib/transport/types';
-import { readTaxPolicy, readLoyaltyPolicy } from '../lib/checkoutSettings';
+import { useCheckoutPricing } from '../hooks/useCheckoutPricing';
+import { useCustomerDisplayBroadcast } from '../hooks/useCustomerDisplayBroadcast';
 import {
   buildSalePayload,
   buildOfflineSalePayload,
@@ -63,13 +59,9 @@ import type {
   SaleResponse,
 } from '../types';
 import type { ReceiptData } from '../../../shared/components/Receipt';
-import type { AppSettings, Customer } from '../../../shared/types/index';
+import type { Customer } from '../../../shared/types/index';
 
 const customers = resource<Customer>('customers');
-
-interface CustomerLoyalty {
-  points: number;
-}
 
 interface CartPanelProps {
   checkoutTriggerRef?: MutableRefObject<(() => void) | null>;
@@ -93,7 +85,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     setTip,
     setCoupon,
     clearCoupon,
-    getSubtotal,
     clearCart,
     needsReview,
     acknowledgeReview,
@@ -125,119 +116,23 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
 
   const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300);
 
-  const [redeemPoints, setRedeemPoints] = useState(false);
-  const [pointsToRedeem, setPointsToRedeem] = useState(0);
+  // ONE authoritative owner of every checkout figure: totals, the split
+  // allocation, the loyalty cap and the redemption state. Nothing below
+  // re-derives any of them.
+  const {
+    tax: taxInfo,
+    loyalty: loyaltyInfo,
+    totals,
+    split,
+    maxPoints,
+    redeemPoints,
+    pointsToRedeem,
+    setRedeemPoints,
+    setPointsToRedeem,
+    resetRedemption,
+  } = useCheckoutPricing({ customerId: selectedCustomer?.id ?? null, payments });
 
-  const { data: appSettings } = useApiQuery<AppSettings>(['settings'], 'settings', undefined, {
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: customerLoyalty } = useApiQuery<CustomerLoyalty>(
-    ['customer-loyalty', selectedCustomer?.id],
-    `customers/${selectedCustomer?.id}/loyalty`,
-    undefined,
-    {
-      enabled: !!selectedCustomer && appSettings?.loyalty_enabled === 'true',
-      staleTime: 30 * 1000,
-    }
-  );
-
-  const loyaltyInfo = useMemo(
-    () => ({ ...readLoyaltyPolicy(appSettings), customerPoints: customerLoyalty?.points || 0 }),
-    [appSettings, customerLoyalty]
-  );
-
-  const taxInfo = useMemo(() => readTaxPolicy(appSettings), [appSettings]);
-
-  const totals = useMemo(
-    () =>
-      calculateTotals({
-        items,
-        discount,
-        discountType,
-        couponDiscount,
-        tax: taxInfo,
-        pointsToRedeem: redeemPoints && loyaltyInfo.enabled ? pointsToRedeem : 0,
-        redeemValue: loyaltyInfo.egpPerPoint,
-        pointsBalance: loyaltyInfo.customerPoints,
-        tip,
-        loyaltyEnabled: loyaltyInfo.enabled,
-        pointsPerEgp: loyaltyInfo.pointsPerEgp,
-      }),
-    [
-      items,
-      discount,
-      discountType,
-      couponDiscount,
-      taxInfo,
-      redeemPoints,
-      pointsToRedeem,
-      loyaltyInfo,
-      tip,
-    ]
-  );
-
-  // The most the selected customer may redeem on THIS sale: never more than
-  // their balance, and never more value than the sale (before loyalty) is
-  // worth. `netOfDiscounts + pointsDiscount` recovers the remaining value
-  // after manual discount/coupon but BEFORE loyalty, regardless of how many
-  // points are currently requested (see checkout.ts's calculation order).
-  const maxPoints = useMemo(
-    () =>
-      maxRedeemablePoints(
-        loyaltyInfo.customerPoints,
-        totals.netOfDiscounts + totals.pointsDiscount,
-        loyaltyInfo.egpPerPoint
-      ),
-    [loyaltyInfo, totals.netOfDiscounts, totals.pointsDiscount]
-  );
-
-  // A stale redeemed-points value must never silently outlive the subtotal,
-  // coupon, or tax change that shrank how much can actually be redeemed.
-  useEffect(() => {
-    if (pointsToRedeem > maxPoints) {
-      setPointsToRedeem(maxPoints);
-    }
-  }, [maxPoints, pointsToRedeem]);
-
-  const split = useMemo(() => allocateSplit(payments, totals.amountDue), [payments, totals]);
-
-  // Broadcast the SAME projected breakdown the cart footer/checkout drawer
-  // render -- never a separately-derived total -- so the customer display
-  // always agrees to the cent with what the cashier sees (Unit 5). This
-  // owns the channel entirely; POS.tsx no longer posts its own (partial,
-  // tax/loyalty-blind) projection.
-  useEffect(() => {
-    const channel = new BroadcastChannel('moon-customer-display');
-    if (items.length > 0) {
-      channel.postMessage({
-        type: 'cart-update',
-        cart: {
-          items: items.map((i) => ({
-            name: i.name,
-            quantity: i.quantity,
-            unit_price: i.unit_price,
-            memo: i.memo,
-          })),
-          subtotal: totals.subtotal,
-          discount,
-          discountType,
-          discountAmount: totals.discountAmount,
-          couponCode: couponCode || undefined,
-          couponDiscount: totals.couponDiscount,
-          taxEnabled: taxInfo.enabled,
-          taxRate: taxInfo.rate,
-          taxAmount: totals.taxAmount,
-          pointsDiscount: totals.pointsDiscount,
-          tip: totals.tip,
-          amountDue: totals.amountDue,
-        },
-      });
-    } else {
-      channel.postMessage({ type: 'cart-clear' });
-    }
-    channel.close();
-  }, [items, discount, discountType, couponCode, taxInfo, totals]);
+  useCustomerDisplayBroadcast({ items, discount, discountType, couponCode, tax: taxInfo, totals });
 
   useEffect(() => {
     if (checkoutTriggerRef) {
@@ -348,8 +243,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       setCheckoutOpen(false);
       setSelectedCustomer(null);
       setCustomerSearch('');
-      setRedeemPoints(false);
-      setPointsToRedeem(0);
+      resetRedemption();
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['customer-loyalty'] });
@@ -417,7 +311,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         path: 'coupons/validate',
         body: {
           code: couponInput.trim(),
-          subtotal: getSubtotal(),
+          // The authoritative subtotal, same as every displayed line. This used
+          // to call `cartStore.getSubtotal()`, a second float-arithmetic
+          // derivation of the same figure; `totals.subtotal` is the minor-unit
+          // one the server's own calculation agrees with.
+          subtotal: totals.subtotal,
           ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
           item_product_ids: items.map((i) => i.product_id),
         },
@@ -660,7 +558,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                 }`}
                 onClick={() => {
                   if (discountType === 'fixed' && discount > 0) {
-                    const subtotal = getSubtotal();
+                    const subtotal = totals.subtotal;
                     setDiscount(
                       subtotal > 0 ? Math.round((discount / subtotal) * 100 * 100) / 100 : 0
                     );
@@ -678,7 +576,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                 }`}
                 onClick={() => {
                   if (discountType === 'percentage' && discount > 0) {
-                    const subtotal = getSubtotal();
+                    const subtotal = totals.subtotal;
                     setDiscount(Math.round(((subtotal * discount) / 100) * 100) / 100);
                   }
                   setDiscountType('fixed');
@@ -735,7 +633,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         <div className="space-y-1.5">
           <div className="flex justify-between text-sm text-muted-foreground font-data">
             <span>{t('cart.subtotal')}</span>
-            <span className="text-foreground">{formatCurrency(getSubtotal())}</span>
+            <span className="text-foreground">{formatCurrency(totals.subtotal)}</span>
           </div>
           {totals.discountAmount > 0 && (
             <div className="flex justify-between text-sm text-danger font-data">
@@ -830,7 +728,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   <Divider className="my-2" />
                   <div className="flex justify-between text-sm text-muted-foreground font-data">
                     <span>{t('cart.subtotal')}</span>
-                    <span className="text-foreground">{formatCurrency(getSubtotal())}</span>
+                    <span className="text-foreground">{formatCurrency(totals.subtotal)}</span>
                   </div>
                   {totals.discountAmount > 0 && (
                     <div className="flex justify-between text-sm text-danger font-data">
@@ -917,8 +815,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                         className="h-7 w-7 shrink-0"
                         onClick={() => {
                           setSelectedCustomer(null);
-                          setRedeemPoints(false);
-                          setPointsToRedeem(0);
+                          resetRedemption();
                         }}
                         aria-label="Remove selected customer"
                       >
