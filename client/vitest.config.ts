@@ -12,6 +12,15 @@ export default defineConfig({
     // once several run concurrently, which showed up as flaky timeouts rather
     // than real failures.
     testTimeout: 20000,
+    server: {
+      deps: {
+        // HeroUI must be transformed by vite rather than loaded natively, or the
+        // framer-motion mock in src/shared/tests/setup.ts does not reach it: a
+        // natively-imported dependency resolves its own imports through node and
+        // never sees vitest's module registry. See the comment on that mock.
+        inline: [/@heroui\//],
+      },
+    },
   },
   resolve: {
     alias: {

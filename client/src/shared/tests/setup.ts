@@ -70,6 +70,13 @@ if (!window.scrollTo) {
  * Diagnosed from the CI stack (LazyMotion/index.mjs -> dispatchSetState ->
  * getCurrentEventPriority); it is deterministic there and has never reproduced locally,
  * which is the shape of a teardown race.
+ *
+ * The mock alone was NOT enough, which is why issue #77 recurred after #67: the component
+ * that mounts `LazyMotion` is HeroUI, and vitest loaded `@heroui/*` natively, so HeroUI
+ * resolved `framer-motion` through node and never saw this registry — every HeroUI button,
+ * modal, tooltip, tab and popover kept the real async load. `server.deps.inline` in
+ * `vitest.config.ts` is what puts HeroUI on the transformed path so this mock reaches it.
+ * The two are one fix; `./motionMock.test.tsx` fails if either half is removed.
  */
 vi.mock('framer-motion', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
