@@ -8,6 +8,7 @@
  */
 import { afterAll, afterEach, beforeAll, expect, it } from 'vitest';
 import path from 'path';
+import fs from 'fs';
 import { Pool } from 'pg';
 import {
   describeWithPostgres,
@@ -23,6 +24,19 @@ import {
 
 const MIGRATIONS_DIR = path.join(__dirname, '../../src/database/migrations');
 const MIGRATION = '004_concurrency_and_idempotency.sql';
+
+/**
+ * Every up-migration on disk, in apply order. Derived rather than listed so that a later
+ * migration landing in this directory does not turn these assertions red for a reason
+ * that has nothing to do with 004.
+ */
+const ALL_MIGRATIONS: string[] = fs
+  .readdirSync(MIGRATIONS_DIR)
+  .filter((f) => f.endsWith('.sql') && !f.includes('.down.sql'))
+  .sort();
+
+/** How many migrations must be rolled back to undo `name` — it is not always the last. */
+const DEPTH_OF_004 = ALL_MIGRATIONS.length - ALL_MIGRATIONS.indexOf(MIGRATION);
 
 const NON_NEGATIVE_CONSTRAINTS = [
   ['products', 'products_stock_non_negative'],
@@ -187,7 +201,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     });
 
     try {
-      await runMigrationsDown(1, legacy.pool, MIGRATIONS_DIR);
+      await runMigrationsDown(DEPTH_OF_004, legacy.pool, MIGRATIONS_DIR);
       expect(await getAppliedMigrations(legacy.pool)).not.toContain(MIGRATION);
 
       await legacy.pool.query(
@@ -195,7 +209,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
       );
 
       const applied = await runMigrationsUp(legacy.pool, MIGRATIONS_DIR);
-      expect(applied).toEqual([MIGRATION]);
+      expect(applied).toContain(MIGRATION);
 
       // The legacy row survives untouched; only new writes are policed.
       const { rows } = await legacy.pool.query<{ stock: number }>(
@@ -218,8 +232,8 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     });
 
     try {
-      const rolledBack = await runMigrationsDown(1, cycle.pool, MIGRATIONS_DIR);
-      expect(rolledBack).toEqual([MIGRATION]);
+      const rolledBack = await runMigrationsDown(DEPTH_OF_004, cycle.pool, MIGRATIONS_DIR);
+      expect(rolledBack).toContain(MIGRATION);
 
       const gone = await cycle.pool.query<{ n: number }>(
         `SELECT COUNT(*)::int AS n FROM information_schema.tables
@@ -240,19 +254,14 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
         "INSERT INTO products (name, sku, price, stock) VALUES ('Rolled back', 'SKU-CYCLE', 10, -1)"
       );
 
-      expect(await runMigrationsUp(cycle.pool, MIGRATIONS_DIR)).toEqual([MIGRATION]);
-      expect(await getAppliedMigrations(cycle.pool)).toEqual([
-        '001_initial_schema.sql',
-        '002_checkout_financial_contract.sql',
-        '003_sale_calculation_snapshot.sql',
-        MIGRATION,
-      ]);
+      expect(await runMigrationsUp(cycle.pool, MIGRATIONS_DIR)).toContain(MIGRATION);
+      expect(await getAppliedMigrations(cycle.pool)).toEqual(ALL_MIGRATIONS);
     } finally {
       await cycle.teardown();
     }
   });
 
-  it('applies on top of 001-003 in order on a database built from scratch', async () => {
+  it('applies in file order on a database built from scratch', async () => {
     const schema = `test_m004_chain_${Date.now().toString(36)}`;
     const admin = new Pool({ connectionString: TEST_DATABASE_URL });
     await admin.query(`CREATE SCHEMA "${schema}"`);
@@ -264,12 +273,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     });
 
     try {
-      expect(await runMigrationsUp(pool, MIGRATIONS_DIR)).toEqual([
-        '001_initial_schema.sql',
-        '002_checkout_financial_contract.sql',
-        '003_sale_calculation_snapshot.sql',
-        MIGRATION,
-      ]);
+      expect(await runMigrationsUp(pool, MIGRATIONS_DIR)).toEqual(ALL_MIGRATIONS);
     } finally {
       await pool.end();
       await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
