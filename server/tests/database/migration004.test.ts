@@ -7,8 +7,8 @@
  * `tests/support/pgMem.ts` for the one clause they cannot parse.
  */
 import { afterAll, afterEach, beforeAll, expect, it } from 'vitest';
-import fs from 'fs';
 import path from 'path';
+import fs from 'fs';
 import { Pool } from 'pg';
 import {
   describeWithPostgres,
@@ -26,21 +26,52 @@ const MIGRATIONS_DIR = path.join(__dirname, '../../src/database/migrations');
 const MIGRATION = '004_concurrency_and_idempotency.sql';
 
 /**
- * Read from the directory rather than hard-coded: this file is about what migration 004
- * does, and a later migration existing is not a fact about 004. `fromMigration` is the
- * tail of the sequence starting at 004, which is both the rollback depth and the list a
- * re-apply must produce.
+ * How many migrations must be rolled back to undo `name`.
+ *
+ * Read from `_migrations`, not from the filenames on disk: `runMigrationsDown` counts
+ * back through APPLICATION order, and the two coincide only while every migration has
+ * been applied in filename order. A database that took a later file first — a branch
+ * merged out of order, a hotfix applied ahead of its neighbour — would silently roll back
+ * somebody else's migration instead of this one.
  */
-function allMigrations(): string[] {
-  return fs
-    .readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith('.sql') && !f.includes('.down.sql'))
-    .sort();
+async function depthOf(pool: Pool, name: string): Promise<number> {
+  const applied = await getAppliedMigrations(pool);
+  const index = applied.indexOf(name);
+  expect(index, `${name} should be applied`).toBeGreaterThanOrEqual(0);
+  return applied.length - index;
 }
 
-function fromMigration(): string[] {
-  const all = allMigrations();
-  return all.slice(all.indexOf(MIGRATION));
+/**
+ * Asserts the applied list is a well-formed migration sequence.
+ *
+ * Deliberately NOT `toEqual(readdir().filter(...).sort())`: re-deriving the expectation
+ * with the same expression the runner uses makes the assertion agree with itself, so an
+ * ordering or filtering regression inside the runner would be reproduced by the
+ * expectation and never caught. Each property below is checked independently instead —
+ * ordering by comparing neighbours, membership as an unordered set, and `.down.sql`
+ * matched by suffix where the runner matches by substring.
+ */
+function expectWellFormedMigrationSequence(applied: string[], alreadyApplied: string[] = []): void {
+  expect(applied.length).toBeGreaterThan(0);
+
+  // Strictly ascending, which is both "sorted" and "no duplicates" in one assertion.
+  for (let i = 1; i < applied.length; i += 1) {
+    expect(
+      applied[i] > applied[i - 1],
+      `${applied[i - 1]} should sort strictly before ${applied[i]}`
+    ).toBe(true);
+  }
+
+  const onDisk = fs.readdirSync(MIGRATIONS_DIR);
+  const ups = onDisk.filter((f) => f.endsWith('.sql') && !f.endsWith('.down.sql'));
+
+  expect([...applied, ...alreadyApplied].sort()).toEqual([...ups].sort());
+
+  // Every up-migration has a paired rollback file — the premise of every down assertion
+  // in this file, and something the runner skips silently when it is untrue.
+  expect(onDisk.filter((f) => f.endsWith('.down.sql')).sort()).toEqual(
+    ups.map((f) => f.replace(/\.sql$/, '.down.sql')).sort()
+  );
 }
 
 const NON_NEGATIVE_CONSTRAINTS = [
@@ -206,8 +237,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     });
 
     try {
-      const tail = fromMigration();
-      await runMigrationsDown(tail.length, legacy.pool, MIGRATIONS_DIR);
+      await runMigrationsDown(await depthOf(legacy.pool, MIGRATION), legacy.pool, MIGRATIONS_DIR);
       expect(await getAppliedMigrations(legacy.pool)).not.toContain(MIGRATION);
 
       await legacy.pool.query(
@@ -215,7 +245,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
       );
 
       const applied = await runMigrationsUp(legacy.pool, MIGRATIONS_DIR);
-      expect(applied).toEqual(tail);
+      expect(applied).toContain(MIGRATION);
 
       // The legacy row survives untouched; only new writes are policed.
       const { rows } = await legacy.pool.query<{ stock: number }>(
@@ -238,9 +268,12 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     });
 
     try {
-      const tail = fromMigration();
-      const rolledBack = await runMigrationsDown(tail.length, cycle.pool, MIGRATIONS_DIR);
-      expect(rolledBack).toEqual([...tail].reverse());
+      const rolledBack = await runMigrationsDown(
+        await depthOf(cycle.pool, MIGRATION),
+        cycle.pool,
+        MIGRATIONS_DIR
+      );
+      expect(rolledBack).toContain(MIGRATION);
 
       const gone = await cycle.pool.query<{ n: number }>(
         `SELECT COUNT(*)::int AS n FROM information_schema.tables
@@ -261,14 +294,14 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
         "INSERT INTO products (name, sku, price, stock) VALUES ('Rolled back', 'SKU-CYCLE', 10, -1)"
       );
 
-      expect(await runMigrationsUp(cycle.pool, MIGRATIONS_DIR)).toEqual(tail);
-      expect(await getAppliedMigrations(cycle.pool)).toEqual(allMigrations());
+      expect(await runMigrationsUp(cycle.pool, MIGRATIONS_DIR)).toContain(MIGRATION);
+      expectWellFormedMigrationSequence(await getAppliedMigrations(cycle.pool));
     } finally {
       await cycle.teardown();
     }
   });
 
-  it('applies on top of 001-003 in order on a database built from scratch', async () => {
+  it('applies in file order on a database built from scratch', async () => {
     const schema = `test_m004_chain_${Date.now().toString(36)}`;
     const admin = new Pool({ connectionString: TEST_DATABASE_URL });
     await admin.query(`CREATE SCHEMA "${schema}"`);
@@ -280,7 +313,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     });
 
     try {
-      expect(await runMigrationsUp(pool, MIGRATIONS_DIR)).toEqual(allMigrations());
+      expectWellFormedMigrationSequence(await runMigrationsUp(pool, MIGRATIONS_DIR));
     } finally {
       await pool.end();
       await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);

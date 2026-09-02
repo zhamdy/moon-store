@@ -1,4 +1,4 @@
-import { Queryable } from '../../../database/transaction';
+import { Queryable, withTransaction } from '../../../database/transaction';
 import pool from '../../../database/pool';
 import {
   CollectionRecord,
@@ -135,18 +135,50 @@ export class CollectionsRepository implements ICollectionsRepository {
     ]);
   }
 
+  /**
+   * Appends products to a collection, each at the next free position.
+   *
+   * The position is computed as `MAX(position) + 1` *inside the INSERT*, so it is read
+   * and written in one statement rather than in a read-then-write pair the caller could
+   * interleave with. That alone is not enough under READ COMMITTED: two concurrent
+   * transactions can each read the same MAX before either commits, and both would aim for
+   * the same slot. So the parent `collections` row is locked first — `FOR UPDATE` blocks
+   * the second appender until the first commits, at which point its MAX is visible.
+   *
+   * The `UNIQUE (collection_id, position)` constraint from migration 006 is the backstop,
+   * not the mechanism: if a future caller reaches this table without the lock, it gets a
+   * loud 23505 instead of two products silently sharing a slot.
+   *
+   * The lock is only a lock for the life of a transaction, so when no queryable is passed
+   * this opens one. A bare pooled query would release the row lock at statement end and
+   * the guarantee would quietly evaporate.
+   */
   async addProducts(
     collectionId: number | string,
     productIds: number[],
     queryable?: Queryable
   ): Promise<void> {
-    for (let i = 0; i < productIds.length; i++) {
-      await this.q(queryable).query(
-        `INSERT INTO collection_products (collection_id, product_id, position)
-         VALUES ($1, $2, $3)`,
-        [collectionId, productIds[i], i]
-      );
+    if (productIds.length === 0) return;
+
+    const run = async (q: Queryable): Promise<void> => {
+      await q.query('SELECT id FROM collections WHERE id = $1 FOR UPDATE', [collectionId]);
+
+      for (const productId of productIds) {
+        await q.query(
+          `INSERT INTO collection_products (collection_id, product_id, position)
+           SELECT $1::int, $2::int, COALESCE(MAX(cp.position) + 1, 0)
+             FROM collection_products cp
+            WHERE cp.collection_id = $1::int`,
+          [collectionId, productId]
+        );
+      }
+    };
+
+    if (queryable) {
+      await run(queryable);
+      return;
     }
+    await withTransaction((client) => run(client));
   }
 
   async delete(id: number | string, queryable?: Queryable): Promise<boolean> {

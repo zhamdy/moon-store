@@ -13,6 +13,42 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
   /**
+   * Auth token and cookie knobs, resolved by `src/modules/core/auth/config.ts`.
+   *
+   * Raw strings here for the same reason as the rate-limit ceilings below: a typo must
+   * fall back to the safe value and be warned about, not fail the whole environment parse
+   * and take a shop offline over a stray character. The resolvers own the defaults, the
+   * bounds and the warnings.
+   *
+   * `JWT_ACCESS_TTL` is `jsonwebtoken` duration syntax (`15m`, `900s`, `900`) and is
+   * capped: an access token is accepted on its signature alone, so nothing — logout,
+   * global revocation, reuse detection — can reach one before it expires.
+   *
+   * `JWT_REFRESH_TTL_DAYS` is a whole number of days. It is a count rather than a
+   * duration string because the same value has to produce both the JWT `exp` and the
+   * `refresh_tokens.expires_at` column, and two independently-parsed duration strings are
+   * exactly how those two drift apart.
+   *
+   * `REFRESH_ROTATION_GRACE_SECONDS` is how long a just-rotated refresh token still
+   * answers, with the token that rotation already issued. Rotation invalidates the
+   * previous token immediately and treating any later use of it as theft is the point of
+   * reuse detection — but two tabs sharing one cookie both refresh the instant the access
+   * token expires, and a client that never received its response asks again. Without a
+   * window those honest cases revoke the user's whole session family. `0` selects strict
+   * no-grace semantics.
+   */
+  JWT_ACCESS_TTL: z.string().optional(),
+  JWT_REFRESH_TTL_DAYS: z.string().optional(),
+  REFRESH_ROTATION_GRACE_SECONDS: z.string().optional(),
+  /**
+   * `SameSite` for the refresh cookie: `lax` (default), `strict` or `none`, matched
+   * case-insensitively — the attribute is spelled `SameSite=None` everywhere an operator
+   * has seen it. `none` forces `Secure` on, because browsers reject that combination.
+   */
+  COOKIE_SAMESITE: z.string().optional(),
+  /** Optional `Domain` for the refresh cookie. Unset means host-only, which is stricter. */
+  COOKIE_DOMAIN: z.string().optional(),
+  /**
    * Closes the idempotency compatibility window. While false (the default), a mutation
    * without an `Idempotency-Key` behaves exactly as it did before idempotency existed,
    * so an unpatched till keeps working. Flip to true only once every deployed client is
