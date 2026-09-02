@@ -83,6 +83,14 @@ export interface MutationFailure {
   /** Safe, user-facing, translated where the client owns the wording. */
   message: string;
   /**
+   * The server's own wording, present only for the kinds it phrases for a user
+   * and only when non-empty. Callers use it to decide whether to prefer their
+   * own domain sentence ("Failed to create customer") over the generic one:
+   * the server's specific wording beats both, but a generic fallback should
+   * not beat the caller's.
+   */
+  serverMessage?: string;
+  /**
    * Field path -> message, for a `fix`. Empty for every other kind. Pages hand
    * this to React Hook Form's `setError` so the failure lands on the input
    * that caused it instead of in a toast that closes the dialog.
@@ -241,6 +249,7 @@ export function classifyMutationError(
     kind,
     recovery: RECOVERY[kind],
     message: serverMessage || t(messageKeyFor(kind)),
+    ...(serverMessage ? { serverMessage } : {}),
     fieldErrors: kind === 'validation' ? fieldErrorsFrom(details) : {},
     code: error.code,
     details,
