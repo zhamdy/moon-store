@@ -6,7 +6,7 @@ import { mapPublicError } from '../../src/http/errors';
 import { createListQuerySchema, paginationMeta } from '../../src/http/pagination';
 import { endpointManifest } from '../../src/http/endpointManifest';
 import { routeTable } from '../../src/router';
-import { requestLogger } from '../../middleware/requestLogger';
+import { requestLogger } from '../../src/observability/requestLogging';
 import logger from '../../lib/logger';
 import errorHandler from '../../middleware/errorHandler';
 import { requireRole, verifyToken } from '../../middleware/auth';

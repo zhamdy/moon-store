@@ -80,6 +80,16 @@ const envSchema = z.object({
    */
   TRUST_PROXY: z.string().optional(),
   /**
+   * How often the `service_metrics` snapshot line is emitted, in milliseconds, resolved
+   * by `src/observability/metrics.ts`. `0` disables it. Values under a second are raised
+   * to a second — a sub-second snapshot is a log flood, not a metric.
+   *
+   * There is no `/metrics` endpoint to configure: the log stream is the metrics
+   * transport, so that an operator needs nothing beyond the aggregator they already run.
+   * See the module comment for the reasoning and for what was rejected.
+   */
+  METRICS_LOG_INTERVAL_MS: z.string().optional(),
+  /**
    * Where uploaded media lives, resolved by `src/storage/index.ts`. Every default here
    * reproduces the pre-abstraction behaviour exactly — the filesystem under
    * `server/uploads`, served at `/uploads` — so an unconfigured deployment keeps serving
