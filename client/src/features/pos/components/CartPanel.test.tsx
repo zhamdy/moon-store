@@ -8,6 +8,7 @@ import type { TransportRequest, TransportResult } from '../../../shared/lib/tran
 import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
 import { useSettingsStore } from '../../../shared/store/settingsStore';
 import { useCartStore } from '../store/cartStore';
+import { useHeldCartsStore } from '../store/heldCartsStore';
 import { useOfflineStore } from '../../../shared/store/offlineStore';
 import CartPanel from './CartPanel';
 
@@ -733,5 +734,283 @@ describe('CartPanel amount-due parity across surfaces', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+/**
+ * CHARACTERIZATION — the coupon, hold-cart and customer paths the checkout
+ * suite above never exercised. These lock in today's behaviour so the
+ * decomposition of this component (issue #51) cannot quietly change it.
+ */
+describe('CartPanel coupon, hold and customer characterization', () => {
+  beforeEach(() => {
+    useSettingsStore.setState({ locale: 'en' });
+    useOfflineStore.setState({ queue: [], isSyncing: false });
+    useHeldCartsStore.setState({ carts: [] });
+    useCartStore.setState({
+      items: [SILK_DRESS],
+      discount: 0,
+      discountType: 'fixed',
+      notes: '',
+      tip: 0,
+      couponCode: '',
+      couponDiscount: 0,
+      needsReview: false,
+      checkoutAttempt: null,
+    });
+  });
+
+  /** The memory transport 404s an unknown sub-path, so coupon validation is answered here. */
+  function withCouponReply(memory: MemoryTransport, discount: number): MemoryTransport {
+    return {
+      ...memory,
+      async request<T>(req: TransportRequest): Promise<TransportResult<T>> {
+        if (req.method === 'POST' && req.path === 'coupons/validate') {
+          // Let the memory transport record the call (it has no coupon route,
+          // so it 404s) before answering it, so `calls()` still sees the body.
+          await memory.request<unknown>(req).catch(() => undefined);
+          const code = (req.body as { code: string }).code;
+          return { data: { code, discount } as T };
+        }
+        return memory.request<T>(req);
+      },
+    };
+  }
+
+  it('holds the cart with its notes, tip and coupon code — but no cached coupon amount', () => {
+    useCartStore.setState({
+      notes: 'call before delivery',
+      tip: 5,
+      couponCode: 'SUMMER20',
+      couponDiscount: 20,
+    });
+    const transport = makeTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hold' }));
+
+    const held = useHeldCartsStore.getState().carts;
+    expect(held).toHaveLength(1);
+    expect(held[0]).toMatchObject({
+      items: [expect.objectContaining({ product_id: 7 })],
+      discount: 0,
+      discountType: 'fixed',
+      notes: 'call before delivery',
+      tip: 5,
+      couponCode: 'SUMMER20',
+    });
+    // A held cart never carries a cached money amount forward.
+    expect(held[0]).not.toHaveProperty('couponDiscount');
+    expect(useCartStore.getState().items).toHaveLength(0);
+  });
+
+  it('does nothing when Hold is pressed on an empty cart', () => {
+    useCartStore.setState({ items: [] });
+    const transport = makeTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+
+    expect(screen.getByRole('button', { name: 'Hold' })).toBeDisabled();
+    expect(useHeldCartsStore.getState().carts).toHaveLength(0);
+  });
+
+  it('validates a coupon against the cart subtotal and its product ids, then stores the result', async () => {
+    const transport = withCouponReply(makeTransport(), 20);
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    await openDrawer();
+
+    fireEvent.change(screen.getByPlaceholderText('Enter coupon code'), {
+      target: { value: 'summer20' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => expect(useCartStore.getState().couponCode).toBe('summer20'));
+    expect(useCartStore.getState().couponDiscount).toBe(20);
+
+    const validate = transport.calls().find((call) => call.path === 'coupons/validate');
+    expect(validate?.body).toEqual({
+      code: 'summer20',
+      subtotal: 500,
+      item_product_ids: [7],
+    });
+    // No customer is selected, so `customer_id` stays off the body entirely.
+    expect(validate?.body).not.toHaveProperty('customer_id');
+  });
+
+  it('surfaces a rejected coupon without touching the cart', async () => {
+    const transport = makeTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    await openDrawer();
+
+    transport.failNext('Coupon expired', 400, undefined, undefined, 'coupons/validate');
+    fireEvent.change(screen.getByPlaceholderText('Enter coupon code'), {
+      target: { value: 'EXPIRED' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Coupon expired'));
+    expect(useCartStore.getState().couponCode).toBe('');
+    expect(useCartStore.getState().couponDiscount).toBe(0);
+  });
+
+  it('ignores Apply with an empty coupon field', async () => {
+    const transport = makeTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    await openDrawer();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() =>
+      expect(transport.calls().some((call) => call.path === 'coupons/validate')).toBe(false)
+    );
+  });
+
+  it('removes an applied coupon and returns the input', async () => {
+    useCartStore.setState({ couponCode: 'SUMMER20', couponDiscount: 20 });
+    const transport = makeTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    await openDrawer();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove coupon' }));
+
+    await waitFor(() => expect(useCartStore.getState().couponCode).toBe(''));
+    expect(useCartStore.getState().couponDiscount).toBe(0);
+    expect(screen.getByPlaceholderText('Enter coupon code')).toBeInTheDocument();
+  });
+
+  it('creates a customer, selects it, and attaches its id to the sale', async () => {
+    const transport = makeTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    await openDrawer();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add New Customer' }));
+    fireEvent.change(screen.getByPlaceholderText('Customer name'), { target: { value: 'Amina' } });
+    fireEvent.change(screen.getByPlaceholderText('Phone number'), {
+      target: { value: '0100000000' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    // The created row comes back selected, replacing the create form.
+    await waitFor(() => expect(screen.getByText('Amina')).toBeInTheDocument());
+    expect(transport.peek('customers')).toEqual([{ id: 1, name: 'Amina', phone: '0100000000' }]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Sale' }));
+
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+    const sale = transport.calls().find((call) => call.path === 'sales');
+    expect(sale?.body).toMatchObject({ customer_id: 1 });
+  });
+
+  it('cancels customer creation without selecting anyone', async () => {
+    const transport = makeTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    await openDrawer();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add New Customer' }));
+    fireEvent.change(screen.getByPlaceholderText('Customer name'), { target: { value: 'Amina' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByPlaceholderText('Search customers...')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Sale' }));
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+    expect(transport.calls().find((call) => call.path === 'sales')?.body).not.toHaveProperty(
+      'customer_id'
+    );
+  });
+});
+
+describe('CartPanel loyalty state ownership characterization', () => {
+  beforeEach(() => {
+    useSettingsStore.setState({ locale: 'en' });
+    useOfflineStore.setState({ queue: [], isSyncing: false });
+    useCartStore.setState({
+      items: [SILK_DRESS],
+      discount: 0,
+      discountType: 'fixed',
+      notes: '',
+      tip: 0,
+      couponCode: '',
+      couponDiscount: 0,
+      needsReview: false,
+      checkoutAttempt: null,
+    });
+  });
+
+  function loyaltyTransport() {
+    return withSaleReply(
+      createMemoryTransport(
+        { customers: [{ id: 1, name: 'Amina', phone: '0100000000', loyalty_points: 200 }] },
+        {
+          reads: {
+            settings: {
+              tax_enabled: 'false',
+              loyalty_enabled: 'true',
+              loyalty_points_per_egp: '1',
+              loyalty_egp_per_point: '0.10',
+            },
+            'customers/1/loyalty': { points: 200 },
+          },
+        }
+      )
+    );
+  }
+
+  async function selectAminaAndRedeem() {
+    fireEvent.change(screen.getByPlaceholderText('Search customers...'), {
+      target: { value: 'Amina' },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Amina/ }, { timeout: 5000 }));
+    fireEvent.click(await screen.findByLabelText('Use loyalty points', {}, { timeout: 5000 }));
+    fireEvent.change(screen.getByLabelText('Points to redeem'), { target: { value: '100' } });
+  }
+
+  it('drops the redemption entirely when the selected customer is removed', async () => {
+    const transport = loyaltyTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    await openDrawer();
+    await selectAminaAndRedeem();
+
+    await waitFor(() => expect(screen.getAllByText('-10 EG').length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove selected customer' }));
+
+    // No customer, no loyalty section, and no lingering points discount line.
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Use loyalty points')).not.toBeInTheDocument()
+    );
+    expect(screen.queryByText('-10 EG')).not.toBeInTheDocument();
+  });
+
+  it('sends points_redeemed and clears the redemption once the sale lands', async () => {
+    const transport = loyaltyTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    await openDrawer();
+    await selectAminaAndRedeem();
+
+    await waitFor(() => expect(screen.getAllByText('-10 EG').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Sale' }));
+
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+    const sale = transport.calls().find((call) => call.path === 'sales');
+    expect(sale?.body).toMatchObject({ customer_id: 1, points_redeemed: 100 });
+  });
+
+  it('unticking the redeem toggle zeroes the points, leaving the customer selected', async () => {
+    const transport = loyaltyTransport();
+    render(<CartPanel />, { wrapper: wrapperFor(transport) });
+    await openDrawer();
+    await selectAminaAndRedeem();
+
+    await waitFor(() => expect(screen.getAllByText('-10 EG').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByLabelText('Use loyalty points'));
+
+    await waitFor(() => expect(screen.queryByText('-10 EG')).not.toBeInTheDocument());
+    expect(screen.getByText('Amina')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Sale' }));
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+    expect(transport.calls().find((call) => call.path === 'sales')?.body).not.toHaveProperty(
+      'points_redeemed'
+    );
   });
 });
