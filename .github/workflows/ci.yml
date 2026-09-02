@@ -84,8 +84,7 @@ jobs:
 
       - run: npm run lint
 
-      # No typecheck step here yet: `tsc --noEmit` on client/ currently reports
-      # pre-existing errors unrelated to this workflow. Add the step once they are cleared.
+      - run: npm run typecheck
 
       - run: npm test
 
