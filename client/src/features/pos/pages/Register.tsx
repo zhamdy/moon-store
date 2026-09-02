@@ -268,12 +268,10 @@ export default function RegisterPage() {
             <StatCard
               title={t('register.totalCashIn')}
               value={`+${formatCurrency(currentSession.total_in || 0)}`}
-              delta={{ type: 'increase', value: t('register.cashIn') }}
             />
             <StatCard
               title={t('register.totalCashOut')}
               value={`-${formatCurrency(currentSession.total_out || 0)}`}
-              delta={{ type: 'decrease', value: t('register.cashOut') }}
             />
           </div>
         </>

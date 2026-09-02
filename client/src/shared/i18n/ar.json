@@ -895,8 +895,6 @@
   "register.totalRefunds": "إجمالي المرتجعات",
   "register.totalCashIn": "إجمالي الإيداعات",
   "register.totalCashOut": "إجمالي السحوبات",
-  "register.cashIn": "إيداع",
-  "register.cashOut": "سحب",
   "register.saleCount": "عدد المبيعات",
   "register.history": "سجل الصندوق",
   "register.forceClose": "إغلاق إجباري",
