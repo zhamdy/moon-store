@@ -18,4 +18,15 @@ export interface CreateShippingCompanyDTO {
   is_active?: boolean;
 }
 
-export type UpdateShippingCompanyDTO = CreateShippingCompanyDTO;
+/**
+ * A *partial* update: absent means "leave it alone", explicit `null` means "clear it".
+ * Deliberately not `CreateShippingCompanyDTO` — sharing that is what cleared `email` and
+ * `tracking_url_template` on every edit and silently re-enabled a disabled company.
+ */
+export interface UpdateShippingCompanyDTO {
+  name?: string;
+  phone?: string | null;
+  email?: string | null;
+  tracking_url_template?: string | null;
+  is_active?: boolean;
+}
