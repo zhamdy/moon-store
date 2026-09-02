@@ -264,20 +264,31 @@ describe('Auth HTTP contract', () => {
     expect(next.mock.calls[0][0]).toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
-  it('returns refresh data without the legacy success flag', async () => {
+  it('returns refresh data without the legacy success flag, and rotates the cookie', async () => {
     vi.spyOn(authService, 'refresh').mockResolvedValue({
       accessToken: 'new-access-token',
+      refreshToken: 'rotated-refresh-token',
       user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
     });
     const json = vi.fn();
+    const cookie = vi.fn();
     const next = vi.fn();
 
     await new AuthController().refresh(
       { cookies: { refreshToken: 'refresh-token' } } as Request,
-      { json } as unknown as Response,
+      { json, cookie } as unknown as Response,
       next
     );
 
+    // The cookie the caller sent is dead once refresh succeeds, so the successor has to
+    // travel back in the same response.
+    expect(cookie).toHaveBeenCalledWith(
+      'refreshToken',
+      'rotated-refresh-token',
+      expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/' })
+    );
+
+    // The response body is unchanged: the refresh token has never been in it.
     expect(json).toHaveBeenCalledWith({
       data: {
         accessToken: 'new-access-token',

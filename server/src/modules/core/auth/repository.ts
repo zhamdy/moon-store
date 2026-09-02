@@ -33,11 +33,7 @@ export interface IAuthRepository {
     queryable?: Queryable
   ): Promise<LockedRefreshToken | null>;
   markRotated(id: number, replacedByHash: string, queryable?: Queryable): Promise<boolean>;
-  rotateFamilyHead(
-    familyId: string,
-    replacedByHash: string,
-    queryable?: Queryable
-  ): Promise<RefreshTokenRecord | null>;
+  lockFamilyHead(familyId: string, queryable?: Queryable): Promise<RefreshTokenRecord | null>;
   revokeFamily(
     familyId: string,
     reason: RefreshRevocationReason,
@@ -134,23 +130,24 @@ export class AuthRepository implements IAuthRepository {
   }
 
   /**
-   * Rotates whichever row is currently the family's live head, whatever it is.
+   * Locks whichever row is currently the family's live head.
    *
-   * Used by the grace-window replay path: the caller is holding a token that has already
-   * been rotated away, so rotating *it* would branch the lineage. Rotating the head keeps
-   * the family single-lineage -- at most one live row per family, always.
+   * Used by the grace-window replay path: that caller is holding a token which has
+   * already been rotated away, so rotating *it* would fork the lineage into two live
+   * tokens. Rotating the head instead keeps the invariant this whole design rests on --
+   * at most one live row per family, always.
    */
-  async rotateFamilyHead(
+  async lockFamilyHead(
     familyId: string,
-    replacedByHash: string,
     queryable?: Queryable
   ): Promise<RefreshTokenRecord | null> {
     const result = await this.q(queryable).query<RefreshTokenRecord>(
-      `UPDATE refresh_tokens
-          SET revoked_at = NOW(), revoked_reason = 'rotated', replaced_by_hash = $2
-        WHERE family_id = $1 AND revoked_at IS NULL AND expires_at > NOW()
-        RETURNING *`,
-      [familyId, replacedByHash]
+      `SELECT * FROM refresh_tokens
+        WHERE family_id = $1 AND revoked_at IS NULL
+        ORDER BY id DESC
+        LIMIT 1
+        FOR UPDATE`,
+      [familyId]
     );
     return result.rows[0] || null;
   }
