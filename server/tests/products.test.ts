@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import path from 'path';
+import type { Pool as PgPool } from 'pg';
+import { createPgMemPool } from './support/pgMem';
+import { setPool, closePool } from '../src/database/pool';
+import { runMigrationsUp } from '../src/database/migrate';
 import { ProductsController } from '../src/modules/inventory/products/controller';
 import {
   parseProductListQuery,
@@ -7,6 +12,24 @@ import {
 import { productsRepository } from '../src/modules/inventory/products/repository';
 import { productsService } from '../src/modules/inventory/products/service';
 import productsRouter from '../src/modules/inventory/products/routes';
+
+/**
+ * `discontinue` writes an audit row through the module pool. The write is
+ * fire-and-forget and its failure is swallowed by the audit logger, so without an
+ * injected pool this file quietly opened a real PostgreSQL connection instead of
+ * failing — hermetic only by accident of that catch.
+ */
+let testPool: PgPool;
+
+beforeAll(async () => {
+  testPool = createPgMemPool();
+  setPool(testPool);
+  await runMigrationsUp(testPool, path.join(__dirname, '../src/database/migrations'));
+});
+
+afterAll(async () => {
+  await closePool();
+});
 
 function response() {
   const res: any = {};

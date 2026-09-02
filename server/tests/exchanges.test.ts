@@ -1,5 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Request, Response } from 'express';
+import type { Pool as PgPool } from 'pg';
+import path from 'path';
+import { createPgMemPool } from './support/pgMem';
+import { setPool, closePool } from '../src/database/pool';
+import { runMigrationsUp } from '../src/database/migrate';
 import { parseExchangeListQuery } from '../src/modules/pos/exchanges/types';
 import { ExchangesController } from '../src/modules/pos/exchanges/controller';
 import {
@@ -9,6 +14,24 @@ import {
 } from '../src/modules/pos/exchanges/service';
 import type { IExchangesRepository } from '../src/modules/pos/exchanges/repository';
 import type { Queryable } from '../src/database/transaction';
+
+/**
+ * The controller wraps its mutation in `withIdempotency`, which opens a transaction on
+ * the module pool before the (mocked) service ever runs. Without an injected pool that
+ * resolves to a real PostgreSQL connection, so this suite is only hermetic — and only
+ * runs on a checkout with no `server/.env` — because the pg-mem pool is installed here.
+ */
+let testPool: PgPool;
+
+beforeAll(async () => {
+  testPool = createPgMemPool();
+  setPool(testPool);
+  await runMigrationsUp(testPool, path.join(__dirname, '../src/database/migrations'));
+});
+
+afterAll(async () => {
+  await closePool();
+});
 
 describe('Exchanges list contract', () => {
   it('strictly parses canonical pagination, search, and sorting', () => {

@@ -25,6 +25,24 @@ function response() {
   return res;
 }
 
+/**
+ * File-scoped, not scoped to the stock-adjustment describe that needs the tables: the
+ * category-deletion contract above writes an audit row through the module pool, and a
+ * pool installed further down would still be uninstalled when that test runs — leaving
+ * it to open a real PostgreSQL connection whose failure the audit logger swallows.
+ */
+let testPool: PgPool;
+
+beforeAll(async () => {
+  testPool = createPgMemPool();
+  setPool(testPool);
+  await runMigrationsUp(testPool, path.join(__dirname, '../src/database/migrations'));
+});
+
+afterAll(async () => {
+  await closePool();
+});
+
 describe('bounded inventory contracts', () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -112,19 +130,8 @@ describe('paginated inventory query contracts', () => {
 });
 
 describe('manual stock adjustment invariants', () => {
-  let testPool: PgPool;
   let userId: number;
   let productId: number;
-
-  beforeAll(async () => {
-    testPool = createPgMemPool();
-    setPool(testPool);
-    await runMigrationsUp(testPool, path.join(__dirname, '../src/database/migrations'));
-  });
-
-  afterAll(async () => {
-    await closePool();
-  });
 
   beforeEach(async () => {
     await testPool.query('DELETE FROM stock_adjustments');
