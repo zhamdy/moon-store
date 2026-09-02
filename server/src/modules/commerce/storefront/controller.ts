@@ -3,11 +3,29 @@ import { z } from 'zod';
 import { storefrontService } from './service';
 import { success } from '../../../http/responses';
 import { PublicError } from '../../../http/errors';
+import { getStorage } from '../../../storage';
+
+/**
+ * A banner image is either somebody else's absolute URL or a path into this deployment's
+ * own media store. The store is asked rather than a `/uploads/` prefix being hard-coded,
+ * so a deployment that moves its media keeps accepting the URLs it now hands out.
+ */
+function isStoredOrAbsoluteUrl(value: string): boolean {
+  if (z.string().url().safeParse(value).success) return true;
+  return getStorage().keyFromUrl(value) !== null;
+}
 
 export const bannerSchema = z.object({
   title: z.string().min(1).max(100),
   subtitle: z.string().max(255).optional(),
-  image_url: z.string().url().or(z.string().startsWith('/uploads/')),
+  image_url: z
+    .string()
+    .min(1)
+    .max(1000)
+    .refine(
+      isStoredOrAbsoluteUrl,
+      'image_url must be an absolute URL or a path in the media store'
+    ),
   link_url: z.string().max(255).optional(),
   position: z.number().int().default(0),
   is_active: z.boolean().default(true),

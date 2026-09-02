@@ -79,6 +79,33 @@ const envSchema = z.object({
    * deliberately-discouraged `true`.
    */
   TRUST_PROXY: z.string().optional(),
+  /**
+   * Where uploaded media lives, resolved by `src/storage/index.ts`. Every default here
+   * reproduces the pre-abstraction behaviour exactly — the filesystem under
+   * `server/uploads`, served at `/uploads` — so an unconfigured deployment keeps serving
+   * the URLs already in the database.
+   *
+   * `local` is the documented development option and the compatibility default. It is
+   * durable in a deployment only when `MEDIA_LOCAL_ROOT` points at storage that outlives
+   * the container and is shared by every instance (a mounted volume or NFS). No cloud
+   * driver is bundled, and none of this file names a provider: a driver is a new file
+   * implementing `StorageDriver`, configured by adding a case to `createStorageDriver`.
+   */
+  MEDIA_STORAGE_DRIVER: z.enum(['local']).default('local'),
+  /** Root directory for the `local` driver. Defaults to `server/uploads`. */
+  MEDIA_LOCAL_ROOT: z.string().optional(),
+  /**
+   * URL prefix `publicUrl` puts in front of a key. Defaults to `/uploads`, the exact shape
+   * of every `image_url` already stored. Point it at a CDN once media is fronted by one;
+   * rows written before the change keep resolving through the `/uploads` mount.
+   */
+  MEDIA_PUBLIC_BASE_URL: z.string().optional(),
+  /**
+   * How long an unreferenced object must have sat in the store before the orphan sweep may
+   * delete it. The window exists because an upload is written before the row that
+   * references it: without it, a sweep landing between the two would delete a live image.
+   */
+  MEDIA_ORPHAN_MIN_AGE_HOURS: z.coerce.number().min(1).default(24),
   CLIENT_URL: z.string().optional().default('http://localhost:5173'),
   ALLOWED_ORIGINS: z.string().optional(),
   TWILIO_ACCOUNT_SID: z.string().optional(),

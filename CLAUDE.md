@@ -178,6 +178,93 @@ till is confirmed to be sending the header. The observable is that
 matches the day's sale count. Flipping is a config change, not a deploy, so it is
 reversible in seconds.
 
+## Scheduled jobs
+
+Background maintenance runs through `server/src/scheduler`, not through a `setInterval`
+per process. Every instance still ticks on its own timer, but a tick only *offers* to run:
+`runScheduledJob` takes a session-level advisory lock (so two runs cannot overlap) and then
+claims the interval in the `scheduled_jobs` table with one conditional upsert (so a second
+instance waking a second later does not repeat the work). Horizontal scaling therefore does
+not multiply the work.
+
+There is deliberately no job framework and no Redis. PostgreSQL is already required and
+already provides both primitives; an external scheduler would be a component to run,
+monitor and fail over for what is a single `DELETE`.
+
+Every job reports an outcome, which is written to `scheduled_jobs.last_detail` and logged.
+To see what the fleet has been doing:
+
+```sql
+SELECT name, last_started_at, last_finished_at, last_status, last_detail,
+       run_count, failure_count
+  FROM scheduled_jobs;
+```
+
+| Job | Cadence | Outcome |
+| --- | --- | --- |
+| `reservation-cleanup` | 5 min | `{ deleted }` — expired stock reservations removed |
+| `orphaned-media-cleanup` | 24 h | `{ scanned, deleted, skippedRecent, failed }` |
+
+Jobs must be idempotent: a failed run is retried on the next interval, and both jobs are
+keyed on the current state of the world rather than on a cursor, so a retry that finds
+nothing to do reports `0` rather than failing.
+
+**A claim is written before the work, so a process killed mid-run leaves the row in
+`running`.** Another instance takes that claim over once it is older than the job's
+`staleAfterMs` (default 10 min) — safe because the takeover is only ever reached with the
+advisory lock free, and a run that is genuinely in progress holds it. The lock, not the
+row, is the authority on "is someone running this"; the row only decides "has this been
+done recently enough". A takeover is logged, and means a previous run died without
+recording anything.
+
+Adding a job means adding a `ScheduledJob` to `src/scheduler/jobs.ts` with a **new, never
+reused** `lockId` — during a rolling deploy two ids for the same job means two concurrent
+runs.
+
+## Media storage
+
+Uploaded images go through the `StorageDriver` abstraction in `server/src/storage`, never
+straight to disk. The controller mints a key, hands the driver a buffer, and stores the URL
+the driver returns; nothing above the interface knows where the bytes live.
+
+`local` (filesystem) is the only bundled driver and the default. Its defaults reproduce the
+previous behaviour exactly — objects under `server/uploads`, URLs of the form
+`/uploads/products/<name>` — so **every image URL already in the database keeps working
+untouched**. For a deployment it is durable only when `MEDIA_LOCAL_ROOT` points at storage
+that outlives the container and is shared by every instance (a mounted volume or NFS).
+Where that is not available, add a driver implementing `StorageDriver` and a case in
+`createStorageDriver`; no provider SDK or credential belongs in the callers, and none is
+hardcoded anywhere in this repo.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MEDIA_STORAGE_DRIVER` | `local` | Which driver to resolve. |
+| `MEDIA_LOCAL_ROOT` | `server/uploads` | Root directory for the `local` driver. |
+| `MEDIA_PUBLIC_BASE_URL` | `/uploads` | Prefix `publicUrl` puts in front of a key. |
+| `MEDIA_ORPHAN_MIN_AGE_HOURS` | `24` | Grace period before the sweep may delete an unreferenced object. |
+
+**Local development:** nothing to configure. `npm run dev` with no media variables set
+writes to `server/uploads` and serves `/uploads` exactly as before.
+
+**Moving to a shared or remote store:** copy the existing `server/uploads` tree into the
+new store preserving keys, then point the config at it. Old rows hold relative
+`/uploads/...` URLs and keep resolving through the `/uploads` mount, so the copy can happen
+before or after the config change. Only set `MEDIA_PUBLIC_BASE_URL` to an absolute base
+once the objects are actually reachable there; new rows will then hold absolute URLs while
+old ones stay relative, and both remain valid.
+
+**Lifecycle.** Validation and authorization run before anything is written (Admin only,
+2 MB, JPEG/PNG/WebP, magic bytes must agree with the extension), the object is written
+before the row that references it, and the replaced object is released only after the row
+stops pointing at it. Each step's failure mode is a temporary orphan, never a broken image.
+The daily `orphaned-media-cleanup` job is the backstop for orphans no request path could
+clean up; it reads every `image_url` in the database first and aborts rather than delete
+anything if that read fails **or if any URL that belongs to this store cannot be resolved
+to a key** — an unresolvable reference is missing information, and a deletion routine must
+never read missing information as "unreferenced" — and it never touches an object younger than
+`MEDIA_ORPHAN_MIN_AGE_HOURS`. **A new table with an image URL column must be added to the
+reference query in `src/scheduler/mediaSweep.ts`** — the sweep deletes what that query does
+not return.
 ## Refresh token rotation
 
 Refresh tokens are stored as a SHA-256 digest, never in plaintext, and each login opens a

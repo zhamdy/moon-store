@@ -19,7 +19,9 @@ import db, { closePool } from './src/database/pool';
 import { errorResponse } from './src/http/errors';
 import { openApiSpec } from './src/docs/openapi';
 
-import { routeTable, cleanupExpiredReservations } from './src/router';
+import { routeTable } from './src/router';
+import { startScheduler } from './src/scheduler';
+import { getStorage, LocalStorageDriver } from './src/storage';
 
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET'] as const;
@@ -91,8 +93,21 @@ app.use(sanitizeBody);
 // Request logging
 app.use(requestLogger);
 
-// Static files (product images)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+/**
+ * Static files (product images).
+ *
+ * Only the filesystem driver needs a mount, and it serves the driver's own root rather
+ * than a path spelled out again here — so pointing `MEDIA_LOCAL_ROOT` at a mounted volume
+ * moves both the writes and the reads. A remote driver serves its own URLs and this mount
+ * stays in place only to keep already-stored `/uploads/...` rows resolvable.
+ */
+const storage = getStorage();
+app.use(
+  '/uploads',
+  express.static(
+    storage instanceof LocalStorageDriver ? storage.rootDir : path.join(__dirname, 'uploads')
+  )
+);
 
 // Routes
 for (const [routePath, router] of routeTable) {
@@ -132,8 +147,12 @@ app.use((_req: Request, res: Response) => {
 // Error handler
 app.use(errorHandler);
 
-// Cleanup expired reservations every 5 minutes
-const cleanupInterval = setInterval(cleanupExpiredReservations, 5 * 60 * 1000);
+/**
+ * Background maintenance. Every instance ticks, but each job runs at most once per
+ * interval across the whole fleet — the claim lives in `scheduled_jobs`, not in this
+ * process. See `src/scheduler/index.ts`.
+ */
+const scheduler = startScheduler();
 
 // Prevent crashes from unhandled errors
 process.on('uncaughtException', (err) => {
@@ -151,7 +170,7 @@ const server = app.listen(PORT, () => {
 // Graceful shutdown
 function shutdown(signal: string): void {
   logger.info(`${signal} received, shutting down gracefully`);
-  clearInterval(cleanupInterval);
+  scheduler.stop();
   server.close(async () => {
     logger.info('HTTP server closed');
     try {
