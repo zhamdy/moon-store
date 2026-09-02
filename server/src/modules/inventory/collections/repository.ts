@@ -1,5 +1,6 @@
 import { Queryable, withTransaction } from '../../../database/transaction';
 import pool from '../../../database/pool';
+import { buildPartialUpdate, orNull } from '../../../database/partialUpdate';
 import {
   CollectionRecord,
   CollectionProductRecord,
@@ -132,29 +133,16 @@ export class CollectionsRepository implements ICollectionsRepository {
     data: UpdateCollectionDTO,
     queryable?: Queryable
   ): Promise<CollectionRecord | null> {
-    const assignments: string[] = [];
-    const params: unknown[] = [];
-
-    const assign = (column: string, value: unknown): void => {
-      params.push(value);
-      assignments.push(`${column} = $${params.length}`);
-    };
-
-    if (data.name !== undefined) assign('name', data.name);
-    // `|| null` on the nullable columns, not `??`: an empty string from a cleared form
-    // field has always meant NULL here, and this fix is about what an *absent* field
-    // means, not about changing what a present one does.
-    if (data.description !== undefined) assign('description', data.description || null);
-    if (data.season !== undefined) assign('season', data.season || null);
-    if (data.is_featured !== undefined) assign('is_featured', data.is_featured ? 1 : 0);
-
-    assignments.push('updated_at = NOW()');
-    params.push(id);
+    const { setClause, params, nextIndex } = buildPartialUpdate({
+      name: data.name,
+      description: orNull(data.description),
+      season: orNull(data.season),
+      is_featured: data.is_featured === undefined ? undefined : data.is_featured ? 1 : 0,
+    });
 
     const res = await this.q(queryable).query<CollectionRecord>(
-      `UPDATE collections SET ${assignments.join(', ')}
-       WHERE id = $${params.length} RETURNING *`,
-      params
+      `UPDATE collections SET ${setClause} WHERE id = $${nextIndex} RETURNING *`,
+      [...params, id]
     );
     return res.rows[0] || null;
   }
