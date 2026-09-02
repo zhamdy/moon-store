@@ -297,7 +297,14 @@ describe('Auth HTTP contract', () => {
       vi.fn()
     );
 
-    expect(clearCookie).toHaveBeenCalledWith('refreshToken', { path: '/' });
+    // The clearing attributes must match the ones the cookie was set with, or the
+    // browser keeps it: a "logout" that leaves a live refresh cookie behind.
+    expect(clearCookie).toHaveBeenCalledWith('refreshToken', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+    });
     expect(sendStatus).toHaveBeenCalledWith(204);
   });
 

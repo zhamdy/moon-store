@@ -13,6 +13,50 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
   /**
+   * Access-token lifetime, in `jsonwebtoken` duration syntax. Short by design: it is the
+   * only credential the API accepts without a database read, so it cannot be revoked
+   * before it expires. Shortening it is safe; lengthening it widens the window in which
+   * a revoked session keeps working.
+   */
+  JWT_ACCESS_TTL: z
+    .string()
+    .regex(
+      /^\d+(ms|s|m|h|d|w|y)?$/,
+      'JWT_ACCESS_TTL must be a jsonwebtoken duration such as 15m, 900s or 900'
+    )
+    .default('15m'),
+  /**
+   * Refresh-session lifetime, in whole days. Expressed as a number rather than a
+   * duration string because the same value has to produce both the JWT `exp` and the
+   * `refresh_tokens.expires_at` column, and two independently-parsed duration strings
+   * are exactly how those two drift apart.
+   */
+  JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().max(365).default(7),
+  /**
+   * How long a just-rotated refresh token still answers, in seconds.
+   *
+   * Rotation makes the previous token invalid the instant its successor is issued, and
+   * treating any use of an invalidated token as theft is the whole point of reuse
+   * detection. But two browser tabs sharing one cookie both hit `/auth/refresh` the
+   * moment the access token expires, and a till retrying after a dropped response
+   * presents the same token twice. Without a window those honest cases revoke the user's
+   * whole session family — a spurious logout on the most ordinary interaction there is.
+   *
+   * Inside the window the presentation is treated as a replay: it rotates the family's
+   * current head instead of branching or revoking, so the session stays single-lineage
+   * and the caller gets a usable token. Outside it, reuse is reuse. Set to 0 for strict
+   * no-grace semantics; the ceiling keeps the tolerated theft window small.
+   */
+  REFRESH_ROTATION_GRACE_SECONDS: z.coerce.number().int().min(0).max(120).default(10),
+  /**
+   * `SameSite` for the refresh cookie. `lax` is the default and is what the current
+   * same-site client needs. `none` is only meaningful cross-site and forces `Secure` on,
+   * because browsers reject `SameSite=None` without it.
+   */
+  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+  /** Optional `Domain` for the refresh cookie. Unset means host-only, which is stricter. */
+  COOKIE_DOMAIN: z.string().optional(),
+  /**
    * Closes the idempotency compatibility window. While false (the default), a mutation
    * without an `Idempotency-Key` behaves exactly as it did before idempotency existed,
    * so an unpatched till keeps working. Flip to true only once every deployed client is

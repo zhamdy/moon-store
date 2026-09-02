@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { IAuthRepository, authRepository as defaultRepo } from './repository';
 import { LoginDTO, AuthTokens } from './types';
+import { jwtConfig } from './config';
 import { PublicError } from '../../../http/errors';
 
 export class AuthService {
@@ -22,10 +23,12 @@ export class AuthService {
 
     await this.repo.updateLastLogin(user.id);
 
+    const { accessSecret, refreshSecret, accessTtl, refreshTtl, refreshTtlMs } = jwtConfig();
+
     const accessToken = jwt.sign(
       { id: user.id, email: user.email, name: user.name, role: user.role },
-      process.env.JWT_SECRET as string,
-      { expiresIn: '15m' }
+      accessSecret,
+      { expiresIn: accessTtl }
     );
 
     // `jti` is what makes one login one session. Without it the payload is only the user
@@ -33,12 +36,12 @@ export class AuthService {
     // same second sign byte-identical tokens: the second insert violates
     // `refresh_tokens.token UNIQUE` (500 instead of a login), and a logout by either
     // session deletes the single row both were relying on.
-    const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET as string, {
-      expiresIn: '7d',
+    const refreshToken = jwt.sign({ id: user.id }, refreshSecret, {
+      expiresIn: refreshTtl,
       jwtid: randomUUID(),
     });
 
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + refreshTtlMs).toISOString();
     await this.repo.createRefreshToken(user.id, refreshToken, expiresAt);
 
     return {
@@ -56,7 +59,7 @@ export class AuthService {
   async refresh(refreshToken: string): Promise<{ accessToken: string; user: AuthTokens['user'] }> {
     let decoded: { id: number };
     try {
-      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as {
+      decoded = jwt.verify(refreshToken, jwtConfig().refreshSecret) as {
         id: number;
       };
     } catch {
@@ -73,10 +76,11 @@ export class AuthService {
       throw new PublicError('UNAUTHORIZED', 'User not found');
     }
 
+    const { accessSecret, accessTtl } = jwtConfig();
     const accessToken = jwt.sign(
       { id: user.id, email: user.email, name: user.name, role: user.role },
-      process.env.JWT_SECRET as string,
-      { expiresIn: '15m' }
+      accessSecret,
+      { expiresIn: accessTtl }
     );
 
     return {
