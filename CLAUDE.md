@@ -265,6 +265,7 @@ never read missing information as "unreferenced" — and it never touches an obj
 `MEDIA_ORPHAN_MIN_AGE_HOURS`. **A new table with an image URL column must be added to the
 reference query in `src/scheduler/mediaSweep.ts`** — the sweep deletes what that query does
 not return.
+
 ## Refresh token rotation
 
 Refresh tokens are stored as a SHA-256 digest, never in plaintext, and each login opens a
