@@ -46,13 +46,18 @@ const collectionToForm = (col: Collection) => ({
   description: col.description || '',
 });
 
+/**
+ * Editing a collection's products changes its products and nothing else, so this sends
+ * exactly that.
+ *
+ * It used to echo back most-but-not-all of the record — every field the detail view
+ * happened to hold, which never included `is_featured`. `PUT collections/:id` is
+ * PATCH-style, so replaying fields this dialog does not own only widens the window for
+ * overwriting a change someone else made between the read and the write (#81), and the
+ * one field it forgot was silently reset on every product edit (#78).
+ */
 const withProducts = (detail: CollectionDetail, productIds: number[]) => ({
   id: detail.id,
-  name: detail.name,
-  season: detail.season || undefined,
-  year: detail.year || undefined,
-  status: detail.status,
-  description: detail.description || undefined,
   product_ids: productIds,
 });
 
