@@ -7,6 +7,7 @@ import { Divider } from '@heroui/react';
 import { formatCurrency } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
 import type { TaxSettings, Totals, DiscountType } from '../../../../shared/lib/checkout';
+import { lineKey } from '../../lib/cartLines';
 import type { CartItem } from '../../store/cartStore';
 
 export default function CheckoutSummary({
@@ -32,7 +33,11 @@ export default function CheckoutSummary({
         {t('cart.orderSummary')}
       </h3>
       {items.map((item) => (
-        <div key={item.product_id} className="flex justify-between text-sm font-data">
+        /* Keyed by product AND variant, like every other cart surface -- the
+           cart legitimately holds two variants of one product, and keying on
+           `product_id` alone gave them duplicate keys, letting React reconcile
+           a line against its sibling and show a stale quantity or price. */
+        <div key={lineKey(item)} className="flex justify-between text-sm font-data">
           <span className="text-foreground">
             {item.name} x{item.quantity}
           </span>
