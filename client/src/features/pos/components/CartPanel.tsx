@@ -32,20 +32,15 @@ import { useCartStore } from '../store/cartStore';
 import { useHeldCartsStore } from '../store/heldCartsStore';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
-import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import HeldCartsDialog from './HeldCartsDialog';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
-import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useCheckoutPricing } from '../hooks/useCheckoutPricing';
 import { useCustomerDisplayBroadcast } from '../hooks/useCustomerDisplayBroadcast';
 import { useCheckoutSubmission } from '../hooks/useCheckoutSubmission';
+import { useCustomerSelection } from '../hooks/useCustomerSelection';
 import type { SaleComposition } from '../lib/salePayload';
 import type { CouponValidation, PaymentEntry, PaymentMethod } from '../types';
-import type { Customer } from '../../../shared/types/index';
-
-const customers = resource<Customer>('customers');
 
 interface CartPanelProps {
   checkoutTriggerRef?: MutableRefObject<(() => void) | null>;
@@ -83,16 +78,12 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
   const [splitPayment, setSplitPayment] = useState(false);
   const [payments, setPayments] = useState<PaymentEntry[]>([]);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [couponInput, setCouponInput] = useState('');
   const [editingMemo, setEditingMemo] = useState<string | null>(null);
-  const [showNewCustomer, setShowNewCustomer] = useState(false);
-  const [newCustomerName, setNewCustomerName] = useState('');
-  const [newCustomerPhone, setNewCustomerPhone] = useState('');
-
-  const debouncedCustomerSearch = useDebouncedValue(customerSearch, 300);
+  // Customer search/selection/creation -- UI state only; the sale carries the
+  // selected customer's id, and their loyalty balance is fetched by
+  // useCheckoutPricing below.
+  const customer = useCustomerSelection({ searchEnabled: checkoutOpen });
 
   // ONE authoritative owner of every checkout figure: totals, the split
   // allocation, the loyalty cap and the redemption state. Nothing below
@@ -108,7 +99,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     setRedeemPoints,
     setPointsToRedeem,
     resetRedemption,
-  } = useCheckoutPricing({ customerId: selectedCustomer?.id ?? null, payments });
+  } = useCheckoutPricing({ customerId: customer.selected?.id ?? null, payments });
 
   useCustomerDisplayBroadcast({ items, discount, discountType, couponCode, tax: taxInfo, totals });
 
@@ -120,35 +111,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       if (checkoutTriggerRef) checkoutTriggerRef.current = null;
     };
   }, [checkoutTriggerRef]);
-
-  const { data: customerMatches } = useApiQuery<Customer[]>(
-    ['customers', { search: debouncedCustomerSearch }],
-    'customers',
-    { search: debouncedCustomerSearch || undefined },
-    {
-      enabled: checkoutOpen && debouncedCustomerSearch.length > 0,
-      staleTime: 30 * 1000,
-    }
-  );
-
-  const customerCreator = customers.useSave({
-    message: t('cart.customerCreated'),
-    fallbackMessage: t('cart.customerCreateError'),
-  });
-
-  const handleCreateCustomer = () => {
-    customerCreator.save(
-      { name: newCustomerName.trim(), phone: newCustomerPhone.trim() },
-      {
-        onSuccess: (result) => {
-          setSelectedCustomer(result.data as Customer);
-          setShowNewCustomer(false);
-          setNewCustomerName('');
-          setNewCustomerPhone('');
-        },
-      }
-    );
-  };
 
   /**
    * The single description of "what the cashier is about to sell", from which
@@ -165,7 +127,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     paymentMethod,
     splitPayment,
     payments,
-    customerId: selectedCustomer?.id ?? null,
+    customerId: customer.selected?.id ?? null,
     pointsToRedeem: redeemPoints ? pointsToRedeem : 0,
   };
 
@@ -174,11 +136,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   // sale is committed or queued -- never after a failure the cashier retries.
   const { submit, isPending, receiptOpen, setReceiptOpen, receiptData } = useCheckoutSubmission({
     tax: taxInfo,
-    customerName: selectedCustomer?.name,
+    customerName: customer.selected?.name,
     onCheckoutSettled: () => {
       setCheckoutOpen(false);
-      setSelectedCustomer(null);
-      setCustomerSearch('');
+      customer.reset();
       resetRedemption();
     },
   });
@@ -207,7 +168,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           // derivation of the same figure; `totals.subtotal` is the minor-unit
           // one the server's own calculation agrees with.
           subtotal: totals.subtotal,
-          ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
+          ...(customer.selected ? { customer_id: customer.selected.id } : {}),
           item_product_ids: items.map((i) => i.product_id),
         },
       });
@@ -216,12 +177,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     } catch (err: unknown) {
       toast.error((err as Error).message || t('cart.couponInvalid'));
     }
-  };
-
-  const handleSelectCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setCustomerSearch('');
-    setShowCustomerDropdown(false);
   };
 
   const handleHoldCart = () => {
@@ -680,15 +635,15 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     {t('cart.selectCustomer')}
                   </h3>
-                  {selectedCustomer ? (
+                  {customer.selected ? (
                     <div className="flex items-center gap-2 p-3 bg-muted/20 rounded-xl border border-border/50">
                       <UserRound className="h-4 w-4 text-primary shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">
-                          {selectedCustomer.name}
+                          {customer.selected.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {selectedCustomer.phone}
+                          {customer.selected.phone}
                           {loyaltyInfo.enabled && (
                             <span className="ms-2 text-primary font-semibold">
                               <Star className="h-3 w-3 inline-block" />{' '}
@@ -705,7 +660,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                         size="sm"
                         className="h-7 w-7 shrink-0"
                         onClick={() => {
-                          setSelectedCustomer(null);
+                          customer.clear();
                           resetRedemption();
                         }}
                         aria-label="Remove selected customer"
@@ -713,21 +668,21 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                  ) : showNewCustomer ? (
+                  ) : customer.creating ? (
                     <div className="space-y-2.5 p-3 bg-muted/20 rounded-xl border border-border/50">
                       <Input
                         size="sm"
                         variant="bordered"
                         placeholder={t('cart.customerName')}
-                        value={newCustomerName}
-                        onValueChange={setNewCustomerName}
+                        value={customer.newName}
+                        onValueChange={customer.setNewName}
                       />
                       <Input
                         size="sm"
                         variant="bordered"
                         placeholder={t('cart.customerPhone')}
-                        value={newCustomerPhone}
-                        onValueChange={setNewCustomerPhone}
+                        value={customer.newPhone}
+                        onValueChange={customer.setNewPhone}
                       />
                       <div className="flex gap-2">
                         <Button
@@ -735,12 +690,12 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                           size="sm"
                           className="flex-1 text-xs"
                           isDisabled={
-                            !newCustomerName.trim() ||
-                            !newCustomerPhone.trim() ||
-                            customerCreator.isSaving
+                            !customer.newName.trim() ||
+                            !customer.newPhone.trim() ||
+                            customer.isSaving
                           }
-                          isLoading={customerCreator.isSaving}
-                          onClick={handleCreateCustomer}
+                          isLoading={customer.isSaving}
+                          onClick={customer.createAndSelect}
                         >
                           {t('cart.saveCustomer')}
                         </Button>
@@ -748,11 +703,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                           variant="flat"
                           size="sm"
                           className="text-xs"
-                          onClick={() => {
-                            setShowNewCustomer(false);
-                            setNewCustomerName('');
-                            setNewCustomerPhone('');
-                          }}
+                          onClick={customer.cancelCreating}
                         >
                           {t('common.cancel')}
                         </Button>
@@ -765,23 +716,23 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                           size="sm"
                           variant="bordered"
                           placeholder={t('cart.searchCustomer')}
-                          value={customerSearch}
+                          value={customer.search}
                           onValueChange={(val) => {
-                            setCustomerSearch(val);
-                            setShowCustomerDropdown(true);
+                            customer.setSearch(val);
+                            customer.setDropdownOpen(true);
                           }}
-                          onFocus={() => setShowCustomerDropdown(true)}
+                          onFocus={() => customer.setDropdownOpen(true)}
                           startContent={<Search className="h-3.5 w-3.5 text-muted-foreground" />}
                         />
-                        {showCustomerDropdown && customerSearch.length > 0 && (
+                        {customer.dropdownOpen && customer.search.length > 0 && (
                           <div className="absolute z-20 top-full mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-40 overflow-y-auto divide-y divide-border/50">
-                            {customerMatches && customerMatches.length > 0 ? (
-                              customerMatches.map((c) => (
+                            {customer.matches && customer.matches.length > 0 ? (
+                              customer.matches.map((c) => (
                                 <button
                                   key={c.id}
                                   type="button"
                                   className="w-full text-start px-3 py-2 text-sm hover:bg-muted/40 transition-colors"
-                                  onClick={() => handleSelectCustomer(c)}
+                                  onClick={() => customer.select(c)}
                                 >
                                   <span className="font-medium text-foreground">{c.name}</span>
                                   <span className="text-muted-foreground text-xs ms-2">
@@ -803,7 +754,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                         size="sm"
                         className="w-full text-xs"
                         startContent={<Plus className="h-3 w-3" />}
-                        onClick={() => setShowNewCustomer(true)}
+                        onClick={customer.startCreating}
                       >
                         {t('cart.addNewCustomer')}
                       </Button>
@@ -812,7 +763,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                 </div>
 
                 {/* Loyalty Points Redemption */}
-                {loyaltyInfo.enabled && selectedCustomer && (
+                {loyaltyInfo.enabled && customer.selected && (
                   <>
                     <Divider />
                     <div className="space-y-3">
