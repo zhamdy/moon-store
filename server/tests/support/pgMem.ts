@@ -58,10 +58,16 @@ function patchQueryable<T extends { query: (...args: never[]) => unknown }>(targ
 }
 
 /**
- * Wraps an existing pg-mem database in a pool that speaks the dialect the migrations are
- * written in. Migrations run through `pool.connect()`, so pooled clients are patched too.
+ * Registers the PostgreSQL functions pg-mem lacks but the production SQL uses.
+ *
+ * Exported separately because a suite that needs its own `newDb()` (the endpoint-health
+ * verification suite registers a further dozen shims of its own) would otherwise take
+ * `toPgMemCompatibleSql` alone and inherit none of this — which is how
+ * `POST /auth/logout` came to 500 on `clock_timestamp() does not exist` in a report
+ * everyone had learned to read past. Take this, or take `pgMemPoolFrom`; never the SQL
+ * rewriter by itself.
  */
-export function pgMemPoolFrom(memDb: IMemoryDb): PgPool {
+export function registerPgMemFunctions(memDb: IMemoryDb): void {
   memDb.public.registerFunction({
     name: 'clock_timestamp',
     args: [],
@@ -70,6 +76,14 @@ export function pgMemPoolFrom(memDb: IMemoryDb): PgPool {
     impure: true,
     implementation: () => new Date(),
   });
+}
+
+/**
+ * Wraps an existing pg-mem database in a pool that speaks the dialect the migrations are
+ * written in. Migrations run through `pool.connect()`, so pooled clients are patched too.
+ */
+export function pgMemPoolFrom(memDb: IMemoryDb): PgPool {
+  registerPgMemFunctions(memDb);
 
   const { Pool } = memDb.adapters.createPg();
   const pool = patchQueryable(new Pool() as unknown as PgPool);

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import path from 'path';
 import { newDb } from 'pg-mem';
-import { toPgMemCompatibleSql } from '../support/pgMem';
+import { registerPgMemFunctions, toPgMemCompatibleSql } from '../support/pgMem';
 import { Pool as PgPool } from 'pg';
 import { setPool, closePool } from '../../src/database/pool';
 import { runMigrationsUp } from '../../src/database/migrate';
@@ -20,6 +20,11 @@ const app = createTestApp();
 
 beforeAll(async () => {
   const memDb = newDb({ noAstCoverageCheck: true });
+
+  // The shared harness's shims first: this suite builds its own database, so without
+  // this it inherits the SQL rewriter and none of the function registrations, and
+  // `POST /auth/logout` 500s on `clock_timestamp() does not exist`.
+  registerPgMemFunctions(memDb);
 
   // Register missing PostgreSQL functions in pg-mem
   memDb.public.registerFunction({
@@ -274,8 +279,19 @@ afterAll(async () => {
   // Generate and save diagnostic report
   const diagnostics = diagnosticCollector.getDiagnostics();
   const reportMd = generateMarkdownReport(diagnostics);
-  const reportPath = path.join(__dirname, '../../../docs/reports/api-verification-report.md');
-  saveReportToFile(reportMd, reportPath);
+
+  /**
+   * Writing the tracked report on every run made `npm test` dirty the working tree with
+   * a fresh timestamp, and three agents in a row committed or reverted it as noise. The
+   * report is still worth having — it is a deliberate snapshot, regenerated when someone
+   * wants to look at it — so it is gated rather than deleted or gitignored: gitignoring
+   * would keep the write and hide the drift, which is the same problem one layer down.
+   * The console summary below is unaffected and still prints on every run.
+   */
+  if (process.env.WRITE_API_REPORT === '1') {
+    const reportPath = path.join(__dirname, '../../../docs/reports/api-verification-report.md');
+    saveReportToFile(reportMd, reportPath);
+  }
 
   await closePool();
 });
