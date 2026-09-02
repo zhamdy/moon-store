@@ -207,11 +207,9 @@ describeWithPostgres('collection product position under concurrency', () => {
 
       await second.query('BEGIN');
       let secondSettled = false;
-      const secondAppend = repo
-        .addProducts(collectionId, [productIds[1]], second)
-        .then(() => {
-          secondSettled = true;
-        });
+      const secondAppend = repo.addProducts(collectionId, [productIds[1]], second).then(() => {
+        secondSettled = true;
+      });
 
       // The second appender is parked on the collections row lock. If it had not been —
       // if `addProducts` read MAX without locking — it would have completed here, having
@@ -260,7 +258,14 @@ describeWithPostgres('collection product position under concurrency', () => {
       await second.query('BEGIN');
       // Blocks on the unique index against the first transaction's uncommitted slot 0,
       // then resolves into a 23505 the moment that transaction commits.
-      const collision = unlockedAppend(second, productIds[1]);
+      // The outcome is captured at creation rather than awaited later. This promise
+      // rejects during the COMMIT below, and a handler attached only afterwards is
+      // attached too late: Node reports the rejection as unhandled at the end of the tick
+      // it occurred in, which fails the whole run even though the assertion would pass.
+      const collision = unlockedAppend(second, productIds[1]).then(
+        () => null,
+        (err: unknown) => err
+      );
       // Give that INSERT time to reach the server and park on the index. Without the
       // pause, COMMIT can land first, the second transaction then reads MAX = 0, and the
       // collision this test exists to demonstrate never happens.
@@ -268,7 +273,9 @@ describeWithPostgres('collection product position under concurrency', () => {
 
       await first.query('COMMIT');
 
-      await expect(collision).rejects.toMatchObject({
+      // `null` means the INSERT succeeded — the collision did not happen, so this control
+      // has stopped proving that the row lock in `addProducts` is what prevents it.
+      expect(await collision).toMatchObject({
         code: '23505',
         constraint: 'collection_products_position_unique',
       });
