@@ -187,14 +187,16 @@ export default function BulkOperationDialogs({
                   selectedKeys={bulkDistributor ? [bulkDistributor] : []}
                   onChange={(e) => setBulkDistributor(e.target.value)}
                 >
-                  <SelectItem key="null" textValue={t('inventory.noDistributor')}>
-                    {t('inventory.noDistributor')}
-                  </SelectItem>
-                  {distributors?.map((d) => (
-                    <SelectItem key={String(d.id)} textValue={d.name}>
-                      {d.name}
-                    </SelectItem>
-                  )) || []}
+                  {[
+                    <SelectItem key="null" textValue={t('inventory.noDistributor')}>
+                      {t('inventory.noDistributor')}
+                    </SelectItem>,
+                    ...(distributors ?? []).map((d) => (
+                      <SelectItem key={String(d.id)} textValue={d.name}>
+                        {d.name}
+                      </SelectItem>
+                    )),
+                  ]}
                 </Select>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">

@@ -389,14 +389,16 @@ export default function PurchaseOrders() {
               update({ distributorId: e.target.value || 'all', page: 1 });
             }}
           >
-            <SelectItem key="all" textValue={t('po.allDistributors')}>
-              {t('po.allDistributors')}
-            </SelectItem>
-            {(distributors ?? []).map((d) => (
-              <SelectItem key={String(d.id)} textValue={d.name}>
-                {d.name}
-              </SelectItem>
-            ))}
+            {[
+              <SelectItem key="all" textValue={t('po.allDistributors')}>
+                {t('po.allDistributors')}
+              </SelectItem>,
+              ...(distributors ?? []).map((d) => (
+                <SelectItem key={String(d.id)} textValue={d.name}>
+                  {d.name}
+                </SelectItem>
+              )),
+            ]}
           </Select>
         </div>
       </div>
@@ -468,7 +470,9 @@ export default function PurchaseOrders() {
         confirmText={t('common.delete')}
         confirmColor="danger"
         isLoading={deleteOrder.isRemoving}
-        onConfirm={() => deleteId && deleteOrder.remove(deleteId)}
+        onConfirm={() => {
+          if (deleteId) deleteOrder.remove(deleteId);
+        }}
       />
 
       {/* Cancel Confirmation */}
