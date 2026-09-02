@@ -1,6 +1,5 @@
 import { useState, useEffect, type MutableRefObject } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Minus,
   Plus,
@@ -30,7 +29,6 @@ import {
   Divider,
 } from '@heroui/react';
 import { useCartStore } from '../store/cartStore';
-import { useOfflineStore, SALE_QUEUE_CONTRACT_VERSION } from '../../../shared/store/offlineStore';
 import { useHeldCartsStore } from '../store/heldCartsStore';
 import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
@@ -38,27 +36,13 @@ import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import HeldCartsDialog from './HeldCartsDialog';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
-import { SPLIT_PAYMENT_MISMATCH_CODE } from '../../../shared/lib/checkout';
 import { resource } from '../../../shared/lib/resource';
-import { useTransport, createIdempotencyKey } from '../../../shared/lib/transport/index';
-import { ApiError } from '../../../shared/lib/transport/types';
+import { useTransport } from '../../../shared/lib/transport/index';
 import { useCheckoutPricing } from '../hooks/useCheckoutPricing';
 import { useCustomerDisplayBroadcast } from '../hooks/useCustomerDisplayBroadcast';
-import {
-  buildSalePayload,
-  buildOfflineSalePayload,
-  type SaleComposition,
-} from '../lib/salePayload';
-import { buildReceipt } from '../lib/saleReceipt';
-import type {
-  CheckoutAttempt,
-  CouponValidation,
-  PaymentEntry,
-  PaymentMethod,
-  SaleData,
-  SaleResponse,
-} from '../types';
-import type { ReceiptData } from '../../../shared/components/Receipt';
+import { useCheckoutSubmission } from '../hooks/useCheckoutSubmission';
+import type { SaleComposition } from '../lib/salePayload';
+import type { CouponValidation, PaymentEntry, PaymentMethod } from '../types';
 import type { Customer } from '../../../shared/types/index';
 
 const customers = resource<Customer>('customers');
@@ -88,12 +72,8 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     clearCart,
     needsReview,
     acknowledgeReview,
-    checkoutAttempt,
-    setCheckoutAttempt,
   } = useCartStore();
-  const { addToQueue } = useOfflineStore();
   const { carts: heldCarts, holdCart } = useHeldCartsStore();
-  const queryClient = useQueryClient();
   const transport = useTransport();
   const { t, isRtl } = useTranslation();
   const [animateParent] = useAutoAnimate();
@@ -106,8 +86,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const [receiptOpen, setReceiptOpen] = useState(false);
-  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [couponInput, setCouponInput] = useState('');
   const [editingMemo, setEditingMemo] = useState<string | null>(null);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
@@ -191,102 +169,17 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     pointsToRedeem: redeemPoints ? pointsToRedeem : 0,
   };
 
-  /**
-   * The idempotency key identifies one rung-up sale, not one HTTP request. It is keyed on
-   * the composed payload so a cashier who hits Confirm again after a failure retries under
-   * the SAME key (letting the server return the original outcome rather than committing a
-   * second sale), while a cart that has changed gets a fresh one. Cleared once a sale is
-   * committed or queued, so the next sale never inherits a key — even an identical repeat
-   * order.
-   *
-   * It lives in the persisted cart store rather than a ref: the cart survives a reload, so
-   * the key protecting it has to as well. A till that refreshes while a checkout is in
-   * flight would otherwise mint a new key and ring the same sale up twice.
-   */
-  const idempotencyKeyFor = (saleData: SaleData): string => {
-    const fingerprint = JSON.stringify(saleData);
-    if (checkoutAttempt?.fingerprint === fingerprint) {
-      return checkoutAttempt.key;
-    }
-    const attempt = { fingerprint, key: createIdempotencyKey() };
-    setCheckoutAttempt(attempt);
-    return attempt.key;
-  };
-
-  const checkoutMutation = useMutation({
-    mutationFn: ({ saleData, idempotencyKey }: CheckoutAttempt) =>
-      transport.request<SaleResponse>({
-        method: 'POST',
-        path: 'sales',
-        body: saleData,
-        idempotencyKey,
-      }),
-    onSuccess: (response) => {
-      setCheckoutAttempt(null);
-      const sale = response.data;
-
-      // Built from the cart as it stands right now -- captured before
-      // `clearCart()` below empties it. See saleReceipt.ts: every monetary
-      // figure comes from the server's confirmed response; the cart supplies
-      // display names only.
-      const newReceipt: ReceiptData = buildReceipt(sale, {
-        cartItems: items,
-        discount,
-        discountType,
-        couponCode,
-        tax: taxInfo,
-        customerName: selectedCustomer?.name,
-      });
-
-      toast.success(t('cart.saleSuccess'));
-      clearCart();
+  // Submission lifecycle: keying, posting, the receipt, and the offline
+  // fallback. `onCheckoutSettled` is the surrounding UI's reset, run once the
+  // sale is committed or queued -- never after a failure the cashier retries.
+  const { submit, isPending, receiptOpen, setReceiptOpen, receiptData } = useCheckoutSubmission({
+    tax: taxInfo,
+    customerName: selectedCustomer?.name,
+    onCheckoutSettled: () => {
       setCheckoutOpen(false);
       setSelectedCustomer(null);
       setCustomerSearch('');
       resetRedemption();
-      queryClient.invalidateQueries({ queryKey: ['sales'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['customer-loyalty'] });
-
-      setReceiptData(newReceipt);
-      setReceiptOpen(true);
-    },
-    onError: (error: Error, attempt: CheckoutAttempt) => {
-      if (!navigator.onLine) {
-        const saleData: SaleData = buildOfflineSalePayload(composition);
-        addToQueue({
-          type: 'sale',
-          payload: saleData as unknown as Record<string, unknown>,
-          // Stamps this entry as composed under the current (corrected)
-          // checkout contract, so useOffline.ts's replay never quarantines
-          // it. A legacy entry already sitting in a user's queue from before
-          // this deploy has no such field and is left for manual review.
-          contractVersion: SALE_QUEUE_CONTRACT_VERSION,
-          // The same key the failed POST carried: if that request did reach
-          // the server after all, the replay is recognised as a duplicate
-          // instead of ringing the sale up twice.
-          idempotencyKey: attempt.idempotencyKey,
-        });
-        toast.success(t('cart.savedOffline'));
-        setCheckoutAttempt(null);
-        clearCart();
-        setCheckoutOpen(false);
-        setSelectedCustomer(null);
-        setCustomerSearch('');
-      } else {
-        // Authoritative data (catalog price, tax, coupon, or loyalty
-        // settings) changed between preview and submission and the split no
-        // longer balances against the server's recalculated total. The cart
-        // is intentionally left untouched (no clearCart/close above) so the
-        // cashier can review and rebalance rather than seeing a generic
-        // failure or a false success.
-        const isSplitMismatch =
-          error instanceof ApiError &&
-          error.details?.some((d) => d.code === SPLIT_PAYMENT_MISMATCH_CODE);
-        toast.error(
-          isSplitMismatch ? t('cart.splitMismatchError') : error.message || t('cart.saleFailed')
-        );
-      }
     },
   });
 
@@ -298,9 +191,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     // checkout drawer directly.
     if (items.length === 0 || needsReview) return;
 
-    const saleData: SaleData = buildSalePayload(composition);
-
-    checkoutMutation.mutate({ saleData, idempotencyKey: idempotencyKeyFor(saleData) });
+    submit(composition);
   };
 
   const handleApplyCoupon = async () => {
@@ -1251,12 +1142,10 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
                   size="md"
                   className="w-full shrink-0 font-semibold shadow-sm"
                   onClick={handleCheckout}
-                  isDisabled={
-                    checkoutMutation.isPending || needsReview || (splitPayment && !split.isBalanced)
-                  }
-                  isLoading={checkoutMutation.isPending}
+                  isDisabled={isPending || needsReview || (splitPayment && !split.isBalanced)}
+                  isLoading={isPending}
                 >
-                  {checkoutMutation.isPending ? t('cart.processing') : t('cart.confirmSale')}
+                  {isPending ? t('cart.processing') : t('cart.confirmSale')}
                 </Button>
               </DrawerBody>
             </>
