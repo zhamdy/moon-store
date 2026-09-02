@@ -1,46 +1,40 @@
+/**
+ * The cart panel: the cashier's view of what is being sold, and the entry
+ * point to checkout.
+ *
+ * This component coordinates focused units rather than containing their rules
+ * (issue #51). Specifically:
+ *
+ * - `useCheckoutPricing` is the ONE authority for every checkout figure —
+ *   totals, the split allocation, the loyalty cap and the redemption state.
+ *   Nothing here re-derives a money value.
+ * - `useCheckoutSubmission` owns keying, posting, the receipt and the offline
+ *   fallback.
+ * - `useCustomerSelection` and `useCouponApplication` own their own flows.
+ * - `useCustomerDisplayBroadcast` mirrors the same totals to the second screen.
+ * - The rendering lives in `components/checkout/*`, which is presentation only.
+ */
 import { useState, useEffect, type MutableRefObject } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
-import {
-  Minus,
-  Plus,
-  X,
-  ShoppingBag,
-  Search,
-  UserRound,
-  Tag,
-  Pause,
-  Archive,
-  Star,
-  StickyNote,
-  Pencil,
-  Ticket,
-  Percent,
-} from 'lucide-react';
+import { ShoppingBag, Pause, Archive } from 'lucide-react';
 import toast from 'react-hot-toast';
-import {
-  Button,
-  Input,
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerBody,
-  RadioGroup,
-  Radio,
-  Divider,
-} from '@heroui/react';
+import { Button } from '@heroui/react';
 import { useCartStore } from '../store/cartStore';
 import { useHeldCartsStore } from '../store/heldCartsStore';
-import { formatCurrency } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import HeldCartsDialog from './HeldCartsDialog';
-import { useTransport } from '../../../shared/lib/transport/index';
+import CartFooter from './checkout/CartFooter';
+import CartLineItem from './checkout/CartLineItem';
+import CheckoutDrawer from './checkout/CheckoutDrawer';
 import { useCheckoutPricing } from '../hooks/useCheckoutPricing';
-import { useCustomerDisplayBroadcast } from '../hooks/useCustomerDisplayBroadcast';
 import { useCheckoutSubmission } from '../hooks/useCheckoutSubmission';
+import { useCouponApplication } from '../hooks/useCouponApplication';
+import { useCustomerDisplayBroadcast } from '../hooks/useCustomerDisplayBroadcast';
 import { useCustomerSelection } from '../hooks/useCustomerSelection';
+import { lineKey } from '../lib/cartLines';
 import type { SaleComposition } from '../lib/salePayload';
-import type { CouponValidation, PaymentEntry, PaymentMethod } from '../types';
+import type { PaymentEntry, PaymentMethod } from '../types';
 
 interface CartPanelProps {
   checkoutTriggerRef?: MutableRefObject<(() => void) | null>;
@@ -62,14 +56,11 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     setDiscountType,
     setNotes,
     setTip,
-    setCoupon,
-    clearCoupon,
     clearCart,
     needsReview,
     acknowledgeReview,
   } = useCartStore();
   const { carts: heldCarts, holdCart } = useHeldCartsStore();
-  const transport = useTransport();
   const { t, isRtl } = useTranslation();
   const [animateParent] = useAutoAnimate();
 
@@ -78,30 +69,24 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
   const [splitPayment, setSplitPayment] = useState(false);
   const [payments, setPayments] = useState<PaymentEntry[]>([]);
-  const [couponInput, setCouponInput] = useState('');
   const [editingMemo, setEditingMemo] = useState<string | null>(null);
+
   // Customer search/selection/creation -- UI state only; the sale carries the
   // selected customer's id, and their loyalty balance is fetched by
   // useCheckoutPricing below.
   const customer = useCustomerSelection({ searchEnabled: checkoutOpen });
 
-  // ONE authoritative owner of every checkout figure: totals, the split
-  // allocation, the loyalty cap and the redemption state. Nothing below
-  // re-derives any of them.
-  const {
-    tax: taxInfo,
-    loyalty: loyaltyInfo,
-    totals,
-    split,
-    maxPoints,
-    redeemPoints,
-    pointsToRedeem,
-    setRedeemPoints,
-    setPointsToRedeem,
-    resetRedemption,
-  } = useCheckoutPricing({ customerId: customer.selected?.id ?? null, payments });
+  // ONE authoritative owner of every checkout figure.
+  const pricing = useCheckoutPricing({ customerId: customer.selected?.id ?? null, payments });
+  const { tax, totals, resetRedemption } = pricing;
 
-  useCustomerDisplayBroadcast({ items, discount, discountType, couponCode, tax: taxInfo, totals });
+  const coupon = useCouponApplication({
+    subtotal: totals.subtotal,
+    productIds: items.map((i) => i.product_id),
+    customerId: customer.selected?.id ?? null,
+  });
+
+  useCustomerDisplayBroadcast({ items, discount, discountType, couponCode, tax, totals });
 
   useEffect(() => {
     if (checkoutTriggerRef) {
@@ -128,14 +113,14 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     splitPayment,
     payments,
     customerId: customer.selected?.id ?? null,
-    pointsToRedeem: redeemPoints ? pointsToRedeem : 0,
+    pointsToRedeem: pricing.redeemPoints ? pricing.pointsToRedeem : 0,
   };
 
   // Submission lifecycle: keying, posting, the receipt, and the offline
   // fallback. `onCheckoutSettled` is the surrounding UI's reset, run once the
   // sale is committed or queued -- never after a failure the cashier retries.
   const { submit, isPending, receiptOpen, setReceiptOpen, receiptData } = useCheckoutSubmission({
-    tax: taxInfo,
+    tax,
     customerName: customer.selected?.name,
     onCheckoutSettled: () => {
       setCheckoutOpen(false);
@@ -155,30 +140,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     submit(composition);
   };
 
-  const handleApplyCoupon = async () => {
-    if (!couponInput.trim()) return;
-    try {
-      const { data } = await transport.request<CouponValidation>({
-        method: 'POST',
-        path: 'coupons/validate',
-        body: {
-          code: couponInput.trim(),
-          // The authoritative subtotal, same as every displayed line. This used
-          // to call `cartStore.getSubtotal()`, a second float-arithmetic
-          // derivation of the same figure; `totals.subtotal` is the minor-unit
-          // one the server's own calculation agrees with.
-          subtotal: totals.subtotal,
-          ...(customer.selected ? { customer_id: customer.selected.id } : {}),
-          item_product_ids: items.map((i) => i.product_id),
-        },
-      });
-      setCoupon(data.code, data.discount);
-      toast.success(t('cart.couponApplied'));
-    } catch (err: unknown) {
-      toast.error((err as Error).message || t('cart.couponInvalid'));
-    }
-  };
-
   const handleHoldCart = () => {
     if (items.length === 0) return;
     const name = `Cart #${heldCarts.length + 1}`;
@@ -188,13 +149,6 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     holdCart(name, items, discount, discountType, { notes, tip, couponCode });
     clearCart();
     toast.success(t('cart.holdSuccess'));
-  };
-
-  const paymentLabels: Record<PaymentMethod | 'Gift Card', string> = {
-    Cash: t('cart.cash'),
-    Card: t('cart.card'),
-    Other: t('cart.other'),
-    'Gift Card': t('cart.giftCard'),
   };
 
   return (
@@ -271,838 +225,70 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
           </div>
         ) : (
           items.map((item) => (
-            <div
-              key={`${item.product_id}-${item.variant_id || 0}`}
-              /* E2E: a cart line has no role and shows only the product name, so there is
-                 no accessible name to scope its per-line controls by. */
-              data-testid={`cart-line-${item.product_id}-${item.variant_id || 0}`}
-              className="flex items-center gap-3 p-3 bg-muted/20 hover:bg-muted/40 transition-colors rounded-lg border border-border/50"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
-                  <button
-                    onClick={() => setEditingMemo(`${item.product_id}-${item.variant_id || 0}`)}
-                    className="p-0.5 rounded hover:bg-background transition-colors"
-                    title={t('cart.addMemo')}
-                  >
-                    <Pencil
-                      className={`h-3 w-3 ${item.memo ? 'text-primary' : 'text-muted-foreground'}`}
-                    />
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground font-data">
-                  {formatCurrency(item.unit_price)}
-                </p>
-                {item.memo && <p className="text-xs text-primary/80 mt-0.5">{item.memo}</p>}
-                {editingMemo === `${item.product_id}-${item.variant_id || 0}` && (
-                  <Input
-                    autoFocus
-                    size="sm"
-                    variant="bordered"
-                    placeholder={t('cart.memoPlaceholder')}
-                    defaultValue={item.memo || ''}
-                    className="mt-1"
-                    onBlur={(e) => {
-                      setItemMemo(item.product_id, e.target.value, item.variant_id);
-                      setEditingMemo(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        setItemMemo(
-                          item.product_id,
-                          (e.target as HTMLInputElement).value,
-                          item.variant_id
-                        );
-                        setEditingMemo(null);
-                      }
-                    }}
-                  />
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  isIconOnly
-                  variant="light"
-                  size="sm"
-                  className="h-7 w-7"
-                  onClick={() =>
-                    updateQuantity(item.product_id, item.quantity - 1, item.variant_id)
-                  }
-                  aria-label="Decrease quantity"
-                >
-                  <Minus className="h-3.5 w-3.5 text-primary" />
-                </Button>
-                {/* E2E: a bare number with no accessible name. The +/- buttons are
-                    reachable by aria-label; the value itself is not. */}
-                <span
-                  data-testid="cart-line-qty"
-                  className="w-7 text-center text-sm font-data font-medium text-foreground"
-                >
-                  {item.quantity}
-                </span>
-                <Button
-                  isIconOnly
-                  variant="light"
-                  size="sm"
-                  className="h-7 w-7"
-                  onClick={() =>
-                    updateQuantity(item.product_id, item.quantity + 1, item.variant_id)
-                  }
-                  isDisabled={item.quantity >= item.stock}
-                  aria-label="Increase quantity"
-                >
-                  <Plus className="h-3.5 w-3.5 text-primary" />
-                </Button>
-              </div>
-              <p className="text-sm font-semibold font-data w-20 text-end text-foreground">
-                {formatCurrency(item.unit_price * item.quantity)}
-              </p>
-              <Button
-                isIconOnly
-                variant="light"
-                color="danger"
-                size="sm"
-                className="h-7 w-7"
-                onClick={() => removeItem(item.product_id, item.variant_id)}
-                aria-label="Remove item"
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+            <CartLineItem
+              key={lineKey(item)}
+              item={item}
+              isEditingMemo={editingMemo === lineKey(item)}
+              onStartEditingMemo={() => setEditingMemo(lineKey(item))}
+              onCommitMemo={(memo) => {
+                setItemMemo(item.product_id, memo, item.variant_id);
+                setEditingMemo(null);
+              }}
+              onQuantityChange={(quantity) =>
+                updateQuantity(item.product_id, quantity, item.variant_id)
+              }
+              onRemove={() => removeItem(item.product_id, item.variant_id)}
+            />
           ))
         )}
       </div>
 
-      {/* Footer */}
-      <div className="border-t border-border/50 p-4 space-y-3">
-        {/* Discount */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Tag className="h-3 w-3" />
-              {t('cart.discount')}
-            </span>
-            {discount > 0 && (
-              <button
-                onClick={() => setDiscount(0)}
-                className="text-[10px] text-danger hover:underline transition-colors"
-              >
-                {t('cart.clearDiscount')}
-              </button>
-            )}
-          </div>
-
-          {/* Type toggle + input */}
-          <div className="flex items-center gap-2">
-            <div className="flex bg-muted/30 border border-border rounded-lg overflow-hidden p-0.5">
-              <button
-                className={`px-2.5 py-1 text-xs font-data font-medium rounded-md transition-colors ${
-                  discountType === 'percentage'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-                onClick={() => {
-                  if (discountType === 'fixed' && discount > 0) {
-                    const subtotal = totals.subtotal;
-                    setDiscount(
-                      subtotal > 0 ? Math.round((discount / subtotal) * 100 * 100) / 100 : 0
-                    );
-                  }
-                  setDiscountType('percentage');
-                }}
-              >
-                %
-              </button>
-              <button
-                className={`px-2.5 py-1 text-xs font-data font-medium rounded-md transition-colors ${
-                  discountType === 'fixed'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-                onClick={() => {
-                  if (discountType === 'percentage' && discount > 0) {
-                    const subtotal = totals.subtotal;
-                    setDiscount(Math.round(((subtotal * discount) / 100) * 100) / 100);
-                  }
-                  setDiscountType('fixed');
-                }}
-              >
-                $
-              </button>
-            </div>
-            <Input
-              type="number"
-              min="0"
-              size="sm"
-              variant="bordered"
-              max={discountType === 'percentage' ? 100 : undefined}
-              placeholder="0"
-              value={discount ? String(discount) : ''}
-              onValueChange={(val) => setDiscount(parseFloat(val) || 0)}
-              className="flex-1 font-data"
-            />
-          </div>
-
-          {/* Quick presets */}
-          <div className="flex gap-1.5">
-            {discountType === 'percentage'
-              ? [5, 10, 15, 20].map((pct) => (
-                  <Button
-                    key={pct}
-                    size="sm"
-                    variant={discount === pct ? 'solid' : 'bordered'}
-                    color={discount === pct ? 'primary' : 'default'}
-                    className="flex-1 h-7 min-w-0 px-1 text-[11px] font-data font-medium"
-                    onClick={() => setDiscount(pct)}
-                  >
-                    {pct}%
-                  </Button>
-                ))
-              : [5, 10, 25, 50].map((amt) => (
-                  <Button
-                    key={amt}
-                    size="sm"
-                    variant={discount === amt ? 'solid' : 'bordered'}
-                    color={discount === amt ? 'primary' : 'default'}
-                    className="flex-1 h-7 min-w-0 px-1 text-[11px] font-data font-medium"
-                    onClick={() => setDiscount(amt)}
-                  >
-                    ${amt}
-                  </Button>
-                ))}
-          </div>
-        </div>
-
-        <Divider />
-
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-sm text-muted-foreground font-data">
-            <span>{t('cart.subtotal')}</span>
-            <span className="text-foreground">{formatCurrency(totals.subtotal)}</span>
-          </div>
-          {totals.discountAmount > 0 && (
-            <div className="flex justify-between text-sm text-danger font-data">
-              <span>
-                {t('cart.discount')}
-                <span className="text-xs ms-1 opacity-70">
-                  ({discountType === 'percentage' ? `${discount}%` : formatCurrency(discount)})
-                </span>
-              </span>
-              <span>-{formatCurrency(totals.discountAmount)}</span>
-            </div>
-          )}
-          {taxInfo.enabled && (
-            <div className="flex justify-between text-sm text-muted-foreground font-data">
-              <span>
-                {t('tax.vat')}
-                <span className="text-xs ms-1 opacity-70">({taxInfo.rate}%)</span>
-              </span>
-              <span className="text-foreground">{formatCurrency(totals.taxAmount)}</span>
-            </div>
-          )}
-          {totals.tip > 0 && (
-            <div className="flex justify-between text-sm text-primary font-data">
-              <span>{t('cart.tip')}</span>
-              <span>+{formatCurrency(totals.tip)}</span>
-            </div>
-          )}
-          {/* The SAME `amountDue` the checkout drawer and customer display
-              use -- never a separately-derived figure (Unit 5 parity). */}
-          <div className="flex justify-between text-lg font-semibold font-data text-foreground">
-            <span>{t('cart.total')}</span>
-            {/* E2E: the amount is a nameless sibling of its label, and "Total" renders
-                simultaneously here, in the checkout drawer and on the receipt. */}
-            <span data-testid="cart-total" className="text-primary font-bold">
-              {formatCurrency(totals.amountDue)}
-            </span>
-          </div>
-        </div>
-
-        <Button
-          color="primary"
-          size="md"
-          className="w-full font-semibold shadow-sm"
-          onClick={() => setCheckoutOpen(true)}
-          isDisabled={items.length === 0 || needsReview}
-        >
-          {t('cart.checkout')}
-        </Button>
-      </div>
+      <CartFooter
+        discount={discount}
+        discountType={discountType}
+        setDiscount={setDiscount}
+        setDiscountType={setDiscountType}
+        tax={tax}
+        totals={totals}
+        checkoutDisabled={items.length === 0 || needsReview}
+        onCheckout={() => setCheckoutOpen(true)}
+      />
 
       <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} data={receiptData} />
       <HeldCartsDialog open={heldCartsOpen} onOpenChange={setHeldCartsOpen} />
 
-      {/* Checkout Drawer */}
-      <Drawer
+      <CheckoutDrawer
         isOpen={checkoutOpen}
         onOpenChange={setCheckoutOpen}
-        placement={isRtl ? 'left' : 'right'}
-        backdrop="blur"
-        size="md"
-        classNames={{
-          base: 'bg-card text-card-foreground border-s border-border shadow-2xl',
+        isRtl={isRtl}
+        items={items}
+        discount={discount}
+        discountType={discountType}
+        setDiscount={setDiscount}
+        setDiscountType={setDiscountType}
+        notes={notes}
+        setNotes={setNotes}
+        tip={tip}
+        setTip={setTip}
+        couponCode={couponCode}
+        couponDiscount={couponDiscount}
+        coupon={coupon}
+        pricing={pricing}
+        customer={customer}
+        onRemoveCustomer={() => {
+          customer.clear();
+          resetRedemption();
         }}
-      >
-        <DrawerContent>
-          {() => (
-            <>
-              <DrawerHeader className="border-b border-border/50">
-                <div>
-                  <h3 className="text-base font-semibold">{t('cart.completeSale')}</h3>
-                  <p className="text-xs text-muted-foreground font-normal mt-0.5">
-                    {t('cart.reviewSale')}
-                  </p>
-                </div>
-              </DrawerHeader>
-              <DrawerBody className="py-6 space-y-6 overflow-y-auto">
-                {/* Order summary */}
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t('cart.orderSummary')}
-                  </h3>
-                  {items.map((item) => (
-                    <div key={item.product_id} className="flex justify-between text-sm font-data">
-                      <span className="text-foreground">
-                        {item.name} x{item.quantity}
-                      </span>
-                      <span className="text-foreground font-medium">
-                        {formatCurrency(item.unit_price * item.quantity)}
-                      </span>
-                    </div>
-                  ))}
-                  <Divider className="my-2" />
-                  <div className="flex justify-between text-sm text-muted-foreground font-data">
-                    <span>{t('cart.subtotal')}</span>
-                    <span className="text-foreground">{formatCurrency(totals.subtotal)}</span>
-                  </div>
-                  {totals.discountAmount > 0 && (
-                    <div className="flex justify-between text-sm text-danger font-data">
-                      <span>
-                        {t('cart.discount')}
-                        <span className="text-xs ms-1 opacity-70">
-                          (
-                          {discountType === 'percentage'
-                            ? `${discount}%`
-                            : formatCurrency(discount)}
-                          )
-                        </span>
-                      </span>
-                      <span>-{formatCurrency(totals.discountAmount)}</span>
-                    </div>
-                  )}
-                  {taxInfo.enabled && (
-                    <div className="flex justify-between text-sm text-muted-foreground font-data">
-                      <span>
-                        {t('tax.vat')} ({taxInfo.rate}%)
-                      </span>
-                      <span className="text-foreground">{formatCurrency(totals.taxAmount)}</span>
-                    </div>
-                  )}
-                  {totals.couponDiscount > 0 && (
-                    <div className="flex justify-between text-sm text-primary font-data">
-                      <span>
-                        {t('cart.coupon')} ({couponCode})
-                      </span>
-                      <span>-{formatCurrency(totals.couponDiscount)}</span>
-                    </div>
-                  )}
-                  {totals.pointsDiscount > 0 && (
-                    <div className="flex justify-between text-sm text-primary font-data">
-                      <span>{t('loyalty.pointsDiscount')}</span>
-                      <span>-{formatCurrency(totals.pointsDiscount)}</span>
-                    </div>
-                  )}
-                  {totals.tip > 0 && (
-                    <div className="flex justify-between text-sm text-primary font-data">
-                      <span>{t('cart.tip')}</span>
-                      <span>+{formatCurrency(totals.tip)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-base font-bold font-data text-foreground">
-                    <span>{t('cart.total')}</span>
-                    {/* E2E: see cart-total — same nameless sibling, same label collision. */}
-                    <span data-testid="checkout-total" className="text-primary">
-                      {formatCurrency(totals.amountDue)}
-                    </span>
-                  </div>
-                </div>
-
-                <Divider />
-
-                {/* Customer selection */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t('cart.selectCustomer')}
-                  </h3>
-                  {customer.selected ? (
-                    <div className="flex items-center gap-2 p-3 bg-muted/20 rounded-xl border border-border/50">
-                      <UserRound className="h-4 w-4 text-primary shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {customer.selected.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {customer.selected.phone}
-                          {loyaltyInfo.enabled && (
-                            <span className="ms-2 text-primary font-semibold">
-                              <Star className="h-3 w-3 inline-block" />{' '}
-                              {t('loyalty.pointsBalance', {
-                                points: String(loyaltyInfo.customerPoints),
-                              })}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <Button
-                        isIconOnly
-                        variant="light"
-                        size="sm"
-                        className="h-7 w-7 shrink-0"
-                        onClick={() => {
-                          customer.clear();
-                          resetRedemption();
-                        }}
-                        aria-label="Remove selected customer"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ) : customer.creating ? (
-                    <div className="space-y-2.5 p-3 bg-muted/20 rounded-xl border border-border/50">
-                      <Input
-                        size="sm"
-                        variant="bordered"
-                        placeholder={t('cart.customerName')}
-                        value={customer.newName}
-                        onValueChange={customer.setNewName}
-                      />
-                      <Input
-                        size="sm"
-                        variant="bordered"
-                        placeholder={t('cart.customerPhone')}
-                        value={customer.newPhone}
-                        onValueChange={customer.setNewPhone}
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          color="primary"
-                          size="sm"
-                          className="flex-1 text-xs"
-                          isDisabled={
-                            !customer.newName.trim() ||
-                            !customer.newPhone.trim() ||
-                            customer.isSaving
-                          }
-                          isLoading={customer.isSaving}
-                          onClick={customer.createAndSelect}
-                        >
-                          {t('cart.saveCustomer')}
-                        </Button>
-                        <Button
-                          variant="flat"
-                          size="sm"
-                          className="text-xs"
-                          onClick={customer.cancelCreating}
-                        >
-                          {t('common.cancel')}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <Input
-                          size="sm"
-                          variant="bordered"
-                          placeholder={t('cart.searchCustomer')}
-                          value={customer.search}
-                          onValueChange={(val) => {
-                            customer.setSearch(val);
-                            customer.setDropdownOpen(true);
-                          }}
-                          onFocus={() => customer.setDropdownOpen(true)}
-                          startContent={<Search className="h-3.5 w-3.5 text-muted-foreground" />}
-                        />
-                        {customer.dropdownOpen && customer.search.length > 0 && (
-                          <div className="absolute z-20 top-full mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-40 overflow-y-auto divide-y divide-border/50">
-                            {customer.matches && customer.matches.length > 0 ? (
-                              customer.matches.map((c) => (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  className="w-full text-start px-3 py-2 text-sm hover:bg-muted/40 transition-colors"
-                                  onClick={() => customer.select(c)}
-                                >
-                                  <span className="font-medium text-foreground">{c.name}</span>
-                                  <span className="text-muted-foreground text-xs ms-2">
-                                    {c.phone}
-                                  </span>
-                                </button>
-                              ))
-                            ) : (
-                              <p className="px-3 py-2 text-xs text-muted-foreground">
-                                {t('cart.noCustomer')}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        variant="light"
-                        color="primary"
-                        size="sm"
-                        className="w-full text-xs"
-                        startContent={<Plus className="h-3 w-3" />}
-                        onClick={customer.startCreating}
-                      >
-                        {t('cart.addNewCustomer')}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Loyalty Points Redemption */}
-                {loyaltyInfo.enabled && customer.selected && (
-                  <>
-                    <Divider />
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <Star className="h-3.5 w-3.5 text-primary" />
-                        {t('loyalty.redeemPoints')}
-                      </h3>
-                      <div className="flex items-center justify-between p-3 bg-muted/20 rounded-xl border border-border/50">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {t('loyalty.points')}
-                          </p>
-                          <p className="text-base font-bold text-primary font-data">
-                            {loyaltyInfo.customerPoints}
-                          </p>
-                        </div>
-                        {loyaltyInfo.customerPoints > 0 && (
-                          <div className="flex items-center gap-2">
-                            <label
-                              htmlFor="redeem-toggle"
-                              className="text-xs text-muted-foreground cursor-pointer"
-                            >
-                              {t('loyalty.redeemToggle')}
-                            </label>
-                            <input
-                              id="redeem-toggle"
-                              type="checkbox"
-                              checked={redeemPoints}
-                              onChange={(e) => {
-                                setRedeemPoints(e.target.checked);
-                                if (!e.target.checked) setPointsToRedeem(0);
-                              }}
-                              className="accent-primary h-4 w-4 rounded"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      {redeemPoints && loyaltyInfo.customerPoints > 0 && (
-                        <div className="space-y-2">
-                          <Input
-                            type="number"
-                            label={t('loyalty.pointsToRedeem')}
-                            min="0"
-                            size="sm"
-                            variant="bordered"
-                            max={maxPoints}
-                            value={pointsToRedeem ? String(pointsToRedeem) : ''}
-                            onValueChange={(val) => {
-                              const v = Math.min(Math.max(0, parseInt(val) || 0), maxPoints);
-                              setPointsToRedeem(v);
-                            }}
-                            className="font-data w-36"
-                          />
-                          {totals.pointsDiscount > 0 && (
-                            <p className="text-xs text-primary font-data font-semibold">
-                              = -{formatCurrency(totals.pointsDiscount)}{' '}
-                              {t('loyalty.pointsDiscount')}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {/* Coupon */}
-                <Divider />
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Ticket className="h-3.5 w-3.5 text-primary" />
-                    {t('cart.coupon')}
-                  </h3>
-                  {couponCode ? (
-                    <div className="flex items-center justify-between p-3 bg-primary/10 rounded-xl border border-primary/30">
-                      <div>
-                        <p className="text-sm font-bold font-data text-foreground">{couponCode}</p>
-                        <p className="text-xs text-primary font-data">
-                          -{formatCurrency(couponDiscount)}
-                        </p>
-                      </div>
-                      <Button
-                        isIconOnly
-                        variant="light"
-                        size="sm"
-                        className="h-7 w-7"
-                        onClick={() => {
-                          clearCoupon();
-                          setCouponInput('');
-                        }}
-                        aria-label="Remove coupon"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2 items-center">
-                      <Input
-                        size="sm"
-                        variant="bordered"
-                        placeholder={t('cart.couponPlaceholder')}
-                        value={couponInput}
-                        onValueChange={setCouponInput}
-                        className="flex-1"
-                      />
-                      <Button variant="bordered" size="sm" onClick={handleApplyCoupon}>
-                        {t('cart.applyCoupon')}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Quick Discount -- writes ONLY into the manual discount/discount_type
-                    state, never `tip`. This is the fix for the historical bug
-                    where these buttons silently wrote a "discount" amount
-                    into the tip field (see Unit 3/5 of
-                    docs/plans/2026-08-30-001-fix-pos-checkout-total-parity-plan.md). */}
-                <Divider />
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Percent className="h-3.5 w-3.5 text-primary" />
-                    {t('cart.quickDiscount')}
-                  </h3>
-                  <div className="flex gap-1.5 items-center">
-                    {[5, 10, 15].map((pct) => (
-                      <Button
-                        key={pct}
-                        size="sm"
-                        variant={
-                          discountType === 'percentage' && discount === pct ? 'solid' : 'bordered'
-                        }
-                        color={
-                          discountType === 'percentage' && discount === pct ? 'primary' : 'default'
-                        }
-                        className="flex-1 h-7 min-w-0 text-[11px] font-data font-medium"
-                        onClick={() => {
-                          setDiscountType('percentage');
-                          setDiscount(pct);
-                        }}
-                      >
-                        {pct}%
-                      </Button>
-                    ))}
-                    <Input
-                      type="number"
-                      min="0"
-                      max={discountType === 'percentage' ? 100 : undefined}
-                      step="0.01"
-                      size="sm"
-                      variant="bordered"
-                      placeholder={t('cart.customAmount')}
-                      aria-label={t('cart.quickDiscount')}
-                      value={discountType === 'percentage' && discount ? String(discount) : ''}
-                      onValueChange={(val) => {
-                        setDiscountType('percentage');
-                        setDiscount(parseFloat(val) || 0);
-                      }}
-                      className="flex-1 font-data"
-                    />
-                  </div>
-                </div>
-
-                {/* Tip -- its own, separately labeled, always-positive control.
-                    Never written to by Quick Discount above. Rendered as an
-                    added line (`+`) in the summary and in the receipt. */}
-                <Divider />
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <StickyNote className="h-3.5 w-3.5 text-primary" />
-                    {t('cart.tip')}
-                  </h3>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    size="sm"
-                    variant="bordered"
-                    placeholder={t('cart.customTip')}
-                    aria-label={t('cart.tip')}
-                    value={tip ? String(tip) : ''}
-                    onValueChange={(val) => setTip(Math.max(0, parseFloat(val) || 0))}
-                    className="font-data"
-                  />
-                </div>
-
-                {/* Sale Notes */}
-                <Divider />
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <StickyNote className="h-3.5 w-3.5 text-primary" />
-                    {t('cart.notes')}
-                  </h3>
-                  <textarea
-                    placeholder={t('cart.notesPlaceholder')}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                    className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    maxLength={500}
-                  />
-                </div>
-
-                <Divider />
-
-                {/* Payment method */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {t('cart.paymentMethod')}
-                    </h3>
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={splitPayment}
-                        onChange={(e) => {
-                          setSplitPayment(e.target.checked);
-                          if (e.target.checked) {
-                            setPayments([
-                              { method: 'Cash', amount: 0 },
-                              { method: 'Card', amount: 0 },
-                            ]);
-                          } else {
-                            setPayments([]);
-                          }
-                        }}
-                        className="accent-primary h-3.5 w-3.5 rounded"
-                      />
-                      {t('cart.splitPayment')}
-                    </label>
-                  </div>
-
-                  {!splitPayment ? (
-                    <RadioGroup
-                      value={paymentMethod}
-                      onValueChange={(val: string) => setPaymentMethod(val as PaymentMethod)}
-                      className="space-y-1.5"
-                    >
-                      {(['Cash', 'Card', 'Other'] as const).map((method) => (
-                        <Radio
-                          key={method}
-                          value={method}
-                          classNames={{
-                            base: `flex items-center gap-3 px-3 py-2 rounded-xl border transition-colors cursor-pointer max-w-full m-0 ${
-                              paymentMethod === method
-                                ? 'border-primary/50 bg-primary/5'
-                                : 'border-border hover:border-primary/30'
-                            }`,
-                            label: 'text-sm font-medium text-foreground cursor-pointer',
-                          }}
-                        >
-                          {paymentLabels[method]}
-                        </Radio>
-                      ))}
-                    </RadioGroup>
-                  ) : (
-                    <div className="space-y-2">
-                      {payments.map((p, idx) => (
-                        <div key={idx} className="flex gap-2 items-center">
-                          <select
-                            className="h-8 rounded-lg border border-border bg-card text-foreground px-2 text-xs"
-                            value={p.method}
-                            onChange={(e) => {
-                              const next = [...payments];
-                              next[idx] = { ...next[idx], method: e.target.value as PaymentMethod };
-                              setPayments(next);
-                            }}
-                          >
-                            <option value="Cash">{t('cart.cash')}</option>
-                            <option value="Card">{t('cart.card')}</option>
-                            <option value="Gift Card">{t('cart.giftCard')}</option>
-                            <option value="Other">{t('cart.other')}</option>
-                          </select>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            size="sm"
-                            variant="bordered"
-                            aria-label={`${paymentLabels[p.method] ?? p.method} ${t('cart.splitPayment')} #${idx + 1}`}
-                            value={p.amount ? String(p.amount) : ''}
-                            onValueChange={(val) => {
-                              const next = [...payments];
-                              next[idx] = { ...next[idx], amount: parseFloat(val) || 0 };
-                              setPayments(next);
-                            }}
-                            className="flex-1 font-data"
-                          />
-                          {payments.length > 2 && (
-                            <Button
-                              isIconOnly
-                              variant="light"
-                              size="sm"
-                              className="h-7 w-7"
-                              onClick={() => setPayments(payments.filter((_, i) => i !== idx))}
-                              aria-label="Remove payment split"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                      <div className="flex items-center justify-between text-xs pt-1">
-                        <Button
-                          variant="light"
-                          size="sm"
-                          startContent={<Plus className="h-3 w-3" />}
-                          onClick={() => setPayments([...payments, { method: 'Cash', amount: 0 }])}
-                        >
-                          {t('cart.addPayment')}
-                        </Button>
-                        <span
-                          className={`font-data font-semibold ${split.isBalanced ? 'text-success' : 'text-danger'}`}
-                        >
-                          {formatCurrency(split.allocated)} / {formatCurrency(totals.amountDue)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* `shrink-0` is load-bearing, not cosmetic. This button is the last child
-                    of a flex-column DrawerBody, and once the drawer's content is taller
-                    than the viewport the default `flex-shrink: 1` compresses it to zero
-                    height — leaving a cashier unable to complete a sale on any screen
-                    under roughly 1000px tall. Covered by checkout-cash.spec.ts. */}
-                <Button
-                  color="primary"
-                  size="md"
-                  className="w-full shrink-0 font-semibold shadow-sm"
-                  onClick={handleCheckout}
-                  isDisabled={isPending || needsReview || (splitPayment && !split.isBalanced)}
-                  isLoading={isPending}
-                >
-                  {isPending ? t('cart.processing') : t('cart.confirmSale')}
-                </Button>
-              </DrawerBody>
-            </>
-          )}
-        </DrawerContent>
-      </Drawer>
+        paymentMethod={paymentMethod}
+        setPaymentMethod={setPaymentMethod}
+        splitPayment={splitPayment}
+        setSplitPayment={setSplitPayment}
+        payments={payments}
+        setPayments={setPayments}
+        onConfirm={handleCheckout}
+        isPending={isPending}
+        needsReview={needsReview}
+      />
     </div>
   );
 }
