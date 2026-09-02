@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Pool as PgPool } from 'pg';
-import fs from 'fs';
 import path from 'path';
+import fs from 'fs';
 import { createPgMemPool } from '../support/pgMem';
 import {
   runMigrationsUp,
@@ -10,19 +10,42 @@ import {
   ensureMigrationTable,
 } from '../../src/database/migrate';
 
-const MIGRATION_FILES = fs
-  .readdirSync(path.join(__dirname, '../../src/database/migrations'))
-  .filter((f) => f.endsWith('.sql') && !f.includes('.down.sql'))
-  .sort();
+const MIGRATIONS_DIR = path.join(__dirname, '../../src/database/migrations');
 
-/** How many steps down it takes to roll back to, and including, `name`. */
-function rollbackDepthTo(name: string): number {
-  return MIGRATION_FILES.length - MIGRATION_FILES.indexOf(name);
-}
+/**
+ * Asserts the applied list is a well-formed migration sequence.
+ *
+ * Deliberately NOT `toEqual(readdir().filter(...).sort())`. That is the runner's own
+ * expression, so restating it here would make the assertion agree with itself: a
+ * regression in the runner's ordering or filtering would be reproduced by the expectation
+ * and never caught. Each property is checked independently instead — ordering by
+ * comparing neighbours, membership as an unordered set, and `.down.sql` matched by
+ * suffix where the runner matches by substring.
+ *
+ * `alreadyApplied` names migrations recorded before the run under test, for the upgrade
+ * paths that start from a partially migrated database.
+ */
+function expectWellFormedMigrationSequence(applied: string[], alreadyApplied: string[] = []): void {
+  expect(applied.length).toBeGreaterThan(0);
 
-/** Everything from `name` onwards, in apply order. */
-function migrationsFrom(name: string): string[] {
-  return MIGRATION_FILES.slice(MIGRATION_FILES.indexOf(name));
+  // Strictly ascending, which is "sorted" and "no duplicates" in a single assertion.
+  for (let i = 1; i < applied.length; i += 1) {
+    expect(
+      applied[i] > applied[i - 1],
+      `${applied[i - 1]} should sort strictly before ${applied[i]}`
+    ).toBe(true);
+  }
+
+  const onDisk = fs.readdirSync(MIGRATIONS_DIR);
+  const ups = onDisk.filter((f) => f.endsWith('.sql') && !f.endsWith('.down.sql'));
+
+  expect([...applied, ...alreadyApplied].sort()).toEqual([...ups].sort());
+
+  // Every up-migration has a paired rollback file. Every down assertion below assumes it,
+  // and the runner skips an unpaired migration with nothing louder than a warning.
+  expect(onDisk.filter((f) => f.endsWith('.down.sql')).sort()).toEqual(
+    ups.map((f) => f.replace(/\.sql$/, '.down.sql')).sort()
+  );
 }
 
 describe('PostgreSQL Migration Runner', () => {
@@ -59,9 +82,7 @@ describe('PostgreSQL Migration Runner', () => {
     expect(tableNames).toContain('customers');
 
     const records = await getAppliedMigrations(memPool);
-    // Derived from the directory, never spelled out: a literal list turns every new
-    // migration into a failure here, phrased as if the runner broke.
-    expect(records).toEqual(MIGRATION_FILES);
+    expectWellFormedMigrationSequence(records);
   });
 
   it('should skip already applied migrations on subsequent run', async () => {
@@ -72,8 +93,13 @@ describe('PostgreSQL Migration Runner', () => {
 
   it('should rollback migrations with down runner', async () => {
     await runMigrationsUp(memPool, migrationsDir);
-    const rolledBack = await runMigrationsDown(MIGRATION_FILES.length, memPool, migrationsDir);
-    expect(rolledBack).toEqual([...MIGRATION_FILES].reverse());
+    // Compared against what the runner RECORDED as applied, not against a re-derived
+    // filename list: "rolling back undoes exactly the applied migrations, newest first"
+    // is the property, and it holds even if application order ever diverges from
+    // filename order.
+    const appliedBefore = await getAppliedMigrations(memPool);
+    const rolledBack = await runMigrationsDown(appliedBefore.length, memPool, migrationsDir);
+    expect(rolledBack).toEqual([...appliedBefore].reverse());
 
     const records = await getAppliedMigrations(memPool);
     expect(records).toHaveLength(0);
@@ -101,10 +127,10 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
 
   it('applies 002 on top of an already-applied 001 (upgrade path)', async () => {
     const firstRun = await runMigrationsUp(memPool, migrationsDir);
-    expect(firstRun).toEqual(MIGRATION_FILES);
+    expectWellFormedMigrationSequence(firstRun);
 
     const applied = await getAppliedMigrations(memPool);
-    expect(applied).toEqual(MIGRATION_FILES);
+    expect(applied).toEqual(firstRun);
   });
 
   it('fresh database: resolves canonical loyalty settings with documented safe defaults', async () => {
@@ -134,7 +160,8 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
     );
 
     const applied = await runMigrationsUp(upgradePool, migrationsDir);
-    expect(applied).toEqual(migrationsFrom('002_checkout_financial_contract.sql'));
+    expectWellFormedMigrationSequence(applied, ['001_initial_schema.sql']);
+    expect(applied).not.toContain('001_initial_schema.sql');
 
     const settings = await settingsMap(upgradePool);
     expect(settings.loyalty_points_per_egp).toBe('3');
@@ -191,10 +218,18 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
 
     await runMigrationsUp(upgradePool, migrationsDir);
     // Roll back everything above 002 (all unrelated to loyalty settings) down to and
-    // including 002, to exercise the 002 down migration specifically.
-    const target = '002_checkout_financial_contract.sql';
-    const rolledBack = await runMigrationsDown(rollbackDepthTo(target), upgradePool, migrationsDir);
-    expect(rolledBack).toEqual([...migrationsFrom(target)].reverse());
+    // including 002, to exercise 002's down migration specifically. The depth comes from
+    // the recorded application order, which is what runMigrationsDown counts back through
+    // — filename order is only incidentally the same.
+    const appliedBefore = await getAppliedMigrations(upgradePool);
+    const indexOf002 = appliedBefore.indexOf('002_checkout_financial_contract.sql');
+    expect(indexOf002).toBeGreaterThanOrEqual(0);
+    const rolledBack = await runMigrationsDown(
+      appliedBefore.length - indexOf002,
+      upgradePool,
+      migrationsDir
+    );
+    expect(rolledBack).toEqual([...appliedBefore].slice(indexOf002).reverse());
 
     const settings = await settingsMap(upgradePool);
     expect(settings.loyalty_points_per_egp).toBe('2');
