@@ -19,6 +19,7 @@ import {
   type RealPostgresHarness,
 } from '../support/realPostgres';
 import { CollectionsRepository } from '../../src/modules/inventory/collections/repository';
+import { CollectionsService } from '../../src/modules/inventory/collections/service';
 import { withTransaction, type Queryable } from '../../src/database/transaction';
 
 describeWithPostgres('collection product position under concurrency', () => {
@@ -26,6 +27,7 @@ describeWithPostgres('collection product position under concurrency', () => {
   let collectionId: number;
   let productIds: number[];
   const repo = new CollectionsRepository();
+  const service = new CollectionsService(repo);
 
   beforeAll(async () => {
     // Four simultaneous appenders plus margin. Larger competes with the other real-PG
@@ -59,6 +61,14 @@ describeWithPostgres('collection product position under concurrency', () => {
       [collectionId]
     );
     return rows.map((r) => r.position);
+  };
+
+  const orderedProducts = async (): Promise<number[]> => {
+    const { rows } = await harness.pool.query<{ product_id: number }>(
+      'SELECT product_id FROM collection_products WHERE collection_id = $1 ORDER BY position ASC',
+      [collectionId]
+    );
+    return rows.map((r) => r.product_id);
   };
 
   it('gives four simultaneous appenders four distinct consecutive slots', async () => {
@@ -102,6 +112,87 @@ describeWithPostgres('collection product position under concurrency', () => {
       [...first, ...second],
       [...second, ...first],
     ]).toContainEqual(ordered);
+  });
+
+  // ── Reorder: the case the non-deferrable UNIQUE constraint has to survive ──────
+  //
+  // `service.update` replaces the whole product set — delete every row, re-insert from
+  // slot 0 — inside one transaction. The argument for making the constraint IMMEDIATE
+  // rather than DEFERRABLE is that this never puts two live rows on one slot, because the
+  // delete precedes every insert. That argument is only worth as much as a test on an
+  // engine that actually enforces unique constraints per statement, which pg-mem does not.
+  // If it were wrong, every collection edit would 500.
+
+  it('renumbers a full reorder from zero without tripping the unique constraint', async () => {
+    await repo.addProducts(collectionId, productIds.slice(0, 3));
+
+    // A rotation, deliberately: every product moves to a slot another product currently
+    // occupies, so a constraint checked before the delete became visible would fire.
+    const rotated = [productIds[2], productIds[0], productIds[1]];
+    const result = await service.update(collectionId, {
+      name: 'Autumn window',
+      product_ids: rotated,
+    });
+
+    expect(result.success).toBe(true);
+    expect(await positions()).toEqual([0, 1, 2]);
+    expect(await orderedProducts()).toEqual(rotated);
+  });
+
+  it('reverses a collection, the worst case for slot reuse', async () => {
+    await repo.addProducts(collectionId, productIds);
+
+    const reversed = [...productIds].reverse();
+    await service.update(collectionId, { name: 'Autumn window', product_ids: reversed });
+
+    expect(await positions()).toEqual([0, 1, 2, 3]);
+    expect(await orderedProducts()).toEqual(reversed);
+  });
+
+  it('survives a reorder racing an append', async () => {
+    await repo.addProducts(collectionId, productIds.slice(0, 3));
+    const rotated = [productIds[2], productIds[0], productIds[1]];
+
+    const results = await Promise.allSettled([
+      service.update(collectionId, { name: 'Autumn window', product_ids: rotated }),
+      withTransaction(
+        (client) => repo.addProducts(collectionId, [productIds[3]], client),
+        harness.pool
+      ),
+    ]);
+
+    // Neither caller may see a 23505 — that is the claim under test.
+    expect(
+      results.filter((r) => r.status === 'rejected').map((r) => (r as PromiseRejectedResult).reason)
+    ).toEqual([]);
+
+    // Which caller wins the collections row lock is genuinely nondeterministic, and the
+    // three reachable outcomes differ in both membership and starting slot:
+    //
+    //   - update commits first, then the append lands after it        -> slots 0,1,2,3
+    //   - the append commits first and update's DELETE then sees it   -> slots 0,1,2
+    //   - the append commits between update's DELETE and its inserts  -> slots 3,4,5,6
+    //
+    // The middle outcome DROPS the appended product. That is not a defect this PR
+    // introduces or that `position` causes: `PUT /api/v1/collections/:id` replaces the
+    // whole product set, so a reorder legitimately removes anything it did not list, and
+    // the loser of the race is whoever's read was stale. Last-writer-wins on a whole-set
+    // replace is a pre-existing property of the endpoint. Asserting a fixed membership
+    // here would encode one scheduling outcome as if it were the contract.
+    //
+    // So the assertions are on what must hold in every outcome.
+    const slots = await positions();
+    // Distinct: the unique constraint held and no two products share a slot.
+    expect(new Set(slots).size).toBe(slots.length);
+    // Contiguous: whichever writer went second appended onto the other's run rather than
+    // interleaving into it.
+    expect(slots).toEqual(slots.map((_, i) => slots[0] + i));
+
+    const finalProducts = await orderedProducts();
+    // Every surviving product is one of ours, and the reorder's curated sequence is
+    // intact — a concurrent append may sit after it, never inside it.
+    expect(finalProducts.every((id) => productIds.includes(id))).toBe(true);
+    expect(finalProducts.filter((id) => rotated.includes(id))).toEqual(rotated);
   });
 
   it('makes a second appender wait for the first transaction to commit', async () => {

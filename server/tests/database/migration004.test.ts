@@ -26,17 +26,53 @@ const MIGRATIONS_DIR = path.join(__dirname, '../../src/database/migrations');
 const MIGRATION = '004_concurrency_and_idempotency.sql';
 
 /**
- * Every up-migration on disk, in apply order. Derived rather than listed so that a later
- * migration landing in this directory does not turn these assertions red for a reason
- * that has nothing to do with 004.
+ * How many migrations must be rolled back to undo `name`.
+ *
+ * Read from `_migrations`, not from the filenames on disk: `runMigrationsDown` counts
+ * back through APPLICATION order, and the two coincide only while every migration has
+ * been applied in filename order. A database that took a later file first — a branch
+ * merged out of order, a hotfix applied ahead of its neighbour — would silently roll back
+ * somebody else's migration instead of this one.
  */
-const ALL_MIGRATIONS: string[] = fs
-  .readdirSync(MIGRATIONS_DIR)
-  .filter((f) => f.endsWith('.sql') && !f.includes('.down.sql'))
-  .sort();
+async function depthOf(pool: Pool, name: string): Promise<number> {
+  const applied = await getAppliedMigrations(pool);
+  const index = applied.indexOf(name);
+  expect(index, `${name} should be applied`).toBeGreaterThanOrEqual(0);
+  return applied.length - index;
+}
 
-/** How many migrations must be rolled back to undo `name` — it is not always the last. */
-const DEPTH_OF_004 = ALL_MIGRATIONS.length - ALL_MIGRATIONS.indexOf(MIGRATION);
+/**
+ * Asserts the applied list is a well-formed migration sequence.
+ *
+ * Deliberately NOT `toEqual(readdir().filter(...).sort())`: re-deriving the expectation
+ * with the same expression the runner uses makes the assertion agree with itself, so an
+ * ordering or filtering regression inside the runner would be reproduced by the
+ * expectation and never caught. Each property below is checked independently instead —
+ * ordering by comparing neighbours, membership as an unordered set, and `.down.sql`
+ * matched by suffix where the runner matches by substring.
+ */
+function expectWellFormedMigrationSequence(applied: string[], alreadyApplied: string[] = []): void {
+  expect(applied.length).toBeGreaterThan(0);
+
+  // Strictly ascending, which is both "sorted" and "no duplicates" in one assertion.
+  for (let i = 1; i < applied.length; i += 1) {
+    expect(
+      applied[i] > applied[i - 1],
+      `${applied[i - 1]} should sort strictly before ${applied[i]}`
+    ).toBe(true);
+  }
+
+  const onDisk = fs.readdirSync(MIGRATIONS_DIR);
+  const ups = onDisk.filter((f) => f.endsWith('.sql') && !f.endsWith('.down.sql'));
+
+  expect([...applied, ...alreadyApplied].sort()).toEqual([...ups].sort());
+
+  // Every up-migration has a paired rollback file — the premise of every down assertion
+  // in this file, and something the runner skips silently when it is untrue.
+  expect(onDisk.filter((f) => f.endsWith('.down.sql')).sort()).toEqual(
+    ups.map((f) => f.replace(/\.sql$/, '.down.sql')).sort()
+  );
+}
 
 const NON_NEGATIVE_CONSTRAINTS = [
   ['products', 'products_stock_non_negative'],
@@ -201,7 +237,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     });
 
     try {
-      await runMigrationsDown(DEPTH_OF_004, legacy.pool, MIGRATIONS_DIR);
+      await runMigrationsDown(await depthOf(legacy.pool, MIGRATION), legacy.pool, MIGRATIONS_DIR);
       expect(await getAppliedMigrations(legacy.pool)).not.toContain(MIGRATION);
 
       await legacy.pool.query(
@@ -232,7 +268,11 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     });
 
     try {
-      const rolledBack = await runMigrationsDown(DEPTH_OF_004, cycle.pool, MIGRATIONS_DIR);
+      const rolledBack = await runMigrationsDown(
+        await depthOf(cycle.pool, MIGRATION),
+        cycle.pool,
+        MIGRATIONS_DIR
+      );
       expect(rolledBack).toContain(MIGRATION);
 
       const gone = await cycle.pool.query<{ n: number }>(
@@ -255,7 +295,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
       );
 
       expect(await runMigrationsUp(cycle.pool, MIGRATIONS_DIR)).toContain(MIGRATION);
-      expect(await getAppliedMigrations(cycle.pool)).toEqual(ALL_MIGRATIONS);
+      expectWellFormedMigrationSequence(await getAppliedMigrations(cycle.pool));
     } finally {
       await cycle.teardown();
     }
@@ -273,7 +313,7 @@ describeWithPostgres('migration 004 — idempotency keys and non-negative invari
     });
 
     try {
-      expect(await runMigrationsUp(pool, MIGRATIONS_DIR)).toEqual(ALL_MIGRATIONS);
+      expectWellFormedMigrationSequence(await runMigrationsUp(pool, MIGRATIONS_DIR));
     } finally {
       await pool.end();
       await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
