@@ -43,112 +43,32 @@ import {
   allocateSplit,
   maxRedeemablePoints,
   SPLIT_PAYMENT_MISMATCH_CODE,
-  type TaxMode,
 } from '../../../shared/lib/checkout';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport, createIdempotencyKey } from '../../../shared/lib/transport/index';
 import { ApiError } from '../../../shared/lib/transport/types';
-import type { ReceiptData, ReceiptItem, ReceiptPayment } from '../../../shared/components/Receipt';
+import { readTaxPolicy, readLoyaltyPolicy } from '../lib/checkoutSettings';
+import {
+  buildSalePayload,
+  buildOfflineSalePayload,
+  type SaleComposition,
+} from '../lib/salePayload';
+import { buildReceipt } from '../lib/saleReceipt';
+import type {
+  CheckoutAttempt,
+  CouponValidation,
+  PaymentEntry,
+  PaymentMethod,
+  SaleData,
+  SaleResponse,
+} from '../types';
+import type { ReceiptData } from '../../../shared/components/Receipt';
 import type { AppSettings, Customer } from '../../../shared/types/index';
 
 const customers = resource<Customer>('customers');
 
-type PaymentMethod = 'Cash' | 'Card' | 'Other';
-
-/** Write payload for POST /api/v1/sales — not the read shape returned by GET /api/sales/:id */
-interface SaleItemInput {
-  product_id: number;
-  variant_id?: number | null;
-  quantity: number;
-  unit_price: number;
-  memo?: string | null;
-}
-
-interface PaymentEntry {
-  method: PaymentMethod | 'Gift Card';
-  amount: number;
-}
-
-interface SaleData {
-  items: SaleItemInput[];
-  discount: number;
-  discount_type: string;
-  payment_method: PaymentMethod;
-  payments?: PaymentEntry[];
-  customer_id?: number;
-  tax_amount?: number;
-  points_redeemed?: number;
-  notes?: string;
-  tip?: number;
-  coupon_code?: string;
-}
-
-/** One checkout attempt: the composed body plus the key that dedupes its retries. */
-interface CheckoutAttempt {
-  saleData: SaleData;
-  idempotencyKey: string;
-}
-
 interface CustomerLoyalty {
   points: number;
-}
-
-/** A resolved sale line as the server actually persisted it (Unit 4's
- * `resolvedItems` -- authoritative product/variant identity, quantity and
- * price; no product name, which is why the receipt looks names up against
- * the cart the cashier just rang up, display-only, never for a monetary
- * figure). */
-interface ConfirmedSaleItem {
-  product_id: number;
-  variant_id?: number | null;
-  quantity: number;
-  unit_price: number;
-  memo?: string | null;
-}
-
-/** A validated payment entry exactly as persisted (`ConfirmedPayment` in
- * server/src/modules/pos/sales/types.ts). */
-interface ConfirmedSalePayment {
-  method: string;
-  amount: number;
-}
-
-/** Mirrors the server's immutable `SaleCalculationSnapshot` (Units 2/4) --
- * see client/src/shared/components/Receipt.tsx's `ReceiptCalculation`, which
- * this is mapped into 1:1. Every figure is the CONFIRMED, persisted amount
- * for this sale; the receipt renders these directly rather than the client's
- * own (possibly stale-by-then) preview. */
-interface ConfirmedSaleCalculation {
-  subtotal: number;
-  manualDiscount: number;
-  couponDiscount: number;
-  pointsDiscount: number;
-  taxAmount: number;
-  taxMode: 'inclusive' | 'exclusive';
-  taxRatePercent: number;
-  tipAmount: number;
-  amountDue: number;
-}
-
-/** What POST /api/v1/sales hands back, as far as the receipt needs it. */
-interface SaleResponse {
-  id: number;
-  discount?: number;
-  discount_type?: string;
-  total: number;
-  payment_method: string;
-  cashier_name?: string;
-  created_at: string;
-  /** Additive since Unit 4 -- present on every response from this branch's server. */
-  calculation?: ConfirmedSaleCalculation;
-  items?: ConfirmedSaleItem[];
-  payments?: ConfirmedSalePayment[];
-}
-
-/** What POST /api/v1/coupons/validate hands back, as far as the cart needs it. */
-interface CouponValidation {
-  code: string;
-  discount: number;
 }
 
 interface CartPanelProps {
@@ -222,23 +142,12 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     }
   );
 
-  const loyaltyInfo = useMemo(() => {
-    const enabled = appSettings?.loyalty_enabled === 'true';
-    // Canonical, direct-unit settings (Unit 1) -- never the legacy
-    // `loyalty_earn_rate`/`loyalty_redeem_value` aliases. Defaults match
-    // `server/src/database/seed.ts`.
-    const pointsPerEgp = parseFloat(appSettings?.loyalty_points_per_egp || '1');
-    const egpPerPoint = parseFloat(appSettings?.loyalty_egp_per_point || '0.1');
-    const customerPoints = customerLoyalty?.points || 0;
-    return { enabled, pointsPerEgp, egpPerPoint, customerPoints };
-  }, [appSettings, customerLoyalty]);
+  const loyaltyInfo = useMemo(
+    () => ({ ...readLoyaltyPolicy(appSettings), customerPoints: customerLoyalty?.points || 0 }),
+    [appSettings, customerLoyalty]
+  );
 
-  const taxInfo = useMemo(() => {
-    const enabled = appSettings?.tax_enabled === 'true';
-    const rate = parseFloat(appSettings?.tax_rate || '0');
-    const mode: TaxMode = appSettings?.tax_mode === 'inclusive' ? 'inclusive' : 'exclusive';
-    return { enabled: enabled && rate > 0, rate, mode };
-  }, [appSettings]);
+  const taxInfo = useMemo(() => readTaxPolicy(appSettings), [appSettings]);
 
   const totals = useMemo(
     () =>
@@ -369,6 +278,25 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   };
 
   /**
+   * The single description of "what the cashier is about to sell", from which
+   * BOTH the online body and the reduced offline-queue body are composed. One
+   * source, so the two can never drift apart the way two inline literals could.
+   */
+  const composition: SaleComposition = {
+    items,
+    discount,
+    discountType,
+    notes,
+    tip,
+    couponCode,
+    paymentMethod,
+    splitPayment,
+    payments,
+    customerId: selectedCustomer?.id ?? null,
+    pointsToRedeem: redeemPoints ? pointsToRedeem : 0,
+  };
+
+  /**
    * The idempotency key identifies one rung-up sale, not one HTTP request. It is keyed on
    * the composed payload so a cashier who hits Confirm again after a failure retries under
    * the SAME key (letting the server return the original outcome rather than committing a
@@ -401,55 +329,19 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     onSuccess: (response) => {
       setCheckoutAttempt(null);
       const sale = response.data;
-      const calc = sale.calculation;
 
-      // Display name only -- looked up against the cart the cashier just
-      // rang up (captured here, before `clearCart()` below empties it). Every
-      // MONETARY figure in the receipt (quantity, unit_price, every
-      // calculation line, total, payments) comes solely from `sale`/`calc`,
-      // the server's confirmed response -- never recomputed client-side. The
-      // server's resolved line items (Unit 4) carry product/variant identity
-      // and price but not the product name, so this lookup is purely
-      // cosmetic and never substitutes for a server-confirmed amount.
-      const nameByLine = new Map(
-        items.map((i) => [`${i.product_id}:${i.variant_id ?? 0}`, i.name])
-      );
-      const receiptItems: ReceiptItem[] = (sale.items ?? []).map((item) => ({
-        name: nameByLine.get(`${item.product_id}:${item.variant_id ?? 0}`) ?? item.memo ?? '',
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-      }));
-
-      const receiptPayments: ReceiptPayment[] =
-        sale.payments && sale.payments.length > 0
-          ? sale.payments
-          : [{ method: sale.payment_method, amount: calc?.amountDue ?? sale.total }];
-
-      const newReceipt: ReceiptData = {
-        saleId: sale.id,
-        items: receiptItems,
-        discountType: sale.discount_type || discountType,
-        discountValue: sale.discount ?? discount,
-        couponCode: couponCode || undefined,
-        // `calc` is additive-but-guaranteed within this branch (Unit 4 ships
-        // alongside this unit); the fallback only guards a response shaped
-        // like the pre-Unit-4 contract so the receipt never crashes.
-        calculation: calc ?? {
-          subtotal: receiptItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0),
-          manualDiscount: 0,
-          couponDiscount: 0,
-          pointsDiscount: 0,
-          taxAmount: 0,
-          taxMode: taxInfo.mode,
-          taxRatePercent: taxInfo.rate,
-          tipAmount: 0,
-          amountDue: sale.total,
-        },
-        payments: receiptPayments,
-        cashierName: sale.cashier_name || '',
+      // Built from the cart as it stands right now -- captured before
+      // `clearCart()` below empties it. See saleReceipt.ts: every monetary
+      // figure comes from the server's confirmed response; the cart supplies
+      // display names only.
+      const newReceipt: ReceiptData = buildReceipt(sale, {
+        cartItems: items,
+        discount,
+        discountType,
+        couponCode,
+        tax: taxInfo,
         customerName: selectedCustomer?.name,
-        date: sale.created_at,
-      };
+      });
 
       toast.success(t('cart.saleSuccess'));
       clearCart();
@@ -467,18 +359,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     },
     onError: (error: Error, attempt: CheckoutAttempt) => {
       if (!navigator.onLine) {
-        const saleData: SaleData = {
-          items: items.map((i) => ({
-            product_id: i.product_id,
-            ...(i.variant_id ? { variant_id: i.variant_id } : {}),
-            quantity: i.quantity,
-            unit_price: i.unit_price,
-          })),
-          discount,
-          discount_type: discountType,
-          payment_method: paymentMethod,
-          ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
-        };
+        const saleData: SaleData = buildOfflineSalePayload(composition);
         addToQueue({
           type: 'sale',
           payload: saleData as unknown as Record<string, unknown>,
@@ -523,24 +404,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
     // checkout drawer directly.
     if (items.length === 0 || needsReview) return;
 
-    const saleData: SaleData = {
-      items: items.map((i) => ({
-        product_id: i.product_id,
-        quantity: i.quantity,
-        unit_price: i.unit_price,
-        ...(i.variant_id ? { variant_id: i.variant_id } : {}),
-        ...(i.memo ? { memo: i.memo } : {}),
-      })),
-      discount,
-      discount_type: discountType,
-      payment_method: splitPayment ? 'Cash' : paymentMethod,
-      ...(splitPayment && payments.length > 0 ? { payments } : {}),
-      ...(selectedCustomer ? { customer_id: selectedCustomer.id } : {}),
-      ...(redeemPoints && pointsToRedeem > 0 ? { points_redeemed: pointsToRedeem } : {}),
-      ...(notes ? { notes } : {}),
-      ...(tip > 0 ? { tip } : {}),
-      ...(couponCode ? { coupon_code: couponCode } : {}),
-    };
+    const saleData: SaleData = buildSalePayload(composition);
 
     checkoutMutation.mutate({ saleData, idempotencyKey: idempotencyKeyFor(saleData) });
   };
