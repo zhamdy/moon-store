@@ -1496,5 +1496,22 @@
   "startup.openingFloat": "Opening Float",
   "startup.skip": "Later",
   "startup.shiftStarted": "Shift started!",
-  "startup.registerOpened": "Register opened!"
+  "startup.registerOpened": "Register opened!",
+
+  "mutationError.validation": "Some details need fixing before this can be saved.",
+  "mutationError.conflict": "This changed since you opened it. Review it and try again.",
+  "mutationError.unauthorized": "Your session expired. Sign in again to continue.",
+  "mutationError.forbidden": "Your role does not allow this action.",
+  "mutationError.notFound": "This record no longer exists. Refresh and try again.",
+  "mutationError.rateLimited": "Too many requests. Wait a moment, then try again.",
+  "mutationError.offline": "You are offline. Reconnect and try again.",
+  "mutationError.network": "Could not reach the server. Try again.",
+  "mutationError.server": "The server could not complete this. Try again.",
+  "mutationError.unknown": "Something went wrong. Try again.",
+  "mutationError.retry": "Try again",
+  "mutationError.dismiss": "Dismiss",
+  "cart.stockConflictTitle": "Stock changed while you were checking out",
+  "cart.stockConflictLine": "{name}: {requested} in cart, {available} left",
+  "cart.stockConflictAdjust": "Adjust cart to available stock",
+  "cart.stockConflictChecking": "Checking current stock..."
 }
