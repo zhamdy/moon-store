@@ -1,6 +1,21 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import { UserRecord } from './types';
+import { RefreshTokenRecord, RefreshRevocationReason, UserRecord } from './types';
+
+/**
+ * A locked refresh-token row plus the database's own clock.
+ *
+ * The clock travels with the row deliberately. Every freshness decision made about the
+ * row -- has it expired, was it rotated within the replay grace window -- compares two
+ * instants, and one of them (`expires_at`, `revoked_at`) is written by PostgreSQL's
+ * `NOW()`. Comparing those against the Node process's `Date.now()` would fold clock skew
+ * between the app host and the database into a security boundary. Reading both from the
+ * same statement removes the skew entirely.
+ */
+export interface LockedRefreshToken {
+  token: RefreshTokenRecord;
+  now: Date;
+}
 
 export interface IAuthRepository {
   findUserByEmail(email: string, queryable?: Queryable): Promise<UserRecord | null>;
@@ -8,12 +23,32 @@ export interface IAuthRepository {
   updateLastLogin(userId: number, queryable?: Queryable): Promise<void>;
   createRefreshToken(
     userId: number,
-    token: string,
+    tokenHash: string,
+    familyId: string,
     expiresAt: string,
     queryable?: Queryable
   ): Promise<void>;
-  findValidRefreshToken(token: string, queryable?: Queryable): Promise<Record<string, any> | null>;
-  deleteRefreshToken(token: string, queryable?: Queryable): Promise<void>;
+  lockRefreshTokenByHash(
+    tokenHash: string,
+    queryable?: Queryable
+  ): Promise<LockedRefreshToken | null>;
+  markRotated(id: number, replacedByHash: string, queryable?: Queryable): Promise<boolean>;
+  rotateFamilyHead(
+    familyId: string,
+    replacedByHash: string,
+    queryable?: Queryable
+  ): Promise<RefreshTokenRecord | null>;
+  revokeFamily(
+    familyId: string,
+    reason: RefreshRevocationReason,
+    queryable?: Queryable
+  ): Promise<number>;
+  revokeAllForUser(
+    userId: number,
+    reason: RefreshRevocationReason,
+    queryable?: Queryable
+  ): Promise<number>;
+  deleteExpiredRefreshTokens(queryable?: Queryable): Promise<number>;
 }
 
 export class AuthRepository implements IAuthRepository {
@@ -45,29 +80,127 @@ export class AuthRepository implements IAuthRepository {
 
   async createRefreshToken(
     userId: number,
-    token: string,
+    tokenHash: string,
+    familyId: string,
     expiresAt: string,
     queryable?: Queryable
   ): Promise<void> {
     await this.q(queryable).query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [userId, token, expiresAt]
+      'INSERT INTO refresh_tokens (user_id, token_hash, family_id, expires_at) VALUES ($1, $2, $3, $4)',
+      [userId, tokenHash, familyId, expiresAt]
     );
   }
 
-  async findValidRefreshToken(
-    token: string,
+  /**
+   * Takes a row lock on the presented token's row and returns it in whatever state it is
+   * in -- live, rotated, revoked, expired.
+   *
+   * `FOR UPDATE` is what makes the rotation race decidable rather than lucky. Two callers
+   * presenting the same token are serialized here: the second one blocks until the first
+   * commits and then reads the row the first *left behind*, so it sees `revoked_reason =
+   * 'rotated'` and can tell a same-instant replay from a token stolen an hour ago.
+   * Without the lock both would read a live row, both would rotate it, and the family
+   * would silently branch into two live sessions.
+   */
+  async lockRefreshTokenByHash(
+    tokenHash: string,
     queryable?: Queryable
-  ): Promise<Record<string, any> | null> {
+  ): Promise<LockedRefreshToken | null> {
+    const result = await this.q(queryable).query<RefreshTokenRecord & { db_now: Date }>(
+      'SELECT *, NOW() AS db_now FROM refresh_tokens WHERE token_hash = $1 FOR UPDATE',
+      [tokenHash]
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+
+    const { db_now: now, ...token } = row;
+    return { token: token as RefreshTokenRecord, now: new Date(now) };
+  }
+
+  /**
+   * Marks one live row as rotated. Guarded on `revoked_at IS NULL` so it is a no-op if
+   * anything invalidated the row in between -- the caller treats `false` as "lost the
+   * race" rather than assuming its rotation happened.
+   */
+  async markRotated(id: number, replacedByHash: string, queryable?: Queryable): Promise<boolean> {
     const result = await this.q(queryable).query(
-      'SELECT * FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
-      [token]
+      `UPDATE refresh_tokens
+          SET revoked_at = NOW(), revoked_reason = 'rotated', replaced_by_hash = $2
+        WHERE id = $1 AND revoked_at IS NULL
+        RETURNING id`,
+      [id, replacedByHash]
+    );
+    return result.rows.length > 0;
+  }
+
+  /**
+   * Rotates whichever row is currently the family's live head, whatever it is.
+   *
+   * Used by the grace-window replay path: the caller is holding a token that has already
+   * been rotated away, so rotating *it* would branch the lineage. Rotating the head keeps
+   * the family single-lineage -- at most one live row per family, always.
+   */
+  async rotateFamilyHead(
+    familyId: string,
+    replacedByHash: string,
+    queryable?: Queryable
+  ): Promise<RefreshTokenRecord | null> {
+    const result = await this.q(queryable).query<RefreshTokenRecord>(
+      `UPDATE refresh_tokens
+          SET revoked_at = NOW(), revoked_reason = 'rotated', replaced_by_hash = $2
+        WHERE family_id = $1 AND revoked_at IS NULL AND expires_at > NOW()
+        RETURNING *`,
+      [familyId, replacedByHash]
     );
     return result.rows[0] || null;
   }
 
-  async deleteRefreshToken(token: string, queryable?: Queryable): Promise<void> {
-    await this.q(queryable).query('DELETE FROM refresh_tokens WHERE token = $1', [token]);
+  /** Revokes every still-live row in one session lineage. Returns how many it killed. */
+  async revokeFamily(
+    familyId: string,
+    reason: RefreshRevocationReason,
+    queryable?: Queryable
+  ): Promise<number> {
+    const result = await this.q(queryable).query(
+      `UPDATE refresh_tokens
+          SET revoked_at = NOW(), revoked_reason = $2
+        WHERE family_id = $1 AND revoked_at IS NULL
+        RETURNING id`,
+      [familyId, reason]
+    );
+    return result.rows.length;
+  }
+
+  /** Revokes every still-live session a user has, across all their devices. */
+  async revokeAllForUser(
+    userId: number,
+    reason: RefreshRevocationReason,
+    queryable?: Queryable
+  ): Promise<number> {
+    const result = await this.q(queryable).query(
+      `UPDATE refresh_tokens
+          SET revoked_at = NOW(), revoked_reason = $2
+        WHERE user_id = $1 AND revoked_at IS NULL
+        RETURNING id`,
+      [userId, reason]
+    );
+    return result.rows.length;
+  }
+
+  /**
+   * Cleanup, keyed on expiry rather than on revocation.
+   *
+   * A revoked row is not dead weight: it is the evidence that lets a later presentation
+   * of that token be recognised as reuse instead of as an unknown token. Deleting it
+   * early would silently downgrade reuse detection to a plain 401 with no family
+   * revocation. Past `expires_at` the JWT's own `exp` rejects the token before the
+   * database is consulted at all, so the row has no remaining value.
+   */
+  async deleteExpiredRefreshTokens(queryable?: Queryable): Promise<number> {
+    const result = await this.q(queryable).query(
+      'DELETE FROM refresh_tokens WHERE expires_at < NOW() RETURNING id'
+    );
+    return result.rows.length;
   }
 }
 
