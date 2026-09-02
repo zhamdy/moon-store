@@ -17,9 +17,9 @@ import type { Queryable } from '../src/database/transaction';
 
 /**
  * The controller wraps its mutation in `withIdempotency`, which opens a transaction on
- * the module pool before the (mocked) service ever runs. Without an injected pool that
- * resolves to a real PostgreSQL connection, so this suite is only hermetic — and only
- * runs on a checkout with no `server/.env` — because the pg-mem pool is installed here.
+ * the module pool before the (mocked) service ever runs. With no pool injected here that
+ * resolves to a real PostgreSQL connection, which is why this file used to pass only on a
+ * checkout that happened to have a working `server/.env` (issue #69).
  */
 let testPool: PgPool;
 
