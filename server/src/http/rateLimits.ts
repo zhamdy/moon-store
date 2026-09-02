@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { getEnv } from '../config/env';
 import { errorResponse } from './errors';
 import logger from '../../lib/logger';
+import { isHealthPath } from '../observability/probePaths';
 
 export const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
@@ -38,19 +39,24 @@ export function authRateLimitMax(): number {
 /**
  * Paths the global limiter does not spend budget on.
  *
- * `/api/health` is a single `SELECT 1` behind an unauthenticated GET, and it is called
- * by uptime probes and load balancers on a fixed schedule. Counting it means a shop that
- * has spent its budget also fails its own health probe — the monitoring reports an
- * outage caused by the monitoring. The traffic it can generate is bounded by the prober,
- * and flooding an unauthenticated endpoint is a job for the layer in front of the app,
- * not for a budget that a cashier's checkout shares.
+ * The health probes are unauthenticated GETs called by uptime probes, load balancers and
+ * orchestrators on a fixed schedule. Counting them means a shop that has spent its budget
+ * also fails its own health probe — the monitoring reports an outage caused by the
+ * monitoring. The traffic they can generate is bounded by the prober, and flooding an
+ * unauthenticated endpoint is a job for the layer in front of the app, not for a budget
+ * that a cashier's checkout shares.
+ *
+ * The list comes from `observability/probePaths.ts` rather than being spelled out here,
+ * because the failure mode of the two drifting apart is invisible: splitting `/api/health`
+ * into `/live` and `/ready` while this predicate still matched one exact string would put
+ * the probes back on the budget and break no test.
  *
  * Deliberately narrow: register/shift polling reads are *authenticated*, so per-user
  * keying already stops one till starving another. Exempting them as well would carve
  * real, DB-touching endpoints out of abuse protection for no remaining benefit.
  */
 export function isRateLimitExempt(req: Pick<Request, 'method' | 'path'>): boolean {
-  return req.method === 'GET' && req.path === '/api/health';
+  return req.method === 'GET' && isHealthPath(req.path);
 }
 
 /**

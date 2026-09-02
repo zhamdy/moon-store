@@ -47,6 +47,25 @@ export function setPool(pool: Pool): void {
   poolInstance = pool;
 }
 
+/**
+ * Pool saturation gauges, or `null` when no pool has been created yet.
+ *
+ * Deliberately does *not* call `getPool()`: this is read by the metrics reporter and by
+ * the readiness probe, and a monitoring read that lazily opens a connection pool would be
+ * observation changing the thing observed. `waiting > 0` sustained is the signal that
+ * matters — every checkout is then queueing behind a connection rather than a query.
+ */
+export function poolStats(): { total: number; idle: number; waiting: number } | null {
+  if (!poolInstance) return null;
+  // Coerced because a test double standing in for `Pool` need not carry the gauges, and
+  // a missing gauge should read as zero rather than as `null` in a log line.
+  return {
+    total: Number(poolInstance.totalCount) || 0,
+    idle: Number(poolInstance.idleCount) || 0,
+    waiting: Number(poolInstance.waitingCount) || 0,
+  };
+}
+
 export async function closePool(): Promise<void> {
   if (poolInstance) {
     await poolInstance.end();

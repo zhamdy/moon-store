@@ -12,10 +12,17 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { apiReference } from '@scalar/express-api-reference';
 import errorHandler from './middleware/errorHandler';
-import { requestLogger } from './middleware/requestLogger';
+import { errorClassifier, observabilityMiddleware } from './src/observability/requestLogging';
+import {
+  beginShutdown,
+  legacyHealthHandler,
+  livenessHandler,
+  readinessHandler,
+} from './src/observability/health';
+import { resolveMetricsInterval, startMetricsReporter } from './src/observability/metrics';
 import { sanitizeBody } from './middleware/sanitize';
 import logger from './lib/logger';
-import db, { closePool } from './src/database/pool';
+import { closePool } from './src/database/pool';
 import { errorResponse } from './src/http/errors';
 import { openApiSpec } from './src/docs/openapi';
 
@@ -79,6 +86,15 @@ app.use(
   })
 );
 
+/**
+ * Correlation id, request log line, metrics.
+ *
+ * Ahead of the rate limiter on purpose: a `429` is exactly the response a shop calls
+ * support about, and without an id and a log line it is unattributable. Ahead of the body
+ * parser too, so a request rejected for an oversized body still produces one.
+ */
+app.use(observabilityMiddleware);
+
 // Rate limiting
 logRateLimitOverrides();
 app.use(createGlobalLimiter());
@@ -89,9 +105,6 @@ app.use(cookieParser());
 
 // Input sanitization (strip HTML/XSS vectors from request body strings)
 app.use(sanitizeBody);
-
-// Request logging
-app.use(requestLogger);
 
 /**
  * Static files (product images).
@@ -130,21 +143,25 @@ app.use(
   })
 );
 
-// Health check (includes DB connectivity test)
-app.get('/api/health', async (_req: Request, res: Response) => {
-  try {
-    await db.query('SELECT 1');
-    res.json({ success: true, data: { status: 'ok', timestamp: new Date().toISOString() } });
-  } catch {
-    res.status(503).json({ success: false, error: 'Database unreachable' });
-  }
-});
+/**
+ * Health probes. Liveness answers from the event loop and touches no dependency, so a
+ * database blip cannot get a healthy process killed; readiness checks the database and
+ * fails while shutting down, so a load balancer drains before the socket closes. The
+ * original `/api/health` keeps its exact legacy shape for the E2E harness and the deploy
+ * health check. All three are rate-limit exempt via `observability/probePaths.ts`.
+ * See `src/docs/OBSERVABILITY.md`.
+ */
+app.get('/api/health/live', livenessHandler);
+app.get('/api/health/ready', readinessHandler);
+app.get('/api/health', legacyHealthHandler);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json(errorResponse('NOT_FOUND'));
 });
 
-// Error handler
+// Error handler. `errorClassifier` only records the public error code on the request
+// context — so the request log line can carry it — and hands the error straight on.
+app.use(errorClassifier);
 app.use(errorHandler);
 
 /**
@@ -153,6 +170,15 @@ app.use(errorHandler);
  * process. See `src/scheduler/index.ts`.
  */
 const scheduler = startScheduler();
+
+/**
+ * Periodic `service_metrics` line: pool saturation and business-failure counts, the two
+ * signals no per-request line can carry. The log stream is this service's metrics
+ * transport — see `src/observability/metrics.ts` for why there is no `/metrics` endpoint.
+ */
+const metricsReporter = startMetricsReporter(
+  resolveMetricsInterval(process.env.METRICS_LOG_INTERVAL_MS)
+);
 
 // Prevent crashes from unhandled errors
 process.on('uncaughtException', (err) => {
@@ -170,7 +196,17 @@ const server = app.listen(PORT, () => {
 // Graceful shutdown
 function shutdown(signal: string): void {
   logger.info(`${signal} received, shutting down gracefully`);
+  /*
+   * Readiness goes false first, before anything stops. The window between "this instance
+   * stops advertising itself" and "this instance stops listening" is the drain: without
+   * it the load balancer is still routing new checkouts at a socket that is closing, and
+   * a cashier sees a connection reset instead of a retry against another instance.
+   * Liveness deliberately keeps passing — the process is winding down on purpose, and a
+   * failing liveness probe here would have the orchestrator SIGKILL the drain.
+   */
+  beginShutdown();
   scheduler.stop();
+  metricsReporter.stop();
   server.close(async () => {
     logger.info('HTTP server closed');
     try {

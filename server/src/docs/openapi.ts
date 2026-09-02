@@ -346,6 +346,77 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/health/live': {
+      get: {
+        tags: ['Health'],
+        summary: 'Liveness Probe',
+        description:
+          'Is this process alive? Answers from the event loop and touches no dependency, ' +
+          'so a temporarily unavailable database never fails it. A failure here means the ' +
+          'process cannot serve at all and should be restarted. Keeps returning 200 during ' +
+          'graceful shutdown so the drain is not cut short.',
+        security: [],
+        responses: {
+          '200': {
+            description: 'Process is alive',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'alive' },
+                    uptime_s: { type: 'integer', example: 3600 },
+                    shutting_down: { type: 'boolean', example: false },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/health/ready': {
+      get: {
+        tags: ['Health'],
+        summary: 'Readiness Probe',
+        description:
+          'Can this instance safely serve traffic right now? Checks the database under a ' +
+          '2s timeout and fails while the process is shutting down. A failure means "stop ' +
+          'routing traffic here", not "restart this process"; it clears without ' +
+          'intervention when the dependency returns.',
+        security: [],
+        responses: {
+          '200': {
+            description: 'Ready to serve traffic',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    status: { type: 'string', example: 'ready' },
+                    checks: {
+                      type: 'object',
+                      properties: {
+                        database: {
+                          type: 'object',
+                          properties: {
+                            status: { type: 'string', example: 'ok' },
+                            latency_ms: { type: 'integer', example: 3 },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description: 'Not ready — dependency unavailable or shutting down',
+          },
+        },
+      },
+    },
     '/api/v1/auth/login': {
       post: {
         tags: ['Auth'],

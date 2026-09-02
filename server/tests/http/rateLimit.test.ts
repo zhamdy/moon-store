@@ -31,6 +31,9 @@ import {
   trustProxySetting,
 } from '../../src/http/rateLimits';
 import jwt from 'jsonwebtoken';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { HEALTH_PATHS } from '../../src/observability/probePaths';
 
 const ENV_KEYS = ['RATE_LIMIT_MAX', 'AUTH_RATE_LIMIT_MAX', 'TRUST_PROXY'] as const;
 const savedEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
@@ -114,7 +117,7 @@ async function keyedHarness(): Promise<Harness> {
       res.json({ ok: true });
     };
     app.get('/ping', handler);
-    app.get('/api/health', handler);
+    for (const path of HEALTH_PATHS) app.get(path, handler);
   }, counter);
 }
 
@@ -625,15 +628,17 @@ describe('trust proxy', () => {
 });
 
 describe('health check exemption', () => {
-  it('does not spend the shop’s budget on the uptime probe', async () => {
-    // Counting the probe means a shop that has spent its budget also fails its own health
-    // check — monitoring reporting an outage that the monitoring caused.
+  it.each(HEALTH_PATHS)('does not spend the shop’s budget on %s', async (probePath) => {
+    // Counting a probe means a shop that has spent its budget also fails its own health
+    // check — monitoring reporting an outage that the monitoring caused. #45 split
+    // `/api/health` into liveness and readiness; each new path has to be exempt too, or
+    // the exemption silently stops applying to the probes an orchestrator actually calls.
     process.env.RATE_LIMIT_MAX = '2';
     resetEnvCache();
 
     const h = await keyedHarness();
     try {
-      const statuses = await hitMany(`${h.url}/api/health`, 10);
+      const statuses = await hitMany(`${h.url}${probePath}`, 10);
       expect(statuses.filter((s) => s !== 200)).toEqual([]);
 
       // …and the probe has not eaten the budget the tills need.
@@ -643,11 +648,27 @@ describe('health check exemption', () => {
     }
   });
 
-  it('exempts only GET /api/health', () => {
-    expect(isRateLimitExempt({ method: 'GET', path: '/api/health' })).toBe(true);
-    expect(isRateLimitExempt({ method: 'POST', path: '/api/health' })).toBe(false);
+  it('exempts exactly the declared probe paths, on GET only', () => {
+    for (const path of HEALTH_PATHS) {
+      expect(isRateLimitExempt({ method: 'GET', path })).toBe(true);
+      expect(isRateLimitExempt({ method: 'POST', path })).toBe(false);
+    }
     expect(isRateLimitExempt({ method: 'GET', path: '/api/v1/sales' })).toBe(false);
     expect(isRateLimitExempt({ method: 'GET', path: '/api/health/extra' })).toBe(false);
+    expect(isRateLimitExempt({ method: 'GET', path: '/api/health/' })).toBe(false);
+  });
+
+  it('exempts every path the server actually registers as a probe', () => {
+    // The list and the predicate share one source; this pins that they still agree with
+    // the routes `server/index.ts` mounts.
+    const registered = readFileSync(resolve(__dirname, '../../index.ts'), 'utf8');
+    const mounted = [...registered.matchAll(/app\.get\('(\/api\/health[^']*)'/g)].map((m) => m[1]);
+
+    expect(mounted.length).toBeGreaterThan(0);
+    expect(new Set(mounted)).toEqual(new Set(HEALTH_PATHS));
+    for (const path of mounted) {
+      expect(isRateLimitExempt({ method: 'GET', path })).toBe(true);
+    }
   });
 });
 
