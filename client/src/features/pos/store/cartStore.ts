@@ -88,7 +88,6 @@ interface CartState {
   setCoupon: (code: string, discount: number) => void;
   clearCoupon: () => void;
   getSubtotal: () => number;
-  getTotal: () => number;
   clearCart: () => void;
   isRecoveredCart: () => boolean;
   /**
@@ -353,14 +352,6 @@ export const useCartStore = create<CartState>()(
       getSubtotal: () => {
         const { items } = get();
         return items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
-      },
-
-      getTotal: () => {
-        const { items, discount, discountType, couponDiscount } = get();
-        const subtotal = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
-        const discountAmount =
-          discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
-        return Math.max(0, subtotal - discountAmount - couponDiscount);
       },
 
       clearCart: () =>

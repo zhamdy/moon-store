@@ -1,5 +1,28 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { calculateTotals } from '../../../shared/lib/checkout';
 import { useCartStore, sanitizeCartItem, type Product, type CartPersistedV0 } from './cartStore';
+
+/**
+ * What the current cart is worth, per the ONE authoritative calculation
+ * (`shared/lib/checkout`). The store used to expose its own `getTotal()` that
+ * derived this a second, tax/tip/loyalty-blind way; it was unused outside
+ * these assertions and was removed with issue #51's "one owner per checkout
+ * value" criterion. These cases still cover the same discount semantics --
+ * they just no longer require the store to own money.
+ */
+function amountDue(): number {
+  const { items, discount, discountType, couponDiscount } = useCartStore.getState();
+  return calculateTotals({
+    items,
+    discount,
+    discountType,
+    couponDiscount,
+    tax: { enabled: false, rate: 0, mode: 'exclusive' },
+    pointsToRedeem: 0,
+    redeemValue: 0,
+    tip: 0,
+  }).amountDue;
+}
 
 const mockProduct: Product = {
   id: 1,
@@ -121,7 +144,7 @@ describe('Cart - Subtotal & Total', () => {
 
   it('should return 0 for empty cart', () => {
     expect(useCartStore.getState().getSubtotal()).toBe(0);
-    expect(useCartStore.getState().getTotal()).toBe(0);
+    expect(amountDue()).toBe(0);
   });
 });
 
@@ -130,14 +153,14 @@ describe('Cart - Fixed Discount', () => {
     useCartStore.getState().addItem(mockProduct); // 500
     useCartStore.getState().setDiscount(100);
     useCartStore.getState().setDiscountType('fixed');
-    expect(useCartStore.getState().getTotal()).toBe(400);
+    expect(amountDue()).toBe(400);
   });
 
   it('should not go below zero with large discount', () => {
     useCartStore.getState().addItem(mockProduct2); // 200
     useCartStore.getState().setDiscount(500);
     useCartStore.getState().setDiscountType('fixed');
-    expect(useCartStore.getState().getTotal()).toBe(0);
+    expect(amountDue()).toBe(0);
   });
 });
 
@@ -146,14 +169,14 @@ describe('Cart - Percentage Discount', () => {
     useCartStore.getState().addItem(mockProduct); // 500
     useCartStore.getState().setDiscount(10);
     useCartStore.getState().setDiscountType('percentage');
-    expect(useCartStore.getState().getTotal()).toBe(450); // 500 - 10%
+    expect(amountDue()).toBe(450); // 500 - 10%
   });
 
   it('should apply 100% discount', () => {
     useCartStore.getState().addItem(mockProduct);
     useCartStore.getState().setDiscount(100);
     useCartStore.getState().setDiscountType('percentage');
-    expect(useCartStore.getState().getTotal()).toBe(0);
+    expect(amountDue()).toBe(0);
   });
 });
 
@@ -165,7 +188,7 @@ describe('Cart - Coupon Discount', () => {
     useCartStore.getState().setCoupon('SAVE20', 20);
 
     // 500 - 50 (fixed) - 20 (coupon) = 430
-    expect(useCartStore.getState().getTotal()).toBe(430);
+    expect(amountDue()).toBe(430);
   });
 
   it('should clear coupon', () => {
@@ -174,7 +197,7 @@ describe('Cart - Coupon Discount', () => {
     useCartStore.getState().clearCoupon();
     expect(useCartStore.getState().couponCode).toBe('');
     expect(useCartStore.getState().couponDiscount).toBe(0);
-    expect(useCartStore.getState().getTotal()).toBe(500);
+    expect(amountDue()).toBe(500);
   });
 });
 
