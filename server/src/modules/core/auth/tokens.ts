@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 
 /**
  * One-way digest of a refresh token, for storage and lookup.
@@ -18,4 +18,25 @@ import { createHash } from 'crypto';
  */
 export function digestRefreshToken(token: string): string {
   return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+/**
+ * The `jti` of the successor a given refresh token rotates into.
+ *
+ * Deterministic, and that is the whole point. Two callers presenting the same token --
+ * two browser tabs sharing one cookie jar, or a till retrying after a dropped response --
+ * must converge on the *same* successor. If each minted a fresh one, the second caller
+ * would invalidate the token the first was already handed, and the next request carrying
+ * that now-dead token would be classified as reuse and revoke the whole family: precisely
+ * the spurious logout the grace window exists to prevent.
+ *
+ * Keyed with the refresh secret, so possession of a refresh token does not let anyone
+ * predict its successor. An attacker who has the token can obtain the successor by
+ * presenting it anyway, so the HMAC gives away nothing it did not already have; what it
+ * prevents is deriving successors for tokens the attacker has never seen.
+ */
+export function deriveSuccessorJti(refreshSecret: string, presentedDigest: string): string {
+  return createHmac('sha256', refreshSecret)
+    .update(`refresh-rotation:${presentedDigest}`)
+    .digest('hex');
 }

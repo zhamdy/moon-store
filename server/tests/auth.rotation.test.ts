@@ -196,22 +196,56 @@ describe('refresh token reuse detection', () => {
     expect(reuse.message).toBe(unknown.message);
   });
 
-  it('tolerates a replay inside the grace window and keeps the family single-lineage', async () => {
+  it('answers a replay inside the grace window with the token already issued', async () => {
     const session = await service.login({ ...credentials });
     const first = await service.refresh(session.refreshToken);
 
     // The dropped-response retry, and the second browser tab: the same token presented
-    // again moments later. This must not look like theft.
+    // again moments later. This must not look like theft -- and, just as importantly, it
+    // must not invalidate the token the first caller was already handed.
     const replay = await service.refresh(session.refreshToken);
 
-    expect(replay.refreshToken).not.toBe(first.refreshToken);
+    expect(replay.refreshToken).toBe(first.refreshToken);
+    // A replay writes nothing at all: no new row, no new revocation.
+    expect(await rows()).toHaveLength(2);
     expect(await rows('WHERE revoked_at IS NULL')).toHaveLength(1);
-    expect((await rowFor(replay.refreshToken))?.family_id).toBe(
-      (await rowFor(session.refreshToken))?.family_id
+    expect((await rowFor(first.refreshToken))?.revoked_at).toBeNull();
+
+    // A fresh access token is still issued -- that is what the caller came for.
+    expect(replay.accessToken).toEqual(expect.any(String));
+  });
+
+  it('leaves the session usable after a replay, through the next refresh', async () => {
+    const session = await service.login({ ...credentials });
+    const first = await service.refresh(session.refreshToken);
+    const replay = await service.refresh(session.refreshToken);
+
+    // The step the previous design got wrong: whichever token the shared cookie jar ends
+    // up holding, the next refresh must succeed rather than be read as reuse. Both
+    // callers hold the same token, so there is only one thing the jar can hold.
+    const third = await service.refresh(replay.refreshToken);
+
+    expect(third.refreshToken).not.toBe(first.refreshToken);
+    expect(await rows('WHERE revoked_at IS NULL')).toHaveLength(1);
+    const { rows: reused } = await testPool.query<{ n: number }>(
+      "SELECT COUNT(*)::int AS n FROM refresh_tokens WHERE revoked_reason = 'reuse'"
     );
-    // The replay rotated the head rather than forking off the retired token.
-    expect((await rowFor(first.refreshToken))?.revoked_reason).toBe('rotated');
-    expect(await rows()).toHaveLength(3);
+    expect(reused[0].n).toBe(0);
+  });
+
+  it('rejects a replay whose successor has itself been rotated onwards', async () => {
+    const session = await service.login({ ...credentials });
+    const first = await service.refresh(session.refreshToken);
+    await service.refresh(first.refreshToken);
+
+    // Two rotations behind: there is no live token to hand back. A rejection, but not an
+    // accusation -- the family's live head is untouched.
+    await expect(service.refresh(session.refreshToken)).rejects.toBeInstanceOf(PublicError);
+    expect(await rows('WHERE revoked_at IS NULL')).toHaveLength(1);
+    const { rows: reused } = await testPool.query<{ n: number }>(
+      "SELECT COUNT(*)::int AS n FROM refresh_tokens WHERE revoked_reason = 'reuse'"
+    );
+    expect(reused[0].n).toBe(0);
   });
 
   it('does not tolerate a replay of a token killed by logout, however recent', async () => {
@@ -416,6 +450,31 @@ describe('refresh cookie settings', () => {
     resetEnvCache();
 
     expect(refreshCookieOptions()).toMatchObject({ secure: false, httpOnly: true });
+  });
+});
+
+describe('successor derivation', () => {
+  it('derives the same successor for the same token, and a different one per token', async () => {
+    const session = await service.login({ ...credentials });
+    const other = await service.login({ ...credentials });
+
+    const a = await service.refresh(session.refreshToken);
+    const b = await service.refresh(session.refreshToken);
+    const c = await service.refresh(other.refreshToken);
+
+    expect(b.refreshToken).toBe(a.refreshToken);
+    expect(c.refreshToken).not.toBe(a.refreshToken);
+  });
+
+  it('carries no wall-clock input, so two callers milliseconds apart agree', async () => {
+    const session = await service.login({ ...credentials });
+    const first = await service.refresh(session.refreshToken);
+
+    const claims = jwt.verify(first.refreshToken, JWT_REFRESH_SECRET) as Record<string, unknown>;
+    // `iat` is what would otherwise differ between two callers; the successor must not
+    // carry it, and its `exp` comes from the family's fixed expiry.
+    expect(claims.iat).toBeUndefined();
+    expect(claims.jti).toMatch(/^[0-9a-f]{64}$/);
   });
 });
 

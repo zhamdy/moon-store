@@ -40,7 +40,6 @@ export interface IAuthRepository {
     queryable?: Queryable
   ): Promise<LockedRefreshToken | null>;
   markRotated(id: number, replacedByHash: string, queryable?: Queryable): Promise<boolean>;
-  lockFamilyHead(familyId: string, queryable?: Queryable): Promise<RefreshTokenRecord | null>;
   revokeFamily(
     familyId: string,
     reason: RefreshRevocationReason,
@@ -89,9 +88,11 @@ export class AuthRepository implements IAuthRepository {
    * exclusive: whichever arrives second either sees its target already revoked, or
    * revokes the successor the first one inserted.
    *
-   * Lock order is always user-then-token. Logout deliberately does not take this lock,
-   * because it locks its token row first and adding the user lock afterwards would
-   * invert the order and open a deadlock against refresh.
+   * Every path that changes a user's sessions takes it, and takes it *first*: rotation,
+   * logout, global revocation, and the revocation that follows detected reuse. Lock order
+   * is always user-then-token, and nothing may invert it -- a path that locked a token row
+   * before this one would deadlock against a rotation holding the pair in the other
+   * order.
    */
   async lockUserForSessionChange(id: number, queryable?: Queryable): Promise<UserRecord | null> {
     const result = await this.q(queryable).query<UserRecord>(
@@ -160,29 +161,6 @@ export class AuthRepository implements IAuthRepository {
       [id, replacedByHash]
     );
     return result.rows.length > 0;
-  }
-
-  /**
-   * Locks whichever row is currently the family's live head.
-   *
-   * Used by the grace-window replay path: that caller is holding a token which has
-   * already been rotated away, so rotating *it* would fork the lineage into two live
-   * tokens. Rotating the head instead keeps the invariant this whole design rests on --
-   * at most one live row per family, always.
-   */
-  async lockFamilyHead(
-    familyId: string,
-    queryable?: Queryable
-  ): Promise<RefreshTokenRecord | null> {
-    const result = await this.q(queryable).query<RefreshTokenRecord>(
-      `SELECT * FROM refresh_tokens
-        WHERE family_id = $1 AND revoked_at IS NULL
-        ORDER BY id DESC
-        LIMIT 1
-        FOR UPDATE`,
-      [familyId]
-    );
-    return result.rows[0] || null;
   }
 
   /** Revokes every still-live row in one session lineage. Returns how many it killed. */

@@ -11,7 +11,7 @@ import {
   UserSummary,
 } from './types';
 import { jwtConfig, rotationGraceMs } from './config';
-import { digestRefreshToken } from './tokens';
+import { deriveSuccessorJti, digestRefreshToken } from './tokens';
 import { PublicError } from '../../../http/errors';
 import { Queryable, withTransaction } from '../../../database/transaction';
 import logger from '../../../../lib/logger';
@@ -192,34 +192,31 @@ export class AuthService {
       };
     }
 
-    // Which row this refresh actually rotates: normally the presented one, and on a
-    // tolerated replay the family's current head instead -- see `resolveReplay`.
-    const target = presented.revoked_at
-      ? await this.resolveReplay(presented, now, client)
-      : ({ kind: 'head', row: presented } as const);
-    if (target.kind === 'revoke') {
-      return target;
+    // The successor a token rotates into is a pure function of that token (see
+    // `deriveSuccessorJti`), so it is the same whether it is being minted now or
+    // recovered by a replay moments later.
+    const familyExpiresAt = new Date(presented.expires_at);
+    const successor = this.deriveSuccessor(presented.user_id, presentedHash, familyExpiresAt);
+    const successorHash = digestRefreshToken(successor);
+
+    if (presented.revoked_at) {
+      return this.resolveReplay(presented, user, now, successor, successorHash, client);
     }
 
-    const head = target.row;
-    if (new Date(head.expires_at) <= now) {
+    if (familyExpiresAt <= now) {
+      throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
+    }
+
+    // Guarded on `revoked_at IS NULL`. Losing this means something invalidated the row
+    // between the lock and here, so the safe answer is to issue nothing.
+    const rotated = await this.repo.markRotated(presented.id, successorHash, client);
+    if (!rotated) {
       throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
     }
 
     // The successor inherits the family's original expiry rather than starting a fresh 7
     // days. Rotation must not quietly turn a bounded session into a perpetual one: a
     // session still ends 7 days after the login that created it.
-    const familyExpiresAt = new Date(head.expires_at);
-    const successor = this.signRefreshToken(user.id, familyExpiresAt, now);
-    const successorHash = digestRefreshToken(successor);
-
-    // Guarded on `revoked_at IS NULL`. Losing this means something invalidated the row
-    // between the lock and here, so the safe answer is to issue nothing.
-    const rotated = await this.repo.markRotated(head.id, successorHash, client);
-    if (!rotated) {
-      throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
-    }
-
     await this.repo.createRefreshToken(
       user.id,
       successorHash,
@@ -239,31 +236,44 @@ export class AuthService {
   }
 
   /**
-   * Decides what a presentation of an already-invalidated token means, and returns the
-   * row the caller should rotate instead.
+   * Decides what a presentation of an already-invalidated token means.
    *
    * Two honest clients present an invalidated token routinely: two browser tabs sharing
-   * one cookie both fire `/auth/refresh` the moment the access token expires, and a till
-   * whose response was dropped retries. Treating those as theft would revoke the user's
-   * whole session on the most ordinary interaction there is. Treating theft as honest
-   * would make rotation decorative.
+   * one cookie jar both fire `/auth/refresh` the moment the access token expires, and a
+   * till whose response was dropped retries. Treating those as theft would revoke the
+   * user's whole session on the most ordinary interaction there is. Treating theft as
+   * honest would make rotation decorative.
    *
    * The line between them is time and cause. Within `REFRESH_ROTATION_GRACE_SECONDS` of
-   * the row being *rotated*, the presentation is a replay of an in-flight refresh: it
-   * rotates the family's current head, so the caller gets a usable token and the family
-   * stays single-lineage. Anything else -- a rotated token replayed after the window, or
-   * one invalidated by a logout or an earlier reuse -- is treated as compromise.
+   * the row being *rotated*, the presentation is a replay of a refresh that already
+   * happened, and it is answered **idempotently: with the very token that rotation
+   * issued**, recomputed rather than stored. Anything else -- a rotated token replayed
+   * after the window, or one invalidated by a logout or an earlier reuse -- is treated as
+   * compromise.
    *
-   * The residual risk is explicit: a thief racing the legitimate holder inside the window
-   * gets one session. The window is seconds by configuration and can be set to zero for
-   * strict semantics; the alternative is a spurious logout every time a user has two tabs
-   * open.
+   * Answering with the existing successor rather than rotating again is the whole point.
+   * Minting a fresh token for the second caller would invalidate the one the first caller
+   * was already handed; in a shared cookie jar the loser's `Set-Cookie` can land last, and
+   * the next request would then carry a token revoked minutes ago, be classified as reuse,
+   * and revoke the family -- the exact logout this window exists to prevent, merely moved
+   * one refresh later. Because no live token is invalidated here, a replay is now a pure
+   * read: nothing is written at all.
+   *
+   * Handing an already-issued token to a second caller is safe in a way a fresh one is
+   * not: it is the same token this session already holds, and a caller able to present its
+   * predecessor could obtain it by presenting that predecessor a moment earlier in any
+   * case. Reuse detection is not weakened, only deferred -- a thief and the legitimate
+   * holder both end up on the same token, and the first of them to fall outside the window
+   * trips detection then.
    */
   private async resolveReplay(
     presented: RefreshTokenRecord,
+    user: UserRecord,
     now: Date,
+    successor: string,
+    successorHash: string,
     client: Queryable
-  ): Promise<{ kind: 'head'; row: RefreshTokenRecord } | RevokeOutcome> {
+  ): Promise<RotationOutcome> {
     const revokedAt = new Date(presented.revoked_at as Date);
     const withinGrace =
       presented.revoked_reason === 'rotated' &&
@@ -279,13 +289,35 @@ export class AuthService {
       };
     }
 
-    const head = await this.repo.lockFamilyHead(presented.family_id, client);
-    if (!head) {
-      // Rotated within the window, but the family has no live head: a logout or a
-      // revocation landed in between. Nothing to issue, and nothing to accuse.
+    // The recomputed successor must be the one actually recorded at rotation time. A
+    // mismatch means the row was rotated by something that derived it differently -- a
+    // token predating this scheme, say -- so there is no issued token to hand back. That
+    // is a rejection, not an accusation.
+    if (presented.replaced_by_hash !== successorHash) {
       throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
     }
-    return { kind: 'head', row: head };
+
+    const issued = await this.repo.lockRefreshTokenByHash(successorHash, client);
+    if (
+      !issued ||
+      issued.token.revoked_at ||
+      issued.token.family_id !== presented.family_id ||
+      new Date(issued.token.expires_at) <= now
+    ) {
+      // The successor has itself been rotated onwards, revoked, or has expired. The caller
+      // is simply behind; the live head of this family is somewhere else and this replay
+      // has nothing valid to return. No revocation: nothing here is evidence of theft.
+      throw new PublicError('UNAUTHORIZED', REFRESH_REJECTED);
+    }
+
+    return {
+      kind: 'rotated',
+      result: {
+        accessToken: this.signAccessToken(user),
+        refreshToken: successor,
+        user: this.toSummary(user),
+      },
+    };
   }
 
   /**
@@ -406,6 +438,24 @@ export class AuthService {
    * `refresh_tokens.token_hash UNIQUE`, and either one's revocation kills the row both
    * were relying on.
    */
+  /**
+   * The token a given refresh token rotates into.
+   *
+   * Byte-identical for identical inputs, which is what lets a replay be answered with the
+   * token already issued instead of a new one. That requires the signature to carry no
+   * wall-clock input at all: `iat` is suppressed and `exp` is taken from the family's
+   * fixed expiry rather than computed from "now", so two callers milliseconds apart
+   * produce the same string.
+   */
+  private deriveSuccessor(userId: number, presentedDigest: string, expiresAt: Date): string {
+    const { refreshSecret } = jwtConfig();
+
+    return jwt.sign({ id: userId, exp: Math.floor(expiresAt.getTime() / 1000) }, refreshSecret, {
+      jwtid: deriveSuccessorJti(refreshSecret, presentedDigest),
+      noTimestamp: true,
+    });
+  }
+
   private signRefreshToken(userId: number, expiresAt: Date, now: Date): string {
     const { refreshSecret } = jwtConfig();
     // Rounded up so a sub-second remainder never signs `expiresIn: 0`, which
