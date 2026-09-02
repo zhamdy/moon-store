@@ -357,7 +357,9 @@ export default function GiftCards() {
         confirmText={t('common.confirm')}
         confirmColor="danger"
         isLoading={canceller.isSaving}
-        onConfirm={() => cancelId && canceller.save({ id: cancelId, status: 'cancelled' })}
+        onConfirm={() => {
+          if (cancelId) canceller.save({ id: cancelId, status: 'cancelled' });
+        }}
       />
 
       {/* Transactions Dialog */}

@@ -20,10 +20,10 @@ export function FormField({
   children,
 }: FormFieldProps): React.JSX.Element {
   const ids = useFormFieldIds(id);
-  const errorText =
+  const errorText: React.ReactNode =
     typeof errorMessage === 'object' && errorMessage !== null && 'message' in errorMessage
-      ? (errorMessage.message as string)
-      : errorMessage;
+      ? (errorMessage.message ?? null)
+      : (errorMessage as React.ReactNode);
 
   const hasError = Boolean(isInvalid || errorText);
 

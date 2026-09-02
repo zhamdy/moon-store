@@ -6,6 +6,7 @@ import {
   RouterProvider,
   createRootRouteWithContext,
   createRoute,
+  type AnyRouter,
 } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { routeTree as appRouteTree } from '../../routeTree.gen';
@@ -45,7 +46,7 @@ export function createTestRouter(
 export function renderWithRouter(
   ui?: ReactNode,
   options: RenderWithRouterOptions = {}
-): RenderResult & { router: ReturnType<typeof createTestRouter> } {
+): RenderResult & { router: AnyRouter } {
   const {
     initialRoute = '/',
     authState = { isAuthenticated: false, user: null },
@@ -55,7 +56,7 @@ export function renderWithRouter(
     useAppRoutes = false,
   } = options;
 
-  let testRouter: ReturnType<typeof createTestRouter>;
+  let testRouter: AnyRouter;
 
   if (useAppRoutes || !ui) {
     testRouter = createTestRouter(initialRoute, authState);

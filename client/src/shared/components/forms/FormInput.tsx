@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { X } from 'lucide-react';
 import { FormField } from './FormField';
 import type { FormInputProps } from './types';
