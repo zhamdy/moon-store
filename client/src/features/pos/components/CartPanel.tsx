@@ -119,15 +119,16 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
   // Submission lifecycle: keying, posting, the receipt, and the offline
   // fallback. `onCheckoutSettled` is the surrounding UI's reset, run once the
   // sale is committed or queued -- never after a failure the cashier retries.
-  const { submit, isPending, receiptOpen, setReceiptOpen, receiptData } = useCheckoutSubmission({
-    tax,
-    customerName: customer.selected?.name,
-    onCheckoutSettled: () => {
-      setCheckoutOpen(false);
-      customer.reset();
-      resetRedemption();
-    },
-  });
+  const { submit, isPending, stockConflict, receiptOpen, setReceiptOpen, receiptData } =
+    useCheckoutSubmission({
+      tax,
+      customerName: customer.selected?.name,
+      onCheckoutSettled: () => {
+        setCheckoutOpen(false);
+        customer.reset();
+        resetRedemption();
+      },
+    });
 
   const handleCheckout = (): void => {
     // A recovered/restored cart is not fully trusted for checkout until the
@@ -288,6 +289,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
         onConfirm={handleCheckout}
         isPending={isPending}
         needsReview={needsReview}
+        stockConflict={stockConflict}
       />
     </div>
   );
