@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { Pool as PgPool } from 'pg';
 import path from 'path';
@@ -106,39 +107,47 @@ describe('Auth - User Lookup', () => {
 });
 
 describe('Auth - Refresh Token Storage', () => {
-  it('should store and retrieve refresh tokens in PostgreSQL', async () => {
-    const token = jwt.sign({ id: 1 }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  it('stores only a digest, never the presented token', async () => {
+    const token = jwt.sign({ id: 1 }, JWT_REFRESH_SECRET, { expiresIn: '7d', jwtid: 'store-1' });
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const hash = createHash('sha256').update(token, 'utf8').digest('hex');
 
     await testPool.query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [1, token, expiresAt]
+      'INSERT INTO refresh_tokens (user_id, token_hash, family_id, expires_at) VALUES ($1, $2, $3, $4)',
+      [1, hash, 'family-store-1', expiresAt]
     );
 
-    const storedResult = await testPool.query(
-      'SELECT * FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
-      [token]
+    const stored = await testPool.query(
+      'SELECT * FROM refresh_tokens WHERE token_hash = $1 AND expires_at > NOW()',
+      [hash]
     );
 
-    expect(storedResult.rows).toHaveLength(1);
-    expect(storedResult.rows[0].user_id).toBe(1);
+    expect(stored.rows).toHaveLength(1);
+    expect(stored.rows[0].user_id).toBe(1);
+    // The plaintext column is gone from the schema entirely, so "the row is the token"
+    // is not merely avoided by convention -- it is unrepresentable.
+    expect(Object.keys(stored.rows[0])).not.toContain('token');
+    expect(JSON.stringify(stored.rows[0])).not.toContain(token);
   });
 
-  it('should delete refresh token on logout', async () => {
-    const token = jwt.sign({ id: 2 }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  it('revokes rather than deletes, so a later replay is still recognisable', async () => {
+    const token = jwt.sign({ id: 2 }, JWT_REFRESH_SECRET, { expiresIn: '7d', jwtid: 'store-2' });
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const hash = createHash('sha256').update(token, 'utf8').digest('hex');
 
     await testPool.query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [2, token, expiresAt]
+      'INSERT INTO refresh_tokens (user_id, token_hash, family_id, expires_at) VALUES ($1, $2, $3, $4)',
+      [2, hash, 'family-store-2', expiresAt]
     );
 
-    await testPool.query('DELETE FROM refresh_tokens WHERE token = $1', [token]);
+    await authService.logout(token);
 
-    const storedResult = await testPool.query('SELECT * FROM refresh_tokens WHERE token = $1', [
-      token,
+    const stored = await testPool.query('SELECT * FROM refresh_tokens WHERE token_hash = $1', [
+      hash,
     ]);
-    expect(storedResult.rows).toHaveLength(0);
+    expect(stored.rows).toHaveLength(1);
+    expect(stored.rows[0].revoked_reason).toBe('logout');
+    expect(stored.rows[0].revoked_at).not.toBeNull();
   });
 });
 
@@ -255,20 +264,31 @@ describe('Auth HTTP contract', () => {
     expect(next.mock.calls[0][0]).toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
-  it('returns refresh data without the legacy success flag', async () => {
+  it('returns refresh data without the legacy success flag, and rotates the cookie', async () => {
     vi.spyOn(authService, 'refresh').mockResolvedValue({
       accessToken: 'new-access-token',
+      refreshToken: 'rotated-refresh-token',
       user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
     });
     const json = vi.fn();
+    const cookie = vi.fn();
     const next = vi.fn();
 
     await new AuthController().refresh(
       { cookies: { refreshToken: 'refresh-token' } } as Request,
-      { json } as unknown as Response,
+      { json, cookie } as unknown as Response,
       next
     );
 
+    // The cookie the caller sent is dead once refresh succeeds, so the successor has to
+    // travel back in the same response.
+    expect(cookie).toHaveBeenCalledWith(
+      'refreshToken',
+      'rotated-refresh-token',
+      expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/' })
+    );
+
+    // The response body is unchanged: the refresh token has never been in it.
     expect(json).toHaveBeenCalledWith({
       data: {
         accessToken: 'new-access-token',
@@ -297,7 +317,14 @@ describe('Auth HTTP contract', () => {
       vi.fn()
     );
 
-    expect(clearCookie).toHaveBeenCalledWith('refreshToken', { path: '/' });
+    // The clearing attributes must match the ones the cookie was set with, or the
+    // browser keeps it: a "logout" that leaves a live refresh cookie behind.
+    expect(clearCookie).toHaveBeenCalledWith('refreshToken', {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+    });
     expect(sendStatus).toHaveBeenCalledWith(204);
   });
 

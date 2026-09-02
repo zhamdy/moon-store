@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Pool as PgPool } from 'pg';
+import fs from 'fs';
 import path from 'path';
 import { createPgMemPool } from '../support/pgMem';
 import {
@@ -8,6 +9,21 @@ import {
   getAppliedMigrations,
   ensureMigrationTable,
 } from '../../src/database/migrate';
+
+const MIGRATION_FILES = fs
+  .readdirSync(path.join(__dirname, '../../src/database/migrations'))
+  .filter((f) => f.endsWith('.sql') && !f.includes('.down.sql'))
+  .sort();
+
+/** How many steps down it takes to roll back to, and including, `name`. */
+function rollbackDepthTo(name: string): number {
+  return MIGRATION_FILES.length - MIGRATION_FILES.indexOf(name);
+}
+
+/** Everything from `name` onwards, in apply order. */
+function migrationsFrom(name: string): string[] {
+  return MIGRATION_FILES.slice(MIGRATION_FILES.indexOf(name));
+}
 
 describe('PostgreSQL Migration Runner', () => {
   let memPool: PgPool;
@@ -43,12 +59,9 @@ describe('PostgreSQL Migration Runner', () => {
     expect(tableNames).toContain('customers');
 
     const records = await getAppliedMigrations(memPool);
-    expect(records).toEqual([
-      '001_initial_schema.sql',
-      '002_checkout_financial_contract.sql',
-      '003_sale_calculation_snapshot.sql',
-      '004_concurrency_and_idempotency.sql',
-    ]);
+    // Derived from the directory, never spelled out: a literal list turns every new
+    // migration into a failure here, phrased as if the runner broke.
+    expect(records).toEqual(MIGRATION_FILES);
   });
 
   it('should skip already applied migrations on subsequent run', async () => {
@@ -59,13 +72,8 @@ describe('PostgreSQL Migration Runner', () => {
 
   it('should rollback migrations with down runner', async () => {
     await runMigrationsUp(memPool, migrationsDir);
-    const rolledBack = await runMigrationsDown(4, memPool, migrationsDir);
-    expect(rolledBack).toEqual([
-      '004_concurrency_and_idempotency.sql',
-      '003_sale_calculation_snapshot.sql',
-      '002_checkout_financial_contract.sql',
-      '001_initial_schema.sql',
-    ]);
+    const rolledBack = await runMigrationsDown(MIGRATION_FILES.length, memPool, migrationsDir);
+    expect(rolledBack).toEqual([...MIGRATION_FILES].reverse());
 
     const records = await getAppliedMigrations(memPool);
     expect(records).toHaveLength(0);
@@ -93,20 +101,10 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
 
   it('applies 002 on top of an already-applied 001 (upgrade path)', async () => {
     const firstRun = await runMigrationsUp(memPool, migrationsDir);
-    expect(firstRun).toEqual([
-      '001_initial_schema.sql',
-      '002_checkout_financial_contract.sql',
-      '003_sale_calculation_snapshot.sql',
-      '004_concurrency_and_idempotency.sql',
-    ]);
+    expect(firstRun).toEqual(MIGRATION_FILES);
 
     const applied = await getAppliedMigrations(memPool);
-    expect(applied).toEqual([
-      '001_initial_schema.sql',
-      '002_checkout_financial_contract.sql',
-      '003_sale_calculation_snapshot.sql',
-      '004_concurrency_and_idempotency.sql',
-    ]);
+    expect(applied).toEqual(MIGRATION_FILES);
   });
 
   it('fresh database: resolves canonical loyalty settings with documented safe defaults', async () => {
@@ -136,11 +134,7 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
     );
 
     const applied = await runMigrationsUp(upgradePool, migrationsDir);
-    expect(applied).toEqual([
-      '002_checkout_financial_contract.sql',
-      '003_sale_calculation_snapshot.sql',
-      '004_concurrency_and_idempotency.sql',
-    ]);
+    expect(applied).toEqual(migrationsFrom('002_checkout_financial_contract.sql'));
 
     const settings = await settingsMap(upgradePool);
     expect(settings.loyalty_points_per_egp).toBe('3');
@@ -196,14 +190,11 @@ describe('002_checkout_financial_contract: canonical loyalty settings migration'
     );
 
     await runMigrationsUp(upgradePool, migrationsDir);
-    // Roll back 004 and 003 (both unrelated to loyalty settings) down to and
-    // including 002, to exercise 002's down migration specifically.
-    const rolledBack = await runMigrationsDown(3, upgradePool, migrationsDir);
-    expect(rolledBack).toEqual([
-      '004_concurrency_and_idempotency.sql',
-      '003_sale_calculation_snapshot.sql',
-      '002_checkout_financial_contract.sql',
-    ]);
+    // Roll back everything above 002 (all unrelated to loyalty settings) down to and
+    // including 002, to exercise the 002 down migration specifically.
+    const target = '002_checkout_financial_contract.sql';
+    const rolledBack = await runMigrationsDown(rollbackDepthTo(target), upgradePool, migrationsDir);
+    expect(rolledBack).toEqual([...migrationsFrom(target)].reverse());
 
     const settings = await settingsMap(upgradePool);
     expect(settings.loyalty_points_per_egp).toBe('2');

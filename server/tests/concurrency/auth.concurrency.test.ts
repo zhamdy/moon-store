@@ -18,6 +18,7 @@ import {
   type RealPostgresHarness,
 } from '../support/realPostgres';
 import { AuthService } from '../../src/modules/core/auth/service';
+import { digestRefreshToken } from '../../src/modules/core/auth/tokens';
 import { PublicError } from '../../src/http/errors';
 
 describeWithPostgres('refresh token session isolation under concurrency', () => {
@@ -64,11 +65,11 @@ describeWithPostgres('refresh token session isolation under concurrency', () => 
 
     expect(second.refreshToken).not.toBe(first.refreshToken);
 
-    const { rows } = await harness.pool.query<{ token: string }>(
-      'SELECT token FROM refresh_tokens ORDER BY id'
+    const { rows } = await harness.pool.query<{ token_hash: string }>(
+      'SELECT token_hash FROM refresh_tokens ORDER BY id'
     );
     expect(rows).toHaveLength(2);
-    expect(new Set(rows.map((r) => r.token)).size).toBe(2);
+    expect(new Set(rows.map((r) => r.token_hash)).size).toBe(2);
   });
 
   it('survives four simultaneous logins without a unique-constraint failure', async () => {
@@ -98,9 +99,20 @@ describeWithPostgres('refresh token session isolation under concurrency', () => 
     const refreshed = await service.refresh(till2.refreshToken);
     expect(refreshed.user.email).toBe(credentials.email);
 
-    const { rows } = await harness.pool.query<{ token: string }>(
-      'SELECT token FROM refresh_tokens'
+    // Rotation replaces the row behind a live session, so the durable claim is about
+    // families, not rows: till1's lineage is entirely dead and till2's still has a head.
+    const { rows } = await harness.pool.query<{ family_id: string; live: number }>(
+      `SELECT family_id, COUNT(*) FILTER (WHERE revoked_at IS NULL)::int AS live
+         FROM refresh_tokens GROUP BY family_id`
     );
-    expect(rows.map((r) => r.token)).toEqual([till2.refreshToken]);
+    expect(rows).toHaveLength(2);
+    const liveFamilies = rows.filter((r) => r.live > 0);
+    expect(liveFamilies).toHaveLength(1);
+
+    const { rows: till1Rows } = await harness.pool.query<{ family_id: string }>(
+      'SELECT family_id FROM refresh_tokens WHERE token_hash = $1',
+      [digestRefreshToken(till1.refreshToken)]
+    );
+    expect(till1Rows[0].family_id).not.toBe(liveFamilies[0].family_id);
   });
 });
