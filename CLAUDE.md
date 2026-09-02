@@ -178,6 +178,90 @@ till is confirmed to be sending the header. The observable is that
 matches the day's sale count. Flipping is a config change, not a deploy, so it is
 reversible in seconds.
 
+## Refresh token rotation
+
+Refresh tokens are stored as a SHA-256 digest, never in plaintext, and each login opens a
+`family_id` that every rotation of that session stays inside. A refresh token is usable
+**once**: `POST /api/v1/auth/refresh` invalidates the presented token, issues a successor
+in the same family, and returns it as a new `refreshToken` cookie. The response body is
+unchanged, and the cookie stays httpOnly, so no client change was needed.
+
+SHA-256 rather than bcrypt because a refresh token is a signed JWT with a random `jti`,
+not a human-chosen password: there is no dictionary for a work factor to slow down, while
+bcrypt would add ~100ms to every refresh and, being salted, turn lookup from an index probe
+into a full scan.
+
+A successor **never extends the session**: it inherits the family's original `expires_at`,
+so a session still ends `JWT_REFRESH_TTL_DAYS` after the login that created it.
+
+Presenting an already-invalidated token revokes the **whole family** and returns the same
+opaque 401 every other failure returns — a caller holding a stolen token cannot learn which
+failure it hit, or whether the theft was noticed. The distinction is logged server-side,
+with a digest prefix and never token material.
+
+### The replay window, and why a replay returns an old token
+
+Two tabs sharing one cookie jar both fire `/auth/refresh` the instant the access token
+expires, and a client that never received its response asks again. Those honest cases
+present an invalidated token routinely, so within `REFRESH_ROTATION_GRACE_SECONDS` a
+presentation is treated as a **replay** and answered *idempotently, with the token that
+rotation already issued* — not with a fresh one. Minting a fresh token for the second
+caller would invalidate the one the first caller was already handed, and in a shared jar
+the loser's `Set-Cookie` can land last: the next refresh would then carry a token revoked
+minutes earlier, be classified as reuse, and log the user out everywhere. Converging both
+callers on one token removes the choice. A replay writes nothing at all.
+
+That is possible without storing plaintext because the successor is **derived**, not
+randomly signed: its `jti` is `HMAC(refresh secret, digest of the presented token)`, `iat`
+is suppressed and `exp` comes from the family's fixed expiry, which makes the token a pure
+function of the token it replaces. Reuse detection is deferred by this, not weakened — a
+thief and the legitimate holder converge on the same token, and whichever falls outside the
+window first trips detection.
+
+### Serialization
+
+Every path that changes a user's sessions takes `SELECT ... FOR UPDATE` on the **user row
+first**, then token rows: rotation, logout, global revocation, and the revocation that
+follows detected reuse. Nothing may invert that order. Without the user lock, "revoke every
+live session" is one statement whose snapshot is fixed when it starts, so a successor
+inserted by a rotation committing a moment later is not in it and the session comes back.
+Freshness is measured with `clock_timestamp()`, never `NOW()`: `NOW()` is fixed at
+transaction start, so for the caller that loses the lock race it reads *earlier* than the
+revocation it is compared against.
+
+Revocation after a detected reuse runs in its own transaction *after* the rotation
+transaction commits — throwing from inside would roll it back — and is best-effort: a
+database fault there is logged as a security event but never turns the 401 into a 500.
+
+### Cleanup
+
+Rows are revoked, never deleted, until they expire: a revoked row is the evidence that
+makes a later replay detectable, and a deleted one cannot tell "token I have never seen"
+from "token I invalidated 20 minutes ago". `DELETE ... WHERE expires_at < NOW()` is swept
+on login, throttled hourly per process and non-fatal.
+
+### Configuration
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `JWT_ACCESS_TTL` | `15m` | Access-token lifetime. **Capped at 1h.** |
+| `JWT_REFRESH_TTL_DAYS` | `7` | Session lifetime, and the ceiling no rotation extends. |
+| `REFRESH_ROTATION_GRACE_SECONDS` | `60` | Replay window; `0` is strict no-grace rotation. |
+| `COOKIE_SAMESITE` | `lax` | Case-insensitive; `none` forces `Secure`. |
+| `COOKIE_DOMAIN` | unset | Unset means a host-only cookie, which is stricter. |
+
+All five fall back to their default and warn rather than failing the boot, the same posture
+as the rate-limit ceilings. The access TTL cap is not a style choice: an access token is
+accepted on its signature alone, so `JWT_ACCESS_TTL=7d` would make logout, global
+revocation and reuse detection no-ops for a week. The grace default is derived from the
+case it absorbs — a client cannot even observe a dropped response until its HTTP request
+times out, commonly 30s or more, so the previous 10s sat below the timescale of the failure
+it existed for.
+
+`POST /api/v1/auth/logout` ends the presented token's whole lineage;
+`POST /api/v1/auth/logout-all` ends every session that user has, on every device. Neither
+can reach an access token already issued, which is why that lifetime is short and capped.
+
 ## Git Workflow
 
 - **Always branch from `main`** before starting a feature (`feature/xxx`, `fix/xxx`)

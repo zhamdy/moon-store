@@ -12,8 +12,14 @@
  * there are no legacy rows for a validating constraint to reject.
  *
  * Suites that need genuine concurrency use `./realPostgres` instead — pg-mem has no MVCC.
+ *
+ * It is also missing `clock_timestamp()`, which the refresh-token rotation path uses to
+ * measure elapsed time inside a transaction (`NOW()` is fixed at transaction start, so it
+ * cannot measure anything that happens during one). Registering it here keeps the
+ * production SQL honest rather than degrading it to a function the test engine happens to
+ * implement.
  */
-import { newDb, type IMemoryDb } from 'pg-mem';
+import { DataType, newDb, type IMemoryDb } from 'pg-mem';
 import type { Pool as PgPool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 /** Matches a trailing `NOT VALID` on an ALTER TABLE ... ADD CONSTRAINT statement. */
@@ -56,6 +62,15 @@ function patchQueryable<T extends { query: (...args: never[]) => unknown }>(targ
  * written in. Migrations run through `pool.connect()`, so pooled clients are patched too.
  */
 export function pgMemPoolFrom(memDb: IMemoryDb): PgPool {
+  memDb.public.registerFunction({
+    name: 'clock_timestamp',
+    args: [],
+    returns: DataType.timestamptz,
+    // Impure: it must be re-evaluated per row/statement, not folded into a constant.
+    impure: true,
+    implementation: () => new Date(),
+  });
+
   const { Pool } = memDb.adapters.createPg();
   const pool = patchQueryable(new Pool() as unknown as PgPool);
 
