@@ -10,7 +10,7 @@ import { useCartStore, sanitizeCartItem, type Product, type CartPersistedV0 } fr
  * value" criterion. These cases still cover the same discount semantics --
  * they just no longer require the store to own money.
  */
-function amountDue(): number {
+function totals() {
   const { items, discount, discountType, couponDiscount } = useCartStore.getState();
   return calculateTotals({
     items,
@@ -21,8 +21,11 @@ function amountDue(): number {
     pointsToRedeem: 0,
     redeemValue: 0,
     tip: 0,
-  }).amountDue;
+  });
 }
+
+const amountDue = () => totals().amountDue;
+const subtotal = () => totals().subtotal;
 
 const mockProduct: Product = {
   id: 1,
@@ -133,17 +136,17 @@ describe('Cart - Subtotal & Total', () => {
   it('should calculate subtotal correctly', () => {
     useCartStore.getState().addItem(mockProduct); // 500
     useCartStore.getState().addItem(mockProduct2); // 200
-    expect(useCartStore.getState().getSubtotal()).toBe(700);
+    expect(subtotal()).toBe(700);
   });
 
   it('should calculate subtotal with quantity', () => {
     useCartStore.getState().addItem(mockProduct);
     useCartStore.getState().updateQuantity(1, 3);
-    expect(useCartStore.getState().getSubtotal()).toBe(1500); // 500 * 3
+    expect(subtotal()).toBe(1500); // 500 * 3
   });
 
   it('should return 0 for empty cart', () => {
-    expect(useCartStore.getState().getSubtotal()).toBe(0);
+    expect(subtotal()).toBe(0);
     expect(amountDue()).toBe(0);
   });
 });

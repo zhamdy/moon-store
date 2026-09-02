@@ -87,7 +87,6 @@ interface CartState {
   setTip: (tip: number) => void;
   setCoupon: (code: string, discount: number) => void;
   clearCoupon: () => void;
-  getSubtotal: () => number;
   clearCart: () => void;
   isRecoveredCart: () => boolean;
   /**
@@ -348,11 +347,6 @@ export const useCartStore = create<CartState>()(
       setTip: (tip) => set({ tip }),
       setCoupon: (code, discount) => set({ couponCode: code, couponDiscount: discount }),
       clearCoupon: () => set({ couponCode: '', couponDiscount: 0 }),
-
-      getSubtotal: () => {
-        const { items } = get();
-        return items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
-      },
 
       clearCart: () =>
         set({

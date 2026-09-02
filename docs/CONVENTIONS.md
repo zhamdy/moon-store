@@ -26,7 +26,10 @@ judgment — stop at the first question that matches.
 2. **Is it the app shell or the composition root** (renders/wires more than one feature, e.g. routing,
    the sidebar, session bootstrapping)? → `client/src/app/`.
 3. **Otherwise** → the one slice that uses it (`client/src/features/<slice>/`), in the folder matching
-   its kind (`pages/`, `components/`, `hooks/`, `store/`, or `types.ts`).
+   its kind (`pages/`, `components/`, `hooks/`, `lib/`, `store/`, or `types.ts`). `lib/` is for
+   slice-local **pure** logic — no React, no stores, no transport — the same role `shared/lib/`
+   plays one layer up (e.g. `features/pos/lib/salePayload.ts`). If it is pure *and* a second slice
+   needs it, it belongs in `shared/lib/` instead, by rule 1.
 4. **Does another slice need it?** → export it from that slice's `index.ts`. Never import a path inside
    another slice's internals (`@/features/other-slice/pages/...`) — that is an
    `eslint-plugin-boundaries` violation once the file leaves its own slice.
@@ -75,6 +78,36 @@ decision, not an oversight — do not "fix" it as a drive-by during unrelated wo
 Treat all four of the above as a deliberate, currently-flat global namespace. If you're adding to one of
 them, follow its existing shape; if you're tempted to namespace or split one of them "while you're in
 there," raise it as its own change instead.
+
+---
+
+## Checkout ownership contract
+
+Every value a checkout is made of has exactly **one** owner. This is not tidiness: the cart footer
+once added tax but ignored points and tip while the drawer subtracted both, so a cashier balanced
+split payments against a figure that was not what the customer owed.
+
+| Value | Owner |
+| --- | --- |
+| Every money figure (subtotal, discounts, tax, tip, amount due, earned points) | `shared/lib/checkout.ts`'s `calculateTotals`, called once per render by `features/pos/hooks/useCheckoutPricing.ts` |
+| Tax and loyalty policy (parsed from the settings row) | `features/pos/lib/checkoutSettings.ts` |
+| Loyalty redemption state (toggle + point count) and its cap | `useCheckoutPricing` — the count is meaningless apart from the cap that clamps it |
+| Split-tender allocation and whether it balances | `useCheckoutPricing`'s `split` |
+| The sale body and the reduced offline body | `features/pos/lib/salePayload.ts`, both from one `SaleComposition` |
+| The receipt | `features/pos/lib/saleReceipt.ts`, from the server's confirmed response only |
+| Submission, idempotency keying, receipt state, offline fallback | `features/pos/hooks/useCheckoutSubmission.ts` |
+
+Rules that follow from it:
+
+- **A component never derives money.** `CartPanel`, `CartFooter`, `CheckoutSummary`,
+  `PaymentSection` and the customer display all read the same `totals`/`split` objects. If you find
+  yourself writing arithmetic on prices in a component, the figure belongs in `calculateTotals`.
+- **The cart store holds inputs, not outcomes.** It owns items, discount, coupon code/amount, tip
+  and notes. It deliberately no longer exposes `getTotal()` or `getSubtotal()` — both were float
+  re-derivations of figures `calculateTotals` already produces in minor units. Read
+  `totals.subtotal` / `totals.amountDue` instead.
+- **The receipt never recomputes.** Only the product *name* is looked up against the cart; every
+  amount comes from the response.
 
 ---
 
