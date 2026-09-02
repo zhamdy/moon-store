@@ -51,6 +51,27 @@ export interface CouponData {
   stackable: boolean;
 }
 
+/**
+ * A *partial* coupon update: absent means "leave the stored value alone", explicit `null`
+ * means "clear it". Deliberately not `CouponData` — sharing the create shape is what wiped
+ * `max_uses_per_customer` and `scope_ids` on every edit from the Promotions page, which
+ * never sends them.
+ */
+export interface UpdateCouponData {
+  code?: string;
+  type?: 'percentage' | 'fixed';
+  value?: number;
+  min_purchase?: number | null;
+  max_discount?: number | null;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  max_uses?: number | null;
+  max_uses_per_customer?: number | null;
+  scope?: 'all' | 'category' | 'product';
+  scope_ids?: number[] | null;
+  stackable?: boolean;
+}
+
 export interface ValidateCouponInput {
   code: string;
   subtotal: number;

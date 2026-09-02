@@ -6,6 +6,7 @@ import {
   CouponError,
   CouponFilters,
   CouponListResult,
+  UpdateCouponData,
   ValidateCouponInput,
   ValidateCouponResult,
 } from './types';
@@ -44,8 +45,21 @@ export class CouponsService {
     }
   }
 
-  async update(id: string | number, data: CouponData): Promise<Record<string, any>> {
-    this.validatePercentage(data.type, data.value);
+  /**
+   * A partial update is validated against the *effective* coupon, not against the body.
+   *
+   * Raising `value` to 150 without re-sending `type` would otherwise skip the percentage
+   * ceiling entirely, because the body's `type` is absent. The rule belongs to the row the
+   * update produces, so the check reads the stored row for whatever the body left out.
+   */
+  async update(id: string | number, data: UpdateCouponData): Promise<Record<string, any>> {
+    if (data.type !== undefined || data.value !== undefined) {
+      const existing = await this.repo.findById(id);
+      if (!existing) {
+        throw new CouponError('Coupon not found or already inactive', 404);
+      }
+      this.validatePercentage(data.type ?? existing.type, data.value ?? Number(existing.value));
+    }
 
     try {
       const coupon = await this.repo.update(id, data);
