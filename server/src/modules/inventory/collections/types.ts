@@ -39,7 +39,21 @@ export interface CreateCollectionDTO {
   product_ids?: number[];
 }
 
-export type UpdateCollectionDTO = CreateCollectionDTO;
+/**
+ * A *partial* update. This DTO is deliberately not `CreateCollectionDTO`.
+ *
+ * Absent means "leave the stored value alone"; an explicit `null` on a nullable
+ * column means "clear it". Sharing the create DTO is what made #78 possible: every
+ * field was optional, so an omitted `is_featured` was not a validation error, it was
+ * a write of the default — and editing a collection's products un-featured it.
+ */
+export interface UpdateCollectionDTO {
+  name?: string;
+  description?: string | null;
+  season?: string | null;
+  is_featured?: boolean;
+  product_ids?: number[];
+}
 
 export interface CollectionFilters {
   season?: string;

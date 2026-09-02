@@ -113,15 +113,48 @@ export class CollectionsRepository implements ICollectionsRepository {
     return res.rows[0];
   }
 
+  /**
+   * Merges a partial update onto the stored row: only the columns the caller actually
+   * named are written.
+   *
+   * The previous shape set every column on every call, from a body whose fields were all
+   * optional — so a request that mentioned three of four fields wrote the default over the
+   * fourth. That is #78: editing a collection's product list cleared `is_featured`, with a
+   * 200 and nothing in the logs. Absent now means untouched; an explicit `null` on a
+   * nullable column still clears it, which is why the guard is `!== undefined` rather than
+   * a truthiness test.
+   *
+   * `updated_at` is bumped unconditionally, including when the only change was the product
+   * set, so the column stays an honest "when was this collection last changed".
+   */
   async update(
     id: number | string,
     data: UpdateCollectionDTO,
     queryable?: Queryable
   ): Promise<CollectionRecord | null> {
+    const assignments: string[] = [];
+    const params: unknown[] = [];
+
+    const assign = (column: string, value: unknown): void => {
+      params.push(value);
+      assignments.push(`${column} = $${params.length}`);
+    };
+
+    if (data.name !== undefined) assign('name', data.name);
+    // `|| null` on the nullable columns, not `??`: an empty string from a cleared form
+    // field has always meant NULL here, and this fix is about what an *absent* field
+    // means, not about changing what a present one does.
+    if (data.description !== undefined) assign('description', data.description || null);
+    if (data.season !== undefined) assign('season', data.season || null);
+    if (data.is_featured !== undefined) assign('is_featured', data.is_featured ? 1 : 0);
+
+    assignments.push('updated_at = NOW()');
+    params.push(id);
+
     const res = await this.q(queryable).query<CollectionRecord>(
-      `UPDATE collections SET name = $1, description = $2, season = $3, is_featured = $4, updated_at = NOW()
-       WHERE id = $5 RETURNING *`,
-      [data.name, data.description || null, data.season || null, data.is_featured ? 1 : 0, id]
+      `UPDATE collections SET ${assignments.join(', ')}
+       WHERE id = $${params.length} RETURNING *`,
+      params
     );
     return res.rows[0] || null;
   }
