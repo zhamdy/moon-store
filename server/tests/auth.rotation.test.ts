@@ -7,7 +7,7 @@
  * proven here because pg-mem has no MVCC and no row locks that block. They live in
  * `tests/concurrency/auth.rotation.concurrency.test.ts` against real PostgreSQL.
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
@@ -17,8 +17,24 @@ import { createPgMemPool } from './support/pgMem';
 import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
 import { AuthService } from '../src/modules/core/auth/service';
+import { AuthRepository } from '../src/modules/core/auth/repository';
 import { digestRefreshToken } from '../src/modules/core/auth/tokens';
-import { clearRefreshCookieOptions, refreshCookieOptions } from '../src/modules/core/auth/config';
+import {
+  DEFAULT_ACCESS_TTL,
+  DEFAULT_COOKIE_SAMESITE,
+  DEFAULT_ROTATION_GRACE_SECONDS,
+  MAX_ACCESS_TTL_SECONDS,
+  clearRefreshCookieOptions,
+  durationToSeconds,
+  jwtConfig,
+  refreshCookieOptions,
+  resetAuthConfigWarnings,
+  resolveAccessTtl,
+  resolveRefreshTtlDays,
+  resolveRotationGraceSeconds,
+  resolveSameSite,
+  rotationGraceMs,
+} from '../src/modules/core/auth/config';
 import { resetEnvCache } from '../src/config/env';
 import { PublicError } from '../src/http/errors';
 
@@ -167,7 +183,7 @@ describe('refresh token reuse detection', () => {
   it('revokes the whole family when a retired token is replayed after the grace window', async () => {
     const session = await service.login({ ...credentials });
     const rotated = await service.refresh(session.refreshToken);
-    await backdateRevocation(session.refreshToken, 60_000);
+    await backdateRevocation(session.refreshToken, 10 * 60_000);
 
     await expect(service.refresh(session.refreshToken)).rejects.toBeInstanceOf(PublicError);
 
@@ -180,10 +196,29 @@ describe('refresh token reuse detection', () => {
     await expect(service.refresh(rotated.refreshToken)).rejects.toBeInstanceOf(PublicError);
   });
 
+  it('still rejects when the revocation that follows detection fails', async () => {
+    const session = await service.login({ ...credentials });
+    await service.refresh(session.refreshToken);
+    await backdateRevocation(session.refreshToken, 10 * 60_000);
+
+    const repo = new AuthRepository();
+    const revokeFamily = vi
+      .spyOn(repo, 'revokeFamily')
+      .mockRejectedValue(Object.assign(new Error('deadlock detected'), { code: '40P01' }));
+    const failing = new AuthService(repo);
+
+    // A database fault while revoking must not turn the 401 into a 500. A 500 invites the
+    // caller to retry a credential that is exactly as invalid as it was, and reads as a
+    // server fault rather than as a rejected token.
+    await expect(failing.refresh(session.refreshToken)).rejects.toBeInstanceOf(PublicError);
+    expect(revokeFamily).toHaveBeenCalled();
+    revokeFamily.mockRestore();
+  });
+
   it('rejects without naming the reason', async () => {
     const session = await service.login({ ...credentials });
     await service.refresh(session.refreshToken);
-    await backdateRevocation(session.refreshToken, 60_000);
+    await backdateRevocation(session.refreshToken, 10 * 60_000);
 
     const reuse = await service.refresh(session.refreshToken).catch((e) => e);
     const unknown = await service
@@ -445,11 +480,90 @@ describe('refresh cookie settings', () => {
     expect(refreshCookieOptions()).toMatchObject({ sameSite: 'none', secure: true });
   });
 
+  it('accepts the spelling operators actually use: SameSite=None', () => {
+    process.env.NODE_ENV = 'development';
+    // The attribute is capitalised in every spec, devtool and blog post. A case-sensitive
+    // match here would refuse to boot the server over letter case.
+    process.env.COOKIE_SAMESITE = 'None';
+    resetEnvCache();
+
+    expect(refreshCookieOptions()).toMatchObject({ sameSite: 'none', secure: true });
+  });
+
+  it('falls back to lax on an unrecognised SameSite rather than failing to boot', () => {
+    process.env.COOKIE_SAMESITE = 'sometimes';
+    resetEnvCache();
+
+    expect(refreshCookieOptions()).toMatchObject({ sameSite: 'lax' });
+  });
+
   it('does not set Secure in development, where there is no TLS to satisfy it', () => {
     process.env.NODE_ENV = 'development';
     resetEnvCache();
 
     expect(refreshCookieOptions()).toMatchObject({ secure: false, httpOnly: true });
+  });
+});
+
+describe('auth configuration resolvers', () => {
+  const saved = {
+    accessTtl: process.env.JWT_ACCESS_TTL,
+    refreshDays: process.env.JWT_REFRESH_TTL_DAYS,
+    grace: process.env.REFRESH_ROTATION_GRACE_SECONDS,
+  };
+
+  function restore(name: string, value: string | undefined): void {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+
+  afterEach(() => {
+    restore('JWT_ACCESS_TTL', saved.accessTtl);
+    restore('JWT_REFRESH_TTL_DAYS', saved.refreshDays);
+    restore('REFRESH_ROTATION_GRACE_SECONDS', saved.grace);
+    resetEnvCache();
+    resetAuthConfigWarnings();
+  });
+
+  it('reads jsonwebtoken duration syntax, bare seconds included', () => {
+    expect(durationToSeconds('900')).toBe(900);
+    expect(durationToSeconds('15m')).toBe(900);
+    expect(durationToSeconds('2h')).toBe(7200);
+    expect(durationToSeconds('7d')).toBe(604800);
+    expect(durationToSeconds('fifteen minutes')).toBeUndefined();
+  });
+
+  it('caps the access TTL, because revocation cannot reach an access token', () => {
+    // JWT_ACCESS_TTL=7d would make logout-all, family revocation and reuse detection
+    // no-ops for a week. Over the ceiling the value is a misconfiguration, not an intent.
+    expect(resolveAccessTtl('7d')).toBe(DEFAULT_ACCESS_TTL);
+    expect(resolveAccessTtl(`${MAX_ACCESS_TTL_SECONDS + 1}s`)).toBe(DEFAULT_ACCESS_TTL);
+    expect(resolveAccessTtl(`${MAX_ACCESS_TTL_SECONDS}s`)).toBe(`${MAX_ACCESS_TTL_SECONDS}s`);
+    expect(resolveAccessTtl('30m')).toBe('30m');
+  });
+
+  it('falls back rather than failing the parse on a malformed value', () => {
+    expect(resolveAccessTtl('15 minutes')).toBe(DEFAULT_ACCESS_TTL);
+    expect(resolveAccessTtl('0')).toBe(DEFAULT_ACCESS_TTL);
+    expect(resolveRefreshTtlDays('seven')).toBe(7);
+    expect(resolveRefreshTtlDays('0')).toBe(7);
+    expect(resolveRefreshTtlDays('4000')).toBe(7);
+    expect(resolveRotationGraceSeconds('-1')).toBe(DEFAULT_ROTATION_GRACE_SECONDS);
+    expect(resolveRotationGraceSeconds('99999')).toBe(DEFAULT_ROTATION_GRACE_SECONDS);
+  });
+
+  it('honours a zero grace window, which is strict rotation and not a missing value', () => {
+    expect(resolveRotationGraceSeconds('0')).toBe(0);
+    expect(resolveSameSite(undefined)).toBe(DEFAULT_COOKIE_SAMESITE);
+  });
+
+  it('is wired through to the effective configuration', () => {
+    process.env.JWT_ACCESS_TTL = '30d';
+    process.env.REFRESH_ROTATION_GRACE_SECONDS = '5';
+    resetEnvCache();
+
+    expect(jwtConfig().accessTtl).toBe(DEFAULT_ACCESS_TTL);
+    expect(rotationGraceMs()).toBe(5000);
   });
 });
 

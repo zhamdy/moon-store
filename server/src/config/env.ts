@@ -13,47 +13,39 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
   /**
-   * Access-token lifetime, in `jsonwebtoken` duration syntax. Short by design: it is the
-   * only credential the API accepts without a database read, so it cannot be revoked
-   * before it expires. Shortening it is safe; lengthening it widens the window in which
-   * a revoked session keeps working.
-   */
-  JWT_ACCESS_TTL: z
-    .string()
-    .regex(
-      /^\d+(ms|s|m|h|d|w|y)?$/,
-      'JWT_ACCESS_TTL must be a jsonwebtoken duration such as 15m, 900s or 900'
-    )
-    .default('15m'),
-  /**
-   * Refresh-session lifetime, in whole days. Expressed as a number rather than a
+   * Auth token and cookie knobs, resolved by `src/modules/core/auth/config.ts`.
+   *
+   * Raw strings here for the same reason as the rate-limit ceilings below: a typo must
+   * fall back to the safe value and be warned about, not fail the whole environment parse
+   * and take a shop offline over a stray character. The resolvers own the defaults, the
+   * bounds and the warnings.
+   *
+   * `JWT_ACCESS_TTL` is `jsonwebtoken` duration syntax (`15m`, `900s`, `900`) and is
+   * capped: an access token is accepted on its signature alone, so nothing — logout,
+   * global revocation, reuse detection — can reach one before it expires.
+   *
+   * `JWT_REFRESH_TTL_DAYS` is a whole number of days. It is a count rather than a
    * duration string because the same value has to produce both the JWT `exp` and the
-   * `refresh_tokens.expires_at` column, and two independently-parsed duration strings
-   * are exactly how those two drift apart.
-   */
-  JWT_REFRESH_TTL_DAYS: z.coerce.number().int().positive().max(365).default(7),
-  /**
-   * How long a just-rotated refresh token still answers, in seconds.
+   * `refresh_tokens.expires_at` column, and two independently-parsed duration strings are
+   * exactly how those two drift apart.
    *
-   * Rotation makes the previous token invalid the instant its successor is issued, and
-   * treating any use of an invalidated token as theft is the whole point of reuse
-   * detection. But two browser tabs sharing one cookie both hit `/auth/refresh` the
-   * moment the access token expires, and a till retrying after a dropped response
-   * presents the same token twice. Without a window those honest cases revoke the user's
-   * whole session family — a spurious logout on the most ordinary interaction there is.
-   *
-   * Inside the window the presentation is treated as a replay: it rotates the family's
-   * current head instead of branching or revoking, so the session stays single-lineage
-   * and the caller gets a usable token. Outside it, reuse is reuse. Set to 0 for strict
-   * no-grace semantics; the ceiling keeps the tolerated theft window small.
+   * `REFRESH_ROTATION_GRACE_SECONDS` is how long a just-rotated refresh token still
+   * answers, with the token that rotation already issued. Rotation invalidates the
+   * previous token immediately and treating any later use of it as theft is the point of
+   * reuse detection — but two tabs sharing one cookie both refresh the instant the access
+   * token expires, and a client that never received its response asks again. Without a
+   * window those honest cases revoke the user's whole session family. `0` selects strict
+   * no-grace semantics.
    */
-  REFRESH_ROTATION_GRACE_SECONDS: z.coerce.number().int().min(0).max(120).default(10),
+  JWT_ACCESS_TTL: z.string().optional(),
+  JWT_REFRESH_TTL_DAYS: z.string().optional(),
+  REFRESH_ROTATION_GRACE_SECONDS: z.string().optional(),
   /**
-   * `SameSite` for the refresh cookie. `lax` is the default and is what the current
-   * same-site client needs. `none` is only meaningful cross-site and forces `Secure` on,
-   * because browsers reject `SameSite=None` without it.
+   * `SameSite` for the refresh cookie: `lax` (default), `strict` or `none`, matched
+   * case-insensitively — the attribute is spelled `SameSite=None` everywhere an operator
+   * has seen it. `none` forces `Secure` on, because browsers reject that combination.
    */
-  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+  COOKIE_SAMESITE: z.string().optional(),
   /** Optional `Domain` for the refresh cookie. Unset means host-only, which is stricter. */
   COOKIE_DOMAIN: z.string().optional(),
   /**
