@@ -48,6 +48,17 @@ export interface StorageDriver {
    * that points at somebody else's CDN.
    */
   keyFromUrl(url: string): string | null;
+
+  /**
+   * Whether the URL addresses this store's URL space, whether or not a usable key comes
+   * out of it.
+   *
+   * `keyFromUrl` returning null conflates two very different answers — "that is somebody
+   * else's image" and "that is one of mine and I could not read it" — and a routine that
+   * deletes what nothing references must not treat the second as the first. Callers that
+   * delete ask this question too; callers that only resolve a URL do not need it.
+   */
+  ownsUrl(url: string): boolean;
 }
 
 /** Keys are ours to generate; this is a guard against a caller passing user input. */

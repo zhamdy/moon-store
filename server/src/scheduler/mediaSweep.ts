@@ -60,10 +60,32 @@ export async function sweepOrphanedMedia(options: SweepOptions = {}): Promise<Sw
   // an empty reference set from a broken query would look exactly like "delete everything".
   const { rows } = await pool.query<{ image_url: string }>(REFERENCED_URLS_SQL);
 
+  /**
+   * A reference this store owns but cannot resolve to a key is missing information, not
+   * an absent reference. Treating the two alike is what makes a sweep dangerous: under a
+   * configuration change that stops a URL form resolving, every live image looks
+   * unreferenced at once. So an unresolved reference aborts the whole sweep before
+   * anything is deleted, and says which rows it could not read.
+   *
+   * A URL that does not address this store at all — a banner on somebody else's CDN — is
+   * not missing information; it is a complete answer, and is skipped.
+   */
   const referenced = new Set<string>();
+  const unresolved: string[] = [];
   for (const row of rows) {
     const key = storage.keyFromUrl(row.image_url);
-    if (key) referenced.add(key);
+    if (key) {
+      referenced.add(key);
+    } else if (storage.ownsUrl(row.image_url)) {
+      unresolved.push(row.image_url);
+    }
+  }
+
+  if (unresolved.length > 0) {
+    throw new Error(
+      `Refusing to sweep: ${unresolved.length} referenced URL(s) address this store but ` +
+        `could not be resolved to a key (e.g. ${unresolved.slice(0, 3).join(', ')})`
+    );
   }
 
   const objects = await storage.list(PRODUCT_IMAGE_PREFIX);

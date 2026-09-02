@@ -75,8 +75,16 @@ class FakeDriver implements StorageDriver {
     return `/uploads/${key}`;
   }
 
+  /** URLs in this store's space that deliberately fail to resolve to a key. */
+  unreadableUrls = new Set<string>();
+
   keyFromUrl(url: string): string | null {
+    if (this.unreadableUrls.has(url)) return null;
     return url.startsWith('/uploads/') ? url.slice('/uploads/'.length) : null;
+  }
+
+  ownsUrl(url: string): boolean {
+    return url.startsWith('/uploads/');
   }
 }
 
@@ -140,6 +148,7 @@ describe('LocalStorageDriver', () => {
       'uploads/products/a.png',
     ]) {
       expect(driver.keyFromUrl(url)).toBeNull();
+      expect(driver.ownsUrl(url)).toBe(false);
     }
   });
 
@@ -147,7 +156,28 @@ describe('LocalStorageDriver', () => {
     const cdn = new LocalStorageDriver({ root, baseUrl: 'https://cdn.example.com/media' });
     expect(cdn.publicUrl('products/a.png')).toBe('https://cdn.example.com/media/products/a.png');
     expect(cdn.keyFromUrl('https://cdn.example.com/media/products/a.png')).toBe('products/a.png');
-    expect(cdn.keyFromUrl('/uploads/products/a.png')).toBeNull();
+  });
+
+  it('still owns its legacy URLs after the base moves to a CDN', () => {
+    // The documented migration sets an absolute base while rows written before it stay
+    // relative and keep being served by the /uploads mount. A driver that disowned them
+    // would report every one of them as unreferenced.
+    const cdn = new LocalStorageDriver({ root, baseUrl: 'https://cdn.example.com/media' });
+
+    expect(cdn.keyFromUrl('/uploads/products/legacy.png')).toBe('products/legacy.png');
+    expect(cdn.ownsUrl('/uploads/products/legacy.png')).toBe(true);
+    // The base's own path is owned in relative form too, for a same-origin CDN.
+    expect(cdn.keyFromUrl('/media/products/a.png')).toBe('products/a.png');
+    // Someone else's image is still someone else's.
+    expect(cdn.keyFromUrl('https://other.example.com/hero.png')).toBeNull();
+    expect(cdn.ownsUrl('https://other.example.com/hero.png')).toBe(false);
+  });
+
+  it('separates "not mine" from "mine but unreadable"', () => {
+    // A key that cannot be parsed is missing information, not an absent reference — the
+    // sweep has to be able to tell the two apart.
+    expect(driver.keyFromUrl('/uploads/products/../../etc/passwd')).toBeNull();
+    expect(driver.ownsUrl('/uploads/products/../../etc/passwd')).toBe(true);
   });
 
   it('deleting an absent object succeeds, so a retry is not an error', async () => {
@@ -493,6 +523,54 @@ describe('orphaned media sweep', () => {
     await expect(
       sweepOrphanedMedia({ pool, storage: driver, minAgeMs: hours(24) })
     ).rejects.toThrow('connection reset');
+    expect(driver.objects.size).toBe(1);
+  });
+
+  it('deletes nothing after the documented CDN migration, when every row is legacy', async () => {
+    // Regression: `MEDIA_PUBLIC_BASE_URL` moves to an absolute base while every existing
+    // row still holds `/uploads/...`. A driver that stopped recognising those URLs would
+    // report the whole catalogue as unreferenced and delete it.
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'moon-cdn-'));
+    try {
+      const cdn = new LocalStorageDriver({ root, baseUrl: 'https://cdn.example.com/media' });
+      await cdn.put('products/legacy-a.png', PNG, { contentType: 'image/png' });
+      await cdn.put('products/legacy-b.png', PNG, { contentType: 'image/png' });
+      await cdn.put('products/orphan.png', PNG, { contentType: 'image/png' });
+
+      const outcome = await sweepOrphanedMedia({
+        pool: poolReturning([
+          '/uploads/products/legacy-a.png',
+          'https://cdn.example.com/media/products/legacy-b.png',
+          'https://images.unsplash.com/photo-1.jpg',
+        ]),
+        storage: cdn,
+        // Everything was just written, so the sweep is aged past the grace window on
+        // purpose: age must not be the reason nothing was deleted, only the mapping.
+        minAgeMs: hours(1),
+        now: new Date(Date.now() + hours(2)),
+      });
+
+      expect(outcome).toMatchObject({ scanned: 3, deleted: 1 });
+      expect((await cdn.list('products')).map((o) => o.key).sort()).toEqual([
+        'products/legacy-a.png',
+        'products/legacy-b.png',
+      ]);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to delete anything when a reference it owns cannot be resolved', async () => {
+    const driver = driverWith([['products/orphan.png', 48]]);
+    driver.unreadableUrls.add('/uploads/products/mangled');
+
+    await expect(
+      sweepOrphanedMedia({
+        pool: poolReturning(['/uploads/products/mangled']),
+        storage: driver,
+        minAgeMs: hours(24),
+      })
+    ).rejects.toThrow(/Refusing to sweep/);
     expect(driver.objects.size).toBe(1);
   });
 

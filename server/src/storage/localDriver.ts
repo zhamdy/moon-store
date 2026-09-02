@@ -2,6 +2,13 @@ import fs from 'fs/promises';
 import path from 'path';
 import { assertSafeKey, type PutOptions, type StorageDriver, type StoredObject } from './types';
 
+/**
+ * The path every image written before `MEDIA_PUBLIC_BASE_URL` existed was stored under,
+ * and the path `index.ts` mounts unconditionally. Owned forever: rows holding it are still
+ * live references no matter where new URLs point.
+ */
+export const LEGACY_PUBLIC_PATH = '/uploads';
+
 export interface LocalDriverOptions {
   /** Directory the objects live in. */
   root: string;
@@ -97,29 +104,80 @@ export class LocalStorageDriver implements StorageDriver {
     return `${this.baseUrl}/${assertSafeKey(key)}`;
   }
 
-  keyFromUrl(url: string): string | null {
-    if (!url) return null;
+  /**
+   * The URL forms this store answers for, longest first.
+   *
+   * More than one, because a store outlives its configuration. `MEDIA_PUBLIC_BASE_URL`
+   * says where *new* URLs are minted; it does not retract the ones already in the
+   * database, and the `/uploads` mount keeps serving them. A driver that only recognised
+   * its current base would classify every legacy row as somebody else's — which is
+   * exactly how a CDN cutover turned the orphan sweep into a delete-everything.
+   */
+  private ownedPrefixes(): string[] {
+    const prefixes = [this.baseUrl];
 
-    let candidate = url;
-    if (this.baseUrl.startsWith('/') && /^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
-      // A row may hold an absolute URL for an image this store still owns (an older
-      // deployment that wrote `${CLIENT_URL}/uploads/...`). Compare on the path.
+    if (!this.baseUrl.startsWith('/')) {
       try {
-        candidate = new URL(url).pathname;
+        const basePath = new URL(this.baseUrl).pathname.replace(/\/+$/, '');
+        if (basePath) prefixes.push(basePath);
       } catch {
-        return null;
+        // Not a parseable absolute base; the raw prefix above is all there is.
       }
     }
 
-    const prefix = `${this.baseUrl}/`;
-    if (!candidate.startsWith(prefix)) return null;
+    // The compatibility mount in `index.ts`, which is unconditional.
+    prefixes.push(LEGACY_PUBLIC_PATH);
 
-    const key = candidate.slice(prefix.length);
-    if (!key) return null;
-    try {
-      return assertSafeKey(key);
-    } catch {
-      return null;
+    return [...new Set(prefixes)].sort((a, b) => b.length - a.length);
+  }
+
+  /**
+   * Whether the URL addresses this store's URL space at all — regardless of whether a
+   * usable key comes out of it. `keyFromUrl` returning null is ambiguous between "not
+   * ours" and "ours but unreadable", and a deletion routine must not conflate those.
+   */
+  ownsUrl(url: string): boolean {
+    return this.candidatePaths(url).some((candidate) =>
+      this.ownedPrefixes().some((prefix) => candidate.startsWith(`${prefix}/`))
+    );
+  }
+
+  /**
+   * The forms of a stored URL worth comparing: the URL itself, plus its path when it is
+   * absolute. Path comparison is not a guess — an object of this store is reachable only
+   * under an owned path, on whatever host the API is being served as.
+   */
+  private candidatePaths(url: string): string[] {
+    if (!url) return [];
+    const candidates = [url];
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
+      try {
+        candidates.push(new URL(url).pathname);
+      } catch {
+        // Unparseable; the raw form is all there is to compare.
+      }
     }
+    return candidates;
+  }
+
+  keyFromUrl(url: string): string | null {
+    const prefixes = this.ownedPrefixes();
+
+    for (const candidate of this.candidatePaths(url)) {
+      for (const prefix of prefixes) {
+        const withSlash = `${prefix}/`;
+        if (!candidate.startsWith(withSlash)) continue;
+
+        const key = candidate.slice(withSlash.length);
+        if (!key) continue;
+        try {
+          return assertSafeKey(key);
+        } catch {
+          return null;
+        }
+      }
+    }
+
+    return null;
   }
 }
