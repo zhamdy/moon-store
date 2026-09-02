@@ -1495,5 +1495,22 @@
   "startup.openingFloat": "الرصيد الافتتاحي",
   "startup.skip": "لاحقاً",
   "startup.shiftStarted": "بدأت الوردية!",
-  "startup.registerOpened": "تم فتح الصندوق!"
+  "startup.registerOpened": "تم فتح الصندوق!",
+
+  "mutationError.validation": "بعض البيانات تحتاج إلى تصحيح قبل الحفظ.",
+  "mutationError.conflict": "تغيّر هذا السجل منذ فتحه. راجعه ثم حاول مرة أخرى.",
+  "mutationError.unauthorized": "انتهت جلستك. سجّل الدخول مرة أخرى للمتابعة.",
+  "mutationError.forbidden": "صلاحيتك لا تسمح بهذا الإجراء.",
+  "mutationError.notFound": "لم يعد هذا السجل موجوداً. حدّث الصفحة ثم حاول مرة أخرى.",
+  "mutationError.rateLimited": "طلبات كثيرة جداً. انتظر لحظة ثم حاول مرة أخرى.",
+  "mutationError.offline": "أنت غير متصل بالإنترنت. أعد الاتصال ثم حاول مرة أخرى.",
+  "mutationError.network": "تعذّر الوصول إلى الخادم. حاول مرة أخرى.",
+  "mutationError.server": "تعذّر على الخادم إتمام العملية. حاول مرة أخرى.",
+  "mutationError.unknown": "حدث خطأ ما. حاول مرة أخرى.",
+  "mutationError.retry": "حاول مرة أخرى",
+  "mutationError.dismiss": "إغلاق",
+  "cart.stockConflictTitle": "تغيّر المخزون أثناء إتمام الدفع",
+  "cart.stockConflictLine": "{name}: {requested} في السلة، المتبقي {available}",
+  "cart.stockConflictAdjust": "تعديل السلة حسب المخزون المتاح",
+  "cart.stockConflictChecking": "جارٍ التحقق من المخزون الحالي..."
 }

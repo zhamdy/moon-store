@@ -22,12 +22,14 @@ import type { DiscountType } from '../../../../shared/lib/checkout';
 import type { CheckoutPricing } from '../../hooks/useCheckoutPricing';
 import type { CouponApplication } from '../../hooks/useCouponApplication';
 import type { CustomerSelection } from '../../hooks/useCustomerSelection';
+import type { StockConflictRecovery } from '../../hooks/useStockConflictRecovery';
 import type { CartItem } from '../../store/cartStore';
 import type { PaymentEntry, PaymentMethod } from '../../types';
 import CheckoutSummary from './CheckoutSummary';
 import CustomerSection from './CustomerSection';
 import LoyaltySection from './LoyaltySection';
 import PaymentSection from './PaymentSection';
+import StockConflictNotice from './StockConflictNotice';
 
 const QUICK_DISCOUNT_PRESETS = [5, 10, 15];
 
@@ -59,6 +61,7 @@ export default function CheckoutDrawer({
   onConfirm,
   isPending,
   needsReview,
+  stockConflict,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -87,6 +90,7 @@ export default function CheckoutDrawer({
   onConfirm: () => void;
   isPending: boolean;
   needsReview: boolean;
+  stockConflict: StockConflictRecovery;
 }): React.JSX.Element {
   const { t } = useTranslation();
   const { tax, loyalty, totals, split, maxPoints } = pricing;
@@ -291,6 +295,10 @@ export default function CheckoutDrawer({
                 split={split}
                 totals={totals}
               />
+
+              {/* Sits directly above Confirm so the numbers a cashier has to
+                  reconcile are next to the button they are blocking. */}
+              <StockConflictNotice conflict={stockConflict} />
 
               {/* `shrink-0` is load-bearing, not cosmetic. This button is the last child
                   of a flex-column DrawerBody, and once the drawer's content is taller

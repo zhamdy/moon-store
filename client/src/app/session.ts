@@ -11,6 +11,7 @@
 import { queryClient } from '../shared/lib/queryClient';
 import { setAuthPort } from '../shared/lib/transport/index';
 import { onSessionEvent } from '../shared/lib/session';
+import { safeRedirectTarget } from '../shared/lib/authRedirect';
 import { useAuthStore } from '../features/auth';
 import { useOfflineStore } from '../shared/store/offlineStore';
 import { useCartStore } from '../features/pos';
@@ -20,8 +21,13 @@ setAuthPort({
   getAccessToken: () => useAuthStore.getState().accessToken,
   onTokenRefreshed: (user, accessToken) => useAuthStore.getState().login(user, accessToken),
   onAuthFailure: () => {
+    // Where the user was when the refresh failed, so signing in again returns
+    // them to it instead of dropping them on their role's home page. Read
+    // BEFORE logout(): the teardown below invalidates the router, and a
+    // guarded route may have moved us by the time we navigate.
+    const redirect = safeRedirectTarget(router.state.location.href);
     useAuthStore.getState().logout();
-    router.navigate({ to: '/login' });
+    router.navigate({ to: '/login', search: redirect ? { redirect } : {} });
     router.invalidate();
   },
 });

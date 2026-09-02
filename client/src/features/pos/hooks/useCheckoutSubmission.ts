@@ -12,12 +12,13 @@
  * dead code and not wired up.
  */
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useTranslation } from '../../../shared/i18n/index';
 import { SPLIT_PAYMENT_MISMATCH_CODE, type TaxSettings } from '../../../shared/lib/checkout';
 import { useTransport, createIdempotencyKey } from '../../../shared/lib/transport/index';
-import { ApiError } from '../../../shared/lib/transport/types';
+import { hasDetailCode } from '../../../shared/lib/mutationError';
+import { useGuardedMutation } from '../../../shared/lib/useGuardedMutation';
 import { useOfflineStore, SALE_QUEUE_CONTRACT_VERSION } from '../../../shared/store/offlineStore';
 import type { ReceiptData } from '../../../shared/components/Receipt';
 import {
@@ -27,6 +28,7 @@ import {
 } from '../lib/salePayload';
 import { buildReceipt } from '../lib/saleReceipt';
 import { useCartStore } from '../store/cartStore';
+import { useStockConflictRecovery, type StockConflictRecovery } from './useStockConflictRecovery';
 import type { CheckoutAttempt, SaleData, SaleResponse } from '../types';
 
 /**
@@ -38,9 +40,22 @@ import type { CheckoutAttempt, SaleData, SaleResponse } from '../types';
 type CheckoutMutationVariables = CheckoutAttempt & { composition: SaleComposition };
 
 export interface CheckoutSubmission {
-  /** Compose, key and post the sale the cashier just confirmed. */
+  /**
+   * Compose, key and post the sale the cashier just confirmed.
+   *
+   * A second call while one is in flight is dropped by `useGuardedMutation`,
+   * so a double-pressed Confirm (or a held keyboard shortcut) cannot open two
+   * concurrent checkouts. That is separate from, and in front of, the
+   * idempotency key below: the key makes a duplicate that DOES reach the
+   * server harmless, this stops it being sent at all.
+   */
   submit: (composition: SaleComposition) => void;
   isPending: boolean;
+  /**
+   * What the cart would have to become for the sale to go through, after a
+   * rejection whose cause was stock. Empty at every other time.
+   */
+  stockConflict: StockConflictRecovery;
   receiptOpen: boolean;
   setReceiptOpen: (open: boolean) => void;
   receiptData: ReceiptData | null;
@@ -97,7 +112,9 @@ export function useCheckoutSubmission(params: {
     return attempt.key;
   };
 
-  const checkoutMutation = useMutation({
+  const stockConflict = useStockConflictRecovery();
+
+  const checkoutMutation = useGuardedMutation<CheckoutMutationVariables, { data: SaleResponse }>({
     mutationFn: ({ saleData, idempotencyKey }: CheckoutMutationVariables) =>
       transport.request<SaleResponse>({
         method: 'POST',
@@ -131,7 +148,7 @@ export function useCheckoutSubmission(params: {
       setReceiptData(newReceipt);
       setReceiptOpen(true);
     },
-    onError: (error: Error, attempt: CheckoutMutationVariables) => {
+    onFailure: (failure, attempt: CheckoutMutationVariables) => {
       if (!navigator.onLine) {
         addToQueue({
           type: 'sale',
@@ -153,33 +170,52 @@ export function useCheckoutSubmission(params: {
         setCheckoutAttempt(null);
         clearCart();
         onCheckoutSettled();
-      } else {
-        // Authoritative data (catalog price, tax, coupon, or loyalty
-        // settings) changed between preview and submission and the split no
-        // longer balances against the server's recalculated total. The cart
-        // is intentionally left untouched (nothing cleared or closed above) so
-        // the cashier can review and rebalance rather than seeing a generic
-        // failure or a false success.
-        const isSplitMismatch =
-          error instanceof ApiError &&
-          error.details?.some((d) => d.code === SPLIT_PAYMENT_MISMATCH_CODE);
-        toast.error(
-          isSplitMismatch ? t('cart.splitMismatchError') : error.message || t('cart.saleFailed')
-        );
+        // The queue entry IS the outcome the cashier was told about; the
+        // failure that produced it is not theirs to act on.
+        return true;
       }
+
+      // Authoritative data (catalog price, tax, coupon, or loyalty
+      // settings) changed between preview and submission and the split no
+      // longer balances against the server's recalculated total. The cart
+      // is intentionally left untouched (nothing cleared or closed above) so
+      // the cashier can review and rebalance rather than seeing a generic
+      // failure or a false success.
+      if (hasDetailCode(failure, SPLIT_PAYMENT_MISMATCH_CODE)) {
+        toast.error(t('cart.splitMismatchError'));
+        return true;
+      }
+
+      // Anything the server rejected on the state of the world -- stock,
+      // coupon, loyalty, a bundle -- arrives as a bare validation or conflict
+      // failure. Re-read stock to find out whether the cart is the reason and,
+      // if so, say which line and by how much. The toast still fires: this
+      // check is asynchronous and additive, not a replacement for telling the
+      // cashier immediately that the sale did not go through.
+      if (failure.recovery === 'fix' || failure.recovery === 'review') {
+        stockConflict.check();
+      }
+      // `saleFailed` only stands in when the server said nothing of its own;
+      // the classifier already prefers the server's wording where there is any.
+      if (!failure.serverMessage) {
+        toast.error(t('cart.saleFailed'));
+        return true;
+      }
+      return false;
     },
   });
 
   return {
     submit: (composition: SaleComposition) => {
       const saleData = buildSalePayload(composition);
-      checkoutMutation.mutate({
+      checkoutMutation.submit({
         saleData,
         idempotencyKey: idempotencyKeyFor(saleData),
         composition,
       });
     },
     isPending: checkoutMutation.isPending,
+    stockConflict,
     receiptOpen,
     setReceiptOpen,
     receiptData,

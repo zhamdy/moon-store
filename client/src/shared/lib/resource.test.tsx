@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ApiError, TransportProvider } from './transport/index';
+import { TransportProvider } from './transport/index';
 import { createMemoryTransport, type MemoryTransport } from './transport/memory';
 import { resource } from './resource';
 
@@ -306,10 +306,38 @@ describe('resource', () => {
 
     result.current.save({ category: 'rent', amount: -5 });
 
-    await waitFor(() => expect(result.current.error).toBeInstanceOf(ApiError));
-    expect(result.current.error).toMatchObject({
+    await waitFor(() => expect(result.current.failure).not.toBeNull());
+    expect(result.current.failure).toMatchObject({
+      kind: 'validation',
+      recovery: 'fix',
       message: 'Amount must be positive',
       status: 400,
     });
+  });
+
+  it('drops a second write fired before the first has settled', async () => {
+    const transport = createMemoryTransport({ expenses: [RENT] });
+    const requests: string[] = [];
+    const counting: MemoryTransport = {
+      ...transport,
+      request(req) {
+        requests.push(`${req.method} ${req.path}`);
+        return transport.request(req);
+      },
+    };
+    const expenses = resource<Expense>('expenses');
+
+    const { result } = renderHook(() => expenses.useSave(), {
+      wrapper: wrapperFor(counting),
+    });
+
+    // One tick, two clicks: the page never disabled anything, and the guard
+    // in useGuardedMutation is what stops the second POST.
+    result.current.save({ category: 'utilities', amount: 300 });
+    result.current.save({ category: 'utilities', amount: 300 });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(requests.filter((r) => r === 'POST expenses')).toHaveLength(1);
+    expect(transport.peek('expenses')).toHaveLength(2);
   });
 });

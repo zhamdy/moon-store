@@ -183,7 +183,11 @@ describe('useCheckoutSubmission', () => {
     transport.failNext('Gateway timeout', 502, undefined, undefined, 'sales');
     act(() => result.current.submit(COMPOSITION));
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Gateway timeout'));
+    // The proxy's wording is deliberately NOT shown: a 5xx body is
+    // infrastructure talking, not a sentence for a cashier. See
+    // shared/lib/mutationError.ts -- server-authored wording is surfaced only
+    // for the kinds the server phrases for a user.
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Checkout failed'));
     // A failure the cashier can retry: nothing cleared, nothing closed.
     expect(useCartStore.getState().items).toHaveLength(1);
     expect(settled).not.toHaveBeenCalled();
@@ -296,5 +300,131 @@ describe('useCheckoutSubmission', () => {
         customer_id: 42,
       });
     });
+  });
+});
+
+describe('recovering from a rejected checkout', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSettingsStore.setState({ locale: 'en' });
+    useOfflineStore.setState({ queue: [], isSyncing: false });
+    useCartStore.setState({
+      items: [SILK_DRESS],
+      discount: 0,
+      discountType: 'fixed',
+      notes: '',
+      tip: 0,
+      couponCode: '',
+      couponDiscount: 0,
+      needsReview: false,
+      checkoutAttempt: null,
+    });
+  });
+
+  /** The cart asks for 2; the server now has `available`. */
+  function transportWithStock(available: number): MemoryTransport {
+    return withSaleReply(
+      createMemoryTransport(
+        {},
+        { reads: { 'products/lookup': [{ id: 7, name: 'Silk Dress', stock: available }] } }
+      )
+    );
+  }
+
+  it('says which line is short and by how much, without parsing the server sentence', async () => {
+    const transport = transportWithStock(1);
+    const { result, settled } = renderSubmission(transport);
+
+    transport.failNext('Insufficient stock for product ID 7', 400, 'VALIDATION_ERROR', undefined, 'sales');
+    act(() => result.current.submit(COMPOSITION));
+
+    await waitFor(() => expect(result.current.stockConflict.shortfalls).toHaveLength(1));
+    expect(result.current.stockConflict.shortfalls[0]).toEqual({
+      productId: 7,
+      name: 'Silk Dress',
+      requested: 2,
+      available: 1,
+    });
+    // A recoverable failure keeps the cart and the drawer exactly as they were.
+    expect(useCartStore.getState().items).toHaveLength(1);
+    expect(settled).not.toHaveBeenCalled();
+  });
+
+  it('leaves the cart untouched until the cashier accepts the adjustment', async () => {
+    const transport = transportWithStock(1);
+    const { result } = renderSubmission(transport);
+
+    transport.failNext('Insufficient stock for product ID 7', 400, 'VALIDATION_ERROR', undefined, 'sales');
+    act(() => result.current.submit(COMPOSITION));
+    await waitFor(() => expect(result.current.stockConflict.shortfalls).toHaveLength(1));
+    expect(useCartStore.getState().items[0].quantity).toBe(2);
+
+    act(() => result.current.stockConflict.resolve());
+
+    expect(useCartStore.getState().items[0].quantity).toBe(1);
+    expect(result.current.stockConflict.shortfalls).toEqual([]);
+  });
+
+  it('removes a line whose product is gone entirely', async () => {
+    const transport = withSaleReply(createMemoryTransport({}, { reads: { 'products/lookup': [] } }));
+    const { result } = renderSubmission(transport);
+
+    transport.failNext('Insufficient stock for product ID 7', 400, 'VALIDATION_ERROR', undefined, 'sales');
+    act(() => result.current.submit(COMPOSITION));
+    await waitFor(() => expect(result.current.stockConflict.shortfalls).toHaveLength(1));
+
+    act(() => result.current.stockConflict.resolve());
+
+    expect(useCartStore.getState().items).toHaveLength(0);
+  });
+
+  it('proposes nothing when stock turns out to be fine -- the cause was elsewhere', async () => {
+    const transport = transportWithStock(50);
+    const { result } = renderSubmission(transport);
+
+    transport.failNext('Coupon has expired', 400, 'VALIDATION_ERROR', undefined, 'sales');
+    act(() => result.current.submit(COMPOSITION));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Coupon has expired'));
+    await waitFor(() => expect(result.current.stockConflict.isChecking).toBe(false));
+    expect(result.current.stockConflict.shortfalls).toEqual([]);
+  });
+
+  it('does not go looking at stock for a failure that is not about the world changing', async () => {
+    const transport = transportWithStock(0);
+    const { result } = renderSubmission(transport);
+
+    transport.failNext('', 500, undefined, undefined, 'sales');
+    act(() => result.current.submit(COMPOSITION));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Checkout failed'));
+    expect(transport.calls().some((call) => call.path === 'products/lookup')).toBe(false);
+    expect(result.current.stockConflict.shortfalls).toEqual([]);
+  });
+
+  it('stays quiet when the stock re-read itself fails, rather than burying the first error', async () => {
+    const transport = withSaleReply(createMemoryTransport());
+    const { result } = renderSubmission(transport);
+
+    // No `reads` entry for products/lookup, so the memory transport rejects it.
+    transport.failNext('Insufficient stock for product ID 7', 400, 'VALIDATION_ERROR', undefined, 'sales');
+    act(() => result.current.submit(COMPOSITION));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.stockConflict.isChecking).toBe(false));
+    expect(result.current.stockConflict.shortfalls).toEqual([]);
+  });
+
+  it('drops a second Confirm pressed before the first has answered', async () => {
+    const transport = transportWithStock(50);
+    const { result } = renderSubmission(transport);
+
+    act(() => {
+      result.current.submit(COMPOSITION);
+      result.current.submit(COMPOSITION);
+    });
+
+    await waitFor(() => expect(useCartStore.getState().items).toHaveLength(0));
+    expect(transport.calls().filter((call) => call.path === 'sales')).toHaveLength(1);
   });
 });

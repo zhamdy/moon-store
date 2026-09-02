@@ -1,7 +1,12 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
-import { t } from '../i18n/index';
-import { useTransport, type TransportMethod, type TransportRequest } from './transport/index';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useTransport,
+  type TransportMethod,
+  type TransportRequest,
+  type TransportResult,
+} from './transport/index';
+import type { MutationFailure } from './mutationError';
+import { useGuardedMutation } from './useGuardedMutation';
 import { normalizeQueryParams } from './queryClient';
 
 /** A record being saved. An `id` means update; its absence means create. */
@@ -14,6 +19,12 @@ export interface WriteOptions {
   message?: string;
   /** Toasted on failure when the server offers no message of its own. */
   fallbackMessage?: string;
+  /**
+   * Sees the classified failure before the toast. Return `true` when the page
+   * has presented it another way (field errors on the form, an inline notice)
+   * and the toast should be suppressed.
+   */
+  onFailure?: (failure: MutationFailure) => boolean | void;
 }
 
 export interface ActionOptions extends WriteOptions {
@@ -24,27 +35,31 @@ export interface ActionOptions extends WriteOptions {
 /**
  * What every write does once it settles: refresh this resource's reads, tell
  * the caller, and say something. Pages get all three without wiring any of it.
+ *
+ * Every write also inherits the app's mutation contract from
+ * `useGuardedMutation`: a second submit while one is in flight is dropped, and
+ * the failure is classified into a kind and a recovery rather than being
+ * flattened to whatever string the throw happened to carry. That is why this
+ * indirection exists rather than each page wiring `useMutation` itself — a
+ * page that forgets to disable its button no longer double-writes.
  */
 function useWrite<Args>(
   key: readonly unknown[],
   toRequest: (args: Args) => TransportRequest,
-  { onDone, message, fallbackMessage }: WriteOptions
+  { onDone, message, fallbackMessage, onFailure }: WriteOptions
 ) {
   const transport = useTransport();
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useGuardedMutation<Args, TransportResult<unknown>>({
     mutationFn: (args: Args) => transport.request(toRequest(args)),
+    successMessage: message,
+    fallbackMessage,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: key });
-      if (message) toast.success(message);
       onDone?.();
     },
-    onError: (error: Error) => {
-      // Empty when the failure was the transport's own (a dropped connection,
-      // a timeout). Callers get to phrase those; axios's wording never shows.
-      toast.error(error.message || fallbackMessage || t('common.error'));
-    },
+    onFailure,
   });
 }
 
@@ -131,7 +146,7 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
         options
       );
 
-      return { ...mutation, save: mutation.mutate, isSaving: mutation.isPending };
+      return { ...mutation, save: mutation.submit, isSaving: mutation.isPending };
     },
 
     useRemove(options: WriteOptions = {}) {
@@ -141,7 +156,7 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
         options
       );
 
-      return { ...mutation, remove: mutation.mutate, isRemoving: mutation.isPending };
+      return { ...mutation, remove: mutation.submit, isRemoving: mutation.isPending };
     },
 
     /**
@@ -159,7 +174,7 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
         options
       );
 
-      return { ...mutation, run: mutation.mutate, isRunning: mutation.isPending };
+      return { ...mutation, run: mutation.submit, isRunning: mutation.isPending };
     },
   };
 }

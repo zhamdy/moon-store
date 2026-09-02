@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import { Card, CardBody, CardHeader, Button, Input, Checkbox } from '@heroui/react';
 import { useAuthStore } from '../store/authStore';
+import { getDefaultRoute, safeRedirectTarget } from '../../../shared/lib/authRedirect';
 import { useTransport } from '../../../shared/lib/transport/index';
 import moonLogo from '../../../shared/assets/moon-logo.svg';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
@@ -22,6 +23,11 @@ type LoginFormData = z.infer<ReturnType<typeof getLoginSchema>>;
 
 export default function Login() {
   const navigate = useNavigate();
+  // Set when the session expired mid-workflow (see app/session.ts) or when a
+  // guarded route bounced an unauthenticated visit. Already filtered by the
+  // route's validateSearch; re-filtered here so this component is safe to
+  // render outside that route, e.g. in a test.
+  const { redirect } = useSearch({ from: '/login' });
   const { login } = useAuthStore();
   const transport = useTransport();
   const [showPassword, setShowPassword] = useState(false);
@@ -49,14 +55,9 @@ export default function Login() {
       login(user, accessToken);
       toast.success(t('login.welcomeBack', { name: user.name }));
 
-      // Route based on role
-      if (user.role === 'Admin') {
-        navigate({ to: '/' });
-      } else if (user.role === 'Cashier') {
-        navigate({ to: '/pos' });
-      } else {
-        navigate({ to: '/deliveries' });
-      }
+      // Back to the screen the session expired on, if there was one and it is
+      // a place we are willing to bounce to; otherwise this role's home.
+      navigate({ to: safeRedirectTarget(redirect) ?? getDefaultRoute(user) });
     } catch (err) {
       toast.error((err instanceof Error && err.message) || t('login.failed'));
     } finally {
