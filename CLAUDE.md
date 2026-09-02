@@ -209,6 +209,14 @@ Jobs must be idempotent: a failed run is retried on the next interval, and both 
 keyed on the current state of the world rather than on a cursor, so a retry that finds
 nothing to do reports `0` rather than failing.
 
+**A claim is written before the work, so a process killed mid-run leaves the row in
+`running`.** Another instance takes that claim over once it is older than the job's
+`staleAfterMs` (default 10 min) — safe because the takeover is only ever reached with the
+advisory lock free, and a run that is genuinely in progress holds it. The lock, not the
+row, is the authority on "is someone running this"; the row only decides "has this been
+done recently enough". A takeover is logged, and means a previous run died without
+recording anything.
+
 Adding a job means adding a `ScheduledJob` to `src/scheduler/jobs.ts` with a **new, never
 reused** `lockId` — during a rolling deploy two ids for the same job means two concurrent
 runs.
@@ -251,7 +259,9 @@ before the row that references it, and the replaced object is released only afte
 stops pointing at it. Each step's failure mode is a temporary orphan, never a broken image.
 The daily `orphaned-media-cleanup` job is the backstop for orphans no request path could
 clean up; it reads every `image_url` in the database first and aborts rather than delete
-anything if that read fails, and it never touches an object younger than
+anything if that read fails **or if any URL that belongs to this store cannot be resolved
+to a key** — an unresolvable reference is missing information, and a deletion routine must
+never read missing information as "unreferenced" — and it never touches an object younger than
 `MEDIA_ORPHAN_MIN_AGE_HOURS`. **A new table with an image URL column must be added to the
 reference query in `src/scheduler/mediaSweep.ts`** — the sweep deletes what that query does
 not return.

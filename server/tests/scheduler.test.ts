@@ -29,7 +29,7 @@ interface FakePoolOptions {
 function fakePool(options: FakePoolOptions = {}) {
   const { locked = true, claimed = true } = options;
   const calls: FakeCall[] = [];
-  let released = 0;
+  const releases: Array<Error | undefined> = [];
 
   const client = {
     query: vi.fn(async (sql: string, params: unknown[] = []) => {
@@ -45,8 +45,8 @@ function fakePool(options: FakePoolOptions = {}) {
       }
       return { rows: [], rowCount: 1 };
     }),
-    release: () => {
-      released += 1;
+    release: (err?: Error) => {
+      releases.push(err);
     },
   };
 
@@ -56,7 +56,8 @@ function fakePool(options: FakePoolOptions = {}) {
     pool,
     calls,
     sqls: () => calls.map((c) => c.sql),
-    releasedCount: () => released,
+    releasedCount: () => releases.length,
+    releases: () => releases,
     matched: (needle: string) => calls.filter((c) => c.sql.includes(needle)),
   };
 }
@@ -80,7 +81,8 @@ describe('runScheduledJob', () => {
     expect(result).toMatchObject({ job: 'test-job', status: 'completed', outcome: { deleted: 3 } });
 
     const claim = fake.matched('INSERT INTO scheduled_jobs')[0];
-    expect(claim.params).toEqual(['test-job', 300]);
+    // name, due window (5 min), stale-claim takeover window (10 min default).
+    expect(claim.params).toEqual(['test-job', 300, 600]);
 
     const record = fake.matched('UPDATE scheduled_jobs')[0];
     expect(record.params).toEqual(['test-job', 'success', '{"deleted":3}', 0]);
@@ -152,13 +154,60 @@ describe('runScheduledJob', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it('destroys a connection whose advisory lock could not be released', async () => {
+    // A session that may still hold the lock must not go back into the pool: the next
+    // borrower inherits it and the whole fleet reads `skipped-locked`.
+    const fake = fakePool({ failOn: (sql) => sql.includes('pg_advisory_unlock') });
+
+    const result = await runScheduledJob(
+      job(async () => ({ ok: true })),
+      { pool: fake.pool }
+    );
+
+    expect(result.status).toBe('completed');
+    expect(fake.releases()).toHaveLength(1);
+    expect(fake.releases()[0]).toBeInstanceOf(Error);
+  });
+
+  it('returns a healthy connection to the pool untouched', async () => {
+    const fake = fakePool();
+    await runScheduledJob(
+      job(async () => ({ ok: true })),
+      { pool: fake.pool }
+    );
+    expect(fake.releases()).toEqual([undefined]);
+  });
+
+  it('reports work that succeeded as completed even if the ledger write fails', async () => {
+    // The DELETE has already committed. Calling that a failure would ask for a retry of
+    // work that is already done, and would log an outage that did not happen.
+    const fake = fakePool({ failOn: (sql) => sql.includes('UPDATE scheduled_jobs') });
+
+    const result = await runScheduledJob(
+      job(async () => ({ deleted: 9 })),
+      { pool: fake.pool }
+    );
+
+    expect(result).toMatchObject({ status: 'completed', outcome: { deleted: 9 } });
+    expect(result.error).toBeUndefined();
+  });
+
+  it('passes a per-job stale-claim window when one is set', async () => {
+    const fake = fakePool();
+    await runScheduledJob(
+      job(async () => null, { staleAfterMs: 90_000 }),
+      { pool: fake.pool }
+    );
+    expect(fake.matched('INSERT INTO scheduled_jobs')[0].params).toEqual(['test-job', 300, 90]);
+  });
+
   it('bypasses the due window under force, but never the lock', async () => {
     const fake = fakePool();
     await runScheduledJob(
       job(async () => null),
       { pool: fake.pool, force: true }
     );
-    expect(fake.matched('INSERT INTO scheduled_jobs')[0].params).toEqual(['test-job', 0]);
+    expect(fake.matched('INSERT INTO scheduled_jobs')[0].params).toEqual(['test-job', 0, 0]);
 
     const locked = fakePool({ locked: false });
     const run = vi.fn(async () => null);

@@ -12,7 +12,7 @@ import {
   setupRealPostgres,
   type RealPostgresHarness,
 } from '../support/realPostgres';
-import { runScheduledJob } from '../../src/scheduler/runner';
+import { ADVISORY_LOCK_NAMESPACE, runScheduledJob } from '../../src/scheduler/runner';
 import { reservationCleanupJob } from '../../src/scheduler/jobs';
 import type { ScheduledJob } from '../../src/scheduler/types';
 
@@ -143,6 +143,59 @@ describeWithPostgres('scheduled jobs against real PostgreSQL', () => {
       status: 'completed',
       outcome: 'recovered',
     });
+  });
+
+  it('takes over a claim left running by a process that died, once it is stale', async () => {
+    // What a SIGTERM mid-run leaves behind: the claim written, no outcome recorded, and
+    // no advisory lock because the connection died with the process.
+    const { job, calls } = countingJob({ name: 'stale-job', lockId: 4244, staleAfterMs: 60_000 });
+    await harness.pool.query(
+      `INSERT INTO scheduled_jobs (name, last_started_at, last_status, run_count)
+       VALUES ($1, NOW() - INTERVAL '30 seconds', 'running', 1)`,
+      [job.name]
+    );
+
+    // Still inside the takeover window: the ledger says running, so nothing runs.
+    expect((await runScheduledJob(job, { pool: harness.pool })).status).toBe('skipped-not-due');
+    expect(calls()).toBe(0);
+
+    await harness.pool.query(
+      `UPDATE scheduled_jobs SET last_started_at = NOW() - INTERVAL '10 minutes' WHERE name = $1`,
+      [job.name]
+    );
+
+    expect((await runScheduledJob(job, { pool: harness.pool })).status).toBe('completed');
+    expect(calls()).toBe(1);
+
+    const { rows } = await harness.pool.query<{ last_status: string; run_count: number }>(
+      'SELECT last_status, run_count FROM scheduled_jobs WHERE name = $1',
+      [job.name]
+    );
+    expect(rows[0].last_status).toBe('success');
+    expect(Number(rows[0].run_count)).toBe(2);
+  });
+
+  it('will not take over a claim whose runner is alive, however stale the row looks', async () => {
+    // The advisory lock, not the row, is the authority on "is someone running this".
+    const { job, calls } = countingJob({ name: 'held-job', lockId: 4245, staleAfterMs: 1 });
+    await harness.pool.query(
+      `INSERT INTO scheduled_jobs (name, last_started_at, last_status, run_count)
+       VALUES ($1, NOW() - INTERVAL '1 hour', 'running', 1)`,
+      [job.name]
+    );
+
+    const holder = await harness.pool.connect();
+    try {
+      await holder.query('SELECT pg_advisory_lock($1, $2)', [ADVISORY_LOCK_NAMESPACE, job.lockId]);
+      expect((await runScheduledJob(job, { pool: harness.pool })).status).toBe('skipped-locked');
+      expect(calls()).toBe(0);
+    } finally {
+      await holder.query('SELECT pg_advisory_unlock($1, $2)', [
+        ADVISORY_LOCK_NAMESPACE,
+        job.lockId,
+      ]);
+      holder.release();
+    }
   });
 
   it('deletes expired reservations exactly once across the fleet and reports the count', async () => {

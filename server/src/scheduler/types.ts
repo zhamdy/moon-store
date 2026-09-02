@@ -15,6 +15,12 @@ export interface ScheduledJob<TOutcome = unknown> {
    * Must be unique per job and stable — it is an identity, not a counter.
    */
   readonly lockId: number;
+  /**
+   * How long this job's claim may sit in `running` before another instance takes it over,
+   * defaulting to `DEFAULT_STALE_CLAIM_MS`. Only ever consulted while the advisory lock is
+   * free, so it is a liveness knob, not a safety one.
+   */
+  readonly staleAfterMs?: number;
   /** Does the work. Throwing marks the run failed; the next interval retries it. */
   run(): Promise<TOutcome>;
 }

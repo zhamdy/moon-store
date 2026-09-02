@@ -20,7 +20,7 @@ import { runScheduledJob } from './runner';
 import type { ScheduledJob } from './types';
 
 export * from './types';
-export { runScheduledJob, ADVISORY_LOCK_NAMESPACE } from './runner';
+export { runScheduledJob, ADVISORY_LOCK_NAMESPACE, DEFAULT_STALE_CLAIM_MS } from './runner';
 export { reservationCleanupJob, orphanedMediaCleanupJob, JOB_LOCK_IDS } from './jobs';
 export { sweepOrphanedMedia, type SweepOutcome } from './mediaSweep';
 
