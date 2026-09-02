@@ -122,10 +122,37 @@ export class AuthService {
     // Revocation cannot live in the transaction that rejects: throwing from inside rolls
     // it back, and the family the server just decided was compromised would quietly stay
     // alive. It runs in its own transaction, after the first one has committed.
-    const revokedSessions = await withTransaction(async (client) => {
-      await this.repo.lockUserForSessionChange(outcome.userId, client);
-      return this.repo.revokeFamily(outcome.familyId, outcome.reason, client);
-    });
+    //
+    // And it cannot be allowed to change the answer. A deadlock or a dropped connection
+    // here must not turn a 401 into a 500: the caller would read a server fault, retry,
+    // and -- because the retry presents the same invalidated token -- get another 500,
+    // while the credential it presented is exactly as invalid as it was. The rejection is
+    // therefore unconditional and the revocation is best-effort, retried once for the two
+    // transient SQLSTATEs a fresh attempt can fix, and escalated to an error if it still
+    // fails. It is safe to retry: the callback locks and updates, and has no side effect
+    // outside its transaction.
+    let revokedSessions: number | null = null;
+    try {
+      revokedSessions = await withTransaction(
+        async (client) => {
+          await this.repo.lockUserForSessionChange(outcome.userId, client);
+          return this.repo.revokeFamily(outcome.familyId, outcome.reason, client);
+        },
+        undefined,
+        { retryOnSerializationFailure: true, maxRetries: 1 }
+      );
+    } catch (error) {
+      // A family judged compromised that is still live is a security event, not a
+      // database hiccup: it needs an operator, and `revokeAllSessions` is the manual
+      // lever. Logged at error level for exactly that reason.
+      logger.error('SECURITY: failed to revoke a refresh token family after rejecting it', {
+        userId: outcome.userId,
+        familyId: outcome.familyId,
+        reason: outcome.reason,
+        tokenDigestPrefix: presentedHash.slice(0, 12),
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     if (outcome.reason === 'reuse') {
       // No token material in this log line or any other: a digest prefix is enough to
