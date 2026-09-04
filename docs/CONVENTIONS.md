@@ -47,6 +47,35 @@ See `docs/ARCHITECTURE.md` for the full three-layer model and the current slice 
 
 ---
 
+## Shared components have one import path
+
+A shared component is imported from the barrel, never from the directory it lives in:
+
+```ts
+import { DataTable, PageHeader, ConfirmDialog, Badge } from '../../shared'; // or '@/shared'
+```
+
+`client/src/shared/index.ts` re-exports `components/{forms,data-display,overlays,data-table,navigation}`
+wholesale, so those five directories are an implementation detail: a component can move between them
+without touching a single consumer. A deep import into one of them is a second path to the same
+component, and `no-restricted-imports` in `client/eslint.config.mjs` fails the build for it.
+
+The components still at the root of `shared/components/` (`BarcodeScanner`, `Receipt`,
+`ErrorBoundary`, `PWAInstallPrompt`, …) are deliberately **not** in the barrel and are imported by
+their own path. The lint rule names the five directories rather than all of `shared/components/`
+for exactly that reason.
+
+Two things follow that are easy to get wrong:
+
+- **Don't re-add a shim.** `components/PageHeader.tsx` and three siblings used to be one-line
+  `export * from './navigation/PageHeader'` files. They were a second canonical path, and the cost
+  of having one showed up as a 45-line rewrite across 25 files when they were removed (#56).
+- **Don't re-export anything heavy from the barrel.** See the comment at the top of
+  `client/src/shared/index.ts`: a barrel re-export puts a module one `export *` away from every
+  consumer, and tree-shaking is the only thing keeping it out of their chunks.
+
+---
+
 ## Global string-coupling contract
 
 Some cross-cutting concerns are deliberately **not** slice-scoped or namespaced. This is a documented
