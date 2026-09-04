@@ -191,6 +191,26 @@ export default tseslint.config(
                 'The axios instance is internal to the transport adapter. Use useTransport(), resource() or useApiQuery() instead.',
             },
             {
+              // #56: one canonical import path per shared component. These four
+              // directories are re-exported wholesale by `src/shared/index.ts`, so a
+              // deep import into one is a second path to the same component — which is
+              // what the deleted `components/PageHeader`-style shims were, and what made
+              // moving a component between them a 45-line rewrite.
+              //
+              // Scoped to these four rather than all of `shared/components/` on purpose:
+              // the components still at that directory's root (BarcodeScanner, Receipt,
+              // ErrorBoundary, ...) are deliberately not in the barrel and have no other
+              // path to reach them.
+              group: [
+                '**/shared/components/data-table/*',
+                '**/shared/components/navigation/*',
+                '**/shared/components/overlays/*',
+                '**/shared/components/data-display/*',
+              ],
+              message:
+                'Import shared components from the barrel ("@/shared" or "../../shared"), not from the directory they live in — that is the one canonical path, and it is what lets a component move directories without a rewrite.',
+            },
+            {
               // The relative-escape half of R9. `no-restricted-imports`
               // matches with the `ignore` package (gitignore semantics, not
               // minimatch): its `*`/`**` don't treat ".." specially, so a
