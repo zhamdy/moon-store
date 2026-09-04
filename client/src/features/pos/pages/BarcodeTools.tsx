@@ -3,8 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Tabs, Tab, Card, CardBody, Button, Input, Checkbox } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader } from '../../../shared';
 import BarcodeScanner from '../../../shared/components/BarcodeScanner';
 // eslint-disable-next-line boundaries/element-types
 import BarcodeGenerator from '@/features/inventory/components/BarcodeGenerator';

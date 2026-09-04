@@ -4,7 +4,7 @@ import { FileText, CalendarIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@heroui/react';
 import { Calendar } from '../../../shared/components/Calendar';
-import PageHeader from '../../../shared/components/PageHeader';
+import { PageHeader } from '../../../shared';
 import { exportToExcel, exportMultiSheetExcel } from '../../../shared/lib/exportUtils';
 import KpiCards from '../components/KpiCards';
 import DashboardCharts from '../components/DashboardCharts';

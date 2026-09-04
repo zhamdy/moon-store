@@ -14,7 +14,7 @@ import {
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
-import PageHeader from '../../../shared/components/PageHeader';
+import { PageHeader } from '../../../shared';
 import type { AppSettings } from '../../../shared/types/index';
 
 export default function Settings() {

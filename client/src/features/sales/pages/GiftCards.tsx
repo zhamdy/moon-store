@@ -15,10 +15,7 @@ import {
   ModalFooter,
   Pagination,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
-import ConfirmDialog from '../../../shared/components/ConfirmDialog';
-import DataTable from '../../../shared/components/DataTable';
+import { Badge, ConfirmDialog, DataTable, PageHeader } from '../../../shared';
 import { formatCurrency, formatDate } from '../../../shared/lib/utils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';

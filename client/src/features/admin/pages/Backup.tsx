@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { Button, Card, CardBody } from '@heroui/react';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useTransport } from '../../../shared/lib/transport/index';
-import PageHeader from '../../../shared/components/PageHeader';
+import { PageHeader } from '../../../shared';
 
 export default function BackupPage() {
   const { t } = useTranslation();

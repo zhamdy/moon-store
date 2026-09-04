@@ -24,7 +24,7 @@ import {
   ModalFooter,
   Pagination,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
+import { Badge } from '../../../shared';
 import { formatCurrency, formatDateTime, formatRelative } from '../../../shared/lib/utils';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { resource } from '../../../shared/lib/resource';

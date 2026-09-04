@@ -12,9 +12,7 @@ import {
   ModalBody,
   ModalFooter,
 } from '@heroui/react';
-import PageHeader from '../../../shared/components/PageHeader';
-import ConfirmDialog from '../../../shared/components/ConfirmDialog';
-import DataTable from '../../../shared/components/DataTable';
+import { ConfirmDialog, DataTable, PageHeader } from '../../../shared';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef } from '@tanstack/react-table';

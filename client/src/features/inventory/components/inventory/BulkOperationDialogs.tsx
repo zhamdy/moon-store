@@ -9,7 +9,7 @@ import {
   Select,
   SelectItem,
 } from '@heroui/react';
-import ConfirmDialog from '../../../../shared/components/ConfirmDialog';
+import { ConfirmDialog } from '../../../../shared';
 import { useTranslation } from '../../../../shared/i18n/index';
 import type { Category, Distributor } from '../../../../shared/types/index';
 
