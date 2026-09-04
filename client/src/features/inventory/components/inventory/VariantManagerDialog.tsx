@@ -1,7 +1,6 @@
 import { Plus, Pencil, Trash2, X } from 'lucide-react';
 import { Button, Input, Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
-import { Badge } from '../../../../shared/components/StatusBadge';
-import ConfirmDialog from '../../../../shared/components/ConfirmDialog';
+import { Badge, ConfirmDialog } from '../../../../shared';
 import { formatCurrency } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
 import type { Product, ProductVariant } from '../../../../shared/types/index';

@@ -1,6 +1,6 @@
 import { History } from 'lucide-react';
 import { Modal, ModalContent, ModalHeader, ModalBody, Pagination } from '@heroui/react';
-import StatusBadge from '../../../../shared/components/StatusBadge';
+import { StatusBadge } from '../../../../shared';
 import { formatDateTime } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
 

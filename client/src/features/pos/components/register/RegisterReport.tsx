@@ -1,5 +1,5 @@
 import { Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
-import { Badge } from '../../../../shared/components/StatusBadge';
+import { Badge } from '../../../../shared';
 import { useTranslation } from '../../../../shared/i18n/index';
 import { formatCurrency } from '../../../../shared/lib/utils';
 import type { RegisterReportData } from '../../types';

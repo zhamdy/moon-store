@@ -13,8 +13,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Input, Button, Card, CardBody, Skeleton } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader } from '../../../shared';
 import CartPanel from '../components/CartPanel';
 import BarcodeScanner from '../../../shared/components/BarcodeScanner';
 import KeyboardShortcutsHelp from '../components/KeyboardShortcutsHelp';

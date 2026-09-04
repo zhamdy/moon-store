@@ -29,13 +29,12 @@ import {
   SelectItem,
   Pagination,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
+import { Badge, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
-import PageHeader from '../../../shared/components/PageHeader';
 import type { User } from '../../../shared/types/index';
 import type { Branch, BranchTransfer, ConsolidatedBranches } from '../types';
 

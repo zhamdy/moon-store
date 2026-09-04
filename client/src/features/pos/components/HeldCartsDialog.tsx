@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Archive, Trash2, RotateCcw, ShoppingBag } from 'lucide-react';
 import { Button, Modal, ModalContent, ModalHeader, ModalBody } from '@heroui/react';
-import ConfirmDialog from '../../../shared/components/ConfirmDialog';
+import { ConfirmDialog } from '../../../shared';
 import { useHeldCartsStore, type HeldCart } from '../store/heldCartsStore';
 import { useCartStore } from '../store/cartStore';
 import { formatCurrency, formatRelative } from '../../../shared/lib/utils';

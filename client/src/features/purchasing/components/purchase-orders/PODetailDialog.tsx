@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PackageCheck } from 'lucide-react';
 import { Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
-import { Badge } from '../../../../shared/components/StatusBadge';
+import { Badge } from '../../../../shared';
 import { formatCurrency } from '../../../../shared/lib/utils';
 import { useTranslation } from '../../../../shared/i18n/index';
 import type { PurchaseOrderDetail } from '../../types';

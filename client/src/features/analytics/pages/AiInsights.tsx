@@ -13,8 +13,7 @@ import {
   ModalBody,
   ModalFooter,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import PageHeader from '../../../shared/components/PageHeader';
+import { Badge, PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';

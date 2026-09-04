@@ -29,10 +29,7 @@ import {
   SelectItem,
   Checkbox,
 } from '@heroui/react';
-import { Badge } from '../../../shared/components/StatusBadge';
-import ConfirmDialog from '../../../shared/components/ConfirmDialog';
-import PageHeader from '../../../shared/components/PageHeader';
-import DataTable from '../../../shared/components/DataTable';
+import { Badge, ConfirmDialog, DataTable, PageHeader } from '../../../shared';
 import AdjustStockDialog from '../components/AdjustStockDialog';
 import ProductFormDialog from '../components/inventory/ProductFormDialog';
 import BulkOperationDialogs from '../components/inventory/BulkOperationDialogs';
