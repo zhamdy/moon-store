@@ -18,6 +18,7 @@ import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
 import { CollectionsRepository } from '../src/modules/inventory/collections/repository';
 import { CollectionsService } from '../src/modules/inventory/collections/service';
+import { collectionUpdateSchema } from '../src/modules/inventory/collections/controller';
 
 const MIGRATIONS_DIR = path.join(__dirname, '../src/database/migrations');
 
@@ -276,5 +277,79 @@ describe('collections partial update', () => {
     expect(after.is_featured).toBe(before.is_featured);
     const detail = await service.findById(id);
     expect(detail!.products.map((p) => p.id)).toEqual([21]);
+  });
+
+  /**
+   * #83: the edit modal has always sent `status` and `year`. `status` had a column but
+   * neither the schema nor the write set carried it; `year` had no column at all. Both are
+   * asserted here because the bug was symmetric — a field can go missing at the schema, at
+   * the repository's write set, or (for `year`) at the database, and only one column had
+   * been fixed at each of #78's audits before this issue.
+   */
+  it('writes status and year, which the client has always sent and the server always dropped', async () => {
+    const id = await featuredCollection();
+
+    const result = await service.update(id, {
+      name: 'Autumn window',
+      season: 'Fall',
+      status: 'on_sale',
+      year: 2026,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data!.status).toBe('on_sale');
+    expect(result.data!.year).toBe(2026);
+    const row = await rowOf(id);
+    expect(row.status).toBe('on_sale');
+    expect(Number(row.year)).toBe(2026);
+  });
+
+  it('clears year when the body says null explicitly, same as the other nullable columns', async () => {
+    const id = await featuredCollection();
+    await service.update(id, { year: 2025 });
+
+    await service.update(id, { year: null });
+
+    const row = await rowOf(id);
+    expect(row.year).toBeNull();
+  });
+
+  it('leaves status and year alone when the body only edits the product set', async () => {
+    const id = await featuredCollection();
+    await service.update(id, { status: 'active', year: 2026 });
+
+    await service.update(id, { product_ids: [20] });
+
+    const row = await rowOf(id);
+    expect(row.status).toBe('active');
+    expect(Number(row.year)).toBe(2026);
+  });
+});
+
+describe('collectionUpdateSchema', () => {
+  it('accepts status and year alongside the existing partial fields', () => {
+    const parsed = collectionUpdateSchema.parse({ status: 'on_sale', year: 2026 });
+    expect(parsed).toEqual({ status: 'on_sale', year: 2026 });
+  });
+
+  it('rejects a status outside the known enum', () => {
+    expect(collectionUpdateSchema.safeParse({ status: 'discontinued' }).success).toBe(false);
+  });
+
+  it('rejects a year outside the sane range', () => {
+    expect(collectionUpdateSchema.safeParse({ year: 1899 }).success).toBe(false);
+    expect(collectionUpdateSchema.safeParse({ year: 2101 }).success).toBe(false);
+  });
+
+  it('rejects a field the schema does not know about, rather than silently dropping it', () => {
+    // The shape of #83: before `.strict()`, an unknown key parsed away clean and the
+    // caller never learned their write did nothing.
+    expect(collectionUpdateSchema.safeParse({ nickname: 'Autumn window' }).success).toBe(false);
+  });
+
+  it('still treats an absent field as untouched, not as null', () => {
+    const parsed = collectionUpdateSchema.parse({ name: 'Autumn window' });
+    expect('year' in parsed).toBe(false);
+    expect('status' in parsed).toBe(false);
   });
 });

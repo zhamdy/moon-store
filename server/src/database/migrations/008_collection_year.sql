@@ -1,0 +1,12 @@
+-- 008_collection_year.sql
+-- Fixes #83: the Collections edit modal has always sent `year`, and the server has
+-- always had nowhere to put it -- there is no `year` column on `collections`, so Zod
+-- strips it before the repository ever sees it. The client type already declares
+-- `year: number | null` and the i18n catalogue already carries `collections.year`, so
+-- the UI's intent predates this column by design, not by accident.
+--
+-- `status` needs no migration -- 001_initial_schema.sql already added it
+-- (`status TEXT DEFAULT 'active'`) and the repository already selects it. Only the
+-- write path (collectionUpdateSchema / repository.update) was missing it, which is a
+-- code fix, not a schema change.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS year INTEGER;

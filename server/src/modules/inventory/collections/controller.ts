@@ -7,10 +7,15 @@ import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 
-const collectionSchema = z.object({
+// Kept in sync with the client's `statuses` enum in Collections.tsx.
+const collectionStatusSchema = z.enum(['upcoming', 'active', 'on_sale', 'archived']);
+
+export const collectionSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   season: z.string().max(50).optional(),
+  year: z.number().int().min(1900).max(2100).nullable().optional(),
+  status: collectionStatusSchema.optional(),
   is_featured: z.boolean().optional(),
   product_ids: z.array(z.number().int().positive()).optional(),
 });
@@ -29,14 +34,29 @@ const collectionSchema = z.object({
  * if this were true: `resource().useSave` PUTs exactly the keys a page put in its draft, so
  * every page in the app sends a partial body. Demanding a full record would have meant every
  * caller learning every column — the same coupling, moved rather than removed.
+ *
+ * `year` and `status` (#83): the modal has always sent both, and the server had nowhere
+ * to put either — `year` had no column at all, and `status`, though it has had a column
+ * since 001_initial_schema.sql, was never in this schema or in `repository.update`'s
+ * write set. Zod stripped the unknown key before the repository ever saw it, so the
+ * request returned a normal 200 with the change silently discarded.
+ *
+ * `.strict()` on this schema specifically: an unknown field is now a 400 at the moment a
+ * client/schema mismatch is introduced, rather than a silent no-op discovered by a user
+ * days later. Scoped to this one schema rather than repo-wide — a global sweep is its own
+ * change with its own blast radius.
  */
-const collectionUpdateSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  description: z.string().max(500).nullable().optional(),
-  season: z.string().max(50).nullable().optional(),
-  is_featured: z.boolean().optional(),
-  product_ids: z.array(z.number().int().positive()).optional(),
-});
+export const collectionUpdateSchema = z
+  .object({
+    name: z.string().min(1).max(100).optional(),
+    description: z.string().max(500).nullable().optional(),
+    season: z.string().max(50).nullable().optional(),
+    year: z.number().int().min(1900).max(2100).nullable().optional(),
+    status: collectionStatusSchema.optional(),
+    is_featured: z.boolean().optional(),
+    product_ids: z.array(z.number().int().positive()).optional(),
+  })
+  .strict();
 
 export class CollectionsController {
   async getCollections(req: Request, res: Response, next: NextFunction): Promise<void> {

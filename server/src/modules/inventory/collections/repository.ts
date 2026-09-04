@@ -68,12 +68,12 @@ export class CollectionsRepository implements ICollectionsRepository {
     const offsetIdx = params.length + 2;
 
     const collections = await this.q(queryable).query<CollectionRecord>(
-      `SELECT c.id, c.name, c.description, c.image_url, c.is_featured, c.season, c.status, c.created_at, c.updated_at,
+      `SELECT c.id, c.name, c.description, c.image_url, c.is_featured, c.season, c.year, c.status, c.created_at, c.updated_at,
               COUNT(cp.product_id)::int as product_count
        FROM collections c
        LEFT JOIN collection_products cp ON cp.collection_id = c.id
        ${where}
-       GROUP BY c.id, c.name, c.description, c.image_url, c.is_featured, c.season, c.status, c.created_at, c.updated_at
+       GROUP BY c.id, c.name, c.description, c.image_url, c.is_featured, c.season, c.year, c.status, c.created_at, c.updated_at
        ORDER BY ${sortColumn} ${direction}, c.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, pageSize, (page - 1) * pageSize]
@@ -107,9 +107,16 @@ export class CollectionsRepository implements ICollectionsRepository {
 
   async create(data: CreateCollectionDTO, queryable?: Queryable): Promise<CollectionRecord> {
     const res = await this.q(queryable).query<CollectionRecord>(
-      `INSERT INTO collections (name, description, season, is_featured)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [data.name, data.description || null, data.season || null, data.is_featured ? 1 : 0]
+      `INSERT INTO collections (name, description, season, year, status, is_featured)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [
+        data.name,
+        data.description || null,
+        data.season || null,
+        data.year ?? null,
+        data.status || 'active',
+        data.is_featured ? 1 : 0,
+      ]
     );
     return res.rows[0];
   }
@@ -137,6 +144,8 @@ export class CollectionsRepository implements ICollectionsRepository {
       name: data.name,
       description: orNull(data.description),
       season: orNull(data.season),
+      year: data.year,
+      status: data.status,
       is_featured: data.is_featured === undefined ? undefined : data.is_featured ? 1 : 0,
     });
 
