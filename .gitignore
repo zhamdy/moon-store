@@ -6,9 +6,15 @@ dist/
 *.db
 *.db-wal
 *.db-shm
+# Images are ignored by default because the ones that turn up in this repo are
+# screenshots, scratch exports and uploaded product media, none of which belong in git.
 *.png
 *.jpeg
 *.jpg
+# ...but the PWA install icons are source, not incidental output. The manifest referenced
+# both of these for a long time while neither could ever be committed, which is a failed
+# install and no error anywhere (#53). Anything under client/public/ is a shipped asset.
+!client/public/*.png
 nul
 .playwright-mcp/
 .tanstack/

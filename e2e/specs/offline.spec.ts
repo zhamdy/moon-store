@@ -1,24 +1,25 @@
 /**
  * R4 — what actually happens to a sale rung up offline.
  *
- * This file was written expecting to prove the documented offline-queue contract: a sale
- * queued to `moon-offline-queue`, replayed once on reconnect, surviving a reload. Driving
- * it in a real browser showed something different, and the specs below pin what the
- * application does rather than what it was expected to do.
+ * This file was written expecting to prove the documented offline-queue contract — a sale
+ * queued to `moon-offline-queue`, replayed once on reconnect, surviving a reload — and
+ * driving it in a real browser showed something else, so for a while it pinned what the
+ * application actually did instead.
  *
- * **The finding.** `queryClient` sets no `networkMode`, so React Query's default `'online'`
- * applies: a mutation fired while `navigator.onLine` is false is **paused**, not executed.
- * No request goes out, so it never fails, so `onError` never runs — and `CartPanel`'s
- * offline fallback, the only code that writes to `moon-offline-queue`, lives entirely
- * inside `onError`. The persisted queue therefore never receives a sale rung up offline.
+ * **What it found.** `queryClient` set no `networkMode`, so React Query's default
+ * `'online'` applied: a mutation fired while `navigator.onLine` was false was **paused**,
+ * not executed. No request went out, so it never failed, so `onError` never ran — and the
+ * checkout's offline fallback, the only code that writes to `moon-offline-queue`, lives
+ * entirely inside `onError`. The persisted queue never received a sale rung up offline.
+ * The common case still worked (reconnect with the tab open and the sale went through,
+ * once) but an in-memory pause does not survive a reload, and surviving exactly that is
+ * why the persisted queue exists (#30). A cashier who rang up an order on a dead link and
+ * refreshed lost it silently.
  *
- * Measured rather than inferred, by the assertions below: offline, zero sale requests and
- * an empty queue; on reconnect, the paused mutation resumes and the sale lands exactly once.
- *
- * **Why it still matters.** The common case is safe — reconnect with the tab open and the
- * sale goes through, once. But an in-memory pause does not survive a reload or a closed
- * tab, and surviving exactly that is why the persisted queue exists (issue #30). A cashier
- * who rings up an order on a dead link and refreshes loses it silently.
+ * **Fixed in #53** by `networkMode: 'always'` — the change the earlier version of this
+ * file named as the one that should make its pinning tests fail. The specs below now
+ * assert the contract rather than the gap: queued to localStorage, surviving a reload,
+ * replayed exactly once.
  *
  * **On emulating offline.** `context.setOffline(true)` is deliberately not used: it was
  * measured letting the checkout reach the server (a real `201`) while dropping the
@@ -117,13 +118,24 @@ test.describe('offline checkout @smoke', () => {
 
     await goOnline(page);
 
-    // On reconnect the paused mutation resumes — and the sale lands exactly once, which is
-    // the invariant that actually protects the shop from charging twice.
+    // On reconnect the queued sale replays — and lands exactly once, which is the
+    // invariant that actually protects the shop from charging twice.
     await expect
       .poll(() => countSalesForCashier(workerCashier.id), { timeout: 45_000 })
       .toBe(salesBefore + 1);
     expect(await readStock(product.id)).toBe(stockBefore - 1);
-    expect(posts.count(), 'exactly one sale POST reached the server').toBe(1);
+
+    // Counting POSTs is no longer the way to say that. Since #53 the offline attempt is
+    // genuinely made (and aborted), so more than one request leaves the browser by
+    // design — that failure is what writes the queue entry in the first place. What must
+    // hold is that every attempt carries the SAME idempotency key, so the server collapses
+    // them onto one sale however many arrive. The sale count above is the proof it did.
+    const keys = posts
+      .headers()
+      .map((h) => h['idempotency-key'])
+      .filter(Boolean);
+    expect(keys.length, 'the sale was attempted at least once').toBeGreaterThan(0);
+    expect(new Set(keys).size, 'every attempt reused one idempotency key').toBe(1);
     posts.stop();
   });
 
@@ -144,13 +156,16 @@ test.describe('offline checkout @smoke', () => {
 });
 
 /**
- * These pin the finding described in the file header. They assert **current behaviour**,
- * not an endorsement of it: if the checkout mutation is ever changed to fail rather than
- * pause while offline — `networkMode: 'always'` would do it — these are the tests that
- * should fail, and the queue contract they currently contradict is the one to restore.
+ * The durability contract, restored in #53.
+ *
+ * These tests previously pinned the opposite — an offline checkout wrote nothing, and a
+ * reload lost the sale — because React Query's default `networkMode: 'online'` paused the
+ * mutation instead of failing it, so `onError`, the only writer to the queue, never ran.
+ * `queryClient` now sets `networkMode: 'always'`, which is the change that earlier version
+ * of this file named as the one that should make it fail. It did.
  */
-test.describe('offline durability gap (pins current behaviour)', () => {
-  test('an offline checkout writes nothing to the persisted queue', async ({
+test.describe('offline durability', () => {
+  test('an offline checkout is written to the persisted queue, carrying its key', async ({
     cashierContext,
     seedProduct,
   }) => {
@@ -163,26 +178,30 @@ test.describe('offline durability gap (pins current behaviour)', () => {
 
     await goOffline(page);
     await ringUpAndConfirm(page, product.sku, product.id);
-    await page.waitForTimeout(3_000);
 
-    // The documented contract would put an entry here carrying an idempotency key. React
-    // Query pauses the mutation instead, so `onError` — the only writer — never runs.
-    expect(
-      await readQueue(page),
-      'offline sales are held in memory by React Query, not in moon-offline-queue'
-    ).toHaveLength(0);
+    const queue = await test.step('the sale lands in localStorage', async () => {
+      await expect.poll(() => readQueue(page).then((q) => q.length), { timeout: 15_000 }).toBe(1);
+      return readQueue(page);
+    });
+
+    const [entry] = queue;
+    expect(entry).toBeDefined();
+    expect(entry!.type).toBe('sale');
+    // The key the failed POST carried. Without it a replay of a request that did reach the
+    // server would ring the sale up a second time, which is worse than losing it.
+    expect(entry!.idempotencyKey, 'queued sale carries an idempotency key').toBeTruthy();
 
     await goOnline(page);
   });
 
-  test('a reload while offline loses the pending sale', async ({
+  test('a sale rung up offline survives a reload and replays once', async ({
     cashierContext,
     seedProduct,
     workerCashier,
   }) => {
-    // The concrete consequence, and why the gap is worth reporting rather than shrugging
-    // at: an in-memory pause does not survive a refresh, and surviving exactly that is
-    // what the persisted queue was built for.
+    // The case the persisted queue exists for (#30), and the one an in-memory pause could
+    // never cover: the cashier rings up an order on a dead link and the tab is reloaded
+    // before it reconnects.
     const product = await seedProduct('lostonreload', { price: 65, stock: 5 });
     const stockBefore = await readStock(product.id);
     const salesBefore = await countSalesForCashier(workerCashier.id);
@@ -194,23 +213,20 @@ test.describe('offline durability gap (pins current behaviour)', () => {
 
     await goOffline(page);
     await ringUpAndConfirm(page, product.sku, product.id);
-    await page.waitForTimeout(2_000);
+    await expect.poll(() => readQueue(page).then((q) => q.length), { timeout: 15_000 }).toBe(1);
 
-    // Refresh **while still disconnected** — reconnecting first would let the paused
-    // mutation resume and complete, which is the other test's scenario, not this one.
+    // Refresh **while still disconnected** — reconnecting first would be the other test's
+    // scenario. localStorage is what has to carry the sale across this.
     await page.reload();
-    // The reload restores a live `navigator.onLine`; drop the request block too, so the
-    // app has every opportunity to replay something if it had anything to replay.
-    await goOnline(page);
-    await page.waitForTimeout(5_000);
+    expect(await readQueue(page), 'the queue survives the reload').toHaveLength(1);
 
-    // Nothing was queued, so nothing replays: the order is simply gone.
-    expect(await readQueue(page)).toHaveLength(0);
-    expect(
-      await countSalesForCashier(workerCashier.id),
-      'the pending offline sale does not survive a reload'
-    ).toBe(salesBefore);
-    expect(await readStock(product.id)).toBe(stockBefore);
+    await goOnline(page);
+
+    await expect
+      .poll(() => countSalesForCashier(workerCashier.id), { timeout: 45_000 })
+      .toBe(salesBefore + 1);
+    expect(await readStock(product.id)).toBe(stockBefore - 1);
+    await expect.poll(() => readQueue(page).then((q) => q.length), { timeout: 15_000 }).toBe(0);
   });
 
   test('the cashier is at least told the link is down', async ({ cashierContext, seedProduct }) => {

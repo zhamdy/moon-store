@@ -280,7 +280,10 @@ describe('CartPanel checkout', () => {
     try {
       render(<CartPanel />, { wrapper: wrapperFor(transport) });
 
-      transport.failNext('', 500);
+      // `null`, not a status code: offline means no response arrived at all. A 500
+      // would mean the server answered, which is not what being offline looks like and
+      // is no longer treated as a reason to queue the sale (#53).
+      transport.failNext('', null);
       fireEvent.click(await openCheckout());
 
       await waitFor(() => expect(useOfflineStore.getState().queue).toHaveLength(1));
@@ -308,7 +311,10 @@ describe('CartPanel checkout', () => {
     try {
       render(<CartPanel />, { wrapper: wrapperFor(transport) });
 
-      transport.failNext('', 500);
+      // `null`, not a status code: offline means no response arrived at all. A 500
+      // would mean the server answered, which is not what being offline looks like and
+      // is no longer treated as a reason to queue the sale (#53).
+      transport.failNext('', null);
       fireEvent.click(await openCheckout());
 
       await waitFor(() => expect(useOfflineStore.getState().queue).toHaveLength(1));

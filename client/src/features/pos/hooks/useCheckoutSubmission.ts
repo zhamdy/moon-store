@@ -4,12 +4,14 @@
  * receipt and the offline queue once the server answers (or doesn't).
  *
  * Extracted from CartPanel (issue #51) so the submission lifecycle can be
- * exercised without rendering the POS screen. Behaviour is unchanged, including
- * the offline fallback below — which is currently UNREACHABLE from the
- * checkout path (React Query pauses rather than fails a mutation fired while
- * `navigator.onLine` is false, so `onError` never runs). That is issue #53's
- * territory; the fallback is preserved here exactly as it was, not deleted as
- * dead code and not wired up.
+ * exercised without rendering the POS screen.
+ *
+ * The offline fallback below was unreachable until #53: React Query's default
+ * `networkMode: 'online'` paused a mutation fired while `navigator.onLine` was
+ * false rather than failing it, so no request went out, nothing rejected, and
+ * `onFailure` never ran. `queryClient` now sets `networkMode: 'always'`, which
+ * is what makes the queue below the real path for a sale rung up on a dead
+ * link rather than dead code.
  */
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -150,7 +152,23 @@ export function useCheckoutSubmission(params: {
       setReceiptOpen(true);
     },
     onFailure: (failure, attempt: CheckoutMutationVariables) => {
-      if (!navigator.onLine) {
+      // The sale is queued whenever the server returned no verdict at all — not merely
+      // when the browser admits to being offline (#53).
+      //
+      // `navigator.onLine` reports a link, not a reachable API, and on shop wifi it is
+      // wrong in the direction that costs money: a captive portal, a half-open socket
+      // after an access-point handover, or a server that is simply down all leave the
+      // flag true while nothing reaches the API. Keying on it meant those sales took the
+      // generic error path — cart intact, cashier told to retry, nothing durably saved —
+      // while the identical failure with the flag false was queued and replayed.
+      //
+      // `offline` and `network` are the two kinds `classifyMutationError` assigns when
+      // the response never arrived (`status === null`); the flag only decides which of
+      // the two names it gets. Both mean the same thing here: the request may or may not
+      // have landed, and the only safe answer is a durable entry carrying the same
+      // idempotency key, so a replay collapses onto the original sale rather than
+      // charging twice.
+      if (failure.kind === 'offline' || failure.kind === 'network') {
         addToQueue({
           type: 'sale',
           payload: buildOfflineSalePayload(attempt.composition) as unknown as Record<

@@ -255,7 +255,7 @@ describe('useCheckoutSubmission', () => {
       const transport = withSaleReply(createMemoryTransport());
       const { result, settled } = renderSubmission(transport);
 
-      transport.failNext('', 500, undefined, undefined, 'sales');
+      transport.failNext('', null, undefined, undefined, 'sales');
       act(() => result.current.submit(COMPOSITION));
 
       await waitFor(() => expect(useOfflineStore.getState().queue).toHaveLength(1));
@@ -281,12 +281,36 @@ describe('useCheckoutSubmission', () => {
     });
   });
 
+  it('queues a sale the API never answered, even while the browser insists it is online', async () => {
+    // The case `navigator.onLine` cannot see and the old condition dropped: shop wifi is
+    // associated, so the flag is true, but a captive portal or a dead API means nothing
+    // reaches the server. Before #53 this took the generic error path -- the cashier was
+    // told to retry and nothing was saved -- while the identical failure with the flag
+    // false was queued. The till is online by default in this test; no whileOffline().
+    const transport = withSaleReply(createMemoryTransport());
+    const { result, settled } = renderSubmission(transport);
+    expect(navigator.onLine).toBe(true);
+
+    transport.failNext('', null, undefined, undefined, 'sales');
+    act(() => result.current.submit(COMPOSITION));
+
+    await waitFor(() => expect(useOfflineStore.getState().queue).toHaveLength(1));
+    const [queued] = useOfflineStore.getState().queue;
+    expect(queued.type).toBe('sale');
+    // The key the failed POST carried, so a request that did land is deduped on replay
+    // rather than charging the customer twice.
+    expect(queued.idempotencyKey).toBe(transport.idempotencyKeys()[0]);
+    expect(useCartStore.getState().items).toHaveLength(0);
+    expect(settled).toHaveBeenCalledTimes(1);
+    expect(toast.success).toHaveBeenCalledWith('Sale saved offline. Will sync when back online.');
+  });
+
   it('queues the composition it was handed, not whatever the cart says afterwards', async () => {
     await whileOffline(async () => {
       const transport = withSaleReply(createMemoryTransport());
       const { result } = renderSubmission(transport);
 
-      transport.failNext('', 500, undefined, undefined, 'sales');
+      transport.failNext('', null, undefined, undefined, 'sales');
       act(() => {
         result.current.submit({ ...COMPOSITION, paymentMethod: 'Card', customerId: 42 });
         // The cart moves on while the request is in flight.
@@ -451,6 +475,8 @@ describe('recovering from a rejected checkout', () => {
     const transport = transportWithStock(0);
     const { result } = renderSubmission(transport);
 
+    // A 500, deliberately: the server answered. A null status would be a network
+    // failure, which now queues the sale offline rather than reaching this path.
     transport.failNext('', 500, undefined, undefined, 'sales');
     act(() => result.current.submit(COMPOSITION));
 
