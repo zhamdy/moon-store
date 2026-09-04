@@ -49,6 +49,53 @@ Full checklist detail, the global string-coupling contract (persist keys, shared
 duplicated Sidebar route strings, global i18n files), and slice split/merge criteria:
 `docs/CONVENTIONS.md`.
 
+## CI gates
+
+Each gate is its own job, so the checks list says what broke without anyone opening a log.
+
+| Job | What it proves |
+| --- | --- |
+| `Server (lint, typecheck, test)` | ESLint clean of errors and **not above the warning ratchet**, `tsc --noEmit`, the full suite with a real PostgreSQL, plus a guard that the real-PG suites were not silently skipped. |
+| `Migrations (up, down, re-apply)` | Every `.down.sql` actually reverses its `.sql`. |
+| `Client (lint, typecheck, test)` | ESLint, `tsc --noEmit`, vitest. |
+| `E2E smoke (pull requests)` | The money paths, under a ~3 minute budget. |
+| `E2E full (main)` / `E2E settings` | The sharded suite and the serial settings project. |
+
+### The lint warning ratchet
+
+`npm run lint --prefix server` runs `eslint . --max-warnings 391`. The number is today's
+count, essentially all `@typescript-eslint/no-explicit-any`. It exists so the count can
+only fall: errors were already fatal, but warnings gated nothing, so nothing stopped the
+next `any` from landing.
+
+**Lowering it is #47's job**, as it replaces `any` with real types. Lower the number in
+`server/package.json` in the same PR that removes the warnings — a ratchet left above the
+true count silently stops ratcheting. Never raise it.
+
+### Migration verification
+
+```bash
+cd server && MIGRATION_TEST_DATABASE_URL=postgresql://.../moon_store_migrations_test npm run verify:migrations
+```
+
+Rolls back the top *k* migrations and re-applies them, for every *k*, comparing a schema
+snapshot (columns, constraints, indexes) each time. Stepping one at a time is the point:
+migration 001 creates every core table, so a full down-then-up destroys the evidence of
+any later migration's broken rollback and passes. Measured — blanking
+`008_collection_year.down.sql` survives a naive full round trip.
+
+Two failures it reports separately: a down that leaves something behind (the re-apply no
+longer matches the snapshot) and a down that does nothing at all (the schema is unchanged
+by the rollback). The second cannot be caught by comparison alone, because an idempotent
+up like `ADD COLUMN IF NOT EXISTS` re-applies happily over its own leftover.
+
+A down migration that *should* change nothing — `002` inserts a settings row and cannot
+prove on rollback which row was its own — declares it with the line
+`Intentionally a no-op.` in its `.down.sql`. That marker is load-bearing, not a comment.
+
+The script refuses to run against a database whose name does not look disposable, and
+works in its own `migration_verify` schema.
+
 ## Testing
 
 ```bash
