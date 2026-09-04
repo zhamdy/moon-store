@@ -148,9 +148,7 @@ describeWithPostgres('checkout stock under concurrency', () => {
         )
       ).rejects.toMatchObject({
         name: 'InsufficientStockError',
-        productId,
-        requested: 1,
-        available: 5,
+        conflicts: [{ productId, variantId: null, requested: 1, available: 5 }],
       });
 
       expect(await stockOf(productId)).toBe(5);

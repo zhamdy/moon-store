@@ -82,7 +82,9 @@ describe('Sales - Mutation Contract', () => {
 
   it('sends the typed stock code and the numbers, not just an English sentence', async () => {
     vi.spyOn(salesService, 'executeSale').mockRejectedValueOnce(
-      new InsufficientStockError('Insufficient stock for product ID 7', 7, null, 3, 1)
+      new InsufficientStockError('Insufficient stock for product ID 7', [
+        { productId: 7, variantId: null, requested: 3, available: 1 },
+      ])
     );
     const next = vi.fn();
 
@@ -117,7 +119,9 @@ describe('Sales - Mutation Contract', () => {
     // The gap this closes: variant stock is a separate column with no bulk lookup, so a
     // client cannot rediscover this number by re-reading products.
     vi.spyOn(salesService, 'executeSale').mockRejectedValueOnce(
-      new InsufficientStockError('Insufficient stock for variant ID 12', 7, 12, 2, 0)
+      new InsufficientStockError('Insufficient stock for variant ID 12', [
+        { productId: 7, variantId: 12, requested: 2, available: 0 },
+      ])
     );
     const next = vi.fn();
 
@@ -889,14 +893,34 @@ describe('Unit 2 - SalesService authoritative calculation and snapshot persisten
       )
     ).rejects.toMatchObject({
       name: 'InsufficientStockError',
-      productId: 2,
-      variantId: null,
-      requested: 7,
-      available: 5,
+      conflicts: [{ productId: 2, variantId: null, requested: 7, available: 5 }],
     });
 
     const sales = await testPool.query('SELECT * FROM sales');
     expect(sales.rows).toHaveLength(0);
+  });
+
+  it('error path: every oversold line is reported, not just the first', async () => {
+    // Product 1 has 10, product 2 has 5. Both lines are short. Reporting only the first
+    // would have the cashier fix one line, resubmit, and be refused again on the other.
+    await expect(
+      salesService.executeSale(
+        {
+          items: [
+            { product_id: 1, quantity: 11 },
+            { product_id: 2, quantity: 7 },
+          ],
+          payment_method: 'Cash',
+        } as any,
+        1
+      )
+    ).rejects.toMatchObject({
+      name: 'InsufficientStockError',
+      conflicts: [
+        { productId: 1, requested: 11, available: 10 },
+        { productId: 2, requested: 7, available: 5 },
+      ],
+    });
   });
 
   it('error path: available excludes what this same rolled-back transaction already took', async () => {
@@ -915,7 +939,10 @@ describe('Unit 2 - SalesService authoritative calculation and snapshot persisten
         } as any,
         1
       )
-    ).rejects.toMatchObject({ name: 'InsufficientStockError', productId: 2, available: 5 });
+    ).rejects.toMatchObject({
+      name: 'InsufficientStockError',
+      conflicts: [{ productId: 2, available: 5 }],
+    });
     // That the rollback actually restores the 5 needs a real engine, so it is asserted in
     // `tests/concurrency/checkout.concurrency.test.ts` rather than here.
   });

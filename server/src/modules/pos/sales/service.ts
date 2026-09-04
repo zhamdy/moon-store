@@ -33,6 +33,7 @@ import {
   SaleCalculationSnapshot,
   SalesValidationError,
   InsufficientStockError,
+  type StockConflict,
   SPLIT_PAYMENT_MISMATCH_CODE,
   STRICT_SPLIT_PAYMENT_VALIDATION,
 } from './types';
@@ -232,6 +233,11 @@ export class SalesService {
     queryable: Queryable,
     checkStock: boolean
   ): Promise<ResolvedLines> {
+    // Every line that cannot be sold, not just the first. The pre-check reads all of
+    // them anyway, and a cashier told about one line at a time would fix it, resubmit,
+    // and be refused again on the next.
+    const stockConflicts: StockConflict[] = [];
+
     const resolvedItems: ResolvedSaleLine[] = [];
     const calcLines: SaleCalculationLineInput[] = [];
 
@@ -257,13 +263,12 @@ export class SalesService {
         );
         if (!variant) throw new Error(`Variant not found: ID ${item.variant_id}`);
         if (checkStock && Number(variant.stock) < item.quantity) {
-          throw new InsufficientStockError(
-            `Insufficient stock for variant ID ${item.variant_id}`,
-            item.product_id,
-            item.variant_id,
-            item.quantity,
-            Math.max(0, Number(variant.stock))
-          );
+          stockConflicts.push({
+            productId: item.product_id,
+            variantId: item.variant_id,
+            requested: item.quantity,
+            available: Math.max(0, Number(variant.stock)),
+          });
         }
         const unitPrice = Number(variant.price);
         resolvedItems.push({
@@ -280,13 +285,12 @@ export class SalesService {
         const product = await this.repo.getProductById(item.product_id, queryable);
         if (!product) throw new Error(`Product not found: ID ${item.product_id}`);
         if (checkStock && Number(product.stock) < item.quantity) {
-          throw new InsufficientStockError(
-            `Insufficient stock for product ID ${item.product_id}`,
-            item.product_id,
-            null,
-            item.quantity,
-            Math.max(0, Number(product.stock))
-          );
+          stockConflicts.push({
+            productId: item.product_id,
+            variantId: null,
+            requested: item.quantity,
+            available: Math.max(0, Number(product.stock)),
+          });
         }
         const unitPrice = Number(product.price);
         resolvedItems.push({
@@ -304,9 +308,21 @@ export class SalesService {
 
     for (const [bundleId, group] of bundleGroups) {
       const { resolvedItems: bundleResolved, calcLines: bundleCalcLines } =
-        await this.resolveBundleGroup(bundleId, group, queryable, checkStock);
+        await this.resolveBundleGroup(bundleId, group, queryable, checkStock, stockConflicts);
       resolvedItems.push(...bundleResolved);
       calcLines.push(...bundleCalcLines);
+    }
+
+    if (stockConflicts.length > 0) {
+      // The message names the first line only: it is prose for a person, and the machine
+      // -readable list is what a client reads. Wording unchanged from before this was typed.
+      const first = stockConflicts[0];
+      throw new InsufficientStockError(
+        first.variantId
+          ? `Insufficient stock for variant ID ${first.variantId}`
+          : `Insufficient stock for product ID ${first.productId}`,
+        stockConflicts
+      );
     }
 
     return { resolvedItems, calcLines };
@@ -330,7 +346,9 @@ export class SalesService {
     bundleId: number,
     requestedItems: SaleItemInput[],
     queryable: Queryable,
-    checkStock: boolean
+    checkStock: boolean,
+    /** Appended to rather than thrown from, so one cart reports every oversold line. */
+    stockConflicts: StockConflict[]
   ): Promise<ResolvedLines> {
     const bundle = await this.bundles.findById(bundleId, queryable);
     if (!bundle || bundle.status !== 'active') {
@@ -412,13 +430,12 @@ export class SalesService {
       const product = await this.repo.getProductById(bi.product_id, queryable);
       if (!product) throw new Error(`Product not found: ID ${bi.product_id}`);
       if (checkStock && Number(product.stock) < requestedQty) {
-        throw new InsufficientStockError(
-          `Insufficient stock for product ID ${bi.product_id}`,
-          bi.product_id,
-          null,
-          requestedQty,
-          Math.max(0, Number(product.stock))
-        );
+        stockConflicts.push({
+          productId: bi.product_id,
+          variantId: null,
+          requested: requestedQty,
+          available: Math.max(0, Number(product.stock)),
+        });
       }
 
       const lineTotalMinor = lineTotalsMinor[i];
@@ -740,12 +757,16 @@ export class SalesService {
             isVariantLine
               ? `Insufficient stock for variant ID ${item.variant_id}`
               : `Insufficient stock for product ID ${item.product_id}`,
-            item.product_id,
-            isVariantLine ? item.variant_id! : null,
-            item.quantity,
-            // A deleted row reads as null and is reported as zero available, which is
-            // what it means for a cashier: this line cannot be sold.
-            (remaining ?? 0) + (takenSoFar.get(stockKey) ?? 0)
+            [
+              {
+                productId: item.product_id,
+                variantId: isVariantLine ? item.variant_id! : null,
+                requested: item.quantity,
+                // A deleted row reads as null and is reported as zero available, which is
+                // what it means for a cashier: this line cannot be sold.
+                available: (remaining ?? 0) + (takenSoFar.get(stockKey) ?? 0),
+              },
+            ]
           );
         }
 

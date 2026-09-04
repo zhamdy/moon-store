@@ -4,7 +4,7 @@ import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { exchangesService, ExchangeStockError, IExchangesService } from './service';
 import { PublicError } from '../../../http/errors';
-import { stockConflictDetail } from '../stockConflict';
+import { stockConflictDetails } from '../stockConflict';
 import {
   IDEMPOTENCY_REPLAY_HEADER,
   readIdempotencyKey,
@@ -89,17 +89,11 @@ export class ExchangesController {
       if (err instanceof ExchangeStockError) {
         // Same detail shape the checkout path sends: one stock refusal, one contract.
         next(
-          new PublicError('VALIDATION_ERROR', err.message, [
-            stockConflictDetail(
-              {
-                productId: err.productId,
-                variantId: err.variantId,
-                requested: err.requested,
-                available: err.available,
-              },
-              err.message
-            ),
-          ])
+          new PublicError(
+            'VALIDATION_ERROR',
+            err.message,
+            stockConflictDetails(err.conflicts, err.message)
+          )
         );
         return;
       }

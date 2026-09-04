@@ -162,9 +162,7 @@ describe('Exchange stock invariants', () => {
     ).rejects.toMatchObject({
       name: 'ExchangeStockError',
       message: 'Insufficient stock for product ID 4',
-      productId: 4,
-      requested: 1,
-      available: 1,
+      conflicts: [{ productId: 4, variantId: null, requested: 1, available: 1 }],
     });
   });
 
@@ -188,14 +186,21 @@ describe('Exchange stock invariants', () => {
         1,
         client
       )
-    ).rejects.toMatchObject({ name: 'ExchangeStockError', productId: 4, available: 2 });
+    ).rejects.toMatchObject({
+      name: 'ExchangeStockError',
+      conflicts: [{ productId: 4, available: 2 }],
+    });
   });
 
   it('maps a stock error to a 400 rather than an unhandled 500', async () => {
     const service = {
       createExchange: vi
         .fn()
-        .mockRejectedValue(new ExchangeStockError('Insufficient stock for product ID 4', 4, null)),
+        .mockRejectedValue(
+          new ExchangeStockError('Insufficient stock for product ID 4', [
+            { productId: 4, variantId: null, requested: 1, available: 0 },
+          ])
+        ),
     } as unknown as IExchangesService;
     const next = vi.fn();
 

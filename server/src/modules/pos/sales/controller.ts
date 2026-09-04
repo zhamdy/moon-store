@@ -6,7 +6,7 @@ import { saleSchema, refundSchema } from '../../../../validators/saleSchema';
 import { salesService } from './service';
 import { salesRepository } from './repository';
 import { parseSaleListQuery, SalesValidationError, InsufficientStockError } from './types';
-import { stockConflictDetail } from '../stockConflict';
+import { stockConflictDetails } from '../stockConflict';
 import { CouponError } from '../../commerce/coupons/types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
@@ -133,17 +133,11 @@ export class SalesController {
         // `details[]`, where every other domain code rides: the envelope's code stays
         // one of the seven public ones so a client never has to widen that union.
         next(
-          new PublicError('VALIDATION_ERROR', err.message, [
-            stockConflictDetail(
-              {
-                productId: err.productId,
-                variantId: err.variantId,
-                requested: err.requested,
-                available: err.available,
-              },
-              err.message
-            ),
-          ])
+          new PublicError(
+            'VALIDATION_ERROR',
+            err.message,
+            stockConflictDetails(err.conflicts, err.message)
+          )
         );
         return;
       }

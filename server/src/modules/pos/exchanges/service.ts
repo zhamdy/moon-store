@@ -2,7 +2,7 @@ import { Queryable, withTransaction } from '../../../database/transaction';
 import { IExchangesRepository, exchangesRepository as defaultRepo } from './repository';
 import { CreateExchangeDTO, ExchangeFilters, ExchangeRow, ExchangeDetail } from './types';
 import { sortForStockWrites } from '../stockWriteOrder';
-import { INSUFFICIENT_STOCK_CODE } from '../sales/types';
+import { INSUFFICIENT_STOCK_CODE, type StockConflict } from '../sales/types';
 
 /**
  * A new exchange line could not be taken out of stock. Rolls the whole exchange back.
@@ -12,10 +12,7 @@ import { INSUFFICIENT_STOCK_CODE } from '../sales/types';
 export class ExchangeStockError extends Error {
   constructor(
     message: string,
-    public readonly productId: number,
-    public readonly variantId: number | null,
-    public readonly requested: number = 0,
-    public readonly available: number = 0,
+    public readonly conflicts: readonly StockConflict[],
     public readonly code: string = INSUFFICIENT_STOCK_CODE,
     public readonly statusCode: number = 400
   ) {
@@ -165,12 +162,16 @@ export class ExchangesService implements IExchangesService {
           write.variant_id
             ? `Insufficient stock for variant ID ${write.variant_id}`
             : `Insufficient stock for product ID ${write.product_id}`,
-          write.product_id,
-          write.variant_id ?? null,
-          quantity,
-          // A deleted row reads as null, and is reported as zero available: for a
-          // cashier, "not enough" and "gone" mean the same thing here.
-          Math.max(0, (current ?? 0) - (appliedSoFar.get(stockKey) ?? 0))
+          [
+            {
+              productId: write.product_id,
+              variantId: write.variant_id ?? null,
+              requested: quantity,
+              // A deleted row reads as null, and is reported as zero available: for a
+              // cashier, "not enough" and "gone" mean the same thing here.
+              available: Math.max(0, (current ?? 0) - (appliedSoFar.get(stockKey) ?? 0)),
+            },
+          ]
         );
       }
 

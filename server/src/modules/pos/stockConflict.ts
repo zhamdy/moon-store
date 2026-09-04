@@ -1,30 +1,20 @@
 import type { ValidationDetail } from '../../http/errors';
-import { INSUFFICIENT_STOCK_CODE } from './sales/types';
+import { INSUFFICIENT_STOCK_CODE, type StockConflict } from './sales/types';
 
 /**
  * The one shape in which any POS path reports "this line could not be taken out of
  * stock". Checkout and exchange refuse for the same reason and a client should not have
- * to special-case them per endpoint, so both build their detail here.
+ * to special-case them per endpoint, so both build their details here.
  *
- * `available` is what the caller could actually have had: the row's committed stock,
- * with any decrement this same (now doomed) transaction already applied added back.
- * Reporting the mid-transaction figure would understate it — the transaction rolls back,
- * so those decrements never happened as far as anyone else is concerned.
- *
- * `available` is 0 when the row is gone entirely. The guarded UPDATE cannot tell
- * "not enough" from "deleted", and for a cashier both mean the same thing: this line
- * cannot be sold right now.
+ * One detail per refused line. `field` names the request array the line sits in, as Zod
+ * details do; the numbers ride in `meta`, because `message` is English prose written for
+ * a person and a client must never have to parse it.
  */
-export interface StockConflict {
-  productId: number;
-  variantId: number | null;
-  requested: number;
-  available: number;
-}
-
-/** `field` names the request array the offending line sits in, as Zod details do. */
-export function stockConflictDetail(conflict: StockConflict, message: string): ValidationDetail {
-  return {
+export function stockConflictDetails(
+  conflicts: readonly StockConflict[],
+  message: string
+): ValidationDetail[] {
+  return conflicts.map((conflict) => ({
     field: 'items',
     code: INSUFFICIENT_STOCK_CODE,
     message,
@@ -34,5 +24,5 @@ export function stockConflictDetail(conflict: StockConflict, message: string): V
       requested: conflict.requested,
       available: conflict.available,
     },
-  };
+  }));
 }
