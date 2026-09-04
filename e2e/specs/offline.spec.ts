@@ -118,13 +118,24 @@ test.describe('offline checkout @smoke', () => {
 
     await goOnline(page);
 
-    // On reconnect the paused mutation resumes — and the sale lands exactly once, which is
-    // the invariant that actually protects the shop from charging twice.
+    // On reconnect the queued sale replays — and lands exactly once, which is the
+    // invariant that actually protects the shop from charging twice.
     await expect
       .poll(() => countSalesForCashier(workerCashier.id), { timeout: 45_000 })
       .toBe(salesBefore + 1);
     expect(await readStock(product.id)).toBe(stockBefore - 1);
-    expect(posts.count(), 'exactly one sale POST reached the server').toBe(1);
+
+    // Counting POSTs is no longer the way to say that. Since #53 the offline attempt is
+    // genuinely made (and aborted), so more than one request leaves the browser by
+    // design — that failure is what writes the queue entry in the first place. What must
+    // hold is that every attempt carries the SAME idempotency key, so the server collapses
+    // them onto one sale however many arrive. The sale count above is the proof it did.
+    const keys = posts
+      .headers()
+      .map((h) => h['idempotency-key'])
+      .filter(Boolean);
+    expect(keys.length, 'the sale was attempted at least once').toBeGreaterThan(0);
+    expect(new Set(keys).size, 'every attempt reused one idempotency key').toBe(1);
     posts.stop();
   });
 
