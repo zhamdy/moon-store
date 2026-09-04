@@ -262,7 +262,9 @@ export default function DistributorsPage() {
         confirmText={t('common.delete')}
         confirmColor="danger"
         isLoading={remover.isRemoving}
-        onConfirm={() => deleteId && remover.remove(deleteId)}
+        onConfirm={() => {
+          if (deleteId) remover.remove(deleteId);
+        }}
       />
     </div>
   );

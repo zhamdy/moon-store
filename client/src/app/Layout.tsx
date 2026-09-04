@@ -19,7 +19,7 @@ export default function Layout(): React.JSX.Element {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar mobileOpen={mobileOpen} onOpenChange={setMobileOpen} />
+      <Sidebar mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
       <main className="lg:ms-64 min-h-screen flex flex-col">
         {/* Top header bar */}
         <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-4 lg:px-6 h-16 flex items-center justify-between">

@@ -248,14 +248,16 @@ export default function ProductFormDialog({
                         field.onChange(e.target.value === 'none' ? null : Number(e.target.value))
                       }
                     >
-                      <SelectItem key="none" textValue={t('inventory.noDistributor')}>
-                        {t('inventory.noDistributor')}
-                      </SelectItem>
-                      {distributors?.map((d) => (
-                        <SelectItem key={String(d.id)} textValue={d.name}>
-                          {d.name}
-                        </SelectItem>
-                      )) || []}
+                      {[
+                        <SelectItem key="none" textValue={t('inventory.noDistributor')}>
+                          {t('inventory.noDistributor')}
+                        </SelectItem>,
+                        ...(distributors ?? []).map((d) => (
+                          <SelectItem key={String(d.id)} textValue={d.name}>
+                            {d.name}
+                          </SelectItem>
+                        )),
+                      ]}
                     </Select>
                   )}
                 />

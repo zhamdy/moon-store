@@ -712,14 +712,16 @@ export default function Inventory() {
               }
               isInvalid={validationDetails.some((detail) => detail.field === 'categoryId')}
             >
-              <SelectItem key="all" textValue={t('inventory.allCategories')}>
-                {t('inventory.allCategories')}
-              </SelectItem>
-              {categories?.map((cat) => (
-                <SelectItem key={String(cat.id)} textValue={cat.name}>
-                  {cat.name}
-                </SelectItem>
-              )) || []}
+              {[
+                <SelectItem key="all" textValue={t('inventory.allCategories')}>
+                  {t('inventory.allCategories')}
+                </SelectItem>,
+                ...(categories ?? []).map((cat) => (
+                  <SelectItem key={String(cat.id)} textValue={cat.name}>
+                    {cat.name}
+                  </SelectItem>
+                )),
+              ]}
             </Select>
 
             <Select

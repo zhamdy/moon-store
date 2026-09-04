@@ -22,6 +22,7 @@ import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
+import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 interface Expense {
   id: number;
@@ -46,10 +47,7 @@ interface PnLData {
 const categories = ['rent', 'salaries', 'utilities', 'marketing', 'supplies', 'other'] as const;
 const recurrences = ['one_time', 'daily', 'weekly', 'monthly', 'yearly'] as const;
 
-const expenses = resource<
-  Expense,
-  { pagination: { total: number; totalPages: number }; totalAmount: number }
->('expenses');
+const expenses = resource<Expense, { pagination: PaginationMeta; totalAmount: number }>('expenses');
 
 const emptyExpense = () => ({
   category: 'other' as string,

@@ -51,9 +51,9 @@ export default function KpiCards({ kpis, isLoading, onLowStockClick }: KpiCardsP
         icon={AlertTriangle}
         isLoading={isLoading}
         onClick={onLowStockClick}
-        trend={
+        delta={
           kpis?.low_stock_items && kpis.low_stock_items > 0
-            ? { direction: 'down', value: 'Requires attention' }
+            ? { type: 'decrease', value: t('dashboard.requiresAttention') }
             : undefined
         }
       />

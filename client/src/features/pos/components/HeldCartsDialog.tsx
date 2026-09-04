@@ -164,7 +164,9 @@ export default function HeldCartsDialog({ open, onOpenChange }: HeldCartsDialogP
         description={t('cart.replaceCartConfirm')}
         confirmText={t('cart.replaceCart')}
         confirmColor="primary"
-        onConfirm={() => confirmRetrieveId && doRetrieve(confirmRetrieveId)}
+        onConfirm={() => {
+          if (confirmRetrieveId) doRetrieve(confirmRetrieveId);
+        }}
       />
 
       {/* Confirm delete */}

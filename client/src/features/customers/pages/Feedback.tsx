@@ -7,7 +7,9 @@ import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/us
 import type { FeedbackEntry, FeedbackStats } from '../types';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
-const feedback = resource<FeedbackEntry, { stats: FeedbackStats }>('feedback');
+const feedback = resource<FeedbackEntry, { stats: FeedbackStats; pagination: PaginationMeta }>(
+  'feedback'
+);
 
 export default function FeedbackPage() {
   const { t } = useTranslation();
@@ -15,9 +17,9 @@ export default function FeedbackPage() {
 
   const { data = [], meta, isLoading } = feedback.useList({ page, pageSize });
   const stats = meta?.stats;
-  const pagination = meta?.pagination as PaginationMeta | undefined;
+  const pagination = meta?.pagination;
 
-  useLastPageRecovery(page, pagination?.total, pagination?.totalPages, update);
+  useLastPageRecovery(page, pagination?.totalItems, pagination?.totalPages, update);
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">

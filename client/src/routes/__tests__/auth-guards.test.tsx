@@ -157,7 +157,6 @@ describe('TanStack Router Auth and Layout Guards', () => {
   it('redirects /locations to /branches via beforeLoad', async () => {
     const { Route: LocationsRoute } = await import('../locations');
     try {
-      // @ts-expect-error calling beforeLoad directly for unit test
       await LocationsRoute.options.beforeLoad?.({} as never);
       expect.unreachable('Should have thrown redirect');
     } catch (err: unknown) {
