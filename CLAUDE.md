@@ -148,13 +148,47 @@ replay backs off, and a rejection the server will repeat parks for a cashier rat
 retrying forever — see the **Offline queue replay contract** in `docs/CONVENTIONS.md`
 before changing the hook or its store.
 
-> **The checkout path does not currently reach that queue.** `queryClient` sets no
-> `networkMode`, so React Query's default pauses a mutation fired while `navigator.onLine`
-> is false rather than failing it. No request goes out, `onError` never runs, and
-> `CartPanel`'s offline fallback — the only writer to `moon-offline-queue`— is unreachable.
-> The sale resumes and completes on reconnect if the tab stays open, but does not survive a
-> reload. Measured in `e2e/specs/offline.spec.ts`; the machinery above is sound, what is
-> missing is the path into it.
+`queryClient` sets **`networkMode: 'always'` on mutations**, and that one line is what
+makes the queue reachable at all. React Query's default (`'online'`) *pauses* a mutation
+fired while `navigator.onLine` is false rather than executing it: no request goes out, so
+nothing rejects, so `onFailure` never runs — and the checkout's offline fallback, the only
+writer to `moon-offline-queue`, lives inside `onFailure`. Until #53 the persisted queue
+therefore never received a single sale. Do not remove it without replacing the path into
+the queue.
+
+**A sale is queued whenever the server gave no verdict, not when the browser admits to
+being offline.** The condition is `failure.kind === 'offline' || 'network'` — the two
+kinds `classifyMutationError` assigns when no response arrived at all. `navigator.onLine`
+reports a link, not a reachable API: on shop wifi a captive portal or a dead server leaves
+it true while nothing gets through, and keying on it meant those sales were silently
+dropped onto the generic retry path while identical failures with the flag false were
+queued and replayed.
+
+Every queued entry carries the same `Idempotency-Key` the failed request used, so a replay
+of a request that *did* land collapses onto the original sale instead of charging twice.
+
+## PWA install and update policy
+
+`client/config/pwa.ts`. Two decisions there are load-bearing:
+
+**`registerType: 'prompt'`, never `autoUpdate`.** Under `autoUpdate` a new service worker
+calls `skipWaiting`, claims the page and reloads it — with a half-rung-up cart on screen if
+that is what is there, because nothing in a service worker knows what a checkout is. Under
+`prompt` the new worker sits in `waiting` until every tab for the origin closes, so an
+update lands between shifts. The cost is that a till left running for days keeps the old
+build; for a point of sale that is the right side of the trade. Nothing calls `updateSW()`
+— an "update now" affordance is fine to add, but it has to know whether a checkout is open.
+
+**Cache what the shop knows, never what a person did.** Only `/api/v1/products` is
+runtime-cached. `/api/v1/sales` used to be, with NetworkFirst: a till is shared, Cache
+Storage is per-origin rather than per-user and is not cleared on logout, so that left one
+cashier's transaction history readable by the next and served it back for an hour with no
+way to tell it from a live response. Sales, refunds, shifts, customers and audit responses
+all fail that test.
+
+Install icons live in `client/public/pwa-{192x192,512x512}.png`, generated from
+`pwa-icon.svg` beside them — the manifest referenced both for a long time while neither
+existed, which is a failed install with no error anywhere.
 
 ## Idempotency compatibility window
 

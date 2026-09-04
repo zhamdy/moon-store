@@ -41,9 +41,16 @@ export interface MemoryTransport extends Transport {
    * `matchPath` whenever the component under test can plausibly issue more
    * than one request before the one under test.
    */
+  /**
+   * Fail the next matching request. `status: null` is the failure a real transport
+   * produces when no response arrives at all -- an offline till, a captive portal, a
+   * server that is down -- which `classifyMutationError` reads as `offline`/`network`
+   * and the checkout reads as "queue this sale". A fake that could only express a
+   * status code could not reproduce the one case the offline queue exists for.
+   */
   failNext(
     message: string,
-    status?: number,
+    status?: number | null,
     code?: string,
     details?: ValidationDetail[],
     matchPath?: string
