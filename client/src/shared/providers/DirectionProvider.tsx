@@ -1,93 +1,58 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  type ReactNode,
-} from 'react';
+import React, { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 export type Direction = 'ltr' | 'rtl';
 
 export interface DirectionContextValue {
   direction: Direction;
   isRtl: boolean;
-  setDirection: (direction: Direction) => void;
-  toggleDirection: () => void;
 }
 
 const DirectionContext = createContext<DirectionContextValue | null>(null);
 
 export interface DirectionProviderProps {
   children: ReactNode;
-  defaultDirection?: Direction;
-  storageKey?: string;
+  /**
+   * The direction to publish. `UIProvider` derives this from the active locale; tests
+   * pass it directly to render a subtree in one direction without touching the store.
+   */
+  direction?: Direction;
 }
 
+/**
+ * Publishes the writing direction to the components that need it in JS rather than CSS —
+ * a drawer choosing which edge to open from, tabs choosing which arrow key moves forward.
+ *
+ * ## Direction is derived from locale, and is not separately stored (#54)
+ *
+ * This used to hold its own state, seeded from a `moon-store-direction` key in
+ * localStorage and written back by `setDirection` / `toggleDirection`. That made two
+ * sources of truth for one question:
+ *
+ *   - `settingsStore.locale` drove `useTranslation().isRtl` and wrote `<html lang>` and
+ *     `<html dir>` — the source almost every feature component reads.
+ *   - this provider drove `useDirection().isRtl` from its own key, and its effect wrote
+ *     `<html dir>` again, last-writer-wins against the store.
+ *
+ * Two persisted keys that nothing kept in agreement. When they disagreed — trivially
+ * possible, since only the locale is user-visible — `TabsNav` and `SlideOverDrawer` laid
+ * out one way while the rest of the screen laid out the other, and `<html>` could end up
+ * announcing `lang="ar"` with `dir="ltr"`. That is WCAG 1.3.2 (meaningful sequence) and
+ * 3.1.1 (language of page) failing together, and it is invisible until it isn't.
+ *
+ * Nothing outside a test ever called `setDirection` or `toggleDirection`, so the writable
+ * half was persisting state no user could set. Both are gone: direction is a pure
+ * function of locale, `settingsStore` is the only writer of `<html lang>`/`<html dir>`,
+ * and the two `isRtl` values cannot disagree because there is only one input.
+ *
+ * To change direction, change the locale.
+ */
 export function DirectionProvider({
   children,
-  defaultDirection = 'ltr',
-  storageKey = 'moon-store-direction',
+  direction = 'ltr',
 }: DirectionProviderProps): React.JSX.Element {
-  const [direction, setDirectionState] = useState<Direction>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(storageKey) as Direction | null;
-      if (stored === 'ltr' || stored === 'rtl') {
-        return stored;
-      }
-      const htmlDir = document.documentElement.getAttribute('dir') as Direction | null;
-      if (htmlDir === 'ltr' || htmlDir === 'rtl') {
-        return htmlDir;
-      }
-    }
-    return defaultDirection;
-  });
-
-  const setDirection = useCallback(
-    (newDir: Direction) => {
-      setDirectionState(newDir);
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(storageKey, newDir);
-        } catch {
-          // Ignore localStorage errors
-        }
-        document.documentElement.setAttribute('dir', newDir);
-      }
-    },
-    [storageKey]
-  );
-
-  const toggleDirection = useCallback(() => {
-    setDirectionState((prev) => {
-      const next = prev === 'rtl' ? 'ltr' : 'rtl';
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(storageKey, next);
-        } catch {
-          // Ignore localStorage errors
-        }
-        document.documentElement.setAttribute('dir', next);
-      }
-      return next;
-    });
-  }, [storageKey]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      document.documentElement.setAttribute('dir', direction);
-    }
-  }, [direction]);
-
   const value = useMemo<DirectionContextValue>(
-    () => ({
-      direction,
-      isRtl: direction === 'rtl',
-      setDirection,
-      toggleDirection,
-    }),
-    [direction, setDirection, toggleDirection]
+    () => ({ direction, isRtl: direction === 'rtl' }),
+    [direction]
   );
 
   return <DirectionContext.Provider value={value}>{children}</DirectionContext.Provider>;
@@ -96,13 +61,7 @@ export function DirectionProvider({
 // eslint-disable-next-line react-refresh/only-export-components
 export function useDirection(): DirectionContextValue {
   const context = useContext(DirectionContext);
-  if (!context) {
-    return {
-      direction: 'ltr',
-      isRtl: false,
-      setDirection: () => {},
-      toggleDirection: () => {},
-    };
-  }
-  return context;
+  // LTR outside a provider: a component rendered in isolation (a test, a storybook-style
+  // harness) should lay out rather than throw.
+  return context ?? { direction: 'ltr', isRtl: false };
 }

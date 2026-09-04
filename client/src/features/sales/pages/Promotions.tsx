@@ -176,7 +176,13 @@ export default function Promotions() {
                     <div className="flex items-center justify-center gap-1">
                       <Dropdown>
                         <DropdownTrigger>
-                          <Button isIconOnly variant="light" size="sm" className="h-8 w-8">
+                          <Button
+                            isIconOnly
+                            variant="light"
+                            size="sm"
+                            className="h-8 w-8"
+                            aria-label={t('common.actions')}
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownTrigger>

@@ -411,84 +411,95 @@ export default function POS() {
           ) : (
             <div ref={animateGrid} className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
               {products?.map((product) => (
-                <Card
-                  key={product.id}
-                  /* E2E: the card's accessible name concatenates stock badge, category,
-                     name, SKU and price, and it nests a favourite button — so an exact
-                     role+name query is not usable. */
-                  data-testid={`product-card-${product.sku}`}
-                  isPressable={getEffectiveStock(product) > 0}
-                  className={`relative transition-all border border-border bg-card shadow-sm ${
-                    getEffectiveStock(product) === 0
-                      ? 'opacity-60 cursor-not-allowed'
-                      : 'hover:border-primary/50'
-                  }`}
-                  onPress={() => handleProductClick(product)}
-                >
-                  {getEffectiveStock(product) === 0 && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/60">
-                      <span className="text-xs font-semibold text-danger uppercase tracking-wider">
-                        {t('pos.outOfStock')}
-                      </span>
-                    </div>
-                  )}
-                  <CardBody className="p-3.5">
-                    <div className="flex items-start justify-between mb-2">
-                      {product.image_url ? (
-                        <img
-                          src={`${ASSET_BASE_URL}${product.image_url}`}
-                          alt={product.name}
-                          className="h-10 w-10 rounded-lg object-cover border border-border"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded-lg bg-muted/30 flex items-center justify-center border border-border">
-                          <Package className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1">
-                        {product.has_variants > 0 && (
-                          <Badge size="sm" variant="primary">
-                            <Layers className="h-2.5 w-2.5 inline-block me-0.5" />
-                            {product.variant_count}
-                          </Badge>
-                        )}
-                        <Badge size="sm" variant={getStockColor(product)}>
-                          {getEffectiveStock(product)} {t('pos.inStock')}
-                        </Badge>
+                /**
+                 * The favourite toggle is a SIBLING of the card, not a child of it (#54).
+                 * `isPressable` renders the card as a `<button>`, so a button inside it
+                 * was a nested interactive control: invalid HTML, and axe's
+                 * `nested-interactive`. A screen reader could not reach the star as its
+                 * own control, and the card's accessible name swallowed it. Positioning
+                 * it over the card keeps the appearance and makes it a real, separately
+                 * focusable button.
+                 */
+                <div key={product.id} className="relative">
+                  <Card
+                    /* E2E: the card's accessible name concatenates stock badge, category,
+                     name and SKU, so an exact role+name query is not usable. */
+                    data-testid={`product-card-${product.sku}`}
+                    isPressable={getEffectiveStock(product) > 0}
+                    className={`relative transition-all border border-border bg-card shadow-sm ${
+                      getEffectiveStock(product) === 0
+                        ? 'opacity-60 cursor-not-allowed'
+                        : 'hover:border-primary/50'
+                    }`}
+                    onPress={() => handleProductClick(product)}
+                  >
+                    {getEffectiveStock(product) === 0 && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/60">
+                        <span className="text-xs font-semibold text-danger uppercase tracking-wider">
+                          {t('pos.outOfStock')}
+                        </span>
                       </div>
-                    </div>
-                    {(product.category_name || product.category) && (
-                      <Badge size="sm" variant="default" className="mb-1">
-                        {product.category_name || product.category}
-                      </Badge>
                     )}
-                    <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
-                    <p className="text-xs text-muted-foreground truncate font-data">
-                      {t('pos.sku')}: {product.sku}
-                    </p>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-base font-bold text-primary font-data">
-                        {formatCurrency(Number(product.price))}
+                    <CardBody className="p-3.5">
+                      <div className="flex items-start justify-between mb-2">
+                        {product.image_url ? (
+                          <img
+                            src={`${ASSET_BASE_URL}${product.image_url}`}
+                            alt={product.name}
+                            className="h-10 w-10 rounded-lg object-cover border border-border"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-lg bg-muted/30 flex items-center justify-center border border-border">
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1">
+                          {product.has_variants > 0 && (
+                            <Badge size="sm" variant="primary">
+                              <Layers className="h-2.5 w-2.5 inline-block me-0.5" />
+                              {product.variant_count}
+                            </Badge>
+                          )}
+                          <Badge size="sm" variant={getStockColor(product)}>
+                            {getEffectiveStock(product)} {t('pos.inStock')}
+                          </Badge>
+                        </div>
+                      </div>
+                      {(product.category_name || product.category) && (
+                        <Badge size="sm" variant="default" className="mb-1">
+                          {product.category_name || product.category}
+                        </Badge>
+                      )}
+                      <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
+                      <p className="text-xs text-muted-foreground truncate font-data">
+                        {t('pos.sku')}: {product.sku}
                       </p>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(product.id);
-                        }}
-                        className="p-1 rounded hover:bg-muted/40 transition-colors"
-                        aria-label={
-                          favorites?.includes(product.id) ? 'Remove favorite' : 'Add favorite'
-                        }
-                      >
-                        <Star
-                          className={`h-4 w-4 ${favorites?.includes(product.id) ? 'fill-primary text-primary' : 'text-muted-foreground'}`}
-                        />
-                      </button>
-                    </div>
-                  </CardBody>
-                </Card>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-base font-bold text-primary font-data">
+                          {formatCurrency(Number(product.price))}
+                        </p>
+                        {/* The favourite button sits here visually; see the sibling below. */}
+                        <span className="h-6 w-6" aria-hidden="true" />
+                      </div>
+                    </CardBody>
+                  </Card>
+                  <button
+                    type="button"
+                    onClick={() => toggleFavorite(product.id)}
+                    className="absolute bottom-3 end-3 z-20 p-1 rounded hover:bg-muted/40 transition-colors"
+                    aria-label={
+                      favorites?.includes(product.id)
+                        ? `${product.name}: ${t('pos.removeFavorite')}`
+                        : `${product.name}: ${t('pos.addFavorite')}`
+                    }
+                    aria-pressed={favorites?.includes(product.id) ?? false}
+                  >
+                    <Star
+                      className={`h-4 w-4 ${favorites?.includes(product.id) ? 'fill-primary text-primary' : 'text-muted-foreground'}`}
+                    />
+                  </button>
+                </div>
               ))}
               {hasMoreProducts && (
                 <div className="col-span-full flex justify-center pt-2">

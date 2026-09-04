@@ -1,6 +1,5 @@
 {
   "app.name": "MOON أزياء وأناقة",
-
   "nav.dashboard": "لوحة التحكم",
   "nav.pos": "نقطة البيع",
   "nav.inventory": "المخزون",
@@ -12,7 +11,6 @@
   "nav.distributors": "الموزعون",
   "nav.categories": "الفئات",
   "nav.logout": "تسجيل الخروج",
-
   "common.welcome": "مرحباً",
   "common.search": "بحث...",
   "common.save": "حفظ",
@@ -42,12 +40,10 @@
   "common.all": "الكل",
   "common.loading": "جاري التحميل...",
   "common.error": "حدث خطأ ما",
-
   "theme.light": "فاتح",
   "theme.dark": "داكن",
   "locale.ar": "العربية",
   "locale.en": "English",
-
   "login.title": "مرحباً بعودتك",
   "login.subtitle": "سجل الدخول إلى حسابك",
   "login.email": "البريد الإلكتروني",
@@ -63,7 +59,6 @@
   "login.heroSubtext": "الأناقة في كل تفصيل",
   "login.emailError": "يرجى إدخال بريد إلكتروني صالح",
   "login.passwordError": "كلمة المرور مطلوبة",
-
   "dashboard.title": "لوحة التحكم",
   "dashboard.selectDateRange": "اختر نطاق التاريخ",
   "dashboard.todayRevenue": "إيرادات اليوم",
@@ -86,7 +81,6 @@
   "dashboard.itemsSold": "العناصر المباعة",
   "dashboard.salesByCategory": "الإيرادات حسب الفئة",
   "dashboard.salesByDistributor": "الإيرادات حسب الموزع",
-
   "pos.title": "نقطة البيع",
   "pos.searchPlaceholder": "البحث عن منتجات بالاسم أو الرمز...",
   "pos.scan": "مسح",
@@ -110,7 +104,6 @@
   "pos.shortcutLastItemDown": "تقليل كمية آخر عنصر",
   "pos.shortcutRemoveLast": "حذف آخر عنصر",
   "pos.shortcutHoldCart": "تعليق السلة الحالية",
-
   "cart.title": "السلة",
   "cart.empty": "السلة فارغة",
   "cart.discount": "الخصم",
@@ -156,7 +149,6 @@
   "cart.replaceCart": "استبدال",
   "cart.itemCount": "{count} عناصر",
   "cart.holdCartName": "اسم السلة (اختياري)",
-
   "inventory.title": "المخزون",
   "inventory.importCsv": "استيراد CSV",
   "inventory.addProduct": "إضافة منتج",
@@ -218,7 +210,6 @@
   "inventory.productReactivated": "تم إعادة تنشيط المنتج",
   "inventory.cannotEditDiscontinued": "لا يمكن تعديل منتج متوقف",
   "inventory.statusChanged": "تم تحديث حالة المنتج",
-
   "bulk.selected": "{count} محدد",
   "bulk.deleteSelected": "حذف",
   "bulk.changeCategory": "تغيير الفئة",
@@ -247,7 +238,6 @@
   "bulk.discontinueSelected": "إيقاف",
   "bulk.discontinueConfirm": "هل أنت متأكد من إيقاف {count} منتجات؟ سيتم إخفاؤها من نقطة البيع.",
   "bulk.discontinueSuccess": "تم إيقاف {count} منتجات",
-
   "stock.adjustTitle": "تعديل المخزون",
   "stock.currentStock": "المخزون الحالي",
   "stock.adjustment": "التعديل (+/-)",
@@ -259,7 +249,6 @@
   "stock.adjustSubmit": "تطبيق التعديل",
   "stock.adjustSuccess": "تم تعديل المخزون بنجاح",
   "stock.adjustFailed": "فشل تعديل المخزون",
-
   "deliveries.title": "التوصيل",
   "deliveries.newOrder": "طلب جديد",
   "deliveries.searchPlaceholder": "البحث عن طلبات...",
@@ -339,7 +328,6 @@
   "deliveries.cancelledCount": "الملغاة",
   "deliveries.statusUpdateFailed": "فشل تحديث الحالة",
   "deliveries.byUser": "بواسطة {name}",
-
   "sales.title": "سجل المبيعات",
   "sales.exportCsv": "تصدير CSV",
   "sales.totalRevenue": "إجمالي الإيرادات",
@@ -380,7 +368,6 @@
   "sales.alreadyFullyRefunded": "تم الاسترجاع بالكامل",
   "sales.customer": "العميل",
   "sales.walkIn": "عميل عابر",
-
   "users.title": "المستخدمون",
   "users.addUser": "إضافة مستخدم",
   "users.searchPlaceholder": "البحث عن مستخدمين...",
@@ -410,7 +397,6 @@
   "users.role": "الدور",
   "users.createdAt": "تاريخ الإنشاء",
   "users.neverLoggedIn": "لم يسجل الدخول أبداً",
-
   "datePicker.today": "اليوم",
   "datePicker.yesterday": "أمس",
   "datePicker.last7Days": "آخر 7 أيام",
@@ -424,7 +410,6 @@
   "datePicker.from": "من {date}",
   "datePicker.reset": "إعادة ضبط",
   "datePicker.done": "تم",
-
   "barcode.title": "أدوات الباركود",
   "barcode.scanner": "الماسح",
   "barcode.generator": "المولّد",
@@ -443,7 +428,6 @@
   "barcode.addedToCart": "تمت الإضافة إلى السلة",
   "barcode.viewProduct": "عرض المنتج",
   "barcode.selectToPrint": "اختر المنتجات للطباعة",
-
   "customers.title": "العملاء",
   "customers.addCustomer": "إضافة عميل",
   "customers.editCustomer": "تعديل العميل",
@@ -470,7 +454,6 @@
   "customers.lastPurchase": "آخر شراء",
   "customers.noPurchases": "لا توجد مشتريات بعد",
   "customers.backToList": "العودة للعملاء",
-
   "distributors.title": "الموزعون",
   "distributors.addDistributor": "إضافة موزع",
   "distributors.editDistributor": "تعديل الموزع",
@@ -491,7 +474,6 @@
   "distributors.createFailed": "فشل إنشاء الموزع",
   "distributors.updateFailed": "فشل تحديث الموزع",
   "distributors.deleteFailed": "فشل حذف الموزع",
-
   "categories.title": "الفئات",
   "categories.addCategory": "إضافة فئة",
   "categories.editCategory": "تعديل الفئة",
@@ -508,7 +490,6 @@
   "categories.createFailed": "فشل إنشاء الفئة",
   "categories.updateFailed": "فشل تحديث الفئة",
   "categories.deleteFailed": "فشل حذف الفئة",
-
   "receipt.title": "الإيصال",
   "receipt.receiptNo": "إيصال رقم",
   "receipt.date": "التاريخ",
@@ -518,9 +499,7 @@
   "receipt.thankYou": "شكراً لتسوقكم معنا!",
   "receipt.printFailed": "فشل تحميل الإيصال",
   "receipt.reprint": "طباعة الإيصال",
-
   "nav.settings": "الإعدادات",
-
   "settings.title": "الإعدادات",
   "settings.taxSettings": "إعدادات الضريبة / ضريبة القيمة المضافة",
   "settings.taxEnabled": "تفعيل الضريبة / ضريبة القيمة المضافة",
@@ -533,10 +512,8 @@
   "settings.taxInclusiveDesc": "أسعار المنتجات تشمل الضريبة بالفعل، يتم استخراج الضريبة من الإجمالي",
   "settings.saved": "تم حفظ الإعدادات",
   "settings.saveFailed": "فشل حفظ الإعدادات",
-
   "tax.vat": "ضريبة القيمة المضافة",
   "tax.included": "(شامل)",
-
   "loyalty.title": "برنامج الولاء",
   "loyalty.enabled": "تفعيل نقاط الولاء",
   "loyalty.enabledDesc": "العملاء يكسبون ويستبدلون نقاط عند الشراء",
@@ -560,7 +537,6 @@
   "loyalty.adjustSuccess": "تم تعديل النقاط بنجاح",
   "loyalty.adjustFailed": "فشل تعديل النقاط",
   "loyalty.insufficientPoints": "نقاط غير كافية",
-
   "export.csv": "تصدير CSV",
   "export.pdf": "تصدير PDF",
   "export.fullReport": "تصدير التقرير",
@@ -568,7 +544,6 @@
   "export.csvExported": "تم تصدير CSV",
   "export.pdfExported": "تم تصدير تقرير PDF",
   "export.pdfFailed": "فشل إنشاء PDF",
-
   "variants.title": "المتغيرات",
   "variants.addVariant": "إضافة متغير",
   "variants.editVariant": "تعديل المتغير",
@@ -594,10 +569,8 @@
   "variants.updateFailed": "فشل تحديث المتغير",
   "variants.deleteFailed": "فشل حذف المتغير",
   "variants.manageVariants": "إدارة المتغيرات",
-
   "charts.sold": "مباع",
   "charts.orders": "طلبات",
-
   "offline.backOnline": "عدت متصلاً",
   "offline.youAreOffline": "أنت غير متصل",
   "offline.offlineBanner": "أنت غير متصل بالإنترنت.",
@@ -607,13 +580,10 @@
   "offline.quarantinedForReview": "{count} منها يحتاج إلى مراجعة يدوية قبل المزامنة.",
   "offline.failedToSync": "فشلت مزامنة {count} عملية بيع -- لن تتم إعادة المحاولة تلقائياً.",
   "offline.retry": "إعادة المحاولة",
-
   "pwa.installApp": "تثبيت تطبيق MOON",
   "pwa.installDesc": "ثبّت التطبيق للوصول السريع والعمل بدون إنترنت",
-
   "error.title": "حدث خطأ ما",
   "error.tryAgain": "حاول مرة أخرى",
-
   "validation.nameRequired": "الاسم مطلوب",
   "validation.emailInvalid": "بريد إلكتروني غير صالح",
   "validation.passwordMin": "6 أحرف كحد أدنى",
@@ -626,9 +596,7 @@
   "validation.addItem": "أضف عنصراً واحداً على الأقل",
   "validation.passwordRequired": "كلمة المرور مطلوبة",
   "validation.codeRequired": "الرمز مطلوب",
-
   "nav.purchaseOrders": "أوامر الشراء",
-
   "po.title": "أوامر الشراء",
   "po.create": "إنشاء أمر شراء",
   "po.autoGenerate": "إنشاء تلقائي من المخزون المنخفض",
@@ -672,9 +640,7 @@
   "po.viewDetails": "عرض التفاصيل",
   "po.suggestedQty": "المقترح: {qty}",
   "po.autoGenerateEmpty": "لا توجد منتجات منخفضة المخزون مع موزعين معينين",
-
   "nav.auditLog": "سجل المراجعة",
-
   "audit.title": "سجل المراجعة",
   "audit.user": "المستخدم",
   "audit.action": "الإجراء",
@@ -690,9 +656,7 @@
   "audit.dateTo": "إلى",
   "audit.noEntries": "لا توجد سجلات مراجعة",
   "audit.system": "النظام",
-
   "nav.notifications": "الإشعارات",
-
   "notifications.title": "الإشعارات",
   "notifications.markAllRead": "تعيين الكل كمقروء",
   "notifications.noNotifications": "لا توجد إشعارات",
@@ -705,18 +669,15 @@
   "notifications.lowStock": "مخزون منخفض",
   "notifications.newSale": "بيع جديد",
   "notifications.deliveryOverdue": "تأخر التوصيل",
-
   "nav.promotions": "العروض",
   "nav.giftCards": "بطاقات الهدايا",
   "nav.stockCount": "جرد المخزون",
   "nav.locations": "المواقع",
   "nav.exports": "مركز التصدير",
-
   "common.saving": "جارٍ الحفظ...",
   "common.add": "إضافة",
   "common.user": "المستخدم",
   "common.date": "التاريخ",
-
   "cart.notes": "ملاحظات البيع",
   "cart.notesPlaceholder": "أضف ملاحظات لهذا البيع...",
   "cart.tip": "إكرامية",
@@ -739,9 +700,7 @@
   "cart.splitMismatchError": "تغيّر الإجمالي أو الدفعات منذ فتح شاشة الدفع. راجع المبلغ المستحق وأعد موازنة الدفعات قبل التأكيد.",
   "cart.keepCart": "الاحتفاظ",
   "cart.discardCart": "تجاهل",
-
   "pos.favorites": "المفضلة",
-
   "promotions.title": "العروض والقسائم",
   "promotions.addCoupon": "إضافة قسيمة",
   "promotions.search": "بحث في القسائم...",
@@ -767,7 +726,6 @@
   "promotions.updated": "تم تحديث القسيمة",
   "promotions.noCoupons": "لا توجد قسائم بعد",
   "promotions.couponDetails": "تفاصيل القسيمة",
-
   "giftCards.title": "بطاقات الهدايا",
   "giftCards.create": "إنشاء بطاقة هدية",
   "giftCards.code": "الرمز",
@@ -798,7 +756,6 @@
   "giftCards.transactionAmount": "المبلغ",
   "giftCards.transactionDate": "التاريخ",
   "giftCards.noTransactions": "لا توجد معاملات بعد",
-
   "stockCount.title": "جرد المخزون",
   "stockCount.startCount": "بدء جرد جديد",
   "stockCount.startDescription": "اختر فئة أو جرد جميع المنتجات",
@@ -818,7 +775,6 @@
   "stockCount.cancel": "إلغاء الجرد",
   "stockCount.noCounts": "لا يوجد جرد بعد",
   "stockCount.created": "تم بدء الجرد",
-
   "locations.title": "المواقع",
   "locations.addLocation": "إضافة موقع",
   "locations.editLocation": "تعديل الموقع",
@@ -840,7 +796,6 @@
   "locations.saved": "تم حفظ الموقع",
   "locations.noLocations": "لا توجد مواقع بعد",
   "locations.noTransfers": "لا توجد عمليات نقل بعد",
-
   "exports.title": "مركز التصدير",
   "exports.generate": "إنشاء تصدير",
   "exports.module": "الوحدة",
@@ -857,14 +812,12 @@
   "exports.download": "تحميل",
   "exports.downloaded": "تم تصدير {count} سجل",
   "exports.noExports": "لا توجد عمليات تصدير بعد",
-
   "customerDisplay.welcome": "مرحباً بكم في MOON",
   "customerDisplay.items": "الأصناف",
   "customerDisplay.total": "الإجمالي",
   "customerDisplay.thankYou": "شكراً لكم!",
   "customerDisplay.visitAgain": "نتمنى زيارتكم مجدداً",
   "customerDisplay.tagline": "أزياء وأناقة",
-
   "register.title": "صندوق النقد",
   "register.openRegister": "فتح الصندوق",
   "register.closeRegister": "إغلاق الصندوق",
@@ -905,10 +858,8 @@
   "register.notes": "ملاحظات",
   "register.movements": "الحركات",
   "register.mustOpenRegister": "يرجى فتح الصندوق قبل إجراء المبيعات",
-
   "nav.register": "الصندوق",
   "nav.shifts": "الورديات",
-
   "exchange.title": "الاستبدال",
   "exchange.returning": "المرتجعات",
   "exchange.newItems": "الأصناف الجديدة",
@@ -921,7 +872,6 @@
   "exchange.failed": "فشل في معالجة الاستبدال",
   "exchange.selectReturnItems": "اختر الأصناف المراد إرجاعها",
   "exchange.addNewItems": "أضف أصناف بديلة",
-
   "shifts.title": "الورديات وتتبع الوقت",
   "shifts.clockIn": "تسجيل حضور",
   "shifts.clockOut": "تسجيل انصراف",
@@ -940,7 +890,6 @@
   "shifts.timesheet": "كشف الحضور",
   "shifts.totalHours": "إجمالي الساعات",
   "shifts.revenuePerHour": "الإيراد/الساعة",
-
   "expenses.title": "المصروفات",
   "expenses.addExpense": "إضافة مصروف",
   "expenses.editExpense": "تعديل مصروف",
@@ -976,10 +925,8 @@
   "expenses.operatingExpenses": "المصروفات التشغيلية",
   "expenses.netProfit": "صافي الربح",
   "expenses.netProfitMonth": "صافي الربح (الشهر)",
-
   "nav.expenses": "المصروفات",
   "nav.segments": "الشرائح",
-
   "segments.title": "شرائح العملاء",
   "segments.champions": "الأبطال",
   "segments.loyal": "الأوفياء",
@@ -994,7 +941,6 @@
   "segments.monetary": "القيمة المالية",
   "segments.customers": "العملاء",
   "segments.revenue": "الإيرادات",
-
   "layaway.title": "الحجز المسبق",
   "layaway.create": "إنشاء حجز",
   "layaway.deposit": "العربون",
@@ -1013,9 +959,7 @@
   "layaway.paymentSuccess": "تم تسجيل الدفعة",
   "layaway.created": "تم إنشاء الحجز",
   "layaway.noLayaways": "لا توجد طلبات حجز",
-
   "nav.layaway": "الحجز المسبق",
-
   "collections.title": "المجموعات",
   "collections.create": "إنشاء مجموعة",
   "collections.season": "الموسم",
@@ -1035,13 +979,11 @@
   "collections.noCollections": "لا توجد مجموعات بعد",
   "collections.addProduct": "إضافة منتج",
   "collections.description": "الوصف",
-
   "nav.collections": "المجموعات",
   "nav.warranty": "الضمان",
   "nav.feedback": "التقييمات",
   "nav.backup": "النسخ الاحتياطي",
   "nav.activity": "النشاط",
-
   "roles.title": "الأدوار والصلاحيات",
   "roles.createRole": "إنشاء دور",
   "roles.editRole": "تعديل دور",
@@ -1057,18 +999,15 @@
   "roles.viewCostPrices": "عرض أسعار التكلفة",
   "roles.exportData": "تصدير البيانات",
   "roles.saved": "تم حفظ الدور",
-
   "recommendations.title": "التوصيات",
   "recommendations.completeTheLook": "أكمل الإطلالة",
   "recommendations.frequentlyBought": "يُشترى معاً عادةً",
   "recommendations.addToCart": "إضافة",
-
   "forecast.title": "توقعات الطلب",
   "forecast.daysOfStock": "أيام المخزون",
   "forecast.reorderSuggestions": "اقتراحات إعادة الطلب",
   "forecast.predictedDemand": "الطلب المتوقع",
   "forecast.runForecast": "تشغيل التوقعات",
-
   "webhooks.title": "التكاملات",
   "webhooks.addWebhook": "إضافة Webhook",
   "webhooks.url": "الرابط",
@@ -1078,7 +1017,6 @@
   "webhooks.failing": "فاشل",
   "webhooks.apiKeys": "مفاتيح API",
   "webhooks.generateKey": "إنشاء مفتاح",
-
   "warranty.title": "مطالبات الضمان",
   "warranty.create": "مطالبة جديدة",
   "warranty.created": "تم إنشاء المطالبة",
@@ -1102,12 +1040,10 @@
   "warranty.valid": "تحت الضمان",
   "warranty.expired": "انتهى الضمان",
   "warranty.noClaims": "لا توجد مطالبات ضمان",
-
   "currency.title": "العملات",
   "currency.baseCurrency": "العملة الأساسية",
   "currency.exchangeRate": "سعر الصرف",
   "currency.lastUpdated": "آخر تحديث",
-
   "feedback.title": "ملاحظات العملاء",
   "feedback.howWasExperience": "كيف كانت تجربتك؟",
   "feedback.npsQuestion": "ما مدى احتمال أن توصي بنا؟",
@@ -1115,7 +1051,6 @@
   "feedback.avgRating": "متوسط التقييم",
   "feedback.npsScore": "مؤشر NPS",
   "feedback.totalResponses": "إجمالي الردود",
-
   "reports.title": "التقارير المجدولة",
   "reports.schedule": "الجدول",
   "reports.recipients": "المستلمون",
@@ -1123,7 +1058,6 @@
   "reports.weeklyRevenue": "الإيرادات الأسبوعية",
   "reports.monthlyPnl": "الأرباح والخسائر الشهرية",
   "reports.sendNow": "إرسال الآن",
-
   "wallet.title": "محفظة العميل",
   "wallet.balance": "رصيد المحفظة",
   "wallet.topUp": "شحن",
@@ -1131,12 +1065,10 @@
   "wallet.giftCardBalance": "بطاقة هدية",
   "wallet.loyaltyBalance": "نقاط الولاء",
   "wallet.refundCredit": "رصيد الاسترجاع",
-
   "lookbook.title": "دليل الأزياء",
   "lookbook.createLook": "إنشاء إطلالة",
   "lookbook.shopTheLook": "تسوّق الإطلالة",
   "lookbook.noLooks": "لا توجد إطلالات بعد",
-
   "backup.title": "النسخ الاحتياطي والاستعادة",
   "backup.backupNow": "نسخ احتياطي الآن",
   "backup.restore": "استعادة",
@@ -1146,19 +1078,16 @@
   "backup.download": "تحميل",
   "backup.created": "تم إنشاء النسخة الاحتياطية بنجاح",
   "backup.restored": "تم استعادة النسخة الاحتياطية بنجاح",
-
   "commissions.title": "العمولات",
   "commissions.rate": "نسبة العمولة (%)",
   "commissions.totalCommission": "إجمالي العمولة",
   "commissions.salesAmount": "مبلغ المبيعات",
   "commissions.earned": "المستحقة",
-
   "activity.title": "سجل النشاط",
   "activity.post": "نشر تحديث",
   "activity.pinned": "مثبت",
   "activity.addNote": "إضافة ملاحظة",
   "activity.noActivity": "لا يوجد نشاط بعد",
-
   "activity.action.create": "إنشاء",
   "activity.action.update": "تحديث",
   "activity.action.delete": "حذف",
@@ -1174,7 +1103,6 @@
   "activity.action.discontinue": "إيقاف المنتج",
   "activity.action.redeem": "استرداد",
   "activity.action.batch_barcode": "باركود جماعي",
-
   "activity.entity.product": "منتج",
   "activity.entity.sale": "بيع",
   "activity.entity.delivery": "توصيل",
@@ -1187,7 +1115,6 @@
   "activity.entity.stock_count": "جرد المخزون",
   "activity.entity.layaway": "حجز مسبق",
   "activity.entity.setting": "إعداد",
-
   "activity.detail.total": "الإجمالي",
   "activity.detail.deposit": "العربون",
   "activity.detail.name": "الاسم",
@@ -1206,7 +1133,6 @@
   "activity.detail.code": "الرمز",
   "activity.detail.count": "العدد",
   "activity.detail.balance": "الرصيد",
-
   "nav.branches": "الفروع",
   "nav.storefront": "المتجر الإلكتروني",
   "nav.onlineOrders": "الطلبات الإلكترونية",
@@ -1214,7 +1140,6 @@
   "nav.vendors": "الموردون",
   "nav.smartPricing": "التسعير الذكي",
   "nav.aiInsights": "رؤى الذكاء الاصطناعي",
-
   "branches.title": "إدارة الفروع",
   "branches.list": "الفروع",
   "branches.consolidated": "موحّد",
@@ -1252,7 +1177,6 @@
   "branches.todayRevenue": "إيرادات اليوم",
   "branches.stockLevel": "مستوى المخزون",
   "branches.lowStock": "مخزون منخفض",
-
   "storefront.title": "إدارة المتجر الإلكتروني",
   "storefront.config": "الإعدادات",
   "storefront.banners": "البانرات",
@@ -1270,7 +1194,6 @@
   "storefront.featuredCategory": "الفئة المميزة",
   "storefront.noBanners": "لا توجد بانرات بعد",
   "storefront.position": "الترتيب",
-
   "onlineOrders.title": "الطلبات الإلكترونية",
   "onlineOrders.orderNumber": "رقم الطلب",
   "onlineOrders.customer": "العميل",
@@ -1291,7 +1214,6 @@
   "onlineOrders.delivered": "تم التوصيل",
   "onlineOrders.cancelled": "ملغى",
   "onlineOrders.refunded": "مسترجع",
-
   "reportBuilder.title": "منشئ التقارير",
   "reportBuilder.saved": "التقارير المحفوظة",
   "reportBuilder.quickReport": "تقرير سريع",
@@ -1320,7 +1242,6 @@
   "reportBuilder.topProducts": "أفضل المنتجات",
   "reportBuilder.dateFrom": "من",
   "reportBuilder.dateTo": "إلى",
-
   "vendors.title": "سوق الموردين",
   "vendors.addVendor": "إضافة مورد",
   "vendors.editVendor": "تعديل المورد",
@@ -1354,7 +1275,6 @@
   "vendors.notes": "ملاحظات",
   "vendors.processPayout": "معالجة الدفعة",
   "vendors.payoutCreated": "تم إنشاء الدفعة",
-
   "smartPricing.title": "التسعير الذكي",
   "smartPricing.suggestions": "الاقتراحات",
   "smartPricing.rules": "القواعد",
@@ -1382,7 +1302,6 @@
   "smartPricing.timeBased": "حسب الوقت",
   "smartPricing.clearance": "تصفية",
   "smartPricing.seasonal": "موسمي",
-
   "aiInsights.title": "رؤى الذكاء الاصطناعي",
   "aiInsights.predictions": "توقعات المبيعات",
   "aiInsights.knowledgeBase": "قاعدة المعرفة",
@@ -1401,7 +1320,6 @@
   "aiInsights.answer": "الإجابة",
   "aiInsights.keywords": "الكلمات المفتاحية",
   "aiInsights.kbAdded": "تم إضافة المدخل المعرفي",
-
   "nav.sectionOperations": "العمليات اليومية",
   "nav.sectionProducts": "المنتجات والمخزون",
   "nav.sectionOrders": "الطلبات والعملاء",
@@ -1415,9 +1333,7 @@
   "charts.noData": "لا تتوفر بيانات",
   "charts.noDataDesc": "ستظهر البيانات بمجرد وجود معاملات",
   "error.goHome": "الذهاب إلى لوحة التحكم",
-
   "nav.bundles": "الباقات",
-
   "bundles.title": "باقات المنتجات",
   "bundles.create": "إنشاء باقة",
   "bundles.edit": "تعديل الباقة",
@@ -1442,11 +1358,8 @@
   "bundles.itemCount": "{count} عناصر",
   "bundles.searchProducts": "البحث عن منتجات...",
   "bundles.outOfStock": "نفذ من المخزون",
-
   "pos.bundles": "الباقات",
-
   "nav.advancedAnalytics": "تحليلات متقدمة",
-
   "analytics.title": "تحليلات متقدمة",
   "analytics.abc": "تحليل ABC",
   "analytics.deadStock": "مخزون راكد",
@@ -1487,7 +1400,6 @@
   "analytics.day.4": "الخميس",
   "analytics.day.5": "الجمعة",
   "analytics.day.6": "السبت",
-
   "startup.title": "ابدأ يومك",
   "startup.shiftMessage": "سجّل حضورك لبدء وردية العمل",
   "startup.registerMessage": "افتح صندوق النقد لبدء البيع",
@@ -1497,7 +1409,6 @@
   "startup.skip": "لاحقاً",
   "startup.shiftStarted": "بدأت الوردية!",
   "startup.registerOpened": "تم فتح الصندوق!",
-
   "mutationError.validation": "بعض البيانات تحتاج إلى تصحيح قبل الحفظ.",
   "mutationError.conflict": "تغيّر هذا السجل منذ فتحه. راجعه ثم حاول مرة أخرى.",
   "mutationError.unauthorized": "انتهت جلستك. سجّل الدخول مرة أخرى للمتابعة.",
@@ -1513,5 +1424,10 @@
   "cart.stockConflictTitle": "تغيّر المخزون أثناء إتمام الدفع",
   "cart.stockConflictLine": "{name}: {requested} في السلة، المتبقي {available}",
   "cart.stockConflictAdjust": "تعديل السلة حسب المخزون المتاح",
-  "cart.stockConflictChecking": "جارٍ التحقق من المخزون الحالي..."
+  "cart.stockConflictChecking": "جارٍ التحقق من المخزون الحالي...",
+  "common.remove": "إزالة",
+  "customers.decreasePoints": "تقليل النقاط",
+  "customers.increasePoints": "زيادة النقاط",
+  "pos.addFavorite": "إضافة إلى المفضلة",
+  "pos.removeFavorite": "إزالة من المفضلة"
 }

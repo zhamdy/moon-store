@@ -301,7 +301,13 @@ export default function SalesHistory() {
       cell: ({ row }) => (
         <Dropdown>
           <DropdownTrigger>
-            <Button isIconOnly variant="light" size="sm" onClick={(e) => e.stopPropagation()}>
+            <Button
+              isIconOnly
+              variant="light"
+              size="sm"
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t('common.actions')}
+            >
               <MoreHorizontal className="w-4 h-4" />
             </Button>
           </DropdownTrigger>

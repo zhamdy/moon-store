@@ -268,6 +268,7 @@ export default function VariantManagerDialog({
                               onClick={() =>
                                 setVariantAttrs(variantAttrs.filter((_, j) => j !== i))
                               }
+                              aria-label={t('common.remove')}
                             >
                               <X className="h-4 w-4" />
                             </Button>

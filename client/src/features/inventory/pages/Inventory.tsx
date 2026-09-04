@@ -587,6 +587,7 @@ export default function Inventory() {
                       variant="light"
                       size="sm"
                       className="h-8 w-8 text-muted-foreground"
+                      aria-label={t('common.actions')}
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>

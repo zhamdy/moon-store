@@ -16,10 +16,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   errorComponent: ({ error }) => (
     <div className="p-8 text-center text-destructive">
       <h2 className="text-lg font-semibold">Something went wrong</h2>
-      <p className="text-sm text-muted mt-2">{error.message}</p>
+      <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
     </div>
   ),
-  notFoundComponent: () => <div className="p-8 text-center text-muted">Page not found</div>,
+  notFoundComponent: () => (
+    <div className="p-8 text-center text-muted-foreground">Page not found</div>
+  ),
 });
 
 function RootComponent() {

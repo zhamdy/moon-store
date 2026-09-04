@@ -14,7 +14,7 @@ export function UIProvider({ children }: UIProviderProps): React.JSX.Element {
   const locale = useSettingsStore((state) => state.locale);
 
   return (
-    <DirectionProvider defaultDirection={locale === 'ar' ? 'rtl' : 'ltr'}>
+    <DirectionProvider direction={locale === 'ar' ? 'rtl' : 'ltr'}>
       <HeroUIProvider
         locale={locale === 'ar' ? 'ar-EG' : 'en-US'}
         navigate={(to, options) => {

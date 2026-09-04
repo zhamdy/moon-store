@@ -40,7 +40,7 @@ export default function BarcodeGenerator({ value, product }: BarcodeGeneratorPro
       {product && (
         <div className="space-y-0.5">
           <p className="text-sm font-medium text-foreground">{product.name}</p>
-          <p className="text-xs text-muted font-data">SKU: {product.sku}</p>
+          <p className="text-xs text-muted-foreground font-data">SKU: {product.sku}</p>
           <p className="text-sm font-semibold text-gold font-data">
             {formatCurrency(parseFloat(String(product.price)))}
           </p>
