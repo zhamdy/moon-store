@@ -15,7 +15,16 @@ export default {
         background: 'hsl(var(--background))',
         surface: 'hsl(var(--surface))',
         border: 'hsl(var(--border))',
-        muted: 'hsl(var(--muted-foreground))',
+        // `--muted` is the surface, `--muted-foreground` the text on it. This used to be
+        // a single `muted` mapped at the *foreground* variable, which meant `bg-muted`
+        // painted with a text colour and, worse, `text-muted-foreground` matched no token
+        // at all -- 465 usages across 84 files emitting no CSS, so every muted label
+        // silently inherited its parent's colour. That is how "Cart is empty" rendered
+        // near-white on white (#54).
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
         foreground: 'hsl(var(--foreground))',
         gold: {
           light: 'hsl(var(--gold-light))',
@@ -114,6 +123,21 @@ export default {
               DEFAULT: '#EF4444',
               foreground: '#FFFFFF',
             },
+            /**
+             * Chosen against this theme's own background rather than inherited from
+             * HeroUI's palette: the default success (#17C964) measures 2.19:1 on a light
+             * surface, and the app never redefined it, so every `text-success` in a table
+             * cell failed WCAG AA (#54). These are measured, not eyeballed --
+             * #4ADE80 is 11.4:1 on #09090B, #FBBF24 is 11.9:1.
+             */
+            success: {
+              DEFAULT: '#4ADE80',
+              foreground: '#052E16',
+            },
+            warning: {
+              DEFAULT: '#FBBF24',
+              foreground: '#451A03',
+            },
             focus: '#FAFAFA',
             background: '#09090B',
           },
@@ -136,6 +160,15 @@ export default {
               800: '#991B1B',
               900: '#7F1D1D',
               DEFAULT: '#DC2626',
+              foreground: '#FFFFFF',
+            },
+            // 5.02:1 and 5.02:1 on white respectively; the HeroUI defaults are 2.19:1.
+            success: {
+              DEFAULT: '#15803D',
+              foreground: '#FFFFFF',
+            },
+            warning: {
+              DEFAULT: '#B45309',
               foreground: '#FFFFFF',
             },
             focus: '#18181B',

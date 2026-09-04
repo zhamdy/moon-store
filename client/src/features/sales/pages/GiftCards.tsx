@@ -203,7 +203,7 @@ export default function GiftCards() {
         return (
           <Dropdown>
             <DropdownTrigger>
-              <Button isIconOnly variant="light" size="sm">
+              <Button isIconOnly variant="light" size="sm" aria-label={t('common.actions')}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownTrigger>

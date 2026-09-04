@@ -189,6 +189,7 @@ export default function POFormDialog({
                     className="h-10 w-10"
                     onClick={handleAddLineItem}
                     isDisabled={!addProductId}
+                    aria-label={t('common.add')}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -261,6 +262,7 @@ export default function POFormDialog({
                           size="sm"
                           className="col-span-1 h-7 w-7"
                           onClick={() => setLineItems(lineItems.filter((_, j) => j !== i))}
+                          aria-label={t('common.remove')}
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>

@@ -1,21 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { useDirection } from '../providers/DirectionProvider';
 import { getFormFieldIds, useFormFieldIds, generateUniqueId } from '../lib/idUtils';
 import { renderWithProviders } from '../tests/testUtils';
 
 function DirectionConsumer() {
-  const { direction, isRtl, setDirection, toggleDirection } = useDirection();
+  const { direction, isRtl } = useDirection();
   return (
     <div>
       <span data-testid="dir-text">{direction}</span>
       <span data-testid="is-rtl">{isRtl ? 'true' : 'false'}</span>
-      <button data-testid="set-rtl" onClick={() => setDirection('rtl')}>
-        Set RTL
-      </button>
-      <button data-testid="toggle-dir" onClick={toggleDirection}>
-        Toggle
-      </button>
     </div>
   );
 }
@@ -38,33 +32,39 @@ describe('Foundation & Contracts', () => {
     localStorage.clear();
   });
 
+  /**
+   * Direction is derived from locale and stored nowhere else (#54). These assert the
+   * single source of truth rather than the old writable API: the provider used to keep
+   * its own persisted `moon-store-direction` state and write `<html dir>` itself, which
+   * meant two independent answers to "which way does this page read" and a document that
+   * could announce `lang="ar"` while laying out LTR.
+   */
   describe('DirectionProvider and useDirection', () => {
-    it('defaults to ltr and syncs document dir', () => {
+    it('publishes the direction it is given', () => {
       renderWithProviders(<DirectionConsumer />, { direction: 'ltr' });
       expect(screen.getByTestId('dir-text').textContent).toBe('ltr');
       expect(screen.getByTestId('is-rtl').textContent).toBe('false');
-      expect(document.documentElement.getAttribute('dir')).toBe('ltr');
     });
 
-    it('allows toggling and updating direction to rtl', () => {
-      renderWithProviders(<DirectionConsumer />, { direction: 'ltr' });
-      const toggleBtn = screen.getByTestId('toggle-dir');
-      fireEvent.click(toggleBtn);
-
-      expect(screen.getByTestId('dir-text').textContent).toBe('rtl');
-      expect(screen.getByTestId('is-rtl').textContent).toBe('true');
-      expect(document.documentElement.getAttribute('dir')).toBe('rtl');
-
-      const setRtlBtn = screen.getByTestId('set-rtl');
-      fireEvent.click(setRtlBtn);
-      expect(screen.getByTestId('dir-text').textContent).toBe('rtl');
-    });
-
-    it('initializes with RTL when specified', () => {
+    it('publishes rtl when that is the locale direction', () => {
       renderWithProviders(<DirectionConsumer />, { direction: 'rtl' });
       expect(screen.getByTestId('dir-text').textContent).toBe('rtl');
       expect(screen.getByTestId('is-rtl').textContent).toBe('true');
-      expect(document.documentElement.getAttribute('dir')).toBe('rtl');
+    });
+
+    it('does not write <html dir> itself — settingsStore is the only writer', () => {
+      // The regression this guards: a second writer of `dir` racing the store, so the
+      // attribute reflected whichever mounted last rather than the chosen locale.
+      document.documentElement.setAttribute('dir', 'ltr');
+      renderWithProviders(<DirectionConsumer />, { direction: 'rtl' });
+
+      expect(screen.getByTestId('is-rtl').textContent).toBe('true');
+      expect(document.documentElement.getAttribute('dir')).toBe('ltr');
+    });
+
+    it('keeps no direction of its own in storage', () => {
+      renderWithProviders(<DirectionConsumer />, { direction: 'rtl' });
+      expect(localStorage.getItem('moon-store-direction')).toBeNull();
     });
   });
 

@@ -389,6 +389,7 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                       variant="bordered"
                       size="sm"
                       onClick={() => setAdjustPoints((p) => p - 10)}
+                      aria-label={t('customers.decreasePoints')}
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
@@ -405,6 +406,7 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                       variant="bordered"
                       size="sm"
                       onClick={() => setAdjustPoints((p) => p + 10)}
+                      aria-label={t('customers.increasePoints')}
                     >
                       <Plus className="h-3 w-3" />
                     </Button>

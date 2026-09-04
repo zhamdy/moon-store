@@ -545,6 +545,7 @@ export default function BundlesPage() {
                             size="sm"
                             className="h-8 w-8 shrink-0"
                             onClick={() => removeItemFromBundle(item.product_id)}
+                            aria-label={t('common.remove')}
                           >
                             <X className="h-4 w-4" />
                           </Button>

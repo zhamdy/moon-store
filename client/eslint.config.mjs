@@ -4,6 +4,7 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import boundaries from 'eslint-plugin-boundaries';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
 // `.husky/pre-commit` runs `npx lint-staged`, which invokes
@@ -49,6 +50,7 @@ export default tseslint.config(
     plugins: {
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
+      'jsx-a11y': jsxA11y,
       boundaries,
     },
     settings: {
@@ -94,6 +96,40 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // #54: the cheap half of accessibility, caught before it reaches a browser. The
+      // expensive half — focus order, announcements, contrast — is measured by axe in
+      // `e2e/specs/a11y.spec.ts`, because a linter cannot see computed colour or the
+      // order a screen reader will read things in.
+      //
+      // `recommended` rather than `strict`: strict flags patterns this codebase uses
+      // deliberately (a label wrapping its control), and a rule set people learn to
+      // disable inline is worse than a smaller one they trust.
+      ...jsxA11y.flatConfigs.recommended.rules,
+
+      /**
+       * Autofocus is a deliberate choice on a till, not an oversight. A cashier's first
+       * act is to scan, and a register dialog exists to take one number — moving focus
+       * there is what a pointer user gets for free and what a keyboard user would
+       * otherwise have to tab to on every sale. WCAG does not prohibit it; this rule is
+       * an opinion about general web pages, and this is not one.
+       */
+      'jsx-a11y/no-autofocus': 'off',
+
+      /**
+       * These three flag a pattern that is genuinely wrong and genuinely not fixed yet:
+       * clickable `<div>`s with no keyboard path (the custom customer picker in
+       * DeliveryFormDialog) and controls nested inside pressable cards (Collections,
+       * Bundles — the same defect fixed on POS in this change).
+       *
+       * `warn` rather than `error` because turning them off would hide the count and
+       * adding file-level disables would hide the locations, and both outlive the excuse.
+       * Every site is enumerated in `docs/ACCESSIBILITY.md` under "Known gaps" with what
+       * it costs a user. Raise these to `error` as that list empties.
+       */
+      'jsx-a11y/click-events-have-key-events': 'warn',
+      'jsx-a11y/no-static-element-interactions': 'warn',
+      'jsx-a11y/no-interactive-element-to-noninteractive-role': 'warn',
+
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-unused-vars': [

@@ -1,6 +1,5 @@
 {
   "app.name": "MOON Fashion & Style",
-
   "nav.dashboard": "Dashboard",
   "nav.pos": "Point of Sale",
   "nav.inventory": "Inventory",
@@ -12,7 +11,6 @@
   "nav.distributors": "Distributors",
   "nav.categories": "Categories",
   "nav.logout": "Logout",
-
   "common.welcome": "Welcome",
   "common.search": "Search...",
   "common.save": "Save",
@@ -42,12 +40,10 @@
   "common.all": "All",
   "common.loading": "Loading...",
   "common.error": "Something went wrong",
-
   "theme.light": "Light",
   "theme.dark": "Dark",
   "locale.ar": "العربية",
   "locale.en": "English",
-
   "login.title": "Welcome Back",
   "login.subtitle": "Sign in to your account",
   "login.email": "Email",
@@ -63,7 +59,6 @@
   "login.heroSubtext": "Elegance in every detail",
   "login.emailError": "Please enter a valid email",
   "login.passwordError": "Password is required",
-
   "dashboard.title": "Dashboard",
   "dashboard.selectDateRange": "Select date range",
   "dashboard.todayRevenue": "Today's Revenue",
@@ -86,7 +81,6 @@
   "dashboard.itemsSold": "Items Sold",
   "dashboard.salesByCategory": "Revenue by Category",
   "dashboard.salesByDistributor": "Revenue by Distributor",
-
   "pos.title": "Point of Sale",
   "pos.searchPlaceholder": "Search products by name or SKU...",
   "pos.scan": "Scan",
@@ -110,7 +104,6 @@
   "pos.shortcutLastItemDown": "Decrease last item qty",
   "pos.shortcutRemoveLast": "Remove last item",
   "pos.shortcutHoldCart": "Hold current cart",
-
   "cart.title": "Cart",
   "cart.empty": "Cart is empty",
   "cart.discount": "Discount",
@@ -156,7 +149,6 @@
   "cart.replaceCart": "Replace",
   "cart.itemCount": "{count} items",
   "cart.holdCartName": "Cart name (optional)",
-
   "inventory.title": "Inventory",
   "inventory.importCsv": "Import CSV",
   "inventory.addProduct": "Add Product",
@@ -218,7 +210,6 @@
   "inventory.productReactivated": "Product reactivated",
   "inventory.cannotEditDiscontinued": "Cannot edit a discontinued product",
   "inventory.statusChanged": "Product status updated",
-
   "bulk.selected": "{count} selected",
   "bulk.deleteSelected": "Delete",
   "bulk.changeCategory": "Change Category",
@@ -247,7 +238,6 @@
   "bulk.discontinueSelected": "Discontinue",
   "bulk.discontinueConfirm": "Are you sure you want to discontinue {count} products? They will be hidden from POS.",
   "bulk.discontinueSuccess": "{count} products discontinued",
-
   "stock.adjustTitle": "Adjust Stock",
   "stock.currentStock": "Current Stock",
   "stock.adjustment": "Adjustment (+/-)",
@@ -259,7 +249,6 @@
   "stock.adjustSubmit": "Apply Adjustment",
   "stock.adjustSuccess": "Stock adjusted successfully",
   "stock.adjustFailed": "Failed to adjust stock",
-
   "deliveries.title": "Deliveries",
   "deliveries.newOrder": "New Order",
   "deliveries.searchPlaceholder": "Search orders...",
@@ -339,7 +328,6 @@
   "deliveries.cancelledCount": "Cancelled",
   "deliveries.statusUpdateFailed": "Failed to update status",
   "deliveries.byUser": "by {name}",
-
   "sales.title": "Sales History",
   "sales.exportCsv": "Export CSV",
   "sales.totalRevenue": "Total Revenue",
@@ -380,7 +368,6 @@
   "sales.alreadyFullyRefunded": "Fully refunded",
   "sales.customer": "Customer",
   "sales.walkIn": "Walk-in",
-
   "users.title": "Users",
   "users.addUser": "Add User",
   "users.searchPlaceholder": "Search users...",
@@ -410,7 +397,6 @@
   "users.role": "Role",
   "users.createdAt": "Created",
   "users.neverLoggedIn": "Never",
-
   "datePicker.today": "Today",
   "datePicker.yesterday": "Yesterday",
   "datePicker.last7Days": "Last 7 Days",
@@ -424,7 +410,6 @@
   "datePicker.from": "From {date}",
   "datePicker.reset": "Reset",
   "datePicker.done": "Done",
-
   "barcode.title": "Barcode Tools",
   "barcode.scanner": "Scanner",
   "barcode.generator": "Generator",
@@ -443,7 +428,6 @@
   "barcode.addedToCart": "Added to cart",
   "barcode.viewProduct": "View Product",
   "barcode.selectToPrint": "Select products to print",
-
   "customers.title": "Customers",
   "customers.addCustomer": "Add Customer",
   "customers.editCustomer": "Edit Customer",
@@ -470,7 +454,6 @@
   "customers.lastPurchase": "Last Purchase",
   "customers.noPurchases": "No purchases yet",
   "customers.backToList": "Back to Customers",
-
   "distributors.title": "Distributors",
   "distributors.addDistributor": "Add Distributor",
   "distributors.editDistributor": "Edit Distributor",
@@ -491,7 +474,6 @@
   "distributors.createFailed": "Failed to create distributor",
   "distributors.updateFailed": "Failed to update distributor",
   "distributors.deleteFailed": "Failed to delete distributor",
-
   "categories.title": "Categories",
   "categories.addCategory": "Add Category",
   "categories.editCategory": "Edit Category",
@@ -508,7 +490,6 @@
   "categories.createFailed": "Failed to create category",
   "categories.updateFailed": "Failed to update category",
   "categories.deleteFailed": "Failed to delete category",
-
   "receipt.title": "Receipt",
   "receipt.receiptNo": "Receipt #",
   "receipt.date": "Date",
@@ -518,9 +499,7 @@
   "receipt.thankYou": "Thank you for shopping with us!",
   "receipt.printFailed": "Failed to load receipt",
   "receipt.reprint": "Print Receipt",
-
   "nav.settings": "Settings",
-
   "settings.title": "Settings",
   "settings.taxSettings": "Tax / VAT Configuration",
   "settings.taxEnabled": "Enable Tax / VAT",
@@ -533,10 +512,8 @@
   "settings.taxInclusiveDesc": "Product prices already include tax, tax is extracted from the total",
   "settings.saved": "Settings saved",
   "settings.saveFailed": "Failed to save settings",
-
   "tax.vat": "VAT",
   "tax.included": "(included)",
-
   "loyalty.title": "Loyalty Program",
   "loyalty.enabled": "Enable Loyalty Points",
   "loyalty.enabledDesc": "Customers earn and redeem points on purchases",
@@ -560,7 +537,6 @@
   "loyalty.adjustSuccess": "Points adjusted successfully",
   "loyalty.adjustFailed": "Failed to adjust points",
   "loyalty.insufficientPoints": "Not enough points",
-
   "export.csv": "Export CSV",
   "export.pdf": "Export PDF",
   "export.fullReport": "Export Report",
@@ -568,7 +544,6 @@
   "export.csvExported": "CSV exported",
   "export.pdfExported": "PDF report exported",
   "export.pdfFailed": "Failed to generate PDF",
-
   "variants.title": "Variants",
   "variants.addVariant": "Add Variant",
   "variants.editVariant": "Edit Variant",
@@ -594,10 +569,8 @@
   "variants.updateFailed": "Failed to update variant",
   "variants.deleteFailed": "Failed to delete variant",
   "variants.manageVariants": "Manage Variants",
-
   "charts.sold": "sold",
   "charts.orders": "orders",
-
   "offline.backOnline": "Back online",
   "offline.youAreOffline": "You are offline",
   "offline.offlineBanner": "You are offline.",
@@ -607,13 +580,10 @@
   "offline.quarantinedForReview": "{count} of these need manual review before they can sync.",
   "offline.failedToSync": "{count} queued sale(s) failed to sync -- they will not retry on their own.",
   "offline.retry": "Retry",
-
   "pwa.installApp": "Install MOON App",
   "pwa.installDesc": "Install for quick access and offline support",
-
   "error.title": "Something went wrong",
   "error.tryAgain": "Try Again",
-
   "validation.nameRequired": "Name required",
   "validation.emailInvalid": "Invalid email",
   "validation.passwordMin": "Min 6 characters",
@@ -626,9 +596,7 @@
   "validation.addItem": "Add at least one item",
   "validation.passwordRequired": "Password is required",
   "validation.codeRequired": "Code required",
-
   "nav.purchaseOrders": "Purchase Orders",
-
   "po.title": "Purchase Orders",
   "po.create": "Create PO",
   "po.autoGenerate": "Auto-Generate from Low Stock",
@@ -672,9 +640,7 @@
   "po.viewDetails": "View Details",
   "po.suggestedQty": "Suggested: {qty}",
   "po.autoGenerateEmpty": "No low-stock products with assigned distributors",
-
   "nav.auditLog": "Audit Log",
-
   "audit.title": "Audit Log",
   "audit.user": "User",
   "audit.action": "Action",
@@ -690,9 +656,7 @@
   "audit.dateTo": "To",
   "audit.noEntries": "No audit log entries",
   "audit.system": "System",
-
   "nav.notifications": "Notifications",
-
   "notifications.title": "Notifications",
   "notifications.markAllRead": "Mark all read",
   "notifications.noNotifications": "No notifications",
@@ -705,18 +669,15 @@
   "notifications.lowStock": "Low Stock",
   "notifications.newSale": "New Sale",
   "notifications.deliveryOverdue": "Delivery Overdue",
-
   "nav.promotions": "Promotions",
   "nav.giftCards": "Gift Cards",
   "nav.stockCount": "Stock Count",
   "nav.locations": "Locations",
   "nav.exports": "Export Center",
-
   "common.saving": "Saving...",
   "common.add": "Add",
   "common.user": "User",
   "common.date": "Date",
-
   "cart.notes": "Sale Notes",
   "cart.notesPlaceholder": "Add notes to this sale...",
   "cart.tip": "Tip",
@@ -739,9 +700,7 @@
   "cart.splitMismatchError": "The total or payments changed since checkout was opened. Review the amount due and rebalance payments before confirming.",
   "cart.keepCart": "Keep",
   "cart.discardCart": "Discard",
-
   "pos.favorites": "Favorites",
-
   "promotions.title": "Promotions & Coupons",
   "promotions.addCoupon": "Add Coupon",
   "promotions.search": "Search coupons...",
@@ -767,7 +726,6 @@
   "promotions.updated": "Coupon updated",
   "promotions.noCoupons": "No coupons yet",
   "promotions.couponDetails": "Configure coupon details",
-
   "giftCards.title": "Gift Cards",
   "giftCards.create": "Create Gift Card",
   "giftCards.code": "Code",
@@ -798,7 +756,6 @@
   "giftCards.transactionAmount": "Amount",
   "giftCards.transactionDate": "Date",
   "giftCards.noTransactions": "No transactions yet",
-
   "stockCount.title": "Stock Count",
   "stockCount.startCount": "Start New Count",
   "stockCount.startDescription": "Select a category or count all products",
@@ -818,7 +775,6 @@
   "stockCount.cancel": "Cancel Count",
   "stockCount.noCounts": "No stock counts yet",
   "stockCount.created": "Stock count started",
-
   "locations.title": "Locations",
   "locations.addLocation": "Add Location",
   "locations.editLocation": "Edit Location",
@@ -840,7 +796,6 @@
   "locations.saved": "Location saved",
   "locations.noLocations": "No locations yet",
   "locations.noTransfers": "No transfers yet",
-
   "exports.title": "Export Center",
   "exports.generate": "Generate Export",
   "exports.module": "Module",
@@ -857,14 +812,12 @@
   "exports.download": "Download",
   "exports.downloaded": "{count} records exported",
   "exports.noExports": "No exports yet",
-
   "customerDisplay.welcome": "Welcome to MOON",
   "customerDisplay.items": "Items",
   "customerDisplay.total": "Total",
   "customerDisplay.thankYou": "Thank You!",
   "customerDisplay.visitAgain": "Please visit again",
   "customerDisplay.tagline": "Fashion & Style",
-
   "register.title": "Cash Register",
   "register.openRegister": "Open Register",
   "register.closeRegister": "Close Register",
@@ -905,10 +858,8 @@
   "register.notes": "Notes",
   "register.movements": "Movements",
   "register.mustOpenRegister": "Please open the register before processing sales",
-
   "nav.register": "Register",
   "nav.shifts": "Shifts",
-
   "exchange.title": "Exchange",
   "exchange.returning": "Returning",
   "exchange.newItems": "New Items",
@@ -921,7 +872,6 @@
   "exchange.failed": "Failed to process exchange",
   "exchange.selectReturnItems": "Select items to return",
   "exchange.addNewItems": "Add replacement items",
-
   "shifts.title": "Shifts & Time Tracking",
   "shifts.clockIn": "Clock In",
   "shifts.clockOut": "Clock Out",
@@ -940,7 +890,6 @@
   "shifts.timesheet": "Timesheet",
   "shifts.totalHours": "Total Hours",
   "shifts.revenuePerHour": "Revenue/Hour",
-
   "expenses.title": "Expenses",
   "expenses.addExpense": "Add Expense",
   "expenses.editExpense": "Edit Expense",
@@ -976,10 +925,8 @@
   "expenses.operatingExpenses": "Operating Expenses",
   "expenses.netProfit": "Net Profit",
   "expenses.netProfitMonth": "Net Profit (Month)",
-
   "nav.expenses": "Expenses",
   "nav.segments": "Segments",
-
   "segments.title": "Customer Segments",
   "segments.champions": "Champions",
   "segments.loyal": "Loyal",
@@ -994,7 +941,6 @@
   "segments.monetary": "Monetary",
   "segments.customers": "Customers",
   "segments.revenue": "Revenue",
-
   "layaway.title": "Layaway Orders",
   "layaway.create": "Create Layaway",
   "layaway.deposit": "Deposit",
@@ -1013,9 +959,7 @@
   "layaway.paymentSuccess": "Payment recorded",
   "layaway.created": "Layaway created",
   "layaway.noLayaways": "No layaway orders",
-
   "nav.layaway": "Layaway",
-
   "collections.title": "Collections",
   "collections.create": "Create Collection",
   "collections.season": "Season",
@@ -1035,13 +979,11 @@
   "collections.noCollections": "No collections yet",
   "collections.addProduct": "Add Product",
   "collections.description": "Description",
-
   "nav.collections": "Collections",
   "nav.warranty": "Warranty",
   "nav.feedback": "Feedback",
   "nav.backup": "Backup",
   "nav.activity": "Activity",
-
   "roles.title": "Roles & Permissions",
   "roles.createRole": "Create Role",
   "roles.editRole": "Edit Role",
@@ -1057,18 +999,15 @@
   "roles.viewCostPrices": "View Cost Prices",
   "roles.exportData": "Export Data",
   "roles.saved": "Role saved",
-
   "recommendations.title": "Recommendations",
   "recommendations.completeTheLook": "Complete the Look",
   "recommendations.frequentlyBought": "Frequently Bought Together",
   "recommendations.addToCart": "Add",
-
   "forecast.title": "Demand Forecast",
   "forecast.daysOfStock": "Days of Stock",
   "forecast.reorderSuggestions": "Reorder Suggestions",
   "forecast.predictedDemand": "Predicted Demand",
   "forecast.runForecast": "Run Forecast",
-
   "webhooks.title": "Integrations",
   "webhooks.addWebhook": "Add Webhook",
   "webhooks.url": "URL",
@@ -1078,7 +1017,6 @@
   "webhooks.failing": "Failing",
   "webhooks.apiKeys": "API Keys",
   "webhooks.generateKey": "Generate Key",
-
   "warranty.title": "Warranty Claims",
   "warranty.create": "New Claim",
   "warranty.created": "Claim created",
@@ -1102,12 +1040,10 @@
   "warranty.valid": "Under Warranty",
   "warranty.expired": "Warranty Expired",
   "warranty.noClaims": "No warranty claims",
-
   "currency.title": "Currencies",
   "currency.baseCurrency": "Base Currency",
   "currency.exchangeRate": "Exchange Rate",
   "currency.lastUpdated": "Last Updated",
-
   "feedback.title": "Customer Feedback",
   "feedback.howWasExperience": "How was your experience?",
   "feedback.npsQuestion": "How likely are you to recommend us?",
@@ -1115,7 +1051,6 @@
   "feedback.avgRating": "Average Rating",
   "feedback.npsScore": "NPS Score",
   "feedback.totalResponses": "Total Responses",
-
   "reports.title": "Scheduled Reports",
   "reports.schedule": "Schedule",
   "reports.recipients": "Recipients",
@@ -1123,7 +1058,6 @@
   "reports.weeklyRevenue": "Weekly Revenue",
   "reports.monthlyPnl": "Monthly P&L",
   "reports.sendNow": "Send Now",
-
   "wallet.title": "Customer Wallet",
   "wallet.balance": "Wallet Balance",
   "wallet.topUp": "Top Up",
@@ -1131,12 +1065,10 @@
   "wallet.giftCardBalance": "Gift Card",
   "wallet.loyaltyBalance": "Loyalty Points",
   "wallet.refundCredit": "Refund Credit",
-
   "lookbook.title": "Lookbook",
   "lookbook.createLook": "Create Look",
   "lookbook.shopTheLook": "Shop this Look",
   "lookbook.noLooks": "No looks created yet",
-
   "backup.title": "Backup & Restore",
   "backup.backupNow": "Backup Now",
   "backup.restore": "Restore",
@@ -1146,19 +1078,16 @@
   "backup.download": "Download",
   "backup.created": "Backup created successfully",
   "backup.restored": "Backup restored successfully",
-
   "commissions.title": "Commissions",
   "commissions.rate": "Commission Rate (%)",
   "commissions.totalCommission": "Total Commission",
   "commissions.salesAmount": "Sales Amount",
   "commissions.earned": "Earned",
-
   "activity.title": "Activity Feed",
   "activity.post": "Post Update",
   "activity.pinned": "Pinned",
   "activity.addNote": "Add Note",
   "activity.noActivity": "No activity yet",
-
   "activity.action.create": "Create",
   "activity.action.update": "Update",
   "activity.action.delete": "Delete",
@@ -1174,7 +1103,6 @@
   "activity.action.discontinue": "Discontinue",
   "activity.action.redeem": "Redeem",
   "activity.action.batch_barcode": "Batch Barcode",
-
   "activity.entity.product": "Product",
   "activity.entity.sale": "Sale",
   "activity.entity.delivery": "Delivery",
@@ -1187,7 +1115,6 @@
   "activity.entity.stock_count": "Stock Count",
   "activity.entity.layaway": "Layaway",
   "activity.entity.setting": "Setting",
-
   "activity.detail.total": "Total",
   "activity.detail.deposit": "Deposit",
   "activity.detail.name": "Name",
@@ -1206,7 +1133,6 @@
   "activity.detail.code": "Code",
   "activity.detail.count": "Count",
   "activity.detail.balance": "Balance",
-
   "nav.branches": "Branches",
   "nav.storefront": "Storefront",
   "nav.onlineOrders": "Online Orders",
@@ -1214,7 +1140,6 @@
   "nav.vendors": "Vendors",
   "nav.smartPricing": "Smart Pricing",
   "nav.aiInsights": "AI Insights",
-
   "branches.title": "Branch Management",
   "branches.list": "Branches",
   "branches.consolidated": "Consolidated",
@@ -1252,7 +1177,6 @@
   "branches.todayRevenue": "Today Revenue",
   "branches.stockLevel": "Stock Level",
   "branches.lowStock": "Low Stock",
-
   "storefront.title": "Storefront Management",
   "storefront.config": "Configuration",
   "storefront.banners": "Banners",
@@ -1270,7 +1194,6 @@
   "storefront.featuredCategory": "Featured Category",
   "storefront.noBanners": "No banners yet",
   "storefront.position": "Position",
-
   "onlineOrders.title": "Online Orders",
   "onlineOrders.orderNumber": "Order #",
   "onlineOrders.customer": "Customer",
@@ -1291,7 +1214,6 @@
   "onlineOrders.delivered": "Delivered",
   "onlineOrders.cancelled": "Cancelled",
   "onlineOrders.refunded": "Refunded",
-
   "reportBuilder.title": "Report Builder",
   "reportBuilder.saved": "Saved Reports",
   "reportBuilder.quickReport": "Quick Report",
@@ -1320,7 +1242,6 @@
   "reportBuilder.topProducts": "Top Products",
   "reportBuilder.dateFrom": "From",
   "reportBuilder.dateTo": "To",
-
   "vendors.title": "Vendor Marketplace",
   "vendors.addVendor": "Add Vendor",
   "vendors.editVendor": "Edit Vendor",
@@ -1354,7 +1275,6 @@
   "vendors.notes": "Notes",
   "vendors.processPayout": "Process Payout",
   "vendors.payoutCreated": "Payout created",
-
   "smartPricing.title": "Smart Pricing",
   "smartPricing.suggestions": "Suggestions",
   "smartPricing.rules": "Rules",
@@ -1382,7 +1302,6 @@
   "smartPricing.timeBased": "Time Based",
   "smartPricing.clearance": "Clearance",
   "smartPricing.seasonal": "Seasonal",
-
   "aiInsights.title": "AI Insights",
   "aiInsights.predictions": "Sales Predictions",
   "aiInsights.knowledgeBase": "Knowledge Base",
@@ -1401,7 +1320,6 @@
   "aiInsights.answer": "Answer",
   "aiInsights.keywords": "Keywords",
   "aiInsights.kbAdded": "Knowledge base entry added",
-
   "nav.sectionOperations": "Daily Operations",
   "nav.sectionProducts": "Products & Stock",
   "nav.sectionOrders": "Orders & Customers",
@@ -1415,9 +1333,7 @@
   "charts.noData": "No data available",
   "charts.noDataDesc": "Data will appear once there are transactions",
   "error.goHome": "Go to Dashboard",
-
   "nav.bundles": "Bundles",
-
   "bundles.title": "Product Bundles",
   "bundles.create": "Create Bundle",
   "bundles.edit": "Edit Bundle",
@@ -1442,11 +1358,8 @@
   "bundles.itemCount": "{count} items",
   "bundles.searchProducts": "Search products...",
   "bundles.outOfStock": "Out of Stock",
-
   "pos.bundles": "Bundles",
-
   "nav.advancedAnalytics": "Advanced Analytics",
-
   "analytics.title": "Advanced Analytics",
   "analytics.abc": "ABC Analysis",
   "analytics.deadStock": "Dead Stock",
@@ -1487,7 +1400,6 @@
   "analytics.day.4": "Thursday",
   "analytics.day.5": "Friday",
   "analytics.day.6": "Saturday",
-
   "startup.title": "Start Your Day",
   "startup.shiftMessage": "Clock in to start your shift",
   "startup.registerMessage": "Open the cash register to start selling",
@@ -1497,7 +1409,6 @@
   "startup.skip": "Later",
   "startup.shiftStarted": "Shift started!",
   "startup.registerOpened": "Register opened!",
-
   "mutationError.validation": "Some details need fixing before this can be saved.",
   "mutationError.conflict": "This changed since you opened it. Review it and try again.",
   "mutationError.unauthorized": "Your session expired. Sign in again to continue.",
@@ -1513,5 +1424,10 @@
   "cart.stockConflictTitle": "Stock changed while you were checking out",
   "cart.stockConflictLine": "{name}: {requested} in cart, {available} left",
   "cart.stockConflictAdjust": "Adjust cart to available stock",
-  "cart.stockConflictChecking": "Checking current stock..."
+  "cart.stockConflictChecking": "Checking current stock...",
+  "common.remove": "Remove",
+  "customers.decreasePoints": "Decrease points",
+  "customers.increasePoints": "Increase points",
+  "pos.addFavorite": "Add to favourites",
+  "pos.removeFavorite": "Remove from favourites"
 }

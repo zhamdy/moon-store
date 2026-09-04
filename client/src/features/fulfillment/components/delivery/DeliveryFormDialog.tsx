@@ -439,6 +439,7 @@ export default function DeliveryFormDialog({
                           color="danger"
                           size="sm"
                           onClick={() => remove(index)}
+                          aria-label={t('common.remove')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

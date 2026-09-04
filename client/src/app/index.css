@@ -280,3 +280,27 @@ table tbody tr:nth-child(even) {
 .stagger-children > * {
   animation-fill-mode: both;
 }
+
+/**
+ * Reduced motion (#54, WCAG 2.3.3).
+ *
+ * "Reduce" is a stated need, not a preference to weigh against the design: vestibular
+ * disorders make large movement genuinely painful, so this near-removes duration rather
+ * than shortening it. Animation is not disabled outright — `animation: none` can leave a
+ * CSS-animated element stuck at its opening keyframe, invisible — it is collapsed to a
+ * single frame so the end state is reached immediately.
+ *
+ * Deliberately global rather than opt-in per component: the failure mode of a blanket
+ * rule is a slightly abrupt transition, and the failure mode of forgetting one is a user
+ * who cannot look at the screen.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

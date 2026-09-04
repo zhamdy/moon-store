@@ -56,7 +56,7 @@ const CustomTooltip = ({ active, payload, isDark, t }: CustomTooltipProps) => {
       >
         {formatCurrency(point.revenue)}
       </p>
-      <p className="text-xs font-data text-muted">
+      <p className="text-xs font-data text-muted-foreground">
         {t('analytics.cumulativeRevenue')}: {point.cumulative_pct}%
       </p>
     </div>

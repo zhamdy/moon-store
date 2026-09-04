@@ -51,7 +51,7 @@ function typeIcon(type: string) {
     case 'delivery_overdue':
       return <Truck className="h-4 w-4 text-red-500" />;
     default:
-      return <Bell className="h-4 w-4 text-muted" />;
+      return <Bell className="h-4 w-4 text-muted-foreground" />;
   }
 }
 
@@ -159,7 +159,7 @@ export default function NotificationCenter(): React.JSX.Element {
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="relative flex items-center justify-center h-9 w-9 rounded-md text-muted hover:text-foreground hover:bg-surface border border-border transition-colors"
+        className="relative flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-surface border border-border transition-colors"
         aria-label={t('notifications.title')}
       >
         <Bell className="h-4 w-4" />
@@ -179,7 +179,7 @@ export default function NotificationCenter(): React.JSX.Element {
               {unreadCount > 0 && (
                 <button
                   onClick={() => markAllReadMutation.mutate()}
-                  className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-surface"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-surface"
                   title={t('notifications.markAllRead')}
                 >
                   <CheckCheck className="h-3.5 w-3.5" />
@@ -188,7 +188,7 @@ export default function NotificationCenter(): React.JSX.Element {
               )}
               <button
                 onClick={() => setOpen(false)}
-                className="text-muted hover:text-foreground transition-colors p-1 rounded hover:bg-surface"
+                className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded hover:bg-surface"
                 aria-label={t('common.close')}
               >
                 <X className="h-4 w-4" />
@@ -199,7 +199,7 @@ export default function NotificationCenter(): React.JSX.Element {
           {/* Notification list */}
           <div ref={animateParent} className="max-h-96 overflow-y-auto">
             {!notificationList || notificationList.length === 0 ? (
-              <div className="p-8 text-center text-muted text-sm">
+              <div className="p-8 text-center text-muted-foreground text-sm">
                 <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 {t('notifications.noNotifications')}
               </div>
@@ -219,7 +219,7 @@ export default function NotificationCenter(): React.JSX.Element {
                       <p
                         className={cn(
                           'text-sm truncate',
-                          !notif.read ? 'font-semibold text-foreground' : 'text-muted'
+                          !notif.read ? 'font-semibold text-foreground' : 'text-muted-foreground'
                         )}
                       >
                         {notif.title}
@@ -227,9 +227,13 @@ export default function NotificationCenter(): React.JSX.Element {
                       {!notif.read && <span className="h-2 w-2 rounded-full bg-gold shrink-0" />}
                     </div>
                     {notif.message && (
-                      <p className="text-xs text-muted truncate mt-0.5">{notif.message}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {notif.message}
+                      </p>
                     )}
-                    <p className="text-[10px] text-muted/60 mt-1">{timeAgo(notif.created_at, t)}</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">
+                      {timeAgo(notif.created_at, t)}
+                    </p>
                   </div>
                   {!notif.read && (
                     <button
@@ -237,7 +241,7 @@ export default function NotificationCenter(): React.JSX.Element {
                         e.stopPropagation();
                         markReadMutation.run({ id: notif.id });
                       }}
-                      className="shrink-0 mt-0.5 p-1 text-muted hover:text-foreground rounded hover:bg-background transition-colors"
+                      className="shrink-0 mt-0.5 p-1 text-muted-foreground hover:text-foreground rounded hover:bg-background transition-colors"
                       title="Mark as read"
                       aria-label={t('notifications.markAllRead')}
                     >

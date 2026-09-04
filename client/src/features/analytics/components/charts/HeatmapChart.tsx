@@ -72,7 +72,10 @@ export default function HeatmapChart({ data }: HeatmapChartProps) {
         {/* Hour labels */}
         <div className="flex items-center ms-16">
           {hours.map((h) => (
-            <div key={h} className="flex-1 text-center text-[10px] font-data text-muted pb-1">
+            <div
+              key={h}
+              className="flex-1 text-center text-[10px] font-data text-muted-foreground pb-1"
+            >
               {String(h).padStart(2, '0')}
             </div>
           ))}
@@ -82,7 +85,7 @@ export default function HeatmapChart({ data }: HeatmapChartProps) {
         {days.map((day) => (
           <div key={day} className="flex items-center gap-1 mb-1">
             {/* Day label */}
-            <div className="w-14 text-end text-xs font-data text-muted pe-2 shrink-0">
+            <div className="w-14 text-end text-xs font-data text-muted-foreground pe-2 shrink-0">
               {t(`analytics.day.${day}`).slice(0, 3)}
             </div>
 
@@ -133,14 +136,14 @@ export default function HeatmapChart({ data }: HeatmapChartProps) {
             borderStyle: 'solid',
           }}
         >
-          <p className="text-[10px] font-data text-muted">
+          <p className="text-[10px] font-data text-muted-foreground">
             {t(`analytics.day.${tooltip.point.day_of_week}`)} —{' '}
             {String(tooltip.point.hour).padStart(2, '0')}:00
           </p>
           <p className="text-xs font-semibold font-data text-gold">
             {formatCurrency(tooltip.point.revenue)}
           </p>
-          <p className="text-[10px] font-data text-muted">
+          <p className="text-[10px] font-data text-muted-foreground">
             {tooltip.point.order_count} {t('analytics.orderCount')}
           </p>
         </div>

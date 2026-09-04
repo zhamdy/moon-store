@@ -31,7 +31,7 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <DirectionProvider defaultDirection={direction}>{children}</DirectionProvider>
+        <DirectionProvider direction={direction}>{children}</DirectionProvider>
       </QueryClientProvider>
     );
   }

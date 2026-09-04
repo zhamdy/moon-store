@@ -537,6 +537,7 @@ export default function LayawayPage() {
                       className="h-10 w-10"
                       onClick={addProduct}
                       isDisabled={!selectedProductId}
+                      aria-label={t('common.add')}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -589,6 +590,7 @@ export default function LayawayPage() {
                           size="sm"
                           className="h-7 w-7"
                           onClick={() => setCreateItems((prev) => prev.filter((_, i) => i !== idx))}
+                          aria-label={t('common.remove')}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
