@@ -295,12 +295,18 @@ export const INSUFFICIENT_STOCK_CODE = 'INSUFFICIENT_STOCK';
  * Thrown when the guarded stock decrement matched no row — the line's stock was gone by
  * the time the write ran. Typed rather than string-matched so the controller's message
  * list stops growing, while the client-facing wording stays exactly as it was.
+ *
+ * `requested` and `available` are what the client needs to say which line is wrong and
+ * by how much. They are carried here rather than left for the client to rediscover with
+ * a second round-trip: this is the one moment where the true numbers are known.
  */
 export class InsufficientStockError extends Error {
   constructor(
     message: string,
     public readonly productId: number,
     public readonly variantId: number | null = null,
+    public readonly requested: number = 0,
+    public readonly available: number = 0,
     public readonly code: string = INSUFFICIENT_STOCK_CODE,
     public readonly statusCode: number = 400
   ) {

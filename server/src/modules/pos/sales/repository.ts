@@ -84,6 +84,8 @@ export interface ISalesRepository {
     quantity: number,
     queryable: Queryable
   ): Promise<number | null>;
+  getProductStock(productId: number, queryable: Queryable): Promise<number | null>;
+  getVariantStock(variantId: number, queryable: Queryable): Promise<number | null>;
   createStockAdjustment(data: Record<string, any>, queryable: Queryable): Promise<void>;
   getSetting(key: string, queryable?: Queryable): Promise<string | undefined>;
   getCouponByCode(code: string, queryable?: Queryable): Promise<Record<string, any> | null>;
@@ -557,6 +559,30 @@ export class SalesRepository implements ISalesRepository {
         WHERE id = $2 AND stock >= $1::int
         RETURNING stock`,
       [quantity, variantId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /**
+   * Reads stock without taking it. Used only on the refusal path, to report how much was
+   * actually there — the guarded UPDATE above returns nothing when it matches no row, so
+   * the number the cashier needs is not otherwise recoverable.
+   *
+   * @returns the current stock, or null when the row no longer exists.
+   */
+  async getProductStock(productId: number, queryable: Queryable): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      'SELECT stock FROM products WHERE id = $1',
+      [productId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /** Variant counterpart of {@link getProductStock}. */
+  async getVariantStock(variantId: number, queryable: Queryable): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      'SELECT stock FROM product_variants WHERE id = $1',
+      [variantId]
     );
     return res.rows[0] ? Number(res.rows[0].stock) : null;
   }

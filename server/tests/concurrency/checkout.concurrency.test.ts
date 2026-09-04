@@ -127,6 +127,37 @@ describeWithPostgres('checkout stock under concurrency', () => {
       expect(await countRows('stock_adjustments')).toBe(0);
     });
 
+    it('reports available as what was really on the shelf, not the mid-transaction figure', async () => {
+      // Two lines of one product, 5 in stock. The first decrement succeeds and drives the
+      // row to 0; the second is refused. Reporting 0 would be a number that stops being
+      // true the instant this transaction rolls back -- and the cashier would be told to
+      // remove a line they can in fact still sell 5 of. Only a real database can prove
+      // this, because it needs the rollback to actually happen.
+      const productId = await makeProduct('SKU-SPLIT', 5);
+
+      await expect(
+        salesService.executeSale(
+          {
+            items: [
+              { product_id: productId, quantity: 5, unit_price: 100, memo: 'gift wrap' },
+              { product_id: productId, quantity: 1, unit_price: 100 },
+            ],
+            payment_method: 'Cash',
+          } as never,
+          cashierId
+        )
+      ).rejects.toMatchObject({
+        name: 'InsufficientStockError',
+        productId,
+        requested: 1,
+        available: 5,
+      });
+
+      expect(await stockOf(productId)).toBe(5);
+      expect(await countRows('sales')).toBe(0);
+      expect(await countRows('stock_adjustments')).toBe(0);
+    });
+
     it('is authoritative when stock disappears after the fail-fast pre-check passed', async () => {
       const productId = await makeProduct('SKU-VANISH', 1);
 

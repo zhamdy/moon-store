@@ -257,7 +257,13 @@ export class SalesService {
         );
         if (!variant) throw new Error(`Variant not found: ID ${item.variant_id}`);
         if (checkStock && Number(variant.stock) < item.quantity) {
-          throw new Error(`Insufficient stock for variant ID ${item.variant_id}`);
+          throw new InsufficientStockError(
+            `Insufficient stock for variant ID ${item.variant_id}`,
+            item.product_id,
+            item.variant_id,
+            item.quantity,
+            Math.max(0, Number(variant.stock))
+          );
         }
         const unitPrice = Number(variant.price);
         resolvedItems.push({
@@ -274,7 +280,13 @@ export class SalesService {
         const product = await this.repo.getProductById(item.product_id, queryable);
         if (!product) throw new Error(`Product not found: ID ${item.product_id}`);
         if (checkStock && Number(product.stock) < item.quantity) {
-          throw new Error(`Insufficient stock for product ID ${item.product_id}`);
+          throw new InsufficientStockError(
+            `Insufficient stock for product ID ${item.product_id}`,
+            item.product_id,
+            null,
+            item.quantity,
+            Math.max(0, Number(product.stock))
+          );
         }
         const unitPrice = Number(product.price);
         resolvedItems.push({
@@ -400,7 +412,13 @@ export class SalesService {
       const product = await this.repo.getProductById(bi.product_id, queryable);
       if (!product) throw new Error(`Product not found: ID ${bi.product_id}`);
       if (checkStock && Number(product.stock) < requestedQty) {
-        throw new Error(`Insufficient stock for product ID ${bi.product_id}`);
+        throw new InsufficientStockError(
+          `Insufficient stock for product ID ${bi.product_id}`,
+          bi.product_id,
+          null,
+          requestedQty,
+          Math.max(0, Number(product.stock))
+        );
       }
 
       const lineTotalMinor = lineTotalsMinor[i];
@@ -692,8 +710,14 @@ export class SalesService {
       // Stock writes run in a canonical order instead of the request's. Two concurrent
       // two-line checkouts naming the same products in opposite order would otherwise
       // take row locks in opposite order and deadlock. Sorting removes the cycle.
+      // What this transaction has already taken, per stock row. Only read on the refusal
+      // path, where it is added back to turn the mid-transaction stock into the figure
+      // the cashier could actually have had — the rollback un-takes all of it.
+      const takenSoFar = new Map<string, number>();
+
       for (const item of sortForStockWrites(resolvedItems)) {
         const isVariantLine = Boolean(item.isVariant && item.variant_id);
+        const stockKey = isVariantLine ? `v:${item.variant_id}` : `p:${item.product_id}`;
 
         const newStock = isVariantLine
           ? await this.repo.decrementVariantStock(item.variant_id!, item.quantity, client)
@@ -704,14 +728,28 @@ export class SalesService {
           // deleted between resolve and write. Either way the transaction rolls back and
           // no partial sale survives. The check in resolveLines is only a fail-fast
           // courtesy; this is the authority.
+          //
+          // Before unwinding, read what is actually there. This is the only point at
+          // which the true number is known, and sending it spares the client a second
+          // round-trip at the till to rediscover it.
+          const remaining = isVariantLine
+            ? await this.repo.getVariantStock(item.variant_id!, client)
+            : await this.repo.getProductStock(item.product_id, client);
+
           throw new InsufficientStockError(
             isVariantLine
               ? `Insufficient stock for variant ID ${item.variant_id}`
               : `Insufficient stock for product ID ${item.product_id}`,
             item.product_id,
-            isVariantLine ? item.variant_id! : null
+            isVariantLine ? item.variant_id! : null,
+            item.quantity,
+            // A deleted row reads as null and is reported as zero available, which is
+            // what it means for a cashier: this line cannot be sold.
+            (remaining ?? 0) + (takenSoFar.get(stockKey) ?? 0)
           );
         }
+
+        takenSoFar.set(stockKey, (takenSoFar.get(stockKey) ?? 0) + item.quantity);
 
         await this.repo.createStockAdjustment(
           {
