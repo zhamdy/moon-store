@@ -63,6 +63,56 @@ jobs:
         if: always()
         run: node scripts/assertRealPostgresSuitesRan.mjs vitest-report.json
 
+  migrations:
+    name: Migrations (up, down, re-apply)
+    # Its own job rather than a step on `server`, so the report says which gate failed
+    # without anyone opening a log: a broken rollback and a failing unit test are
+    # different problems with different owners.
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: moon_store_migrations_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      MIGRATION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/moon_store_migrations_test
+      JWT_SECRET: ci-jwt-secret-key-at-least-32-characters-long
+      JWT_REFRESH_SECRET: ci-jwt-refresh-secret-key-at-least-32-chars
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+
+      - name: Every migration's down must reverse its up
+        # Migrations otherwise only ever run forwards, on an empty database, inside
+        # tests/support/realPostgres.ts. A down that does not undo its up is invisible
+        # until a rollback is needed, which is the worst moment to find out. The script
+        # fails on an empty migrations directory too, so it cannot pass by finding
+        # nothing to check.
+        run: npm run verify:migrations
+
   client:
     name: Client (lint, typecheck, test)
     runs-on: ubuntu-latest

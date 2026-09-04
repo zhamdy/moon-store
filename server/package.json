@@ -9,12 +9,13 @@
     "migrate": "tsx src/database/migrate.ts up",
     "migrate:down": "tsx src/database/migrate.ts down",
     "seed": "tsx src/database/seed.ts",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 391",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:migrations": "tsx scripts/verifyMigrations.ts"
   },
   "dependencies": {
     "@scalar/express-api-reference": "^0.8.48",
