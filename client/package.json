@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . && npm run lint:cycles",
     "typecheck": "tsc --noEmit",
+    "budget": "node scripts/bundleBudget.mjs",
     "lint:fix": "eslint . --fix",
     "lint:cycles": "madge --circular --extensions ts,tsx src",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",

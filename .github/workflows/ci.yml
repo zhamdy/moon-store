@@ -138,6 +138,15 @@ jobs:
 
       - run: npm test
 
+      - name: Build
+        run: npm run build
+
+      - name: Bundle budgets
+        # Measures the *static closure* per route, gzipped -- what a till actually waits
+        # for -- and fails when a route grows past its budget or when charting, xlsx or
+        # the scanner become reachable from the initial load without a dynamic import.
+        run: npm run budget
+
   e2e-smoke:
     name: E2E smoke (pull requests)
     # The PR gate: the money paths that would be catastrophic to break silently, held to
