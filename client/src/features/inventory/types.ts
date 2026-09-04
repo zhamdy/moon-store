@@ -70,6 +70,13 @@ export interface Collection {
   status: string;
   description: string | null;
   product_count: number;
+  /**
+   * Doubles as the optimistic-concurrency token (#81). Echoed back as
+   * `expected_updated_at` on a write, which the server refuses if the row has moved
+   * since — `PUT` replaces the whole product set, so a write from a stale read erases
+   * whatever it did not know about rather than merging with it.
+   */
+  updated_at: string;
 }
 
 /**

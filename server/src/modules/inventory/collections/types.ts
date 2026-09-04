@@ -59,6 +59,69 @@ export interface UpdateCollectionDTO {
   status?: string;
   is_featured?: boolean;
   product_ids?: number[];
+  /**
+   * The `updated_at` the caller read, echoed back so the write can be refused if the
+   * row moved underneath it (#81). Not a column — see {@link COLLECTION_MODIFIED_CODE}.
+   *
+   * Optional on purpose: absent means "no opinion about the version", and the write
+   * behaves exactly as it did before optimistic concurrency existed. A cached PWA
+   * client running older code therefore keeps working, the same compatibility posture
+   * the `Idempotency-Key` rollout takes.
+   */
+  expected_updated_at?: string;
+}
+
+/** Stable, documented code for a write refused because the row moved under the caller. */
+export const COLLECTION_MODIFIED_CODE = 'COLLECTION_MODIFIED';
+
+/**
+ * Renders `collections.updated_at` as the version token a client can echo back.
+ *
+ * This is deliberately `toISOString()` and not a hand-written format: it is the *same
+ * call* `res.json()` makes when it serializes the row, because `JSON.stringify` invokes
+ * `Date.prototype.toJSON`, which is `toISOString`. So the token compared here is
+ * byte-identical to the string the client was given, by construction rather than by two
+ * formats being kept in agreement.
+ *
+ * ## The precision this settles
+ *
+ * `updated_at` is `timestamptz`, which PostgreSQL keeps to the microsecond, while a JS
+ * `Date` — what node-pg parses the column into, and the only thing a JSON client ever
+ * sees — holds milliseconds. The sub-millisecond digits are therefore already gone
+ * before any client can echo anything back, so the comparison has to happen at
+ * millisecond resolution or it could never match at all.
+ *
+ * The residual is that two writes to one collection landing inside the same millisecond
+ * are indistinguishable. Reaching that needs both writes plus a read interleaved between
+ * them, and writers to a single collection are serialized by the `FOR UPDATE` in
+ * `lockById` — so consecutive writes are separated by a whole transaction commit, which
+ * is not a sub-millisecond event on storage that durably persists anything.
+ */
+export function collectionVersionToken(updatedAt: Date): string {
+  return updatedAt.toISOString();
+}
+
+/**
+ * Thrown when a whole-set replace carries a version token that is no longer current.
+ *
+ * `PUT /api/v1/collections/:id` replaces the entire product set, so a request computed
+ * from a stale read does not merge with what it missed — it erases it. Before this
+ * existed the loser of that race got a 200 and their product was simply gone (#81).
+ *
+ * Deliberately carries no "current" token. The recovery for a conflict is *review* —
+ * re-read, look at what changed, decide — and handing the client a fresh token would
+ * make blind resubmission the easiest thing to do, which is the silent overwrite this
+ * refusal exists to prevent.
+ */
+export class CollectionConflictError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string = COLLECTION_MODIFIED_CODE,
+    public readonly statusCode: number = 409
+  ) {
+    super(message);
+    this.name = 'CollectionConflictError';
+  }
 }
 
 export interface CollectionFilters {

@@ -59,7 +59,20 @@ function useWrite<Args>(
       queryClient.invalidateQueries({ queryKey: key });
       onDone?.();
     },
-    onFailure,
+    onFailure: (failure) => {
+      // A conflict means the world moved under the request, and `mutationError` already
+      // names the recovery for it: *review* — refresh what it depended on, then let the
+      // user look before resubmitting. Refreshing here rather than at each call site is
+      // the same reasoning as invalidating on success: what to invalidate is this
+      // module's knowledge, and a page that forgets it strands the user resubmitting a
+      // request that cannot start succeeding (an optimistic-concurrency token the page
+      // never re-reads is refused forever). Nothing auto-retries; this only makes the
+      // screen honest about what is now there.
+      if (failure.kind === 'conflict') {
+        queryClient.invalidateQueries({ queryKey: key });
+      }
+      return onFailure?.(failure);
+    },
   });
 }
 

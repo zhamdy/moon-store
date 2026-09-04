@@ -36,14 +36,23 @@ const emptyCollection = () => ({
   year: String(new Date().getFullYear()),
   status: 'upcoming',
   description: '',
+  // A collection being created has no prior version to stake a claim on.
+  updatedAt: '',
 });
 
+/**
+ * `updatedAt` rides in the form values rather than being looked up at submit time, and
+ * that is the whole point of it (#81): the token has to be the one from the read this
+ * edit was composed against. Re-reading it on save would hand the server whatever is
+ * current — which always matches, silently defeating the check the field exists for.
+ */
 const collectionToForm = (col: Collection) => ({
   name: col.name,
   season: col.season || '',
   year: String(col.year || ''),
   status: col.status,
   description: col.description || '',
+  updatedAt: col.updated_at,
 });
 
 /**
@@ -55,10 +64,16 @@ const collectionToForm = (col: Collection) => ({
  * PATCH-style, so replaying fields this dialog does not own only widens the window for
  * overwriting a change someone else made between the read and the write (#81), and the
  * one field it forgot was silently reset on every product edit (#78).
+ *
+ * The version token comes from the same `detail` the product list is computed from, so
+ * the two cannot disagree: if this set was derived from a read that is no longer
+ * current, the token is stale too and the server refuses the write instead of erasing
+ * whatever landed in between (#81).
  */
 const withProducts = (detail: CollectionDetail, productIds: number[]) => ({
   id: detail.id,
   product_ids: productIds,
+  expected_updated_at: detail.updated_at,
 });
 
 export default function CollectionsPage() {
@@ -73,7 +88,7 @@ export default function CollectionsPage() {
 
   const { data: rows, meta } = collections.useList({ page, pageSize: 25 });
   const pagination = meta?.pagination as PaginationMeta | undefined;
-  const { data: detail } = collectionDetail.useOne(selectedCol);
+  const { data: detail, isFetching: detailIsFetching } = collectionDetail.useOne(selectedCol);
 
   const {
     products: allProducts,
@@ -95,6 +110,16 @@ export default function CollectionsPage() {
 
   const addProduct = collections.useSave({ message: t('common.save') });
   const removeProduct = collections.useSave();
+
+  /**
+   * Each product edit sends the whole set, computed from `detail`. While the read that
+   * produced `detail` is being refreshed, that set is one edit behind — a second click
+   * would submit a list missing the product the first click just added, and ask the
+   * server to make it so. That erased it silently before #81 and is refused with a 409
+   * after it; neither is what the merchandiser asked for. So the edit waits for the
+   * data it is computed from, which is the only version of this that is actually right.
+   */
+  const productEditsBlocked = detailIsFetching || addProduct.isSaving || removeProduct.isSaving;
 
   // Detail view
   if (selectedCol && detail) {
@@ -160,6 +185,7 @@ export default function CollectionsPage() {
                       color="danger"
                       size="sm"
                       className="h-6 w-6 text-muted-foreground hover:text-danger"
+                      isDisabled={productEditsBlocked}
                       onClick={() =>
                         removeProduct.save(
                           withProducts(
@@ -223,7 +249,8 @@ export default function CollectionsPage() {
                       .map((p) => (
                         <button
                           key={p.id}
-                          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 text-start transition-colors"
+                          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 text-start transition-colors disabled:opacity-50"
+                          disabled={productEditsBlocked}
                           onClick={() =>
                             addProduct.save(
                               withProducts(detail, [...detail.products.map((dp) => dp.id), p.id])
@@ -391,6 +418,7 @@ export default function CollectionsPage() {
                   year: Number(form.year) || undefined,
                   status: form.status,
                   description: form.description || undefined,
+                  expected_updated_at: form.updatedAt || undefined,
                 });
               }}
             >
