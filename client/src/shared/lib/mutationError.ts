@@ -17,19 +17,16 @@
  *   VALIDATION_ERROR (400) · UNAUTHORIZED (401) · FORBIDDEN (403)
  *   NOT_FOUND (404) · CONFLICT (409) · RATE_LIMITED (429) · INTERNAL_ERROR (500)
  *
- * `details[]` carries `{ field, code, message }` triples — Zod issues for a
- * validation rejection, and a handful of hand-written domain codes riding
- * under a generic parent (`IDEMPOTENCY_KEY_REUSED` and `IDEMPOTENCY_UNRESOLVED`
- * under CONFLICT, `SPLIT_PAYMENT_MISMATCH` under VALIDATION_ERROR).
+ * `details[]` carries `{ field, code, message }` triples, optionally with a
+ * scalar `meta` — Zod issues for a validation rejection, and a handful of
+ * hand-written domain codes riding under a generic parent
+ * (`IDEMPOTENCY_KEY_REUSED` and `IDEMPOTENCY_UNRESOLVED` under CONFLICT,
+ * `SPLIT_PAYMENT_MISMATCH` and `INSUFFICIENT_STOCK` under VALIDATION_ERROR).
  *
- * Deliberately NOT invented here: codes the server does not send. Notably
- * `INSUFFICIENT_STOCK` exists in `server/src/modules/pos/sales/types.ts` but
- * the controller drops it, re-wrapping the error as a bare VALIDATION_ERROR
- * with an English sentence. So this module cannot classify a stock conflict,
- * and does not pretend to: POS recovers from one by comparing the cart against
- * freshly-fetched stock (`features/pos/lib/stockConflict.ts`) rather than by
- * parsing a message. The constant below is honoured if the server ever starts
- * sending it, and costs nothing until then.
+ * Deliberately NOT invented here: codes the server does not send. A code this
+ * module recognises must be one some controller demonstrably puts on the wire,
+ * because a code that never arrives reads as a contract that exists when it
+ * does not.
  *
  * ## Message safety
  *
@@ -110,8 +107,9 @@ export interface MutationFailure {
 }
 
 /**
- * Recognised if the server ever forwards it (see the header note); today the
- * sales controller drops the code, so nothing matches this in practice.
+ * Sent by both POS refusal paths, one detail per oversold line, with the
+ * product, variant, requested and available in `meta`. POS reads it through
+ * `features/pos/lib/stockConflict.ts` rather than parsing the message.
  */
 export const INSUFFICIENT_STOCK_CODE = 'INSUFFICIENT_STOCK';
 

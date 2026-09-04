@@ -36,6 +36,8 @@ export interface IExchangesRepository {
     quantity: number,
     queryable: Queryable
   ): Promise<number | null>;
+  getProductStock(productId: number, queryable: Queryable): Promise<number | null>;
+  getVariantStock(variantId: number, queryable: Queryable): Promise<number | null>;
   listExchanges(
     filters: {
       search?: string;
@@ -170,6 +172,30 @@ export class ExchangesRepository implements IExchangesRepository {
         WHERE id = $2 AND stock >= $1::int
         RETURNING stock`,
       [quantity, productId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /**
+   * Reads stock without taking it, for the refusal path only: the guarded UPDATEs above
+   * return nothing when they match no row, so how much was actually there has to be
+   * asked for separately.
+   *
+   * @returns the current stock, or null when the row no longer exists.
+   */
+  async getProductStock(productId: number, queryable: Queryable): Promise<number | null> {
+    const res = await this.q(queryable).query<{ stock: number }>(
+      'SELECT stock FROM products WHERE id = $1',
+      [productId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /** Variant counterpart of {@link getProductStock}. */
+  async getVariantStock(variantId: number, queryable: Queryable): Promise<number | null> {
+    const res = await this.q(queryable).query<{ stock: number }>(
+      'SELECT stock FROM product_variants WHERE id = $1',
+      [variantId]
     );
     return res.rows[0] ? Number(res.rows[0].stock) : null;
   }

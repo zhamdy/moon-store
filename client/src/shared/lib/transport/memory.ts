@@ -1,5 +1,11 @@
 import { isValidIdempotencyKey } from './idempotency';
-import { ApiError, type Transport, type TransportRequest, type TransportResult } from './types';
+import {
+  ApiError,
+  type Transport,
+  type TransportRequest,
+  type TransportResult,
+  type ValidationDetail,
+} from './types';
 
 type Row = Record<string, unknown>;
 
@@ -39,7 +45,7 @@ export interface MemoryTransport extends Transport {
     message: string,
     status?: number,
     code?: string,
-    details?: { field: string; code: string; message: string }[],
+    details?: ValidationDetail[],
     matchPath?: string
   ): void;
 }

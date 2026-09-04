@@ -1726,6 +1726,14 @@ export const openApiSpec = {
           'no `sale_payments` rows are created and no sum check applies. A mismatched/invalid split is ' +
           'rejected with `400 VALIDATION_ERROR` and a `details[].code` of `SPLIT_PAYMENT_MISMATCH`, and ' +
           'persists nothing (no sale, items, payments, or register movement).\n\n' +
+          '**Insufficient stock:** a line that cannot be taken out of stock is rejected with ' +
+          '`400 VALIDATION_ERROR` carrying one `details[]` entry per oversold line, each with ' +
+          '`code === "INSUFFICIENT_STOCK"` and a `meta` of `{ productId, variantId, requested, ' +
+          'available }`. `variantId` is null for a product-level line. `available` is what the ' +
+          'caller could actually have had: the refused transaction rolls back, so its own writes ' +
+          'are excluded from that figure, and a row that no longer exists reports 0. The ' +
+          'pre-check reports every short line at once; a refusal from the guarded decrement can ' +
+          'only report the single line it refused. Nothing is persisted either way.\n\n' +
           '**Idempotency:** supply an `Idempotency-Key` header to make a retry return the original ' +
           'sale instead of ringing up a second one. A replayed response is byte-identical and carries ' +
           '`Idempotent-Replay: true`; it also suppresses the sale notification and the audit entry, so ' +
@@ -1823,7 +1831,8 @@ export const openApiSpec = {
           '400': {
             description:
               'Validation error / Bad request. A split-payment mismatch is reported here with ' +
-              '`details[].code === "SPLIT_PAYMENT_MISMATCH"`.',
+              '`details[].code === "SPLIT_PAYMENT_MISMATCH"`, and an oversold line with ' +
+              '`details[].code === "INSUFFICIENT_STOCK"`.',
           },
           '401': {
             description: 'Unauthorized / Missing or invalid token',

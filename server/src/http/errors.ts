@@ -13,6 +13,15 @@ export interface ValidationDetail {
   field: string;
   code: string;
   message: string;
+  /**
+   * Machine-readable specifics for a detail whose `code` names a domain event rather
+   * than a Zod issue — the numbers a client needs to render the rejection without
+   * parsing `message`, which is English and not addressed to a program.
+   *
+   * Deliberately untyped beyond scalars: the HTTP layer stays free of any one module's
+   * vocabulary, and each domain code documents its own keys where it is thrown.
+   */
+  meta?: Record<string, string | number | boolean | null>;
 }
 
 export interface ErrorBody {

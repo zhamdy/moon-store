@@ -53,6 +53,13 @@ export interface ValidationDetail {
   field: string;
   code: string;
   message: string;
+  /**
+   * Machine-readable specifics for a detail whose `code` names a domain event rather
+   * than a Zod issue. `message` is English prose written for a person, so anything a
+   * program must branch on arrives here instead. Keys are documented by the code that
+   * sends them (see `server/src/modules/pos/stockConflict.ts` for INSUFFICIENT_STOCK).
+   */
+  meta?: Record<string, string | number | boolean | null>;
 }
 
 export interface StructuredApiError {

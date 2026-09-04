@@ -288,19 +288,42 @@ export class SalesValidationError extends Error {
   }
 }
 
+/** One line that could not be taken out of stock, and the numbers behind the refusal. */
+export interface StockConflict {
+  productId: number;
+  variantId: number | null;
+  requested: number;
+  /**
+   * What the caller could actually have had. On the write path this is the row's stock
+   * with this (doomed) transaction's own writes added back — it is about to roll back, so
+   * the mid-transaction figure would be a number that stops being true immediately.
+   * Zero when the row is gone: for a cashier, "not enough" and "gone" mean the same thing.
+   */
+  available: number;
+}
+
 /** Stable, documented code for a checkout rejected because stock ran out. */
 export const INSUFFICIENT_STOCK_CODE = 'INSUFFICIENT_STOCK';
 
 /**
- * Thrown when the guarded stock decrement matched no row — the line's stock was gone by
- * the time the write ran. Typed rather than string-matched so the controller's message
- * list stops growing, while the client-facing wording stays exactly as it was.
+ * Thrown when a line cannot be taken out of stock — either the fail-fast check saw too
+ * little, or the guarded decrement matched no row because it was gone by the time the
+ * write ran. Typed rather than string-matched so the controller's message list stops
+ * growing, while the client-facing wording stays exactly as it was.
+ *
+ * Carries every line it can speak for, not just the first. The pre-check knows all of
+ * them, and a cashier told about one oversold line at a time would fix, resubmit, and be
+ * refused again. The guarded decrement can only ever report the one line it was refusing,
+ * so a conflict list of one is normal.
+ *
+ * `requested` and `available` are what the client needs to say which line is wrong and by
+ * how much. They are carried here rather than left for the client to rediscover with a
+ * second round-trip: this is the one moment where the true numbers are known.
  */
 export class InsufficientStockError extends Error {
   constructor(
     message: string,
-    public readonly productId: number,
-    public readonly variantId: number | null = null,
+    public readonly conflicts: readonly StockConflict[],
     public readonly code: string = INSUFFICIENT_STOCK_CODE,
     public readonly statusCode: number = 400
   ) {

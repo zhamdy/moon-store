@@ -2,7 +2,7 @@ import { Queryable, withTransaction } from '../../../database/transaction';
 import { IExchangesRepository, exchangesRepository as defaultRepo } from './repository';
 import { CreateExchangeDTO, ExchangeFilters, ExchangeRow, ExchangeDetail } from './types';
 import { sortForStockWrites } from '../stockWriteOrder';
-import { INSUFFICIENT_STOCK_CODE } from '../sales/types';
+import { INSUFFICIENT_STOCK_CODE, type StockConflict } from '../sales/types';
 
 /**
  * A new exchange line could not be taken out of stock. Rolls the whole exchange back.
@@ -12,8 +12,7 @@ import { INSUFFICIENT_STOCK_CODE } from '../sales/types';
 export class ExchangeStockError extends Error {
   constructor(
     message: string,
-    public readonly productId: number,
-    public readonly variantId: number | null,
+    public readonly conflicts: readonly StockConflict[],
     public readonly code: string = INSUFFICIENT_STOCK_CODE,
     public readonly statusCode: number = 400
   ) {
@@ -123,13 +122,24 @@ export class ExchangesService implements IExchangesService {
       ...data.new_items.map((item) => ({ ...item, delta: -item.quantity })),
     ]);
 
+    // The net change this transaction has already made to each stock row. Read only on
+    // the refusal path: every one of these writes is about to be rolled back, so they
+    // have to come back out of the figure reported to the cashier. A returned item
+    // restocked a moment ago is not stock they can sell on this exchange.
+    const appliedSoFar = new Map<string, number>();
+    const stockKeyOf = (write: { product_id: number; variant_id?: number | null }): string =>
+      write.variant_id ? `v:${write.variant_id}` : `p:${write.product_id}`;
+
     for (const write of stockWrites) {
+      const stockKey = stockKeyOf(write);
+
       if (write.delta > 0) {
         if (write.variant_id) {
           await this.repo.restockVariant(write.variant_id, write.delta, client);
         } else {
           await this.repo.restockProduct(write.product_id, write.delta, client);
         }
+        appliedSoFar.set(stockKey, (appliedSoFar.get(stockKey) ?? 0) + write.delta);
         continue;
       }
 
@@ -141,14 +151,31 @@ export class ExchangesService implements IExchangesService {
       if (remaining === null) {
         // The guarded UPDATE matched nothing: not enough stock, or the row is gone.
         // Throwing rolls the whole exchange back, so no returned-item restock survives.
+        //
+        // Read the row first: this is the only point where the true figure exists, and
+        // sending it saves the client a round-trip to rediscover it.
+        const current = write.variant_id
+          ? await this.repo.getVariantStock(write.variant_id, client)
+          : await this.repo.getProductStock(write.product_id, client);
+
         throw new ExchangeStockError(
           write.variant_id
             ? `Insufficient stock for variant ID ${write.variant_id}`
             : `Insufficient stock for product ID ${write.product_id}`,
-          write.product_id,
-          write.variant_id ?? null
+          [
+            {
+              productId: write.product_id,
+              variantId: write.variant_id ?? null,
+              requested: quantity,
+              // A deleted row reads as null, and is reported as zero available: for a
+              // cashier, "not enough" and "gone" mean the same thing here.
+              available: Math.max(0, (current ?? 0) - (appliedSoFar.get(stockKey) ?? 0)),
+            },
+          ]
         );
       }
+
+      appliedSoFar.set(stockKey, (appliedSoFar.get(stockKey) ?? 0) + write.delta);
     }
 
     return exchange;

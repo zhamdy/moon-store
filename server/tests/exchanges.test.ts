@@ -105,6 +105,8 @@ describe('Exchange stock invariants', () => {
         deducted.push({ productId, variantId: null });
         return 1;
       }),
+      getProductStock: vi.fn().mockResolvedValue(0),
+      getVariantStock: vi.fn().mockResolvedValue(0),
       listExchanges: vi.fn(),
       findById: vi.fn(),
       findReturnedItems: vi.fn(),
@@ -146,7 +148,10 @@ describe('Exchange stock invariants', () => {
   });
 
   it('raises a typed stock error when the guarded deduction matches nothing', async () => {
-    const repo = fakeRepo({ deductProductStock: vi.fn().mockResolvedValue(null) });
+    const repo = fakeRepo({
+      deductProductStock: vi.fn().mockResolvedValue(null),
+      getProductStock: vi.fn().mockResolvedValue(1),
+    });
 
     await expect(
       new ExchangesService(repo).createExchange(
@@ -157,7 +162,33 @@ describe('Exchange stock invariants', () => {
     ).rejects.toMatchObject({
       name: 'ExchangeStockError',
       message: 'Insufficient stock for product ID 4',
-      productId: 4,
+      conflicts: [{ productId: 4, variantId: null, requested: 1, available: 1 }],
+    });
+  });
+
+  it('reports what was available before this exchange restocked the same row', async () => {
+    // The returned item and the new item are the same product: the restock above has
+    // already run when the deduction is refused, and it is about to be rolled back. The
+    // figure the cashier needs is the stock without it.
+    const repo = fakeRepo({
+      deductProductStock: vi.fn().mockResolvedValue(null),
+      // 2 on the shelf, plus the 1 this doomed transaction just restocked.
+      getProductStock: vi.fn().mockResolvedValue(3),
+    });
+
+    await expect(
+      new ExchangesService(repo).createExchange(
+        {
+          original_sale_id: 1,
+          returned_items: [{ ...returnedItem, product_id: 4, quantity: 1, condition: 'good' }],
+          new_items: [newItem(4)],
+        },
+        1,
+        client
+      )
+    ).rejects.toMatchObject({
+      name: 'ExchangeStockError',
+      conflicts: [{ productId: 4, available: 2 }],
     });
   });
 
@@ -165,7 +196,11 @@ describe('Exchange stock invariants', () => {
     const service = {
       createExchange: vi
         .fn()
-        .mockRejectedValue(new ExchangeStockError('Insufficient stock for product ID 4', 4, null)),
+        .mockRejectedValue(
+          new ExchangeStockError('Insufficient stock for product ID 4', [
+            { productId: 4, variantId: null, requested: 1, available: 0 },
+          ])
+        ),
     } as unknown as IExchangesService;
     const next = vi.fn();
 

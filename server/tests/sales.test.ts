@@ -18,6 +18,8 @@ import {
   STRICT_SPLIT_PAYMENT_VALIDATION,
   SPLIT_PAYMENT_MISMATCH_CODE,
   SalesValidationError,
+  InsufficientStockError,
+  INSUFFICIENT_STOCK_CODE,
 } from '../src/modules/pos/sales/types';
 import { SalesRepository } from '../src/modules/pos/sales/repository';
 import { SalesController } from '../src/modules/pos/sales/controller';
@@ -76,6 +78,73 @@ describe('Sales - Mutation Contract', () => {
     expect(next).toHaveBeenCalledWith(
       expect.objectContaining<Partial<PublicError>>({ code: 'VALIDATION_ERROR' })
     );
+  });
+
+  it('sends the typed stock code and the numbers, not just an English sentence', async () => {
+    vi.spyOn(salesService, 'executeSale').mockRejectedValueOnce(
+      new InsufficientStockError('Insufficient stock for product ID 7', [
+        { productId: 7, variantId: null, requested: 3, available: 1 },
+      ])
+    );
+    const next = vi.fn();
+
+    await new SalesController().createSale(
+      {
+        body: {
+          items: [{ product_id: 7, quantity: 3, unit_price: 10 }],
+          payment_method: 'Card',
+        },
+        user: { id: 1, name: 'Cashier' },
+        headers: {},
+      } as unknown as Request,
+      { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response,
+      next as NextFunction
+    );
+
+    // The envelope code stays one of the seven public ones; the domain code rides in
+    // details[], which is where the client already reads SPLIT_PAYMENT_MISMATCH from.
+    const forwarded = next.mock.calls[0][0] as PublicError;
+    expect(forwarded.code).toBe('VALIDATION_ERROR');
+    expect(forwarded.details).toEqual([
+      {
+        field: 'items',
+        code: INSUFFICIENT_STOCK_CODE,
+        message: 'Insufficient stock for product ID 7',
+        meta: { productId: 7, variantId: null, requested: 3, available: 1 },
+      },
+    ]);
+  });
+
+  it('carries the variant id when it is a variant line that was refused', async () => {
+    // The gap this closes: variant stock is a separate column with no bulk lookup, so a
+    // client cannot rediscover this number by re-reading products.
+    vi.spyOn(salesService, 'executeSale').mockRejectedValueOnce(
+      new InsufficientStockError('Insufficient stock for variant ID 12', [
+        { productId: 7, variantId: 12, requested: 2, available: 0 },
+      ])
+    );
+    const next = vi.fn();
+
+    await new SalesController().createSale(
+      {
+        body: {
+          items: [{ product_id: 7, variant_id: 12, quantity: 2, unit_price: 10 }],
+          payment_method: 'Card',
+        },
+        user: { id: 1, name: 'Cashier' },
+        headers: {},
+      } as unknown as Request,
+      { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response,
+      next as NextFunction
+    );
+
+    const forwarded = next.mock.calls[0][0] as PublicError;
+    expect(forwarded.details?.[0].meta).toEqual({
+      productId: 7,
+      variantId: 12,
+      requested: 2,
+      available: 0,
+    });
   });
 
   it('maps a missing refund sale to the canonical not-found error', async () => {
@@ -812,6 +881,70 @@ describe('Unit 2 - SalesService authoritative calculation and snapshot persisten
 
     const sales = await testPool.query('SELECT * FROM sales');
     expect(sales.rows).toHaveLength(0);
+  });
+
+  it('error path: an oversold line is refused with the requested and available counts attached', async () => {
+    // Product 2 has 5 in stock. Asking for 7 is refused by the fail-fast check, which is
+    // the common case -- the cart was already oversold before the write ran.
+    await expect(
+      salesService.executeSale(
+        { items: [{ product_id: 2, quantity: 7 }], payment_method: 'Cash' } as any,
+        1
+      )
+    ).rejects.toMatchObject({
+      name: 'InsufficientStockError',
+      conflicts: [{ productId: 2, variantId: null, requested: 7, available: 5 }],
+    });
+
+    const sales = await testPool.query('SELECT * FROM sales');
+    expect(sales.rows).toHaveLength(0);
+  });
+
+  it('error path: every oversold line is reported, not just the first', async () => {
+    // Product 1 has 10, product 2 has 5. Both lines are short. Reporting only the first
+    // would have the cashier fix one line, resubmit, and be refused again on the other.
+    await expect(
+      salesService.executeSale(
+        {
+          items: [
+            { product_id: 1, quantity: 11 },
+            { product_id: 2, quantity: 7 },
+          ],
+          payment_method: 'Cash',
+        } as any,
+        1
+      )
+    ).rejects.toMatchObject({
+      name: 'InsufficientStockError',
+      conflicts: [
+        { productId: 1, requested: 11, available: 10 },
+        { productId: 2, requested: 7, available: 5 },
+      ],
+    });
+  });
+
+  it('error path: available excludes what this same rolled-back transaction already took', async () => {
+    // Two lines of one product, together more than the shelf holds. The first decrement
+    // succeeds and drives stock to 0 before the second is refused -- but that decrement is
+    // about to be rolled back, so reporting 0 would tell the cashier something that will
+    // not be true a millisecond later. The honest figure is the 5 that were really there.
+    await expect(
+      salesService.executeSale(
+        {
+          items: [
+            { product_id: 2, quantity: 5, memo: 'gift wrap' },
+            { product_id: 2, quantity: 1 },
+          ],
+          payment_method: 'Cash',
+        } as any,
+        1
+      )
+    ).rejects.toMatchObject({
+      name: 'InsufficientStockError',
+      conflicts: [{ productId: 2, available: 5 }],
+    });
+    // That the rollback actually restores the 5 needs a real engine, so it is asserted in
+    // `tests/concurrency/checkout.concurrency.test.ts` rather than here.
   });
 
   it('error path: an invalid coupon code is rejected deterministically -- never silently omitted from the total', async () => {

@@ -6,6 +6,7 @@ import { saleSchema, refundSchema } from '../../../../validators/saleSchema';
 import { salesService } from './service';
 import { salesRepository } from './repository';
 import { parseSaleListQuery, SalesValidationError, InsufficientStockError } from './types';
+import { stockConflictDetails } from '../stockConflict';
 import { CouponError } from '../../commerce/coupons/types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
@@ -128,9 +129,16 @@ export class SalesController {
         return;
       }
       if (err instanceof InsufficientStockError) {
-        // Same 400 and same wording as before; the error is merely typed now, so the
-        // string-matching list below stops growing.
-        next(new PublicError('VALIDATION_ERROR', err.message));
+        // Same 400 and same wording as before. The typed code and the numbers ride in
+        // `details[]`, where every other domain code rides: the envelope's code stays
+        // one of the seven public ones so a client never has to widen that union.
+        next(
+          new PublicError(
+            'VALIDATION_ERROR',
+            err.message,
+            stockConflictDetails(err.conflicts, err.message)
+          )
+        );
         return;
       }
       if (err instanceof CouponError) {
