@@ -7,6 +7,7 @@ import {
   CollectionFilters,
   CreateCollectionDTO,
   UpdateCollectionDTO,
+  collectionVersionToken,
 } from './types';
 
 export interface ICollectionsRepository {
@@ -15,6 +16,10 @@ export interface ICollectionsRepository {
     queryable?: Queryable
   ): Promise<{ rows: CollectionRecord[]; total: number }>;
   findById(id: number | string, queryable?: Queryable): Promise<CollectionRecord | null>;
+  lockById(
+    id: number | string,
+    queryable: Queryable
+  ): Promise<{ id: number; token: string } | null>;
   findProductsByCollectionId(
     collectionId: number | string,
     queryable?: Queryable
@@ -88,6 +93,33 @@ export class CollectionsRepository implements ICollectionsRepository {
       [id]
     );
     return res.rows[0] || null;
+  }
+
+  /**
+   * Locks a collection row and returns its concurrency token (#81).
+   *
+   * Two things have to be true at once for an optimistic check to mean anything: the
+   * token must be read *after* every earlier writer has committed, and no later writer
+   * may commit between the read and this caller's write. `FOR UPDATE` gives both — it
+   * is what makes check-then-write atomic, not a fix on its own. (The issue rejects a
+   * bare row lock for exactly that reason: serializing the two writers still lets the
+   * loser overwrite from stale data. The lock is the mechanism; the comparison is the
+   * fix.) It also matches the order `addProducts` takes its locks in — parent row
+   * first, then the join table — so the two paths cannot deadlock against each other.
+   *
+   * The token is rendered here rather than compared here, so the "is this stale"
+   * decision stays in the service with the rest of the policy.
+   */
+  async lockById(
+    id: number | string,
+    queryable: Queryable
+  ): Promise<{ id: number; token: string } | null> {
+    const res = await queryable.query<{ id: number; updated_at: Date }>(
+      'SELECT id, updated_at FROM collections WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+    const row = res.rows[0];
+    return row ? { id: row.id, token: collectionVersionToken(row.updated_at) } : null;
   }
 
   async findProductsByCollectionId(

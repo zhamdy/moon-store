@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { collectionsService } from './service';
-import { parseCollectionListQuery } from './types';
+import { parseCollectionListQuery, CollectionConflictError } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
@@ -55,6 +55,10 @@ export const collectionUpdateSchema = z
     status: collectionStatusSchema.optional(),
     is_featured: z.boolean().optional(),
     product_ids: z.array(z.number().int().positive()).optional(),
+    // The `updated_at` the caller read (#81). Validated as a datetime here so a
+    // malformed value is a 400 from the schema rather than a cast error from the
+    // database; whether it is *current* is decided under the row lock in the service.
+    expected_updated_at: z.string().datetime().optional(),
   })
   .strict();
 
@@ -111,6 +115,17 @@ export class CollectionsController {
       logAuditFromReq(req, 'update', 'collection', Number(id));
       res.json(success(result.data));
     } catch (err) {
+      if (err instanceof CollectionConflictError) {
+        // The envelope code stays one of the seven public ones; the domain code rides
+        // in `details[]`, where `IDEMPOTENCY_KEY_REUSED` and `INSUFFICIENT_STOCK`
+        // already ride. `field` names the request key the client must refresh.
+        next(
+          new PublicError('CONFLICT', err.message, [
+            { field: 'expected_updated_at', code: err.code, message: err.message },
+          ])
+        );
+        return;
+      }
       next(err);
     }
   }

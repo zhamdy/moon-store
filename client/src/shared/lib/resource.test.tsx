@@ -315,6 +315,58 @@ describe('resource', () => {
     });
   });
 
+  /**
+   * A conflict is the one failure whose recovery — `review` in `mutationError` — depends
+   * on the screen being refreshed. Without this, a page holding an optimistic-concurrency
+   * token (`expected_updated_at` on collections, #81) resubmits the same stale token
+   * forever and the user has no way out but a manual reload.
+   */
+  const countingReads = (transport: MemoryTransport, reads: string[]): MemoryTransport => ({
+    ...transport,
+    request(req) {
+      if (req.method === 'GET') reads.push(req.path);
+      return transport.request(req);
+    },
+  });
+
+  it('refreshes what a write depended on when the server reports a conflict', async () => {
+    const transport = createMemoryTransport({ expenses: [RENT] });
+    const reads: string[] = [];
+    const expenses = resource<Expense>('expenses');
+
+    const { result } = renderHook(() => ({ list: expenses.useList(), saver: expenses.useSave() }), {
+      wrapper: wrapperFor(countingReads(transport, reads)),
+    });
+    await waitFor(() => expect(result.current.list.data).toHaveLength(1));
+    const readsBeforeWrite = reads.length;
+
+    transport.failNext('Changed by someone else', 409);
+    result.current.saver.save({ id: 1, category: 'rent', amount: 1300 });
+
+    await waitFor(() => expect(result.current.saver.failure).toMatchObject({ kind: 'conflict' }));
+    await waitFor(() => expect(reads.length).toBeGreaterThan(readsBeforeWrite));
+  });
+
+  it('does not refresh on a failure the user fixes in place', async () => {
+    // The control. A validation rejection keeps the form and its values as they are —
+    // refetching underneath a user mid-correction would be the opposite of helpful.
+    const transport = createMemoryTransport({ expenses: [RENT] });
+    const reads: string[] = [];
+    const expenses = resource<Expense>('expenses');
+
+    const { result } = renderHook(() => ({ list: expenses.useList(), saver: expenses.useSave() }), {
+      wrapper: wrapperFor(countingReads(transport, reads)),
+    });
+    await waitFor(() => expect(result.current.list.data).toHaveLength(1));
+    const readsBeforeWrite = reads.length;
+
+    transport.failNext('Amount must be positive', 400);
+    result.current.saver.save({ id: 1, category: 'rent', amount: -5 });
+
+    await waitFor(() => expect(result.current.saver.failure).toMatchObject({ kind: 'validation' }));
+    expect(reads).toHaveLength(readsBeforeWrite);
+  });
+
   it('drops a second write fired before the first has settled', async () => {
     const transport = createMemoryTransport({ expenses: [RENT] });
     const requests: string[] = [];

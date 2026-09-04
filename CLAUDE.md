@@ -178,6 +178,43 @@ till is confirmed to be sending the header. The observable is that
 matches the day's sale count. Flipping is a config change, not a deploy, so it is
 reversible in seconds.
 
+## Optimistic concurrency on collections
+
+`PUT /api/v1/collections/:id` replaces a collection's **entire** product set — the join
+rows are deleted and re-inserted from the list in the body. Last-writer-wins is therefore
+inherent to the endpoint's shape, and it used to be silent: a reorder computed before a
+colleague's append simply erased that product, and both admins got a 200.
+
+So a write may carry `expected_updated_at`, the `updated_at` value the caller read. The
+service takes `SELECT ... FOR UPDATE` on the collection row and compares before writing —
+the lock is what makes check-then-write atomic, not a fix on its own, which is why a bare
+row lock was rejected: the loser would still overwrite from stale data. A mismatch is a
+`409` whose `details[]` carries the code `COLLECTION_MODIFIED`, and the whole transaction
+rolls back.
+
+The token is `updated_at` rendered by `toISOString()` — literally the call `res.json()`
+makes on that column — so what is compared is byte-identical to what the client was given,
+rather than two formats kept in agreement. A JS `Date` holds milliseconds while
+`timestamptz` holds microseconds, so the comparison is millisecond-resolution by
+necessity: the finer digits are gone before any client sees them. Two writes to one
+collection inside the same millisecond are therefore indistinguishable, which needs a read
+interleaved between them, and writers to a single collection are serialized by the row
+lock — so consecutive writes are a whole transaction commit apart.
+
+**The response deliberately does not include the current token.** The recovery for a
+conflict is *review*: re-read, look at what changed, decide. Handing back a fresh token
+would make blind resubmission the easiest thing to do, which is the overwrite the refusal
+exists to prevent.
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `expected_updated_at` | absent | Absent means the caller stakes no claim on the version, and the write behaves exactly as it did before optimistic concurrency existed. |
+
+Optional for the same reason `Idempotency-Key` is: a cached PWA client running older code
+keeps working rather than breaking on a 409 it cannot explain. Every client this repo
+ships sends it. The token must come from the read the edit was **composed against** — a
+page that re-reads it at submit time always matches and has quietly turned the check off.
+
 ## Scheduled jobs
 
 Background maintenance runs through `server/src/scheduler`, not through a `setInterval`
