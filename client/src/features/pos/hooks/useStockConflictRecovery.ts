@@ -1,7 +1,11 @@
 /**
- * The recovery half of a rejected checkout: re-read stock for what is in the
- * cart, say what changed, and offer the one action that makes the cart
- * sellable again.
+ * The recovery half of a rejected checkout: say what no longer fits, and offer
+ * the one action that makes the cart sellable again.
+ *
+ * Two ways in. `adopt` takes the shortfalls the server stated in its rejection
+ * — the normal path, instant, and the only one that can speak for a variant
+ * line. `check` re-reads stock and works them out, for a rejection that named
+ * no stock detail but might still have been about the cart.
  *
  * Deliberately explicit rather than automatic. The cart is money the cashier
  * has already agreed with a customer standing in front of them; silently
@@ -24,6 +28,8 @@ import { useCartStore } from '../store/cartStore';
 export interface StockConflictRecovery {
   shortfalls: StockShortfall[];
   isChecking: boolean;
+  /** Show the shortfalls the server already named. No request. */
+  adopt: (shortfalls: StockShortfall[]) => void;
   /** Re-read stock for the cart and work out what no longer fits. */
   check: () => void;
   /** Apply the proposal: trim oversold lines, drop the ones with nothing left. */
@@ -41,6 +47,15 @@ export function useStockConflictRecovery(): StockConflictRecovery {
 
   const [shortfalls, setShortfalls] = useState<StockShortfall[]>([]);
   const [isChecking, setIsChecking] = useState(false);
+
+  const adopt = useCallback(
+    (next: StockShortfall[]) => {
+      setShortfalls(next);
+      // The POS grid is showing stock the server has just contradicted.
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    [queryClient]
+  );
 
   const check = useCallback(() => {
     const ids = checkableProductIds(useCartStore.getState().items);
@@ -81,5 +96,5 @@ export function useStockConflictRecovery(): StockConflictRecovery {
 
   const clear = useCallback(() => setShortfalls([]), []);
 
-  return { shortfalls, isChecking, check, resolve, clear };
+  return { shortfalls, isChecking, adopt, check, resolve, clear };
 }

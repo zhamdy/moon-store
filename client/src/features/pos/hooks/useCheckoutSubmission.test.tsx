@@ -331,16 +331,59 @@ describe('recovering from a rejected checkout', () => {
     );
   }
 
-  it('says which line is short and by how much, without parsing the server sentence', async () => {
-    const transport = transportWithStock(1);
-    const { result, settled } = renderSubmission(transport);
+  /** One INSUFFICIENT_STOCK detail, in the shape the sales controller now sends. */
+  function stockDetail(meta: Record<string, number | null>) {
+    return {
+      field: 'items',
+      code: 'INSUFFICIENT_STOCK',
+      message: 'Insufficient stock for product ID 7',
+      meta,
+    };
+  }
 
-    transport.failNext('Insufficient stock for product ID 7', 400, 'VALIDATION_ERROR', undefined, 'sales');
+  it('takes the server’s own numbers and never re-reads stock for them', async () => {
+    const transport = transportWithStock(1);
+    const { result } = renderSubmission(transport);
+
+    transport.failNext(
+      'Insufficient stock for product ID 7',
+      400,
+      'VALIDATION_ERROR',
+      [stockDetail({ productId: 7, variantId: null, requested: 2, available: 1 })],
+      'sales'
+    );
     act(() => result.current.submit(COMPOSITION));
 
     await waitFor(() => expect(result.current.stockConflict.shortfalls).toHaveLength(1));
     expect(result.current.stockConflict.shortfalls[0]).toEqual({
       productId: 7,
+      variantId: null,
+      name: 'Silk Dress',
+      requested: 2,
+      available: 1,
+    });
+
+    // The point of the typed detail: no second trip to the server at the till.
+    expect(transport.calls().some((call) => call.path === 'products/lookup')).toBe(false);
+  });
+
+  it('says which line is short and by how much, without parsing the server sentence', async () => {
+    const transport = transportWithStock(1);
+    const { result, settled } = renderSubmission(transport);
+
+    transport.failNext(
+      'Insufficient stock for product ID 7',
+      400,
+      'VALIDATION_ERROR',
+      undefined,
+      'sales'
+    );
+    act(() => result.current.submit(COMPOSITION));
+
+    await waitFor(() => expect(result.current.stockConflict.shortfalls).toHaveLength(1));
+    expect(result.current.stockConflict.shortfalls[0]).toEqual({
+      productId: 7,
+      variantId: null,
       name: 'Silk Dress',
       requested: 2,
       available: 1,
@@ -354,7 +397,13 @@ describe('recovering from a rejected checkout', () => {
     const transport = transportWithStock(1);
     const { result } = renderSubmission(transport);
 
-    transport.failNext('Insufficient stock for product ID 7', 400, 'VALIDATION_ERROR', undefined, 'sales');
+    transport.failNext(
+      'Insufficient stock for product ID 7',
+      400,
+      'VALIDATION_ERROR',
+      undefined,
+      'sales'
+    );
     act(() => result.current.submit(COMPOSITION));
     await waitFor(() => expect(result.current.stockConflict.shortfalls).toHaveLength(1));
     expect(useCartStore.getState().items[0].quantity).toBe(2);
@@ -366,10 +415,18 @@ describe('recovering from a rejected checkout', () => {
   });
 
   it('removes a line whose product is gone entirely', async () => {
-    const transport = withSaleReply(createMemoryTransport({}, { reads: { 'products/lookup': [] } }));
+    const transport = withSaleReply(
+      createMemoryTransport({}, { reads: { 'products/lookup': [] } })
+    );
     const { result } = renderSubmission(transport);
 
-    transport.failNext('Insufficient stock for product ID 7', 400, 'VALIDATION_ERROR', undefined, 'sales');
+    transport.failNext(
+      'Insufficient stock for product ID 7',
+      400,
+      'VALIDATION_ERROR',
+      undefined,
+      'sales'
+    );
     act(() => result.current.submit(COMPOSITION));
     await waitFor(() => expect(result.current.stockConflict.shortfalls).toHaveLength(1));
 
@@ -407,7 +464,13 @@ describe('recovering from a rejected checkout', () => {
     const { result } = renderSubmission(transport);
 
     // No `reads` entry for products/lookup, so the memory transport rejects it.
-    transport.failNext('Insufficient stock for product ID 7', 400, 'VALIDATION_ERROR', undefined, 'sales');
+    transport.failNext(
+      'Insufficient stock for product ID 7',
+      400,
+      'VALIDATION_ERROR',
+      undefined,
+      'sales'
+    );
     act(() => result.current.submit(COMPOSITION));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));

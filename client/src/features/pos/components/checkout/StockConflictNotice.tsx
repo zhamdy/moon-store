@@ -38,7 +38,10 @@ export default function StockConflictNotice({
       </p>
       <ul className="space-y-1">
         {conflict.shortfalls.map((shortfall) => (
-          <li key={shortfall.productId} className="text-xs text-foreground">
+          <li
+            key={`${shortfall.productId}:${shortfall.variantId ?? 0}`}
+            className="text-xs text-foreground"
+          >
             {t('cart.stockConflictLine', {
               name: shortfall.name,
               requested: shortfall.requested,

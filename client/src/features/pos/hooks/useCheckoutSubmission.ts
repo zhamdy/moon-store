@@ -27,6 +27,7 @@ import {
   type SaleComposition,
 } from '../lib/salePayload';
 import { buildReceipt } from '../lib/saleReceipt';
+import { shortfallsFromDetails } from '../lib/stockConflict';
 import { useCartStore } from '../store/cartStore';
 import { useStockConflictRecovery, type StockConflictRecovery } from './useStockConflictRecovery';
 import type { CheckoutAttempt, SaleData, SaleResponse } from '../types';
@@ -186,13 +187,19 @@ export function useCheckoutSubmission(params: {
         return true;
       }
 
-      // Anything the server rejected on the state of the world -- stock,
-      // coupon, loyalty, a bundle -- arrives as a bare validation or conflict
-      // failure. Re-read stock to find out whether the cart is the reason and,
-      // if so, say which line and by how much. The toast still fires: this
-      // check is asynchronous and additive, not a replacement for telling the
-      // cashier immediately that the sale did not go through.
-      if (failure.recovery === 'fix' || failure.recovery === 'review') {
+      // A stock refusal now says so outright, one detail per oversold line with
+      // the product, the variant and the two numbers. Showing it costs nothing
+      // and is the only path that can speak for a variant line, whose stock the
+      // client cannot look up.
+      const stated = shortfallsFromDetails(failure.details, useCartStore.getState().items);
+      if (stated.length > 0) {
+        stockConflict.adopt(stated);
+      } else if (failure.recovery === 'fix' || failure.recovery === 'review') {
+        // No stock detail. The rejection may still have been about the cart --
+        // a coupon, loyalty or bundle failure reads the same from here -- so
+        // fall back to re-reading stock and comparing. The toast still fires:
+        // this check is asynchronous and additive, not a replacement for
+        // telling the cashier immediately that the sale did not go through.
         stockConflict.check();
       }
       // `saleFailed` only stands in when the server said nothing of its own;

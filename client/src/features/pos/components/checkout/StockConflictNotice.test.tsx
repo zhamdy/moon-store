@@ -8,6 +8,7 @@ function recovery(overrides: Partial<StockConflictRecovery> = {}): StockConflict
   return {
     shortfalls: [],
     isChecking: false,
+    adopt: vi.fn(),
     check: vi.fn(),
     resolve: vi.fn(),
     clear: vi.fn(),
@@ -37,8 +38,8 @@ describe('StockConflictNotice', () => {
       <StockConflictNotice
         conflict={recovery({
           shortfalls: [
-            { productId: 7, name: 'Silk Dress', requested: 4, available: 1 },
-            { productId: 9, name: 'Cashmere Scarf', requested: 2, available: 0 },
+            { productId: 7, variantId: null, name: 'Silk Dress', requested: 4, available: 1 },
+            { productId: 9, variantId: null, name: 'Cashmere Scarf', requested: 2, available: 0 },
           ],
         })}
       />
@@ -55,7 +56,9 @@ describe('StockConflictNotice', () => {
       <StockConflictNotice
         conflict={recovery({
           resolve,
-          shortfalls: [{ productId: 7, name: 'Silk Dress', requested: 4, available: 1 }],
+          shortfalls: [
+            { productId: 7, variantId: null, name: 'Silk Dress', requested: 4, available: 1 },
+          ],
         })}
       />
     );
