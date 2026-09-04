@@ -37,8 +37,9 @@ export default tseslint.config(
   {
     // scripts/restructure/ is temporary Node tooling for the feature-slice
     // migration codemods (deleted in Unit 12), not application source -- it
-    // runs under Node, not the browser/React lint ruleset below.
-    ignores: ['dist/', 'node_modules/', 'tailwind.config.js', 'postcss.config.js', 'scripts/'],
+    // runs under Node, not the browser/React lint ruleset below. config/ is
+    // Vite/Node build config (split out of vite.config.ts), same rationale.
+    ignores: ['dist/', 'node_modules/', 'tailwind.config.js', 'postcss.config.js', 'scripts/', 'config/'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
