@@ -3,6 +3,8 @@ export interface CollectionRecord {
   name: string;
   description?: string | null;
   season?: string | null;
+  year?: number | null;
+  status: string;
   is_featured: number | boolean;
   product_count?: number;
   created_at: string;
@@ -35,6 +37,8 @@ export interface CreateCollectionDTO {
   name: string;
   description?: string | null;
   season?: string | null;
+  year?: number | null;
+  status?: string;
   is_featured?: boolean;
   product_ids?: number[];
 }
@@ -45,12 +49,14 @@ export interface CreateCollectionDTO {
  * Absent means "leave the stored value alone"; an explicit `null` on a nullable
  * column means "clear it". Sharing the create DTO is what made #78 possible: every
  * field was optional, so an omitted `is_featured` was not a validation error, it was
- * a write of the default — and editing a collection's products un-featured it.
+ * a write of the default ï¿½ and editing a collection's products un-featured it.
  */
 export interface UpdateCollectionDTO {
   name?: string;
   description?: string | null;
   season?: string | null;
+  year?: number | null;
+  status?: string;
   is_featured?: boolean;
   product_ids?: number[];
 }
