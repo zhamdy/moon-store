@@ -16,6 +16,7 @@ import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { PageHeader } from '../../../shared';
 import type { AppSettings } from '../../../shared/types/index';
+import { API_BASE_URL } from '../../../shared/lib/apiBase';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -202,7 +203,7 @@ export default function Settings() {
           <div className="flex gap-3">
             <Button
               as="a"
-              href="http://localhost:3001/reference"
+              href={`${API_BASE_URL}/reference`}
               target="_blank"
               rel="noopener noreferrer"
               variant="flat"
@@ -212,7 +213,7 @@ export default function Settings() {
             </Button>
             <Button
               as="a"
-              href="http://localhost:3001/openapi.json"
+              href={`${API_BASE_URL}/openapi.json`}
               target="_blank"
               rel="noopener noreferrer"
               variant="bordered"

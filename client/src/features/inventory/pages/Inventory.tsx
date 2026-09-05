@@ -56,12 +56,12 @@ import type {
   ProductFormData,
   ProductImportResult,
 } from '../types';
+import { assetUrl } from '../../../shared/lib/apiBase';
 
 const products = resource<Product>('products');
 const distributors = resource<Distributor>('distributors');
 
 /** Where the server serves uploaded product images from. */
-const assetBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 /**
  * Bulk update, bulk discontinue and CSV import address the whole collection, not
@@ -431,7 +431,7 @@ export default function Inventory() {
         <div className="flex items-center gap-2">
           {row.original.image_url ? (
             <img
-              src={`${assetBase}${row.original.image_url}`}
+              src={assetUrl(row.original.image_url)}
               alt={row.original.name}
               className="h-8 w-8 rounded-lg object-cover shrink-0 border border-border"
               loading="lazy"

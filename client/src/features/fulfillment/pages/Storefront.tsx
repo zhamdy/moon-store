@@ -9,6 +9,7 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
 import type { StorefrontBanner, StorefrontConfig, StorefrontProduct } from '../types';
+import { assetUrl } from '../../../shared/lib/apiBase';
 
 export default function StorefrontPage() {
   const { t } = useTranslation();
@@ -175,7 +176,7 @@ export default function StorefrontPage() {
                 <div className="h-40 bg-muted/30 flex items-center justify-center">
                   {p.image_url ? (
                     <img
-                      src={`http://localhost:3001${p.image_url}`}
+                      src={assetUrl(p.image_url)}
                       alt={p.name}
                       className="h-full w-full object-cover"
                     />

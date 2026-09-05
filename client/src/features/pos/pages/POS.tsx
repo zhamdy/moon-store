@@ -27,12 +27,12 @@ import { usePosData, type PosBundle } from '../hooks/usePosData';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useTranslation } from '../../../shared/i18n/index';
 import type { Product, ProductVariant } from '../../../shared/types/index';
+import { assetUrl } from '../../../shared/lib/apiBase';
 
 /**
  * Where uploaded product images are served from. The transport owns request
  * paths, not `<img src>`, so this reads the same env var the HTTP client does.
  */
-const ASSET_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function POS() {
   const [searchInput, setSearchInput] = useState('');
@@ -444,7 +444,7 @@ export default function POS() {
                       <div className="flex items-start justify-between mb-2">
                         {product.image_url ? (
                           <img
-                            src={`${ASSET_BASE_URL}${product.image_url}`}
+                            src={assetUrl(product.image_url)}
                             alt={product.name}
                             className="h-10 w-10 rounded-lg object-cover border border-border"
                             loading="lazy"
