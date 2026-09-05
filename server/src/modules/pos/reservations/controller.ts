@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { reservationsService, IReservationsService } from './service';
-import { PublicError } from '../../../http/errors';
 import { success } from '../../../http/responses';
 
 const reserveSchema = z.object({
@@ -25,11 +24,8 @@ export class ReservationsController {
       const reservation = await this.service.createReservation(parsed.data);
       res.status(201).json(success(reservation));
     } catch (err) {
-      next(
-        err instanceof Error && err.message === 'Insufficient available stock'
-          ? new PublicError('VALIDATION_ERROR', err.message)
-          : err
-      );
+      // Typed at the throw site (#47); the status is no longer derived from the wording.
+      next(err);
     }
   }
 
@@ -38,11 +34,8 @@ export class ReservationsController {
       await this.service.releaseReservation(req.params.id as string);
       res.sendStatus(204);
     } catch (err) {
-      next(
-        err instanceof Error && err.message === 'Reservation not found'
-          ? new PublicError('NOT_FOUND', err.message)
-          : err
-      );
+      // Typed at the throw site (#47); the status is no longer derived from the wording.
+      next(err);
     }
   }
 

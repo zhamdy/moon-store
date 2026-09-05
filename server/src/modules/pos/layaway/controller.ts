@@ -109,12 +109,16 @@ export class LayawayController {
     }
   }
 
+  /**
+   * The service now throws `PublicError` with the status it means (#47), so there is
+   * nothing here to map. This used to guess from the wording — `includes('not found')`
+   * chose 404, anything else 400 — which made every message string a load-bearing part of
+   * the API: rewording "Plan not found" to "No such plan" silently turned a 404 into a
+   * 400. Passing a PublicError through this now would double-wrap it and *lose* the code
+   * it already carries.
+   */
   private mapDomainError(error: unknown): unknown {
-    if (!(error instanceof Error)) return error;
-    return new PublicError(
-      error.message.includes('not found') ? 'NOT_FOUND' : 'VALIDATION_ERROR',
-      error.message
-    );
+    return error;
   }
 }
 

@@ -50,15 +50,10 @@ export class DeliveryController {
         throw parsed.error;
       }
 
-      try {
-        const order = await deliveryService.createDeliveryOrder(parsed.data);
-        res.status(201).json(success(order));
-      } catch (err: any) {
-        if (err.message === 'Customer not found') {
-          throw new PublicError('VALIDATION_ERROR', 'Customer not found');
-        }
-        throw err;
-      }
+      // The service says what kind of refusal a failure was (#47), so there is nothing
+      // to catch and re-map here; the outer handler passes it to `next` as it is.
+      const order = await deliveryService.createDeliveryOrder(parsed.data);
+      res.status(201).json(success(order));
     } catch (err) {
       next(err);
     }
@@ -71,18 +66,8 @@ export class DeliveryController {
         throw parsed.error;
       }
 
-      try {
-        const order = await deliveryService.updateDeliveryOrder(
-          req.params.id as string,
-          parsed.data
-        );
-        res.json(success(order));
-      } catch (err: any) {
-        if (err.message === 'Order not found') {
-          throw new PublicError('NOT_FOUND', 'Order not found');
-        }
-        throw err;
-      }
+      const order = await deliveryService.updateDeliveryOrder(req.params.id as string, parsed.data);
+      res.json(success(order));
     } catch (err) {
       next(err);
     }

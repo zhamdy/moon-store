@@ -24,7 +24,7 @@ import {
 import { SalesRepository } from '../src/modules/pos/sales/repository';
 import { SalesController } from '../src/modules/pos/sales/controller';
 import { salesService, calculateSaleBreakdown } from '../src/modules/pos/sales/service';
-import { PublicError } from '../src/modules/http/errors';
+import { PublicError } from '../src/http/errors';
 import { paymentEntrySchema, saleSchema, MAX_PAYMENT_AMOUNT_MAJOR } from '../validators/saleSchema';
 import { openApiSpec } from '../src/docs/openapi';
 import {
@@ -56,9 +56,14 @@ describe('Sales - Mutation Contract', () => {
     expect(status).not.toHaveBeenCalled();
   });
 
-  it('maps known create failures to the canonical validation error', async () => {
+  /**
+   * The seam moved in #47: the service says what kind of refusal it is, and the controller
+   * passes it through. It used to arrive as a bare Error and be classified here by testing
+   * the message for eight substrings — one of which was the bare word 'Bundle'.
+   */
+  it('passes a typed create refusal through untouched', async () => {
     vi.spyOn(salesService, 'executeSale').mockRejectedValueOnce(
-      new Error('Insufficient stock for product')
+      new PublicError('VALIDATION_ERROR', 'Insufficient stock for product')
     );
     const next = vi.fn();
 
@@ -147,8 +152,10 @@ describe('Sales - Mutation Contract', () => {
     });
   });
 
-  it('maps a missing refund sale to the canonical not-found error', async () => {
-    vi.spyOn(salesService, 'executeRefund').mockRejectedValueOnce(new Error('Sale not found'));
+  it('passes a typed refund refusal through untouched', async () => {
+    vi.spyOn(salesService, 'executeRefund').mockRejectedValueOnce(
+      new PublicError('NOT_FOUND', 'Sale not found')
+    );
     const next = vi.fn();
 
     await new SalesController().refundSale(
@@ -165,6 +172,34 @@ describe('Sales - Mutation Contract', () => {
     expect(next).toHaveBeenCalledWith(
       expect.objectContaining<Partial<PublicError>>({ code: 'NOT_FOUND' })
     );
+  });
+
+  it('does not dress an unexpected failure up as a client error', async () => {
+    // The other half of removing the message matching. A bare Error used to be reported
+    // as VALIDATION_ERROR if its text happened to contain 'Bundle' or 'not found' — so a
+    // genuine server fault could reach the till as "fix your cart". It is a 500 now,
+    // which is the truth.
+    vi.spyOn(salesService, 'executeSale').mockRejectedValueOnce(
+      new Error('Bundle pricing service unreachable')
+    );
+    const next = vi.fn();
+
+    await new SalesController().createSale(
+      {
+        body: {
+          items: [{ product_id: 1, quantity: 1, unit_price: 10 }],
+          payment_method: 'Card',
+        },
+        user: { id: 1, name: 'Cashier' },
+        headers: {},
+      } as unknown as Request,
+      { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response,
+      next as NextFunction
+    );
+
+    const passed = next.mock.calls[0]?.[0];
+    expect(passed).toBeInstanceOf(Error);
+    expect(passed).not.toBeInstanceOf(PublicError);
   });
 });
 

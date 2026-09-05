@@ -83,23 +83,14 @@ export class PurchaseOrdersController {
       }
 
       const authReq = req as AuthRequest;
-      try {
-        const newStatus = await purchaseOrdersService.receiveItems(
-          req.params.id as string,
-          parsed.data,
-          authReq.user!.id
-        );
+      // Typed at the throw site now (#47), so no message inspection here.
+      const newStatus = await purchaseOrdersService.receiveItems(
+        req.params.id as string,
+        parsed.data,
+        authReq.user!.id
+      );
 
-        res.json(success({ id: Number(req.params.id), status: newStatus }));
-      } catch (err: any) {
-        if (err.message === 'Purchase order not found') {
-          throw new PublicError('NOT_FOUND', err.message);
-        }
-        if (err.message?.startsWith('Cannot receive items')) {
-          throw new PublicError('CONFLICT', err.message);
-        }
-        throw err;
-      }
+      res.json(success({ id: Number(req.params.id), status: newStatus }));
     } catch (err) {
       next(err);
     }

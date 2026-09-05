@@ -13,6 +13,7 @@ import {
   toIdempotencyPublicError,
   withIdempotency,
 } from '../../../http/idempotency';
+import { isUniqueViolation } from '../../../database/constraintErrors';
 
 export const createGiftCardSchema = z.object({
   code: z.string().min(4).max(50).optional(),
@@ -62,7 +63,7 @@ export class GiftCardsController {
 
       res.status(201).json(success(card));
     } catch (err: any) {
-      if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'Gift card code or barcode already exists'));
         return;
       }
@@ -96,38 +97,24 @@ export class GiftCardsController {
       const authReq = req as AuthRequest;
       const code = req.params.code as string;
 
-      let outcome;
-      try {
-        outcome = await withIdempotency({
-          // Stable per endpoint: the card code is fingerprinted through the payload
-          // instead, so one key cannot straddle two different cards.
-          endpoint: 'POST /api/v1/gift-cards/:code/redeem',
-          key: readIdempotencyKey(req),
-          userId: authReq.user!.id,
-          payload: { ...parsed.data, code },
-          run: async (client) => {
-            const redeemed = await giftCardsService.redeem(
-              code,
-              amount,
-              sale_id,
-              authReq.user!.id,
-              client
-            );
-            return { status: 200, body: success(redeemed), result: redeemed };
-          },
-        });
-      } catch (err: any) {
-        if (
-          err.message === 'Gift card not found' ||
-          err.message === 'Gift card is not active' ||
-          err.message === 'Gift card has expired' ||
-          err.message.startsWith('Insufficient balance')
-        ) {
-          const code = err.message === 'Gift card not found' ? 'NOT_FOUND' : 'CONFLICT';
-          throw new PublicError(code, err.message);
-        }
-        throw err;
-      }
+      const outcome = await withIdempotency({
+        // Stable per endpoint: the card code is fingerprinted through the payload
+        // instead, so one key cannot straddle two different cards.
+        endpoint: 'POST /api/v1/gift-cards/:code/redeem',
+        key: readIdempotencyKey(req),
+        userId: authReq.user!.id,
+        payload: { ...parsed.data, code },
+        run: async (client) => {
+          const redeemed = await giftCardsService.redeem(
+            code,
+            amount,
+            sale_id,
+            authReq.user!.id,
+            client
+          );
+          return { status: 200, body: success(redeemed), result: redeemed };
+        },
+      });
 
       if (outcome.replayed) {
         // A replay must not write a second audit entry.

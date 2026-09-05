@@ -1,14 +1,12 @@
 import { withTransaction } from '../../../database/transaction';
-import {
-  IPurchaseOrdersRepository,
-  purchaseOrdersRepository as defaultRepo,
-} from './repository';
+import { IPurchaseOrdersRepository, purchaseOrdersRepository as defaultRepo } from './repository';
 import {
   CreatePurchaseOrderDTO,
   ReceiveItemsDTO,
   PurchaseOrderFilters,
   PurchaseOrderListResult,
 } from './types';
+import { PublicError } from '../../../http/errors';
 
 export function generatePONumber(): string {
   const now = new Date();
@@ -54,10 +52,7 @@ export class PurchaseOrdersService {
     userId: number
   ): Promise<{ id: number; po_number: string }> {
     const poNumber = generatePONumber();
-    const total = data.items.reduce(
-      (sum, item) => sum + item.cost_price * item.quantity,
-      0
-    );
+    const total = data.items.reduce((sum, item) => sum + item.cost_price * item.quantity, 0);
 
     const poId = await withTransaction(async (client) => {
       const newPoId = await this.repo.create(
@@ -99,18 +94,14 @@ export class PurchaseOrdersService {
     return { id: Number(id), status };
   }
 
-  async receiveItems(
-    id: number | string,
-    data: ReceiveItemsDTO,
-    userId: number
-  ): Promise<string> {
+  async receiveItems(id: number | string, data: ReceiveItemsDTO, userId: number): Promise<string> {
     const existing = await this.repo.findById(id);
     if (!existing) {
-      throw new Error('Purchase order not found');
+      throw new PublicError('NOT_FOUND', 'Purchase order not found');
     }
 
     if (existing.status === 'Cancelled' || existing.status === 'Received') {
-      throw new Error(`Cannot receive items for ${existing.status} order`);
+      throw new PublicError('CONFLICT', `Cannot receive items for ${existing.status} order`);
     }
 
     return withTransaction(async (client) => {

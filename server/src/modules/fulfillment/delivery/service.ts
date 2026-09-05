@@ -8,6 +8,7 @@ import {
   DeliveryListResult,
   PerformanceResult,
 } from './types';
+import { PublicError } from '../../../http/errors';
 
 export function generateDeliveryOrderNumber(): string {
   const now = new Date();
@@ -42,7 +43,7 @@ export class DeliveryService {
     if (customer_id) {
       const existing = await this.repo.findCustomerById(customer_id, queryable);
       if (!existing) {
-        throw new Error('Customer not found');
+        throw new PublicError('VALIDATION_ERROR', 'Customer not found');
       }
       return customer_id;
     }
@@ -112,7 +113,7 @@ export class DeliveryService {
 
       const order = await this.repo.updateOrder(id, resolvedCustomerId, data, client);
       if (!order) {
-        throw new Error('Order not found');
+        throw new PublicError('NOT_FOUND', 'Order not found');
       }
 
       await this.repo.deleteOrderItems(id, client);

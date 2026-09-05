@@ -8,6 +8,7 @@ import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 import { z } from 'zod';
+import { isUniqueViolation } from '../../../database/constraintErrors';
 
 const favoritesSchema = z.object({ favorites: z.array(z.unknown()).max(100) }).strict();
 
@@ -51,11 +52,7 @@ export class UsersController {
 
       res.status(201).json(success(createdUser));
     } catch (err: any) {
-      if (
-        err.code === '23505' ||
-        err.message?.includes('UNIQUE') ||
-        err.message?.includes('duplicate key')
-      ) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'Email already exists'));
         return;
       }
@@ -79,11 +76,7 @@ export class UsersController {
       const updatedUser = await usersService.update(req.params.id as string, parsed.data);
       res.json(success(updatedUser));
     } catch (err: any) {
-      if (
-        err.code === '23505' ||
-        err.message?.includes('UNIQUE') ||
-        err.message?.includes('duplicate key')
-      ) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'Email already exists'));
         return;
       }

@@ -128,7 +128,10 @@ describe('product lookup contract', () => {
   it('passes duplicate conflicts to next instead of rejecting the async handler', async () => {
     const create = vi
       .spyOn(productsService, 'createProduct')
-      .mockRejectedValue(new Error('duplicate key value'));
+      // A real unique violation, as PostgreSQL reports it: SQLSTATE 23505. The controller
+      // reads the code now rather than the message (#47) — the old check also looked for
+      // 'UNIQUE', which is SQLite wording and had been dead since the migration.
+      .mockRejectedValue(Object.assign(new Error('duplicate key value'), { code: '23505' }));
     const req: any = {
       body: { name: 'Dress', sku: 'D-1', price: 100, cost_price: 50, stock: 1 },
       socket: {},

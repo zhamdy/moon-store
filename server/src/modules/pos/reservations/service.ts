@@ -1,6 +1,7 @@
 import logger from '../../../../lib/logger';
 import { IReservationsRepository, reservationsRepository as defaultRepo } from './repository';
 import { CreateReservationDTO, ReservationRow } from './types';
+import { PublicError } from '../../../http/errors';
 
 export interface IReservationsService {
   createReservation(data: CreateReservationDTO): Promise<ReservationRow>;
@@ -30,7 +31,7 @@ export class ReservationsService implements IReservationsService {
     const reservedTotal = await this.repo.getReservedQuantity(product_id, variant_id);
     const available = currentStock - reservedTotal;
     if (available < quantity) {
-      throw new Error('Insufficient available stock');
+      throw new PublicError('VALIDATION_ERROR', 'Insufficient available stock');
     }
 
     return this.repo.createReservation({
@@ -46,7 +47,7 @@ export class ReservationsService implements IReservationsService {
   async releaseReservation(id: number | string): Promise<void> {
     const deleted = await this.repo.deleteById(id);
     if (!deleted) {
-      throw new Error('Reservation not found');
+      throw new PublicError('NOT_FOUND', 'Reservation not found');
     }
   }
 

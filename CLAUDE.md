@@ -63,14 +63,14 @@ Each gate is its own job, so the checks list says what broke without anyone open
 
 ### The lint warning ratchet
 
-`npm run lint --prefix server` runs `eslint . --max-warnings 391`. The number is today's
+`npm run lint --prefix server` runs `eslint . --max-warnings 387`. The number is today's
 count, essentially all `@typescript-eslint/no-explicit-any`. It exists so the count can
 only fall: errors were already fatal, but warnings gated nothing, so nothing stopped the
 next `any` from landing.
 
 **Lowering it is #47's job**, as it replaces `any` with real types. Lower the number in
 `server/package.json` in the same PR that removes the warnings — a ratchet left above the
-true count silently stops ratcheting. Never raise it.
+true count silently stops ratcheting. Never raise it. It has gone 391 → 387 so far.
 
 ### Migration verification
 
@@ -295,6 +295,60 @@ Optional for the same reason `Idempotency-Key` is: a cached PWA client running o
 keeps working rather than breaking on a 409 it cannot explain. Every client this repo
 ships sends it. The token must come from the read the edit was **composed against** — a
 page that re-reads it at submit time always matches and has quietly turned the check off.
+
+## Error contracts: typed at the throw site
+
+A service says what kind of refusal something is; a controller does not work it out from
+the wording. Services throw `PublicError` with one of the seven public codes, and the
+controller's `catch` passes it to `next` unchanged.
+
+Before #47 this was inverted: services threw bare `Error`s and controllers recovered the
+status by testing the message. `layaway` chose 404 on `message.includes('not found')`, and
+the checkout path had **eight** substring tests — one of them the bare word `'Bundle'`.
+That made every one of those strings part of the API without anyone declaring it, in both
+directions:
+
+- Rewording "Plan not found" turned a 404 into a 400, silently.
+- A genuine server fault whose message happened to contain `Bundle` or `not found` reached
+  the till as a 400 telling a cashier to fix their cart.
+
+An unexpected error is now a 500, which is the truth, and `tests/sales.test.ts` pins that
+as well as the happy path.
+
+### Database constraint failures
+
+Recognised by SQLSTATE, never by message text — `src/database/constraintErrors.ts`.
+
+```ts
+if (isUniqueViolation(err)) throw new PublicError('CONFLICT', 'SKU already exists');
+```
+
+A dozen controllers used to ask `err.message?.includes('UNIQUE')`, which depends on the
+server's `lc_messages`, on the driver, and on nobody rephrasing anything. It also matched
+too much: a validation message containing the word "unique" read as a duplicate key and
+was answered with a 409. And `'UNIQUE'` is SQLite wording — PostgreSQL says
+`duplicate key value violates unique constraint`, lowercase — so half of every one of
+those checks had been dead since the migration without anyone noticing. Which is the
+argument against the technique, not just against that string.
+
+### OpenAPI: not generated from contracts, and why
+
+#47 asks to "generate or verify OpenAPI from those contracts". **That is not done, and it
+is not a small remainder.** `src/docs/openapi.ts` is 11,865 hand-maintained lines, and
+`scripts/generateOpenApi.ts` is a regex scraper over the manifest's source text rather
+than anything derived from the Zod schemas that actually validate requests.
+
+Closing it means picking one of two routes and paying for it:
+
+1. Derive the spec from the Zod schemas (`zod-to-openapi` or equivalent), which makes the
+   schemas the single source and deletes most of that file — but changes the published
+   spec's shape, so every consumer of it has to be checked.
+2. Keep the hand-written spec and add a drift check that fails when a registered route is
+   missing from it. Cheaper, and catches the common omission, but the *shape* of a
+   documented request can still drift from the schema that enforces it.
+
+Route 2 is the smaller step and the one to take first. Neither is in #47's diff, and
+saying so is better than a generator nobody trusts.
 
 ## Scheduled jobs
 
