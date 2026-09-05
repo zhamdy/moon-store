@@ -21,15 +21,20 @@ sense. That is why both exist, and why the list below exists as well.
 
 ## Known gaps
 
-Real, reproduced, and not yet fixed. `jsx-a11y` reports these as **warnings** rather than
-errors so the count and the locations stay visible; raise the corresponding rules to
-`error` as this list empties.
+Real, reproduced, and not yet fixed. Each has an issue — a gap recorded only in a
+document is one nobody is going to pick up. `jsx-a11y` reports these as **warnings**
+rather than errors so the count and the locations stay visible; raise the corresponding
+rules to `error` as this list empties, which #105 is the last one blocking.
 
-| Gap | Where | What it costs a user |
-| --- | --- | --- |
-| Custom customer picker is pointer-only | `features/fulfillment/components/delivery/DeliveryFormDialog.tsx` (trigger and options are `<div onClick>`) | A keyboard or screen-reader user cannot open the picker or choose a customer at all. This is the most serious item here — WCAG 2.1.1. |
-| Controls nested inside pressable cards | `features/inventory/pages/Collections.tsx`, `features/inventory/pages/Bundles.tsx` | The edit/delete buttons sit inside a card that is itself a `<button>`. Invalid HTML; the inner controls are not separately reachable and the card's accessible name absorbs their labels. Fixed on POS — the same restructure applies. |
-| `role="status"` on a `<td>` | `shared/components/data-table/DataTable.tsx`, `features/analytics/components/DashboardCharts.tsx` | Overrides the cell's table semantics to announce empty states. It works, but a live region should be a sibling of the table rather than a cell inside it. |
+| Gap | Issue | Where | What it costs a user |
+| --- | --- | --- | --- |
+| Custom customer picker is pointer-only | **#103** (P2) | `features/fulfillment/components/delivery/DeliveryFormDialog.tsx` (trigger and options are `<div onClick>`) | A keyboard or screen-reader user cannot open the picker or choose a customer at all, so the delivery flow is blocked outright. The most serious item here — WCAG 2.1.1 and 4.1.2. |
+| Controls nested inside pressable cards | **#104** (P3) | `features/inventory/pages/Collections.tsx`, `features/inventory/pages/Bundles.tsx` | The edit/delete buttons sit inside a card that is itself a `<button>`. Invalid HTML; the inner controls are not separately reachable and the card's accessible name absorbs their labels. Fixed on POS in #54 — the same restructure applies. |
+| `role="status"` on a `<td>` | **#105** (P3) | `shared/components/data-table/DataTable.tsx`, `features/analytics/components/DashboardCharts.tsx` | Overrides the cell's table semantics to announce empty states. It works, but a live region should be a sibling of the table rather than a cell inside it. |
+
+Neither `/collections`, `/bundles` nor the delivery dialog is currently an axe-scanned
+surface, which is why the scan did not find these three itself — they came from
+`jsx-a11y` and from reading. Adding those surfaces is part of #103 and #104.
 
 ## Decisions worth knowing
 
