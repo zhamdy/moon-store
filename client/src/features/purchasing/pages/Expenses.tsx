@@ -210,11 +210,11 @@ export default function ExpensesPage() {
               </tbody>
             </table>
           </div>
-          {(meta?.pagination.totalPages ?? 0) > 1 && (
+          {(meta?.pagination?.totalPages ?? 0) > 1 && (
             <div className="flex justify-center">
               <Pagination
                 page={page}
-                total={meta?.pagination.totalPages ?? 1}
+                total={meta?.pagination?.totalPages ?? 1}
                 onChange={(newPage) => update({ page: newPage })}
                 showControls
               />

@@ -353,13 +353,13 @@ export default function SalesHistory() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title={t('sales.totalRevenue')}
-          value={formatCurrency(meta?.aggregates.totalRevenue || 0)}
+          value={formatCurrency(meta?.aggregates?.totalRevenue || 0)}
           icon={DollarSign}
           isLoading={isLoading}
         />
         <StatCard
           title={t('sales.totalSales')}
-          value={meta?.aggregates.totalSales || 0}
+          value={meta?.aggregates?.totalSales || 0}
           icon={ShoppingCart}
           isLoading={isLoading}
         />
@@ -440,8 +440,8 @@ export default function SalesHistory() {
           const next = typeof updater === 'function' ? updater(pagination) : updater;
           update({ page: next.pageIndex + 1, pageSize: next.pageSize });
         }}
-        pageCount={meta?.pagination.totalPages ?? 0}
-        totalRows={meta?.pagination.totalItems ?? 0}
+        pageCount={meta?.pagination?.totalPages ?? 0}
+        totalRows={meta?.pagination?.totalItems ?? 0}
         sorting={sorting}
         onSortingChange={(updater) => {
           const next = typeof updater === 'function' ? updater(sorting) : updater;

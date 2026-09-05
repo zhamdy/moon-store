@@ -171,7 +171,7 @@ export default function AuditLog() {
   });
   const users = usersQuery.data?.pages.flatMap((response) => response.data) ?? [];
 
-  const totalPages = meta?.pagination.totalPages ?? 0;
+  const totalPages = meta?.pagination?.totalPages ?? 0;
 
   const getActionConfig = (action: string) =>
     ACTION_CONFIG[action] || { color: 'default' as const, icon: Activity };

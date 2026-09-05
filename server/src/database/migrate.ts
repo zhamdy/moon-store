@@ -15,6 +15,37 @@ export async function ensureMigrationTable(pool: Pool): Promise<void> {
       applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  /**
+   * Realign the id sequence with the rows that are actually there.
+   *
+   * `_migrations.id` is a SERIAL, so the next insert takes its value from a sequence
+   * rather than from the table. Anything that writes rows without advancing that
+   * sequence — a `pg_dump`/restore, a `TRUNCATE ... RESTART IDENTITY`, a schema copied
+   * between databases — leaves the sequence behind the data. The next migration then
+   * fails with `duplicate key value violates unique constraint "_migrations_pkey"`,
+   * which names the bookkeeping table and says nothing about the migration being
+   * applied or how to recover. It reads like a corrupt migration; it is a stale counter.
+   *
+   * Observed on a developer database that had been restored: every migration after 001
+   * refused to apply, so the API answered 500 on login (`refresh_tokens.token_hash`
+   * missing) and the app looked broken from the frontend down.
+   *
+   * `setval(..., false)` sets the *next* value, so it is correct on an empty table too.
+   *
+   * Not wrapped in a catch. pg-mem has no sequence object, so `tests/support/pgMem.ts`
+   * registers `pg_get_serial_sequence`/`setval` as a no-op pair — there is nothing there
+   * to fall out of step, so doing nothing is correct rather than degraded. Swallowing the
+   * error here instead would mean a repair that hides its own failure, which is how the
+   * original problem stayed invisible.
+   */
+  await pool.query(`
+    SELECT setval(
+      pg_get_serial_sequence('_migrations', 'id'),
+      COALESCE((SELECT MAX(id) FROM _migrations), 0) + 1,
+      false
+    )
+  `);
 }
 
 export async function getAppliedMigrations(pool: Pool): Promise<string[]> {

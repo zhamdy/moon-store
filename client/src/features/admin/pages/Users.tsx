@@ -265,8 +265,8 @@ export default function UsersPage() {
           const next = typeof updater === 'function' ? updater(pagination) : updater;
           update({ page: next.pageIndex + 1, pageSize: next.pageSize });
         }}
-        pageCount={meta?.pagination.totalPages ?? 0}
-        totalRows={meta?.pagination.totalItems ?? 0}
+        pageCount={meta?.pagination?.totalPages ?? 0}
+        totalRows={meta?.pagination?.totalItems ?? 0}
         sorting={sorting}
         onSortingChange={(updater) => {
           const next = typeof updater === 'function' ? updater(sorting) : updater;

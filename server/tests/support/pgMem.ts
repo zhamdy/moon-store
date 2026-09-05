@@ -76,6 +76,33 @@ export function registerPgMemFunctions(memDb: IMemoryDb): void {
     impure: true,
     implementation: () => new Date(),
   });
+
+  /**
+   * pg-mem implements SERIAL without exposing a sequence object, so neither
+   * `pg_get_serial_sequence` nor `setval` exists. `ensureMigrationTable` realigns the
+   * `_migrations` id sequence with its rows on every run — a repair for a database
+   * restored from a dump, where the counter is left behind the data and the next
+   * migration dies on a duplicate primary key.
+   *
+   * Registered as a no-op pair rather than removed from the production SQL, and rather
+   * than caught by the caller: pg-mem raises this without a SQLSTATE, so a caller could
+   * only recognise it by reading the message — the exact technique #47 removed from this
+   * codebase. There is no sequence here to fall out of step, so doing nothing is the
+   * correct behaviour, not a degradation.
+   */
+  memDb.public.registerFunction({
+    name: 'pg_get_serial_sequence',
+    args: [DataType.text, DataType.text],
+    returns: DataType.text,
+    implementation: (table: string, column: string) => `${table}_${column}_seq`,
+  });
+  memDb.public.registerFunction({
+    name: 'setval',
+    args: [DataType.text, DataType.integer, DataType.bool],
+    returns: DataType.integer,
+    impure: true,
+    implementation: (_name: string, value: number) => value,
+  });
 }
 
 /**
