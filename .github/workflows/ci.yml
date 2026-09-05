@@ -63,6 +63,11 @@ jobs:
         if: always()
         run: node scripts/assertRealPostgresSuitesRan.mjs vitest-report.json
 
+      - name: API documentation drift
+        # Walks the real Express router rather than comparing two hand-maintained lists,
+        # so a route added in code and forgotten in the spec and the manifest fails here.
+        run: npm run check:api-docs
+
   migrations:
     name: Migrations (up, down, re-apply)
     # Its own job rather than a step on `server`, so the report says which gate failed

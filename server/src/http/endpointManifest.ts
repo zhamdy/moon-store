@@ -111,6 +111,12 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     classification: 'M',
     authorization: allAuthenticated,
   },
+  {
+    method: 'POST',
+    path: '/api/v1/auth/logout-all',
+    classification: 'M',
+    authorization: allAuthenticated,
+  },
   { method: 'GET', path: '/api/v1/auth/me', classification: 'S', authorization: allAuthenticated },
 
   // Core / Users

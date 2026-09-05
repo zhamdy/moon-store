@@ -57,6 +57,7 @@ Each gate is its own job, so the checks list says what broke without anyone open
 | --- | --- |
 | `Server (lint, typecheck, test)` | ESLint clean of errors and **not above the warning ratchet**, `tsc --noEmit`, the full suite with a real PostgreSQL, plus a guard that the real-PG suites were not silently skipped. |
 | `Migrations (up, down, re-apply)` | Every `.down.sql` actually reverses its `.sql`. |
+| API documentation drift (a step on the server job) | Every route the router serves is documented and manifested, and nothing is documented that is not served. |
 | `Client (lint, typecheck, test)` | ESLint, `tsc --noEmit`, vitest. |
 | `E2E smoke (pull requests)` | The money paths, under a ~3 minute budget. |
 | `E2E full (main)` / `E2E settings` | The sharded suite and the serial settings project. |
@@ -331,24 +332,32 @@ was answered with a 409. And `'UNIQUE'` is SQLite wording — PostgreSQL says
 those checks had been dead since the migration without anyone noticing. Which is the
 argument against the technique, not just against that string.
 
-### OpenAPI: not generated from contracts, and why
+### API documentation drift
 
-#47 asks to "generate or verify OpenAPI from those contracts". **That is not done, and it
-is not a small remainder.** `src/docs/openapi.ts` is 11,865 hand-maintained lines, and
-`scripts/generateOpenApi.ts` is a regex scraper over the manifest's source text rather
-than anything derived from the Zod schemas that actually validate requests.
+`npm run check:api-docs` walks the **real Express router** — `routeTable`, plus the three
+health probes mounted directly on the app — and compares that set against
+`src/docs/openapi.ts` and `endpointDetailsManifest`. It fails three ways: served but
+undocumented, documented but not served, and served but not in the manifest that drives
+`tests/verification/endpointHealth.test.ts` (a route missing there is a route nothing
+exercises).
 
-Closing it means picking one of two routes and paying for it:
+Walking the router is the point. Both other lists are hand-maintained, so comparing them
+to each other proves only that someone wrote the same thing down twice.
 
-1. Derive the spec from the Zod schemas (`zod-to-openapi` or equivalent), which makes the
-   schemas the single source and deletes most of that file — but changes the published
-   spec's shape, so every consumer of it has to be checked.
-2. Keep the hand-written spec and add a drift check that fails when a registered route is
-   missing from it. Cheaper, and catches the common omission, but the *shape* of a
-   documented request can still drift from the schema that enforces it.
+It found real drift on its first run: `POST /api/v1/auth/logout-all` was live, documented
+nowhere and exercised by nothing, and `GET /api/v1/customers/{id}` was documented while
+the router mounts only `PUT` and `DELETE` on that path — the spec promised an endpoint
+that answers 404.
 
-Route 2 is the smaller step and the one to take first. Neither is in #47's diff, and
-saying so is better than a generator nobody trusts.
+**What it does not claim.** That a documented request *shape* matches the Zod schema
+enforcing it. It compares `METHOD path` pairs and nothing else, so a documented body can
+still drift from its validator while this passes.
+
+Closing that gap means deriving the spec from the Zod schemas (`zod-to-openapi` or
+equivalent), which would make the schemas the single source and delete most of the
+11,865-line hand-maintained document — but it changes the published spec's shape, so every
+consumer has to be checked first. `scripts/generateOpenApi.ts` is *not* that: it is a regex
+scraper over the manifest's source text. Deleting or replacing it is the next step.
 
 ## Scheduled jobs
 
