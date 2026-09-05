@@ -18,6 +18,7 @@
     "verify:migrations": "tsx scripts/verifyMigrations.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1127.0",
     "@scalar/express-api-reference": "^0.8.48",
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.6",

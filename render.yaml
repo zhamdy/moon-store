@@ -20,6 +20,47 @@ services:
       - key: ALLOWED_ORIGINS
         sync: false
 
+      # Media storage (#82). Unset, this is `local` and behaves exactly as before:
+      # uploads land on the container filesystem and are lost on redeploy, because this
+      # service configures no disk. That is the state this block exists to get out of.
+      #
+      # Pick ONE of the two:
+      #
+      # (a) A disk. Simplest, and enough for a single instance. Add a `disk:` block to
+      #     this service and set MEDIA_LOCAL_ROOT to its mountPath. Note a Render disk
+      #     cannot be shared between instances, so this does not survive scaling out.
+      #
+      #       disk:
+      #         name: media
+      #         mountPath: /var/media
+      #         sizeGB: 1
+      #       - key: MEDIA_LOCAL_ROOT
+      #         value: /var/media
+      #
+      # (b) An S3-compatible bucket. Survives both redeploys and scaling out. Set these
+      #     with `sync: false` so the credentials live in Render's dashboard and never in
+      #     this file. Copy the existing `server/uploads` tree into the bucket PRESERVING
+      #     KEYS before switching, and read the migration order in CLAUDE.md -> Media
+      #     storage: old rows hold relative /uploads/... URLs and keep resolving through
+      #     the /uploads mount, so the copy can happen either side of the config change,
+      #     but MEDIA_PUBLIC_BASE_URL must not point at the bucket until the objects are
+      #     actually reachable there.
+      #
+      #       - key: MEDIA_STORAGE_DRIVER
+      #         value: s3
+      #       - key: MEDIA_S3_BUCKET
+      #         sync: false
+      #       - key: MEDIA_S3_REGION
+      #         sync: false
+      #       - key: MEDIA_S3_ENDPOINT      # only for R2 / Spaces / MinIO
+      #         sync: false
+      #       - key: MEDIA_S3_ACCESS_KEY_ID
+      #         sync: false
+      #       - key: MEDIA_S3_SECRET_ACCESS_KEY
+      #         sync: false
+      #       - key: MEDIA_PUBLIC_BASE_URL
+      #         sync: false
+
 databases:
   - name: moon-store-db
     plan: free

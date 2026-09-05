@@ -345,21 +345,37 @@ Uploaded images go through the `StorageDriver` abstraction in `server/src/storag
 straight to disk. The controller mints a key, hands the driver a buffer, and stores the URL
 the driver returns; nothing above the interface knows where the bytes live.
 
-`local` (filesystem) is the only bundled driver and the default. Its defaults reproduce the
-previous behaviour exactly — objects under `server/uploads`, URLs of the form
-`/uploads/products/<name>` — so **every image URL already in the database keeps working
-untouched**. For a deployment it is durable only when `MEDIA_LOCAL_ROOT` points at storage
-that outlives the container and is shared by every instance (a mounted volume or NFS).
-Where that is not available, add a driver implementing `StorageDriver` and a case in
-`createStorageDriver`; no provider SDK or credential belongs in the callers, and none is
-hardcoded anywhere in this repo.
+`local` (filesystem) is the default. Its defaults reproduce the pre-abstraction behaviour
+exactly — objects under `server/uploads`, URLs of the form `/uploads/products/<name>` — so
+**every image URL already in the database keeps working untouched**. It is durable in a
+deployment only when `MEDIA_LOCAL_ROOT` points at storage that outlives the container and
+is shared by every instance (a mounted volume or NFS).
+
+`s3` targets any S3-compatible store — AWS S3, Cloudflare R2, DigitalOcean Spaces, MinIO.
+They share one API, so the driver is written against the protocol rather than a vendor:
+which one you are on is an endpoint and a credential, not a code path. Credentials come
+from the environment and never from a committed file; omit both key variables to let the
+SDK's default chain use an instance or container role, which is the better posture where
+it is available.
+
+**`s3` refuses to boot without `MEDIA_S3_BUCKET` and `MEDIA_PUBLIC_BASE_URL`**, rather than
+falling back to `local` the way the numeric knobs fall back to their defaults. A fallback
+would start an instance writing to a container filesystem while its operator believed
+media was going to a bucket, and the loss would surface at the next redeploy — long after
+the cause. There is likewise no default base URL: the bucket's URL shape differs per
+provider and per path-style setting, and a wrong guess writes unreachable URLs into rows.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `MEDIA_STORAGE_DRIVER` | `local` | Which driver to resolve. |
+| `MEDIA_STORAGE_DRIVER` | `local` | `local` or `s3`. |
 | `MEDIA_LOCAL_ROOT` | `server/uploads` | Root directory for the `local` driver. |
-| `MEDIA_PUBLIC_BASE_URL` | `/uploads` | Prefix `publicUrl` puts in front of a key. |
+| `MEDIA_PUBLIC_BASE_URL` | `/uploads` | Prefix `publicUrl` puts in front of a key. **Required for `s3`.** |
 | `MEDIA_ORPHAN_MIN_AGE_HOURS` | `24` | Grace period before the sweep may delete an unreferenced object. |
+| `MEDIA_S3_BUCKET` | — | **Required for `s3`.** |
+| `MEDIA_S3_REGION` | — | AWS infers the endpoint from it. |
+| `MEDIA_S3_ENDPOINT` | — | Needed for R2 / Spaces / MinIO; AWS does not use it. |
+| `MEDIA_S3_ACCESS_KEY_ID` / `MEDIA_S3_SECRET_ACCESS_KEY` | — | Omit **both** to use the SDK's default credential chain. |
+| `MEDIA_S3_FORCE_PATH_STYLE` | `false` | MinIO and some gateways address buckets as a path segment. |
 
 **Local development:** nothing to configure. `npm run dev` with no media variables set
 writes to `server/uploads` and serves `/uploads` exactly as before.
@@ -383,6 +399,14 @@ never read missing information as "unreferenced" — and it never touches an obj
 `MEDIA_ORPHAN_MIN_AGE_HOURS`. **A new table with an image URL column must be added to the
 reference query in `src/scheduler/mediaSweep.ts`** — the sweep deletes what that query does
 not return.
+
+**A new driver's `ownsUrl` is the load-bearing half of that.** `keyFromUrl` returning
+`null` conflates "somebody else's image" with "mine, and I could not read it"; the sweep
+must abort on the second. A driver answering `false`/`null` to both would classify every
+legacy `/uploads/...` row as unreferenced and delete the lot on its first run after a
+migration. That is why `LEGACY_PUBLIC_PATH` is an owned prefix in the `s3` driver even
+though it never writes that shape, and why `tests/storage.test.ts` asserts the sweep
+*aborts* rather than deletes — verified by breaking `ownsUrl` and watching it fail.
 
 ## Refresh token rotation
 

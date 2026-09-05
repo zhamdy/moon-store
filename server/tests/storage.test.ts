@@ -25,7 +25,10 @@ import {
   PRODUCT_IMAGE_PREFIX,
 } from '../src/storage/keys';
 import { detectImageType, validateImageBytes, createImageUpload } from '../src/storage/upload';
-import { setStorage, resetStorage } from '../src/storage';
+import { setStorage, resetStorage, createStorageDriver } from '../src/storage';
+import { S3StorageDriver } from '../src/storage/s3Driver';
+import { S3Client } from '@aws-sdk/client-s3';
+import { resetEnvCache } from '../src/config/env';
 import { ProductsController } from '../src/modules/inventory/products/controller';
 import { productsRepository } from '../src/modules/inventory/products/repository';
 import productsRouter from '../src/modules/inventory/products/routes';
@@ -589,5 +592,185 @@ describe('orphaned media sweep', () => {
 
     expect(outcome).toMatchObject({ scanned: 2, deleted: 1, failed: 1 });
     expect(driver.objects.has('products/stuck.png')).toBe(true);
+  });
+});
+
+/**
+ * The S3-compatible driver (#82).
+ *
+ * The URL logic is what carries the risk, so that is what is asserted hardest. The orphan
+ * sweep deletes objects no database row references, and it decides "referenced" by asking
+ * the driver two questions. A driver that answers them wrong does not fail loudly — it
+ * deletes a shop's product images on its first run after a migration. #75 shipped that bug
+ * against the local driver and it was caught in review rather than by a test; this is that
+ * test for the new one.
+ *
+ * Network calls are mocked at `S3Client.prototype.send`, which keeps the suite hermetic
+ * without another dependency. What that asserts is the command this driver builds and how
+ * it reads the reply — not that AWS works.
+ */
+describe('S3StorageDriver', () => {
+  const CDN = 'https://cdn.example.com/media';
+
+  function s3Driver(baseUrl = CDN) {
+    return new S3StorageDriver({ bucket: 'moon-media', region: 'us-east-1', baseUrl });
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('round-trips a key through its public URL', () => {
+    const s3 = s3Driver();
+    expect(s3.publicUrl('products/a.png')).toBe(`${CDN}/products/a.png`);
+    expect(s3.keyFromUrl(`${CDN}/products/a.png`)).toBe('products/a.png');
+    // Same-origin form of the configured base, for a CDN fronting this API.
+    expect(s3.keyFromUrl('/media/products/a.png')).toBe('products/a.png');
+  });
+
+  it('still owns the legacy /uploads URLs it never wrote', () => {
+    // The documented migration copies the tree into a bucket and points the base at a CDN.
+    // Rows written before that stay relative. This driver never emits `/uploads/...`, but
+    // those rows are still its objects under their old address — and a driver that
+    // disowned them would make the sweep read every one as unreferenced.
+    const s3 = s3Driver();
+    expect(s3.keyFromUrl('/uploads/products/legacy.png')).toBe('products/legacy.png');
+    expect(s3.ownsUrl('/uploads/products/legacy.png')).toBe(true);
+  });
+
+  it('leaves an image belonging to somebody else alone', () => {
+    const s3 = s3Driver();
+    expect(s3.keyFromUrl('https://other.example.com/hero.png')).toBeNull();
+    expect(s3.ownsUrl('https://other.example.com/hero.png')).toBe(false);
+  });
+
+  it('separates "not mine" from "mine but unreadable"', () => {
+    // The distinction the sweep depends on. `null` from both would be indistinguishable
+    // from an absent reference, and the sweep would then delete on missing information.
+    const s3 = s3Driver();
+    expect(s3.keyFromUrl('/uploads/products/../../etc/passwd')).toBeNull();
+    expect(s3.ownsUrl('/uploads/products/../../etc/passwd')).toBe(true);
+  });
+
+  it('reads a missing object as absent, but never an unreadable one', async () => {
+    const s3 = s3Driver();
+    const send = vi.spyOn(S3Client.prototype, 'send');
+
+    send.mockRejectedValueOnce(Object.assign(new Error('nope'), { name: 'NotFound' }));
+    expect(await s3.exists('products/a.png')).toBe(false);
+
+    // Access denied is not "absent". Reporting it as absent would let the sweep treat an
+    // object it merely cannot read as one that is not there.
+    send.mockRejectedValueOnce(
+      Object.assign(new Error('denied'), {
+        name: 'AccessDenied',
+        $metadata: { httpStatusCode: 403 },
+      })
+    );
+    await expect(s3.exists('products/a.png')).rejects.toThrow(/denied/);
+  });
+
+  it('pages a truncated listing to the end', async () => {
+    // A listing read as complete when it was not would hide objects from the sweep, and
+    // hide from the reader that they were hidden.
+    const s3 = s3Driver();
+    const now = new Date();
+    vi.spyOn(S3Client.prototype, 'send')
+      .mockResolvedValueOnce({
+        Contents: [{ Key: 'products/a.png', Size: 1, LastModified: now }],
+        IsTruncated: true,
+        NextContinuationToken: 'page-2',
+      } as never)
+      .mockResolvedValueOnce({
+        Contents: [{ Key: 'products/b.png', Size: 2, LastModified: now }],
+        IsTruncated: false,
+      } as never);
+
+    expect((await s3.list('products')).map((o) => o.key)).toEqual([
+      'products/a.png',
+      'products/b.png',
+    ]);
+  });
+
+  it('refuses a key that could escape the store', async () => {
+    const s3 = s3Driver();
+    await expect(s3.put('../secrets.env', PNG, { contentType: 'image/png' })).rejects.toThrow(
+      /Unsafe storage key/
+    );
+  });
+
+  /**
+   * The scenario the whole driver had to get right, end to end: a legacy row this store
+   * owns but cannot resolve must STOP the sweep, not be passed over as unreferenced.
+   */
+  it('makes the sweep abort rather than delete when a row it owns will not resolve', async () => {
+    const s3 = s3Driver();
+    vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({
+      Contents: [
+        {
+          Key: 'products/legacy.png',
+          Size: 1,
+          LastModified: new Date(Date.now() - 48 * 60 * 60 * 1000),
+        },
+      ],
+      IsTruncated: false,
+    } as never);
+
+    const pool = {
+      query: vi.fn(async () => ({
+        // Ours by prefix, unresolvable as a key. The sweep must read this as missing
+        // information about what is referenced, not as an absent reference.
+        rows: [{ image_url: '/uploads/products/../../etc/passwd' }],
+      })),
+    } as never;
+
+    await expect(
+      sweepOrphanedMedia({ pool, storage: s3, minAgeMs: 24 * 60 * 60 * 1000 })
+    ).rejects.toThrow(/Refusing to sweep/);
+  });
+});
+
+describe('createStorageDriver for s3', () => {
+  const ORIGINAL = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL };
+    resetEnvCache();
+    resetStorage();
+  });
+
+  function withEnv(vars: Record<string, string>) {
+    Object.assign(process.env, vars);
+    resetEnvCache();
+  }
+
+  it('refuses to start without a bucket rather than falling back to local', () => {
+    // Falling back would start an instance writing to a container filesystem while its
+    // operator believed media was going to a bucket — a loss that surfaces at the next
+    // redeploy, long after the cause.
+    withEnv({ MEDIA_STORAGE_DRIVER: 's3', MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com/m' });
+    expect(() => createStorageDriver()).toThrow(/requires MEDIA_S3_BUCKET/);
+  });
+
+  it('refuses to start without a public base URL', () => {
+    // There is no safe default: a wrong guess writes unreachable URLs into the database.
+    withEnv({ MEDIA_STORAGE_DRIVER: 's3', MEDIA_S3_BUCKET: 'moon-media' });
+    expect(() => createStorageDriver()).toThrow(/requires MEDIA_PUBLIC_BASE_URL/);
+  });
+
+  it('builds the driver when both are present', () => {
+    withEnv({
+      MEDIA_STORAGE_DRIVER: 's3',
+      MEDIA_S3_BUCKET: 'moon-media',
+      MEDIA_S3_REGION: 'us-east-1',
+      MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com/m',
+    });
+    const built = createStorageDriver();
+    expect(built.name).toBe('s3');
+    expect(built.publicUrl('products/a.png')).toBe('https://cdn.example.com/m/products/a.png');
+  });
+
+  it('still defaults to local when nothing is configured', () => {
+    delete process.env.MEDIA_STORAGE_DRIVER;
+    resetEnvCache();
+    expect(createStorageDriver().name).toBe('local');
   });
 });
