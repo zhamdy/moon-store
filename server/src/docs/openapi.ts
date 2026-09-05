@@ -527,6 +527,66 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/auth/logout-all': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Log out every session (Admin, Cashier, Delivery)',
+        description:
+          'Ends every refresh-token family this user has, on every device. Cannot reach an access token already issued, which is why that lifetime is short and capped. Endpoint classification: M. Allowed Roles: Admin, Cashier, Delivery.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                additionalProperties: true,
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Successful operation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean',
+                      example: true,
+                    },
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error / Bad request',
+          },
+          '401': {
+            description: 'Unauthorized / Missing or invalid token',
+          },
+          '403': {
+            description: 'Forbidden / Insufficient role privileges',
+          },
+          '404': {
+            description: 'Resource not found',
+          },
+          '500': {
+            description: 'Internal server error',
+          },
+        },
+      },
+    },
     '/api/v1/auth/logout': {
       post: {
         tags: ['Auth'],
@@ -6638,63 +6698,6 @@ export const openApiSpec = {
       },
     },
     '/api/v1/customers/{id}': {
-      get: {
-        tags: ['Customers'],
-        summary: 'Get Customers by ID (Admin, Cashier, Delivery)',
-        description: 'Endpoint classification: S. Allowed Roles: Admin, Cashier, Delivery.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'integer',
-            },
-            description: 'Target id',
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
       put: {
         tags: ['Customers'],
         summary: 'Update Customers (Admin, Cashier, Delivery)',
