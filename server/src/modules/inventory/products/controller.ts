@@ -15,6 +15,7 @@ import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 import { parseProductListQuery, parseProductLookupQuery } from './types';
 import { getStorage, productImageKey } from '../../../storage';
+import { isUniqueViolation } from '../../../database/constraintErrors';
 
 const bulkUpdateSchema = z.object({
   ids: z.array(z.number().int().positive()).min(1),
@@ -166,7 +167,7 @@ export class ProductsController {
       });
       res.status(201).json(success(product));
     } catch (err: any) {
-      if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'SKU or barcode already exists'));
         return;
       }
@@ -185,10 +186,7 @@ export class ProductsController {
       const updated = await productsService.bulkUpdateProducts(ids, updates);
       res.json(success({ updated }));
     } catch (err: any) {
-      if (err.message === 'Category not found') {
-        next(new PublicError('NOT_FOUND', err.message));
-        return;
-      }
+      // Typed at the throw site (#47).
       next(err);
     }
   }
@@ -218,7 +216,7 @@ export class ProductsController {
         next(new PublicError('FORBIDDEN', err.message));
         return;
       }
-      if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'SKU or barcode already exists'));
         return;
       }
@@ -439,11 +437,7 @@ export class ProductsController {
       const variant = await productsService.createVariant(productId, parsed.data);
       res.status(201).json(success(variant));
     } catch (err: any) {
-      if (err.message === 'Product not found') {
-        next(new PublicError('NOT_FOUND', err.message));
-        return;
-      }
-      if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'SKU or barcode already exists'));
         return;
       }
@@ -469,7 +463,7 @@ export class ProductsController {
 
       res.json(success(variant));
     } catch (err: any) {
-      if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'SKU or barcode already exists'));
         return;
       }

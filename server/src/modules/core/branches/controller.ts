@@ -7,6 +7,7 @@ import { PublicError } from '../../../http/errors';
 import { paginationMeta } from '../../../http/pagination';
 import { success } from '../../../http/responses';
 import { parseTransferListQuery } from './types';
+import { isUniqueViolation } from '../../../database/constraintErrors';
 
 const branchSchema = z.object({
   name: z.string().min(1).max(100),
@@ -46,11 +47,7 @@ export class BranchesController {
         next(err);
         return;
       }
-      if (
-        err.code === '23505' ||
-        err.message?.includes('UNIQUE') ||
-        err.message?.includes('duplicate key')
-      ) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'Branch code already exists'));
         return;
       }
@@ -75,11 +72,7 @@ export class BranchesController {
         next(err);
         return;
       }
-      if (
-        err.code === '23505' ||
-        err.message?.includes('UNIQUE') ||
-        err.message?.includes('duplicate key')
-      ) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'Branch code already exists'));
         return;
       }

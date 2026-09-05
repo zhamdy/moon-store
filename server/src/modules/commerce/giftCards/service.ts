@@ -1,4 +1,5 @@
 import { Queryable, withTransaction } from '../../../database/transaction';
+import { PublicError } from '../../../http/errors';
 import { IGiftCardsRepository, giftCardsRepository as defaultRepo } from './repository';
 import {
   CreateGiftCardInput,
@@ -137,26 +138,33 @@ export class GiftCardsService {
     const card = await this.repo.findByCode(code, client);
 
     if (!card) {
-      throw new Error('Gift card not found');
+      throw new PublicError('NOT_FOUND', 'Gift card not found');
     }
 
     const debited = await this.repo.redeemBalance(card.id, amount, client);
 
     if (!debited) {
       // The guarded UPDATE decided the card was ineligible but cannot say why. This
-      // read exists only to pick the message, in the same precedence as before.
+      // read exists only to pick the reason, in the same precedence as before.
+      //
+      // These carry their status as a typed code rather than a message the controller
+      // string-matches (#47). The wording is unchanged, but it is no longer load-bearing:
+      // renaming 'Gift card is not active' used to turn a 409 into a 500 silently.
       const current = await this.repo.findById(card.id, client);
 
       if (!current) {
-        throw new Error('Gift card not found');
+        throw new PublicError('NOT_FOUND', 'Gift card not found');
       }
       if (current.status !== 'active') {
-        throw new Error('Gift card is not active');
+        throw new PublicError('CONFLICT', 'Gift card is not active');
       }
       if (current.expires_at && new Date(current.expires_at) < new Date()) {
-        throw new Error('Gift card has expired');
+        throw new PublicError('CONFLICT', 'Gift card has expired');
       }
-      throw new Error(`Insufficient balance. Available: ${Number(current.balance)}`);
+      throw new PublicError(
+        'CONFLICT',
+        `Insufficient balance. Available: ${Number(current.balance)}`
+      );
     }
 
     const transaction = await this.repo.createTransaction(

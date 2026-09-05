@@ -1,4 +1,5 @@
 import db from '../src/database/pool';
+import { PublicError } from '../src/http/errors';
 import { withTransaction, Queryable } from '../src/database/transaction';
 import { productSchema } from '../validators/productSchema';
 import { notifyLowStock } from './notifications';
@@ -295,7 +296,7 @@ export async function bulkUpdateProducts(
         'SELECT name FROM categories WHERE id = $1',
         [updates.category_id]
       );
-      if (cat.rows.length === 0) throw new Error('Category not found');
+      if (cat.rows.length === 0) throw new PublicError('NOT_FOUND', 'Category not found');
 
       const placeholders = ids.map((_, i) => `$${i + 3}`).join(',');
       const result = await client.query(
@@ -410,7 +411,7 @@ export async function adjustStock(
     const product = prodRes.rows[0];
 
     if (!product) {
-      throw new Error('Product not found');
+      throw new PublicError('NOT_FOUND', 'Product not found');
     }
 
     if (product.status === 'discontinued') {
@@ -456,7 +457,7 @@ export async function createVariant(
       [productId]
     );
     const product = prodRes.rows[0];
-    if (!product) throw new Error('Product not found');
+    if (!product) throw new PublicError('NOT_FOUND', 'Product not found');
     if (product.status === 'discontinued')
       throw new Error('Cannot add variants to a discontinued product');
 

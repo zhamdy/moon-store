@@ -4,6 +4,7 @@ import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { categoriesService } from './service';
 import { success } from '../../../http/responses';
 import { PublicError } from '../../../http/errors';
+import { isUniqueViolation } from '../../../database/constraintErrors';
 
 export class CategoriesController {
   async getCategories(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -28,11 +29,7 @@ export class CategoriesController {
       logAuditFromReq(req, 'create', 'category', category.id, { name, code });
       res.status(201).json(success(category));
     } catch (err: any) {
-      if (
-        err.code === '23505' ||
-        err.message?.includes('UNIQUE') ||
-        err.message?.includes('duplicate key')
-      ) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'Category code already exists'));
         return;
       }
@@ -56,11 +53,7 @@ export class CategoriesController {
 
       res.json(success(category));
     } catch (err: any) {
-      if (
-        err.code === '23505' ||
-        err.message?.includes('UNIQUE') ||
-        err.message?.includes('duplicate key')
-      ) {
+      if (isUniqueViolation(err)) {
         next(new PublicError('CONFLICT', 'Category code already exists'));
         return;
       }

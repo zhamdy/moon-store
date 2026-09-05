@@ -145,19 +145,10 @@ export class SalesController {
         next(new PublicError('VALIDATION_ERROR', err.message));
         return;
       }
-      if (
-        err.message?.includes('Insufficient stock') ||
-        err.message?.includes('Insufficient loyalty points') ||
-        err.message?.includes('Product not found') ||
-        err.message?.includes('Variant not found') ||
-        err.message?.includes('Customer not found') ||
-        err.message?.includes('A customer must be selected to redeem loyalty points') ||
-        err.message?.includes('Loyalty program is disabled') ||
-        err.message?.includes('Bundle')
-      ) {
-        next(new PublicError('VALIDATION_ERROR', err.message));
-        return;
-      }
+      // Each of these is now thrown as a typed PublicError by the checkout service (#47).
+      // The list they replace was eight substring tests, one of which was the bare word
+      // 'Bundle' — anything mentioning a bundle became a 400, and any rewording of the
+      // other seven quietly became a 500.
       next(err);
     }
   }
@@ -219,17 +210,10 @@ export class SalesController {
         next(conflict);
         return;
       }
-      if (
-        err.message === 'Sale not found' ||
-        err.message === 'Sale already fully refunded' ||
-        err.message?.includes('not in this sale') ||
-        err.message?.includes('exceeds sold quantity') ||
-        err.message === 'Refund amount exceeds sale total'
-      ) {
-        const code = err.message === 'Sale not found' ? 'NOT_FOUND' : 'VALIDATION_ERROR';
-        next(new PublicError(code, err.message));
-        return;
-      }
+      // The refund service says what kind of refusal each of these is (#47). This used to
+      // re-derive it from the wording — including two `includes()` checks on interpolated
+      // messages — which made every one of those strings part of the API contract without
+      // anyone declaring it so.
       next(err);
     }
   }

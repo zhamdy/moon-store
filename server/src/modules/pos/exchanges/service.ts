@@ -3,6 +3,7 @@ import { IExchangesRepository, exchangesRepository as defaultRepo } from './repo
 import { CreateExchangeDTO, ExchangeFilters, ExchangeRow, ExchangeDetail } from './types';
 import { sortForStockWrites } from '../stockWriteOrder';
 import { INSUFFICIENT_STOCK_CODE, type StockConflict } from '../sales/types';
+import { PublicError } from '../../../http/errors';
 
 /**
  * A new exchange line could not be taken out of stock. Rolls the whole exchange back.
@@ -61,7 +62,7 @@ export class ExchangesService implements IExchangesService {
       // connections per request halves the pool's effective capacity under load.
       const originalSale = await this.repo.findSaleById(data.original_sale_id, client);
       if (!originalSale) {
-        throw new Error('Original sale not found');
+        throw new PublicError('NOT_FOUND', 'Original sale not found');
       }
       return this.writeExchange(data, cashierId, originalSale, client);
     }
@@ -69,7 +70,7 @@ export class ExchangesService implements IExchangesService {
     return withTransaction(async (tx) => {
       const originalSale = await this.repo.findSaleById(data.original_sale_id, tx);
       if (!originalSale) {
-        throw new Error('Original sale not found');
+        throw new PublicError('NOT_FOUND', 'Original sale not found');
       }
       return this.writeExchange(data, cashierId, originalSale, tx);
     });

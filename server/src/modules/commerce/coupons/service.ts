@@ -10,6 +10,7 @@ import {
   ValidateCouponInput,
   ValidateCouponResult,
 } from './types';
+import { isUniqueViolation } from '../../../database/constraintErrors';
 
 export class CouponsService {
   constructor(private repo: ICouponsRepository = defaultRepo) {}
@@ -38,7 +39,7 @@ export class CouponsService {
     try {
       return await this.repo.create(data);
     } catch (err: any) {
-      if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
+      if (isUniqueViolation(err)) {
         throw new CouponError('Coupon code already exists', 409);
       }
       throw err;
@@ -69,7 +70,7 @@ export class CouponsService {
       return coupon;
     } catch (err: any) {
       if (err instanceof CouponError) throw err;
-      if (err.message?.includes('UNIQUE') || err.message?.includes('duplicate key')) {
+      if (isUniqueViolation(err)) {
         throw new CouponError('Coupon code already exists', 409);
       }
       throw err;

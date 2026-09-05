@@ -97,13 +97,9 @@ export class ExchangesController {
         );
         return;
       }
-      next(
-        err instanceof z.ZodError || err instanceof PublicError
-          ? err
-          : err instanceof Error && err.message === 'Original sale not found'
-            ? new PublicError('NOT_FOUND', err.message)
-            : err
-      );
+      // 'Original sale not found' is thrown as a typed PublicError now (#47), so it takes
+      // the first branch like any other — no message comparison left to keep in sync.
+      next(err);
     }
   }
 

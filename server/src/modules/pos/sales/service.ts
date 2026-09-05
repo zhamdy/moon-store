@@ -37,6 +37,7 @@ import {
   SPLIT_PAYMENT_MISMATCH_CODE,
   STRICT_SPLIT_PAYMENT_VALIDATION,
 } from './types';
+import { PublicError } from '../../../http/errors';
 
 /**
  * A single checkout line resolved to an authoritative, server-known price.
@@ -261,7 +262,8 @@ export class SalesService {
           item.product_id,
           queryable
         );
-        if (!variant) throw new Error(`Variant not found: ID ${item.variant_id}`);
+        if (!variant)
+          throw new PublicError('VALIDATION_ERROR', `Variant not found: ID ${item.variant_id}`);
         if (checkStock && Number(variant.stock) < item.quantity) {
           stockConflicts.push({
             productId: item.product_id,
@@ -283,7 +285,8 @@ export class SalesService {
         calcLines.push({ unitPriceMinor: toMinorUnits(unitPrice), quantity: item.quantity });
       } else {
         const product = await this.repo.getProductById(item.product_id, queryable);
-        if (!product) throw new Error(`Product not found: ID ${item.product_id}`);
+        if (!product)
+          throw new PublicError('VALIDATION_ERROR', `Product not found: ID ${item.product_id}`);
         if (checkStock && Number(product.stock) < item.quantity) {
           stockConflicts.push({
             productId: item.product_id,
@@ -352,12 +355,12 @@ export class SalesService {
   ): Promise<ResolvedLines> {
     const bundle = await this.bundles.findById(bundleId, queryable);
     if (!bundle || bundle.status !== 'active') {
-      throw new Error(`Bundle not found or inactive: ID ${bundleId}`);
+      throw new PublicError('VALIDATION_ERROR', `Bundle not found or inactive: ID ${bundleId}`);
     }
 
     const bundleItems = await this.bundles.findItemsByBundleId(bundleId, queryable);
     if (bundleItems.length === 0) {
-      throw new Error(`Bundle has no items: ID ${bundleId}`);
+      throw new PublicError('VALIDATION_ERROR', `Bundle has no items: ID ${bundleId}`);
     }
 
     const requestedByProduct = new Map<number, number>();
@@ -373,7 +376,10 @@ export class SalesService {
       bundleProductIds.size !== requestedByProduct.size ||
       ![...bundleProductIds].every((id) => requestedByProduct.has(id))
     ) {
-      throw new Error(`Bundle allocation does not match its definition: ID ${bundleId}`);
+      throw new PublicError(
+        'VALIDATION_ERROR',
+        `Bundle allocation does not match its definition: ID ${bundleId}`
+      );
     }
 
     let multiplier: number | null = null;
@@ -381,12 +387,18 @@ export class SalesService {
       const requestedQty = requestedByProduct.get(bi.product_id)!;
       const candidateMultiplier = requestedQty / bi.quantity;
       if (!Number.isInteger(candidateMultiplier) || candidateMultiplier <= 0) {
-        throw new Error(`Bundle allocation quantity mismatch: ID ${bundleId}`);
+        throw new PublicError(
+          'VALIDATION_ERROR',
+          `Bundle allocation quantity mismatch: ID ${bundleId}`
+        );
       }
       if (multiplier === null) {
         multiplier = candidateMultiplier;
       } else if (multiplier !== candidateMultiplier) {
-        throw new Error(`Bundle allocation quantity mismatch: ID ${bundleId}`);
+        throw new PublicError(
+          'VALIDATION_ERROR',
+          `Bundle allocation quantity mismatch: ID ${bundleId}`
+        );
       }
     }
 
@@ -428,7 +440,8 @@ export class SalesService {
       const bi = bundleItems[i];
       const requestedQty = requestedByProduct.get(bi.product_id)!;
       const product = await this.repo.getProductById(bi.product_id, queryable);
-      if (!product) throw new Error(`Product not found: ID ${bi.product_id}`);
+      if (!product)
+        throw new PublicError('VALIDATION_ERROR', `Product not found: ID ${bi.product_id}`);
       if (checkStock && Number(product.stock) < requestedQty) {
         stockConflicts.push({
           productId: bi.product_id,
@@ -521,20 +534,24 @@ export class SalesService {
     let customer: Record<string, any> | null = null;
     if (input.customer_id) {
       customer = await this.repo.getCustomerById(input.customer_id, queryable);
-      if (!customer) throw new Error(`Customer not found: ID ${input.customer_id}`);
+      if (!customer)
+        throw new PublicError('VALIDATION_ERROR', `Customer not found: ID ${input.customer_id}`);
     }
 
     const loyaltySettings = await this.getCanonicalLoyaltySettings(queryable);
     const pointsRequested = Math.max(0, input.points_redeemed || 0);
     if (pointsRequested > 0) {
       if (!input.customer_id || !customer) {
-        throw new Error('A customer must be selected to redeem loyalty points');
+        throw new PublicError(
+          'VALIDATION_ERROR',
+          'A customer must be selected to redeem loyalty points'
+        );
       }
       if (!loyaltySettings.enabled) {
-        throw new Error('Loyalty program is disabled');
+        throw new PublicError('VALIDATION_ERROR', 'Loyalty program is disabled');
       }
       if (Number(customer.loyalty_points) < pointsRequested) {
-        throw new Error('Insufficient loyalty points');
+        throw new PublicError('VALIDATION_ERROR', 'Insufficient loyalty points');
       }
     }
 
@@ -797,7 +814,7 @@ export class SalesService {
           if (remaining === null) {
             // The balance moved between the breakdown's read and this write. Same
             // wording the stale check produces, so the client sees no change.
-            throw new Error('Insufficient loyalty points');
+            throw new PublicError('VALIDATION_ERROR', 'Insufficient loyalty points');
           }
           await this.repo.createLoyaltyTransaction(
             input.customer_id,
@@ -896,16 +913,22 @@ export class SalesService {
       // the cumulative check below is only correct while no sibling refund can commit
       // between the read and the write.
       const sale = await this.repo.findByIdForUpdate(saleId, client);
-      if (!sale) throw new Error('Sale not found');
-      if (sale.refund_status === 'full') throw new Error('Sale already fully refunded');
+      if (!sale) throw new PublicError('NOT_FOUND', 'Sale not found');
+      if (sale.refund_status === 'full')
+        throw new PublicError('VALIDATION_ERROR', 'Sale already fully refunded');
 
       const saleItems = await this.repo.findItemsBySaleId(saleId, client);
 
       for (const refundItem of input.items) {
         const saleItem = saleItems.find((si) => si.product_id === refundItem.product_id);
-        if (!saleItem) throw new Error(`Product ${refundItem.product_id} not in this sale`);
+        if (!saleItem)
+          throw new PublicError(
+            'VALIDATION_ERROR',
+            `Product ${refundItem.product_id} not in this sale`
+          );
         if (refundItem.quantity > saleItem.quantity) {
-          throw new Error(
+          throw new PublicError(
+            'VALIDATION_ERROR',
             `Refund quantity exceeds sold quantity for product ${refundItem.product_id}`
           );
         }
@@ -918,7 +941,7 @@ export class SalesService {
 
       const previouslyRefunded = Number(sale.refunded_amount) || 0;
       if (previouslyRefunded + refundAmount > Number(sale.total)) {
-        throw new Error('Refund amount exceeds sale total');
+        throw new PublicError('VALIDATION_ERROR', 'Refund amount exceeds sale total');
       }
 
       const newRefundedTotal = previouslyRefunded + refundAmount;

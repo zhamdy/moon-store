@@ -7,6 +7,7 @@ import {
   LayawayPlanRow,
   LayawayPlanDetail,
 } from './types';
+import { PublicError } from '../../../http/errors';
 
 export function generatePlanNumber(): string {
   const now = new Date();
@@ -38,7 +39,7 @@ export class LayawayService implements ILayawayService {
 
   async createPlan(data: CreateLayawayDTO, userId: number): Promise<LayawayPlanRow> {
     if (data.deposit_amount >= data.total_amount) {
-      throw new Error('Deposit cannot equal or exceed total amount');
+      throw new PublicError('VALIDATION_ERROR', 'Deposit cannot equal or exceed total amount');
     }
 
     const planNumber = generatePlanNumber();
@@ -111,15 +112,18 @@ export class LayawayService implements ILayawayService {
   ): Promise<{ remaining_balance: number; status: string }> {
     const plan = await this.repo.findById(planId);
     if (!plan) {
-      throw new Error('Plan not found');
+      throw new PublicError('NOT_FOUND', 'Plan not found');
     }
     if (plan.status !== 'active') {
-      throw new Error('Plan is not active');
+      throw new PublicError('CONFLICT', 'Plan is not active');
     }
 
     const remaining = Number(plan.remaining_balance);
     if (data.amount > remaining) {
-      throw new Error(`Payment amount exceeds remaining balance of ${remaining}`);
+      throw new PublicError(
+        'VALIDATION_ERROR',
+        `Payment amount exceeds remaining balance of ${remaining}`
+      );
     }
 
     const newRemaining = remaining - data.amount;
@@ -150,10 +154,10 @@ export class LayawayService implements ILayawayService {
   async cancelPlan(planId: number): Promise<{ status: string }> {
     const plan = await this.repo.findById(planId);
     if (!plan) {
-      throw new Error('Plan not found');
+      throw new PublicError('NOT_FOUND', 'Plan not found');
     }
     if (plan.status !== 'active') {
-      throw new Error('Only active plans can be cancelled');
+      throw new PublicError('CONFLICT', 'Only active plans can be cancelled');
     }
 
     await withTransaction(async (client) => {
