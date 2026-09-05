@@ -97,11 +97,38 @@ const envSchema = z.object({
    *
    * `local` is the documented development option and the compatibility default. It is
    * durable in a deployment only when `MEDIA_LOCAL_ROOT` points at storage that outlives
-   * the container and is shared by every instance (a mounted volume or NFS). No cloud
-   * driver is bundled, and none of this file names a provider: a driver is a new file
-   * implementing `StorageDriver`, configured by adding a case to `createStorageDriver`.
+   * the container and is shared by every instance (a mounted volume or NFS).
+   *
+   * `s3` targets any S3-compatible store — AWS S3, Cloudflare R2, DigitalOcean Spaces,
+   * MinIO. They share one API, so the driver is written against the protocol rather than
+   * a vendor: pick the bucket with `MEDIA_S3_*` below and set an endpoint if it is not
+   * AWS. Credentials come from the environment and never from a committed file.
    */
-  MEDIA_STORAGE_DRIVER: z.enum(['local']).default('local'),
+  MEDIA_STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  /**
+   * S3 settings. All optional here rather than required-when-s3, because this schema is
+   * parsed for every process including ones that never touch media; `createStorageDriver`
+   * is where a missing bucket becomes a loud boot failure, and it names what is missing.
+   */
+  MEDIA_S3_BUCKET: z.string().optional(),
+  MEDIA_S3_REGION: z.string().optional(),
+  /** Non-AWS stores (R2, Spaces, MinIO) need their endpoint; AWS infers it from region. */
+  MEDIA_S3_ENDPOINT: z.string().optional(),
+  /**
+   * Omit both to let the SDK's default chain find credentials — an instance role, a
+   * container role, `~/.aws`. That is the better posture where it is available, and the
+   * reason these are optional rather than required.
+   */
+  MEDIA_S3_ACCESS_KEY_ID: z.string().optional(),
+  MEDIA_S3_SECRET_ACCESS_KEY: z.string().optional(),
+  /**
+   * MinIO and some self-hosted gateways address buckets as a path segment rather than a
+   * subdomain. Harmless on AWS, required on those.
+   */
+  MEDIA_S3_FORCE_PATH_STYLE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   /** Root directory for the `local` driver. Defaults to `server/uploads`. */
   MEDIA_LOCAL_ROOT: z.string().optional(),
   /**
