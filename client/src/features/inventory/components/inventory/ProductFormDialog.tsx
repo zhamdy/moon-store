@@ -18,9 +18,9 @@ import { useTranslation } from '../../../../shared/i18n/index';
 import type { Product, Category, Distributor } from '../../../../shared/types/index';
 import type { ProductFormData } from '../../types';
 import type { z } from 'zod';
+import { assetUrl } from '../../../../shared/lib/apiBase';
 
 /** Where the server serves uploaded product images from. */
-const assetBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface ProductFormDialogProps {
   open: boolean;
@@ -279,7 +279,7 @@ export default function ProductFormDialog({
                   <div className="flex items-center gap-3">
                     {editingProduct.image_url ? (
                       <img
-                        src={`${assetBase}${editingProduct.image_url}`}
+                        src={assetUrl(editingProduct.image_url)}
                         alt={editingProduct.name}
                         className="h-16 w-16 rounded-lg object-cover border border-border"
                       />

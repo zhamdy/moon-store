@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { getAccessToken, onAuthFailure, onTokenRefreshed } from './authPort';
+import { API_BASE_URL } from '../apiBase';
 import type { AuthResponseData } from '../../types/index';
 
 interface QueueItem {
@@ -8,7 +9,7 @@ interface QueueItem {
 }
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+  baseURL: API_BASE_URL,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -66,7 +67,7 @@ const setupRefreshInterceptor = () => {
 
         try {
           const response = await axios.post<AuthResponseData>(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/v1/auth/refresh`,
+            `${API_BASE_URL}/api/v1/auth/refresh`,
             {},
             { withCredentials: true }
           );
