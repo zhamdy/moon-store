@@ -2,7 +2,8 @@
 
 > This document was rewritten for the feature-slice refactor (2026-08-20-001). The previous version
 > (pre-slice) is recoverable at `76a7ab0^` in git history. Sections below that are unaffected by the
-> refactor (server routes, SQLite gotchas, forms, formatting) are carried forward from it.
+> refactor (forms, formatting) are carried forward from it. The SQLite section it used to
+> carry was deleted after the PostgreSQL migration made it wrong.
 
 ## Project Structure Rules
 
@@ -93,11 +94,12 @@ decision, not an oversight — do not "fix" it as a drive-by during unrelated wo
   `features/pos/components/CartPanel.tsx` — all reading/invalidating the same server-side settings
   resource. This is intentional cache sharing, not an accidental collision; each call site comments the
   sharing at its use.
-- **Route path strings are duplicated** between `client/src/app/App.tsx`'s `RouteConfig[]` table (the
-  router source of truth) and `client/src/app/Sidebar.tsx`'s `navItems[]` (the nav source of truth,
-  which also carries icons, labels and role gates the router doesn't need). Both live in `app/`, so
-  there is no cross-layer coupling — but a renamed route requires editing both files by hand. Unifying
-  them into one route-registry module is legitimate follow-up work, out of scope here.
+- **Route path strings are duplicated** between the file-based route tree under
+  `client/src/routes/` (the router's source of truth — the path *is* the filename, and
+  `routeTree.gen.ts` is generated from it) and `client/src/app/Sidebar.tsx`'s `navItems[]` (the nav
+  source of truth, which also carries icons, labels and role gates the router doesn't need). A renamed
+  route therefore means renaming a file *and* editing the sidebar by hand, with nothing checking they
+  still agree. Deriving the nav from the route tree is legitimate follow-up work.
 - **The two global i18n files** (`shared/i18n/en.json`, `shared/i18n/ar.json`, ~180 keys each) are not
   split per slice. Every slice's copy lives in the same flat `section.action` keyspace (see Naming
   Conventions below). This was a pre-existing pattern before the refactor and stays that way: splitting
@@ -619,57 +621,45 @@ if (!parsed.success) {
 
 ---
 
-## SQLite Gotchas
+## Adding a feature
 
-### ALTER TABLE Limitations
+Paths, not prose — the previous version of this section named `server/db/migrations/`,
+`server/routes/`, `client/src/app/App.tsx` and `FEATURES_ROADMAP.md`, of which the first
+two moved and the last two do not exist. A checklist that sends people to the wrong
+directory is worse than none.
 
-SQLite cannot `ALTER TABLE` with `REFERENCES`, `DEFAULT`, or `CHECK` in one statement:
+**Server**
 
-```sql
--- WRONG: will fail
-ALTER TABLE products ADD COLUMN distributor_id INTEGER REFERENCES distributors(id) DEFAULT NULL;
+1. **Migration** — `server/src/database/migrations/NNN_name.sql`, plus a matching
+   `NNN_name.down.sql`. The down file is not optional: CI rolls every migration back and
+   re-applies it (`npm run verify:migrations`). If the down genuinely changes nothing, say
+   `Intentionally a no-op.` in it — that marker is load-bearing.
+2. **Module** — `server/src/modules/<domain>/<module>/` with `routes.ts`, `controller.ts`,
+   `service.ts`, `repository.ts`, `types.ts`. Validation lives in the controller as a Zod
+   schema; the update schema is a genuine partial and is `.strict()` where it has been
+   tightened.
+3. **Register** — add the router to the module manifest, not to `index.ts` by hand.
+4. **Errors** — throw `PublicError` from the service with the code you mean. Never let a
+   controller recover a status by reading a message; see *Error contracts* in `CLAUDE.md`.
+5. **Apply it** — `cd server && npm run migrate`.
 
--- CORRECT: split into two
-ALTER TABLE products ADD COLUMN distributor_id INTEGER;
-UPDATE products SET distributor_id = NULL;
-```
+**Client**
 
-### Enforce Constraints in App Code
+6. **Page** — `client/src/features/<slice>/pages/Feature.tsx`. Run the R5 placement
+   checklist above if it is not obviously one slice's.
+7. **Route** — routing is file-based (TanStack Router): add a file under
+   `client/src/routes/`. `routeTree.gen.ts` is generated; never edit it.
+8. **Barrel** — export from the slice's `index.ts` only if `app/` or another slice needs it.
+9. **Sidebar** — add an entry to `navItems[]` in `client/src/app/Sidebar.tsx`.
+10. **i18n** — add keys to **both** `en.json` and `ar.json`. A key present in one and not
+    the other renders the key name to a user.
+11. **Shared components** — import from the barrel (`@/shared`), never from the directory a
+    component happens to live in. See *Shared components have one import path* above.
 
-SQLite `ALTER TABLE` doesn't support adding `CHECK` constraints. Validate in the application layer instead.
+### Route ordering
 
-### Transaction Pattern
-
-```typescript
-const rawDb = db.db;
-const doWork = rawDb.transaction(() => {
-  // multiple statements here
-});
-doWork();  // invoke the transaction
-```
-
----
-
-## Adding New Features
-
-### Checklist
-
-1. **Migration**: Create `server/db/migrations/NNN_feature.sql`
-2. **Route**: Create `server/routes/feature.ts` with CRUD endpoints
-3. **Register route**: Add import + `app.use()` in `server/index.ts`
-4. **Validator** (optional): Create `server/validators/featureSchema.ts`
-5. **Page**: Create `client/src/features/<slice>/pages/Feature.tsx` (run the R5 checklist above if it's
-   not obviously one existing slice's)
-6. **Barrel**: Export the page from that slice's `index.ts` only if `app/` or another slice needs it
-7. **Route config**: Add route in `client/src/app/App.tsx` (lazy or eager)
-8. **Sidebar**: Add entry to `navItems[]` in `client/src/app/Sidebar.tsx`
-9. **i18n**: Add keys to both `en.json` and `ar.json`
-10. **Roadmap**: Update `FEATURES_ROADMAP.md`
-11. **Run migrate**: `cd server && npm run migrate`
-
-### Route Ordering Reminder
-
-When adding routes in `server/index.ts`, order doesn't matter since each route file has its own prefix. But **within** a route file, specific paths must come before `/:id`.
+Within a route file, specific paths must come before `/:id`, or `/products/categories`
+resolves as a product with the id "categories".
 
 ---
 
