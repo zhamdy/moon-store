@@ -28,13 +28,12 @@ rules to `error` as this list empties, which #105 is the last one blocking.
 
 | Gap | Issue | Where | What it costs a user |
 | --- | --- | --- | --- |
-| Controls nested inside pressable cards | **#104** (P3) | `features/inventory/pages/Collections.tsx`, `features/inventory/pages/Bundles.tsx` | The edit/delete buttons sit inside a card that is itself a `<button>`. Invalid HTML; the inner controls are not separately reachable and the card's accessible name absorbs their labels. Fixed on POS in #54 — the same restructure applies. |
 | `role="status"` on a `<td>` | **#105** (P3) | `shared/components/data-table/DataTable.tsx`, `features/analytics/components/DashboardCharts.tsx` | Overrides the cell's table semantics to announce empty states. It works, but a live region should be a sibling of the table rather than a cell inside it. |
 
-The delivery dialog is now an axe-scanned surface, and `e2e/specs/a11y.spec.ts` also
-creates a delivery order keyboard-only — the half axe cannot score. Neither
-`/collections` nor `/bundles` is scanned yet, which is why the scan did not find those
-itself; they came from `jsx-a11y` and from reading. Adding them is part of #104.
+The delivery dialog, `/collections` and `/bundles` are all axe-scanned surfaces now, and
+`e2e/specs/a11y.spec.ts` also creates a delivery order keyboard-only — the half axe
+cannot score. None of them was scanned when this list was written, which is why the scan
+did not find #103 or #104 itself; both came from `jsx-a11y` and from reading.
 
 ## Decisions worth knowing
 

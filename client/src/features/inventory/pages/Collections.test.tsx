@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -136,7 +136,8 @@ describe('Collections product editing wire contract', () => {
     });
     render(<CollectionsPage />, { wrapper: wrapperFor(transport) });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    // Named per collection since #104: a bare "Edit" repeats on every card.
+    fireEvent.click(await screen.findByRole('button', { name: 'Autumn window: Edit' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
@@ -161,5 +162,67 @@ describe('Collections product editing wire contract', () => {
       expect(write).toBeDefined();
       expect((write!.body as Record<string, unknown>).expected_updated_at).toBeUndefined();
     });
+  });
+});
+
+/**
+ * #104: the edit and delete buttons used to sit inside the pressable card, which HeroUI
+ * renders as a `<button>`. Invalid HTML, axe's `nested-interactive`, and a card whose
+ * accessible name absorbed both labels.
+ */
+describe('Collections card actions', () => {
+  let warn: ReturnType<typeof vi.spyOn>;
+  let error: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    useSettingsStore.setState({ locale: 'en' });
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+    error.mockRestore();
+  });
+
+  const renderGrid = () => {
+    const transport = createMemoryTransport({
+      collections: [featuredCollection(), { ...featuredCollection(), id: 2, name: 'Resort edit' }],
+      products: [],
+    });
+    render(<CollectionsPage />, { wrapper: wrapperFor(transport) });
+  };
+
+  it('renders no button inside another button, and React logs no nesting warning', async () => {
+    renderGrid();
+    await screen.findByText('Autumn window');
+
+    expect(document.querySelector('button button')).toBeNull();
+
+    const nesting = [...warn.mock.calls, ...error.mock.calls]
+      .flat()
+      .filter((arg): arg is string => typeof arg === 'string')
+      .filter((message) => message.includes('validateDOMNesting'));
+    expect(nesting).toEqual([]);
+  });
+
+  it('names each row action for its own collection rather than repeating a bare verb', async () => {
+    renderGrid();
+    await screen.findByText('Autumn window');
+
+    expect(screen.getByRole('button', { name: 'Autumn window: Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Autumn window: Delete' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resort edit: Edit' })).toBeInTheDocument();
+  });
+
+  it('opens the detail view when the card itself is activated, not the edit dialog', async () => {
+    renderGrid();
+    const card = (await screen.findByText('Autumn window')).closest('button');
+    expect(card).not.toBeNull();
+
+    fireEvent.click(card as HTMLElement);
+
+    expect(await screen.findByRole('button', { name: 'Add Product' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

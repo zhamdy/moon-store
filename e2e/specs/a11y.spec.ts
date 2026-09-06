@@ -145,6 +145,24 @@ test.describe('accessibility @smoke', () => {
     await scan(page, 'delivery order dialog');
   });
 
+  test('the collections grid has no high-impact violations', async ({ adminContext }) => {
+    // #104: the card grids where edit/delete used to be nested inside a pressable card.
+    // Neither page was scanned, which is why axe never reported it here.
+    const page = await adminContext.newPage();
+    await page.goto('/collections');
+    await expect(page.getByRole('heading', { name: /collections/i }).first()).toBeVisible();
+
+    await scan(page, 'collections');
+  });
+
+  test('the bundles grid has no high-impact violations', async ({ adminContext }) => {
+    const page = await adminContext.newPage();
+    await page.goto('/bundles');
+    await expect(page.getByRole('heading', { name: /bundles/i }).first()).toBeVisible();
+
+    await scan(page, 'bundles');
+  });
+
   test('the inventory table has no high-impact violations', async ({ adminContext }) => {
     const page = await adminContext.newPage();
     await page.goto('/inventory');

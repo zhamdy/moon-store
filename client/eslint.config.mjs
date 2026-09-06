@@ -117,10 +117,10 @@ export default tseslint.config(
 
       /**
        * These three flag a pattern that is genuinely wrong and genuinely not fixed yet:
-       * controls nested inside pressable cards (Collections, Bundles — the same defect
-       * fixed on POS in #54), a clickable `<div>` in StatCard, and the interactive
-       * element given a non-interactive role in DataTable. The custom customer picker
-       * that used to lead this list is gone: #103 rebuilt it on HeroUI's Autocomplete.
+       * `role="status"` on a `<td>` in DataTable and DashboardCharts (#105), and
+       * clickable `<div>`s in StatCard and HeatmapChart. The two sites that used to
+       * lead this list are gone: #103 rebuilt the customer picker on HeroUI's
+       * Autocomplete, and #104 moved the card actions out of the pressable card.
        *
        * `warn` rather than `error` because turning them off would hide the count and
        * adding file-level disables would hide the locations, and both outlive the excuse.

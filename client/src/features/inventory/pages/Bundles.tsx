@@ -315,69 +315,81 @@ export default function BundlesPage() {
           </div>
         ) : (
           rows.map((bundle) => (
-            <Card
-              key={bundle.id}
-              isPressable
-              onPress={() => setSelectedBundle(bundle.id)}
-              className="border border-border bg-card hover:border-primary/50 transition-colors shadow-sm"
-            >
-              <CardBody className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-base text-foreground">{bundle.name}</h3>
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      isIconOnly
-                      variant="light"
-                      size="sm"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      onClick={() => openEditDialog(bundle)}
-                      aria-label={t('common.edit')}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      isIconOnly
-                      variant="light"
-                      color="danger"
-                      size="sm"
-                      className="h-8 w-8"
-                      onClick={() => remover.remove(bundle.id)}
-                      aria-label={t('common.delete')}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+            /**
+             * The edit and delete controls are SIBLINGS of the card, not children of
+             * it (#104). `isPressable` renders the card as a `<button>`, so buttons
+             * inside it were nested interactive controls: invalid HTML, axe's
+             * `nested-interactive`, and a card whose accessible name swallowed both
+             * labels. The `<div onClick={stopPropagation}>` that used to wrap them was
+             * a symptom of the same nesting. This mirrors the POS product grid.
+             */
+            <div key={bundle.id} className="relative">
+              <Card
+                isPressable
+                onPress={() => setSelectedBundle(bundle.id)}
+                className="w-full border border-border bg-card hover:border-primary/50 transition-colors shadow-sm"
+              >
+                <CardBody className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-base text-foreground">{bundle.name}</h3>
+                    {/* Space for the action buttons rendered as siblings below. */}
+                    <span className="h-8 w-[4.25rem] shrink-0" aria-hidden="true" />
                   </div>
-                </div>
-                <div className="flex gap-2 mb-2">
-                  <Badge size="sm" variant={bundle.status === 'active' ? 'success' : 'default'}>
-                    {t(`bundles.${bundle.status}` as never)}
-                  </Badge>
-                  {bundle.savings_percent > 0 && (
-                    <Badge size="sm" variant="warning">
-                      <Percent className="h-2.5 w-2.5 inline-block me-0.5" />
-                      {t('bundles.savingsPercent', { percent: String(bundle.savings_percent) })}
+                  <div className="flex gap-2 mb-2">
+                    <Badge size="sm" variant={bundle.status === 'active' ? 'success' : 'default'}>
+                      {t(`bundles.${bundle.status}` as never)}
                     </Badge>
+                    {bundle.savings_percent > 0 && (
+                      <Badge size="sm" variant="warning">
+                        <Percent className="h-2.5 w-2.5 inline-block me-0.5" />
+                        {t('bundles.savingsPercent', { percent: String(bundle.savings_percent) })}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-muted-foreground line-through font-data">
+                      {formatCurrency(bundle.original_price)}
+                    </span>
+                    <span className="text-lg font-bold text-primary font-data">
+                      {formatCurrency(bundle.price)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Package className="h-3.5 w-3.5" />
+                    <span>{t('bundles.itemCount', { count: String(bundle.items.length) })}</span>
+                  </div>
+                  {bundle.description && (
+                    <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                      {bundle.description}
+                    </p>
                   )}
-                </div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-muted-foreground line-through font-data">
-                    {formatCurrency(bundle.original_price)}
-                  </span>
-                  <span className="text-lg font-bold text-primary font-data">
-                    {formatCurrency(bundle.price)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Package className="h-3.5 w-3.5" />
-                  <span>{t('bundles.itemCount', { count: String(bundle.items.length) })}</span>
-                </div>
-                {bundle.description && (
-                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                    {bundle.description}
-                  </p>
-                )}
-              </CardBody>
-            </Card>
+                </CardBody>
+              </Card>
+              {/* Named per row: a bare "Edit" repeats on every card and identifies none. */}
+              <div className="absolute top-3 end-3 z-20 flex gap-1">
+                <Button
+                  isIconOnly
+                  variant="light"
+                  size="sm"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => openEditDialog(bundle)}
+                  aria-label={`${bundle.name}: ${t('common.edit')}`}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  isIconOnly
+                  variant="light"
+                  color="danger"
+                  size="sm"
+                  className="h-8 w-8"
+                  onClick={() => remover.remove(bundle.id)}
+                  aria-label={`${bundle.name}: ${t('common.delete')}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
           ))
         )}
       </div>

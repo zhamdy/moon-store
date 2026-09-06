@@ -314,78 +314,90 @@ export default function CollectionsPage() {
           </div>
         ) : (
           rows.map((col) => (
-            <Card
-              key={col.id}
-              isPressable
-              onPress={() => setSelectedCol(col.id)}
-              className="border border-border bg-card hover:border-primary/50 transition-colors shadow-sm"
-            >
-              <CardBody className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-base text-foreground">{col.name}</h3>
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      isIconOnly
-                      variant="light"
-                      size="sm"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      onClick={() => editor.openEdit(col)}
-                      aria-label={t('common.edit')}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      isIconOnly
-                      variant="light"
-                      color="danger"
-                      size="sm"
-                      className="h-8 w-8"
-                      onClick={() => remover.remove(col.id)}
-                      aria-label={t('common.delete')}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+            /**
+             * The edit and delete controls are SIBLINGS of the card, not children of
+             * it (#104). `isPressable` renders the card as a `<button>`, so buttons
+             * inside it were nested interactive controls: invalid HTML, axe's
+             * `nested-interactive`, and a card whose accessible name swallowed both
+             * labels. The `<div onClick={stopPropagation}>` that used to wrap them was
+             * a symptom of the same nesting. This mirrors the POS product grid.
+             */
+            <div key={col.id} className="relative">
+              <Card
+                isPressable
+                onPress={() => setSelectedCol(col.id)}
+                className="w-full border border-border bg-card hover:border-primary/50 transition-colors shadow-sm"
+              >
+                <CardBody className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-base text-foreground">{col.name}</h3>
+                    {/* Space for the action buttons rendered as siblings below. */}
+                    <span className="h-8 w-[4.25rem] shrink-0" aria-hidden="true" />
                   </div>
-                </div>
-                <div className="flex gap-2 mb-2">
-                  <Badge
-                    size="sm"
-                    variant={
-                      col.status === 'active'
-                        ? 'success'
-                        : col.status === 'upcoming'
-                          ? 'primary'
-                          : col.status === 'on_sale'
-                            ? 'warning'
-                            : 'default'
-                    }
-                  >
-                    {t(`collections.${col.status}` as never)}
-                  </Badge>
-                  {col.season && (
-                    <Badge size="sm" variant="default">
-                      {t(`collections.${col.season.toLowerCase()}` as never)}
+                  <div className="flex gap-2 mb-2">
+                    <Badge
+                      size="sm"
+                      variant={
+                        col.status === 'active'
+                          ? 'success'
+                          : col.status === 'upcoming'
+                            ? 'primary'
+                            : col.status === 'on_sale'
+                              ? 'warning'
+                              : 'default'
+                      }
+                    >
+                      {t(`collections.${col.status}` as never)}
                     </Badge>
-                  )}
-                  {col.year && (
-                    <span className="text-xs text-muted-foreground font-data self-center">
-                      {col.year}
+                    {col.season && (
+                      <Badge size="sm" variant="default">
+                        {t(`collections.${col.season.toLowerCase()}` as never)}
+                      </Badge>
+                    )}
+                    {col.year && (
+                      <span className="text-xs text-muted-foreground font-data self-center">
+                        {col.year}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Package className="h-3.5 w-3.5" />
+                    <span>
+                      {col.product_count} {t('collections.products').toLowerCase()}
                     </span>
+                  </div>
+                  {col.description && (
+                    <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                      {col.description}
+                    </p>
                   )}
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Package className="h-3.5 w-3.5" />
-                  <span>
-                    {col.product_count} {t('collections.products').toLowerCase()}
-                  </span>
-                </div>
-                {col.description && (
-                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                    {col.description}
-                  </p>
-                )}
-              </CardBody>
-            </Card>
+                </CardBody>
+              </Card>
+              {/* Named per row: a bare "Edit" repeats on every card and identifies none. */}
+              <div className="absolute top-3 end-3 z-20 flex gap-1">
+                <Button
+                  isIconOnly
+                  variant="light"
+                  size="sm"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => editor.openEdit(col)}
+                  aria-label={`${col.name}: ${t('common.edit')}`}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  isIconOnly
+                  variant="light"
+                  color="danger"
+                  size="sm"
+                  className="h-8 w-8"
+                  onClick={() => remover.remove(col.id)}
+                  aria-label={`${col.name}: ${t('common.delete')}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
           ))
         )}
       </div>
