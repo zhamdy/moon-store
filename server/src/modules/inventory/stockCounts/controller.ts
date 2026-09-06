@@ -1,27 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { stockCountsService } from './service';
-import { parseStockCountListQuery } from './types';
+import {
+  stockCountsRequestContracts,
+  type CreateStockCountBody,
+  type UpdateCountItemBody,
+} from './schemas';
+import { normalizeStockCountListQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 
-const createStockCountSchema = z.object({
-  category_id: z.number().int().positive().optional(),
-  notes: z.string().max(500).optional(),
-});
-
-const updateCountItemSchema = z.object({
-  counted_qty: z.number().int().min(0),
-  notes: z.string().max(255).optional(),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = stockCountsRequestContracts;
 
 export class StockCountsController {
   async getStockCounts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseStockCountListQuery(req.query);
+      const query = normalizeStockCountListQuery(contracts.listStockCounts.parseQuery(req.query));
       const result = await stockCountsService.list(query);
       res.json(
         success(result.rows, {
@@ -35,13 +32,10 @@ export class StockCountsController {
 
   async createStockCount(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = createStockCountSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createStockCount.parseBody<CreateStockCountBody>(req.body);
 
       const authReq = req as AuthRequest;
-      const result = await stockCountsService.createCount(parsed.data, authReq.user!.id);
+      const result = await stockCountsService.createCount(parsed, authReq.user!.id);
 
       if (!result.success) {
         throw new PublicError('VALIDATION_ERROR', result.error);
@@ -56,7 +50,8 @@ export class StockCountsController {
 
   async getStockCountById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const stockCount = await stockCountsService.findById(req.params.id as string);
+      const { id } = contracts.getStockCount.parseParams<{ id: string }>(req.params);
+      const stockCount = await stockCountsService.findById(id);
       if (!stockCount) {
         throw new PublicError('NOT_FOUND', 'Stock count not found');
       }
@@ -69,16 +64,13 @@ export class StockCountsController {
 
   async updateCountItem(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = updateCountItemSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.updateCountItem.parseBody<UpdateCountItemBody>(req.body);
+      const { id, itemId } = contracts.updateCountItem.parseParams<{
+        id: string;
+        itemId: string;
+      }>(req.params);
 
-      const result = await stockCountsService.updateCountItem(
-        req.params.id as string,
-        req.params.itemId as string,
-        parsed.data
-      );
+      const result = await stockCountsService.updateCountItem(id, itemId, parsed);
 
       if (!result.success) {
         const code = result.error === 'Count item not found' ? 'NOT_FOUND' : 'VALIDATION_ERROR';
@@ -93,11 +85,12 @@ export class StockCountsController {
 
   async completeStockCount(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { id } = contracts.completeStockCount.parseParams<{ id: string }>(req.params);
       const authReq = req as AuthRequest;
       const { apply_adjustments = true } = req.body;
 
       const result = await stockCountsService.completeCount(
-        req.params.id as string,
+        id,
         authReq.user!.id,
         apply_adjustments
       );
@@ -107,7 +100,7 @@ export class StockCountsController {
         throw new PublicError(code, result.error);
       }
 
-      logAuditFromReq(req, 'complete', 'stock_count', req.params.id as string, {
+      logAuditFromReq(req, 'complete', 'stock_count', id, {
         appliedAdjustments: apply_adjustments,
       });
 
@@ -119,12 +112,13 @@ export class StockCountsController {
 
   async cancelStockCount(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await stockCountsService.cancelCount(req.params.id as string);
+      const { id } = contracts.cancelStockCount.parseParams<{ id: string }>(req.params);
+      const result = await stockCountsService.cancelCount(id);
       if (!result.success) {
         throw new PublicError('CONFLICT', result.error);
       }
 
-      logAuditFromReq(req, 'cancel', 'stock_count', req.params.id as string);
+      logAuditFromReq(req, 'cancel', 'stock_count', id);
       res.json(success({ status: 'cancelled' }));
     } catch (err) {
       next(err);

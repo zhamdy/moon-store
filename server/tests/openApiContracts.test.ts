@@ -236,15 +236,29 @@ describe('the generated document tracks the schema, not a copy of it', () => {
 
 describe('the builder is safe to run anywhere', () => {
   it('needs no database, credential, or environment to produce a document', () => {
-    // Generation runs in CI and in a pre-commit hook, so the module graph behind a
-    // contract must not reach a connection pool. A schema file that imports its own
-    // service pulls the entire database layer in with it.
-    for (const relative of ['src/modules/core/users/schemas.ts']) {
-      const imports = readFileSync(resolve(serverRoot, relative), 'utf8')
+    /*
+     * Generation runs in CI and in a pre-commit hook, so nothing behind a contract may
+     * reach a connection pool, and a schema file must not import the controller that
+     * imports it. The second half is not hypothetical: `collections` kept its bodies in
+     * the controller so they would sit beside the #78 reasoning, and the resulting cycle
+     * loaded fine under vitest and threw `Cannot access 'collectionSchema' before
+     * initialization` the moment `check:api-docs` required it. The unit suite proved
+     * nothing here; the CLI did.
+     */
+    const schemaFiles = readdirSync(resolve(serverRoot, 'src/modules'), { recursive: true })
+      .map((entry) => entry.toString())
+      .filter((entry) => entry.endsWith('schemas.ts'));
+
+    expect(schemaFiles.length).toBeGreaterThan(5);
+
+    for (const relative of schemaFiles) {
+      const imports = readFileSync(resolve(serverRoot, 'src/modules', relative), 'utf8')
         .split(/\r?\n/)
         .filter((line) => /^\s*import\b/.test(line))
-        .join('\n');
-      expect(imports).not.toMatch(/\/(service|repository|database)/);
+        .join(' ');
+      expect(imports, `${relative} imports something it must not`).not.toMatch(
+        /\/(service|repository|database)|\.\/controller/
+      );
     }
     expect(() => buildOpenApiSpec()).not.toThrow();
   });

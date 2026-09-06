@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface CollectionRecord {
   id: number;
   name: string;
@@ -133,10 +136,7 @@ export interface CollectionFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const collectionListQuerySchema = createListQuerySchema(['createdAt', 'name'] as const)
+export const collectionListQuerySchema = createListQuerySchema(['createdAt', 'name'] as const)
   .extend({
     season: z.string().trim().min(1).max(50).optional(),
     featured: z
@@ -147,8 +147,10 @@ const collectionListQuerySchema = createListQuerySchema(['createdAt', 'name'] as
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 
-export function parseCollectionListQuery(query: unknown): CollectionFilters {
-  const parsed = collectionListQuerySchema.parse(query);
+/** Shapes the parsed query into what the service takes; see the products module. */
+export function normalizeCollectionListQuery(
+  parsed: z.infer<typeof collectionListQuerySchema>
+): CollectionFilters {
   return {
     season: parsed.season,
     featured: parsed.featured,
@@ -157,4 +159,8 @@ export function parseCollectionListQuery(query: unknown): CollectionFilters {
     sortBy: parsed.sortBy,
     sortOrder: parsed.sortOrder,
   };
+}
+
+export function parseCollectionListQuery(query: unknown): CollectionFilters {
+  return normalizeCollectionListQuery(collectionListQuerySchema.parse(query));
 }

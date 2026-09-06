@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface BundleRecord {
   id: number;
   name: string;
@@ -52,16 +55,15 @@ export interface BundleFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const bundleListQuerySchema = createListQuerySchema(['createdAt', 'name'] as const)
+export const bundleListQuerySchema = createListQuerySchema(['createdAt', 'name'] as const)
   .extend({ status: z.enum(['active', 'inactive']).optional() })
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 
-export function parseBundleListQuery(query: unknown): BundleFilters {
-  const parsed = bundleListQuerySchema.parse(query);
+/** Shapes the parsed query into what the service takes; see the products module. */
+export function normalizeBundleListQuery(
+  parsed: z.infer<typeof bundleListQuerySchema>
+): BundleFilters {
   return {
     status: parsed.status,
     page: parsed.page,
@@ -69,4 +71,8 @@ export function parseBundleListQuery(query: unknown): BundleFilters {
     sortBy: parsed.sortBy,
     sortOrder: parsed.sortOrder,
   };
+}
+
+export function parseBundleListQuery(query: unknown): BundleFilters {
+  return normalizeBundleListQuery(bundleListQuerySchema.parse(query));
 }
