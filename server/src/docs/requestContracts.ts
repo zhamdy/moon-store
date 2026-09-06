@@ -18,6 +18,7 @@
  */
 import type { RequestContract, UnconvertedOperation } from '../http/requestContracts';
 import { auditLogContractList } from '../modules/core/auditLog/schemas';
+import { authContractList } from '../modules/core/auth/schemas';
 import { branchesContractList } from '../modules/core/branches/schemas';
 import { settingsContractList } from '../modules/core/settings/schemas';
 import { usersContractList } from '../modules/core/users/schemas';
@@ -25,6 +26,7 @@ import { usersContractList } from '../modules/core/users/schemas';
 export const requestContracts: readonly RequestContract[] = [
   // Core
   ...auditLogContractList,
+  ...authContractList,
   ...branchesContractList,
   ...settingsContractList,
   ...usersContractList,
@@ -38,49 +40,6 @@ export const requestContracts: readonly RequestContract[] = [
  * input at all, which the coverage test cannot verify on its own either.
  */
 export const unconvertedOperations: readonly UnconvertedOperation[] = [
-  /**
-   * Auth is deliberately not a Zod contract.
-   *
-   * `login` checks `if (!email || !password)` and `refresh`/`logout` read the httpOnly
-   * refresh cookie directly. Converting them would be a behaviour change on the
-   * credential paths, not a documentation change: a Zod rejection is a 400
-   * `VALIDATION_ERROR`, while these deliberately answer 401 for a missing or unusable
-   * credential — a caller must not be able to tell a malformed attempt from a rejected
-   * one. Tightening `email` to a string would also turn today's 401 for a non-string
-   * into a 400, which is a rate-limiting and enumeration question rather than a typing
-   * one. Worth doing; worth doing on purpose, with the auth tests in front of you.
-   */
-  {
-    key: 'POST /api/v1/auth/login',
-    classification: 'custom',
-    reason:
-      'Hand-rolled truthiness check on email/password. A Zod contract would turn a 401 ' +
-      'into a 400 on the credential path; see the note above this list.',
-  },
-  {
-    key: 'POST /api/v1/auth/refresh',
-    classification: 'custom',
-    reason:
-      'Reads the httpOnly refreshToken cookie and answers 401 when it is absent or ' +
-      'unusable. Documented by hand so the opaque-401 contract is not weakened.',
-  },
-  {
-    key: 'POST /api/v1/auth/logout',
-    classification: 'custom',
-    reason:
-      'Reads the httpOnly refreshToken cookie and tolerates its absence, so an already ' +
-      'logged-out caller still gets a 204.',
-  },
-  {
-    key: 'POST /api/v1/auth/logout-all',
-    classification: 'none',
-    reason: 'Identified by the access token alone; reads no body, query or path input.',
-  },
-  {
-    key: 'GET /api/v1/auth/me',
-    classification: 'none',
-    reason: 'Returns the bearer token holder; reads no body, query or path input.',
-  },
   {
     key: 'GET /api/health',
     classification: 'none',
@@ -99,7 +58,27 @@ export const unconvertedOperations: readonly UnconvertedOperation[] = [
 ];
 
 /**
- * Served operations not yet classified. Lower it as modules convert; never raise it.
- * The exact number, not a ceiling: a gate that tolerates slack stops measuring.
+ * Served operations with **no request contract**, whether or not they are classified.
+ *
+ * Deliberately not "unclassified": that number went down when an operation was written
+ * into `unconvertedOperations` with a reason, so the whole API could have reached zero
+ * without one schema being derived. Progress has to mean derivation, and an explanation
+ * is not progress. Classification is enforced separately, as an absolute — every served
+ * operation is a contract or an entry above, always, with no ratchet involved.
+ *
+ * Lower it in the commit that converts a module; never raise it.
  */
-export const EXPECTED_UNCONVERTED = 176;
+export const EXPECTED_UNCONVERTED = 179;
+
+/**
+ * Served operations in neither list — not a contract, and not explained.
+ *
+ * This is the one that must reach **zero** before the served spec is cut over, because an
+ * operation nobody classified is indistinguishable from one that genuinely takes no
+ * input, and a document cannot be called derived while that ambiguity is in it.
+ *
+ * Two numbers rather than one because they answer different questions:
+ * `EXPECTED_UNCONVERTED` is how much is derived, this is how much is accounted for, and
+ * writing a reason moves only the second.
+ */
+export const EXPECTED_UNCLASSIFIED = 176;

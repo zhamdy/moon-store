@@ -15,6 +15,7 @@ import type { Router } from 'express';
 import { describe, expect, it } from 'vitest';
 import { routeTable } from '../src/router';
 import {
+  EXPECTED_UNCLASSIFIED,
   EXPECTED_UNCONVERTED,
   requestContracts,
   unconvertedOperations,
@@ -59,8 +60,9 @@ for (const [mount, router] of routeTable) {
   for (const pair of routesOf(router, mount)) served.add(pair);
 }
 
+const derived = new Set<string>(requestContracts.map((contract) => toExpressStyle(contract.key)));
 const classified = new Set<string>([
-  ...requestContracts.map((contract) => toExpressStyle(contract.key)),
+  ...derived,
   ...unconvertedOperations.map((operation) => toExpressStyle(operation.key)),
 ]);
 
@@ -94,15 +96,34 @@ describe('request contract coverage', () => {
     }
   });
 
-  it('holds the count of unconverted operations exactly', () => {
+  it('holds the count of unaccounted-for operations exactly, and it must reach zero', () => {
+    // An operation in neither list is indistinguishable from one that genuinely takes no
+    // input. That ambiguity is what the whole scheme removes, so this has to be 0 before
+    // the served document can be called derived -- it is a ratchet only while conversion
+    // is in flight.
     const unclassified = [...served].filter((key) => !classified.has(key)).sort();
 
     expect(
       unclassified.length,
-      unclassified.length > EXPECTED_UNCONVERTED
-        ? `New operations landed without a request contract:\n  ${unclassified.join('\n  ')}`
-        : 'Contracts were added without lowering EXPECTED_UNCONVERTED in src/docs/requestContracts.ts — ' +
-            'a ratchet above the true count has stopped ratcheting.'
+      unclassified.length > EXPECTED_UNCLASSIFIED
+        ? 'Operations landed in neither list: ' + unclassified.join(', ')
+        : 'Operations were classified without lowering EXPECTED_UNCLASSIFIED in ' +
+            'src/docs/requestContracts.ts - a ratchet above the true count has stopped ratcheting.'
+    ).toBe(EXPECTED_UNCLASSIFIED);
+  });
+
+  it('holds the count of operations without a contract exactly', () => {
+    // Counts what is *derived*, not what is explained. Writing an operation into
+    // unconvertedOperations does not move this number, so the API cannot reach zero by
+    // documenting reasons instead of schemas.
+    const withoutContract = [...served].filter((key) => !derived.has(key)).sort();
+
+    expect(
+      withoutContract.length,
+      withoutContract.length > EXPECTED_UNCONVERTED
+        ? 'Operations landed without a request contract: ' + withoutContract.join(', ')
+        : 'Contracts were added without lowering EXPECTED_UNCONVERTED in ' +
+            'src/docs/requestContracts.ts - a ratchet above the true count has stopped ratcheting.'
     ).toBe(EXPECTED_UNCONVERTED);
   });
 
