@@ -73,7 +73,7 @@ const integer = (field: string) =>
     .transform(Number)
     .pipe(z.number().int().positive());
 
-const rawListQuery = z
+export const productListQuerySchema = z
   .object({
     page: integer('page').optional(),
     pageSize: z.enum(['10', '25', '50', '100']).transform(Number).optional(),
@@ -98,8 +98,16 @@ const rawListQuery = z
     }
   });
 
-export function parseProductListQuery(input: unknown): ProductFilters {
-  const query = rawListQuery.parse(input);
+/**
+ * Applies the defaults the schema deliberately does not.
+ *
+ * They live here rather than in the schema because the schema describes what a caller may
+ * send and this describes what the service receives; folding the defaults in would
+ * document `page` as required-with-a-default when it is simply optional on the wire.
+ */
+export function normalizeProductListQuery(
+  query: z.infer<typeof productListQuerySchema>
+): ProductFilters {
   return {
     page: query.page ?? 1,
     pageSize: query.pageSize ?? 25,
@@ -112,10 +120,14 @@ export function parseProductListQuery(input: unknown): ProductFilters {
   };
 }
 
-const lookupQuery = z.object({ ids: z.string().min(1).max(1200) }).strict();
+export function parseProductListQuery(input: unknown): ProductFilters {
+  return normalizeProductListQuery(productListQuerySchema.parse(input));
+}
 
-export function parseProductLookupQuery(input: unknown): { ids: number[] } {
-  const { ids: raw } = lookupQuery.parse(input);
+export const productLookupQuerySchema = z.object({ ids: z.string().min(1).max(1200) }).strict();
+
+/** Splits, validates and de-duplicates the comma-separated list the schema accepts. */
+export function toProductIds(raw: string): number[] {
   const ids = [
     ...new Set(
       raw.split(',').map((value) => {
@@ -143,5 +155,9 @@ export function parseProductLookupQuery(input: unknown): { ids: number[] } {
         message: 'At most 100 unique IDs are allowed',
       },
     ]);
-  return { ids };
+  return ids;
+}
+
+export function parseProductLookupQuery(input: unknown): { ids: number[] } {
+  return { ids: toProductIds(productLookupQuerySchema.parse(input).ids) };
 }

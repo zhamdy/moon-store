@@ -24,6 +24,7 @@ import { settingsContractList } from '../modules/core/settings/schemas';
 import { usersContractList } from '../modules/core/users/schemas';
 import { categoriesContractList } from '../modules/inventory/categories/schemas';
 import { distributorsContractList } from '../modules/inventory/distributors/schemas';
+import { productsContractList } from '../modules/inventory/products/schemas';
 import { stockAdjustmentsContractList } from '../modules/inventory/stockAdjustments/schemas';
 
 export const requestContracts: readonly RequestContract[] = [
@@ -37,6 +38,7 @@ export const requestContracts: readonly RequestContract[] = [
   // Inventory
   ...categoriesContractList,
   ...distributorsContractList,
+  ...productsContractList,
   ...stockAdjustmentsContractList,
 ];
 
@@ -76,7 +78,7 @@ export const unconvertedOperations: readonly UnconvertedOperation[] = [
  *
  * Lower it in the commit that converts a module; never raise it.
  */
-export const EXPECTED_UNCONVERTED = 170;
+export const EXPECTED_UNCONVERTED = 146;
 
 /**
  * Served operations in neither list — not a contract, and not explained.
@@ -89,4 +91,4 @@ export const EXPECTED_UNCONVERTED = 170;
  * `EXPECTED_UNCONVERTED` is how much is derived, this is how much is accounted for, and
  * writing a reason moves only the second.
  */
-export const EXPECTED_UNCLASSIFIED = 167;
+export const EXPECTED_UNCLASSIFIED = 143;

@@ -200,11 +200,12 @@ export function buildOpenApiDocument(
 
     if (requestBody) {
       operation.requestBody = requestBody;
-    } else if (!contract.body) {
-      // An operation that used to document a body and no longer declares one must lose
-      // it: a stale `additionalProperties: true` reads as "send whatever you like".
-      delete operation.requestBody;
     }
+    // A contract with no `body` leaves whatever the document already had. Deleting it
+    // was wrong and measurably so: the product image upload is a real multipart body that
+    // multer parses and Zod never sees, and an implicit delete removed its documentation
+    // entirely -- strictly worse than the hand-written entry it replaced. Nothing here
+    // should remove documentation it cannot itself produce.
 
     const merged = mergeParameters((operation.parameters as ParameterObject[]) ?? [], parameters);
     if (merged.length > 0) operation.parameters = merged;

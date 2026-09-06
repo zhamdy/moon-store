@@ -4453,10 +4453,19 @@ export const openApiSpec = {
         requestBody: {
           required: true,
           content: {
-            'application/json': {
+            'multipart/form-data': {
               schema: {
                 type: 'object',
-                additionalProperties: true,
+                properties: {
+                  image: {
+                    type: 'string',
+                    format: 'binary',
+                    description:
+                      'JPEG, PNG or WebP, at most 2 MB. The magic bytes must agree with ' +
+                      'the extension: a renamed file is rejected before anything is written.',
+                  },
+                },
+                required: ['image'],
               },
             },
           },
