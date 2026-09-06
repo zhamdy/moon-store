@@ -21,20 +21,29 @@ sense. That is why both exist, and why the list below exists as well.
 
 ## Known gaps
 
-Real, reproduced, and not yet fixed. Each has an issue — a gap recorded only in a
-document is one nobody is going to pick up. `jsx-a11y` reports these as **warnings**
-rather than errors so the count and the locations stay visible; raise the corresponding
-rules to `error` as this list empties, which #105 is the last one blocking.
+None outstanding. #103 (pointer-only customer picker), #104 (controls nested inside
+pressable cards) and #105 (`role="status"` on a `<td>`) were the three, and all three are
+fixed. `jsx-a11y/click-events-have-key-events`, `no-static-element-interactions` and
+`no-interactive-element-to-noninteractive-role` were held at `warn` while this list had
+entries, so the count and the locations stayed visible; they are now `error` in
+`client/eslint.config.mjs`.
 
-| Gap | Issue | Where | What it costs a user |
-| --- | --- | --- | --- |
-| Custom customer picker is pointer-only | **#103** (P2) | `features/fulfillment/components/delivery/DeliveryFormDialog.tsx` (trigger and options are `<div onClick>`) | A keyboard or screen-reader user cannot open the picker or choose a customer at all, so the delivery flow is blocked outright. The most serious item here — WCAG 2.1.1 and 4.1.2. |
-| Controls nested inside pressable cards | **#104** (P3) | `features/inventory/pages/Collections.tsx`, `features/inventory/pages/Bundles.tsx` | The edit/delete buttons sit inside a card that is itself a `<button>`. Invalid HTML; the inner controls are not separately reachable and the card's accessible name absorbs their labels. Fixed on POS in #54 — the same restructure applies. |
-| `role="status"` on a `<td>` | **#105** (P3) | `shared/components/data-table/DataTable.tsx`, `features/analytics/components/DashboardCharts.tsx` | Overrides the cell's table semantics to announce empty states. It works, but a live region should be a sibling of the table rather than a cell inside it. |
+Record the next one here **with an issue** rather than only in a comment or a commit
+message — a gap that lives in a document nobody opens is a gap nobody picks up — and drop
+the rule that catches it back to `warn` only if the fix genuinely cannot land with it.
 
-Neither `/collections`, `/bundles` nor the delivery dialog is currently an axe-scanned
-surface, which is why the scan did not find these three itself — they came from
-`jsx-a11y` and from reading. Adding those surfaces is part of #103 and #104.
+The delivery dialog, `/collections` and `/bundles` are all axe-scanned surfaces now, and
+`e2e/specs/a11y.spec.ts` also creates a delivery order keyboard-only — the half axe
+cannot score. None of them was scanned when this list was written, which is why the scan
+did not find #103 or #104 itself; both came from `jsx-a11y` and from reading.
+
+### What is still not proven
+
+The empty-state fix is the case where a DOM assertion is weakest evidence: a live region
+with the right attributes and the right text can still fail to speak, and neither axe nor
+`toHaveTextContent` can tell you. The unit tests pin the structure — one region, mounted
+before the transition, updated rather than remounted — and a spoken check with a real
+screen reader remains a manual step, in the same category as the other entries below.
 
 ## Decisions worth knowing
 

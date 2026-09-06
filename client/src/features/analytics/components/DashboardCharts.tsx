@@ -249,6 +249,23 @@ export default function DashboardCharts({
             </Button>
           </CardHeader>
           <CardBody className="p-6" aria-busy={cashierLoading}>
+            {/*
+              Outside the table and outside the loading branch, so it is mounted before
+              the transition it has to announce (#105). Silent while fetching: "no
+              results" is not true of a request that has not answered yet.
+            */}
+            <div
+              className="sr-only"
+              role="status"
+              aria-live="polite"
+              data-testid="cashier-performance-status"
+            >
+              {cashierLoading
+                ? ''
+                : (cashierPerformance?.length ?? 0) === 0
+                  ? t('common.noResults')
+                  : `${cashierPerformance?.length ?? 0} results`}
+            </div>
             {cashierLoading ? (
               <Skeleton className="h-64 w-full rounded-lg" />
             ) : (
@@ -282,12 +299,7 @@ export default function DashboardCharts({
                     ))}
                     {(!cashierPerformance || cashierPerformance.length === 0) && (
                       <tr>
-                        <td
-                          colSpan={5}
-                          className="py-8 text-center text-muted-foreground"
-                          role="status"
-                          aria-live="polite"
-                        >
+                        <td colSpan={5} className="py-8 text-center text-muted-foreground">
                           {t('common.noResults')}
                         </td>
                       </tr>
