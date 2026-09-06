@@ -50,7 +50,7 @@ export class BranchesController {
   async updateBranch(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const parsed = contracts.updateBranch.parseBody<CreateBranchDTO>(req.body);
-      const id = Number(req.params.id);
+      const id = Number(contracts.updateBranch.parseParams<{ id: string }>(req.params).id);
       const branch = await branchesService.update(id, parsed);
       res.json(success(branch));
     } catch (err: any) {
@@ -118,8 +118,8 @@ export class BranchesController {
 
   async updateTransferStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = Number(req.params.id);
-      const { status } = req.body;
+      const id = Number(contracts.updateTransferStatus.parseParams<{ id: string }>(req.params).id);
+      const { status } = contracts.updateTransferStatus.parseBody<{ status: string }>(req.body);
       const result = await branchesService.updateTransferStatus(id, status);
       res.json(success(result));
     } catch (err: any) {

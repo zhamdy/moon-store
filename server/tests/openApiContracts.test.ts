@@ -5,7 +5,7 @@
  * what the document says to send is what the validator accepts, and that it stays that way
  * because there is only one object, not two kept in agreement.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -191,19 +191,44 @@ describe('the generated document tracks the schema, not a copy of it', () => {
     expect(((current.properties as Record<string, Json>).favorites as Json).maxItems).toBe(100);
   });
 
-  it('is the same object the controller parses with, not one that resembles it', () => {
-    // The whole point of the contract. If these could differ, everything above is
-    // describing a schema that nothing enforces.
+  it('enforces every location it documents, in every module', () => {
+    /*
+     * The defect this exists to catch, found in this repo rather than imagined: `users`
+     * and `branches` declared `params` schemas that nothing ever called, so the published
+     * document described a validation that did not run. That is the two-descriptions
+     * problem the contract is supposed to make impossible, reintroduced through the door
+     * marked "documentation only".
+     *
+     * A declared location must therefore have a `parse<Location>` call somewhere in the
+     * module controllers. Source matching is coarse -- it proves the call exists, not that
+     * it guards the right branch -- but it fails the moment a schema is declared and never
+     * wired, which is the whole failure mode.
+     */
+    const controllers = readdirSync(resolve(serverRoot, 'src/modules'), { recursive: true })
+      .filter((entry) => entry.toString().endsWith('controller.ts'))
+      .map((entry) => readFileSync(resolve(serverRoot, 'src/modules', entry.toString()), 'utf8'))
+      .join(' ');
+
+    const unenforced: string[] = [];
+    for (const contract of requestContracts) {
+      for (const location of contract.locations()) {
+        const method = `parse${location[0].toUpperCase()}${location.slice(1)}`;
+        if (!controllers.includes(`.${contract.operation}.${method}`)) {
+          unenforced.push(`${contract.key} declares ${location} but nothing calls ${method}`);
+        }
+      }
+    }
+
+    expect(unenforced, unenforced.join('; ')).toEqual([]);
+  });
+
+  it('keeps controllers off the schemas their contracts already own', () => {
+    // A controller reaching past its contract to a schema directly is the drift this
+    // replaced; it must not come back unnoticed.
     const controller = readFileSync(
       resolve(serverRoot, 'src/modules/core/users/controller.ts'),
       'utf8'
     );
-    expect(controller).toMatch(/contracts\.createUser\.parseBody/);
-    expect(controller).toMatch(/contracts\.updateUser\.parseBody/);
-    expect(controller).toMatch(/contracts\.updateFavorites\.parseBody/);
-    expect(controller).toMatch(/contracts\.listUsers\.parseQuery/);
-    // A controller reaching past its contract to a schema directly is the drift this
-    // replaced; it must not come back unnoticed.
     expect(controller).not.toMatch(/(create|update)UserSchema\s*\.\s*(safeParse|parse)\(/);
     expect(controller).not.toMatch(/favoritesSchema\s*\.\s*(safeParse|parse)\(/);
   });

@@ -71,7 +71,9 @@ export class UsersController {
     try {
       const body = contracts.updateUser.parseBody<UpdateUserDTO>(req.body);
 
-      const updatedUser = await usersService.update(req.params.id as string, body);
+      const { id } = contracts.updateUser.parseParams<{ id: string }>(req.params);
+
+      const updatedUser = await usersService.update(id, body);
       res.json(success(updatedUser));
     } catch (err: any) {
       if (isUniqueViolation(err)) {
@@ -113,8 +115,10 @@ export class UsersController {
   async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      await usersService.delete(req.params.id as string, authReq.user!.id);
-      logAuditFromReq(req, 'delete', 'user', req.params.id as string);
+      const { id } = contracts.deleteUser.parseParams<{ id: string }>(req.params);
+
+      await usersService.delete(id, authReq.user!.id);
+      logAuditFromReq(req, 'delete', 'user', id);
       res.status(204).send();
     } catch (err: any) {
       if (err.statusCode) {

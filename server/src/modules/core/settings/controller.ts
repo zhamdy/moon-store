@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
 import { settingsService } from './service';
+import { settingsRequestContracts } from './schemas';
 import { success } from '../../../http/responses';
 
-const updateSettingsSchema = z.record(z.string(), z.string());
+/** Parsed through the contract, so the document and the validator cannot differ (#102). */
+const contracts = settingsRequestContracts;
 
 export class SettingsController {
   async getSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -17,12 +18,9 @@ export class SettingsController {
 
   async updateSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = updateSettingsSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const body = contracts.updateSettings.parseBody<Record<string, string>>(req.body);
 
-      const data = await settingsService.update(parsed.data);
+      const data = await settingsService.update(body);
       res.json(success(data));
     } catch (err) {
       next(err);
