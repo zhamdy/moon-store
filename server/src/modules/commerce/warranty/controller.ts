@@ -1,26 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { warrantyRequestContracts, warrantyClaimSchema, type WarrantyUpdateBody } from './schemas';
+import type { WarrantyFilters } from './types';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { warrantyService } from './service';
-import { parseWarrantyListQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 
-export const warrantyClaimSchema = z.object({
-  sale_id: z.number().int().positive().optional(),
-  product_id: z.number().int().positive(),
-  customer_id: z.number().int().positive().optional(),
-  customer_name: z.string().min(1).max(100),
-  customer_phone: z.string().min(1).max(30),
-  issue_description: z.string().min(1).max(500),
-  resolution: z.string().max(500).optional(),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = warrantyRequestContracts;
 
 export class WarrantyController {
   async listClaims(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseWarrantyListQuery(req.query);
+      const query = contracts.listClaims.parseQuery<WarrantyFilters>(req.query);
       const result = await warrantyService.list(query);
       res.json(
         success(result.rows, {
@@ -34,12 +28,9 @@ export class WarrantyController {
 
   async createClaim(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = warrantyClaimSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createClaim.parseBody<z.infer<typeof warrantyClaimSchema>>(req.body);
 
-      const claim = await warrantyService.create(parsed.data);
+      const claim = await warrantyService.create(parsed);
       logAuditFromReq(req, 'create', 'warranty_claim', claim.id);
       res.status(201).json(success(claim));
     } catch (err) {
@@ -49,8 +40,8 @@ export class WarrantyController {
 
   async updateClaim(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
-      const { status, resolution } = req.body;
+      const { id } = contracts.updateClaim.parseParams<{ id: string }>(req.params);
+      const { status, resolution } = contracts.updateClaim.parseBody<WarrantyUpdateBody>(req.body);
 
       const claim = await warrantyService.update(id as string, {
         status: status || undefined,

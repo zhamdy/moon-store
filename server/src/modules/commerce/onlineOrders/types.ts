@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface OrderItemInput {
   product_id: number;
   variant_id?: number | null;
@@ -25,9 +28,7 @@ export interface OnlineOrderFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-const onlineOrderListQuerySchema = createListQuerySchema(['createdAt', 'total'] as const)
+export const onlineOrderListQuerySchema = createListQuerySchema(['createdAt', 'total'] as const)
   .extend({
     status: z.string().trim().min(1).max(30).optional(),
     search: z.string().trim().min(1).max(100).optional(),

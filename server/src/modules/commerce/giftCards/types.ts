@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface GiftCardFilters {
   page: number;
   pageSize: number;
@@ -13,17 +16,14 @@ export interface GiftCardListResult {
   page: number;
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const giftCardListQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const giftCardListQuerySchema = createListQuerySchema(['createdAt'] as const)
   .extend({
     status: z.enum(['active', 'cancelled', 'redeemed']).optional(),
     search: z.string().trim().min(1).max(100).optional(),
   })
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
-const giftCardTransactionQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const giftCardTransactionQuerySchema = createListQuerySchema(['createdAt'] as const)
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 

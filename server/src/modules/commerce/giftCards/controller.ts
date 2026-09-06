@@ -1,9 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import {
+  giftCardsRequestContracts,
+  createGiftCardSchema,
+  redeemGiftCardSchema,
+  updateGiftCardSchema,
+} from './schemas';
+import { giftCardTransactionQuerySchema, type GiftCardFilters } from './types';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { giftCardsService } from './service';
-import { parseGiftCardListQuery, parseGiftCardTransactionQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
@@ -15,26 +21,13 @@ import {
 } from '../../../http/idempotency';
 import { isUniqueViolation } from '../../../database/constraintErrors';
 
-export const createGiftCardSchema = z.object({
-  code: z.string().min(4).max(50).optional(),
-  initial_value: z.number().positive('Initial value must be positive'),
-  customer_id: z.number().int().positive().optional().nullable(),
-  expires_at: z.string().optional().nullable(),
-});
-
-export const redeemGiftCardSchema = z.object({
-  amount: z.number().positive('Amount must be positive'),
-  sale_id: z.number().int().positive('Sale ID is required'),
-});
-
-export const updateGiftCardSchema = z.object({
-  status: z.enum(['active', 'cancelled']),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = giftCardsRequestContracts;
 
 export class GiftCardsController {
   async listGiftCards(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseGiftCardListQuery(req.query);
+      const query = contracts.listGiftCards.parseQuery<GiftCardFilters>(req.query);
       const result = await giftCardsService.list(query);
       res.json(
         success(result.rows, {
@@ -48,17 +41,16 @@ export class GiftCardsController {
 
   async createGiftCard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = createGiftCardSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createGiftCard.parseBody<z.infer<typeof createGiftCardSchema>>(
+        req.body
+      );
 
       const authReq = req as AuthRequest;
-      const card = await giftCardsService.create(parsed.data, authReq.user!.id);
+      const card = await giftCardsService.create(parsed, authReq.user!.id);
 
       logAuditFromReq(req, 'create', 'gift_card', (card as { id: number })?.id, {
         code: card.code,
-        initial_value: parsed.data.initial_value,
+        initial_value: parsed.initial_value,
       });
 
       res.status(201).json(success(card));
@@ -73,7 +65,7 @@ export class GiftCardsController {
 
   async getBalance(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const code = req.params.code as string;
+      const { code } = contracts.getBalance.parseParams<{ code: string }>(req.params);
       const balanceData = await giftCardsService.getBalance(code);
 
       if (!balanceData) {
@@ -88,14 +80,13 @@ export class GiftCardsController {
 
   async redeemGiftCard(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = redeemGiftCardSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.redeemGiftCard.parseBody<z.infer<typeof redeemGiftCardSchema>>(
+        req.body
+      );
 
-      const { amount, sale_id } = parsed.data;
+      const { amount, sale_id } = parsed;
       const authReq = req as AuthRequest;
-      const code = req.params.code as string;
+      const { code } = contracts.redeemGiftCard.parseParams<{ code: string }>(req.params);
 
       const outcome = await withIdempotency({
         // Stable per endpoint: the card code is fingerprinted through the payload
@@ -103,7 +94,7 @@ export class GiftCardsController {
         endpoint: 'POST /api/v1/gift-cards/:code/redeem',
         key: readIdempotencyKey(req),
         userId: authReq.user!.id,
-        payload: { ...parsed.data, code },
+        payload: { ...parsed, code },
         run: async (client) => {
           const redeemed = await giftCardsService.redeem(
             code,
@@ -142,8 +133,10 @@ export class GiftCardsController {
 
   async getTransactions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = Number(req.params.id as string);
-      const query = parseGiftCardTransactionQuery(req.query);
+      const id = Number(contracts.getTransactions.parseParams<{ id: string }>(req.params).id);
+      const query = contracts.getTransactions.parseQuery<
+        z.infer<typeof giftCardTransactionQuerySchema>
+      >(req.query);
       const { card, transactions, total } = await giftCardsService.getTransactions(
         id,
         query.page,
@@ -165,20 +158,19 @@ export class GiftCardsController {
 
   async updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = updateGiftCardSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.updateGiftCard.parseBody<z.infer<typeof updateGiftCardSchema>>(
+        req.body
+      );
 
-      const id = req.params.id as string;
-      const updated = await giftCardsService.updateStatus(id, parsed.data.status);
+      const { id } = contracts.updateGiftCard.parseParams<{ id: string }>(req.params);
+      const updated = await giftCardsService.updateStatus(id, parsed.status);
 
       if (!updated) {
         throw new PublicError('NOT_FOUND', 'Gift card not found');
       }
 
       logAuditFromReq(req, 'status_change', 'gift_card', id, {
-        status: parsed.data.status,
+        status: parsed.status,
       });
       res.json(success(updated));
     } catch (err) {

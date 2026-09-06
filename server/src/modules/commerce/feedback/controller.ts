@@ -1,29 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { feedbackRequestContracts, feedbackSchema } from './schemas';
+import type { FeedbackFilters } from './types';
 import { feedbackService } from './service';
-import { parseFeedbackListQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 
-export const feedbackSchema = z.object({
-  customer_id: z.number().int().positive().optional(),
-  sale_id: z.number().int().positive().optional(),
-  rating: z.number().int().min(1).max(5),
-  category: z
-    .enum(['service', 'product_quality', 'pricing', 'store_ambiance', 'general'])
-    .default('general'),
-  comment: z.string().max(500).optional(),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = feedbackRequestContracts;
 
 export class FeedbackController {
   async submitFeedback(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = feedbackSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createFeedback.parseBody<z.infer<typeof feedbackSchema>>(req.body);
 
-      const feedback = await feedbackService.create(parsed.data);
+      const feedback = await feedbackService.create(parsed);
       res.status(201).json(success(feedback));
     } catch (err) {
       next(err);
@@ -32,7 +23,7 @@ export class FeedbackController {
 
   async getFeedback(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseFeedbackListQuery(req.query);
+      const query = contracts.listFeedback.parseQuery<FeedbackFilters>(req.query);
       const result = await feedbackService.list(query);
       res.json(
         success(result.rows, {

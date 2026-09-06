@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface VendorRecord {
   id: number;
   name: string;
@@ -68,9 +71,7 @@ export interface VendorFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-const vendorListQuerySchema = createListQuerySchema(['createdAt', 'name'] as const)
+export const vendorListQuerySchema = createListQuerySchema(['createdAt', 'name'] as const)
   .extend({
     status: z.enum(['active', 'inactive']).optional(),
     search: z.string().trim().min(1).max(100).optional(),
@@ -95,7 +96,7 @@ export interface VendorPayoutFilters {
   sortBy: 'createdAt';
   sortOrder: 'asc' | 'desc';
 }
-const vendorPayoutQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const vendorPayoutQuerySchema = createListQuerySchema(['createdAt'] as const)
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 export function parseVendorPayoutQuery(query: unknown): VendorPayoutFilters {

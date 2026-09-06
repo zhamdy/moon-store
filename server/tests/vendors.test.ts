@@ -15,7 +15,7 @@ import { createPgMemPool } from './support/pgMem';
 import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
 import { VendorsRepository } from '../src/modules/commerce/vendors/repository';
-import { vendorUpdateSchema } from '../src/modules/commerce/vendors/controller';
+import { vendorUpdateSchema } from '../src/modules/commerce/vendors/schemas';
 
 const MIGRATIONS_DIR = path.join(__dirname, '../src/database/migrations');
 

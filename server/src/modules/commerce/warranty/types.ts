@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface WarrantyClaimRecord {
   id: number;
   sale_id?: number | null;
@@ -38,9 +41,7 @@ export interface WarrantyFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-const warrantyListQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const warrantyListQuerySchema = createListQuerySchema(['createdAt'] as const)
   .extend({ status: z.string().trim().min(1).max(30).optional() })
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));

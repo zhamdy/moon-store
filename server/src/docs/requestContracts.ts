@@ -27,6 +27,15 @@ import { categoriesContractList } from '../modules/inventory/categories/schemas'
 import { collectionsContractList } from '../modules/inventory/collections/schemas';
 import { labelTemplatesContractList } from '../modules/inventory/labelTemplates/schemas';
 import { stockCountsContractList } from '../modules/inventory/stockCounts/schemas';
+import { couponsContractList } from '../modules/commerce/coupons/schemas';
+import { customersContractList } from '../modules/commerce/customers/schemas';
+import { feedbackContractList } from '../modules/commerce/feedback/schemas';
+import { giftCardsContractList } from '../modules/commerce/giftCards/schemas';
+import { onlineOrdersContractList } from '../modules/commerce/onlineOrders/schemas';
+import { segmentsContractList } from '../modules/commerce/segments/schemas';
+import { storefrontContractList } from '../modules/commerce/storefront/schemas';
+import { vendorsContractList } from '../modules/commerce/vendors/schemas';
+import { warrantyContractList } from '../modules/commerce/warranty/schemas';
 import { exchangesContractList } from '../modules/pos/exchanges/schemas';
 import { layawayContractList } from '../modules/pos/layaway/schemas';
 import { registerContractList } from '../modules/pos/register/schemas';
@@ -62,6 +71,17 @@ export const requestContracts: readonly RequestContract[] = [
   ...reservationsContractList,
   ...salesContractList,
   ...shiftsContractList,
+
+  // Commerce
+  ...couponsContractList,
+  ...customersContractList,
+  ...feedbackContractList,
+  ...giftCardsContractList,
+  ...onlineOrdersContractList,
+  ...segmentsContractList,
+  ...storefrontContractList,
+  ...vendorsContractList,
+  ...warrantyContractList,
 ];
 
 /**
@@ -100,7 +120,7 @@ export const unconvertedOperations: readonly UnconvertedOperation[] = [
  *
  * Lower it in the commit that converts a module; never raise it.
  */
-export const EXPECTED_UNCONVERTED = 98;
+export const EXPECTED_UNCONVERTED = 56;
 
 /**
  * Served operations in neither list — not a contract, and not explained.
@@ -113,4 +133,4 @@ export const EXPECTED_UNCONVERTED = 98;
  * `EXPECTED_UNCONVERTED` is how much is derived, this is how much is accounted for, and
  * writing a reason moves only the second.
  */
-export const EXPECTED_UNCLASSIFIED = 95;
+export const EXPECTED_UNCLASSIFIED = 53;

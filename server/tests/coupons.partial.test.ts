@@ -15,7 +15,7 @@ import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
 import { CouponsRepository } from '../src/modules/commerce/coupons/repository';
 import { CouponsService } from '../src/modules/commerce/coupons/service';
-import { couponUpdateSchema } from '../src/modules/commerce/coupons/controller';
+import { couponUpdateSchema } from '../src/modules/commerce/coupons/schemas';
 import { CouponError } from '../src/modules/commerce/coupons/types';
 
 const MIGRATIONS_DIR = path.join(__dirname, '../src/database/migrations');

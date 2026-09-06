@@ -1,15 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { segmentsRequestContracts, segmentSchema } from './schemas';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { segmentsService } from './service';
 import { success } from '../../../http/responses';
 import { PublicError } from '../../../http/errors';
 
-export const segmentSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
-  rules_json: z.string().min(2),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = segmentsRequestContracts;
 
 export class SegmentsController {
   async getSegments(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -23,13 +21,10 @@ export class SegmentsController {
 
   async createSegment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = segmentSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createSegment.parseBody<z.infer<typeof segmentSchema>>(req.body);
 
-      const segment = await segmentsService.create(parsed.data);
-      logAuditFromReq(req, 'create', 'segment', segment.id, { name: parsed.data.name });
+      const segment = await segmentsService.create(parsed);
+      logAuditFromReq(req, 'create', 'segment', segment.id, { name: parsed.name });
       res.status(201).json(success(segment));
     } catch (err) {
       next(err);
@@ -38,13 +33,10 @@ export class SegmentsController {
 
   async updateSegment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
-      const parsed = segmentSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const { id } = contracts.updateSegment.parseParams<{ id: string }>(req.params);
+      const parsed = contracts.updateSegment.parseBody<z.infer<typeof segmentSchema>>(req.body);
 
-      const segment = await segmentsService.update(id as string, parsed.data);
+      const segment = await segmentsService.update(id as string, parsed);
       if (!segment) {
         throw new PublicError('NOT_FOUND', 'Segment not found');
       }
@@ -58,7 +50,7 @@ export class SegmentsController {
 
   async deleteSegment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
+      const { id } = contracts.deleteSegment.parseParams<{ id: string }>(req.params);
       const deleted = await segmentsService.delete(id as string);
       if (!deleted) {
         throw new PublicError('NOT_FOUND', 'Segment not found');
