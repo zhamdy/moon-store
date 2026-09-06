@@ -26,6 +26,9 @@ import type { Pool as PgPool, PoolClient, QueryResult, QueryResultRow } from 'pg
 const TRAILING_NOT_VALID = /\s+NOT\s+VALID(?=\s*;|\s*$)/gi;
 
 export function toPgMemCompatibleSql(sql: string): string {
+  // 009 upgrades legacy schemas only. pg-mem fixtures start from the corrected 001;
+  // its catalog-driven PL/pgSQL repair is exercised on real PostgreSQL instead.
+  if (sql.includes('DO $repair_009$')) return 'SELECT 1;';
   return sql.replace(TRAILING_NOT_VALID, '');
 }
 

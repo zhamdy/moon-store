@@ -267,9 +267,27 @@ cd server && npm test
 
 The project includes a [`render.yaml`](render.yaml) for one-click deployment to [Render](https://render.com):
 
-- **API**: Node.js web service running migrations + seed on startup
+- **API**: Node.js web service running `npm run migrate && npm run start`; seed demo data only in development.
 - **Database**: Add a PostgreSQL instance on Render and set `DATABASE_URL`
 - **Client**: Deploy the `client/` build output to any static host (Vercel, Netlify, Render Static)
+
+For databases created before the baseline schema corrections, migration 009 upgrades
+the legacy tables and columns in a single transaction. Back up production before
+deploying and set the Render dashboard Start Command to match `render.yaml`.
+Stop application writes during this upgrade: old code cannot use renamed tables
+or columns after it commits. A failed deployment can leave the old instance running.
+Verify favorites, notifications, bundles, segments, layaway, distributors and
+collections after deployment. Do not clear `_migrations` or run production seeding.
+
+The repair retains legacy data, renames bundle/layaway tables in place (preserving
+foreign keys), and imports serialized layaway items with explicit product IDs,
+quantities and `unit_price` or `price`. Ambiguous tables or malformed items abort the
+transaction. Legacy notifications without an owner remain unassigned; the repair
+does not invent user ownership. Older exchange detail and transfer tables remain
+available for historical reconciliation. Migration 009 has no destructive rollback;
+restore the pre-upgrade backup with its matching release if rollback is required.
+The regression fixture reproduces production column metadata; it is not a complete
+production backup or a substitute for checking custom constraints and real data.
 
 ---
 
