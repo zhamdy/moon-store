@@ -58,3 +58,7 @@ duplicated Sidebar route strings, global i18n files), and slice split/merge crit
 ## Build Warnings
 
 Chunk size warning (>500KB) is expected for SPA bundle — safe to ignore.
+
+## Learnings
+
+- Baseline 001 was edited after deployment; applied filenames do not prove schema compatibility. Add forward migrations and test upgrades from the legacy schema, not only fresh databases. Migration 009 repairs the September production export. (2026-09-05)
