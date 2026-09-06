@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface Branch {
   id: number;
   name: string;
@@ -76,7 +79,7 @@ export interface TransferFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-const transferListQuerySchema = createListQuerySchema(['createdAt', 'status'] as const)
+export const transferListQuerySchema = createListQuerySchema(['createdAt', 'status'] as const)
   .extend({
     status: z.enum(['pending', 'in_transit', 'completed', 'cancelled']).optional(),
   })
@@ -86,5 +89,3 @@ const transferListQuerySchema = createListQuerySchema(['createdAt', 'status'] as
 export function parseTransferListQuery(query: unknown): TransferFilters {
   return transferListQuerySchema.parse(query);
 }
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';

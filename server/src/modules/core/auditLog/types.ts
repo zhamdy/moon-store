@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface AuditLogEntry {
   id: number;
   user_id?: number | null;
@@ -38,7 +40,7 @@ const positiveInteger = (field: string) =>
     .pipe(z.number().int().positive());
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD');
 
-const auditLogListQuerySchema = z
+export const auditLogListQuerySchema = z
   .object({
     page: positiveInteger('page').default('1'),
     pageSize: z.enum(['10', '25', '50', '100']).default('50').transform(Number),
@@ -58,4 +60,3 @@ const auditLogListQuerySchema = z
 export function parseAuditLogListQuery(input: unknown): AuditLogFilters {
   return auditLogListQuerySchema.parse(input);
 }
-import { z } from 'zod';

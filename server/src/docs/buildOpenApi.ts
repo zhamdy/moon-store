@@ -96,6 +96,30 @@ function generateRequest(contract: RequestContract): {
   };
 }
 
+/**
+ * Whether a schema carries a refinement the converter will drop.
+ *
+ * Measured, not assumed: `zod-to-openapi` unwraps a `ZodEffects` and generates the inner
+ * object's parameters with no warning, so a `.refine()` enforcing "dateFrom before dateTo"
+ * silently becomes two unconstrained strings. That is the precise failure this whole
+ * change exists to stop, so a contract whose schema is refined must say what the rule is
+ * in `beyondSchema` or the build fails.
+ *
+ * It looks only at the wrappers above the object, which is where cross-field rules live.
+ * A `.refine()` on a single field is not detected and does not need to be: its constraint
+ * is about that field, and the reader can see the field.
+ */
+function hasDroppedRefinement(schema: z.ZodTypeAny): boolean {
+  let current: z.ZodTypeAny | undefined = schema;
+
+  while (current) {
+    if (current instanceof z.ZodEffects) return true;
+    const def = current._def as { innerType?: z.ZodTypeAny };
+    current = def.innerType;
+  }
+  return false;
+}
+
 function parameterIdentity(parameter: ParameterObject): string | null {
   if (typeof parameter.name !== 'string' || typeof parameter.in !== 'string') return null;
   return `${parameter.in}:${parameter.name}`;
@@ -140,6 +164,8 @@ export interface BuildResult {
   document: Json;
   /** Contracts whose operation is absent from the base document — a wiring mistake. */
   unmatched: string[];
+  /** Contracts with a refinement the converter drops and no `beyondSchema` note. */
+  undocumentedRefinements: string[];
 }
 
 export function buildOpenApiDocument(
@@ -148,6 +174,7 @@ export function buildOpenApiDocument(
   const document = clone(openApiSpec) as unknown as Json;
   const paths = (document.paths ?? {}) as Record<string, Record<string, Json>>;
   const unmatched: string[] = [];
+  const undocumentedRefinements: string[] = [];
 
   // Sorted so the artifact does not depend on the registry's declaration order.
   const ordered = [...contracts].sort((a, b) => a.key.localeCompare(b.key));
@@ -158,6 +185,15 @@ export function buildOpenApiDocument(
     if (!operation) {
       unmatched.push(contract.key);
       continue;
+    }
+
+    if (!contract.beyondSchema?.length) {
+      for (const location of contract.locations()) {
+        const schema = contract[location] as z.ZodTypeAny;
+        if (hasDroppedRefinement(schema)) {
+          undocumentedRefinements.push(`${contract.key} (${location})`);
+        }
+      }
     }
 
     const { requestBody, parameters } = generateRequest(contract);
@@ -178,7 +214,7 @@ export function buildOpenApiDocument(
   }
 
   document.paths = paths;
-  return { document, unmatched };
+  return { document, unmatched, undocumentedRefinements };
 }
 
 /** The document the server serves and the drift gate compares against. */
