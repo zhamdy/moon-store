@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
+import type { ExchangeFilters } from './types';
+import { exchangesRequestContracts, type ExchangeBody } from './schemas';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { exchangesService, ExchangeStockError, IExchangesService } from './service';
@@ -13,35 +14,9 @@ import {
 } from '../../../http/idempotency';
 import { paginationMeta } from '../../../http/pagination';
 import { success } from '../../../http/responses';
-import { parseExchangeListQuery } from './types';
 
-const exchangeSchema = z.object({
-  original_sale_id: z.number().int().positive(),
-  returned_items: z
-    .array(
-      z.object({
-        product_id: z.number().int().positive(),
-        variant_id: z.number().int().positive().optional().nullable(),
-        quantity: z.number().int().positive(),
-        price: z.number().min(0),
-        reason: z.string().min(1),
-        condition: z.enum(['good', 'damaged', 'defective']).default('good'),
-      })
-    )
-    .min(1),
-  new_items: z
-    .array(
-      z.object({
-        product_id: z.number().int().positive(),
-        variant_id: z.number().int().positive().optional().nullable(),
-        quantity: z.number().int().positive(),
-        price: z.number().min(0),
-      })
-    )
-    .min(1),
-  payment_method: z.enum(['cash', 'card', 'store_credit']).optional(),
-  notes: z.string().max(500).optional(),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = exchangesRequestContracts;
 
 export class ExchangesController {
   constructor(private service: IExchangesService = exchangesService) {}
@@ -49,7 +24,7 @@ export class ExchangesController {
   async createExchange(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const parsed = exchangeSchema.parse(req.body);
+      const parsed = contracts.createExchange.parseBody<ExchangeBody>(req.body);
 
       const outcome = await withIdempotency({
         endpoint: 'POST /api/v1/exchanges',
@@ -105,7 +80,7 @@ export class ExchangesController {
 
   async getExchanges(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseExchangeListQuery(req.query);
+      const query = contracts.listExchanges.parseQuery<ExchangeFilters>(req.query);
       const result = await this.service.listExchanges(query);
       res.json(
         success(result.rows, {
@@ -119,7 +94,7 @@ export class ExchangesController {
 
   async getExchangeById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      const { id } = contracts.getExchange.parseParams<{ id: string }>(req.params);
       const exchange = await this.service.getExchangeById(id);
 
       if (!exchange) {

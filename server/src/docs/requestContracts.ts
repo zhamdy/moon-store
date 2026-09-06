@@ -27,6 +27,12 @@ import { categoriesContractList } from '../modules/inventory/categories/schemas'
 import { collectionsContractList } from '../modules/inventory/collections/schemas';
 import { labelTemplatesContractList } from '../modules/inventory/labelTemplates/schemas';
 import { stockCountsContractList } from '../modules/inventory/stockCounts/schemas';
+import { exchangesContractList } from '../modules/pos/exchanges/schemas';
+import { layawayContractList } from '../modules/pos/layaway/schemas';
+import { registerContractList } from '../modules/pos/register/schemas';
+import { reservationsContractList } from '../modules/pos/reservations/schemas';
+import { salesContractList } from '../modules/pos/sales/schemas';
+import { shiftsContractList } from '../modules/pos/shifts/schemas';
 import { distributorsContractList } from '../modules/inventory/distributors/schemas';
 import { productsContractList } from '../modules/inventory/products/schemas';
 import { stockAdjustmentsContractList } from '../modules/inventory/stockAdjustments/schemas';
@@ -48,6 +54,14 @@ export const requestContracts: readonly RequestContract[] = [
   ...distributorsContractList,
   ...productsContractList,
   ...stockAdjustmentsContractList,
+
+  // POS
+  ...exchangesContractList,
+  ...layawayContractList,
+  ...registerContractList,
+  ...reservationsContractList,
+  ...salesContractList,
+  ...shiftsContractList,
 ];
 
 /**
@@ -86,7 +100,7 @@ export const unconvertedOperations: readonly UnconvertedOperation[] = [
  *
  * Lower it in the commit that converts a module; never raise it.
  */
-export const EXPECTED_UNCONVERTED = 126;
+export const EXPECTED_UNCONVERTED = 98;
 
 /**
  * Served operations in neither list — not a contract, and not explained.
@@ -99,4 +113,4 @@ export const EXPECTED_UNCONVERTED = 126;
  * `EXPECTED_UNCONVERTED` is how much is derived, this is how much is accounted for, and
  * writing a reason moves only the second.
  */
-export const EXPECTED_UNCLASSIFIED = 123;
+export const EXPECTED_UNCLASSIFIED = 95;

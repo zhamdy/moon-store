@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+import type { LayawayFilters } from './types';
+import { layawayRequestContracts, type CreateLayawayBody, type InstallmentBody } from './schemas';
 import { z } from 'zod';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
@@ -6,32 +8,9 @@ import { layawayService, ILayawayService } from './service';
 import { PublicError } from '../../../http/errors';
 import { paginationMeta } from '../../../http/pagination';
 import { success } from '../../../http/responses';
-import { parseLayawayListQuery } from './types';
 
-const createLayawaySchema = z.object({
-  customer_id: z.number().int().positive(),
-  total_amount: z.number().positive(),
-  deposit_amount: z.number().positive(),
-  payment_method: z.enum(['cash', 'card']).default('cash'),
-  due_date: z.string(),
-  notes: z.string().max(500).optional(),
-  items: z
-    .array(
-      z.object({
-        product_id: z.number().int().positive(),
-        variant_id: z.number().int().positive().optional().nullable(),
-        quantity: z.number().int().positive(),
-        price: z.number().min(0),
-      })
-    )
-    .min(1),
-});
-
-const installmentSchema = z.object({
-  amount: z.number().positive(),
-  payment_method: z.enum(['cash', 'card']).default('cash'),
-  notes: z.string().max(255).optional(),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = layawayRequestContracts;
 
 export class LayawayController {
   constructor(private service: ILayawayService = layawayService) {}
@@ -39,7 +18,7 @@ export class LayawayController {
   async createPlan(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const parsed = createLayawaySchema.parse(req.body);
+      const parsed = contracts.createPlan.parseBody<CreateLayawayBody>(req.body);
 
       const plan = await this.service.createPlan(parsed, authReq.user!.id);
 
@@ -52,7 +31,7 @@ export class LayawayController {
 
   async getPlans(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseLayawayListQuery(req.query);
+      const query = contracts.listPlans.parseQuery<LayawayFilters>(req.query);
       const result = await this.service.listPlans(query);
       res.json(
         success(result.rows, {
@@ -66,7 +45,8 @@ export class LayawayController {
 
   async getPlanById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const plan = await this.service.getPlanById(req.params.id as string);
+      const { id } = contracts.getPlan.parseParams<{ id: string }>(req.params);
+      const plan = await this.service.getPlanById(id);
 
       if (!plan) {
         throw new PublicError('NOT_FOUND', 'Layaway plan not found');
@@ -80,8 +60,8 @@ export class LayawayController {
   async payInstallment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const id = Number(req.params.id);
-      const parsed = installmentSchema.parse(req.body);
+      const id = Number(contracts.payInstallment.parseParams<{ id: string }>(req.params).id);
+      const parsed = contracts.payInstallment.parseBody<InstallmentBody>(req.body);
 
       const result = await this.service.recordPayment(id, parsed, authReq.user!.id);
 
@@ -99,7 +79,7 @@ export class LayawayController {
 
   async cancelPlan(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = Number(req.params.id);
+      const id = Number(contracts.cancelPlan.parseParams<{ id: string }>(req.params).id);
       const result = await this.service.cancelPlan(id);
 
       logAuditFromReq(req, 'cancel', 'layaway', id);

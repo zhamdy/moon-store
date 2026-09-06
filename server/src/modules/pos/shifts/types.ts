@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface ShiftRow {
   id: number;
   user_id: number;
@@ -41,7 +44,7 @@ export interface ShiftListResult {
 }
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD');
-const shiftListQuerySchema = createListQuerySchema(['clockIn', 'clockOut'] as const)
+export const shiftListQuerySchema = createListQuerySchema(['clockIn', 'clockOut'] as const)
   .extend({
     userId: z
       .string()
@@ -59,5 +62,3 @@ const shiftListQuerySchema = createListQuerySchema(['clockIn', 'clockOut'] as co
 export function parseShiftListQuery(query: unknown): ShiftFilters {
   return shiftListQuerySchema.parse(query);
 }
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';

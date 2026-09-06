@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
+import { salesRequestContracts } from './schemas';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { notifySale } from '../../../../services/notifications';
-import { saleSchema, refundSchema } from '../../../../validators/saleSchema';
+import type { Refund, Sale } from '../../../../validators/saleSchema';
 import { salesService } from './service';
 import { salesRepository } from './repository';
-import { parseSaleListQuery, SalesValidationError, InsufficientStockError } from './types';
+import { SalesValidationError, InsufficientStockError, type SaleFilters } from './types';
 import { stockConflictDetails } from '../stockConflict';
 import { CouponError } from '../../commerce/coupons/types';
 import { success } from '../../../http/responses';
@@ -18,10 +19,13 @@ import {
   withIdempotency,
 } from '../../../http/idempotency';
 
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = salesRequestContracts;
+
 export class SalesController {
   async getSales(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseSaleListQuery(req.query);
+      const query = contracts.listSales.parseQuery<SaleFilters>(req.query);
       const result = await salesRepository.listSales(query);
       res.json(
         success(result.rows, {
@@ -36,7 +40,7 @@ export class SalesController {
 
   async getSaleById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const saleId = Number(req.params.id);
+      const saleId = Number(contracts.getSale.parseParams<{ id: string }>(req.params).id);
       const sale = await salesRepository.findById(saleId);
       if (!sale) {
         throw new PublicError('NOT_FOUND', 'Sale not found');
@@ -61,10 +65,7 @@ export class SalesController {
 
   async createSale(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = saleSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createSale.parseBody<Sale>(req.body);
 
       const authReq = req as AuthRequest;
       const cashierId = authReq.user!.id;
@@ -76,14 +77,14 @@ export class SalesController {
         userId: cashierId,
         // The VALIDATED body, so key order, whitespace, and stripped unknown
         // fields cannot make two identical requests look different.
-        payload: parsed.data,
+        payload: parsed,
         run: async (client) => {
           // Cash-register movement is recorded INSIDE executeSale's checkout
           // transaction (Unit 4), derived from the confirmed/validated split --
           // not here, and not from unchecked request values. Passing the client
           // makes the sale and the idempotency claim share one transaction, so
           // they commit or roll back together.
-          const sale = await salesService.executeSale(parsed.data, cashierId, client);
+          const sale = await salesService.executeSale(parsed, cashierId, client);
 
           // Additive cashier metadata (R6): `sale` from `repo.createSale`'s
           // RETURNING * has no join, so attach the display name the request
@@ -108,7 +109,7 @@ export class SalesController {
         logAuditFromReq(req, 'create', 'sale', sale.id, {
           total: sale.total,
           payment_method: sale.payment_method,
-          item_count: parsed.data.items.length,
+          item_count: parsed.items.length,
         });
         notifySale(Number(sale.total), sale.id, cashierName);
       }
@@ -155,11 +156,8 @@ export class SalesController {
 
   async refundSale(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const saleId = Number(req.params.id);
-      const parsed = refundSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const saleId = Number(contracts.refundSale.parseParams<{ id: string }>(req.params).id);
+      const parsed = contracts.refundSale.parseBody<Refund>(req.body);
 
       const authReq = req as AuthRequest;
       const cashierId = authReq.user!.id;
@@ -172,13 +170,13 @@ export class SalesController {
         // the wrong refund.
         endpoint: 'POST /api/v1/sales/:id/refund',
         userId: cashierId,
-        payload: { saleId, body: parsed.data },
+        payload: { saleId, body: parsed },
         run: async (client) => {
           // The cash-register movement is recorded INSIDE executeRefund's transaction,
           // not here: a refund that rolls back must leave no drawer movement behind.
           // Passing the client makes the refund and the idempotency claim share one
           // transaction, so they commit or roll back together.
-          const result = await salesService.executeRefund(saleId, parsed.data, cashierId, client);
+          const result = await salesService.executeRefund(saleId, parsed, cashierId, client);
 
           return {
             status: 201,
@@ -198,7 +196,7 @@ export class SalesController {
         // A replay must not write a second audit entry.
         res.setHeader(IDEMPOTENCY_REPLAY_HEADER, 'true');
       } else {
-        logAuditFromReq(req, 'refund', 'sale', req.params.id as string, {
+        logAuditFromReq(req, 'refund', 'sale', String(saleId), {
           refund_amount: outcome.result!.refund.amount,
         });
       }

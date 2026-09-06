@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface SessionRow {
   id: number;
   cashier_id: number;
@@ -57,7 +60,7 @@ export interface SessionHistoryResult {
 }
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD');
-const historyQuerySchema = createListQuerySchema(['openedAt', 'closedAt'] as const)
+export const historyQuerySchema = createListQuerySchema(['openedAt', 'closedAt'] as const)
   .extend({
     cashierId: z
       .string()
@@ -89,5 +92,3 @@ export interface CloseRegisterDTO {
   counted_cash: number;
   notes?: string;
 }
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';

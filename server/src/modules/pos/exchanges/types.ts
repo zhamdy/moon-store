@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface ReturnedItemInput {
   product_id: number;
   variant_id?: number | null;
@@ -30,7 +33,7 @@ export interface ExchangeFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-const exchangeListQuerySchema = createListQuerySchema([
+export const exchangeListQuerySchema = createListQuerySchema([
   'createdAt',
   'exchangeNumber',
   'difference',
@@ -88,5 +91,3 @@ export interface ExchangeDetail extends ExchangeRow {
   returned_items: ReturnedItemRow[];
   new_items: NewItemRow[];
 }
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
