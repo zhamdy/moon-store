@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef, type ChangeEvent } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useState, useEffect, useMemo, type Key } from 'react';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Trash2, Search, UserPlus, Check } from 'lucide-react';
 import {
+  Autocomplete,
+  AutocompleteItem,
   Button,
   Input,
   Textarea,
@@ -41,6 +43,10 @@ const getDeliverySchema = () =>
 
 type DeliveryFormData = z.infer<ReturnType<typeof getDeliverySchema>>;
 
+// String keys keep the "new customer" affordance from ever colliding with a numeric customer id.
+const NEW_CUSTOMER_KEY = 'new-customer';
+const customerOptionKey = (id: number) => `customer-${id}`;
+
 interface DeliveryFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,6 +58,8 @@ interface DeliveryFormDialogProps {
   onLoadMoreProducts: () => void;
   isLoadingMoreProducts: boolean;
   customers: Customer[] | undefined;
+  isLoadingCustomers?: boolean;
+  hasCustomerLoadError?: boolean;
   shippingCompanies: ShippingCompany[] | undefined;
   onSubmit: (payload: DeliveryPayload) => void;
   isSubmitting: boolean;
@@ -71,6 +79,8 @@ export default function DeliveryFormDialog({
   onLoadMoreProducts,
   isLoadingMoreProducts,
   customers,
+  isLoadingCustomers = false,
+  hasCustomerLoadError = false,
   shippingCompanies,
   onSubmit,
   isSubmitting,
@@ -81,19 +91,6 @@ export default function DeliveryFormDialog({
   const { t } = useTranslation();
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isNewCustomer, setIsNewCustomer] = useState(false);
-  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
-  const customerDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close customer dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: globalThis.MouseEvent) {
-      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node)) {
-        setCustomerDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
 
   const {
     register,
@@ -124,7 +121,7 @@ export default function DeliveryFormDialog({
   useEffect(() => {
     if (open && !editingOrder) {
       setSelectedCustomer(null);
-      setIsNewCustomer(true);
+      setIsNewCustomer(false);
       onCustomerSearchChange('');
       const defaultEstimated = new Date();
       defaultEstimated.setDate(defaultEstimated.getDate() + 3);
@@ -164,8 +161,6 @@ export default function DeliveryFormDialog({
   const selectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setIsNewCustomer(false);
-    setCustomerDropdownOpen(false);
-    onCustomerSearchChange('');
     setValue('customer_name', customer.name);
     setValue('phone', customer.phone);
     setValue('address', customer.address || '');
@@ -174,11 +169,40 @@ export default function DeliveryFormDialog({
   const selectNewCustomer = () => {
     setSelectedCustomer(null);
     setIsNewCustomer(true);
-    setCustomerDropdownOpen(false);
-    onCustomerSearchChange('');
     setValue('customer_name', '');
     setValue('phone', '');
     setValue('address', '');
+  };
+
+  // The selected customer stays in the list even after the remote search moves on,
+  // so a later query can never silently drop the selection the form was built from.
+  const customerOptions = useMemo(() => {
+    const results = customers ?? [];
+    if (selectedCustomer && !results.some((c) => c.id === selectedCustomer.id)) {
+      return [selectedCustomer, ...results];
+    }
+    return results;
+  }, [customers, selectedCustomer]);
+
+  const selectedCustomerKey = selectedCustomer
+    ? customerOptionKey(selectedCustomer.id)
+    : isNewCustomer
+      ? NEW_CUSTOMER_KEY
+      : null;
+
+  const handleCustomerSelection = (key: Key | null) => {
+    if (key === null) {
+      // Cleared: drop the selection but keep whatever the cashier has already typed.
+      setSelectedCustomer(null);
+      setIsNewCustomer(false);
+      return;
+    }
+    if (key === NEW_CUSTOMER_KEY) {
+      selectNewCustomer();
+      return;
+    }
+    const match = customerOptions.find((c) => customerOptionKey(c.id) === key);
+    if (match) selectCustomer(match);
   };
 
   return (
@@ -211,108 +235,125 @@ export default function DeliveryFormDialog({
             </ModalHeader>
             <ModalBody className="py-4 space-y-4">
               {/* Customer selector */}
-              <div className="space-y-1.5" ref={customerDropdownRef}>
-                <p className="text-xs font-medium text-foreground">
-                  {t('deliveries.selectCustomer')}
-                </p>
-                <div className="relative">
-                  <div
-                    className="flex h-10 w-full items-center rounded-lg border border-border bg-card px-3 py-2 text-sm cursor-pointer hover:border-primary/50 transition-colors"
-                    onClick={() => setCustomerDropdownOpen(!customerDropdownOpen)}
-                  >
-                    <Search className="h-4 w-4 me-2 text-muted-foreground shrink-0" />
-                    {selectedCustomer ? (
-                      <span className="truncate font-medium text-foreground">
-                        {selectedCustomer.name} — {selectedCustomer.phone}
-                      </span>
-                    ) : isNewCustomer ? (
-                      <span className="text-foreground">{t('deliveries.newCustomer')}</span>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        {t('deliveries.searchCustomer')}
-                      </span>
-                    )}
-                  </div>
-                  {customerDropdownOpen && (
-                    <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-card shadow-xl max-h-60 overflow-y-auto">
-                      <div className="p-2">
-                        <Input
-                          placeholder={t('deliveries.searchCustomer')}
-                          value={customerSearch}
-                          size="sm"
-                          variant="bordered"
-                          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                            onCustomerSearchChange(e.target.value)
-                          }
-                          autoFocus
-                        />
-                      </div>
-                      <div
-                        className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-muted/50 text-sm border-b border-border"
-                        onClick={selectNewCustomer}
-                      >
-                        <UserPlus className="h-4 w-4 text-primary shrink-0" />
-                        <span className="font-medium text-foreground">
-                          {t('deliveries.newCustomer')}
-                        </span>
-                        {isNewCustomer && !selectedCustomer && (
-                          <Check className="h-4 w-4 ms-auto text-primary" />
-                        )}
-                      </div>
-                      {customers && customers.length > 0 ? (
-                        customers.map((c) => (
-                          <div
-                            key={c.id}
-                            className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50 text-sm"
-                            onClick={() => selectCustomer(c)}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-foreground truncate">{c.name}</div>
-                              <div className="text-xs text-muted-foreground font-data">
-                                {c.phone}
-                              </div>
-                            </div>
-                            {selectedCustomer?.id === c.id && (
-                              <Check className="h-4 w-4 shrink-0 text-primary" />
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">
-                          {t('deliveries.noCustomersFound')}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label={t('deliveries.customerName')}
-                  size="sm"
-                  variant="bordered"
-                  {...register('customer_name')}
-                  isInvalid={!!errors.customer_name}
-                  errorMessage={errors.customer_name?.message}
-                />
-                <Input
-                  label={t('deliveries.phone')}
-                  size="sm"
-                  variant="bordered"
-                  {...register('phone')}
-                  isInvalid={!!errors.phone}
-                  errorMessage={errors.phone?.message}
-                />
-              </div>
-              <Textarea
-                label={t('deliveries.address')}
+              <Autocomplete
+                label={t('deliveries.selectCustomer')}
+                placeholder={t('deliveries.searchCustomer')}
                 size="sm"
                 variant="bordered"
-                minRows={2}
-                {...register('address')}
-                isInvalid={!!errors.address}
-                errorMessage={errors.address?.message}
+                startContent={<Search className="h-4 w-4 text-muted-foreground shrink-0" />}
+                inputValue={customerSearch}
+                onInputChange={onCustomerSearchChange}
+                selectedKey={selectedCustomerKey}
+                onSelectionChange={handleCustomerSelection}
+                // Results are already filtered by the server; filtering them again
+                // client-side would hide rows the query deliberately returned.
+                defaultFilter={() => true}
+                allowsEmptyCollection
+                isLoading={isLoadingCustomers}
+                isInvalid={hasCustomerLoadError}
+                errorMessage={hasCustomerLoadError ? t('common.error') : undefined}
+                description={
+                  !hasCustomerLoadError &&
+                  !isLoadingCustomers &&
+                  customerSearch.length > 0 &&
+                  customerOptions.length === 0
+                    ? t('deliveries.noCustomersFound')
+                    : undefined
+                }
+                data-testid="delivery-customer-picker"
+              >
+                {[
+                  <AutocompleteItem
+                    key={NEW_CUSTOMER_KEY}
+                    textValue={t('deliveries.newCustomer')}
+                    startContent={<UserPlus className="h-4 w-4 text-primary shrink-0" />}
+                    endContent={
+                      isNewCustomer ? <Check className="h-4 w-4 text-primary" /> : undefined
+                    }
+                  >
+                    <span className="font-medium">{t('deliveries.newCustomer')}</span>
+                  </AutocompleteItem>,
+                  ...customerOptions.map((c) => (
+                    <AutocompleteItem
+                      key={customerOptionKey(c.id)}
+                      textValue={c.name}
+                      endContent={
+                        selectedCustomer?.id === c.id ? (
+                          <Check className="h-4 w-4 text-primary" />
+                        ) : undefined
+                      }
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground truncate">{c.name}</div>
+                        <div className="text-xs text-muted-foreground font-data">{c.phone}</div>
+                      </div>
+                    </AutocompleteItem>
+                  )),
+                ]}
+              </Autocomplete>
+
+              {/*
+                HeroUI's Input keeps its own controlled value, so an imperative
+                setValue from the picker is overwritten on the next render. These
+                three fields are the ones the picker writes, so they are bound
+                through Controller rather than register.
+              */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Controller
+                  control={control}
+                  name="customer_name"
+                  render={({ field }) => (
+                    <Input
+                      label={t('deliveries.customerName')}
+                      size="sm"
+                      variant="bordered"
+                      value={field.value ?? ''}
+                      onValueChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                      isInvalid={!!errors.customer_name}
+                      errorMessage={errors.customer_name?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  control={control}
+                  name="phone"
+                  render={({ field }) => (
+                    <Input
+                      label={t('deliveries.phone')}
+                      size="sm"
+                      variant="bordered"
+                      value={field.value ?? ''}
+                      onValueChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                      isInvalid={!!errors.phone}
+                      errorMessage={errors.phone?.message}
+                    />
+                  )}
+                />
+              </div>
+              <Controller
+                control={control}
+                name="address"
+                render={({ field }) => (
+                  <Textarea
+                    label={t('deliveries.address')}
+                    size="sm"
+                    variant="bordered"
+                    minRows={2}
+                    value={field.value ?? ''}
+                    onValueChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                    isInvalid={!!errors.address}
+                    errorMessage={errors.address?.message}
+                  />
+                )}
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Textarea

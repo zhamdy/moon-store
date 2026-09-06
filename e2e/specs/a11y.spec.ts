@@ -24,6 +24,7 @@ import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import type { Result } from 'axe-core';
 import { expect, test } from '../fixtures/test';
+import { createCustomer } from '../fixtures/customer';
 import { cartPanel, checkoutDrawer, posPage } from '../support/locators';
 
 /** WCAG 2.2 AA, which is what the issue asks for, plus the non-versioned best practices. */
@@ -121,6 +122,27 @@ test.describe('accessibility @smoke', () => {
     await expect(checkoutDrawer(page).dialog).toBeVisible();
 
     await scan(page, 'checkout drawer');
+  });
+
+  test('the delivery order dialog has no high-impact violations', async ({
+    adminContext,
+    adminApi,
+  }) => {
+    // The dialog #103 rebuilt. Scanning it is the half axe can score; the
+    // keyboard-only creation below is the half it cannot.
+    const customer = await createCustomer(adminApi, 'a11y', 'delivery');
+    const page = await adminContext.newPage();
+    await page.goto('/deliveries');
+
+    await page.getByRole('button', { name: /new order/i }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const picker = dialog.getByRole('combobox', { name: /select customer/i });
+    await picker.fill(customer.name.slice(0, 12));
+    await expect(dialog.getByRole('option', { name: customer.name })).toBeVisible();
+
+    await scan(page, 'delivery order dialog');
   });
 
   test('the inventory table has no high-impact violations', async ({ adminContext }) => {
@@ -236,6 +258,80 @@ test.describe('keyboard and focus @smoke', () => {
     await page.keyboard.press('Enter');
 
     await expect(cartPanel(page).quantity(product.id)).toHaveText('1');
+  });
+
+  test('an admin can create a delivery order without a pointer', async ({
+    adminContext,
+    adminApi,
+    seedProduct,
+  }) => {
+    // #103: the customer picker used to be `<div onClick>` throughout, so this whole
+    // workflow was unreachable from a keyboard — not degraded, impossible.
+    const customer = await createCustomer(adminApi, 'a11y', 'kbddelivery');
+    const product = await seedProduct('a11ykbddel', { price: 30, stock: 9 });
+    const page = await adminContext.newPage();
+    await page.goto('/deliveries');
+
+    const trigger = page.getByRole('button', { name: /new order/i });
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const picker = dialog.getByRole('combobox', { name: /select customer/i });
+    await picker.focus();
+    expect(await picker.evaluate((el) => el === document.activeElement)).toBe(true);
+    await expect(picker).toHaveAttribute('aria-expanded', 'false');
+
+    await page.keyboard.type(customer.name.slice(0, 12));
+    await expect(picker).toHaveAttribute('aria-expanded', 'true');
+
+    const option = dialog.getByRole('option', { name: customer.name });
+    await expect(option).toBeVisible();
+    // Arrow to the option and commit it: the combobox tracks the active option through
+    // aria-activedescendant, so DOM focus never leaves the input.
+    await expect
+      .poll(
+        async () => {
+          const activeId = await picker.getAttribute('aria-activedescendant');
+          const optionId = await option.getAttribute('id');
+          if (activeId === optionId) return true;
+          await page.keyboard.press('ArrowDown');
+          return false;
+        },
+        { timeout: 10_000 }
+      )
+      .toBe(true);
+    await page.keyboard.press('Enter');
+
+    // Selecting a customer must actually populate the form the submit reads.
+    await expect(dialog.getByLabel(/customer name/i)).toHaveValue(customer.name);
+    await expect(dialog.getByLabel(/^phone$/i)).toHaveValue(customer.phone);
+    await expect(option).toHaveCount(0);
+
+    const address = dialog.getByLabel(/address/i);
+    await address.focus();
+    await page.keyboard.type('4 Jasmine Street');
+
+    const productSearch = dialog.getByLabel('Search products');
+    await productSearch.focus();
+    await page.keyboard.type(product.sku);
+
+    // A native select: closed-state arrow keys move the selection, which is the
+    // keyboard interaction model this control already had and kept.
+    const productSelect = dialog.locator('select').nth(1);
+    await expect(productSelect.locator('option', { hasText: product.name })).toHaveCount(1);
+    await productSelect.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(productSelect).not.toHaveValue('');
+
+    const submit = dialog.getByRole('button', { name: /create order/i });
+    await submit.focus();
+    await page.keyboard.press('Enter');
+
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('cell', { name: customer.name })).toBeVisible();
   });
 
   test('the favourite toggle is its own control, reachable and stateful', async ({

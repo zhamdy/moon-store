@@ -121,7 +121,11 @@ export default function Deliveries() {
     fetchNextPage: loadMoreProducts,
     isFetchingNextPage: isLoadingMoreProducts,
   } = useProductCatalog({ search: debouncedProductSearch, enabled: isAdmin && dialogOpen });
-  const { data: customers } = useApiQuery<Customer[]>(
+  const {
+    data: customers,
+    isFetching: isLoadingCustomers,
+    isError: hasCustomerLoadError,
+  } = useApiQuery<Customer[]>(
     ['customers', { search: customerSearch }],
     'customers',
     { search: customerSearch || undefined },
@@ -488,6 +492,8 @@ export default function Deliveries() {
         onLoadMoreProducts={() => void loadMoreProducts()}
         isLoadingMoreProducts={isLoadingMoreProducts}
         customers={customers}
+        isLoadingCustomers={isLoadingCustomers}
+        hasCustomerLoadError={hasCustomerLoadError}
         shippingCompanies={shippingCompanies}
         onSubmit={(payload: DeliveryPayload) =>
           saveOrder.save({ id: editingOrder?.id ?? null, ...payload })

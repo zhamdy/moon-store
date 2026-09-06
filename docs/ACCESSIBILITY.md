@@ -28,13 +28,13 @@ rules to `error` as this list empties, which #105 is the last one blocking.
 
 | Gap | Issue | Where | What it costs a user |
 | --- | --- | --- | --- |
-| Custom customer picker is pointer-only | **#103** (P2) | `features/fulfillment/components/delivery/DeliveryFormDialog.tsx` (trigger and options are `<div onClick>`) | A keyboard or screen-reader user cannot open the picker or choose a customer at all, so the delivery flow is blocked outright. The most serious item here — WCAG 2.1.1 and 4.1.2. |
 | Controls nested inside pressable cards | **#104** (P3) | `features/inventory/pages/Collections.tsx`, `features/inventory/pages/Bundles.tsx` | The edit/delete buttons sit inside a card that is itself a `<button>`. Invalid HTML; the inner controls are not separately reachable and the card's accessible name absorbs their labels. Fixed on POS in #54 — the same restructure applies. |
 | `role="status"` on a `<td>` | **#105** (P3) | `shared/components/data-table/DataTable.tsx`, `features/analytics/components/DashboardCharts.tsx` | Overrides the cell's table semantics to announce empty states. It works, but a live region should be a sibling of the table rather than a cell inside it. |
 
-Neither `/collections`, `/bundles` nor the delivery dialog is currently an axe-scanned
-surface, which is why the scan did not find these three itself — they came from
-`jsx-a11y` and from reading. Adding those surfaces is part of #103 and #104.
+The delivery dialog is now an axe-scanned surface, and `e2e/specs/a11y.spec.ts` also
+creates a delivery order keyboard-only — the half axe cannot score. Neither
+`/collections` nor `/bundles` is scanned yet, which is why the scan did not find those
+itself; they came from `jsx-a11y` and from reading. Adding them is part of #104.
 
 ## Decisions worth knowing
 
