@@ -116,20 +116,18 @@ export default tseslint.config(
       'jsx-a11y/no-autofocus': 'off',
 
       /**
-       * These three flag a pattern that is genuinely wrong and genuinely not fixed yet:
-       * `role="status"` on a `<td>` in DataTable and DashboardCharts (#105), and
-       * clickable `<div>`s in StatCard and HeatmapChart. The two sites that used to
-       * lead this list are gone: #103 rebuilt the customer picker on HeroUI's
-       * Autocomplete, and #104 moved the card actions out of the pressable card.
+       * `error`, as the comment that stood here promised once the "Known gaps" list in
+       * `docs/ACCESSIBILITY.md` emptied. #103 rebuilt the customer picker as a real
+       * combobox, #104 moved the card actions out of the pressable card, and #105 moved
+       * the empty-state live regions out of the table cells they were overriding.
        *
-       * `warn` rather than `error` because turning them off would hide the count and
-       * adding file-level disables would hide the locations, and both outlive the excuse.
-       * Every site is enumerated in `docs/ACCESSIBILITY.md` under "Known gaps" with what
-       * it costs a user. Raise these to `error` as that list empties.
+       * They were `warn` because turning them off would have hidden the count and
+       * file-level disables would have hidden the locations. There is now nothing to
+       * hide, and a warning gates nothing: `error` is what stops the next one landing.
        */
-      'jsx-a11y/click-events-have-key-events': 'warn',
-      'jsx-a11y/no-static-element-interactions': 'warn',
-      'jsx-a11y/no-interactive-element-to-noninteractive-role': 'warn',
+      'jsx-a11y/click-events-have-key-events': 'error',
+      'jsx-a11y/no-static-element-interactions': 'error',
+      'jsx-a11y/no-interactive-element-to-noninteractive-role': 'error',
 
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-empty-object-type': 'off',

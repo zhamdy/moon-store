@@ -1,4 +1,9 @@
-import React, { isValidElement, type ReactNode, type ComponentType } from 'react';
+import React, {
+  isValidElement,
+  type ReactNode,
+  type ComponentType,
+  type KeyboardEvent,
+} from 'react';
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from 'lucide-react';
 import { Skeleton } from './SkeletonLoader';
 
@@ -120,21 +125,29 @@ export function StatCard({
 
   const isClickable = Boolean(onClick);
 
+  /**
+   * All of it or none of it. A non-clickable card carried a click handler and a
+   * `tabIndex` expression anyway, which put a `region` in the tab order with a handler
+   * that did nothing — and left `jsx-a11y` unable to see that the clickable branch is
+   * fully keyboard-operable.
+   */
+  const interaction = isClickable
+    ? {
+        role: 'button',
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick?.();
+          }
+        },
+      }
+    : { role: 'region' };
+
   return (
     <div
-      role={isClickable ? 'button' : 'region'}
-      tabIndex={isClickable ? 0 : undefined}
-      onClick={onClick}
-      onKeyDown={
-        isClickable
-          ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onClick?.();
-              }
-            }
-          : undefined
-      }
+      {...interaction}
       aria-label={`${title}: ${typeof value === 'string' || typeof value === 'number' ? value : ''}`}
       className={`rounded-xl border border-border bg-card p-5 shadow-sm transition-all ${
         isClickable

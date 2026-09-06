@@ -120,7 +120,9 @@ describe('Unit 4: Enterprise DataTable Suite', () => {
       );
 
       expect(screen.getByText('Alice Smith')).toBeInTheDocument();
-      expect(screen.getByRole('status', { name: /loading results/i })).toBeInTheDocument();
+      // `status` takes no name from its content, so the region is nameless by design
+      // and its text is the announcement. One region, one source (#105).
+      expect(screen.getByRole('status')).toHaveTextContent('Loading results');
     });
 
     it('shows a retryable error without removing stale rows', () => {
@@ -152,7 +154,8 @@ describe('Unit 4: Enterprise DataTable Suite', () => {
         />
       );
 
-      expect(screen.getByText('No matching users')).toBeInTheDocument();
+      // Twice on purpose since #105: once visibly in the cell, once in the live region.
+      expect(screen.getAllByText('No matching users')).toHaveLength(2);
       expect(screen.queryByText('No users yet')).not.toBeInTheDocument();
     });
   });
@@ -176,5 +179,78 @@ describe('Unit 4: Enterprise DataTable Suite', () => {
       expect(screen.getByText('2 selected')).toBeInTheDocument();
       expect(screen.getByTestId('bulk-delete')).toBeInTheDocument();
     });
+  });
+});
+
+/**
+ * #105: the empty state used to declare `role="status" aria-live="polite"` on the `<td>`
+ * itself, which overrode the cell's table semantics — and, being mounted at the same
+ * moment as its own message, was the pattern that announces least reliably.
+ */
+describe('DataTable empty-state announcements', () => {
+  const renderTable = (props: Partial<Parameters<typeof DataTable<TestUser>>[0]> = {}) =>
+    renderWithProviders(
+      <DataTable<TestUser> mode="server" data={testData} columns={columns} {...props} />
+    );
+
+  it('leaves the empty row a real cell, with no table element carrying a status role', () => {
+    renderTable({ data: [], emptyTitle: 'No users yet' });
+
+    expect(document.querySelector('td[role]')).toBeNull();
+    expect(document.querySelector('table [role="status"]')).toBeNull();
+    // The cell is still a cell: the row it sits in still describes a table structure.
+    expect(screen.getByRole('cell')).toBeInTheDocument();
+  });
+
+  it('announces from one region that was already mounted when the rows were there', () => {
+    const { rerender } = renderTable({ totalRows: 3 });
+
+    const region = screen.getByRole('status');
+    expect(region).toHaveTextContent('3 results');
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+
+    rerender(
+      <DataTable<TestUser>
+        mode="server"
+        data={[]}
+        columns={columns}
+        totalRows={0}
+        search="zzz"
+        filteredEmptyTitle="No matching users"
+      />
+    );
+
+    // The same node, updated — not a new one mounted alongside the message.
+    expect(screen.getByRole('status')).toBe(region);
+    expect(region).toHaveTextContent('No matching users');
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+  });
+
+  it('keeps announcing when rows come back and go away again', () => {
+    const { rerender } = renderTable({ data: [], totalRows: 0, emptyTitle: 'No users yet' });
+    const region = screen.getByRole('status');
+    expect(region).toHaveTextContent('No users yet');
+
+    rerender(<DataTable<TestUser> mode="server" data={testData} columns={columns} totalRows={3} />);
+    expect(region).toHaveTextContent('3 results');
+
+    rerender(
+      <DataTable<TestUser>
+        mode="server"
+        data={[]}
+        columns={columns}
+        totalRows={0}
+        emptyTitle="No users yet"
+      />
+    );
+    expect(region).toHaveTextContent('No users yet');
+  });
+
+  it('does not claim there are no results while the request is still out', () => {
+    renderTable({ data: [], totalRows: 0, isFetching: true, emptyTitle: 'No users yet' });
+
+    const region = screen.getByRole('status');
+    expect(region).toHaveTextContent('Loading results');
+    expect(region).not.toHaveTextContent('No users yet');
   });
 });

@@ -352,6 +352,29 @@ test.describe('keyboard and focus @smoke', () => {
     await expect(page.getByRole('cell', { name: customer.name })).toBeVisible();
   });
 
+  test('filtering a table to nothing announces from a region that was already there', async ({
+    adminContext,
+  }) => {
+    // #105: the empty state used to declare `role="status"` on the `<td>` itself, which
+    // stopped the cell being a cell. axe scores the structure; this scores the behaviour.
+    const page = await adminContext.newPage();
+    await page.goto('/inventory');
+    const table = page.getByRole('table').first();
+    await expect(table).toBeVisible();
+
+    const status = page.locator('[role="status"][aria-live="polite"]').first();
+    await expect(status).toBeAttached();
+    await expect(table.locator('td[role]')).toHaveCount(0);
+
+    await page.getByRole('searchbox').first().fill('zzz-no-such-product-zzz');
+
+    // The region was mounted before the rows went away, so this is a content change in
+    // a live region rather than a region appearing with its message already in it.
+    await expect(status).not.toHaveText('');
+    await expect(table.locator('td[role]')).toHaveCount(0);
+    await expect(page.getByRole('cell').first()).toBeVisible();
+  });
+
   test('the favourite toggle is its own control, reachable and stateful', async ({
     cashierContext,
     seedProduct,

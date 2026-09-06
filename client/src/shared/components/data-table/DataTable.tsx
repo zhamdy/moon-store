@@ -145,15 +145,32 @@ export function DataTable<TData>({
   const startRow = totalRowCount === 0 ? 0 : pageIndex * pageSize + 1;
   const endRow = Math.min((pageIndex + 1) * pageSize, totalRowCount);
 
+  const showingFiltered = Boolean(activeGlobalFilter) || isFiltered;
+  const resolvedEmptyTitle =
+    (showingFiltered ? filteredEmptyTitle : emptyTitle) || t('common.noResults');
+  const resolvedEmptyDescription =
+    (showingFiltered ? filteredEmptyDescription : emptyDescription) || t('common.noResultsDesc');
+  const hasNoRows = table.getRowModel().rows.length === 0;
+
+  /**
+   * The table's single announcement source (#105).
+   *
+   * It lives outside the table and is mounted for the component's whole life, because a
+   * live region only announces content that changes *while it is already in the DOM* —
+   * one rendered alongside its own message has nothing to announce. The empty state used
+   * to declare `role="status"` on the `<td>` instead, which both stripped the cell of its
+   * table semantics and competed with this region for the same news.
+   */
+  const statusMessage = isFetching
+    ? 'Loading results'
+    : hasNoRows
+      ? resolvedEmptyTitle
+      : `${totalRowCount} results`;
+
   return (
     <div className={`space-y-4 ${className}`} aria-busy={isFetching || undefined}>
-      <div
-        className="sr-only"
-        role="status"
-        aria-live="polite"
-        aria-label={isFetching ? 'Loading results' : 'Results loaded'}
-      >
-        {isFetching ? 'Loading results' : `${totalRowCount} results`}
+      <div className="sr-only" role="status" aria-live="polite">
+        {statusMessage}
       </div>
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 flex-wrap">
@@ -269,18 +286,13 @@ export function DataTable<TData>({
             <tbody>
               {table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} role="status" aria-live="polite" className="py-8">
+                  <td colSpan={columns.length} className="py-8">
+                    {/* A plain cell: the announcement is the sr-only region above. */}
                     <EmptyState
                       icon={Search}
-                      title={
-                        (activeGlobalFilter || isFiltered ? filteredEmptyTitle : emptyTitle) ||
-                        t('common.noResults')
-                      }
-                      description={
-                        (activeGlobalFilter || isFiltered
-                          ? filteredEmptyDescription
-                          : emptyDescription) || t('common.noResultsDesc')
-                      }
+                      title={resolvedEmptyTitle}
+                      description={resolvedEmptyDescription}
+                      announce={false}
                     />
                   </td>
                 </tr>

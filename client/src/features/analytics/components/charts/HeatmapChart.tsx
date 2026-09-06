@@ -97,8 +97,16 @@ export default function HeatmapChart({ data }: HeatmapChartProps) {
                 const opacity = getOpacity(revenue);
 
                 return (
+                  /*
+                   * The tooltip is hover-only, so without a role and a name this cell's
+                   * figures existed for pointer users alone. `img` is the role for a
+                   * graphic whose meaning is its label: it makes each cell one readable
+                   * unit instead of 168 unlabelled boxes.
+                   */
                   <div
                     key={hour}
+                    role="img"
+                    aria-label={`${t(`analytics.day.${day}` as never)} ${String(hour).padStart(2, '0')}:00 — ${formatCurrency(revenue)}, ${point?.order_count ?? 0} ${t('analytics.orderCount')}`}
                     className="flex-1 aspect-square rounded-sm cursor-pointer transition-transform hover:scale-110"
                     style={{
                       backgroundColor:
