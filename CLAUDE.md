@@ -67,7 +67,7 @@ Each gate is its own job, so the checks list says what broke without anyone open
 | --- | --- |
 | `Server (lint, typecheck, test)` | ESLint clean of errors and **not above the warning ratchet**, `tsc --noEmit`, the full suite with a real PostgreSQL, plus a guard that the real-PG suites were not silently skipped. |
 | `Migrations (up, down, re-apply)` | Every `.down.sql` actually reverses its `.sql`. |
-| API documentation drift (a step on the server job) | Every route the router serves is documented and manifested, and nothing is documented that is not served. |
+| API documentation drift (a step on the server job) | Every route the router serves is documented, manifested, and describes its request shape with the schema that validates it; and nothing is documented that is not served. |
 | `Client (lint, typecheck, test)` | ESLint, `tsc --noEmit`, vitest. |
 | `E2E smoke (pull requests)` | The money paths, under a ~3 minute budget. |
 | `E2E full (main)` / `E2E settings` | The sharded suite and the serial settings project. |
@@ -78,14 +78,20 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 
 | Ratchet | Where | Today |
 | --- | --- | --- |
-| ESLint warnings | `--max-warnings` in `server/package.json` | `387`, essentially all `@typescript-eslint/no-explicit-any` |
-| Unconverted request contracts | `EXPECTED_UNCONVERTED` in `server/src/docs/requestContracts.ts` | `196` of 203 served operations |
+| ESLint warnings | `--max-warnings` in `server/package.json` | `385`, essentially all `@typescript-eslint/no-explicit-any` |
+| Operations with no request contract | `EXPECTED_UNCONVERTED` in `server/src/docs/requestContracts.ts` | `3` of 203 — the health probes |
+| Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
 
 **Never raise one. Lower it in the same commit that earns the reduction.** A ratchet left
 above the true count has silently stopped ratcheting, which is why the contract one is an
 exact count rather than a ceiling and fails in both directions. The lint number exists
 because errors were already fatal while warnings gated nothing, so nothing stopped the
-next `any` from landing; it has gone 391 → 387, and lowering it further is #47's work.
+next `any` from landing; it has gone 391 → 385, and lowering it further is #47's work.
+
+The two contract numbers answer different questions on purpose. `EXPECTED_UNCONVERTED`
+counts what is *derived* and moves only on real conversion; `EXPECTED_UNCLASSIFIED` counts
+what is *accounted for*, and writing an explanation moves only the second. One number would
+have let the API reach zero by documenting reasons instead of schemas.
 
 ### Migration verification
 

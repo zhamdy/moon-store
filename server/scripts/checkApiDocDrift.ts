@@ -1,6 +1,14 @@
 /**
- * Fails when a route the server actually serves is missing from the OpenAPI document, or
- * vice versa (#47, #56).
+ * Fails when the served API and the published document disagree (#47, #56, #102).
+ *
+ * Two independent checks, because they catch different failures:
+ *
+ * 1. **The endpoint set.** A route the router serves that is documented nowhere, or
+ *    documented and not served. This is the original gate.
+ * 2. **The request shape.** Every served operation must be described by a request
+ *    contract or be an explicit, reasoned entry in `unconvertedOperations`, and no
+ *    operation may publish a body it cannot describe. This is what #102 added, and it is
+ *    the half the header below used to say was missing.
  *
  * ## Why it walks the router rather than reading a list
  *
@@ -13,20 +21,21 @@
  * one that leaves an endpoint live, undocumented, and outside the health suite that drives
  * itself from the manifest.
  *
- * ## What it does not claim
+ * ## What it still does not claim
  *
- * That a documented request *shape* matches the Zod schema enforcing it. This compares the
- * set of `METHOD path` pairs and nothing else. Deriving the spec from the schemas is the
- * larger route recorded in CLAUDE.md; until then, a documented body can still drift from
- * the validator while this passes. Saying that plainly is better than a green check that
- * implies more than it tested.
+ * That a *response* matches what the handler returns. No response in this server is
+ * validated, so there is nothing to compare a response schema against. Saying that plainly
+ * is better than a green check that implies more than it tested.
  *
  * Usage: tsx scripts/checkApiDocDrift.ts
  */
 import type { Router } from 'express';
 import { routeTable } from '../src/router';
-import { openApiSpec } from '../src/docs/openapi';
+import { buildOpenApiSpec } from '../src/docs/buildOpenApi';
+import { requestContracts, unconvertedOperations } from '../src/docs/requestContracts';
 import { endpointDetailsManifest } from '../src/http/endpointManifest';
+
+const openApiSpec = buildOpenApiSpec();
 
 type Pair = string; // `GET /api/v1/products/:id`
 
@@ -134,12 +143,69 @@ failed =
     unmanifested
   ) || failed;
 
+/*
+ * Request-shape coverage (#102).
+ *
+ * A contract is the validator, so an operation that has one cannot document a shape the
+ * server disagrees with. What remains checkable at this level is whether every operation
+ * has one, and whether anything still publishes a body it cannot describe.
+ */
+const contracted = new Set<Pair>(
+  requestContracts.map((c) => `${c.method} ${toExpressStyle(c.path)}`)
+);
+const excused = new Set<Pair>(
+  unconvertedOperations.map(
+    (o) => `${o.key.split(' ')[0]} ${toExpressStyle(o.key.split(' ')[1] as string)}`
+  )
+);
+const undescribed = [...served].filter((p) => !contracted.has(p) && !excused.has(p)).sort();
+
+/**
+ * A body documented as `additionalProperties: true` with no properties says "send an
+ * object, any object", which is what all 86 request bodies said before this. It is not a
+ * description; it is the absence of one wearing a schema's clothes.
+ */
+const vacuous: string[] = [];
+for (const [path, methods] of Object.entries(paths)) {
+  for (const [method, operation] of Object.entries(methods as Record<string, unknown>)) {
+    if (!['get', 'post', 'put', 'delete', 'patch'].includes(method)) continue;
+    const body = (
+      operation as {
+        requestBody?: { content?: Record<string, { schema?: Record<string, unknown> }> };
+      }
+    ).requestBody;
+    for (const media of Object.values(body?.content ?? {})) {
+      const schema = media.schema ?? {};
+      if (schema.additionalProperties === true && !schema.properties) {
+        vacuous.push(`${method.toUpperCase()} ${path}`);
+      }
+    }
+  }
+}
+
+failed =
+  report(
+    'Served but with no request contract',
+    'Every operation must derive its request shape from the schema that validates it, or be an explicit entry in unconvertedOperations with a reason. See src/docs/requestContracts.ts.',
+    undescribed
+  ) || failed;
+failed =
+  report(
+    'Publishing a body it cannot describe',
+    'A requestBody of `additionalProperties: true` with no properties tells a consumer nothing. Give the operation a contract, or declare `noBody: true` if it reads none.',
+    vacuous.sort()
+  ) || failed;
+
 if (failed) {
   console.error('');
   process.exit(1);
 }
 
+console.log('');
+console.log(`✓ ${served.size} served routes: documented, manifested, and request-contracted.`);
 console.log(
-  `\n✓ ${served.size} served routes: all documented and manifested.\n` +
-    '  (Set membership only — a documented request shape can still drift from its Zod schema.)\n'
+  `  (${contracted.size} derive their request shape from the validator; ` +
+    `${excused.size} are explicitly excused.)`
 );
+console.log('  Responses are still hand-written and unchecked - nothing validates a response.');
+console.log('');

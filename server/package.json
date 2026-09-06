@@ -9,7 +9,7 @@
     "migrate": "tsx src/database/migrate.ts up",
     "migrate:down": "tsx src/database/migrate.ts down",
     "seed": "tsx src/database/seed.ts",
-    "lint": "eslint . --max-warnings 387",
+    "lint": "eslint . --max-warnings 385",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.ts\"",
     "test": "vitest run",

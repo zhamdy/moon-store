@@ -186,16 +186,30 @@ description. An unrepresentable rule silently becoming "unconstrained" is worse 
 generated document than in a hand-written one, because it now carries the authority of
 having been derived.
 
-**Coverage is a ratchet**, `EXPECTED_UNCONVERTED` in `src/docs/requestContracts.ts`,
-enforced by `tests/requestContractCoverage.test.ts` against the real router. It fails in
-both directions: raising it means a route landed with no contract, and leaving it above the
-true count means it has stopped ratcheting — the same rule as the lint ratchet in the root
-`CLAUDE.md`. Lower it in the same commit that converts a module.
+**Coverage is two ratchets**, both in `src/docs/requestContracts.ts` and both enforced by
+`tests/requestContractCoverage.test.ts` against the real router. `EXPECTED_UNCONVERTED`
+counts operations with no contract and now stands at **3** — the health probes.
+`EXPECTED_UNCLASSIFIED` counts operations accounted for by neither a contract nor a
+reasoned entry, and is **0**; it must stay there. Two numbers because writing an
+explanation must not look like progress: with one, the API could have reached zero by
+documenting reasons instead of schemas.
 
-Still outstanding: `index.ts` serves the hand-written document, not the built one. The
-cutover waits until coverage is complete so the spec never spends time half-derived, and
-`scripts/generateOpenApi.ts` — the regex scraper, which produces nothing anyone serves —
-goes at the same time.
+**`noBody: true` is an assertion, not an inference.** The builder never removes
+documentation it cannot itself produce. It once deleted the `requestBody` of any contract
+without a `body` and silently erased the product image upload — a real multipart body Zod
+never sees. So "I have no schema" and "there is nothing to send" are different claims, and
+only the second licenses a deletion. Twelve operations were documented as *requiring* a
+body they never read.
+
+`src/docs/servedSpec.ts` builds the document once at import, which is also where a wiring
+mistake surfaces: the build throws when a contract names an operation the document does not
+define, or carries a refinement it has not written down, so the process refuses to start
+rather than serve a document that quietly lost a rule.
+
+`docs/openapi-derivation-diff.md` records what the derivation changed for consumers.
+Nothing on the response side moved; the one thing a code generator notices is that 79 path
+parameters became `string` matching `^\d+$` rather than `integer`, which is what they
+always were on the wire.
 
 ### Endpoint-set drift (#47, #56)
 
@@ -214,9 +228,13 @@ nowhere and exercised by nothing, and `GET /api/v1/customers/{id}` was documente
 the router mounts only `PUT` and `DELETE` on that path — the spec promised an endpoint
 that answers 404.
 
-**What it does not claim.** It compares `METHOD path` pairs and nothing else. For an
-operation with no request contract yet, a documented body can still disagree with its
-validator while this passes.
+It now also checks the request shape: every served operation must have a contract or an
+explicit entry in `unconvertedOperations`, and no operation may publish a
+`additionalProperties: true` body — the absence of a description wearing a schema's
+clothes, which is what all 86 documented bodies were before #102.
+
+**What it does not claim.** That a *response* matches what the handler returns. Nothing in
+this server validates a response, so there is nothing to compare one against.
 
 ### The manifest stays hand-maintained
 
