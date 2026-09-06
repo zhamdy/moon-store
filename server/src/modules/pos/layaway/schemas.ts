@@ -78,6 +78,7 @@ export const layawayRequestContracts = {
   }),
 
   cancelPlan: defineRequestContract({
+    noBody: true,
     method: 'POST',
     path: '/api/v1/layaway/{id}/cancel',
     operation: 'cancelPlan',

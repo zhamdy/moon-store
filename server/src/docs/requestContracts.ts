@@ -28,6 +28,15 @@ import { collectionsContractList } from '../modules/inventory/collections/schema
 import { labelTemplatesContractList } from '../modules/inventory/labelTemplates/schemas';
 import { stockCountsContractList } from '../modules/inventory/stockCounts/schemas';
 import { couponsContractList } from '../modules/commerce/coupons/schemas';
+import { deliveryContractList } from '../modules/fulfillment/delivery/schemas';
+import { expensesContractList } from '../modules/fulfillment/expenses/schemas';
+import { purchaseOrdersContractList } from '../modules/fulfillment/purchaseOrders/schemas';
+import { shippingCompaniesContractList } from '../modules/fulfillment/shippingCompanies/schemas';
+import { aiContractList } from '../modules/intelligence/ai/schemas';
+import { analyticsContractList } from '../modules/intelligence/analytics/schemas';
+import { exportsContractList } from '../modules/intelligence/exports/schemas';
+import { notificationsContractList } from '../modules/intelligence/notifications/schemas';
+import { reportsContractList } from '../modules/intelligence/reports/schemas';
 import { customersContractList } from '../modules/commerce/customers/schemas';
 import { feedbackContractList } from '../modules/commerce/feedback/schemas';
 import { giftCardsContractList } from '../modules/commerce/giftCards/schemas';
@@ -82,6 +91,19 @@ export const requestContracts: readonly RequestContract[] = [
   ...storefrontContractList,
   ...vendorsContractList,
   ...warrantyContractList,
+
+  // Fulfillment
+  ...deliveryContractList,
+  ...expensesContractList,
+  ...purchaseOrdersContractList,
+  ...shippingCompaniesContractList,
+
+  // Intelligence
+  ...aiContractList,
+  ...analyticsContractList,
+  ...exportsContractList,
+  ...notificationsContractList,
+  ...reportsContractList,
 ];
 
 /**
@@ -120,7 +142,7 @@ export const unconvertedOperations: readonly UnconvertedOperation[] = [
  *
  * Lower it in the commit that converts a module; never raise it.
  */
-export const EXPECTED_UNCONVERTED = 56;
+export const EXPECTED_UNCONVERTED = 3;
 
 /**
  * Served operations in neither list — not a contract, and not explained.
@@ -133,4 +155,4 @@ export const EXPECTED_UNCONVERTED = 56;
  * `EXPECTED_UNCONVERTED` is how much is derived, this is how much is accounted for, and
  * writing a reason moves only the second.
  */
-export const EXPECTED_UNCLASSIFIED = 53;
+export const EXPECTED_UNCLASSIFIED = 0;

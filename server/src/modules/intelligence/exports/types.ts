@@ -1,11 +1,11 @@
+import { z } from 'zod';
+
 export interface ExportSalesFilters {
   from?: string;
   to?: string;
 }
 
-import { z } from 'zod';
-
-const exportSalesQuerySchema = z
+export const exportSalesQuerySchema = z
   .object({
     from: z.string().date().optional(),
     to: z.string().date().optional(),

@@ -68,6 +68,7 @@ export const stockCountsRequestContracts = {
   }),
 
   completeStockCount: defineRequestContract({
+    noBody: true,
     method: 'POST',
     path: '/api/v1/stock-counts/{id}/complete',
     operation: 'completeStockCount',
@@ -79,6 +80,7 @@ export const stockCountsRequestContracts = {
   }),
 
   cancelStockCount: defineRequestContract({
+    noBody: true,
     method: 'POST',
     path: '/api/v1/stock-counts/{id}/cancel',
     operation: 'cancelStockCount',

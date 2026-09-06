@@ -1,17 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
+import { purchaseOrdersRequestContracts, type PurchaseOrderStatusBody } from './schemas';
+import type { PurchaseOrderFilters } from './types';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { purchaseOrderSchema, receiveSchema } from '../../../../validators/purchaseOrderSchema';
 import { purchaseOrdersService } from './service';
-import { parsePurchaseOrderListQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = purchaseOrdersRequestContracts;
+
 export class PurchaseOrdersController {
   async getPurchaseOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parsePurchaseOrderListQuery(req.query);
+      const query = contracts.listPurchaseOrders.parseQuery<PurchaseOrderFilters>(req.query);
       const result = await purchaseOrdersService.list(query);
       res.json(
         success(result.rows, {
@@ -25,7 +30,8 @@ export class PurchaseOrdersController {
 
   async getPurchaseOrderById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const order = await purchaseOrdersService.findById(req.params.id as string);
+      const { id } = contracts.getPurchaseOrder.parseParams<{ id: string }>(req.params);
+      const order = await purchaseOrdersService.findById(id);
       if (!order) {
         throw new PublicError('NOT_FOUND', 'Purchase order not found');
       }
@@ -38,13 +44,12 @@ export class PurchaseOrdersController {
 
   async createPurchaseOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = purchaseOrderSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createPurchaseOrder.parseBody<z.infer<typeof purchaseOrderSchema>>(
+        req.body
+      );
 
       const authReq = req as AuthRequest;
-      const created = await purchaseOrdersService.create(parsed.data, authReq.user!.id);
+      const created = await purchaseOrdersService.create(parsed, authReq.user!.id);
 
       logAuditFromReq(req, 'create', 'purchase_order', created.id, {
         po_number: created.po_number,
@@ -58,13 +63,12 @@ export class PurchaseOrdersController {
 
   async updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { status } = req.body;
-      const validStatuses = ['Draft', 'Sent', 'Partially Received', 'Received', 'Cancelled'];
-      if (!validStatuses.includes(status)) {
-        throw new PublicError('VALIDATION_ERROR', 'Invalid status');
-      }
+      const { status } = contracts.updatePurchaseOrderStatus.parseBody<PurchaseOrderStatusBody>(
+        req.body
+      );
+      const { id } = contracts.updatePurchaseOrderStatus.parseParams<{ id: string }>(req.params);
 
-      const updated = await purchaseOrdersService.updateStatus(req.params.id as string, status);
+      const updated = await purchaseOrdersService.updateStatus(id, status);
       if (!updated) {
         throw new PublicError('NOT_FOUND', 'Purchase order not found');
       }
@@ -77,20 +81,16 @@ export class PurchaseOrdersController {
 
   async receiveItems(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = receiveSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.receivePurchaseOrder.parseBody<z.infer<typeof receiveSchema>>(
+        req.body
+      );
+      const { id } = contracts.receivePurchaseOrder.parseParams<{ id: string }>(req.params);
 
       const authReq = req as AuthRequest;
       // Typed at the throw site now (#47), so no message inspection here.
-      const newStatus = await purchaseOrdersService.receiveItems(
-        req.params.id as string,
-        parsed.data,
-        authReq.user!.id
-      );
+      const newStatus = await purchaseOrdersService.receiveItems(id, parsed, authReq.user!.id);
 
-      res.json(success({ id: Number(req.params.id), status: newStatus }));
+      res.json(success({ id: Number(id), status: newStatus }));
     } catch (err) {
       next(err);
     }
@@ -98,7 +98,8 @@ export class PurchaseOrdersController {
 
   async deletePurchaseOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await purchaseOrdersService.delete(req.params.id as string);
+      const { id } = contracts.deletePurchaseOrder.parseParams<{ id: string }>(req.params);
+      const result = await purchaseOrdersService.delete(id);
       if (!result.success) {
         if (result.error === 'Purchase order not found') {
           throw new PublicError('NOT_FOUND', result.error);

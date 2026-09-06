@@ -200,6 +200,9 @@ export function buildOpenApiDocument(
 
     if (requestBody) {
       operation.requestBody = requestBody;
+    } else if (contract.noBody) {
+      // Asserted by the contract, not inferred from the absence of a schema.
+      delete operation.requestBody;
     }
     // A contract with no `body` leaves whatever the document already had. Deleting it
     // was wrong and measurably so: the product image upload is a real multipart body that

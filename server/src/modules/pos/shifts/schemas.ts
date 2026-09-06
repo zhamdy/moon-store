@@ -42,6 +42,7 @@ export const shiftsRequestContracts = {
   }),
 
   startBreak: defineRequestContract({
+    noBody: true,
     method: 'POST',
     path: '/api/v1/shifts/break/start',
     operation: 'startBreak',
@@ -49,6 +50,7 @@ export const shiftsRequestContracts = {
   }),
 
   endBreak: defineRequestContract({
+    noBody: true,
     method: 'POST',
     path: '/api/v1/shifts/break/end',
     operation: 'endBreak',

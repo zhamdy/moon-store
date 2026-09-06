@@ -1,25 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { expensesRequestContracts, expenseSchema } from './schemas';
+import type { ExpenseFilters } from './types';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { expensesService } from './service';
-import { parseExpenseListQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 
-const expenseSchema = z.object({
-  category: z.enum(['rent', 'salaries', 'utilities', 'marketing', 'supplies', 'other']),
-  amount: z.number().positive('Amount must be positive'),
-  description: z.string().max(500).optional(),
-  date: z.string().optional(),
-  recurring: z.enum(['one_time', 'daily', 'weekly', 'monthly', 'yearly']).optional(),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = expensesRequestContracts;
 
 export class ExpensesController {
   async getExpenses(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseExpenseListQuery(req.query);
+      const query = contracts.listExpenses.parseQuery<ExpenseFilters>(req.query);
       const result = await expensesService.list(query);
       res.json(
         success(result.rows, {
@@ -34,17 +30,14 @@ export class ExpensesController {
 
   async createExpense(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = expenseSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createExpense.parseBody<z.infer<typeof expenseSchema>>(req.body);
 
       const authReq = req as AuthRequest;
-      const expense = await expensesService.create(parsed.data, authReq.user!.id);
+      const expense = await expensesService.create(parsed, authReq.user!.id);
 
       logAuditFromReq(req, 'create', 'expense', expense.id as number, {
-        amount: parsed.data.amount,
-        category: parsed.data.category,
+        amount: parsed.amount,
+        category: parsed.category,
       });
 
       res.status(201).json(success(expense));
@@ -55,13 +48,10 @@ export class ExpensesController {
 
   async updateExpense(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = expenseSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.updateExpense.parseBody<z.infer<typeof expenseSchema>>(req.body);
 
-      const { id } = req.params;
-      const updated = await expensesService.update(id as string, parsed.data);
+      const { id } = contracts.updateExpense.parseParams<{ id: string }>(req.params);
+      const updated = await expensesService.update(id as string, parsed);
       if (!updated) {
         throw new PublicError('NOT_FOUND', 'Expense not found');
       }
@@ -74,7 +64,7 @@ export class ExpensesController {
 
   async deleteExpense(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
+      const { id } = contracts.deleteExpense.parseParams<{ id: string }>(req.params);
       const deleted = await expensesService.delete(id as string);
       if (!deleted) {
         throw new PublicError('NOT_FOUND', 'Expense not found');

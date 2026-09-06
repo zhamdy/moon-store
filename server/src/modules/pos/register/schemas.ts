@@ -87,6 +87,7 @@ export const registerRequestContracts = {
   }),
 
   forceCloseSession: defineRequestContract({
+    noBody: true,
     method: 'POST',
     path: '/api/v1/register/{id}/force-close',
     operation: 'forceCloseSession',

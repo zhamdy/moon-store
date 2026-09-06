@@ -44,6 +44,16 @@ export interface RequestContractDefinition {
   /** Defaults to `application/json`. Set it for uploads and other non-JSON bodies. */
   readonly contentType?: string;
   /**
+   * This operation reads no request body at all.
+   *
+   * Deletion of documentation is opt-in, never inferred. The builder used to drop the
+   * `requestBody` from any contract without a `body`, which silently erased the product
+   * image upload — a real multipart body that Zod never sees. So "I have no schema" and
+   * "there is nothing to send" are different statements, and only this one licenses a
+   * removal. Twelve operations were documented as requiring a body they never read.
+   */
+  readonly noBody?: boolean;
+  /**
    * Constraints the schema enforces that OpenAPI cannot express — cross-field
    * refinements, mostly. Rendered into the operation description rather than dropped,
    * because an unrepresentable rule silently becoming "unconstrained" is the failure

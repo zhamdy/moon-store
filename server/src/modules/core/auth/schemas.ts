@@ -49,6 +49,7 @@ export const authRequestContracts = {
   }),
 
   refresh: defineRequestContract({
+    noBody: true,
     method: 'POST',
     path: '/api/v1/auth/refresh',
     operation: 'refresh',
@@ -63,6 +64,7 @@ export const authRequestContracts = {
   }),
 
   logout: defineRequestContract({
+    noBody: true,
     method: 'POST',
     path: '/api/v1/auth/logout',
     operation: 'logout',
@@ -75,6 +77,7 @@ export const authRequestContracts = {
   }),
 
   logoutAll: defineRequestContract({
+    noBody: true,
     method: 'POST',
     path: '/api/v1/auth/logout-all',
     operation: 'logoutAll',
