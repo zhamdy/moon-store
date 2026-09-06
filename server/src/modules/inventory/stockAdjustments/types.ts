@@ -1,3 +1,5 @@
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface StockAdjustmentRecord {
   id: number;
   product_id: number;
@@ -19,9 +21,7 @@ export interface StockAdjustmentFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { createListQuerySchema } from '../../../http/pagination';
-
-const stockAdjustmentListQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const stockAdjustmentListQuerySchema = createListQuerySchema(['createdAt'] as const)
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 

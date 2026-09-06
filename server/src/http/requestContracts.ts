@@ -98,6 +98,21 @@ export function defineRequestContract(definition: RequestContractDefinition): Re
 }
 
 /**
+ * The `{id}` in a path, as it actually arrives: a string, which the controller then
+ * `Number()`s or hands to a repository.
+ *
+ * Shared because roughly seventy operations take exactly this and a copy per module is a
+ * copy that drifts. `.strict()` matters here for a different reason than on a body: Express
+ * puts only the route's own parameters in `req.params`, so an unexpected key means the
+ * contract's path and the router's path have diverged.
+ */
+export function pathIdParams(name = 'id'): z.ZodTypeAny {
+  return z
+    .object({ [name]: z.string().regex(/^\d+$/, `${name} must be a positive integer`) })
+    .strict();
+}
+
+/**
  * How an operation's request input is accounted for.
  *
  * Every served route must land in one of these before the coverage gate can claim the

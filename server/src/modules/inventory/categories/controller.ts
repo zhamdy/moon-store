@@ -1,10 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
-import { categorySchema } from '../../../../validators/categorySchema';
+import { categoriesRequestContracts } from './schemas';
+import type { Category } from '../../../../validators/categorySchema';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { categoriesService } from './service';
 import { success } from '../../../http/responses';
 import { PublicError } from '../../../http/errors';
 import { isUniqueViolation } from '../../../database/constraintErrors';
+
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = categoriesRequestContracts;
 
 export class CategoriesController {
   async getCategories(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -18,12 +22,7 @@ export class CategoriesController {
 
   async createCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = categorySchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
-
-      const { name, code } = parsed.data;
+      const { name, code } = contracts.createCategory.parseBody<Category>(req.body);
       const category = await categoriesService.create({ name, code });
 
       logAuditFromReq(req, 'create', 'category', category.id, { name, code });
@@ -39,13 +38,9 @@ export class CategoriesController {
 
   async updateCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = categorySchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
-
-      const { name, code } = parsed.data;
-      const category = await categoriesService.update(req.params.id as string, { name, code });
+      const { name, code } = contracts.updateCategory.parseBody<Category>(req.body);
+      const { id } = contracts.updateCategory.parseParams<{ id: string }>(req.params);
+      const category = await categoriesService.update(id, { name, code });
 
       if (!category) {
         throw new PublicError('NOT_FOUND', 'Category not found');
@@ -63,13 +58,14 @@ export class CategoriesController {
 
   async deleteCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await categoriesService.delete(req.params.id as string);
+      const { id } = contracts.deleteCategory.parseParams<{ id: string }>(req.params);
+      const result = await categoriesService.delete(id);
       if (!result.success) {
         const code = result.error === 'Category not found' ? 'NOT_FOUND' : 'CONFLICT';
         throw new PublicError(code, result.error);
       }
 
-      logAuditFromReq(req, 'delete', 'category', req.params.id as string);
+      logAuditFromReq(req, 'delete', 'category', id);
       res.status(204).send();
     } catch (err) {
       next(err);
