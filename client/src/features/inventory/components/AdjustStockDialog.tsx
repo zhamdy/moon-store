@@ -138,7 +138,7 @@ export default function AdjustStockDialog({
               <Button
                 variant="flat"
                 size="sm"
-                onClick={() => {
+                onPress={() => {
                   onOpenChange(false);
                   resetForm();
                 }}
@@ -148,7 +148,7 @@ export default function AdjustStockDialog({
               <Button
                 color="primary"
                 size="sm"
-                onClick={handleSubmit}
+                onPress={handleSubmit}
                 disabled={delta === 0 || newStock < 0}
                 isLoading={adjuster.isRunning}
               >

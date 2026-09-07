@@ -159,7 +159,7 @@ export default function RegisterPage() {
             <Button
               variant="bordered"
               size="sm"
-              onClick={() => setHistoryDialogOpen(true)}
+              onPress={() => setHistoryDialogOpen(true)}
               startContent={<Clock className="h-4 w-4" />}
             >
               {t('register.history')}
@@ -168,7 +168,7 @@ export default function RegisterPage() {
               <Button
                 color="primary"
                 size="sm"
-                onClick={() => setOpenDialogOpen(true)}
+                onPress={() => setOpenDialogOpen(true)}
                 startContent={<Vault className="h-4 w-4" />}
               >
                 {t('register.openRegister')}
@@ -177,7 +177,7 @@ export default function RegisterPage() {
               <Button
                 variant="bordered"
                 size="sm"
-                onClick={() => setCloseDialogOpen(true)}
+                onPress={() => setCloseDialogOpen(true)}
                 startContent={<X className="h-4 w-4" />}
                 className="border-destructive/40 text-destructive hover:bg-destructive/10"
               >
@@ -197,7 +197,7 @@ export default function RegisterPage() {
           <Button
             color="primary"
             size="sm"
-            onClick={() => setOpenDialogOpen(true)}
+            onPress={() => setOpenDialogOpen(true)}
             startContent={<Vault className="h-4 w-4" />}
           >
             {t('register.openRegister')}
@@ -234,7 +234,7 @@ export default function RegisterPage() {
             <Button
               variant="bordered"
               className="h-20 flex-col gap-2 rounded-xl"
-              onClick={() => {
+              onPress={() => {
                 setMovementType('cash_in');
                 setMovementDialogOpen(true);
               }}
@@ -245,7 +245,7 @@ export default function RegisterPage() {
             <Button
               variant="bordered"
               className="h-20 flex-col gap-2 rounded-xl"
-              onClick={() => {
+              onPress={() => {
                 setMovementType('cash_out');
                 setMovementDialogOpen(true);
               }}
@@ -256,7 +256,7 @@ export default function RegisterPage() {
             <Button
               variant="bordered"
               className="h-20 flex-col gap-2 rounded-xl"
-              onClick={() => setReportSessionId(currentSession.id)}
+              onPress={() => setReportSessionId(currentSession.id)}
             >
               <FileText className="h-6 w-6 text-primary" />
               <span className="text-sm font-medium">{t('register.xReport')}</span>
@@ -313,7 +313,7 @@ export default function RegisterPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setOpenDialogOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setOpenDialogOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={openRegister.isPending}>
@@ -380,7 +380,7 @@ export default function RegisterPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setCloseDialogOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setCloseDialogOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="danger" size="sm" isLoading={closeRegister.isPending}>
@@ -477,7 +477,7 @@ export default function RegisterPage() {
                                   variant="light"
                                   size="sm"
                                   className="h-7 w-7"
-                                  onClick={() => setReportSessionId(s.id)}
+                                  onPress={() => setReportSessionId(s.id)}
                                   aria-label="View report"
                                 >
                                   <FileText className="h-3.5 w-3.5" />
@@ -489,7 +489,7 @@ export default function RegisterPage() {
                                     color="danger"
                                     size="sm"
                                     className="h-7 w-7"
-                                    onClick={() => {
+                                    onPress={() => {
                                       if (window.confirm(t('register.forceCloseConfirm'))) {
                                         forceClose.run({ id: s.id });
                                       }

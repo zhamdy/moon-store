@@ -125,7 +125,7 @@ export default function DistributorsPage() {
             variant="light"
             size="sm"
             className="h-8 w-8"
-            onClick={() => openEditDialog(row.original)}
+            onPress={() => openEditDialog(row.original)}
             aria-label={t('common.edit')}
           >
             <Pencil className="h-3.5 w-3.5 text-primary" />
@@ -136,7 +136,7 @@ export default function DistributorsPage() {
             color="danger"
             size="sm"
             className="h-8 w-8"
-            onClick={() => setDeleteId(row.original.id)}
+            onPress={() => setDeleteId(row.original.id)}
             aria-label={t('common.delete')}
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -153,7 +153,7 @@ export default function DistributorsPage() {
           color="primary"
           size="sm"
           startContent={<Plus className="h-4 w-4" />}
-          onClick={openCreateDialog}
+          onPress={openCreateDialog}
         >
           {t('distributors.addDistributor')}
         </Button>
@@ -239,7 +239,7 @@ export default function DistributorsPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setDialogOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setDialogOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={saver.isSaving}>

@@ -50,7 +50,7 @@ export default function BackupPage() {
             <div className="pt-2">
               <Button
                 color="primary"
-                onClick={() => backupMutation.mutate()}
+                onPress={() => backupMutation.mutate()}
                 isLoading={backupMutation.isPending}
                 startContent={!backupMutation.isPending && <Download className="h-4 w-4" />}
                 className="w-full sm:w-auto"

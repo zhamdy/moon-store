@@ -305,6 +305,16 @@ export default function SalesHistory() {
               isIconOnly
               variant="light"
               size="sm"
+              /*
+               * Deliberately `onClick`, unlike every other Button in the app (#111).
+               *
+               * This is not an action; it stops a pointer event reaching the clickable
+               * row underneath. `onPress` would receive a react-aria PressEvent, which
+               * has no `stopPropagation` — and the dropdown's own keyboard activation
+               * does not bubble to the row, so there is nothing for a keyboard path to
+               * suppress here.
+               */
+              // eslint-disable-next-line no-restricted-syntax -- pointer-only by design
               onClick={(e) => e.stopPropagation()}
               aria-label={t('common.actions')}
             >
@@ -342,7 +352,7 @@ export default function SalesHistory() {
             variant="bordered"
             size="sm"
             startContent={<Download className="w-4 h-4" />}
-            onClick={handleExportCSV}
+            onPress={handleExportCSV}
           >
             {t('sales.exportCsv')}
           </Button>
@@ -413,7 +423,7 @@ export default function SalesHistory() {
           <Button
             variant="light"
             size="sm"
-            onClick={() => {
+            onPress={() => {
               update({
                 dateFrom: undefined,
                 dateTo: undefined,

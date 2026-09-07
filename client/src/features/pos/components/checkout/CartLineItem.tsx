@@ -70,7 +70,7 @@ export default function CartLineItem({
           variant="light"
           size="sm"
           className="h-7 w-7"
-          onClick={() => onQuantityChange(item.quantity - 1)}
+          onPress={() => onQuantityChange(item.quantity - 1)}
           aria-label="Decrease quantity"
         >
           <Minus className="h-3.5 w-3.5 text-primary" />
@@ -88,7 +88,7 @@ export default function CartLineItem({
           variant="light"
           size="sm"
           className="h-7 w-7"
-          onClick={() => onQuantityChange(item.quantity + 1)}
+          onPress={() => onQuantityChange(item.quantity + 1)}
           isDisabled={item.quantity >= item.stock}
           aria-label="Increase quantity"
         >
@@ -104,7 +104,7 @@ export default function CartLineItem({
         color="danger"
         size="sm"
         className="h-7 w-7"
-        onClick={onRemove}
+        onPress={onRemove}
         aria-label="Remove item"
       >
         <X className="h-3.5 w-3.5" />

@@ -145,7 +145,7 @@ export default function SmartPricingPage() {
             size="sm"
             variant="flat"
             color="success"
-            onClick={() => handleSuggestion.save({ id: row.original.id, status: 'applied' })}
+            onPress={() => handleSuggestion.save({ id: row.original.id, status: 'applied' })}
             title={t('smartPricing.apply')}
             aria-label={t('smartPricing.apply')}
           >
@@ -155,7 +155,7 @@ export default function SmartPricingPage() {
             isIconOnly
             size="sm"
             variant="light"
-            onClick={() => handleSuggestion.save({ id: row.original.id, status: 'dismissed' })}
+            onPress={() => handleSuggestion.save({ id: row.original.id, status: 'dismissed' })}
             title={t('smartPricing.dismiss')}
             aria-label={t('smartPricing.dismiss')}
             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
@@ -177,7 +177,7 @@ export default function SmartPricingPage() {
               variant={tab === 'suggestions' ? 'solid' : 'bordered'}
               color={tab === 'suggestions' ? 'primary' : 'default'}
               size="sm"
-              onClick={() => setTab('suggestions')}
+              onPress={() => setTab('suggestions')}
               startContent={<Zap className="h-4 w-4" />}
             >
               {t('smartPricing.suggestions')}
@@ -186,7 +186,7 @@ export default function SmartPricingPage() {
               variant={tab === 'rules' ? 'solid' : 'bordered'}
               color={tab === 'rules' ? 'primary' : 'default'}
               size="sm"
-              onClick={() => setTab('rules')}
+              onPress={() => setTab('rules')}
               startContent={<TrendingUp className="h-4 w-4" />}
             >
               {t('smartPricing.rules')}
@@ -194,7 +194,7 @@ export default function SmartPricingPage() {
             <Button
               color="primary"
               size="sm"
-              onClick={() => generate.mutate()}
+              onPress={() => generate.mutate()}
               isLoading={generate.isPending}
               startContent={
                 <RefreshCw className={`h-4 w-4 ${generate.isPending ? 'animate-spin' : ''}`} />
@@ -221,7 +221,7 @@ export default function SmartPricingPage() {
             color="primary"
             size="sm"
             startContent={<Plus className="h-4 w-4" />}
-            onClick={() => setRuleOpen(true)}
+            onPress={() => setRuleOpen(true)}
           >
             {t('smartPricing.addRule')}
           </Button>
@@ -321,7 +321,7 @@ export default function SmartPricingPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setRuleOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setRuleOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button color="primary" size="sm" type="submit" isLoading={createRule.isSaving}>

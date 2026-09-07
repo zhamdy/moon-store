@@ -117,7 +117,7 @@ export default function StartupPrompt() {
                     <Button
                       color="primary"
                       size="sm"
-                      onClick={handleClockIn}
+                      onPress={handleClockIn}
                       isLoading={clockInMutation.isPending}
                     >
                       {t('startup.clockIn')}
@@ -150,7 +150,7 @@ export default function StartupPrompt() {
                     <Button
                       color="primary"
                       size="sm"
-                      onClick={handleOpenRegister}
+                      onPress={handleOpenRegister}
                       isLoading={openRegisterMutation.isPending}
                     >
                       {t('startup.openRegister')}
@@ -161,7 +161,7 @@ export default function StartupPrompt() {
             </ModalBody>
 
             <ModalFooter className="border-t border-border/50">
-              <Button variant="light" size="sm" onClick={handleSkip}>
+              <Button variant="light" size="sm" onPress={handleSkip}>
                 {t('startup.skip')}
               </Button>
             </ModalFooter>

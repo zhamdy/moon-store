@@ -672,7 +672,7 @@ export default function Inventory() {
                 variant="bordered"
                 size="sm"
                 startContent={<Upload className="h-4 w-4" />}
-                onClick={() => fileInputRef.current?.click()}
+                onPress={() => fileInputRef.current?.click()}
               >
                 {t('inventory.importCsv')}
               </Button>
@@ -680,7 +680,7 @@ export default function Inventory() {
                 color="primary"
                 size="sm"
                 startContent={<Plus className="h-4 w-4" />}
-                onClick={openCreateDialog}
+                onPress={openCreateDialog}
               >
                 {t('inventory.addProduct')}
               </Button>
@@ -753,7 +753,7 @@ export default function Inventory() {
             variant={lowStockFilter ? 'solid' : 'bordered'}
             color={lowStockFilter ? 'warning' : 'default'}
             startContent={<AlertTriangle className="h-3.5 w-3.5" />}
-            onClick={() => toggleLowStock(!lowStockFilter)}
+            onPress={() => toggleLowStock(!lowStockFilter)}
           >
             {t('inventory.lowStockFilter')}
           </Button>
@@ -771,7 +771,7 @@ export default function Inventory() {
             size="sm"
             variant="light"
             endContent={<X className="h-3.5 w-3.5" />}
-            onClick={() => toggleLowStock(false)}
+            onPress={() => toggleLowStock(false)}
           >
             {t('inventory.viewAll')}
           </Button>
@@ -833,28 +833,28 @@ export default function Inventory() {
           getRowId={(row: Product) => String(row.id)}
           bulkActions={(_selected, clearSelection) => (
             <>
-              <Button variant="bordered" size="sm" onClick={() => setBulkCategoryOpen(true)}>
+              <Button variant="bordered" size="sm" onPress={() => setBulkCategoryOpen(true)}>
                 {t('bulk.changeCategory')}
               </Button>
-              <Button variant="bordered" size="sm" onClick={() => setBulkDistributorOpen(true)}>
+              <Button variant="bordered" size="sm" onPress={() => setBulkDistributorOpen(true)}>
                 {t('bulk.changeDistributor')}
               </Button>
               <Button
                 variant="bordered"
                 size="sm"
                 startContent={<Percent className="h-3.5 w-3.5" />}
-                onClick={() => setBulkPriceOpen(true)}
+                onPress={() => setBulkPriceOpen(true)}
               >
                 {t('bulk.adjustPrice')}
               </Button>
-              <Button variant="bordered" size="sm" onClick={() => setBulkStatusOpen(true)}>
+              <Button variant="bordered" size="sm" onPress={() => setBulkStatusOpen(true)}>
                 {t('bulk.changeStatus')}
               </Button>
               <Button
                 variant="bordered"
                 size="sm"
                 startContent={<Download className="h-3.5 w-3.5" />}
-                onClick={handleBulkExport}
+                onPress={handleBulkExport}
               >
                 {t('bulk.export')}
               </Button>
@@ -863,11 +863,11 @@ export default function Inventory() {
                 color="danger"
                 size="sm"
                 startContent={<Archive className="h-3.5 w-3.5" />}
-                onClick={() => setBulkDeleteOpen(true)}
+                onPress={() => setBulkDeleteOpen(true)}
               >
                 {t('bulk.discontinueSelected')}
               </Button>
-              <Button variant="light" size="sm" onClick={clearSelection}>
+              <Button variant="light" size="sm" onPress={clearSelection}>
                 {t('bulk.clearSelection')}
               </Button>
             </>

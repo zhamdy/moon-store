@@ -307,7 +307,7 @@ export default function ProductFormDialog({
                         variant="bordered"
                         size="sm"
                         startContent={<Upload className="h-3.5 w-3.5" />}
-                        onClick={() => imageInputRef.current?.click()}
+                        onPress={() => imageInputRef.current?.click()}
                       >
                         {t('inventory.uploadImage')}
                       </Button>
@@ -318,7 +318,7 @@ export default function ProductFormDialog({
                           color="danger"
                           size="sm"
                           startContent={<Trash2 className="h-3.5 w-3.5" />}
-                          onClick={() => onImageRemove(editingProduct.id)}
+                          onPress={() => onImageRemove(editingProduct.id)}
                         >
                           {t('inventory.removeImage')}
                         </Button>
@@ -329,7 +329,7 @@ export default function ProductFormDialog({
               )}
             </ModalBody>
             <ModalFooter className="border-t border-border/50">
-              <Button variant="flat" size="sm" onClick={() => handleOpenChange(false)}>
+              <Button variant="flat" size="sm" onPress={() => handleOpenChange(false)}>
                 {t('common.cancel')}
               </Button>
               <Button color="primary" size="sm" type="submit" isLoading={isSubmitting}>

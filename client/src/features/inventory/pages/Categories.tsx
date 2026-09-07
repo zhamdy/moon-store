@@ -96,7 +96,7 @@ export default function CategoriesPage() {
             variant="light"
             size="sm"
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={() => openEditDialog(row.original)}
+            onPress={() => openEditDialog(row.original)}
             title={t('common.edit')}
             aria-label={t('common.edit')}
           >
@@ -107,7 +107,7 @@ export default function CategoriesPage() {
             variant="light"
             size="sm"
             className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-            onClick={() => setDeleteId(row.original.id)}
+            onPress={() => setDeleteId(row.original.id)}
             title={t('common.delete')}
             aria-label={t('common.delete')}
           >
@@ -127,7 +127,7 @@ export default function CategoriesPage() {
             color="primary"
             size="sm"
             startContent={<Plus className="h-4 w-4" />}
-            onClick={openCreateDialog}
+            onPress={openCreateDialog}
           >
             {t('categories.addCategory')}
           </Button>
@@ -188,7 +188,7 @@ export default function CategoriesPage() {
                 </div>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setDialogOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setDialogOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={saver.isSaving}>

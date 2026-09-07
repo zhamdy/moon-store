@@ -105,7 +105,7 @@ export default function ShippingCompaniesDialog({
                     onValueChange={(val) => editor.set('website', val)}
                   />
                   <div className="flex gap-2 justify-end pt-2">
-                    <Button type="button" variant="flat" size="sm" onClick={editor.close}>
+                    <Button type="button" variant="flat" size="sm" onPress={editor.close}>
                       {t('common.cancel')}
                     </Button>
                     <Button color="primary" type="submit" size="sm" isLoading={saver.isSaving}>
@@ -120,7 +120,7 @@ export default function ShippingCompaniesDialog({
                     size="sm"
                     startContent={<Plus className="h-4 w-4" />}
                     className="w-full"
-                    onClick={editor.openNew}
+                    onPress={editor.openNew}
                   >
                     {t('deliveries.addCompany')}
                   </Button>
@@ -151,7 +151,7 @@ export default function ShippingCompaniesDialog({
                             variant="light"
                             size="sm"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => editor.openEdit(sc)}
+                            onPress={() => editor.openEdit(sc)}
                             aria-label={t('common.edit')}
                           >
                             <Pencil className="h-4 w-4" />
@@ -162,7 +162,7 @@ export default function ShippingCompaniesDialog({
                             color="danger"
                             size="sm"
                             className="h-8 w-8"
-                            onClick={() => remover.remove(sc.id)}
+                            onPress={() => remover.remove(sc.id)}
                             aria-label={t('common.delete')}
                           >
                             <Trash2 className="h-4 w-4" />

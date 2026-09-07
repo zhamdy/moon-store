@@ -209,7 +209,7 @@ export default function Sidebar({
         <div className="p-3 border-t border-border">
           <Button
             variant="light"
-            onClick={handleLogout}
+            onPress={handleLogout}
             className="w-full justify-start gap-3 px-3 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
             <LogOut className="h-4 w-4" />
@@ -242,7 +242,7 @@ export default function Sidebar({
               <DrawerFooter>
                 <Button
                   variant="light"
-                  onClick={() => {
+                  onPress={() => {
                     onClose();
                     handleLogout();
                   }}

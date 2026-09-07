@@ -96,7 +96,7 @@ export default function ExpensesPage() {
           color="primary"
           size="sm"
           startContent={<Plus className="h-4 w-4" />}
-          onClick={editor.openNew}
+          onPress={editor.openNew}
         >
           {t('expenses.addExpense')}
         </Button>
@@ -186,7 +186,7 @@ export default function ExpensesPage() {
                             variant="light"
                             size="sm"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => editor.openEdit(exp)}
+                            onPress={() => editor.openEdit(exp)}
                             aria-label={t('common.edit')}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -197,7 +197,7 @@ export default function ExpensesPage() {
                             color="danger"
                             size="sm"
                             className="h-8 w-8"
-                            onClick={() => remover.remove(exp.id)}
+                            onPress={() => remover.remove(exp.id)}
                             aria-label={t('common.delete')}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -408,7 +408,7 @@ export default function ExpensesPage() {
                 </div>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={editor.close}>
+                <Button variant="flat" size="sm" onPress={editor.close}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={saver.isSaving}>

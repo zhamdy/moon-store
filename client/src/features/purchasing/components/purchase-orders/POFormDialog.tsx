@@ -187,7 +187,7 @@ export default function POFormDialog({
                     variant="bordered"
                     size="sm"
                     className="h-10 w-10"
-                    onClick={handleAddLineItem}
+                    onPress={handleAddLineItem}
                     isDisabled={!addProductId}
                     aria-label={t('common.add')}
                   >
@@ -261,7 +261,7 @@ export default function POFormDialog({
                           color="danger"
                           size="sm"
                           className="col-span-1 h-7 w-7"
-                          onClick={() => setLineItems(lineItems.filter((_, j) => j !== i))}
+                          onPress={() => setLineItems(lineItems.filter((_, j) => j !== i))}
                           aria-label={t('common.remove')}
                         >
                           <X className="h-3.5 w-3.5" />
@@ -283,13 +283,13 @@ export default function POFormDialog({
               )}
             </ModalBody>
             <ModalFooter className="border-t border-border/50">
-              <Button variant="flat" size="sm" onClick={() => handleOpenChange(false)}>
+              <Button variant="flat" size="sm" onPress={() => handleOpenChange(false)}>
                 {t('common.cancel')}
               </Button>
               <Button
                 color="primary"
                 size="sm"
-                onClick={handleSubmit}
+                onPress={handleSubmit}
                 isLoading={isSubmitting}
                 isDisabled={!distributorId || lineItems.length === 0 || isSubmitting}
               >

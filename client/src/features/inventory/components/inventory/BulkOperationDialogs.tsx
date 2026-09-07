@@ -138,7 +138,7 @@ export default function BulkOperationDialogs({
                 </Select>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setBulkCategoryOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setBulkCategoryOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button
@@ -146,7 +146,7 @@ export default function BulkOperationDialogs({
                   size="sm"
                   disabled={!bulkCategory}
                   isLoading={bulkUpdatePending}
-                  onClick={() => onBulkCategoryUpdate(selectedIds, Number(bulkCategory))}
+                  onPress={() => onBulkCategoryUpdate(selectedIds, Number(bulkCategory))}
                 >
                   {t('common.update')}
                 </Button>
@@ -200,7 +200,7 @@ export default function BulkOperationDialogs({
                 </Select>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setBulkDistributorOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setBulkDistributorOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button
@@ -208,7 +208,7 @@ export default function BulkOperationDialogs({
                   size="sm"
                   disabled={!bulkDistributor}
                   isLoading={bulkUpdatePending}
-                  onClick={() =>
+                  onPress={() =>
                     onBulkDistributorUpdate(
                       selectedIds,
                       bulkDistributor === 'null' ? null : Number(bulkDistributor)
@@ -259,7 +259,7 @@ export default function BulkOperationDialogs({
                 <p className="text-xs text-muted-foreground">{t('bulk.pricePercentHint')}</p>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setBulkPriceOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setBulkPriceOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button
@@ -267,7 +267,7 @@ export default function BulkOperationDialogs({
                   size="sm"
                   disabled={!bulkPricePercent}
                   isLoading={bulkUpdatePending}
-                  onClick={() => onBulkPriceUpdate(selectedIds, Number(bulkPricePercent))}
+                  onPress={() => onBulkPriceUpdate(selectedIds, Number(bulkPricePercent))}
                 >
                   {t('common.update')}
                 </Button>
@@ -320,7 +320,7 @@ export default function BulkOperationDialogs({
                 </Select>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setBulkStatusOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setBulkStatusOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button
@@ -328,7 +328,7 @@ export default function BulkOperationDialogs({
                   size="sm"
                   disabled={!bulkStatusValue}
                   isLoading={bulkUpdatePending}
-                  onClick={() => {
+                  onPress={() => {
                     onBulkStatusUpdate(selectedIds, bulkStatusValue);
                     setBulkStatusOpen(false);
                   }}

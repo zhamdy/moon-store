@@ -50,7 +50,7 @@ export default function StockConflictNotice({
           </li>
         ))}
       </ul>
-      <Button size="sm" variant="flat" color="warning" onClick={conflict.resolve}>
+      <Button size="sm" variant="flat" color="warning" onPress={conflict.resolve}>
         {t('cart.stockConflictAdjust')}
       </Button>
     </div>

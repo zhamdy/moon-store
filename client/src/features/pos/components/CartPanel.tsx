@@ -166,7 +166,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
             variant="light"
             size="sm"
             className="h-8 w-8"
-            onClick={handleHoldCart}
+            onPress={handleHoldCart}
             isDisabled={items.length === 0}
             title={t('cart.hold')}
             aria-label={t('cart.hold')}
@@ -178,7 +178,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
             variant="light"
             size="sm"
             className="h-8 w-8 relative"
-            onClick={() => setHeldCartsOpen(true)}
+            onPress={() => setHeldCartsOpen(true)}
             title={t('cart.heldCarts')}
             aria-label={t('cart.heldCarts')}
           >
@@ -195,7 +195,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               color="danger"
               size="sm"
               className="h-8 text-xs ms-1"
-              onClick={clearCart}
+              onPress={clearCart}
             >
               {t('cart.clearAll')}
             </Button>
@@ -211,7 +211,7 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
       {needsReview && (
         <div className="mx-4 mt-3 p-3 rounded-lg border border-warning/40 bg-warning/10 flex items-start gap-2">
           <p className="text-xs text-foreground flex-1">{t('cart.needsReviewWarning')}</p>
-          <Button size="sm" variant="flat" color="warning" onClick={acknowledgeReview}>
+          <Button size="sm" variant="flat" color="warning" onPress={acknowledgeReview}>
             {t('cart.needsReviewAcknowledge')}
           </Button>
         </div>

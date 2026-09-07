@@ -28,7 +28,7 @@ export default function Layout(): React.JSX.Element {
               isIconOnly
               variant="light"
               className="lg:hidden h-9 w-9 text-muted-foreground hover:text-foreground"
-              onClick={() => setMobileOpen(true)}
+              onPress={() => setMobileOpen(true)}
               aria-label={t('nav.openNav') || 'Open navigation'}
             >
               <Menu className="h-5 w-5" />
@@ -49,7 +49,7 @@ export default function Layout(): React.JSX.Element {
             <Button
               isIconOnly
               variant="light"
-              onClick={toggleLocale}
+              onPress={toggleLocale}
               className="h-9 w-9 text-muted-foreground hover:text-foreground border border-border"
               title={locale === 'ar' ? 'English' : 'عربي'}
               aria-label={locale === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}
@@ -59,7 +59,7 @@ export default function Layout(): React.JSX.Element {
             <Button
               isIconOnly
               variant="light"
-              onClick={toggleTheme}
+              onPress={toggleTheme}
               className="h-9 w-9 text-muted-foreground hover:text-foreground border border-border"
               title={theme === 'dark' ? t('theme.light') : t('theme.dark')}
               aria-label={theme === 'dark' ? t('theme.light') : t('theme.dark')}
@@ -107,7 +107,7 @@ export default function Layout(): React.JSX.Element {
               <Button
                 size="sm"
                 variant="light"
-                onClick={retryFailed}
+                onPress={retryFailed}
                 className="h-7 min-w-0 px-3 text-warning underline"
               >
                 {t('offline.retry')}

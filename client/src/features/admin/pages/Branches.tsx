@@ -183,7 +183,7 @@ export default function BranchesPage() {
             variant={tab === 'branches' ? 'solid' : 'bordered'}
             color={tab === 'branches' ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setTab('branches')}
+            onPress={() => setTab('branches')}
             startContent={<Building2 className="h-4 w-4" />}
           >
             {t('branches.list')}
@@ -192,7 +192,7 @@ export default function BranchesPage() {
             variant={tab === 'dashboard' ? 'solid' : 'bordered'}
             color={tab === 'dashboard' ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setTab('dashboard')}
+            onPress={() => setTab('dashboard')}
             startContent={<BarChart3 className="h-4 w-4" />}
           >
             {t('branches.consolidated')}
@@ -201,7 +201,7 @@ export default function BranchesPage() {
             variant={tab === 'transfers' ? 'solid' : 'bordered'}
             color={tab === 'transfers' ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setTab('transfers')}
+            onPress={() => setTab('transfers')}
             startContent={<ArrowRightLeft className="h-4 w-4" />}
           >
             {t('locations.transfers')}
@@ -209,7 +209,7 @@ export default function BranchesPage() {
           <Button
             color="primary"
             size="sm"
-            onClick={editor.openNew}
+            onPress={editor.openNew}
             startContent={<Plus className="h-4 w-4" />}
           >
             {t('branches.addBranch')}
@@ -314,7 +314,7 @@ export default function BranchesPage() {
                         variant="light"
                         size="sm"
                         className="h-8 w-8 text-muted-foreground"
-                        onClick={() => {
+                        onPress={() => {
                           setSelectedBranch(b.id);
                           setSettingsOpen(true);
                         }}
@@ -327,7 +327,7 @@ export default function BranchesPage() {
                         variant="light"
                         size="sm"
                         className="h-8 w-8 text-muted-foreground"
-                        onClick={() => editor.openEdit(b)}
+                        onPress={() => editor.openEdit(b)}
                         aria-label={t('common.edit')}
                       >
                         <Pencil className="h-4 w-4" />
@@ -339,7 +339,7 @@ export default function BranchesPage() {
                           color="danger"
                           size="sm"
                           className="h-8 w-8"
-                          onClick={() => {
+                          onPress={() => {
                             if (confirm(t('branches.deleteConfirm'))) deleteBranch.remove(b.id);
                           }}
                           aria-label={t('common.delete')}
@@ -411,7 +411,7 @@ export default function BranchesPage() {
             </Select>
             <Button
               variant="bordered"
-              onClick={() => setTransferDialogOpen(true)}
+              onPress={() => setTransferDialogOpen(true)}
               startContent={<ArrowRightLeft className="h-4 w-4" />}
             >
               {t('locations.newTransfer')}
@@ -582,7 +582,7 @@ export default function BranchesPage() {
                     type="button"
                     variant="flat"
                     size="sm"
-                    onClick={() =>
+                    onPress={() =>
                       setTransferForm({
                         ...transferForm,
                         items: [...transferForm.items, { product_id: 0, quantity: 1 }],
@@ -602,7 +602,7 @@ export default function BranchesPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setTransferDialogOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setTransferDialogOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button
@@ -764,7 +764,7 @@ export default function BranchesPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={editor.close}>
+                <Button variant="flat" size="sm" onPress={editor.close}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={saveBranch.isSaving}>
@@ -840,7 +840,7 @@ export default function BranchesPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setSettingsOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setSettingsOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={saveSetting.isRunning}>
