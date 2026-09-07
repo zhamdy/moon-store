@@ -15,7 +15,7 @@
  */
 import { cartPanel, loginPage, posPage } from '../support/locators';
 import { AUTH_STORAGE_KEY } from '../fixtures/storage';
-import { countPosts } from '../support/network';
+import { countPosts, fulfillJson } from '../support/network';
 import { countSalesForCashier } from '../support/assertSale';
 import { WORKER_PASSWORD } from '../fixtures/seed';
 import { expect, test } from '../fixtures/test';
@@ -163,15 +163,12 @@ test.describe('terminal expiry', () => {
     const refreshes = countPosts(page, REFRESH_PATH);
 
     // Refresh always fails: the interceptor must give up rather than retry forever.
+    // The 401 has to be delivered as a 401 — fulfilled with a wildcard origin it was
+    // blocked by CORS and the app took its network branch, so the bound asserted below
+    // was being measured on a path this test does not name.
     await page.route(
       (url) => url.pathname.endsWith(REFRESH_PATH),
-      async (route) =>
-        route.fulfill({
-          status: 401,
-          contentType: 'application/json',
-          headers: { 'Access-Control-Allow-Origin': '*' },
-          body: JSON.stringify({ error: { code: 'UNAUTHORIZED', message: 'nope' } }),
-        })
+      async (route) => fulfillJson(route, 401, { error: { code: 'UNAUTHORIZED', message: 'nope' } })
     );
 
     await corruptAccessToken(page);
