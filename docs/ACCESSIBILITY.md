@@ -43,13 +43,20 @@ interface the way a person does will.
 #103 (pointer-only customer picker), #104 (controls nested inside pressable cards) and
 #105 (`role="status"` on a `<td>`) are the earlier three, all fixed.
 
-**#113 — a combobox loses its accessible name while its listbox is open.** Open. Split
-out of #111 rather than absorbed into it, because a finding folded into another change is
-a finding nobody measures. `e2e/specs/a11y.spec.ts` asserts the picker's name once while
-it is closed and drives the rest by `data-testid`; removing that indirection is the signal
-the issue is fixed. Every input in that dialog looks the same in a browser's accessibility
-tree, so this is probably HeroUI's label handling generally rather than one component —
-worth establishing rather than assuming.
+**#113 — does a combobox keep its accessible name while its listbox is open?** Open, and
+narrower than it first looked.
+
+The symptom that produced it — a locator resolving on one line and timing out on the next
+— turned out to be about *scope*, not naming. Opening the listbox makes its popover the
+top layer, and react-aria marks everything outside it `aria-hidden`, including the modal
+dialog. `getByRole('dialog')` resolves against the accessibility tree, so it stops
+matching, and every locator chained through it goes with it. **Locate from the page, not
+through the dialog, once a popover is open.** That is the practical rule; it cost four CI
+runs to see, because a vanishing ancestor reads exactly like a changing element.
+
+What is still genuinely open is only whether the field keeps its name while expanded. The
+aria snapshot suggested not, and every sibling input looked the same — but that snapshot
+was taken of a page where most of the tree was hidden, so it is not clean evidence.
 
 Record the next gap here **with an issue** rather than only in a comment or a commit
 message, and drop the rule that catches it back to `warn` only if the fix genuinely cannot

@@ -297,21 +297,23 @@ test.describe('keyboard and focus @smoke', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
 
-    /*
-     * Named while closed, driven by test id while open.
-     *
-     * The accessible name is asserted here, once, in the state a user meets the field in.
-     * Everything after this addresses it by `data-testid`, because focusing the combobox
-     * opens its listbox, and while the listbox is open the name is not resolvable in
-     * Chromium — a role+name locator that worked a line earlier stops matching, so the
-     * test would fail for a naming reason in the middle of measuring the keyboard path.
-     *
-     * That is a real finding and it has its own issue; conflating it with this test means
-     * neither gets measured. This one is about whether a delivery order can be created
-     * without a pointer.
-     */
-    const picker = dialog.getByTestId('delivery-customer-picker');
+    // Named, and scoped to the dialog while the dialog is still the top layer.
     await expect(dialog.getByRole('combobox', { name: /select customer/i })).toBeVisible();
+
+    /*
+     * From here on, locate from the page rather than through `dialog`.
+     *
+     * Opening the listbox makes its popover the top layer, and react-aria marks everything
+     * outside it `aria-hidden` — including the modal dialog. `getByRole('dialog')` is
+     * resolved against the accessibility tree, so it stops matching, and every locator
+     * chained through it stops matching with it. The combobox is still there and still
+     * named; its *ancestor* is what disappears.
+     *
+     * That cost three CI runs to see, because the symptom is a locator that resolves on
+     * one line and times out on the next, which reads like the element changing rather
+     * than the scope changing.
+     */
+    const picker = page.getByTestId('delivery-customer-picker');
 
     await picker.focus();
     expect(await picker.evaluate((el) => el === document.activeElement)).toBe(true);
@@ -319,7 +321,7 @@ test.describe('keyboard and focus @smoke', () => {
     await page.keyboard.type(customer.name.slice(0, 12));
     await expect(picker).toHaveAttribute('aria-expanded', 'true');
 
-    const option = dialog.getByRole('option', { name: customer.name });
+    const option = page.getByRole('option', { name: customer.name });
     await expect(option).toBeVisible();
     // Arrow to the option and commit it: the combobox tracks the active option through
     // aria-activedescendant, so DOM focus never leaves the input.
@@ -338,8 +340,8 @@ test.describe('keyboard and focus @smoke', () => {
     await page.keyboard.press('Enter');
 
     // Selecting a customer must actually populate the form the submit reads.
-    await expect(dialog.getByLabel(/customer name/i)).toHaveValue(customer.name);
-    await expect(dialog.getByLabel(/^phone$/i)).toHaveValue(customer.phone);
+    await expect(page.getByLabel(/customer name/i)).toHaveValue(customer.name);
+    await expect(page.getByLabel(/^phone$/i)).toHaveValue(customer.phone);
     await expect(option).toHaveCount(0);
 
     const address = dialog.getByLabel(/address/i);
