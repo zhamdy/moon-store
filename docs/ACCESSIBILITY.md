@@ -21,21 +21,35 @@ sense. That is why both exist, and why the list below exists as well.
 
 ## Known gaps
 
-None outstanding. #103 (pointer-only customer picker), #104 (controls nested inside
-pressable cards) and #105 (`role="status"` on a `<td>`) were the three, and all three are
-fixed. `jsx-a11y/click-events-have-key-events`, `no-static-element-interactions` and
-`no-interactive-element-to-noninteractive-role` were held at `warn` while this list had
-entries, so the count and the locations stayed visible; they are now `error` in
-`client/eslint.config.mjs`.
+**#111 — HeroUI buttons wired with `onClick` were pointer-only.** Fixed, and recorded here
+because the way it hid is the useful part. HeroUI's `Button` is react-aria based: it
+intercepts key events and dispatches `onPress`, suppressing the native click, so a handler
+on `onClick` fires for a mouse and never for a keyboard. 209 buttons across 59 files were
+in that state — roughly two thirds of the app's actions — while every gate was green.
 
-Record the next one here **with an issue** rather than only in a comment or a commit
-message — a gap that lives in a document nobody opens is a gap nobody picks up — and drop
-the rule that catches it back to `warn` only if the fix genuinely cannot land with it.
+Nothing here could have caught it. axe sees a `<button>` with a correct role and name.
+`jsx-a11y` sees a real button, so `click-events-have-key-events` does not apply — that rule
+exists for `<div onClick>`. The unit tests drove dialogs directly rather than opening them.
+It took the keyboard-only delivery spec added for #103, and that spec only ran after the
+change had merged, at which point it turned `main` red.
+
+The lesson is not "add a rule" — the rule exists now
+(`no-restricted-syntax` in `client/eslint.config.mjs`, with
+`heroUiButtonKeyboard.test.tsx` pinning the behaviour so the rule cannot become
+superstition after a HeroUI upgrade). It is that **a component library can take a
+keyboard away from valid markup**, and no static check will tell you. Only driving the
+interface the way a person does will.
+
+#103 (pointer-only customer picker), #104 (controls nested inside pressable cards) and
+#105 (`role="status"` on a `<td>`) are the earlier three, all fixed.
+
+Record the next gap here **with an issue** rather than only in a comment or a commit
+message, and drop the rule that catches it back to `warn` only if the fix genuinely cannot
+land with it.
 
 The delivery dialog, `/collections` and `/bundles` are all axe-scanned surfaces now, and
-`e2e/specs/a11y.spec.ts` also creates a delivery order keyboard-only — the half axe
-cannot score. None of them was scanned when this list was written, which is why the scan
-did not find #103 or #104 itself; both came from `jsx-a11y` and from reading.
+`e2e/specs/a11y.spec.ts` also creates a delivery order keyboard-only — the half axe cannot
+score, and the half that found #111.
 
 ### What is still not proven
 

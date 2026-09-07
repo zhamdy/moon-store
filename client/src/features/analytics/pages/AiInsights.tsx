@@ -91,7 +91,7 @@ export default function AiInsightsPage() {
             variant={tab === 'predictions' ? 'flat' : 'light'}
             color={tab === 'predictions' ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setTab('predictions')}
+            onPress={() => setTab('predictions')}
             startContent={<TrendingUp className="h-4 w-4" />}
           >
             {t('aiInsights.predictions')}
@@ -100,7 +100,7 @@ export default function AiInsightsPage() {
             variant={tab === 'knowledge' ? 'flat' : 'light'}
             color={tab === 'knowledge' ? 'primary' : 'default'}
             size="sm"
-            onClick={() => setTab('knowledge')}
+            onPress={() => setTab('knowledge')}
             startContent={<BookOpen className="h-4 w-4" />}
           >
             {t('aiInsights.knowledgeBase')}
@@ -113,7 +113,7 @@ export default function AiInsightsPage() {
           <Button
             color="primary"
             size="sm"
-            onClick={() => generatePredictions.mutate()}
+            onPress={() => generatePredictions.mutate()}
             isLoading={generatePredictions.isPending}
             startContent={!generatePredictions.isPending && <RefreshCw className="h-4 w-4" />}
           >
@@ -174,7 +174,7 @@ export default function AiInsightsPage() {
           <Button
             color="primary"
             size="sm"
-            onClick={() => setKbOpen(true)}
+            onPress={() => setKbOpen(true)}
             startContent={<Plus className="h-4 w-4" />}
           >
             {t('aiInsights.addEntry')}
@@ -264,7 +264,7 @@ export default function AiInsightsPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setKbOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setKbOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button color="primary" size="sm" type="submit" isLoading={addKbEntry.isPending}>

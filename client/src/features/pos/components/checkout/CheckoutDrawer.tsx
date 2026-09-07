@@ -170,7 +170,7 @@ export default function CheckoutDrawer({
                       variant="light"
                       size="sm"
                       className="h-7 w-7"
-                      onClick={coupon.remove}
+                      onPress={coupon.remove}
                       aria-label="Remove coupon"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -186,7 +186,7 @@ export default function CheckoutDrawer({
                       onValueChange={coupon.setInput}
                       className="flex-1"
                     />
-                    <Button variant="bordered" size="sm" onClick={coupon.apply}>
+                    <Button variant="bordered" size="sm" onPress={coupon.apply}>
                       {t('cart.applyCoupon')}
                     </Button>
                   </div>
@@ -216,7 +216,7 @@ export default function CheckoutDrawer({
                         discountType === 'percentage' && discount === pct ? 'primary' : 'default'
                       }
                       className="flex-1 h-7 min-w-0 text-[11px] font-data font-medium"
-                      onClick={() => {
+                      onPress={() => {
                         setDiscountType('percentage');
                         setDiscount(pct);
                       }}
@@ -309,7 +309,7 @@ export default function CheckoutDrawer({
                 color="primary"
                 size="md"
                 className="w-full shrink-0 font-semibold shadow-sm"
-                onClick={onConfirm}
+                onPress={onConfirm}
                 isDisabled={isPending || needsReview || (splitPayment && !split.isBalanced)}
                 isLoading={isPending}
               >

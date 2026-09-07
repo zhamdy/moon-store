@@ -122,7 +122,7 @@ export default function StockCountPage() {
             isIconOnly
             variant="flat"
             size="sm"
-            onClick={() => setSelectedCount(null)}
+            onPress={() => setSelectedCount(null)}
             aria-label={t('common.back')}
           >
             {isRtl ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
@@ -212,7 +212,7 @@ export default function StockCountPage() {
                           variant={item.approved ? 'solid' : 'bordered'}
                           color={item.approved ? 'primary' : 'default'}
                           className="h-8 w-8 mx-auto"
-                          onClick={() => toggleApproveMutation.mutate(item.id)}
+                          onPress={() => toggleApproveMutation.mutate(item.id)}
                           aria-label={t('common.confirm')}
                         >
                           {item.approved ? <Check className="h-4 w-4" /> : null}
@@ -236,7 +236,7 @@ export default function StockCountPage() {
               color="primary"
               size="sm"
               startContent={<Check className="h-4 w-4" />}
-              onClick={() => selectedCount && approveCountMutation.run({ id: selectedCount })}
+              onPress={() => selectedCount && approveCountMutation.run({ id: selectedCount })}
               isLoading={approveCountMutation.isRunning}
             >
               {t('stockCount.approveCount')}
@@ -246,7 +246,7 @@ export default function StockCountPage() {
               color="danger"
               size="sm"
               startContent={<X className="h-4 w-4" />}
-              onClick={() => selectedCount && cancelMutation.remove(selectedCount)}
+              onPress={() => selectedCount && cancelMutation.remove(selectedCount)}
             >
               {t('stockCount.cancel')}
             </Button>
@@ -264,7 +264,7 @@ export default function StockCountPage() {
           color="primary"
           size="sm"
           startContent={<Plus className="h-4 w-4" />}
-          onClick={() => setCreateOpen(true)}
+          onPress={() => setCreateOpen(true)}
         >
           {t('stockCount.startCount')}
         </Button>
@@ -364,13 +364,13 @@ export default function StockCountPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setCreateOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setCreateOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button
                   color="primary"
                   size="sm"
-                  onClick={() => createMutation.mutate()}
+                  onPress={() => createMutation.mutate()}
                   isLoading={createMutation.isPending}
                 >
                   {t('stockCount.startCount')}

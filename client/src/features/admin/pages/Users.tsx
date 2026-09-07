@@ -212,7 +212,7 @@ export default function UsersPage() {
               variant="light"
               size="sm"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => openEditDialog(user)}
+              onPress={() => openEditDialog(user)}
               title={t('common.edit')}
               aria-label={t('common.edit')}
             >
@@ -224,7 +224,7 @@ export default function UsersPage() {
               size="sm"
               className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
               isDisabled={isSelf}
-              onClick={() => setDeleteId(user.id)}
+              onPress={() => setDeleteId(user.id)}
               title={isSelf ? t('users.cannotDeleteSelf') : t('common.delete')}
               aria-label={isSelf ? t('users.cannotDeleteSelf') : t('common.delete')}
             >
@@ -245,7 +245,7 @@ export default function UsersPage() {
             color="primary"
             size="sm"
             startContent={<Plus className="h-4 w-4" />}
-            onClick={openCreateDialog}
+            onPress={openCreateDialog}
           >
             {t('users.addUser')}
           </Button>
@@ -367,7 +367,7 @@ export default function UsersPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setDialogOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setDialogOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button color="primary" size="sm" type="submit" isLoading={saver.isSaving}>

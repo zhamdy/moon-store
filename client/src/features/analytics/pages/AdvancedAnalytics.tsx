@@ -121,7 +121,7 @@ function DaysSelector({
           variant={value === d ? 'flat' : 'light'}
           color={value === d ? 'primary' : 'default'}
           className="h-7 min-w-8 text-xs font-data px-2"
-          onClick={() => onChange(d)}
+          onPress={() => onChange(d)}
         >
           {d}
         </Button>
@@ -575,7 +575,7 @@ export default function AdvancedAnalytics() {
             size="sm"
             variant={activeTab === tab.id ? 'flat' : 'light'}
             color={activeTab === tab.id ? 'primary' : 'default'}
-            onClick={() => setActiveTab(tab.id)}
+            onPress={() => setActiveTab(tab.id)}
             className="font-medium"
           >
             {tab.label}

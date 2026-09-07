@@ -143,7 +143,7 @@ export default function VendorsPage() {
           color="primary"
           size="sm"
           startContent={<Plus className="h-4 w-4" />}
-          onClick={editor.openNew}
+          onPress={editor.openNew}
         >
           {t('vendors.addVendor')}
         </Button>
@@ -193,7 +193,7 @@ export default function VendorsPage() {
             variant={statusFilter === s ? 'solid' : 'bordered'}
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
-            onClick={() => {
+            onPress={() => {
               update({ status: s || undefined, page: 1 });
             }}
           >
@@ -238,7 +238,7 @@ export default function VendorsPage() {
                         variant="light"
                         size="sm"
                         className="h-7 w-7"
-                        onClick={() => editor.openEdit(v)}
+                        onPress={() => editor.openEdit(v)}
                         aria-label={t('common.edit')}
                       >
                         <Pencil className="h-3.5 w-3.5 text-primary" />
@@ -249,7 +249,7 @@ export default function VendorsPage() {
                           variant="light"
                           size="sm"
                           className="h-7 w-7 text-success"
-                          onClick={() => updateStatus.run({ id: v.id, body: { status: 'active' } })}
+                          onPress={() => updateStatus.run({ id: v.id, body: { status: 'active' } })}
                           aria-label={t('common.confirm')}
                         >
                           <CheckCircle className="h-3.5 w-3.5" />
@@ -261,7 +261,7 @@ export default function VendorsPage() {
                           variant="light"
                           size="sm"
                           className="h-7 w-7 text-primary"
-                          onClick={() => {
+                          onPress={() => {
                             setSelectedVendor(v);
                             setPayoutOpen(true);
                           }}
@@ -277,7 +277,7 @@ export default function VendorsPage() {
                           color="danger"
                           size="sm"
                           className="h-7 w-7"
-                          onClick={() =>
+                          onPress={() =>
                             updateStatus.run({ id: v.id, body: { status: 'suspended' } })
                           }
                           aria-label={t('common.delete')}
@@ -408,7 +408,7 @@ export default function VendorsPage() {
                 </div>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={editor.close}>
+                <Button variant="flat" size="sm" onPress={editor.close}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={saveVendor.isSaving}>
@@ -482,7 +482,7 @@ export default function VendorsPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setPayoutOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setPayoutOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={createPayout.isRunning}>

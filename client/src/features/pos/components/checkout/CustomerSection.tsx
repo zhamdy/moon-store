@@ -46,7 +46,7 @@ export default function CustomerSection({
             variant="light"
             size="sm"
             className="h-7 w-7 shrink-0"
-            onClick={onRemoveSelected}
+            onPress={onRemoveSelected}
             aria-label="Remove selected customer"
           >
             <X className="h-3.5 w-3.5" />
@@ -77,11 +77,11 @@ export default function CustomerSection({
                 !customer.newName.trim() || !customer.newPhone.trim() || customer.isSaving
               }
               isLoading={customer.isSaving}
-              onClick={customer.createAndSelect}
+              onPress={customer.createAndSelect}
             >
               {t('cart.saveCustomer')}
             </Button>
-            <Button variant="flat" size="sm" className="text-xs" onClick={customer.cancelCreating}>
+            <Button variant="flat" size="sm" className="text-xs" onPress={customer.cancelCreating}>
               {t('common.cancel')}
             </Button>
           </div>
@@ -127,7 +127,7 @@ export default function CustomerSection({
             size="sm"
             className="w-full text-xs"
             startContent={<Plus className="h-3 w-3" />}
-            onClick={customer.startCreating}
+            onPress={customer.startCreating}
           >
             {t('cart.addNewCustomer')}
           </Button>

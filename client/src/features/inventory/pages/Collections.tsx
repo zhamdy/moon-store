@@ -130,7 +130,7 @@ export default function CollectionsPage() {
             isIconOnly
             variant="flat"
             size="sm"
-            onClick={() => setSelectedCol(null)}
+            onPress={() => setSelectedCol(null)}
             aria-label={t('common.back')}
           >
             <ArrowRight className="h-4 w-4 rotate-180 rtl:rotate-0" />
@@ -141,7 +141,7 @@ export default function CollectionsPage() {
                 color="primary"
                 size="sm"
                 startContent={<Plus className="h-4 w-4" />}
-                onClick={() => setAddProductOpen(true)}
+                onPress={() => setAddProductOpen(true)}
               >
                 {t('collections.addProduct')}
               </Button>
@@ -186,7 +186,7 @@ export default function CollectionsPage() {
                       size="sm"
                       className="h-6 w-6 text-muted-foreground hover:text-danger"
                       isDisabled={productEditsBlocked}
-                      onClick={() =>
+                      onPress={() =>
                         removeProduct.save(
                           withProducts(
                             detail,
@@ -299,7 +299,7 @@ export default function CollectionsPage() {
             color="primary"
             size="sm"
             startContent={<Plus className="h-4 w-4" />}
-            onClick={editor.openNew}
+            onPress={editor.openNew}
           >
             {t('collections.create')}
           </Button>
@@ -380,7 +380,7 @@ export default function CollectionsPage() {
                   variant="light"
                   size="sm"
                   className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => editor.openEdit(col)}
+                  onPress={() => editor.openEdit(col)}
                   aria-label={`${col.name}: ${t('common.edit')}`}
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -391,7 +391,7 @@ export default function CollectionsPage() {
                   color="danger"
                   size="sm"
                   className="h-8 w-8"
-                  onClick={() => remover.remove(col.id)}
+                  onPress={() => remover.remove(col.id)}
                   aria-label={`${col.name}: ${t('common.delete')}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -500,7 +500,7 @@ export default function CollectionsPage() {
                 </div>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={editor.close}>
+                <Button variant="flat" size="sm" onPress={editor.close}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={saver.isSaving}>

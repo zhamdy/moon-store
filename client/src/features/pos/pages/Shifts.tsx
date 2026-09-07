@@ -100,7 +100,7 @@ export default function ShiftsPage() {
                 <Button
                   color="primary"
                   size="sm"
-                  onClick={() => clockIn.mutate()}
+                  onPress={() => clockIn.mutate()}
                   isLoading={clockIn.isPending}
                   startContent={<LogIn className="h-4 w-4" />}
                 >
@@ -112,7 +112,7 @@ export default function ShiftsPage() {
                     <Button
                       variant="bordered"
                       size="sm"
-                      onClick={() => startBreak.mutate()}
+                      onPress={() => startBreak.mutate()}
                       isLoading={startBreak.isPending}
                       startContent={<Coffee className="h-4 w-4" />}
                     >
@@ -122,7 +122,7 @@ export default function ShiftsPage() {
                     <Button
                       variant="bordered"
                       size="sm"
-                      onClick={() => endBreak.mutate()}
+                      onPress={() => endBreak.mutate()}
                       isLoading={endBreak.isPending}
                       startContent={<Play className="h-4 w-4" />}
                     >
@@ -132,7 +132,7 @@ export default function ShiftsPage() {
                   <Button
                     color="danger"
                     size="sm"
-                    onClick={() => clockOut.mutate()}
+                    onPress={() => clockOut.mutate()}
                     isLoading={clockOut.isPending}
                     startContent={<LogOut className="h-4 w-4" />}
                   >

@@ -384,7 +384,7 @@ export default function DeliveryFormDialog({
                     color="primary"
                     size="sm"
                     className="h-auto p-0 text-xs"
-                    onClick={onOpenCompaniesDialog}
+                    onPress={onOpenCompaniesDialog}
                   >
                     {t('deliveries.manageCompanies')}
                   </Button>
@@ -429,7 +429,7 @@ export default function DeliveryFormDialog({
                     variant="bordered"
                     size="sm"
                     startContent={<Plus className="h-3.5 w-3.5" />}
-                    onClick={() => append({ product_id: 0, quantity: 1 })}
+                    onPress={() => append({ product_id: 0, quantity: 1 })}
                   >
                     {t('deliveries.addItem')}
                   </Button>
@@ -479,7 +479,7 @@ export default function DeliveryFormDialog({
                           variant="light"
                           color="danger"
                           size="sm"
-                          onClick={() => remove(index)}
+                          onPress={() => remove(index)}
                           aria-label={t('common.remove')}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -504,7 +504,7 @@ export default function DeliveryFormDialog({
               </div>
             </ModalBody>
             <ModalFooter className="border-t border-border/50">
-              <Button variant="flat" size="sm" onClick={() => onOpenChange(false)}>
+              <Button variant="flat" size="sm" onPress={() => onOpenChange(false)}>
                 {t('common.cancel')}
               </Button>
               <Button color="primary" size="sm" type="submit" isLoading={isSubmitting}>

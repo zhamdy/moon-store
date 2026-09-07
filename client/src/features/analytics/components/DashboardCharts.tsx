@@ -80,7 +80,7 @@ export default function DashboardCharts({
               variant="light"
               size="sm"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => onExportCsv('revenue')}
+              onPress={() => onExportCsv('revenue')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
@@ -110,7 +110,7 @@ export default function DashboardCharts({
               variant="light"
               size="sm"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => onExportCsv('top-products')}
+              onPress={() => onExportCsv('top-products')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
@@ -142,7 +142,7 @@ export default function DashboardCharts({
               variant="light"
               size="sm"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => onExportCsv('payment-methods')}
+              onPress={() => onExportCsv('payment-methods')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
@@ -174,7 +174,7 @@ export default function DashboardCharts({
               variant="light"
               size="sm"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => onExportCsv('orders-per-day')}
+              onPress={() => onExportCsv('orders-per-day')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
@@ -209,7 +209,7 @@ export default function DashboardCharts({
               variant="light"
               size="sm"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => onExportCsv('cashier-performance')}
+              onPress={() => onExportCsv('cashier-performance')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
@@ -241,7 +241,7 @@ export default function DashboardCharts({
               variant="light"
               size="sm"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => onExportCsv('cashier-performance')}
+              onPress={() => onExportCsv('cashier-performance')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
@@ -324,7 +324,7 @@ export default function DashboardCharts({
               variant="light"
               size="sm"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => onExportCsv('sales-by-category')}
+              onPress={() => onExportCsv('sales-by-category')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >
@@ -356,7 +356,7 @@ export default function DashboardCharts({
               variant="light"
               size="sm"
               className="h-8 w-8 text-muted-foreground"
-              onClick={() => onExportCsv('sales-by-distributor')}
+              onPress={() => onExportCsv('sales-by-distributor')}
               title={t('export.csv')}
               aria-label={t('export.csv')}
             >

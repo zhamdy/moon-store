@@ -115,7 +115,7 @@ export default function OnlineOrdersPage() {
           variant="light"
           size="sm"
           className="h-8 w-8 text-muted-foreground hover:text-foreground"
-          onClick={() => viewOrder(row.original.id)}
+          onPress={() => viewOrder(row.original.id)}
           aria-label="View order"
         >
           <Eye className="w-4 h-4" />
@@ -135,7 +135,7 @@ export default function OnlineOrdersPage() {
             variant={statusFilter === s ? 'solid' : 'bordered'}
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
-            onClick={() => {
+            onPress={() => {
               update({ status: s || undefined, page: 1 });
             }}
           >
@@ -223,7 +223,7 @@ export default function OnlineOrdersPage() {
                           size="sm"
                           color="primary"
                           startContent={<CheckCircle className="w-4 h-4" />}
-                          onClick={() =>
+                          onPress={() =>
                             updateStatus.run({
                               id: selectedOrder.id,
                               body: { status: 'confirmed' },
@@ -238,7 +238,7 @@ export default function OnlineOrdersPage() {
                           size="sm"
                           color="primary"
                           startContent={<CheckCircle className="w-4 h-4" />}
-                          onClick={() =>
+                          onPress={() =>
                             updateStatus.run({
                               id: selectedOrder.id,
                               body: { status: 'processing' },
@@ -253,7 +253,7 @@ export default function OnlineOrdersPage() {
                           size="sm"
                           color="primary"
                           startContent={<Truck className="w-4 h-4" />}
-                          onClick={() =>
+                          onPress={() =>
                             updateStatus.run({ id: selectedOrder.id, body: { status: 'shipped' } })
                           }
                         >
@@ -265,7 +265,7 @@ export default function OnlineOrdersPage() {
                           size="sm"
                           color="success"
                           startContent={<CheckCircle className="w-4 h-4" />}
-                          onClick={() =>
+                          onPress={() =>
                             updateStatus.run({
                               id: selectedOrder.id,
                               body: { status: 'delivered' },
@@ -280,7 +280,7 @@ export default function OnlineOrdersPage() {
                           size="sm"
                           variant="bordered"
                           startContent={<XCircle className="w-4 h-4" />}
-                          onClick={() =>
+                          onPress={() =>
                             updateStatus.run({
                               id: selectedOrder.id,
                               body: { status: 'cancelled' },

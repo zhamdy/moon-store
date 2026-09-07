@@ -132,7 +132,7 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button isIconOnly variant="light" size="sm" onClick={onBack} aria-label="Back">
+        <Button isIconOnly variant="light" size="sm" onPress={onBack} aria-label="Back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
@@ -150,7 +150,7 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                 {loyaltyData.points}
               </p>
             </div>
-            <Button variant="bordered" size="sm" onClick={() => setAdjustDialogOpen(true)}>
+            <Button variant="bordered" size="sm" onPress={() => setAdjustDialogOpen(true)}>
               {t('loyalty.adjustPoints')}
             </Button>
           </div>
@@ -388,7 +388,7 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                       isIconOnly
                       variant="bordered"
                       size="sm"
-                      onClick={() => setAdjustPoints((p) => p - 10)}
+                      onPress={() => setAdjustPoints((p) => p - 10)}
                       aria-label={t('customers.decreasePoints')}
                     >
                       <Minus className="h-3 w-3" />
@@ -405,7 +405,7 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                       isIconOnly
                       variant="bordered"
                       size="sm"
-                      onClick={() => setAdjustPoints((p) => p + 10)}
+                      onPress={() => setAdjustPoints((p) => p + 10)}
                       aria-label={t('customers.increasePoints')}
                     >
                       <Plus className="h-3 w-3" />
@@ -426,13 +426,13 @@ export default function CustomerDetail({ customerId, customerName, onBack }: Cus
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setAdjustDialogOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setAdjustDialogOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button
                   color="primary"
                   size="sm"
-                  onClick={() =>
+                  onPress={() =>
                     adjustMutation.run({
                       id: customerId,
                       body: { points: adjustPoints, note: adjustNote },

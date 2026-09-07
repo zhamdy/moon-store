@@ -40,12 +40,12 @@ export default function ReceiptDialog({ open, onOpenChange, data }: ReceiptDialo
               <Receipt data={data} />
             </ModalBody>
             <ModalFooter className="flex gap-2 justify-end no-print border-t border-border/50">
-              <Button variant="flat" size="sm" onClick={() => onOpenChange(false)}>
+              <Button variant="flat" size="sm" onPress={() => onOpenChange(false)}>
                 {t('common.close')}
               </Button>
               <Button
                 size="sm"
-                onClick={handlePrint}
+                onPress={handlePrint}
                 startContent={<Printer className="h-4 w-4" />}
               >
                 {t('common.print')}

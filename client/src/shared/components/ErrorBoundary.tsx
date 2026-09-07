@@ -40,7 +40,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
           <div className="flex gap-3">
             <Button
               variant="bordered"
-              onClick={() => {
+              onPress={() => {
                 this.setState({ hasError: false, error: null });
                 window.location.href = '/';
               }}
@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
               {t('error.goHome')}
             </Button>
             <Button
-              onClick={() => {
+              onPress={() => {
                 this.setState({ hasError: false, error: null });
                 window.location.reload();
               }}

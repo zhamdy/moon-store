@@ -89,7 +89,7 @@ export default function CashMovementDialog({
               />
             </ModalBody>
             <ModalFooter className="border-t border-border/50">
-              <Button variant="flat" size="sm" onClick={() => handleOpenChange(false)}>
+              <Button variant="flat" size="sm" onPress={() => handleOpenChange(false)}>
                 {t('common.cancel')}
               </Button>
               <Button type="submit" color="primary" size="sm" isLoading={isSubmitting}>

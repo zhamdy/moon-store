@@ -37,7 +37,7 @@ export default function EmptyState({
       <p className="text-sm font-semibold text-foreground mb-1">{title}</p>
       {description && <p className="text-xs text-muted-foreground mb-4 max-w-sm">{description}</p>}
       {actionLabel && onAction && (
-        <Button variant="flat" size="sm" onClick={onAction}>
+        <Button variant="flat" size="sm" onPress={onAction}>
           {actionLabel}
         </Button>
       )}

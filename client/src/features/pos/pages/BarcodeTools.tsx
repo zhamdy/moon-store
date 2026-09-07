@@ -152,14 +152,14 @@ export default function BarcodeTools() {
                           <Button
                             color="primary"
                             size="sm"
-                            onClick={() => handleAddToCart(scannedProduct)}
+                            onPress={() => handleAddToCart(scannedProduct)}
                           >
                             {t('barcode.addToCart')}
                           </Button>
                           <Button
                             size="sm"
                             variant="bordered"
-                            onClick={() => navigate({ to: '/inventory' })}
+                            onPress={() => navigate({ to: '/inventory' })}
                           >
                             {t('barcode.viewProduct')}
                           </Button>
@@ -230,7 +230,7 @@ export default function BarcodeTools() {
                       color="primary"
                       size="sm"
                       startContent={<Printer className="h-4 w-4" />}
-                      onClick={() => {
+                      onPress={() => {
                         const printWindow = window.open('', '_blank');
                         if (!printWindow) return;
                         printWindow.document.write(`
@@ -271,7 +271,7 @@ export default function BarcodeTools() {
                 color="primary"
                 size="sm"
                 startContent={<Printer className="h-4 w-4" />}
-                onClick={handleBulkPrint}
+                onPress={handleBulkPrint}
                 isDisabled={selectedForPrint.size === 0}
               >
                 {t('barcode.generatePrint', { count: selectedForPrint.size })}

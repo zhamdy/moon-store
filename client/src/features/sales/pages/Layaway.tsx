@@ -232,7 +232,7 @@ export default function LayawayPage() {
             color="primary"
             size="sm"
             startContent={<Plus className="h-4 w-4" />}
-            onClick={() => {
+            onPress={() => {
               resetCreateForm();
               setCreateOpen(true);
             }}
@@ -288,7 +288,7 @@ export default function LayawayPage() {
                         variant="light"
                         size="sm"
                         className="h-7 w-7"
-                        onClick={() => {
+                        onPress={() => {
                           setSelectedId(lo.id);
                           setDetailDialogOpen(true);
                         }}
@@ -303,7 +303,7 @@ export default function LayawayPage() {
                             variant="light"
                             size="sm"
                             className="h-7 w-7 text-success"
-                            onClick={() => {
+                            onPress={() => {
                               setSelectedId(lo.id);
                               setPaymentAmount('');
                               setPaymentDialogOpen(true);
@@ -318,7 +318,7 @@ export default function LayawayPage() {
                             color="danger"
                             size="sm"
                             className="h-7 w-7"
-                            onClick={() => {
+                            onPress={() => {
                               if (window.confirm(t('layaway.cancel') + '?'))
                                 cancelMutation.run({ id: lo.id });
                             }}
@@ -389,7 +389,7 @@ export default function LayawayPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setPaymentDialogOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setPaymentDialogOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" color="primary" size="sm" isLoading={payMutation.isRunning}>
@@ -466,7 +466,7 @@ export default function LayawayPage() {
                         className="w-full"
                         isDisabled={!newCustName.trim() || createCustomerMutation.isPending}
                         isLoading={createCustomerMutation.isPending}
-                        onClick={() =>
+                        onPress={() =>
                           createCustomerMutation.mutate({
                             name: newCustName.trim(),
                             phone: newCustPhone.trim(),
@@ -535,7 +535,7 @@ export default function LayawayPage() {
                       variant="bordered"
                       size="sm"
                       className="h-10 w-10"
-                      onClick={addProduct}
+                      onPress={addProduct}
                       isDisabled={!selectedProductId}
                       aria-label={t('common.add')}
                     >
@@ -589,7 +589,7 @@ export default function LayawayPage() {
                           color="danger"
                           size="sm"
                           className="h-7 w-7"
-                          onClick={() => setCreateItems((prev) => prev.filter((_, i) => i !== idx))}
+                          onPress={() => setCreateItems((prev) => prev.filter((_, i) => i !== idx))}
                           aria-label={t('common.remove')}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -631,13 +631,13 @@ export default function LayawayPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setCreateOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setCreateOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button
                   color="primary"
                   size="sm"
-                  onClick={handleCreate}
+                  onPress={handleCreate}
                   isLoading={createMutation.isSaving}
                   isDisabled={
                     createMutation.isSaving || !customerId || createItems.length === 0 || !dueDate

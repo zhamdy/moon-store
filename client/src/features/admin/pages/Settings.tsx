@@ -225,7 +225,7 @@ export default function Settings() {
       </Card>
 
       <div className="max-w-xl">
-        <Button color="primary" onClick={handleSave} isLoading={saveMutation.isPending}>
+        <Button color="primary" onPress={handleSave} isLoading={saveMutation.isPending}>
           {t('common.save')}
         </Button>
       </div>
