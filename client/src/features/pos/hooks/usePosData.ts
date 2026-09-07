@@ -38,6 +38,11 @@ interface UsePosDataReturn {
   products: Product[] | undefined;
   favoriteProducts: Product[];
   isLoadingProducts: boolean;
+  /** The catalogue read cannot reach the server: it rejected, or it is paused offline (#114). */
+  isCatalogueUnreachable: boolean;
+  /** Rows are a locally narrowed copy of the last catalogue that loaded (#114). */
+  isServingCachedCatalogue: boolean;
+  refetchProducts: () => void;
   hasMoreProducts: boolean;
   loadMoreProducts: () => void;
   isLoadingMoreProducts: boolean;
@@ -111,6 +116,9 @@ export function usePosData({
     products: favoriteProducts,
     searchProducts: productRows,
     isLoading: isLoadingProducts,
+    isServingCachedCatalogue,
+    isUnreachable: isCatalogueUnreachable,
+    refetch: refetchProducts,
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
@@ -136,6 +144,9 @@ export function usePosData({
     products: productRows,
     favoriteProducts,
     isLoadingProducts,
+    isCatalogueUnreachable,
+    isServingCachedCatalogue,
+    refetchProducts: () => void refetchProducts(),
     hasMoreProducts: !!hasNextPage,
     loadMoreProducts: () => void fetchNextPage(),
     isLoadingMoreProducts: isFetchingNextPage,

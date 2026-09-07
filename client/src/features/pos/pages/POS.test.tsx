@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransportProvider } from '../../../shared/lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
@@ -123,5 +123,65 @@ describe('POS customer-display broadcasting', () => {
     expect(last.cart).toHaveProperty('amountDue');
     expect(last.cart).not.toHaveProperty('total');
     expect(last.cart.amountDue).toBe(250);
+  });
+
+  /*
+   * #114. The grid had a loading branch and no error branch, so a search issued on a
+   * dead link -- a query key React Query has never seen, and so with no previous data
+   * to keep showing -- settled into a state where the skeleton was gone and nothing
+   * replaced it. Blank grid, no message, and a till that cannot ring anything up.
+   */
+  describe('when the catalogue read cannot reach the server', () => {
+    it('narrows the catalogue already in the cache instead of emptying the grid', async () => {
+      const transport = makeTransport();
+      render(<POS />, { wrapper: wrapperFor(transport) });
+
+      // The unnarrowed catalogue loads while the link is up. This is what the
+      // fallback later narrows.
+      expect(await screen.findByText('Silk Dress')).toBeInTheDocument();
+
+      // The link drops, and only then is a search typed: `['products', { search }]`
+      // is a key that has never been fetched.
+      transport.failNext('Network Error', null, undefined, undefined, 'products');
+      fireEvent.change(screen.getByPlaceholderText(/search products/i), {
+        target: { value: 'Silk' },
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('pos-cached-catalogue-banner')).toBeInTheDocument()
+      );
+      // The card is still there, and reachable -- the whole point.
+      expect(screen.getByText('Silk Dress')).toBeInTheDocument();
+      expect(screen.queryByTestId('pos-catalogue-error')).not.toBeInTheDocument();
+    });
+
+    it('drops rows the search does not match rather than showing the whole catalogue', async () => {
+      const transport = makeTransport();
+      render(<POS />, { wrapper: wrapperFor(transport) });
+      expect(await screen.findByText('Silk Dress')).toBeInTheDocument();
+
+      transport.failNext('Network Error', null, undefined, undefined, 'products');
+      fireEvent.change(screen.getByPlaceholderText(/search products/i), {
+        target: { value: 'Wool' },
+      });
+
+      await waitFor(() => expect(screen.getByTestId('pos-catalogue-error')).toBeInTheDocument());
+      expect(screen.queryByText('Silk Dress')).not.toBeInTheDocument();
+    });
+
+    it('says so, with a way to retry, when there is nothing cached to fall back to', async () => {
+      const transport = makeTransport();
+      // The very first catalogue read fails, so nothing was ever cached.
+      transport.failNext('Network Error', null, undefined, undefined, 'products');
+      render(<POS />, { wrapper: wrapperFor(transport) });
+
+      const panel = await screen.findByTestId('pos-catalogue-error');
+      expect(panel).toBeInTheDocument();
+      // Not a blank grid and not a stuck skeleton.
+      expect(screen.queryByTestId('pos-cached-catalogue-banner')).not.toBeInTheDocument();
+
+      fireEvent.click(within(panel).getByRole('button', { name: /retry/i }));
+      await waitFor(() => expect(screen.getByText('Silk Dress')).toBeInTheDocument());
+    });
   });
 });
