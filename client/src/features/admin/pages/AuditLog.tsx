@@ -321,7 +321,7 @@ export default function AuditLog() {
           <Button
             size="sm"
             variant="flat"
-            onClick={() => {
+            onPress={() => {
               setActionFilter('all');
               setEntityFilter('all');
               setUserFilter('all');

@@ -119,7 +119,7 @@ export default function CartFooter({
                   variant={discount === pct ? 'solid' : 'bordered'}
                   color={discount === pct ? 'primary' : 'default'}
                   className="flex-1 h-7 min-w-0 px-1 text-[11px] font-data font-medium"
-                  onClick={() => setDiscount(pct)}
+                  onPress={() => setDiscount(pct)}
                 >
                   {pct}%
                 </Button>
@@ -131,7 +131,7 @@ export default function CartFooter({
                   variant={discount === amt ? 'solid' : 'bordered'}
                   color={discount === amt ? 'primary' : 'default'}
                   className="flex-1 h-7 min-w-0 px-1 text-[11px] font-data font-medium"
-                  onClick={() => setDiscount(amt)}
+                  onPress={() => setDiscount(amt)}
                 >
                   ${amt}
                 </Button>
@@ -188,7 +188,7 @@ export default function CartFooter({
         color="primary"
         size="md"
         className="w-full font-semibold shadow-sm"
-        onClick={onCheckout}
+        onPress={onCheckout}
         isDisabled={checkoutDisabled}
       >
         {t('cart.checkout')}

@@ -345,7 +345,7 @@ export default function Deliveries() {
               color="primary"
               size="sm"
               startContent={<Plus className="h-4 w-4" />}
-              onClick={openCreateDialog}
+              onPress={openCreateDialog}
             >
               {t('deliveries.newOrder')}
             </Button>
@@ -432,7 +432,7 @@ export default function Deliveries() {
             variant={statusFilter === s ? 'solid' : 'bordered'}
             color={statusFilter === s ? 'primary' : 'default'}
             size="sm"
-            onClick={() => {
+            onPress={() => {
               updateListSearch({ status: s === 'All' ? undefined : s, page: 1 });
             }}
           >

@@ -150,7 +150,7 @@ export default function VariantManagerDialog({
                             variant="light"
                             size="sm"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => onOpenEditVariant(variant)}
+                            onPress={() => onOpenEditVariant(variant)}
                             aria-label={t('common.edit')}
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -161,7 +161,7 @@ export default function VariantManagerDialog({
                             color="danger"
                             size="sm"
                             className="h-8 w-8"
-                            onClick={() => setVariantDeleteId(variant.id)}
+                            onPress={() => setVariantDeleteId(variant.id)}
                             aria-label={t('common.delete')}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -265,7 +265,7 @@ export default function VariantManagerDialog({
                               color="danger"
                               size="sm"
                               className="h-8 w-8 shrink-0"
-                              onClick={() =>
+                              onPress={() =>
                                 setVariantAttrs(variantAttrs.filter((_, j) => j !== i))
                               }
                               aria-label={t('common.remove')}
@@ -279,19 +279,19 @@ export default function VariantManagerDialog({
                         variant="bordered"
                         size="sm"
                         startContent={<Plus className="h-3.5 w-3.5" />}
-                        onClick={() => setVariantAttrs([...variantAttrs, { key: '', value: '' }])}
+                        onPress={() => setVariantAttrs([...variantAttrs, { key: '', value: '' }])}
                       >
                         {t('variants.addAttribute')}
                       </Button>
                     </div>
                     <div className="flex gap-2 justify-end pt-2">
-                      <Button variant="flat" size="sm" onClick={onResetVariantForm}>
+                      <Button variant="flat" size="sm" onPress={onResetVariantForm}>
                         {t('common.cancel')}
                       </Button>
                       <Button
                         color="primary"
                         size="sm"
-                        onClick={onVariantSubmit}
+                        onPress={onVariantSubmit}
                         isLoading={createVariantPending || updateVariantPending}
                       >
                         {editingVariant ? t('common.update') : t('common.create')}
@@ -305,7 +305,7 @@ export default function VariantManagerDialog({
                     size="sm"
                     className="w-full"
                     startContent={<Plus className="h-4 w-4" />}
-                    onClick={() => setVariantFormOpen(true)}
+                    onPress={() => setVariantFormOpen(true)}
                   >
                     {t('variants.addVariant')}
                   </Button>

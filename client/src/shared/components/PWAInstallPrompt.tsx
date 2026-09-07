@@ -66,10 +66,10 @@ export default function PWAInstallPrompt() {
             </p>
             <p className="text-xs text-muted-foreground mt-1">{t('pwa.installDesc')}</p>
             <div className="flex gap-2 mt-3">
-              <Button size="sm" onClick={handleInstall}>
+              <Button size="sm" onPress={handleInstall}>
                 {t('common.install')}
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowPrompt(false)}>
+              <Button size="sm" variant="ghost" onPress={() => setShowPrompt(false)}>
                 {t('common.later')}
               </Button>
             </div>

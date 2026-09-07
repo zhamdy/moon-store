@@ -158,7 +158,7 @@ export default function BundlesPage() {
             isIconOnly
             variant="flat"
             size="sm"
-            onClick={() => setSelectedBundle(null)}
+            onPress={() => setSelectedBundle(null)}
             aria-label={t('common.back')}
           >
             <ArrowRight className="h-4 w-4 rtl:rotate-180" />
@@ -169,7 +169,7 @@ export default function BundlesPage() {
               size="sm"
               variant="bordered"
               startContent={<Pencil className="h-4 w-4" />}
-              onClick={() => openEditDialog(detail)}
+              onPress={() => openEditDialog(detail)}
             >
               {t('common.edit')}
             </Button>
@@ -178,7 +178,7 @@ export default function BundlesPage() {
               color="danger"
               variant="flat"
               startContent={<Trash2 className="h-4 w-4" />}
-              onClick={() => remover.remove(detail.id)}
+              onPress={() => remover.remove(detail.id)}
             >
               {t('common.delete')}
             </Button>
@@ -300,7 +300,7 @@ export default function BundlesPage() {
             color="primary"
             size="sm"
             startContent={<Plus className="h-4 w-4" />}
-            onClick={openCreateDialog}
+            onPress={openCreateDialog}
           >
             {t('bundles.create')}
           </Button>
@@ -372,7 +372,7 @@ export default function BundlesPage() {
                   variant="light"
                   size="sm"
                   className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => openEditDialog(bundle)}
+                  onPress={() => openEditDialog(bundle)}
                   aria-label={`${bundle.name}: ${t('common.edit')}`}
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -383,7 +383,7 @@ export default function BundlesPage() {
                   color="danger"
                   size="sm"
                   className="h-8 w-8"
-                  onClick={() => remover.remove(bundle.id)}
+                  onPress={() => remover.remove(bundle.id)}
                   aria-label={`${bundle.name}: ${t('common.delete')}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -511,7 +511,7 @@ export default function BundlesPage() {
                       variant="bordered"
                       size="sm"
                       startContent={<Plus className="h-3.5 w-3.5" />}
-                      onClick={() => {
+                      onPress={() => {
                         setAddProductOpen(true);
                         setProductSearch('');
                       }}
@@ -556,7 +556,7 @@ export default function BundlesPage() {
                             color="danger"
                             size="sm"
                             className="h-8 w-8 shrink-0"
-                            onClick={() => removeItemFromBundle(item.product_id)}
+                            onPress={() => removeItemFromBundle(item.product_id)}
                             aria-label={t('common.remove')}
                           >
                             <X className="h-4 w-4" />
@@ -568,7 +568,7 @@ export default function BundlesPage() {
                 </div>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={editor.close}>
+                <Button variant="flat" size="sm" onPress={editor.close}>
                   {t('common.cancel')}
                 </Button>
                 <Button

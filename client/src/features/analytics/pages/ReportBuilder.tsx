@@ -119,7 +119,7 @@ export default function ReportBuilderPage() {
               variant={tab === 'saved' ? 'flat' : 'light'}
               color={tab === 'saved' ? 'primary' : 'default'}
               size="sm"
-              onClick={() => setTab('saved')}
+              onPress={() => setTab('saved')}
               startContent={<FileText className="h-4 w-4" />}
             >
               {t('reportBuilder.saved')}
@@ -128,7 +128,7 @@ export default function ReportBuilderPage() {
               variant={tab === 'quick' ? 'flat' : 'light'}
               color={tab === 'quick' ? 'primary' : 'default'}
               size="sm"
-              onClick={() => setTab('quick')}
+              onPress={() => setTab('quick')}
               startContent={<Play className="h-4 w-4" />}
             >
               {t('reportBuilder.quickReport')}
@@ -136,7 +136,7 @@ export default function ReportBuilderPage() {
             <Button
               color="primary"
               size="sm"
-              onClick={() => setCreateOpen(true)}
+              onPress={() => setCreateOpen(true)}
               startContent={<Plus className="h-4 w-4" />}
             >
               {t('reportBuilder.create')}
@@ -168,7 +168,7 @@ export default function ReportBuilderPage() {
                         color="success"
                         size="sm"
                         className="h-7 w-7"
-                        onClick={() => runReport.mutate(r.id)}
+                        onPress={() => runReport.mutate(r.id)}
                         aria-label={t('reportBuilder.run')}
                       >
                         <Play className="h-3.5 w-3.5" />
@@ -179,7 +179,7 @@ export default function ReportBuilderPage() {
                         color="danger"
                         size="sm"
                         className="h-7 w-7"
-                        onClick={() => deleteReport.remove(r.id)}
+                        onPress={() => deleteReport.remove(r.id)}
                         aria-label={t('common.delete')}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -251,7 +251,7 @@ export default function ReportBuilderPage() {
             <Button
               color="primary"
               size="sm"
-              onClick={() => runQuick.mutate(quickForm)}
+              onPress={() => runQuick.mutate(quickForm)}
               isLoading={runQuick.isPending}
               startContent={!runQuick.isPending && <Play className="h-4 w-4" />}
             >
@@ -374,7 +374,7 @@ export default function ReportBuilderPage() {
                 </div>
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={() => setCreateOpen(false)}>
+                <Button variant="flat" size="sm" onPress={() => setCreateOpen(false)}>
                   {t('common.cancel')}
                 </Button>
                 <Button color="primary" size="sm" type="submit" isLoading={createReport.isSaving}>

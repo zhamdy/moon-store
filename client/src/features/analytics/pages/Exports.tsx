@@ -85,7 +85,7 @@ export default function ExportsPage() {
           </Select>
           <Button
             color="primary"
-            onClick={() => generateMutation.mutate()}
+            onPress={() => generateMutation.mutate()}
             isLoading={generateMutation.isPending}
             className="w-full"
             startContent={!generateMutation.isPending && <Download className="h-4 w-4" />}

@@ -196,7 +196,7 @@ export default function Dashboard() {
             variant="bordered"
             size="sm"
             startContent={<FileText className="h-4 w-4 text-muted-foreground" />}
-            onClick={handleExportPdf}
+            onPress={handleExportPdf}
             isLoading={exporting}
           >
             {exporting ? t('export.generating') : t('export.fullReport')}

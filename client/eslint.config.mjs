@@ -125,6 +125,31 @@ export default tseslint.config(
        * file-level disables would have hidden the locations. There is now nothing to
        * hide, and a warning gates nothing: `error` is what stops the next one landing.
        */
+      /**
+       * HeroUI's Button is react-aria based: it intercepts key events and dispatches
+       * `onPress`, suppressing the native click. A handler bound to `onClick` therefore
+       * fires for a mouse and never for a keyboard, which made 209 buttons pointer-only
+       * without a single gate noticing (#111).
+       *
+       * Nothing else can catch this. axe sees a `<button>` with a role and a name;
+       * `jsx-a11y` sees a real button, so `click-events-have-key-events` does not apply —
+       * that rule is for `<div onClick>`. It took an end-to-end test that used the
+       * keyboard the way a person does.
+       *
+       * The one legitimate exception is a handler that exists to stop a *pointer* event
+       * propagating, which has no keyboard equivalent to suppress; there is one, in
+       * SalesHistory, and it carries a comment saying so.
+       */
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'JSXOpeningElement[name.name="Button"] JSXAttribute[name.name="onClick"]',
+          message:
+            'HeroUI Button ignores onClick from the keyboard — use onPress. If this handler ' +
+            'exists only to stop pointer propagation, disable this rule on the line and say why.',
+        },
+      ],
+
       'jsx-a11y/click-events-have-key-events': 'error',
       'jsx-a11y/no-static-element-interactions': 'error',
       'jsx-a11y/no-interactive-element-to-noninteractive-role': 'error',

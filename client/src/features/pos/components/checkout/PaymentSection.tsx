@@ -129,7 +129,7 @@ export default function PaymentSection({
                   variant="light"
                   size="sm"
                   className="h-7 w-7"
-                  onClick={() => setPayments(payments.filter((_, i) => i !== idx))}
+                  onPress={() => setPayments(payments.filter((_, i) => i !== idx))}
                   aria-label="Remove payment split"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -142,7 +142,7 @@ export default function PaymentSection({
               variant="light"
               size="sm"
               startContent={<Plus className="h-3 w-3" />}
-              onClick={() => setPayments([...payments, { method: 'Cash', amount: 0 }])}
+              onPress={() => setPayments([...payments, { method: 'Cash', amount: 0 }])}
             >
               {t('cart.addPayment')}
             </Button>

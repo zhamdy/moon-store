@@ -246,7 +246,7 @@ export default function PurchaseOrders() {
               size="sm"
               className="h-8 w-8"
               title={t('po.viewDetails')}
-              onClick={() => {
+              onPress={() => {
                 setDetailId(po.id);
                 setDetailOpen(true);
                 setInitialReceiveMode(false);
@@ -262,7 +262,7 @@ export default function PurchaseOrders() {
                 size="sm"
                 className="h-8 w-8"
                 title={t('po.markSent')}
-                onClick={() => changeStatus.run({ id: po.id, body: { status: 'Sent' } })}
+                onPress={() => changeStatus.run({ id: po.id, body: { status: 'Sent' } })}
                 aria-label={t('po.markSent')}
               >
                 <Send className="h-3.5 w-3.5 text-primary" />
@@ -275,7 +275,7 @@ export default function PurchaseOrders() {
                 size="sm"
                 className="h-8 w-8"
                 title={t('po.receive')}
-                onClick={() => {
+                onPress={() => {
                   setDetailId(po.id);
                   setDetailOpen(true);
                   setInitialReceiveMode(true);
@@ -292,7 +292,7 @@ export default function PurchaseOrders() {
                 size="sm"
                 className="h-8 w-8"
                 title={t('po.cancel')}
-                onClick={() => setCancelId(po.id)}
+                onPress={() => setCancelId(po.id)}
                 aria-label={t('po.cancel')}
               >
                 <X className="h-3.5 w-3.5 text-warning" />
@@ -306,7 +306,7 @@ export default function PurchaseOrders() {
                 size="sm"
                 className="h-8 w-8"
                 title={t('po.delete')}
-                onClick={() => setDeleteId(po.id)}
+                onPress={() => setDeleteId(po.id)}
                 aria-label={t('po.delete')}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -328,7 +328,7 @@ export default function PurchaseOrders() {
               variant="bordered"
               size="sm"
               className="gap-2"
-              onClick={handleAutoGenerate}
+              onPress={handleAutoGenerate}
               startContent={<Wand2 className="h-4 w-4 text-primary" />}
             >
               {t('po.autoGenerate')}
@@ -337,7 +337,7 @@ export default function PurchaseOrders() {
               color="primary"
               size="sm"
               className="gap-2"
-              onClick={handleCreateOpen}
+              onPress={handleCreateOpen}
               startContent={<Plus className="h-4 w-4" />}
             >
               {t('po.create')}

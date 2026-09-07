@@ -68,7 +68,7 @@ export default function StorefrontPage() {
               variant={tab === 'config' ? 'solid' : 'bordered'}
               color={tab === 'config' ? 'primary' : 'default'}
               size="sm"
-              onClick={() => setTab('config')}
+              onPress={() => setTab('config')}
               startContent={<Settings2 className="h-4 w-4" />}
             >
               {t('storefront.config')}
@@ -77,7 +77,7 @@ export default function StorefrontPage() {
               variant={tab === 'banners' ? 'solid' : 'bordered'}
               color={tab === 'banners' ? 'primary' : 'default'}
               size="sm"
-              onClick={() => setTab('banners')}
+              onPress={() => setTab('banners')}
               startContent={<Image className="h-4 w-4" />}
             >
               {t('storefront.banners')}
@@ -86,7 +86,7 @@ export default function StorefrontPage() {
               variant={tab === 'preview' ? 'solid' : 'bordered'}
               color={tab === 'preview' ? 'primary' : 'default'}
               size="sm"
-              onClick={() => setTab('preview')}
+              onPress={() => setTab('preview')}
               startContent={<Eye className="h-4 w-4" />}
             >
               {t('storefront.preview')}
@@ -122,7 +122,7 @@ export default function StorefrontPage() {
               <Button
                 color="primary"
                 size="sm"
-                onClick={() => saveConfig.mutate(configForm)}
+                onPress={() => saveConfig.mutate(configForm)}
                 isLoading={saveConfig.isPending}
                 startContent={<Save className="h-4 w-4" />}
               >

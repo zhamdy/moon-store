@@ -250,7 +250,7 @@ export default function POS() {
               variant={showScanner ? 'solid' : 'bordered'}
               color={showScanner ? 'primary' : 'default'}
               size="sm"
-              onClick={() => setShowScanner(!showScanner)}
+              onPress={() => setShowScanner(!showScanner)}
               startContent={<Camera className="h-4 w-4" />}
             >
               {t('pos.scan')}
@@ -259,7 +259,7 @@ export default function POS() {
               isIconOnly
               variant="light"
               size="sm"
-              onClick={() => setShowShortcuts(true)}
+              onPress={() => setShowShortcuts(true)}
               title={t('pos.shortcuts')}
               aria-label={t('pos.shortcuts')}
               className="hidden lg:flex"
@@ -276,7 +276,7 @@ export default function POS() {
                 variant={selectedCategory === null ? 'solid' : 'bordered'}
                 color={selectedCategory === null ? 'primary' : 'default'}
                 className="rounded-full text-xs h-7 px-3 min-w-0"
-                onClick={() => setSelectedCategory(null)}
+                onPress={() => setSelectedCategory(null)}
               >
                 {t('pos.allCategories')}
               </Button>
@@ -287,7 +287,7 @@ export default function POS() {
                   variant={selectedCategory === cat.id ? 'solid' : 'bordered'}
                   color={selectedCategory === cat.id ? 'primary' : 'default'}
                   className="rounded-full text-xs h-7 px-3 min-w-0"
-                  onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                  onPress={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
                 >
                   {cat.name}
                 </Button>
@@ -300,14 +300,14 @@ export default function POS() {
             <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5">
               <AlertCircle className="h-5 w-5 text-primary shrink-0" />
               <p className="text-sm text-foreground flex-1">{t('cart.recoveredCart')}</p>
-              <Button size="sm" variant="bordered" onClick={() => setShowRecoveryBanner(false)}>
+              <Button size="sm" variant="bordered" onPress={() => setShowRecoveryBanner(false)}>
                 {t('cart.keepCart')}
               </Button>
               <Button
                 size="sm"
                 variant="light"
                 color="danger"
-                onClick={() => {
+                onPress={() => {
                   clearCart();
                   setShowRecoveryBanner(false);
                 }}

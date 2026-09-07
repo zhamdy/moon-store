@@ -181,7 +181,7 @@ export default function WarrantyPage() {
             color="primary"
             size="sm"
             startContent={<Plus className="h-4 w-4" />}
-            onClick={editor.openNew}
+            onPress={editor.openNew}
           >
             {t('warranty.create')}
           </Button>
@@ -288,7 +288,7 @@ export default function WarrantyPage() {
                 />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
-                <Button variant="flat" size="sm" onClick={editor.close}>
+                <Button variant="flat" size="sm" onPress={editor.close}>
                   {t('common.cancel')}
                 </Button>
                 <Button color="primary" size="sm" type="submit" isLoading={saver.isSaving}>

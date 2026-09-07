@@ -194,7 +194,7 @@ export default function PODetailDialog({
                 <Button
                   color="primary"
                   size="sm"
-                  onClick={handleReceive}
+                  onPress={handleReceive}
                   isLoading={isReceiving}
                   startContent={<PackageCheck className="h-4 w-4" />}
                 >
@@ -207,7 +207,7 @@ export default function PODetailDialog({
                     variant="bordered"
                     size="sm"
                     startContent={<PackageCheck className="h-4 w-4" />}
-                    onClick={() => {
+                    onPress={() => {
                       setReceiveMode(true);
                       setReceiveQtys({});
                     }}

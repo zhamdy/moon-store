@@ -124,7 +124,7 @@ export default function HeldCartsDialog({ open, onOpenChange }: HeldCartsDialogP
                               color="primary"
                               size="sm"
                               className="h-8 w-8"
-                              onClick={() => handleRetrieve(cart.id)}
+                              onPress={() => handleRetrieve(cart.id)}
                               title={t('cart.retrieve')}
                               aria-label={t('cart.retrieve')}
                             >
@@ -136,7 +136,7 @@ export default function HeldCartsDialog({ open, onOpenChange }: HeldCartsDialogP
                               color="danger"
                               size="sm"
                               className="h-8 w-8"
-                              onClick={() => handleDelete(cart.id)}
+                              onPress={() => handleDelete(cart.id)}
                               title={t('cart.deleteHeld')}
                               aria-label={t('cart.deleteHeld')}
                             >

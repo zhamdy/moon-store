@@ -259,7 +259,7 @@ export default function RefundDialog({
               {/* Submit */}
               <Button
                 color="primary"
-                onClick={handleSubmit}
+                onPress={handleSubmit}
                 isDisabled={
                   !hasSelection ||
                   refunder.isRunning ||
