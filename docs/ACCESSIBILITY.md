@@ -43,6 +43,14 @@ interface the way a person does will.
 #103 (pointer-only customer picker), #104 (controls nested inside pressable cards) and
 #105 (`role="status"` on a `<td>`) are the earlier three, all fixed.
 
+**#113 — a combobox loses its accessible name while its listbox is open.** Open. Split
+out of #111 rather than absorbed into it, because a finding folded into another change is
+a finding nobody measures. `e2e/specs/a11y.spec.ts` asserts the picker's name once while
+it is closed and drives the rest by `data-testid`; removing that indirection is the signal
+the issue is fixed. Every input in that dialog looks the same in a browser's accessibility
+tree, so this is probably HeroUI's label handling generally rather than one component —
+worth establishing rather than assuming.
+
 Record the next gap here **with an issue** rather than only in a comment or a commit
 message, and drop the rule that catches it back to `warn` only if the fix genuinely cannot
 land with it.
