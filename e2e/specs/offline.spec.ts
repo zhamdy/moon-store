@@ -61,6 +61,11 @@ async function goOffline(page: Page) {
     Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true });
     window.dispatchEvent(new Event('offline'));
   });
+  // The banner is inserted in flow above the content, so mounting it shifts the whole
+  // page down. Returning before it is on screen hands the next click a layout that is
+  // still moving, and Playwright's stability check reads that as an unstable target —
+  // it was measured resolving as the banner itself intercepting the click.
+  await expect(page.getByText('You are offline.').first()).toBeVisible();
 }
 
 async function goOnline(page: Page) {
@@ -71,9 +76,34 @@ async function goOnline(page: Page) {
   });
 }
 
-/** Rings up one unit, opens the drawer, and confirms. */
-async function ringUpAndConfirm(page: Page, sku: string, productId: number) {
+/**
+ * Fills the search and waits for the query the debounce fires behind it.
+ *
+ * Filling and asserting the card is visible is not enough, and the difference is a race
+ * that cost CI two shards. `POS.tsx` debounces the search by 300ms, so the assertion
+ * passes off the *unfiltered* first page — the seeded product is on it — while the
+ * `search=` query is still pending. Cutting the link inside that window aborts a query
+ * key that has no cached data, `pageRows` collapses to `[]`, and `useAutoAnimate` on the
+ * grid animates every card out: the card the next click was aimed at is unstable, then
+ * detached, and the click times out against an empty grid.
+ *
+ * Waiting for the response is what says the debounce has already been spent. Counting
+ * cards would not: early in a run the unfiltered page can hold exactly one product, so
+ * the count is already right before the search has been made at all.
+ */
+async function loadCatalogueFor(page: Page, sku: string) {
+  const searched = page.waitForResponse(
+    (response) =>
+      response.url().includes(`${API_ORIGIN}/api/v1/products?`) &&
+      response.url().includes(`search=${sku}`)
+  );
   await posPage(page).search.fill(sku);
+  await searched;
+  await expect(posPage(page).productCard(sku)).toBeVisible();
+}
+
+/** Rings up one unit, opens the drawer, and confirms. The catalogue is already loaded. */
+async function ringUpAndConfirm(page: Page, sku: string, productId: number) {
   await posPage(page).productCard(sku).click();
   await expect(cartPanel(page).quantity(productId)).toHaveText('1');
   await cartPanel(page).checkout.click();
@@ -103,9 +133,8 @@ test.describe('offline checkout @smoke', () => {
 
     const page = await cashierContext.newPage();
     await page.goto('/pos');
-    // Load the catalogue before cutting the link.
-    await posPage(page).search.fill(product.sku);
-    await expect(posPage(page).productCard(product.sku)).toBeVisible();
+    // Load the catalogue, and settle its search, before cutting the link.
+    await loadCatalogueFor(page, product.sku);
 
     const posts = countPosts(page, SALES_PATH);
     await goOffline(page);
@@ -148,6 +177,7 @@ test.describe('offline checkout @smoke', () => {
 
     const page = await cashierContext.newPage();
     await page.goto('/pos');
+    await loadCatalogueFor(page, product.sku);
     await ringUpAndConfirm(page, product.sku, product.id);
     await expect(receiptDialog(page).dialog).toBeVisible();
 
@@ -173,8 +203,7 @@ test.describe('offline durability', () => {
 
     const page = await cashierContext.newPage();
     await page.goto('/pos');
-    await posPage(page).search.fill(product.sku);
-    await expect(posPage(page).productCard(product.sku)).toBeVisible();
+    await loadCatalogueFor(page, product.sku);
 
     await goOffline(page);
     await ringUpAndConfirm(page, product.sku, product.id);
@@ -208,8 +237,7 @@ test.describe('offline durability', () => {
 
     const page = await cashierContext.newPage();
     await page.goto('/pos');
-    await posPage(page).search.fill(product.sku);
-    await expect(posPage(page).productCard(product.sku)).toBeVisible();
+    await loadCatalogueFor(page, product.sku);
 
     await goOffline(page);
     await ringUpAndConfirm(page, product.sku, product.id);
@@ -231,12 +259,14 @@ test.describe('offline durability', () => {
 
   test('the cashier is at least told the link is down', async ({ cashierContext, seedProduct }) => {
     // What makes this a durability problem rather than a silent-wrong-answer problem.
+    // `goOffline` now waits on the same banner, so this reads as a duplicate — it is not.
+    // There it is a synchronisation detail that any later change could reasonably drop;
+    // here it is the contract, and deleting it has to be a deliberate act.
     const product = await seedProduct('banner', { price: 20, stock: 5 });
 
     const page = await cashierContext.newPage();
     await page.goto('/pos');
-    await posPage(page).search.fill(product.sku);
-    await expect(posPage(page).productCard(product.sku)).toBeVisible();
+    await loadCatalogueFor(page, product.sku);
 
     await goOffline(page);
     await expect(page.getByText('You are offline.').first()).toBeVisible();

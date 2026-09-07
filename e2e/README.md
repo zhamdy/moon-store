@@ -148,6 +148,12 @@ default for new specs.
   code carries a one-line comment saying why a role query was insufficient.
 - **Every test creates the rows it mutates**, namespaced per worker. Never mutate shared
   seed rows, never assert on "the first row" or a global aggregate.
+- **A faked response goes through `fulfillJson`**, never a hand-rolled `route.fulfill`. The
+  client transport sets `withCredentials: true`, and the browser rejects
+  `Access-Control-Allow-Origin: '*'` for a credentialed request — so a fake carrying the
+  wildcard never reaches the application. The app sees a network failure with no status,
+  which is a different code path from the status being faked. This is not hypothetical: it
+  broke one spec and made two others pass while proving nothing (#115).
 
 ## Artifacts
 
@@ -178,12 +184,18 @@ coverage lives behind one. So, explicitly:
 Things this suite established that are worth acting on, recorded here so they are not
 rediscovered from scratch:
 
-- **Offline sales are not persisted.** `queryClient` sets no `networkMode`, so React Query
-  pauses a mutation fired while `navigator.onLine` is false rather than failing it. No
-  request goes out, `onError` never runs, and `CartPanel`'s offline fallback — the only
-  writer to `moon-offline-queue` — is unreachable. The sale resumes and completes on
-  reconnect if the tab stays open, but does not survive a reload. See
-  `specs/offline.spec.ts`.
+- **Offline sales were not persisted** — *fixed in #53, kept here because the shape recurs.*
+  `queryClient` set no `networkMode`, so React Query paused a mutation fired while
+  `navigator.onLine` was false rather than failing it. No request went out, `onError` never
+  ran, and the checkout's offline fallback — the only writer to `moon-offline-queue` — was
+  unreachable. `networkMode: 'always'` fixed it; `specs/offline.spec.ts` now asserts the
+  contract rather than the gap.
+- **The POS catalogue empties when the link drops (#114).** Searching creates a query key
+  that has never been fetched, and offline it never can be, so the grid renders nothing —
+  no cards, no error, no empty state. The cashier cannot put anything in the cart, which
+  means none of the offline-queue durability above is reachable in the case it was built
+  for. Found as a click timeout in `specs/offline.spec.ts`; the failure screenshot is the
+  report.
 - **A Cashier cannot attach a customer to a sale.** `GET /api/v1/customers` is Admin-only
   while `POST /customers` and the loyalty read allow Cashier, so loyalty redemption is not
   reachable from a real till. Pinned in `specs/tax-loyalty.spec.ts`.

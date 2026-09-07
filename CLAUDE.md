@@ -180,3 +180,10 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   mounted beforehand (2026-09-06)
 - The a11y `jsx-a11y` rules are at `error` and *docs/ACCESSIBILITY.md* Known gaps is empty;
   record the next gap there with an issue rather than only dropping a rule (2026-09-06)
+- A `route.fulfill` carrying `Access-Control-Allow-Origin: '*'` never reaches the client:
+  the transport sets `withCredentials: true`, so the browser rejects the wildcard and the
+  app takes its network-failure path instead of the status being faked. A test built on
+  one can still pass — it just proves something else (2026-09-07)
+- Playwright's `element is not stable` on the POS grid is `useAutoAnimate` animating cards
+  out, not a slow render. It reads identically to a moving element and ends in
+  `element was detached from the DOM` (2026-09-07)

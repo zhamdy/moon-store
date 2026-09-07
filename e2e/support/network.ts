@@ -7,6 +7,38 @@
  */
 import type { Page, Request, Route } from '@playwright/test';
 
+/**
+ * Fulfills a route with a JSON body the browser will actually deliver.
+ *
+ * The CORS headers here are the whole reason this exists. The client transport sets
+ * `withCredentials: true`, and for a credentialed request the browser rejects
+ * `Access-Control-Allow-Origin: '*'` outright — so a faked response carrying the wildcard
+ * never reaches the application at all. What the app sees instead is a network failure
+ * with no status, which is a completely different code path from the status being faked:
+ * for a sale it means the checkout durably queues and clears the cart (#53), for a token
+ * refresh it means the network branch rather than the 401 branch.
+ *
+ * Every faked rejection in this suite was on the wildcard, and the failure mode is worse
+ * than a wrong answer. A test whose fake is unreachable can still pass — it just proves
+ * something other than what it says, usually that nothing moved on the server, which is
+ * trivially true of a request the browser never sent. Echoing the request's own `Origin`
+ * with allow-credentials is what a real server answers, and it makes the faked status the
+ * thing under test again.
+ */
+export async function fulfillJson(route: Route, status: number, body: unknown): Promise<void> {
+  const origin = route.request().headers()['origin'];
+  await route.fulfill({
+    status,
+    contentType: 'application/json',
+    headers: {
+      ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}),
+      'Access-Control-Allow-Credentials': 'true',
+      Vary: 'Origin',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 export interface RequestCounter {
   /** Requests seen so far. */
   count: () => number;
