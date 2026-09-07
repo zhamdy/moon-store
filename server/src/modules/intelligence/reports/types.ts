@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface SalesReportFilters {
   from?: string;
   to?: string;
@@ -8,10 +11,7 @@ export interface SalesReportFilters {
   pageSize: number;
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const salesReportQuerySchema = createListQuerySchema(['createdAt', 'total'] as const)
+export const salesReportQuerySchema = createListQuerySchema(['createdAt', 'total'] as const)
   .extend({
     from: z.string().date().optional(),
     to: z.string().date().optional(),
@@ -106,7 +106,7 @@ export interface ProfitLossFilters {
   to?: unknown;
 }
 
-const inventoryReportQuerySchema = z
+export const inventoryReportQuerySchema = z
   .object({
     categoryId: z.string().regex(/^\d+$/).transform(Number).optional(),
     distributorId: z.string().regex(/^\d+$/).transform(Number).optional(),
@@ -116,7 +116,7 @@ const inventoryReportQuerySchema = z
       .optional(),
   })
   .strict();
-const profitLossQuerySchema = z
+export const profitLossQuerySchema = z
   .object({
     from: z.string().date().optional(),
     to: z.string().date().optional(),

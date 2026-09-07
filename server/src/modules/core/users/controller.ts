@@ -1,21 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../../../../middleware/auth';
-import { createUserSchema, updateUserSchema } from '../../../../validators/userSchema';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { usersService } from './service';
-import { parseUserListQuery } from './types';
+import type { CreateUserDTO, UpdateUserDTO, UserListQuery } from './types';
+import { usersRequestContracts } from './schemas';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
-import { z } from 'zod';
 import { isUniqueViolation } from '../../../database/constraintErrors';
 
-const favoritesSchema = z.object({ favorites: z.array(z.unknown()).max(100) }).strict();
+/**
+ * Requests are parsed through the contracts, not through schemas this file reaches for
+ * directly (#102). The object the document is generated from is therefore the object that
+ * decides what is accepted: there is no second description to drift.
+ */
+const contracts = usersRequestContracts;
 
 export class UsersController {
   async getUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseUserListQuery(req.query);
+      const query = contracts.listUsers.parseQuery<UserListQuery>(req.query);
       const result = await usersService.list(query);
       res.json(
         success(result.rows, {
@@ -38,16 +42,13 @@ export class UsersController {
 
   async createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = createUserSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const body = contracts.createUser.parseBody<CreateUserDTO>(req.body);
 
-      const createdUser = await usersService.create(parsed.data);
+      const createdUser = await usersService.create(body);
       logAuditFromReq(req, 'create', 'user', createdUser.id, {
-        name: parsed.data.name,
-        email: parsed.data.email,
-        role: parsed.data.role,
+        name: body.name,
+        email: body.email,
+        role: body.role,
       });
 
       res.status(201).json(success(createdUser));
@@ -68,12 +69,11 @@ export class UsersController {
 
   async updateUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = updateUserSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const body = contracts.updateUser.parseBody<UpdateUserDTO>(req.body);
 
-      const updatedUser = await usersService.update(req.params.id as string, parsed.data);
+      const { id } = contracts.updateUser.parseParams<{ id: string }>(req.params);
+
+      const updatedUser = await usersService.update(id, body);
       res.json(success(updatedUser));
     } catch (err: any) {
       if (isUniqueViolation(err)) {
@@ -103,7 +103,7 @@ export class UsersController {
   async updateFavorites(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const { favorites } = favoritesSchema.parse(req.body);
+      const { favorites } = contracts.updateFavorites.parseBody<{ favorites: unknown[] }>(req.body);
 
       const updated = await usersService.updateFavorites(authReq.user!.id, favorites);
       res.json(success(updated));
@@ -115,8 +115,10 @@ export class UsersController {
   async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      await usersService.delete(req.params.id as string, authReq.user!.id);
-      logAuditFromReq(req, 'delete', 'user', req.params.id as string);
+      const { id } = contracts.deleteUser.parseParams<{ id: string }>(req.params);
+
+      await usersService.delete(id, authReq.user!.id);
+      logAuditFromReq(req, 'delete', 'user', id);
       res.status(204).send();
     } catch (err: any) {
       if (err.statusCode) {

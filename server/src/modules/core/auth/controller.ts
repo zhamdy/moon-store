@@ -4,15 +4,35 @@ import { logAudit } from '../../../../middleware/auditLogger';
 import { PublicError } from '../../../http/errors';
 import { success } from '../../../http/responses';
 import { authService } from './service';
+import { authRequestContracts } from './schemas';
 import { REFRESH_COOKIE_NAME, clearRefreshCookieOptions, refreshCookieOptions } from './config';
+
+const contracts = authRequestContracts;
+
+/**
+ * Parse through the contract, but keep the refusal this endpoint already gave.
+ *
+ * Everywhere else a Zod failure becomes a 400 `VALIDATION_ERROR` with field detail. On the
+ * credential paths that detail is the product: an opaque 401 is what stops a caller
+ * distinguishing "no such account" from "wrong password", and a 400 for a malformed cookie
+ * would tell a thief their token was the wrong shape. The schema decides the shape; this
+ * decides the answer.
+ */
+function parseOrRefuse<T>(parse: () => T, refusal: PublicError): T {
+  try {
+    return parse();
+  } catch {
+    throw refusal;
+  }
+}
 
 export class AuthController {
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email, password } = req.body;
-      if (!email || !password) {
-        throw new PublicError('VALIDATION_ERROR', 'Email and password required');
-      }
+      const { email, password } = parseOrRefuse(
+        () => contracts.login.parseBody<{ email: string; password: string }>(req.body),
+        new PublicError('VALIDATION_ERROR', 'Email and password required')
+      );
 
       const result = await authService.login({ email, password });
 
@@ -36,10 +56,13 @@ export class AuthController {
 
   async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
-      if (!refreshToken) {
-        throw new PublicError('UNAUTHORIZED', 'Refresh token required');
-      }
+      const refreshToken = parseOrRefuse(
+        () =>
+          contracts.refresh.parseCookies<Record<string, string>>({
+            [REFRESH_COOKIE_NAME]: req.cookies?.[REFRESH_COOKIE_NAME],
+          })[REFRESH_COOKIE_NAME],
+        new PublicError('UNAUTHORIZED', 'Refresh token required')
+      );
 
       const result = await authService.refresh(refreshToken);
 
@@ -56,7 +79,10 @@ export class AuthController {
 
   async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
+      // Optional by contract: an already logged-out caller still gets a 204.
+      const { [REFRESH_COOKIE_NAME]: refreshToken } = contracts.logout.parseCookies<
+        Record<string, string | undefined>
+      >({ [REFRESH_COOKIE_NAME]: req.cookies?.[REFRESH_COOKIE_NAME] });
       await authService.logout(refreshToken);
       res.clearCookie(REFRESH_COOKIE_NAME, clearRefreshCookieOptions());
       res.sendStatus(204);

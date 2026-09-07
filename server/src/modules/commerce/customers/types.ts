@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface CustomerRecord {
   id: number;
   name: string;
@@ -26,15 +29,12 @@ export interface CustomerFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const customerListQuerySchema = createListQuerySchema(['name', 'createdAt'] as const)
+export const customerListQuerySchema = createListQuerySchema(['name', 'createdAt'] as const)
   .extend({ search: z.string().trim().min(1).max(100).optional() })
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'name', ...query }));
 
-const customerSalesQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const customerSalesQuerySchema = createListQuerySchema(['createdAt'] as const)
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 

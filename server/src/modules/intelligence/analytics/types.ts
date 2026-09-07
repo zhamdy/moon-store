@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface DashboardKpis {
   today_revenue: number;
   month_revenue: number;
@@ -6,8 +8,6 @@ export interface DashboardKpis {
   pending_deliveries: number;
   low_stock_items: number;
 }
-
-import { z } from 'zod';
 
 const dateFilters = {
   from: z.string().date().optional(),
@@ -20,16 +20,19 @@ const validateDateRange = (value: { from?: string; to?: string }, ctx: z.Refinem
     ctx.addIssue({ code: 'custom', message: 'from must be on or before to' });
   }
 };
-const analyticsDateQuerySchema = z.object(dateFilters).strict().superRefine(validateDateRange);
+export const analyticsDateQuerySchema = z
+  .object(dateFilters)
+  .strict()
+  .superRefine(validateDateRange);
 const pageFields = {
   page: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive()).default('1'),
   pageSize: z.enum(['10', '25', '50', '100']).default('25').transform(Number),
 };
-const analyticsPageQuerySchema = z
+export const analyticsPageQuerySchema = z
   .object({ ...pageFields, ...dateFilters })
   .strict()
   .superRefine(validateDateRange);
-const analyticsDaysPageQuerySchema = z
+export const analyticsDaysPageQuerySchema = z
   .object({
     ...pageFields,
     days: z
@@ -40,7 +43,7 @@ const analyticsDaysPageQuerySchema = z
       .optional(),
   })
   .strict();
-const analyticsDaysQuerySchema = z
+export const analyticsDaysQuerySchema = z
   .object({
     days: z
       .string()
@@ -70,6 +73,11 @@ export function parseAnalyticsDateQuery(query: unknown) {
 export function parseAnalyticsPageQuery(query: unknown): AnalyticsPageQuery {
   const parsed = analyticsPageQuerySchema.parse(query);
   return { page: parsed.page, pageSize: parsed.pageSize, from: parsed.from, to: parsed.to };
+}
+
+/** The default lives here, not in the schema: `days` is genuinely optional on the wire. */
+export function withDefaultDays<T extends { days?: number }>(parsed: T, defaultDays: number) {
+  return { ...parsed, days: parsed.days ?? defaultDays };
 }
 
 export function parseAnalyticsDaysPageQuery(query: unknown, defaultDays: number) {

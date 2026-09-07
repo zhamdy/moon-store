@@ -1,21 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import type { ShiftFilters } from './types';
+import { shiftsRequestContracts, type ClockInBody, type ClockOutBody } from './schemas';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { shiftsService, IShiftsService } from './service';
 import { PublicError } from '../../../http/errors';
 import { paginationMeta } from '../../../http/pagination';
 import { success } from '../../../http/responses';
-import { parseShiftListQuery } from './types';
 
-const clockInSchema = z.object({
-  branch_id: z.number().int().positive().optional(),
-  notes: z.string().max(255).optional(),
-});
-
-const clockOutSchema = z.object({
-  notes: z.string().max(255).optional(),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = shiftsRequestContracts;
 
 export class ShiftsController {
   constructor(private service: IShiftsService = shiftsService) {}
@@ -33,7 +28,7 @@ export class ShiftsController {
   async clockIn(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const parsed = clockInSchema.parse(req.body);
+      const parsed = contracts.clockIn.parseBody<ClockInBody>(req.body);
 
       const shift = await this.service.clockIn(authReq.user!.id, parsed);
 
@@ -47,7 +42,7 @@ export class ShiftsController {
   async clockOut(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const parsed = clockOutSchema.parse(req.body);
+      const parsed = contracts.clockOut.parseBody<ClockOutBody>(req.body);
 
       const shift = await this.service.clockOut(authReq.user!.id, parsed);
 
@@ -81,7 +76,7 @@ export class ShiftsController {
   async getShifts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthRequest;
-      const query = parseShiftListQuery(req.query);
+      const query = contracts.listShifts.parseQuery<ShiftFilters>(req.query);
       const result = await this.service.listShifts(authReq.user!.role, authReq.user!.id, query);
 
       res.json(

@@ -1,32 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { bundlesService } from './service';
-import { parseBundleListQuery } from './types';
+import { bundlesRequestContracts, type BundleBody } from './schemas';
+import { normalizeBundleListQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 
-const bundleSchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(500).optional(),
-  bundle_price: z.number().positive(),
-  starts_at: z.string().optional().nullable(),
-  expires_at: z.string().optional().nullable(),
-  items: z
-    .array(
-      z.object({
-        product_id: z.number().int().positive(),
-        quantity: z.number().int().positive().default(1),
-      })
-    )
-    .min(2, 'A bundle must contain at least 2 products'),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = bundlesRequestContracts;
 
 export class BundlesController {
   async getBundles(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseBundleListQuery(req.query);
+      const query = normalizeBundleListQuery(contracts.listBundles.parseQuery(req.query));
       const result = await bundlesService.list(query);
       res.json(
         success(result.rows, {
@@ -40,7 +27,8 @@ export class BundlesController {
 
   async getBundleById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const bundle = await bundlesService.findById(req.params.id as string);
+      const { id } = contracts.getBundle.parseParams<{ id: string }>(req.params);
+      const bundle = await bundlesService.findById(id);
       if (!bundle) {
         throw new PublicError('NOT_FOUND', 'Bundle not found');
       }
@@ -53,7 +41,7 @@ export class BundlesController {
 
   async createBundle(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = bundleSchema.parse(req.body);
+      const parsed = contracts.createBundle.parseBody<BundleBody>(req.body);
       const bundle = await bundlesService.create(parsed);
 
       logAuditFromReq(req, 'create', 'bundle', bundle.id, { name: parsed.name });
@@ -65,8 +53,8 @@ export class BundlesController {
 
   async updateBundle(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
-      const parsed = bundleSchema.parse(req.body);
+      const { id } = contracts.updateBundle.parseParams<{ id: string }>(req.params);
+      const parsed = contracts.updateBundle.parseBody<BundleBody>(req.body);
 
       const result = await bundlesService.update(id as string, parsed);
       if (!result.success) {
@@ -82,7 +70,7 @@ export class BundlesController {
 
   async deleteBundle(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
+      const { id } = contracts.deleteBundle.parseParams<{ id: string }>(req.params);
       const result = await bundlesService.delete(id as string);
       if (!result.success) {
         throw new PublicError('NOT_FOUND', result.error);

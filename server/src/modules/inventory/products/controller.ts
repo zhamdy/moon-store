@@ -2,51 +2,32 @@ import { Request, Response, NextFunction } from 'express';
 import logger from '../../../../lib/logger';
 import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
-import {
-  productSchema,
-  productStatusSchema,
-  variantSchema,
-} from '../../../../validators/productSchema';
+import type { Product, Variant } from '../../../../validators/productSchema';
 import { productsService } from './service';
 import { productsRepository } from './repository';
 import { z } from 'zod';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
-import { parseProductListQuery, parseProductLookupQuery } from './types';
+import { normalizeProductListQuery, toProductIds } from './types';
 import { getStorage, productImageKey } from '../../../storage';
 import { isUniqueViolation } from '../../../database/constraintErrors';
+import {
+  productsRequestContracts,
+  type AdjustStockBody,
+  type BatchBarcodeBody,
+  type BulkDeleteBody,
+  type BulkUpdateBody,
+  type ProductStatusBody,
+} from './schemas';
 
-const bulkUpdateSchema = z.object({
-  ids: z.array(z.number().int().positive()).min(1),
-  updates: z.object({
-    category_id: z.number().int().positive().optional(),
-    distributor_id: z.number().int().positive().nullable().optional(),
-    price_percent: z.number().min(-99).max(1000).optional(),
-    status: z.enum(['active', 'inactive', 'discontinued']).optional(),
-  }),
-});
-
-const bulkDeleteSchema = z.object({
-  ids: z.array(z.number().int().positive()).min(1, 'At least one product ID required'),
-});
-
-const adjustStockSchema = z.object({
-  delta: z
-    .number()
-    .int()
-    .refine((v) => v !== 0, 'Delta cannot be zero'),
-  reason: z.enum(['Manual Adjustment', 'Damaged', 'Stock Count']),
-});
-
-const batchBarcodeSchema = z.object({
-  product_ids: z.array(z.number().int().positive()).min(1),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = productsRequestContracts;
 
 export class ProductsController {
   async getProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseProductListQuery(req.query);
+      const query = normalizeProductListQuery(contracts.listProducts.parseQuery(req.query));
       const role = (req as AuthRequest).user?.role;
       if (query.lowStock && role !== 'Admin') {
         throw new PublicError('FORBIDDEN');
@@ -64,7 +45,7 @@ export class ProductsController {
 
   async lookup(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { ids } = parseProductLookupQuery(req.query);
+      const ids = toProductIds(contracts.lookupProducts.parseQuery<{ ids: string }>(req.query).ids);
       const rows = await productsService.lookup(ids, (req as AuthRequest).user?.role === 'Admin');
       res.json(success(rows));
     } catch (err) {
@@ -83,7 +64,8 @@ export class ProductsController {
 
   async generateSku(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await productsService.generateSku(Number(req.params.categoryId));
+      const { categoryId } = contracts.generateSku.parseParams<{ categoryId: string }>(req.params);
+      const result = await productsService.generateSku(Number(categoryId));
       if (!result) {
         throw new PublicError('NOT_FOUND', 'Category not found');
       }
@@ -104,7 +86,9 @@ export class ProductsController {
 
   async getByBarcode(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const barcode = req.params.barcode as string;
+      const { barcode } = contracts.getProductByBarcode.parseParams<{ barcode: string }>(
+        req.params
+      );
       const product = await productsRepository.findByBarcode(barcode);
       if (product) {
         res.json(success(product));
@@ -142,7 +126,8 @@ export class ProductsController {
 
   async getProductById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const product = await productsRepository.findById(req.params.id as string);
+      const { id } = contracts.getProduct.parseParams<{ id: string }>(req.params);
+      const product = await productsRepository.findById(id);
       if (!product) {
         throw new PublicError('NOT_FOUND', 'Product not found');
       }
@@ -154,16 +139,13 @@ export class ProductsController {
 
   async createProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = productSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createProduct.parseBody<Product>(req.body);
 
-      const product = await productsService.createProduct(parsed.data);
+      const product = await productsService.createProduct(parsed);
       logAuditFromReq(req, 'create', 'product', product?.id, {
-        name: parsed.data.name,
-        sku: parsed.data.sku,
-        price: parsed.data.price,
+        name: parsed.name,
+        sku: parsed.sku,
+        price: parsed.price,
       });
       res.status(201).json(success(product));
     } catch (err: any) {
@@ -177,12 +159,9 @@ export class ProductsController {
 
   async bulkUpdate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = bulkUpdateSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.bulkUpdateProducts.parseBody<BulkUpdateBody>(req.body);
 
-      const { ids, updates } = parsed.data;
+      const { ids, updates } = parsed;
       const updated = await productsService.bulkUpdateProducts(ids, updates);
       res.json(success({ updated }));
     } catch (err: any) {
@@ -193,23 +172,17 @@ export class ProductsController {
 
   async updateProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = productSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const { id } = contracts.updateProduct.parseParams<{ id: string }>(req.params);
+      const parsed = contracts.updateProduct.parseBody<Product>(req.body);
 
       const authReq = req as AuthRequest;
-      const product = await productsService.updateProduct(
-        req.params.id as string,
-        parsed.data,
-        authReq.user!.id
-      );
+      const product = await productsService.updateProduct(id, parsed, authReq.user!.id);
 
       if (!product) {
         throw new PublicError('NOT_FOUND', 'Product not found');
       }
 
-      logAuditFromReq(req, 'update', 'product', req.params.id as string);
+      logAuditFromReq(req, 'update', 'product', id);
       res.json(success(product));
     } catch (err: any) {
       if (err.type === 'discontinued') {
@@ -226,19 +199,17 @@ export class ProductsController {
 
   async updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = productStatusSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const { id } = contracts.updateProductStatus.parseParams<{ id: string }>(req.params);
+      const parsed = contracts.updateProductStatus.parseBody<ProductStatusBody>(req.body);
 
-      const { status } = parsed.data;
-      const product = await productsRepository.updateStatus(req.params.id as string, status);
+      const { status } = parsed;
+      const product = await productsRepository.updateStatus(id, status);
 
       if (!product) {
         throw new PublicError('NOT_FOUND', 'Product not found');
       }
 
-      logAuditFromReq(req, 'status_change', 'product', req.params.id as string, { status });
+      logAuditFromReq(req, 'status_change', 'product', id, { status });
       res.json(success(product));
     } catch (err) {
       next(err);
@@ -247,14 +218,12 @@ export class ProductsController {
 
   async discontinue(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const product = await productsRepository.updateStatus(
-        req.params.id as string,
-        'discontinued'
-      );
+      const { id } = contracts.deleteProduct.parseParams<{ id: string }>(req.params);
+      const product = await productsRepository.updateStatus(id, 'discontinued');
       if (!product) {
         throw new PublicError('NOT_FOUND', 'Product not found');
       }
-      logAuditFromReq(req, 'discontinue', 'product', req.params.id as string);
+      logAuditFromReq(req, 'discontinue', 'product', id);
       res.status(204).send();
     } catch (err) {
       next(err);
@@ -263,12 +232,9 @@ export class ProductsController {
 
   async bulkDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = bulkDeleteSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.bulkDeleteProducts.parseBody<BulkDeleteBody>(req.body);
 
-      const deleted = await productsService.bulkDeleteProducts(parsed.data.ids);
+      const deleted = await productsService.bulkDeleteProducts(parsed.ids);
       res.json(success({ deleted }));
     } catch (err) {
       next(err);
@@ -277,10 +243,7 @@ export class ProductsController {
 
   async import(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { products } = req.body;
-      if (!Array.isArray(products) || products.length === 0) {
-        throw new PublicError('VALIDATION_ERROR', 'Products array required');
-      }
+      const { products } = contracts.importProducts.parseBody<{ products: unknown[] }>(req.body);
 
       const result = await productsService.importProducts(products);
       res.json(success(result));
@@ -291,15 +254,13 @@ export class ProductsController {
 
   async adjustStock(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { id } = contracts.adjustProductStock.parseParams<{ id: string }>(req.params);
       const authReq = req as AuthRequest;
-      const productId = Number(req.params.id);
+      const productId = Number(id);
 
-      const parsed = adjustStockSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.adjustProductStock.parseBody<AdjustStockBody>(req.body);
 
-      const result = await productsService.adjustStock(productId, parsed.data, authReq.user!.id);
+      const result = await productsService.adjustStock(productId, parsed, authReq.user!.id);
       res.json(success(result));
     } catch (err: any) {
       next(
@@ -312,7 +273,8 @@ export class ProductsController {
 
   async getStockHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const rows = await productsRepository.getStockAdjustments(req.params.id as string);
+      const { id } = contracts.getStockHistory.parseParams<{ id: string }>(req.params);
+      const rows = await productsRepository.getStockAdjustments(id);
       res.json(success(rows));
     } catch (err) {
       next(err);
@@ -330,11 +292,12 @@ export class ProductsController {
    */
   async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { id } = contracts.uploadProductImage.parseParams<{ id: string }>(req.params);
       if (!req.file) {
         throw new PublicError('VALIDATION_ERROR', 'No image file provided');
       }
 
-      const productId = Number(req.params.id);
+      const productId = Number(id);
       const storage = getStorage();
 
       const existing = await productsRepository.findById(productId);
@@ -381,7 +344,8 @@ export class ProductsController {
 
   async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const productId = Number(req.params.id);
+      const { id } = contracts.deleteProductImage.parseParams<{ id: string }>(req.params);
+      const productId = Number(id);
       const storage = getStorage();
 
       const existing = await productsRepository.findById(productId);
@@ -414,7 +378,8 @@ export class ProductsController {
 
   async getVariants(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const rows = await productsRepository.findVariantsByProductId(req.params.id as string);
+      const { id } = contracts.listVariants.parseParams<{ id: string }>(req.params);
+      const rows = await productsRepository.findVariantsByProductId(id);
       const variants = rows.map((v: any) => ({
         ...v,
         attributes:
@@ -428,13 +393,11 @@ export class ProductsController {
 
   async createVariant(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = variantSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const { id } = contracts.createVariant.parseParams<{ id: string }>(req.params);
+      const parsed = contracts.createVariant.parseBody<Variant>(req.body);
 
-      const productId = Number(req.params.id);
-      const variant = await productsService.createVariant(productId, parsed.data);
+      const productId = Number(id);
+      const variant = await productsService.createVariant(productId, parsed);
       res.status(201).json(success(variant));
     } catch (err: any) {
       if (isUniqueViolation(err)) {
@@ -447,16 +410,13 @@ export class ProductsController {
 
   async updateVariant(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = variantSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const { id, variantId } = contracts.updateVariant.parseParams<{
+        id: string;
+        variantId: string;
+      }>(req.params);
+      const parsed = contracts.updateVariant.parseBody<Variant>(req.body);
 
-      const variant = await productsService.updateVariant(
-        req.params.id as string,
-        req.params.variantId as string,
-        parsed.data
-      );
+      const variant = await productsService.updateVariant(id, variantId, parsed);
       if (!variant) {
         throw new PublicError('NOT_FOUND', 'Variant not found');
       }
@@ -473,10 +433,11 @@ export class ProductsController {
 
   async deleteVariant(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const deleted = await productsService.deleteVariant(
-        req.params.id as string,
-        req.params.variantId as string
-      );
+      const { id, variantId } = contracts.deleteVariant.parseParams<{
+        id: string;
+        variantId: string;
+      }>(req.params);
+      const deleted = await productsService.deleteVariant(id, variantId);
       if (!deleted) {
         throw new PublicError('NOT_FOUND', 'Variant not found');
       }
@@ -489,7 +450,8 @@ export class ProductsController {
 
   async getPriceHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const rows = await productsRepository.getPriceHistory(req.params.id as string);
+      const { id } = contracts.getPriceHistory.parseParams<{ id: string }>(req.params);
+      const rows = await productsRepository.getPriceHistory(id);
       res.json(success(rows));
     } catch (err) {
       next(err);
@@ -498,12 +460,9 @@ export class ProductsController {
 
   async batchGenerateBarcodes(req: Request, res: Response, _next: NextFunction): Promise<void> {
     try {
-      const parsed = batchBarcodeSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.batchGenerateBarcodes.parseBody<BatchBarcodeBody>(req.body);
 
-      const results = await productsService.batchGenerateBarcodes(parsed.data.product_ids);
+      const results = await productsService.batchGenerateBarcodes(parsed.product_ids);
       logAuditFromReq(req, 'batch_barcode', 'product', undefined, { count: results.length });
       res.json(success(results));
     } catch (err) {

@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface NotificationRecord {
   id: number;
   user_id: number;
@@ -27,10 +30,7 @@ export interface NotificationFilters {
   unreadOnly?: boolean;
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const notificationListQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const notificationListQuerySchema = createListQuerySchema(['createdAt'] as const)
   .extend({
     unreadOnly: z
       .enum(['true', 'false'])

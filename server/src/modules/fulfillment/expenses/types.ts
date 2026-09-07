@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export type ExpenseCategory =
   | 'rent'
   | 'salaries'
@@ -41,10 +44,7 @@ export interface ExpenseFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const expenseListQuerySchema = createListQuerySchema(['date', 'createdAt'] as const)
+export const expenseListQuerySchema = createListQuerySchema(['date', 'createdAt'] as const)
   .extend({
     category: z
       .enum(['rent', 'salaries', 'utilities', 'marketing', 'supplies', 'other'])

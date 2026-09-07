@@ -18,7 +18,7 @@ import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
 import { CollectionsRepository } from '../src/modules/inventory/collections/repository';
 import { CollectionsService } from '../src/modules/inventory/collections/service';
-import { collectionUpdateSchema } from '../src/modules/inventory/collections/controller';
+import { collectionUpdateSchema } from '../src/modules/inventory/collections/schemas';
 
 const MIGRATIONS_DIR = path.join(__dirname, '../src/database/migrations');
 

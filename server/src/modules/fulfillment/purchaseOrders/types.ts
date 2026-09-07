@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export type PurchaseOrderStatus =
   | 'Draft'
   | 'Sent'
@@ -36,9 +39,7 @@ export interface PurchaseOrderFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-const purchaseOrderListQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const purchaseOrderListQuerySchema = createListQuerySchema(['createdAt'] as const)
   .extend({
     distributorId: z.string().regex(/^\d+$/).transform(Number).optional(),
     status: z.string().trim().min(1).max(30).optional(),

@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface LayawayItemInput {
   product_id: number;
   variant_id?: number | null;
@@ -30,7 +33,7 @@ export interface LayawayFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-const layawayListQuerySchema = createListQuerySchema([
+export const layawayListQuerySchema = createListQuerySchema([
   'createdAt',
   'dueDate',
   'remainingBalance',
@@ -90,5 +93,3 @@ export interface LayawayPlanDetail extends LayawayPlanRow {
   items: LayawayItemRow[];
   payments: LayawayPaymentRow[];
 }
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';

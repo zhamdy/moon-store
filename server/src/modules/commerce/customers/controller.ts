@@ -1,24 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { customerSchema } from '../../../../validators/customerSchema';
+import { customersRequestContracts, loyaltyAdjustSchema } from './schemas';
+import type { Customer as CustomerBody } from '../../../../validators/customerSchema';
+import { customerSalesQuerySchema, type CustomerFilters } from './types';
 import { customersService } from './service';
-import { parseCustomerListQuery, parseCustomerSalesQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 
-const loyaltyAdjustSchema = z.object({
-  points: z
-    .number()
-    .int()
-    .refine((v) => v !== 0, 'Points cannot be zero'),
-  note: z.string().min(1, 'Note is required'),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = customersRequestContracts;
 
 export class CustomersController {
   async getCustomers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseCustomerListQuery(req.query);
+      const query = contracts.listCustomers.parseQuery<CustomerFilters>(req.query);
       const result = await customersService.list(query);
       res.json(
         success(result.rows, {
@@ -32,12 +28,9 @@ export class CustomersController {
 
   async createCustomer(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = customerSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createCustomer.parseBody<CustomerBody>(req.body);
 
-      const customer = await customersService.create(parsed.data);
+      const customer = await customersService.create(parsed);
       res.status(201).json(success(customer));
     } catch (err) {
       next(err);
@@ -46,12 +39,10 @@ export class CustomersController {
 
   async updateCustomer(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = customerSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.updateCustomer.parseBody<CustomerBody>(req.body);
 
-      const customer = await customersService.update(req.params.id as string, parsed.data);
+      const { id } = contracts.updateCustomer.parseParams<{ id: string }>(req.params);
+      const customer = await customersService.update(id, parsed);
       if (!customer) {
         throw new PublicError('NOT_FOUND', 'Customer not found');
       }
@@ -64,7 +55,8 @@ export class CustomersController {
 
   async getStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await customersService.getStats(req.params.id as string);
+      const { id } = contracts.getCustomerStats.parseParams<{ id: string }>(req.params);
+      const data = await customersService.getStats(id);
       res.json(success(data));
     } catch (err) {
       next(err);
@@ -73,9 +65,12 @@ export class CustomersController {
 
   async getSales(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseCustomerSalesQuery(req.query);
+      const query = contracts.getCustomerSales.parseQuery<z.infer<typeof customerSalesQuerySchema>>(
+        req.query
+      );
+      const { id } = contracts.getCustomerSales.parseParams<{ id: string }>(req.params);
       const result = await customersService.getSales(
-        req.params.id as string,
+        id,
         query.page,
         query.pageSize,
         query.sortOrder
@@ -92,12 +87,13 @@ export class CustomersController {
 
   async getLoyalty(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const customer = await customersService.findById(req.params.id as string);
+      const { id } = contracts.getCustomerLoyalty.parseParams<{ id: string }>(req.params);
+      const customer = await customersService.findById(id);
       if (!customer) {
         throw new PublicError('NOT_FOUND', 'Customer not found');
       }
 
-      const transactions = await customersService.getLoyaltyHistory(req.params.id as string);
+      const transactions = await customersService.getLoyaltyHistory(id);
       res.json(
         success({
           points: customer.loyalty_points,
@@ -111,16 +107,15 @@ export class CustomersController {
 
   async adjustLoyalty(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const customerId = Number(req.params.id);
-      const parsed = loyaltyAdjustSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const customerId = Number(contracts.adjustLoyalty.parseParams<{ id: string }>(req.params).id);
+      const parsed = contracts.adjustLoyalty.parseBody<z.infer<typeof loyaltyAdjustSchema>>(
+        req.body
+      );
 
       const newPoints = await customersService.adjustLoyalty(
         customerId,
-        parsed.data.points,
-        parsed.data.note
+        parsed.points,
+        parsed.note
       );
       res.json(success({ loyalty_points: newPoints }));
     } catch (err) {
@@ -130,7 +125,8 @@ export class CustomersController {
 
   async deleteCustomer(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const deleted = await customersService.delete(req.params.id as string);
+      const { id } = contracts.deleteCustomer.parseParams<{ id: string }>(req.params);
+      const deleted = await customersService.delete(id);
       if (!deleted) {
         throw new PublicError('NOT_FOUND', 'Customer not found');
       }

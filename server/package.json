@@ -9,7 +9,7 @@
     "migrate": "tsx src/database/migrate.ts up",
     "migrate:down": "tsx src/database/migrate.ts down",
     "seed": "tsx src/database/seed.ts",
-    "lint": "eslint . --max-warnings 387",
+    "lint": "eslint . --max-warnings 385",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.ts\"",
     "test": "vitest run",
@@ -19,6 +19,7 @@
     "check:api-docs": "tsx scripts/checkApiDocDrift.ts"
   },
   "dependencies": {
+    "@asteasolutions/zod-to-openapi": "7.3.4",
     "@aws-sdk/client-s3": "^3.1127.0",
     "@scalar/express-api-reference": "^0.8.48",
     "bcrypt": "^5.1.1",

@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export type DeliveryStatus = 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
 
 export interface DeliveryOrderItemInput {
@@ -37,9 +40,10 @@ export interface DeliveryListResult {
   total: number;
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-const deliveryListQuerySchema = createListQuerySchema(['createdAt', 'estimatedDelivery'] as const)
+export const deliveryListQuerySchema = createListQuerySchema([
+  'createdAt',
+  'estimatedDelivery',
+] as const)
   .extend({
     status: z.string().trim().min(1).max(30).optional(),
     search: z.string().trim().min(1).max(100).optional(),
@@ -65,7 +69,7 @@ export interface DeliveryHistoryFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-const deliveryHistoryQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const deliveryHistoryQuerySchema = createListQuerySchema(['createdAt'] as const)
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 

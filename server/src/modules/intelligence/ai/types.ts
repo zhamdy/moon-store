@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface ForecastItem {
   productId: number;
   productName: string;
@@ -13,14 +15,13 @@ export interface ForecastItem {
   confidence: 'high' | 'medium' | 'low';
 }
 
-import { z } from 'zod';
 const pageFields = {
   page: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive()).default('1'),
   pageSize: z.enum(['10', '25', '50', '100']).default('25').transform(Number),
 };
-const aiListQuerySchema = z.object(pageFields).strict();
-const forecastQuerySchema = z.object({}).strict();
-const recommendationQuerySchema = z
+export const aiListQuerySchema = z.object(pageFields).strict();
+export const forecastQuerySchema = z.object({}).strict();
+export const recommendationQuerySchema = z
   .object({
     ...pageFields,
     productId: z.string().regex(/^\d+$/).transform(Number).optional(),

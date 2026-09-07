@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface FeedbackRecord {
   id: number;
   customer_id?: number | null;
@@ -41,10 +44,7 @@ export interface FeedbackListResult {
   page: number;
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const feedbackListQuerySchema = createListQuerySchema(['createdAt', 'rating'] as const)
+export const feedbackListQuerySchema = createListQuerySchema(['createdAt', 'rating'] as const)
   .extend({
     rating: z.enum(['1', '2', '3', '4', '5']).transform(Number).optional(),
     category: z

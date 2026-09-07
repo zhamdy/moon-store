@@ -14,7 +14,7 @@ import { createPgMemPool } from './support/pgMem';
 import { setPool, closePool } from '../src/database/pool';
 import { runMigrationsUp } from '../src/database/migrate';
 import { ShippingCompaniesRepository } from '../src/modules/fulfillment/shippingCompanies/repository';
-import { shippingCompanyUpdateSchema } from '../src/modules/fulfillment/shippingCompanies/controller';
+import { shippingCompanyUpdateSchema } from '../src/modules/fulfillment/shippingCompanies/schemas';
 
 const MIGRATIONS_DIR = path.join(__dirname, '../src/database/migrations');
 

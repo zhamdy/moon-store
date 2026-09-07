@@ -1,9 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import { distributorSchema } from '../../../../validators/distributorSchema';
+import { distributorsRequestContracts } from './schemas';
+import type { Distributor } from '../../../../validators/distributorSchema';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { distributorsService } from './service';
 import { success } from '../../../http/responses';
 import { PublicError } from '../../../http/errors';
+
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = distributorsRequestContracts;
 
 export class DistributorsController {
   async getDistributors(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -17,12 +21,9 @@ export class DistributorsController {
 
   async createDistributor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = distributorSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createDistributor.parseBody<Distributor>(req.body);
 
-      const { name, contact_person, phone, email, address, notes } = parsed.data;
+      const { name, contact_person, phone, email, address, notes } = parsed;
       const distributor = await distributorsService.create({
         name,
         contact_person,
@@ -41,13 +42,11 @@ export class DistributorsController {
 
   async updateDistributor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = distributorSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.updateDistributor.parseBody<Distributor>(req.body);
 
-      const { name, contact_person, phone, email, address, notes } = parsed.data;
-      const distributor = await distributorsService.update(req.params.id as string, {
+      const { name, contact_person, phone, email, address, notes } = parsed;
+      const { id } = contracts.updateDistributor.parseParams<{ id: string }>(req.params);
+      const distributor = await distributorsService.update(id, {
         name,
         contact_person,
         phone,
@@ -68,13 +67,14 @@ export class DistributorsController {
 
   async deleteDistributor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await distributorsService.delete(req.params.id as string);
+      const { id } = contracts.deleteDistributor.parseParams<{ id: string }>(req.params);
+      const result = await distributorsService.delete(id);
       if (!result.success) {
         const code = result.error === 'Distributor not found' ? 'NOT_FOUND' : 'CONFLICT';
         throw new PublicError(code, result.error);
       }
 
-      logAuditFromReq(req, 'delete', 'distributor', req.params.id as string);
+      logAuditFromReq(req, 'delete', 'distributor', id);
       res.status(204).send();
     } catch (err) {
       next(err);

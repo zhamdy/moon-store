@@ -1,16 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
+import { labelTemplatesRequestContracts, type LabelTemplateBody } from './schemas';
 import { labelTemplatesService } from './service';
 import { success } from '../../../http/responses';
 import { PublicError } from '../../../http/errors';
 
-const labelTemplateSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  width_mm: z.number().positive(),
-  height_mm: z.number().positive(),
-  layout_json: z.string().min(2, 'Layout JSON is required'),
-  is_default: z.boolean().optional(),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = labelTemplatesRequestContracts;
 
 export class LabelTemplatesController {
   async getLabelTemplates(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -24,7 +19,7 @@ export class LabelTemplatesController {
 
   async createLabelTemplate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = labelTemplateSchema.parse(req.body);
+      const parsed = contracts.createLabelTemplate.parseBody<LabelTemplateBody>(req.body);
       const template = await labelTemplatesService.create(parsed);
       res.status(201).json(success(template));
     } catch (err) {
@@ -34,8 +29,8 @@ export class LabelTemplatesController {
 
   async updateLabelTemplate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
-      const parsed = labelTemplateSchema.parse(req.body);
+      const { id } = contracts.updateLabelTemplate.parseParams<{ id: string }>(req.params);
+      const parsed = contracts.updateLabelTemplate.parseBody<LabelTemplateBody>(req.body);
 
       const result = await labelTemplatesService.update(id as string, parsed);
       if (!result.success) {
@@ -50,7 +45,7 @@ export class LabelTemplatesController {
 
   async deleteLabelTemplate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
+      const { id } = contracts.deleteLabelTemplate.parseParams<{ id: string }>(req.params);
       const result = await labelTemplatesService.delete(id as string);
       if (!result.success) {
         throw new PublicError('NOT_FOUND', result.error);

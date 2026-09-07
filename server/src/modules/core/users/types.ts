@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface UserListItem {
   id: number;
   name: string;
@@ -54,7 +56,7 @@ const positiveInteger = (field: string) =>
     .transform(Number)
     .pipe(z.number().int().positive());
 
-const userListQuerySchema = z
+export const userListQuerySchema = z
   .object({
     page: positiveInteger('page').default('1'),
     pageSize: z.enum(['10', '25', '50', '100']).default('25').transform(Number),
@@ -68,4 +70,3 @@ const userListQuerySchema = z
 export function parseUserListQuery(input: unknown): UserListQuery {
   return userListQuerySchema.parse(input);
 }
-import { z } from 'zod';

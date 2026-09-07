@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export interface SaleItemInput {
   product_id: number;
   variant_id?: number | null;
@@ -370,7 +372,7 @@ const positiveInteger = (name: string) =>
     .pipe(z.number().int().positive());
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD');
 
-const saleListQuerySchema = z
+export const saleListQuerySchema = z
   .object({
     page: positiveInteger('page').default('1'),
     pageSize: z.enum(['10', '25', '50', '100']).default('25').transform(Number),
@@ -390,4 +392,3 @@ const saleListQuerySchema = z
 export function parseSaleListQuery(query: unknown): SaleFilters {
   return saleListQuerySchema.parse(query);
 }
-import { z } from 'zod';

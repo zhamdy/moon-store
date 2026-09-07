@@ -1,18 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
+import { analyticsRequestContracts } from './schemas';
 import { analyticsService } from './service';
-import {
-  parseAnalyticsDateQuery,
-  parseAnalyticsDaysPageQuery,
-  parseAnalyticsDaysQuery,
-  parseAnalyticsPageQuery,
-} from './types';
+import { withDefaultDays, type AnalyticsPageQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
+
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = analyticsRequestContracts;
 
 export class AnalyticsController {
   async getDashboardAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = parseAnalyticsDateQuery(req.query);
+      const { from, to } = contracts.getDashboardAll.parseQuery<{ from?: string; to?: string }>(
+        req.query
+      );
       const data = await analyticsService.getDashboardAll(from, to);
       res.json(success(data));
     } catch (err) {
@@ -31,7 +32,9 @@ export class AnalyticsController {
 
   async getRevenue(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = parseAnalyticsDateQuery(req.query);
+      const { from, to } = contracts.getRevenue.parseQuery<{ from?: string; to?: string }>(
+        req.query
+      );
       const data = await analyticsService.getRevenueByDate(from, to);
       res.json(success(data));
     } catch (err) {
@@ -41,7 +44,7 @@ export class AnalyticsController {
 
   async getTopProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseAnalyticsPageQuery(req.query);
+      const query = contracts.getTopProducts.parseQuery<AnalyticsPageQuery>(req.query);
       const { from, to } = query;
       const result = await analyticsService.getTopProductsPage(
         query.page,
@@ -61,7 +64,9 @@ export class AnalyticsController {
 
   async getPaymentMethods(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = parseAnalyticsDateQuery(req.query);
+      const { from, to } = contracts.getPaymentMethods.parseQuery<{ from?: string; to?: string }>(
+        req.query
+      );
       const data = await analyticsService.getPaymentMethodBreakdown(from, to);
       res.json(success(data));
     } catch (err) {
@@ -71,7 +76,9 @@ export class AnalyticsController {
 
   async getOrdersPerDay(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { from, to } = parseAnalyticsDateQuery(req.query);
+      const { from, to } = contracts.getOrdersPerDay.parseQuery<{ from?: string; to?: string }>(
+        req.query
+      );
       const data = await analyticsService.getOrdersPerDay(from, to);
       res.json(success(data));
     } catch (err) {
@@ -81,7 +88,7 @@ export class AnalyticsController {
 
   async getCashierPerformance(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseAnalyticsPageQuery(req.query);
+      const query = contracts.getCashierPerformance.parseQuery<AnalyticsPageQuery>(req.query);
       const { from, to } = query;
       const result = await analyticsService.getCashierPerformancePage(
         query.page,
@@ -101,7 +108,7 @@ export class AnalyticsController {
 
   async getSalesByCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseAnalyticsPageQuery(req.query);
+      const query = contracts.getSalesByCategory.parseQuery<AnalyticsPageQuery>(req.query);
       const { from, to } = query;
       const result = await analyticsService.getSalesByCategoryPage(
         query.page,
@@ -121,7 +128,7 @@ export class AnalyticsController {
 
   async getSalesByDistributor(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseAnalyticsPageQuery(req.query);
+      const query = contracts.getSalesByDistributor.parseQuery<AnalyticsPageQuery>(req.query);
       const { from, to } = query;
       const result = await analyticsService.getSalesByDistributorPage(
         query.page,
@@ -141,7 +148,10 @@ export class AnalyticsController {
 
   async getDeadStock(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseAnalyticsDaysPageQuery(req.query, 90);
+      const query = withDefaultDays(
+        contracts.getDeadStock.parseQuery<AnalyticsPageQuery & { days?: number }>(req.query),
+        90
+      );
       const result = await analyticsService.getDeadStockPage(
         query.days,
         query.page,
@@ -159,7 +169,7 @@ export class AnalyticsController {
 
   async getCustomerLtv(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseAnalyticsPageQuery(req.query);
+      const query = contracts.getCustomerLtv.parseQuery<AnalyticsPageQuery>(req.query);
       const { from, to } = query;
       const result = await analyticsService.getCustomerLtvPage(
         query.page,
@@ -179,7 +189,10 @@ export class AnalyticsController {
 
   async getHourlyHeatmap(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { days } = parseAnalyticsDaysQuery(req.query, 30);
+      const { days } = withDefaultDays(
+        contracts.getHourlyHeatmap.parseQuery<{ days?: number }>(req.query),
+        30
+      );
       const data = await analyticsService.getHourlyHeatmap(days);
       res.json(success(data));
     } catch (err) {
@@ -189,7 +202,7 @@ export class AnalyticsController {
 
   async getAbcClassification(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseAnalyticsPageQuery(req.query);
+      const query = contracts.getAbcClassification.parseQuery<AnalyticsPageQuery>(req.query);
       const result = await analyticsService.getAbcClassificationPage(query.page, query.pageSize);
       res.json(
         success(result.data, {
@@ -203,7 +216,7 @@ export class AnalyticsController {
 
   async getReorderSuggestions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseAnalyticsPageQuery(req.query);
+      const query = contracts.getReorderSuggestions.parseQuery<AnalyticsPageQuery>(req.query);
       const result = await analyticsService.getReorderSuggestionsPage(query.page, query.pageSize);
       res.json(
         success(result.items, {
@@ -226,7 +239,7 @@ export class AnalyticsController {
 
   async getInventorySnapshots(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseAnalyticsPageQuery(req.query);
+      const query = contracts.getInventorySnapshots.parseQuery<AnalyticsPageQuery>(req.query);
       const result = await analyticsService.getInventorySnapshotsPage(query.page, query.pageSize);
       res.json(
         success(result.items, {

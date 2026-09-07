@@ -24,7 +24,7 @@ import { sanitizeBody } from './middleware/sanitize';
 import logger from './lib/logger';
 import { closePool } from './src/database/pool';
 import { errorResponse } from './src/http/errors';
-import { openApiSpec } from './src/docs/openapi';
+import { servedOpenApiSpec } from './src/docs/servedSpec';
 
 import { routeTable } from './src/router';
 import { startScheduler } from './src/scheduler';
@@ -127,9 +127,10 @@ for (const [routePath, router] of routeTable) {
   app.use(routePath, router);
 }
 
-// OpenAPI Spec endpoint
+// OpenAPI Spec endpoint. Request shapes are derived from the Zod schemas that validate
+// them (#102); responses stay hand-written, because nothing validates a response.
 app.get('/openapi.json', (_req: Request, res: Response) => {
-  res.json(openApiSpec);
+  res.json(servedOpenApiSpec);
 });
 
 // Scalar API Reference documentation UI
@@ -138,7 +139,7 @@ app.use(
   apiReference({
     theme: 'moon',
     spec: {
-      content: openApiSpec,
+      content: servedOpenApiSpec,
     },
   })
 );

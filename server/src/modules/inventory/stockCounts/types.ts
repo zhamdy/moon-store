@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface StockCountRecord {
   id: number;
   category_id?: number | null;
@@ -58,16 +61,15 @@ export interface StockCountFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const stockCountListQuerySchema = createListQuerySchema(['createdAt'] as const)
+export const stockCountListQuerySchema = createListQuerySchema(['createdAt'] as const)
   .extend({ status: z.enum(['in_progress', 'completed', 'cancelled']).optional() })
   .strict()
   .transform((query) => ({ sortBy: query.sortBy ?? 'createdAt', ...query }));
 
-export function parseStockCountListQuery(query: unknown): StockCountFilters {
-  const parsed = stockCountListQuerySchema.parse(query);
+/** Shapes the parsed query into what the service takes; see the products module. */
+export function normalizeStockCountListQuery(
+  parsed: z.infer<typeof stockCountListQuerySchema>
+): StockCountFilters {
   return {
     page: parsed.page,
     pageSize: parsed.pageSize,
@@ -75,4 +77,8 @@ export function parseStockCountListQuery(query: unknown): StockCountFilters {
     sortBy: parsed.sortBy,
     sortOrder: parsed.sortOrder,
   };
+}
+
+export function parseStockCountListQuery(query: unknown): StockCountFilters {
+  return normalizeStockCountListQuery(stockCountListQuerySchema.parse(query));
 }

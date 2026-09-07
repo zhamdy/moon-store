@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createListQuerySchema } from '../../../http/pagination';
+
 export interface CouponFilters {
   page: number;
   pageSize: number;
@@ -13,10 +16,7 @@ export interface CouponListResult {
   page: number;
 }
 
-import { z } from 'zod';
-import { createListQuerySchema } from '../../../http/pagination';
-
-const couponListQuerySchema = createListQuerySchema(['createdAt', 'code'] as const)
+export const couponListQuerySchema = createListQuerySchema(['createdAt', 'code'] as const)
   .extend({
     search: z.string().trim().min(1).max(100).optional(),
     status: z.enum(['active', 'inactive', 'expired']).optional(),
@@ -53,7 +53,7 @@ export interface CouponData {
 
 /**
  * A *partial* coupon update: absent means "leave the stored value alone", explicit `null`
- * means "clear it". Deliberately not `CouponData` — sharing the create shape is what wiped
+ * means "clear it". Deliberately not `CouponData` â€” sharing the create shape is what wiped
  * `max_uses_per_customer` and `scope_ids` on every edit from the Promotions page, which
  * never sends them.
  */

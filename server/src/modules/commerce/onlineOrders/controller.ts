@@ -1,41 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import { onlineOrdersRequestContracts, createOnlineOrderSchema } from './schemas';
+import type { OnlineOrderFilters } from './types';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import { onlineOrdersService } from './service';
-import { parseOnlineOrderListQuery } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
 
-export const createOnlineOrderSchema = z.object({
-  customer_name: z.string().min(1).max(100),
-  customer_phone: z.string().min(1).max(30),
-  customer_email: z.string().email().optional().nullable(),
-  shipping_address: z.string().min(1).max(255),
-  city: z.string().min(1).max(50),
-  notes: z.string().max(500).optional(),
-  items: z
-    .array(
-      z.object({
-        product_id: z.number().int().positive(),
-        variant_id: z.number().int().positive().optional().nullable(),
-        quantity: z.number().int().positive(),
-        price: z.number().positive(),
-      })
-    )
-    .min(1),
-  shipping_fee: z.number().min(0).default(0),
-});
+/** Parsed through the contracts, so the document and the validators cannot differ (#102). */
+const contracts = onlineOrdersRequestContracts;
 
 export class OnlineOrdersController {
   async createOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const parsed = createOnlineOrderSchema.safeParse(req.body);
-      if (!parsed.success) {
-        throw parsed.error;
-      }
+      const parsed = contracts.createOnlineOrder.parseBody<z.infer<typeof createOnlineOrderSchema>>(
+        req.body
+      );
 
-      const order = await onlineOrdersService.createOrder(parsed.data);
+      const order = await onlineOrdersService.createOrder(parsed);
       res.status(201).json(success(order));
     } catch (err) {
       next(err);
@@ -44,7 +27,7 @@ export class OnlineOrdersController {
 
   async listOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = parseOnlineOrderListQuery(req.query);
+      const query = contracts.listOnlineOrders.parseQuery<OnlineOrderFilters>(req.query);
       const result = await onlineOrdersService.list(query);
       res.json(
         success(result.rows, {
@@ -58,7 +41,7 @@ export class OnlineOrdersController {
 
   async getOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
+      const { id } = contracts.getOnlineOrder.parseParams<{ id: string }>(req.params);
       const order = await onlineOrdersService.findById(id as string);
       if (!order) {
         throw new PublicError('NOT_FOUND', 'Order not found');
@@ -72,13 +55,8 @@ export class OnlineOrdersController {
 
   async updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { id } = req.params;
-      const { status } = req.body;
-
-      const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
-      if (!validStatuses.includes(status)) {
-        throw new PublicError('VALIDATION_ERROR', 'Invalid status');
-      }
+      const { id } = contracts.updateOnlineOrderStatus.parseParams<{ id: string }>(req.params);
+      const { status } = contracts.updateOnlineOrderStatus.parseBody<{ status: string }>(req.body);
 
       const updated = await onlineOrdersService.updateStatus(id as string, status);
       if (!updated) {
