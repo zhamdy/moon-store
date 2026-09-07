@@ -15,12 +15,39 @@
 import { countSalesForCashier, money, readStock } from '../support/assertSale';
 import { cartPanel, checkoutDrawer, posPage, receiptDialog } from '../support/locators';
 import { formatMoneyMinor } from '../support/money';
+import { fulfillJson } from '../support/network';
 import { dbOne } from '../support/db';
 import { API_BASE, getJson } from '../fixtures/seed';
 import { expect, test } from '../fixtures/test';
 import type { Page } from '@playwright/test';
 
 const SALES_PATH = '/api/v1/sales';
+
+/**
+ * Fakes a server rejection of the sale POST.
+ *
+ * `fulfillJson` is not a formatting convenience — its CORS headers are what make the
+ * faked status reach the application at all. Both rejections in this file were fulfilled
+ * with the wildcard origin, which a credentialed request rejects, so what the app
+ * actually saw was a network failure with no status. Since #53 that means one thing: the
+ * sale is durably queued and the cart is cleared. The 500 case failed on it, with the
+ * trace showing the offline queue replaying the sale on a 1s/2s/4s backoff; the 400 case
+ * passed vacuously, asserting only server-side facts that a request the browser never
+ * sent satisfies too.
+ */
+async function rejectSalePost(
+  page: Page,
+  status: number,
+  error: { code: string; message: string }
+) {
+  await page.route(
+    (url) => url.pathname.endsWith(SALES_PATH),
+    async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      await fulfillJson(route, status, { error });
+    }
+  );
+}
 
 async function ringUpAndOpenDrawer(page: Page, sku: string, productId: number) {
   await page.goto('/pos');
@@ -146,18 +173,7 @@ test.describe('server rejection', () => {
     const drawer = await ringUpAndOpenDrawer(page, product.sku, product.id);
 
     // A genuine 5xx is impractical to provoke, so this one case is faked at the wire.
-    await page.route(
-      (url) => url.pathname.endsWith(SALES_PATH),
-      async (route) => {
-        if (route.request().method() !== 'POST') return route.continue();
-        await route.fulfill({
-          status: 500,
-          contentType: 'application/json',
-          headers: { 'Access-Control-Allow-Origin': '*' },
-          body: JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'boom' } }),
-        });
-      }
-    );
+    await rejectSalePost(page, 500, { code: 'INTERNAL_ERROR', message: 'boom' });
 
     await drawer.confirm.click();
 
@@ -204,20 +220,7 @@ test.describe('server rejection', () => {
     const page = await cashierContext.newPage();
     const drawer = await ringUpAndOpenDrawer(page, product.sku, product.id);
 
-    await page.route(
-      (url) => url.pathname.endsWith(SALES_PATH),
-      async (route) => {
-        if (route.request().method() !== 'POST') return route.continue();
-        await route.fulfill({
-          status: 400,
-          contentType: 'application/json',
-          headers: { 'Access-Control-Allow-Origin': '*' },
-          body: JSON.stringify({
-            error: { code: 'VALIDATION_ERROR', message: 'Insufficient stock' },
-          }),
-        });
-      }
-    );
+    await rejectSalePost(page, 400, { code: 'VALIDATION_ERROR', message: 'Insufficient stock' });
 
     await drawer.confirm.click();
     await expect(receiptDialog(page).dialog).toBeHidden();
@@ -225,6 +228,14 @@ test.describe('server rejection', () => {
     expect(await countSalesForCashier(workerCashier.id)).toBe(salesBefore);
     expect(await readStock(product.id)).toBe(stockBefore);
     expect(await readExpectedCash(workerRegister.id)).toBe(cashBefore);
+
+    // The three assertions above are all satisfied by a request that never left the
+    // browser, which is exactly how this test passed for as long as its fake was
+    // unreachable. This one is not: a rejection that reached the app and was handled is
+    // the only way the cart is still standing.
+    await page.keyboard.press('Escape');
+    await expect(cartPanel(page).line(product.id)).toBeVisible();
+    await expect(cartPanel(page).total).toHaveText(formatMoneyMinor(9000));
   });
 });
 
