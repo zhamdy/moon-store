@@ -124,6 +124,23 @@ describe('DeliveryFormDialog customer picker', () => {
     await waitFor(() => expect(input).toHaveAttribute('aria-expanded', 'true'));
   });
 
+  it('keeps its name when the list opens, which is when the name matters most', async () => {
+    /*
+     * Opening the popover marks everything outside it `aria-hidden`, including the visible
+     * label. A name computed from that label therefore disappears at exactly the moment a
+     * screen-reader user is choosing from the list — and jsdom will not tell you, because
+     * it computes the name from the DOM regardless. Playwright did (#111).
+     *
+     * So this asserts the *mechanism*: the name comes from an attribute on the element
+     * itself, which nothing can hide.
+     */
+    render(<Harness />);
+
+    const { input } = await openListbox();
+    await waitFor(() => expect(input).toHaveAttribute('aria-expanded', 'true'));
+    expect(input).toHaveAttribute('aria-label', 'Select Customer');
+  });
+
   it('selects an existing customer with the keyboard and fills the form', async () => {
     render(<Harness />);
 
