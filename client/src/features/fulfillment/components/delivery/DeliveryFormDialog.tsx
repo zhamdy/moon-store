@@ -235,62 +235,81 @@ export default function DeliveryFormDialog({
             </ModalHeader>
             <ModalBody className="py-4 space-y-4">
               {/* Customer selector */}
-              <Autocomplete
-                label={t('deliveries.selectCustomer')}
-                placeholder={t('deliveries.searchCustomer')}
-                size="sm"
-                variant="bordered"
-                startContent={<Search className="h-4 w-4 text-muted-foreground shrink-0" />}
-                inputValue={customerSearch}
-                onInputChange={onCustomerSearchChange}
-                selectedKey={selectedCustomerKey}
-                onSelectionChange={handleCustomerSelection}
-                // Results are already filtered by the server; filtering them again
-                // client-side would hide rows the query deliberately returned.
-                defaultFilter={() => true}
-                allowsEmptyCollection
-                isLoading={isLoadingCustomers}
-                isInvalid={hasCustomerLoadError}
-                errorMessage={hasCustomerLoadError ? t('common.error') : undefined}
-                description={
-                  !hasCustomerLoadError &&
-                  !isLoadingCustomers &&
-                  customerSearch.length > 0 &&
-                  customerOptions.length === 0
-                    ? t('deliveries.noCustomersFound')
-                    : undefined
-                }
-                data-testid="delivery-customer-picker"
-              >
-                {[
-                  <AutocompleteItem
-                    key={NEW_CUSTOMER_KEY}
-                    textValue={t('deliveries.newCustomer')}
-                    startContent={<UserPlus className="h-4 w-4 text-primary shrink-0" />}
-                    endContent={
-                      isNewCustomer ? <Check className="h-4 w-4 text-primary" /> : undefined
-                    }
-                  >
-                    <span className="font-medium">{t('deliveries.newCustomer')}</span>
-                  </AutocompleteItem>,
-                  ...customerOptions.map((c) => (
+              <div className="space-y-1.5">
+                {/*
+                 * The visible label is its own element, and the accessible name comes from
+                 * `aria-label` rather than HeroUI's `label` prop (#111).
+                 *
+                 * That prop emits `aria-labelledby` *as well as* `aria-label`, pointing at
+                 * the input itself and at an id that does not exist, so the name resolves
+                 * to nothing in a real browser — `aria-labelledby` wins the accessible-name
+                 * algorithm. jsdom's implementation quietly falls back to `aria-label`,
+                 * which is why the unit tests disagreed with Playwright.
+                 *
+                 * Naming the field with an attribute rather than a reference also survives
+                 * the popover: opening the list marks everything outside it `aria-hidden`,
+                 * which empties any name computed from a referenced element.
+                 */}
+                <p className="text-xs font-medium text-foreground" aria-hidden="true">
+                  {t('deliveries.selectCustomer')}
+                </p>
+                <Autocomplete
+                  aria-label={t('deliveries.selectCustomer')}
+                  placeholder={t('deliveries.searchCustomer')}
+                  size="sm"
+                  variant="bordered"
+                  startContent={<Search className="h-4 w-4 text-muted-foreground shrink-0" />}
+                  inputValue={customerSearch}
+                  onInputChange={onCustomerSearchChange}
+                  selectedKey={selectedCustomerKey}
+                  onSelectionChange={handleCustomerSelection}
+                  // Results are already filtered by the server; filtering them again
+                  // client-side would hide rows the query deliberately returned.
+                  defaultFilter={() => true}
+                  allowsEmptyCollection
+                  isLoading={isLoadingCustomers}
+                  isInvalid={hasCustomerLoadError}
+                  errorMessage={hasCustomerLoadError ? t('common.error') : undefined}
+                  description={
+                    !hasCustomerLoadError &&
+                    !isLoadingCustomers &&
+                    customerSearch.length > 0 &&
+                    customerOptions.length === 0
+                      ? t('deliveries.noCustomersFound')
+                      : undefined
+                  }
+                  data-testid="delivery-customer-picker"
+                >
+                  {[
                     <AutocompleteItem
-                      key={customerOptionKey(c.id)}
-                      textValue={c.name}
+                      key={NEW_CUSTOMER_KEY}
+                      textValue={t('deliveries.newCustomer')}
+                      startContent={<UserPlus className="h-4 w-4 text-primary shrink-0" />}
                       endContent={
-                        selectedCustomer?.id === c.id ? (
-                          <Check className="h-4 w-4 text-primary" />
-                        ) : undefined
+                        isNewCustomer ? <Check className="h-4 w-4 text-primary" /> : undefined
                       }
                     >
-                      <div className="min-w-0">
-                        <div className="font-medium text-foreground truncate">{c.name}</div>
-                        <div className="text-xs text-muted-foreground font-data">{c.phone}</div>
-                      </div>
-                    </AutocompleteItem>
-                  )),
-                ]}
-              </Autocomplete>
+                      <span className="font-medium">{t('deliveries.newCustomer')}</span>
+                    </AutocompleteItem>,
+                    ...customerOptions.map((c) => (
+                      <AutocompleteItem
+                        key={customerOptionKey(c.id)}
+                        textValue={c.name}
+                        endContent={
+                          selectedCustomer?.id === c.id ? (
+                            <Check className="h-4 w-4 text-primary" />
+                          ) : undefined
+                        }
+                      >
+                        <div className="min-w-0">
+                          <div className="font-medium text-foreground truncate">{c.name}</div>
+                          <div className="text-xs text-muted-foreground font-data">{c.phone}</div>
+                        </div>
+                      </AutocompleteItem>
+                    )),
+                  ]}
+                </Autocomplete>
+              </div>
 
               {/*
                 HeroUI's Input keeps its own controlled value, so an imperative

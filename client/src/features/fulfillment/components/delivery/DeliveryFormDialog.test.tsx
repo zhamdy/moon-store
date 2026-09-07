@@ -138,7 +138,20 @@ describe('DeliveryFormDialog customer picker', () => {
 
     const { input } = await openListbox();
     await waitFor(() => expect(input).toHaveAttribute('aria-expanded', 'true'));
+
     expect(input).toHaveAttribute('aria-label', 'Select Customer');
+
+    /*
+     * And crucially, no `aria-labelledby` — which is what actually broke this.
+     *
+     * HeroUI's `label` prop emits both, and a reference wins the accessible-name
+     * algorithm over an attribute. Its reference pointed at the input itself and at an id
+     * that does not exist, so a browser computed no name at all while jsdom fell back to
+     * `aria-label` and reported success. Asserting only the presence of `aria-label`
+     * would therefore still pass against the broken markup; asserting the absence of the
+     * reference is what pins the fix.
+     */
+    expect(input).not.toHaveAttribute('aria-labelledby');
   });
 
   it('selects an existing customer with the keyboard and fills the form', async () => {
