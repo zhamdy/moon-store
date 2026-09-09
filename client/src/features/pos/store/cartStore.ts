@@ -11,6 +11,13 @@ export interface CartItem {
   quantity: number;
   stock: number;
   memo?: string;
+  /**
+   * The bundle this line came from. Sent to the server, which re-derives the
+   * allocation itself -- the prices computed here are for the cashier's screen, and the
+   * server has no other way to tell a bundle member from a loose line of the same
+   * product (#124).
+   */
+  bundle_id?: number | null;
 }
 
 /** addItem input: the product columns the cart needs, plus POS-side variant selection */
@@ -19,7 +26,27 @@ export type Product = Pick<ServerProduct, 'id' | 'name' | 'price' | 'stock'> & {
   variant_attributes?: Record<string, string>;
 };
 
+/**
+ * Whether a cart line is the one an action names. Product and variant are not enough
+ * since #124: a product can be in the cart twice, once loose and once as a member of a
+ * bundle, at different prices. `bundleId` left undefined means the loose line, which is
+ * what every pre-bundle call site meant and still means.
+ */
+export function isSameLine(
+  line: CartItem,
+  productId: number,
+  variantId?: number | null,
+  bundleId?: number | null
+): boolean {
+  return (
+    line.product_id === productId &&
+    (line.variant_id || null) === (variantId || null) &&
+    (line.bundle_id || null) === (bundleId || null)
+  );
+}
+
 export interface BundleForCart {
+  id: number;
   name: string;
   price: number;
   items: {
@@ -78,9 +105,20 @@ interface CartState {
   setCheckoutAttempt: (attempt: { fingerprint: string; key: string } | null) => void;
   addItem: (product: Product) => void;
   addBundle: (bundle: BundleForCart) => void;
-  removeItem: (productId: number, variantId?: number | null) => void;
-  updateQuantity: (productId: number, quantity: number, variantId?: number | null) => void;
-  setItemMemo: (productId: number, memo: string, variantId?: number | null) => void;
+  // `bundleId` completes the line's identity; omitted means the loose line.
+  removeItem: (productId: number, variantId?: number | null, bundleId?: number | null) => void;
+  updateQuantity: (
+    productId: number,
+    quantity: number,
+    variantId?: number | null,
+    bundleId?: number | null
+  ) => void;
+  setItemMemo: (
+    productId: number,
+    memo: string,
+    variantId?: number | null,
+    bundleId?: number | null
+  ) => void;
   setDiscount: (discount: number) => void;
   setDiscountType: (discountType: DiscountType) => void;
   setNotes: (notes: string) => void;
@@ -162,6 +200,14 @@ export function sanitizeCartItem(raw: unknown): CartItem | null {
       ? null
       : sanitizeFiniteNumber(r.variant_id, 0);
 
+  // Preserved through rehydration: a cart restored from localStorage that lost its
+  // bundle tagging would check out at catalog prices, which is the whole of #124 again
+  // for exactly the carts a till reload is most likely to produce.
+  const bundleId =
+    r.bundle_id === null || r.bundle_id === undefined
+      ? null
+      : sanitizeFiniteNumber(r.bundle_id, 0) || null;
+
   return {
     product_id: productId,
     variant_id: variantId,
@@ -169,6 +215,7 @@ export function sanitizeCartItem(raw: unknown): CartItem | null {
     unit_price: unitPrice,
     quantity,
     stock: sanitizeFiniteNumber(r.stock, 0),
+    ...(bundleId ? { bundle_id: bundleId } : {}),
     ...(typeof r.memo === 'string' && r.memo ? { memo: r.memo } : {}),
   };
 }
@@ -246,15 +293,15 @@ export const useCartStore = create<CartState>()(
       addItem: (product) =>
         set((state) => {
           const variantId = product.variant_id || null;
-          const existing = state.items.find(
-            (i) => i.product_id === product.id && (i.variant_id || null) === variantId
-          );
+          // Scanning a product that is already in the cart as part of a bundle adds a
+          // separate loose line rather than incrementing the bundle's. Folding it in
+          // would charge the loose unit the bundle's discounted allocation, and would
+          // break the group against its definition when the server re-checks it (#124).
+          const existing = state.items.find((i) => isSameLine(i, product.id, variantId));
           if (existing) {
             return {
               items: state.items.map((i) =>
-                i.product_id === product.id && (i.variant_id || null) === variantId
-                  ? { ...i, quantity: i.quantity + 1 }
-                  : i
+                isSameLine(i, product.id, variantId) ? { ...i, quantity: i.quantity + 1 } : i
               ),
               lastUpdated: Date.now(),
             };
@@ -294,9 +341,11 @@ export const useCartStore = create<CartState>()(
                 : 1 / bundle.items.length;
             const adjustedUnitPrice = (proportion * bundle.price) / item.quantity;
 
-            const existing = newItems.find(
-              (i) => i.product_id === item.product_id && !i.variant_id
-            );
+            // Only another line of the SAME bundle merges. A loose line of the same
+            // product must stay separate: the server validates a bundle group against
+            // its definition, so folding a loose unit into it would both fail that
+            // check and price the loose unit at the bundle's discount.
+            const existing = newItems.find((i) => isSameLine(i, item.product_id, null, bundle.id));
             if (existing) {
               existing.quantity += item.quantity;
             } else {
@@ -307,6 +356,7 @@ export const useCartStore = create<CartState>()(
                 quantity: item.quantity,
                 stock: item.stock,
                 memo: `[${bundle.name}]`,
+                bundle_id: bundle.id,
               });
             }
           }
@@ -314,30 +364,26 @@ export const useCartStore = create<CartState>()(
           return { items: newItems, lastUpdated: Date.now() };
         }),
 
-      removeItem: (productId, variantId) =>
+      removeItem: (productId, variantId, bundleId) =>
         set((state) => ({
-          items: state.items.filter(
-            (i) => !(i.product_id === productId && (i.variant_id || null) === (variantId || null))
-          ),
+          items: state.items.filter((i) => !isSameLine(i, productId, variantId, bundleId)),
           lastUpdated: Date.now(),
         })),
 
-      updateQuantity: (productId, quantity, variantId) =>
+      updateQuantity: (productId, quantity, variantId, bundleId) =>
         set((state) => ({
           items: state.items.map((i) =>
-            i.product_id === productId && (i.variant_id || null) === (variantId || null)
+            isSameLine(i, productId, variantId, bundleId)
               ? { ...i, quantity: Math.max(1, quantity) }
               : i
           ),
           lastUpdated: Date.now(),
         })),
 
-      setItemMemo: (productId, memo, variantId) =>
+      setItemMemo: (productId, memo, variantId, bundleId) =>
         set((state) => ({
           items: state.items.map((i) =>
-            i.product_id === productId && (i.variant_id || null) === (variantId || null)
-              ? { ...i, memo }
-              : i
+            isSameLine(i, productId, variantId, bundleId) ? { ...i, memo } : i
           ),
         })),
 

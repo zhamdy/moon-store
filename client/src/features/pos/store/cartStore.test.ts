@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateTotals } from '../../../shared/lib/checkout';
+import { lineKey } from '../lib/cartLines';
 import { useCartStore, sanitizeCartItem, type Product, type CartPersistedV0 } from './cartStore';
 
 /**
@@ -280,6 +281,124 @@ describe('Cart - restoreFromHeld', () => {
   });
 });
 
+/**
+ * #124: the server tells a bundle member from a loose line of the same product only by
+ * `bundle_id`. Without it every bundle line was priced from the catalog, so the cashier
+ * saw the bundle price and the customer paid the sum of the parts.
+ */
+describe('Cart - addBundle', () => {
+  const bundle = {
+    id: 7,
+    name: 'Outfit Bundle',
+    price: 630,
+    items: [
+      { product_id: 1, product_name: 'Silk Dress', product_price: 500, quantity: 1, stock: 10 },
+      { product_id: 2, product_name: 'Cotton Shirt', product_price: 200, quantity: 1, stock: 10 },
+    ],
+  };
+
+  beforeEach(() => {
+    useCartStore.getState().clearCart();
+  });
+
+  it('tags every line with the bundle it came from', () => {
+    useCartStore.getState().addBundle(bundle);
+
+    const { items } = useCartStore.getState();
+    expect(items).toHaveLength(2);
+    expect(items.map((i) => i.bundle_id)).toEqual([7, 7]);
+  });
+
+  it('allocates the bundle price across its lines rather than charging catalog', () => {
+    useCartStore.getState().addBundle(bundle);
+
+    const total = useCartStore
+      .getState()
+      .items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+    expect(total).toBeCloseTo(630, 2);
+  });
+
+  it('keeps a loose line of the same product separate from the bundle line', () => {
+    // Ringing the dress up on its own, then adding a bundle that contains it, must
+    // leave two lines: the loose one at catalog, the bundle one at its allocation.
+    useCartStore.getState().addItem({ id: 1, name: 'Silk Dress', price: 500, stock: 10 });
+    useCartStore.getState().addBundle(bundle);
+
+    const dressLines = useCartStore.getState().items.filter((i) => i.product_id === 1);
+    expect(dressLines).toHaveLength(2);
+    expect(dressLines.find((i) => !i.bundle_id)?.unit_price).toBe(500);
+    expect(dressLines.find((i) => i.bundle_id === 7)?.unit_price).toBeLessThan(500);
+  });
+
+  it('merges a second copy of the same bundle into its own lines', () => {
+    useCartStore.getState().addBundle(bundle);
+    useCartStore.getState().addBundle(bundle);
+
+    const { items } = useCartStore.getState();
+    expect(items).toHaveLength(2);
+    expect(items.map((i) => i.quantity)).toEqual([2, 2]);
+  });
+
+  /**
+   * A bundle line and a loose line can hold the same product at different prices, so
+   * every action that names a line has to name the bundle too. Identifying a line by
+   * (product, variant) alone now matches two of them.
+   */
+  describe('once a loose line and a bundle line coexist', () => {
+    beforeEach(() => {
+      useCartStore.getState().addItem({ id: 1, name: 'Silk Dress', price: 500, stock: 10 });
+      useCartStore.getState().addBundle(bundle);
+    });
+
+    it('scanning the product again adds to the loose line, not the bundle line', () => {
+      useCartStore.getState().addItem({ id: 1, name: 'Silk Dress', price: 500, stock: 10 });
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items).toHaveLength(2);
+      expect(items.find((i) => !i.bundle_id)?.quantity).toBe(2);
+      // Incrementing the bundle's line would break the group against its definition.
+      expect(items.find((i) => i.bundle_id === 7)?.quantity).toBe(1);
+    });
+
+    it('removing the loose line leaves the bundle line intact', () => {
+      useCartStore.getState().removeItem(1, null, null);
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items).toHaveLength(1);
+      expect(items[0].bundle_id).toBe(7);
+    });
+
+    it('removing the bundle line leaves the loose line intact', () => {
+      useCartStore.getState().removeItem(1, null, 7);
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items).toHaveLength(1);
+      expect(items[0].bundle_id).toBeUndefined();
+    });
+
+    it('changing the quantity of one does not change the other', () => {
+      useCartStore.getState().updateQuantity(1, 5, null, null);
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items.find((i) => !i.bundle_id)?.quantity).toBe(5);
+      expect(items.find((i) => i.bundle_id === 7)?.quantity).toBe(1);
+    });
+
+    it('a memo written on one does not appear on the other', () => {
+      useCartStore.getState().setItemMemo(1, 'gift wrap', null, null);
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items.find((i) => !i.bundle_id)?.memo).toBe('gift wrap');
+      expect(items.find((i) => i.bundle_id === 7)?.memo).toBe('[Outfit Bundle]');
+    });
+
+    it('gives the two lines distinct keys, so the UI can tell them apart', () => {
+      const [a, b] = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(lineKey(a)).not.toBe(lineKey(b));
+    });
+  });
+});
+
 describe('Cart - acknowledgeReview', () => {
   it('clears the needsReview flag', () => {
     useCartStore.setState({ needsReview: true });
@@ -329,6 +448,24 @@ describe('Cart - sanitizeCartItem', () => {
     expect(
       sanitizeCartItem({ product_id: 1, unit_price: 100, quantity: 0, stock: 5 })?.quantity
     ).toBe(1);
+  });
+
+  it('preserves bundle_id through rehydration', () => {
+    // A till that reloads mid-sale restores its cart from localStorage. Dropping the
+    // tag here would check the bundle out at catalog prices (#124).
+    const item = sanitizeCartItem({
+      product_id: 1,
+      unit_price: 450,
+      quantity: 1,
+      stock: 5,
+      bundle_id: 7,
+    });
+    expect(item?.bundle_id).toBe(7);
+  });
+
+  it('leaves bundle_id off a line that never had one', () => {
+    const item = sanitizeCartItem({ product_id: 1, unit_price: 100, quantity: 1, stock: 5 });
+    expect(item?.bundle_id).toBeUndefined();
   });
 
   it('preserves an explicit null variant_id as null, not 0 or undefined', () => {

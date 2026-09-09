@@ -75,6 +75,20 @@ describe('Bundles card actions', () => {
     expect(nesting).toEqual([]);
   });
 
+  /**
+   * #124: the card reads `price`, and the server's list projected a column nothing
+   * writes, so every card rendered 0.00. This pins the wire name the card depends on.
+   */
+  it('renders the bundle price the list returned, alongside the catalog total it saves against', async () => {
+    renderBundles();
+    await screen.findByText('Winter capsule');
+
+    // 200 is `price` (the bundle price) and 260 is `original_price`; a card reading the
+    // wrong field would show neither, or show the same number twice.
+    expect(screen.getAllByText(/200/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/260/).length).toBeGreaterThan(0);
+  });
+
   it('names each row action for its own bundle rather than repeating a bare verb', async () => {
     renderBundles();
     await screen.findByText('Winter capsule');

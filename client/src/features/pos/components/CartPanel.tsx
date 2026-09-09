@@ -232,13 +232,13 @@ export default function CartPanel({ checkoutTriggerRef }: CartPanelProps = {}): 
               isEditingMemo={editingMemo === lineKey(item)}
               onStartEditingMemo={() => setEditingMemo(lineKey(item))}
               onCommitMemo={(memo) => {
-                setItemMemo(item.product_id, memo, item.variant_id);
+                setItemMemo(item.product_id, memo, item.variant_id, item.bundle_id);
                 setEditingMemo(null);
               }}
               onQuantityChange={(quantity) =>
-                updateQuantity(item.product_id, quantity, item.variant_id)
+                updateQuantity(item.product_id, quantity, item.variant_id, item.bundle_id)
               }
-              onRemove={() => removeItem(item.product_id, item.variant_id)}
+              onRemove={() => removeItem(item.product_id, item.variant_id, item.bundle_id)}
             />
           ))
         )}

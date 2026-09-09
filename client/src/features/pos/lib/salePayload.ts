@@ -58,6 +58,9 @@ export function buildSalePayload(composition: SaleComposition): SaleData {
       quantity: i.quantity,
       unit_price: i.unit_price,
       ...(i.variant_id ? { variant_id: i.variant_id } : {}),
+      // Spread conditionally like every other optional field, so a cart with no bundle
+      // line composes byte-identically to before and its idempotency key is unchanged.
+      ...(i.bundle_id ? { bundle_id: i.bundle_id } : {}),
       ...(i.memo ? { memo: i.memo } : {}),
     })),
     discount,
@@ -88,6 +91,9 @@ export function buildOfflineSalePayload(composition: SaleComposition): SaleData 
     items: items.map((i) => ({
       product_id: i.product_id,
       ...(i.variant_id ? { variant_id: i.variant_id } : {}),
+      // Carried into the queue too: without it a bundle sale that was rung up offline
+      // replays at catalog prices, which is the defect this field exists to close.
+      ...(i.bundle_id ? { bundle_id: i.bundle_id } : {}),
       quantity: i.quantity,
       unit_price: i.unit_price,
     })),

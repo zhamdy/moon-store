@@ -327,6 +327,42 @@ export class SalesService {
       calcLines.push(...bundleCalcLines);
     }
 
+    // A product can now legitimately appear on more than one line -- loose and inside a
+    // bundle (#124) -- and each line's own check passes while their sum does not. Without
+    // this pass the cart reaches the write phase, where the guarded decrement refuses and
+    // the cashier gets a bare conflict instead of the itemized list this pre-check exists
+    // to produce.
+    if (checkStock) {
+      const requestedByRow = new Map<string, { line: ResolvedSaleLine; requested: number }>();
+      for (const line of resolvedItems) {
+        const key = `${line.product_id}:${line.variant_id ?? ''}`;
+        const entry = requestedByRow.get(key);
+        if (entry) entry.requested += line.quantity;
+        else requestedByRow.set(key, { line, requested: line.quantity });
+      }
+
+      for (const [key, { line, requested }] of requestedByRow) {
+        // Only rows that actually span lines; a single-line row was already checked
+        // against the same number during resolution.
+        if (requested === line.quantity) continue;
+        if (stockConflicts.some((c) => `${c.productId}:${c.variantId ?? ''}` === key)) continue;
+
+        const available =
+          line.variant_id != null
+            ? await this.repo.getVariantStock(line.variant_id, queryable)
+            : await this.repo.getProductStock(line.product_id, queryable);
+
+        if (available !== null && available < requested) {
+          stockConflicts.push({
+            productId: line.product_id,
+            variantId: line.variant_id ?? null,
+            requested,
+            available: Math.max(0, available),
+          });
+        }
+      }
+    }
+
     if (stockConflicts.length > 0) {
       // The message names the first line only: it is prose for a person, and the machine
       // -readable list is what a client reads. Wording unchanged from before this was typed.
@@ -413,16 +449,22 @@ export class SalesService {
       }
     }
 
-    // The bundles table has both a legacy `price` column and the `bundle_price`
-    // column that the bundles module's own create/update paths write to (see
-    // server/src/modules/inventory/bundles/repository.ts); prefer the latter.
-    const bundleRow = bundle as unknown as { bundle_price?: number; price?: number };
-    const bundlePriceMajor = Number(bundleRow.bundle_price ?? bundleRow.price ?? 0);
+    // `price` on the wire, `bundle_price` in the column: the bundles repository aliases
+    // it on every read path (#123), so there is one name to read here.
+    //
+    // A non-positive price is refused rather than allocated. `product_bundles.bundle_price`
+    // is `NUMERIC DEFAULT 0`, so a row that predates the create path working carries 0 --
+    // and allocating 0 across the members would ring the whole bundle up free, silently
+    // and with no error for anyone to notice.
+    const bundlePriceMajor = Number(bundle.price ?? 0);
+    if (!Number.isFinite(bundlePriceMajor) || bundlePriceMajor <= 0) {
+      throw new PublicError('VALIDATION_ERROR', `Bundle has no price set: ID ${bundleId}`);
+    }
     const totalAllocatedMinor = toMinorUnits(bundlePriceMajor) * (multiplier || 1);
 
     const catalogLineMinor: number[] = bundleItems.map((bi) => {
       const requestedQty = requestedByProduct.get(bi.product_id)!;
-      return toMinorUnits(Number(bi.original_price || 0)) * requestedQty;
+      return toMinorUnits(Number(bi.product_price || 0)) * requestedQty;
     });
     const totalCatalogMinor = catalogLineMinor.reduce((s, v) => s + v, 0);
 

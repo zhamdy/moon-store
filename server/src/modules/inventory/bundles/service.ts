@@ -1,5 +1,5 @@
 import { withTransaction } from '../../../database/transaction';
-import { IBundlesRepository, bundlesRepository as defaultRepo } from './repository';
+import { IBundlesRepository, bundlesRepository as defaultRepo, withSavings } from './repository';
 import {
   BundleFilters,
   CreateBundleDTO,
@@ -24,18 +24,31 @@ export class BundlesService {
     if (!bundle) return null;
 
     const items = await this.repo.findItemsByBundleId(id);
+    // The detail response carries the same derived figures as the list, computed from
+    // the items it has just read; the page renders original price and savings from both.
+    const originalPrice = items.reduce(
+      (sum, item) => sum + Number(item.product_price ?? 0) * Number(item.quantity ?? 0),
+      0
+    );
+
     return {
-      ...bundle,
+      ...withSavings({ ...bundle, original_price: originalPrice }),
+      item_count: items.length,
       items,
     };
   }
 
   async create(data: CreateBundleDTO): Promise<BundleRecord> {
-    return withTransaction(async (client) => {
+    const created = await withTransaction(async (client) => {
       const bundle = await this.repo.create(data, client);
       await this.repo.createBundleItems(bundle.id, data.items, client);
       return bundle;
     });
+
+    // Re-read so the mutation response is the same shape as a read: the INSERT's
+    // RETURNING cannot supply `items` or the figures derived from them, and the client
+    // declares those non-optional.
+    return (await this.findById(created.id)) ?? created;
   }
 
   async update(
@@ -54,7 +67,8 @@ export class BundlesService {
       return b;
     });
 
-    return { success: true, data: updated! };
+    // Same shape as a read, for the same reason as `create`.
+    return { success: true, data: (await this.findById(id)) ?? updated! };
   }
 
   async delete(id: number | string): Promise<{ success: boolean; error?: string }> {
