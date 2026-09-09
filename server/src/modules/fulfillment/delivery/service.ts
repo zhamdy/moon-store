@@ -9,13 +9,16 @@ import {
   PerformanceResult,
 } from './types';
 import { PublicError } from '../../../http/errors';
+import { withDocumentNumber } from '../../../database/documentNumber';
 
 export function generateDeliveryOrderNumber(): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
-  const rand = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
+  // 4 digits like every other document number. The retry above is what actually makes a
+  // collision harmless; widening the suffix only makes one rarer (#128).
+  const rand = String(Math.floor(Math.random() * 9000) + 1000);
   return `DEL-${y}${m}${d}-${rand}`;
 }
 
@@ -27,7 +30,11 @@ export function resolveEstimatedDelivery(estimated_delivery?: string | null): st
 }
 
 export class DeliveryService {
-  constructor(private repo: IDeliveryRepository = defaultRepo) {}
+  constructor(
+    private repo: IDeliveryRepository = defaultRepo,
+    /** Injected so a test can hand it a number it knows is taken. */
+    private generateNumber: () => string = generateDeliveryOrderNumber
+  ) {}
 
   getRepository(): IDeliveryRepository {
     return this.repo;
@@ -70,32 +77,42 @@ export class DeliveryService {
   }
 
   async createDeliveryOrder(data: DeliveryOrderInput): Promise<Record<string, any>> {
-    const order_number = generateDeliveryOrderNumber();
     const resolvedEstimatedDelivery = resolveEstimatedDelivery(data.estimated_delivery);
 
-    return withTransaction(async (client) => {
-      const resolvedCustomerId = await this.resolveCustomer(
-        client,
-        data.customer_id,
-        data.customer_name,
-        data.phone,
-        data.address
-      );
+    // Retried as a whole transaction on a number collision; see `withDocumentNumber`.
+    // Delivery was the worst of the four for this: a 3-digit suffix collides on the
+    // ~30th delivery of a day with probability around a third (#128).
+    return withDocumentNumber(
+      {
+        generate: this.generateNumber,
+        constraint: 'delivery_orders_order_number_key',
+        label: 'delivery order',
+      },
+      (order_number) =>
+        withTransaction(async (client) => {
+          const resolvedCustomerId = await this.resolveCustomer(
+            client,
+            data.customer_id,
+            data.customer_name,
+            data.phone,
+            data.address
+          );
 
-      const order = await this.repo.createOrder(
-        order_number,
-        resolvedCustomerId,
-        resolvedEstimatedDelivery,
-        data,
-        client
-      );
+          const order = await this.repo.createOrder(
+            order_number,
+            resolvedCustomerId,
+            resolvedEstimatedDelivery,
+            data,
+            client
+          );
 
-      if (data.items && data.items.length > 0) {
-        await this.repo.createOrderItems(order.id, data.items, client);
-      }
+          if (data.items && data.items.length > 0) {
+            await this.repo.createOrderItems(order.id, data.items, client);
+          }
 
-      return order;
-    });
+          return order;
+        })
+    );
   }
 
   async updateDeliveryOrder(
