@@ -178,6 +178,17 @@ export function calculateSaleBreakdown(input: SaleCalculationInput): SaleCalcula
   };
 }
 
+/**
+ * The composite key a refund line is matched and aggregated on: two variants of the same
+ * product are distinct lines, and a plain (non-variant) line is keyed on `product_id`
+ * alone with `variant_id` normalized to `null` (both `undefined` and `null` collapse to
+ * the same key, since the wire, the DB row and historical `refunds.items` JSON can each
+ * spell "no variant" differently).
+ */
+function lineKey(productId: number, variantId?: number | null): string {
+  return `${productId}:${variantId ?? ''}`;
+}
+
 export class SalesService {
   constructor(
     private repo: ISalesRepository = defaultRepo,
@@ -924,28 +935,34 @@ export class SalesService {
       // are aggregated here, inside the same `FOR UPDATE` lock on `sale` that makes the
       // read-then-write safe against a sibling refund committing concurrently.
       const priorRefunds = await this.repo.findRefundsBySaleId(saleId, client);
-      const previouslyRefundedByProduct = new Map<number, number>();
+      const previouslyRefundedByLine = new Map<string, number>();
       for (const priorRefund of priorRefunds) {
-        const items: Array<{ product_id: number; quantity: number }> =
+        const items: Array<{ product_id: number; variant_id?: number | null; quantity: number }> =
           typeof priorRefund.items === 'string' ? JSON.parse(priorRefund.items) : priorRefund.items;
         for (const item of items) {
-          previouslyRefundedByProduct.set(
-            item.product_id,
-            (previouslyRefundedByProduct.get(item.product_id) || 0) + Number(item.quantity)
+          const key = lineKey(item.product_id, item.variant_id);
+          previouslyRefundedByLine.set(
+            key,
+            (previouslyRefundedByLine.get(key) || 0) + Number(item.quantity)
           );
         }
       }
 
       let refundAmount = 0;
       for (const refundItem of input.items) {
-        const saleItem = saleItems.find((si) => si.product_id === refundItem.product_id);
+        const saleItem = saleItems.find(
+          (si) =>
+            si.product_id === refundItem.product_id &&
+            (si.variant_id ?? null) === (refundItem.variant_id ?? null)
+        );
         if (!saleItem)
           throw new PublicError(
             'VALIDATION_ERROR',
             `Product ${refundItem.product_id} not in this sale`
           );
 
-        const alreadyRefunded = previouslyRefundedByProduct.get(refundItem.product_id) || 0;
+        const key = lineKey(refundItem.product_id, refundItem.variant_id);
+        const alreadyRefunded = previouslyRefundedByLine.get(key) || 0;
         const remaining = Number(saleItem.quantity) - alreadyRefunded;
         if (refundItem.quantity > remaining) {
           throw new PublicError(
@@ -986,12 +1003,15 @@ export class SalesService {
       await this.repo.updateSaleRefundStatus(saleId, refundStatus, newRefundedTotal, client);
 
       if (input.restock) {
-        // Ascending by product id, the same canonical order the checkout write phase
-        // uses, so a refund and a checkout touching the same two products cannot lock
-        // them in opposite order and deadlock.
-        const restockOrder = [...input.items].sort((a, b) => a.product_id - b.product_id);
-        for (const item of restockOrder) {
-          await this.repo.incrementProductStock(item.product_id, item.quantity, client);
+        // The same canonical order the checkout write phase uses (products before
+        // variants, then ascending by id), so a refund and a checkout touching the same
+        // rows cannot lock them in opposite order and deadlock.
+        for (const item of sortForStockWrites(input.items)) {
+          if (item.variant_id) {
+            await this.repo.incrementVariantStock(item.variant_id, item.quantity, client);
+          } else {
+            await this.repo.incrementProductStock(item.product_id, item.quantity, client);
+          }
         }
       }
 

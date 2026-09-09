@@ -342,6 +342,7 @@ export interface ConfirmedPayment {
 
 export interface RefundItemInput {
   product_id: number;
+  variant_id?: number | null;
   quantity: number;
   unit_price: number;
 }

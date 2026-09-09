@@ -84,6 +84,11 @@ export interface ISalesRepository {
     quantity: number,
     queryable: Queryable
   ): Promise<number | null>;
+  incrementVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
   getProductStock(productId: number, queryable: Queryable): Promise<number | null>;
   getVariantStock(variantId: number, queryable: Queryable): Promise<number | null>;
   createStockAdjustment(data: Record<string, any>, queryable: Queryable): Promise<void>;
@@ -557,6 +562,21 @@ export class SalesRepository implements ISalesRepository {
     const res = await queryable.query<{ stock: number }>(
       `UPDATE product_variants SET stock = stock - $1::int, updated_at = NOW()
         WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
+      [quantity, variantId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /** Variant counterpart of {@link incrementProductStock}. No guard, for the same reason. */
+  async incrementVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      `UPDATE product_variants SET stock = stock + $1::int, updated_at = NOW()
+        WHERE id = $2
         RETURNING stock`,
       [quantity, variantId]
     );

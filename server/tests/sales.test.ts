@@ -642,6 +642,161 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
         )
       ).rejects.toThrow('Sale already fully refunded');
     });
+
+    describe('variant lines (#121)', () => {
+      async function createVariant(stock: number, price = 500): Promise<number> {
+        const { rows } = await testPool.query<{ id: number }>(
+          `INSERT INTO product_variants (product_id, sku, price, stock, attributes)
+           VALUES (1, $1, $2, $3, '{"color":"Red"}') RETURNING id`,
+          [`SKU-VAR-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, price, stock]
+        );
+        return rows[0].id;
+      }
+
+      async function readVariantStock(variantId: number): Promise<number> {
+        const { rows } = await testPool.query<{ stock: number }>(
+          'SELECT stock FROM product_variants WHERE id = $1',
+          [variantId]
+        );
+        return Number(rows[0].stock);
+      }
+
+      async function sellVariant(
+        variantId: number,
+        quantity: number,
+        unitPrice = 500
+      ): Promise<{ id: number }> {
+        const input = {
+          items: [{ product_id: 1, variant_id: variantId, quantity, unit_price: unitPrice }],
+          discount: 0,
+          discount_type: 'fixed',
+          payment_method: 'Cash',
+        };
+        const totals = await calculateSaleTotals(input, testPool);
+        return executeSaleTransaction(input, totals, 1, testPool);
+      }
+
+      it('restocks a refunded variant line to product_variants, not products (#121 repro)', async () => {
+        const variantId = await createVariant(4);
+        const sale = await sellVariant(variantId, 2);
+        expect(await readVariantStock(variantId)).toBe(2);
+        expect(await readStock(1)).toBe(10); // the plain product row is untouched
+
+        await executeRefundTransaction(
+          sale.id,
+          {
+            items: [{ product_id: 1, variant_id: variantId, quantity: 2, unit_price: 500 }],
+            reason: 'Wrong color',
+            restock: true,
+          },
+          1,
+          testPool
+        );
+
+        expect(await readVariantStock(variantId)).toBe(4);
+        expect(await readStock(1)).toBe(10);
+      });
+
+      it('still restocks a plain (non-variant) line to products', async () => {
+        const sale = await sellOneDress();
+
+        await executeRefundTransaction(
+          sale.id,
+          {
+            items: [{ product_id: 1, quantity: 1, unit_price: 500 }],
+            reason: 'Returned',
+            restock: true,
+          },
+          1,
+          testPool
+        );
+
+        expect(await readStock(1)).toBe(10);
+      });
+
+      it('caps each variant of the same product independently, not pooled by product_id', async () => {
+        const variantA = await createVariant(4);
+        const variantB = await createVariant(4);
+        const input = {
+          items: [
+            { product_id: 1, variant_id: variantA, quantity: 1, unit_price: 500 },
+            { product_id: 1, variant_id: variantB, quantity: 1, unit_price: 500 },
+          ],
+          discount: 0,
+          discount_type: 'fixed',
+          payment_method: 'Cash',
+        };
+        const totals = await calculateSaleTotals(input, testPool);
+        const sale = await executeSaleTransaction(input, totals, 1, testPool);
+
+        // Fully refund variant A only.
+        await executeRefundTransaction(
+          sale.id,
+          {
+            items: [{ product_id: 1, variant_id: variantA, quantity: 1, unit_price: 500 }],
+            reason: 'Wrong color',
+            restock: true,
+          },
+          1,
+          testPool
+        );
+
+        // Variant B still has its own unit left to refund -- a product-id-only cap would
+        // have treated A's refund as if it applied to B too and rejected this.
+        await expect(
+          executeRefundTransaction(
+            sale.id,
+            {
+              items: [{ product_id: 1, variant_id: variantB, quantity: 1, unit_price: 500 }],
+              reason: 'Wrong color too',
+              restock: true,
+            },
+            1,
+            testPool
+          )
+        ).resolves.toMatchObject({ refundStatus: 'full' });
+
+        expect(await readVariantStock(variantA)).toBe(4);
+        expect(await readVariantStock(variantB)).toBe(4);
+      });
+
+      it('does not write stock to either table when restock is false', async () => {
+        const variantId = await createVariant(4);
+        const sale = await sellVariant(variantId, 1);
+        expect(await readVariantStock(variantId)).toBe(3);
+
+        await executeRefundTransaction(
+          sale.id,
+          {
+            items: [{ product_id: 1, variant_id: variantId, quantity: 1, unit_price: 500 }],
+            reason: 'No restock',
+            restock: false,
+          },
+          1,
+          testPool
+        );
+
+        expect(await readVariantStock(variantId)).toBe(3);
+        expect(await readStock(1)).toBe(10);
+      });
+
+      it('rejects a variant_id that does not belong to any line of this sale', async () => {
+        const otherVariant = await createVariant(4);
+        const sale = await sellOneDress();
+
+        await expect(
+          executeRefundTransaction(
+            sale.id,
+            {
+              items: [{ product_id: 1, variant_id: otherVariant, quantity: 1, unit_price: 500 }],
+              reason: 'Wrong line',
+            },
+            1,
+            testPool
+          )
+        ).rejects.toThrow('Product 1 not in this sale');
+      });
+    });
   });
 
   it('should auto-fetch catalog price if unit_price is not provided', async () => {
