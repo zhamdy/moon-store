@@ -156,6 +156,97 @@ describe('exchange returned-item validation (#122)', () => {
     expect(Number(created.return_total)).toBe(500);
   });
 
+  it('prices the goods going OUT from the catalog, not from the request', async () => {
+    // The returned side was the reported defect, but `new_items` carried the caller's
+    // price too: an exchange could take real stock out at 0.01 a unit and pay the
+    // difference out as store credit.
+    const created = await service.createExchange(
+      exchange([returned(1, 1)], [{ product_id: 2, quantity: 1, price: 0.01 }]),
+      1
+    );
+
+    // Cotton Shirt is 200 in the catalog.
+    expect(Number(created.new_total)).toBe(200);
+    // 200 out, 500 back: the shop owes the customer 300.
+    expect(Number(created.difference)).toBe(-300);
+  });
+
+  it('persists the sold price on the returned line, not the fabricated one', async () => {
+    const created = await service.createExchange(exchange([returned(1, 1, 99999)]), 1);
+
+    // A row storing a price the header does not use would contradict it, and any report
+    // summing these rows would be wrong.
+    const { rows } = await testPool.query<{ price: string }>(
+      'SELECT price FROM exchange_returned_items WHERE exchange_id = $1',
+      [created.id]
+    );
+    expect(Number(rows[0].price)).toBe(500);
+  });
+
+  it('counts a historical refund stored without variant_id against the variant line', async () => {
+    // Refund lines only started carrying variant_id in the refund-integrity work, so a
+    // variant line refunded before that sits under the product-only key. Keyed strictly
+    // per line, that prior reads as zero and the same unit is recoverable twice.
+    await testPool.query(
+      `INSERT INTO product_variants (id, product_id, sku, price, stock, attributes)
+       VALUES (10, 1, 'SKU-001-RED', 500, 4, '{"color":"Red"}')`
+    );
+    const sale = await testPool.query<{ id: number }>(
+      `INSERT INTO sales (subtotal, total, payment_method, cashier_id)
+       VALUES (500, 500, 'Cash', 1) RETURNING id`
+    );
+    const variantSaleId = sale.rows[0].id;
+    await testPool.query(
+      `INSERT INTO sale_items (sale_id, product_id, variant_id, quantity, unit_price)
+       VALUES ($1, 1, 10, 1, 500)`,
+      [variantSaleId]
+    );
+    await testPool.query(
+      `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
+       VALUES ($1, 500, 'Returned', $2, 1, 1)`,
+      // No variant_id, exactly as a pre-#121 refund recorded it.
+      [variantSaleId, JSON.stringify([{ product_id: 1, quantity: 1, unit_price: 500 }])]
+    );
+
+    await expect(
+      service.createExchange(
+        {
+          original_sale_id: variantSaleId,
+          returned_items: [{ ...returned(1, 1), variant_id: 10 }] as never,
+          new_items: [] as never,
+        },
+        1
+      )
+    ).rejects.toThrow(/exceeds what remains of product 1/);
+  });
+
+  it('sums duplicate rows for one line rather than reading only the first', async () => {
+    // Checkout writes one sale_items row per request line without aggregating, so a
+    // sale can list the same product twice. Reading one row would refuse a legitimate
+    // return of the rest.
+    const sale = await testPool.query<{ id: number }>(
+      `INSERT INTO sales (subtotal, total, payment_method, cashier_id)
+       VALUES (1000, 1000, 'Cash', 1) RETURNING id`
+    );
+    const splitSaleId = sale.rows[0].id;
+    await testPool.query(
+      `INSERT INTO sale_items (sale_id, product_id, quantity, unit_price)
+       VALUES ($1, 1, 1, 500), ($1, 1, 1, 500)`,
+      [splitSaleId]
+    );
+
+    // Two units were sold across two rows; both may come back.
+    const created = await service.createExchange(
+      {
+        original_sale_id: splitSaleId,
+        returned_items: [returned(1, 2)] as never,
+        new_items: [] as never,
+      },
+      1
+    );
+    expect(Number(created.return_total)).toBe(1000);
+  });
+
   it('restocks a good return and leaves a damaged one off the shelf', async () => {
     const before = await stockOf(1);
 

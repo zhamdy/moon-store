@@ -1,6 +1,13 @@
 import { Queryable, withTransaction } from '../../../database/transaction';
 import { IExchangesRepository, exchangesRepository as defaultRepo } from './repository';
-import { CreateExchangeDTO, ExchangeFilters, ExchangeRow, ExchangeDetail } from './types';
+import {
+  CreateExchangeDTO,
+  ExchangeFilters,
+  ExchangeRow,
+  ExchangeDetail,
+  ReturnedItemInput,
+  NewItemInput,
+} from './types';
 import { sortForStockWrites } from '../stockWriteOrder';
 import { INSUFFICIENT_STOCK_CODE, type StockConflict } from '../sales/types';
 import { PublicError } from '../../../http/errors';
@@ -99,40 +106,69 @@ export class ExchangesService implements IExchangesService {
     // valued from `sale_items.unit_price`.
     const saleItems = await this.repo.findSaleItems(data.original_sale_id, client);
 
+    // A sale can hold more than one row for the same line -- checkout writes one row per
+    // request line without aggregating -- so what was sold is their sum, not the first
+    // row's quantity. Reading one row would refuse a legitimate return of the rest.
+    const soldByLine = new Map<string, { quantity: number; unitPrice: number }>();
+    const soldByProduct = new Map<number, number>();
+    for (const saleItem of saleItems) {
+      const key = lineKey(saleItem.product_id, saleItem.variant_id);
+      const sold = soldByLine.get(key);
+      const quantity = Number(saleItem.quantity);
+      soldByLine.set(key, {
+        quantity: (sold?.quantity ?? 0) + quantity,
+        unitPrice: Number(saleItem.unit_price),
+      });
+      soldByProduct.set(
+        saleItem.product_id,
+        (soldByProduct.get(saleItem.product_id) ?? 0) + quantity
+      );
+    }
+
     // Both recovery routes count against the same sold quantity. Capping exchanges alone
     // would leave the door open: refund a line, then exchange it, and it comes back twice.
-    const alreadyTaken = new Map<string, number>();
+    const alreadyTakenByLine = new Map<string, number>();
+    const alreadyTakenByProduct = new Map<number, number>();
     for (const prior of [
       ...(await this.repo.findReturnedQuantitiesBySaleId(data.original_sale_id, client)),
       ...(await this.repo.findRefundedQuantitiesBySaleId(data.original_sale_id, client)),
     ]) {
       const key = lineKey(prior.product_id, prior.variant_id);
-      alreadyTaken.set(key, (alreadyTaken.get(key) ?? 0) + prior.quantity);
+      alreadyTakenByLine.set(key, (alreadyTakenByLine.get(key) ?? 0) + prior.quantity);
+      alreadyTakenByProduct.set(
+        prior.product_id,
+        (alreadyTakenByProduct.get(prior.product_id) ?? 0) + prior.quantity
+      );
     }
 
     // This request's own lines, aggregated first: several entries for one line each pass
     // an individual check and together exceed what was sold.
     const requestedByLine = new Map<string, number>();
+    const requestedByProduct = new Map<number, number>();
     for (const item of data.returned_items) {
       const key = lineKey(item.product_id, item.variant_id);
       requestedByLine.set(key, (requestedByLine.get(key) ?? 0) + item.quantity);
+      requestedByProduct.set(
+        item.product_id,
+        (requestedByProduct.get(item.product_id) ?? 0) + item.quantity
+      );
     }
 
     let returnTotal = 0;
+    /** The sold price of each returned line, so the persisted rows agree with the header. */
+    const pricedReturns: Array<ReturnedItemInput & { price: number }> = [];
+
     for (const item of data.returned_items) {
-      const saleItem = saleItems.find(
-        (si) =>
-          si.product_id === item.product_id && (si.variant_id ?? null) === (item.variant_id ?? null)
-      );
-      if (!saleItem) {
+      const key = lineKey(item.product_id, item.variant_id);
+      const sold = soldByLine.get(key);
+      if (!sold) {
         throw new PublicError(
           'VALIDATION_ERROR',
           `Product ${item.product_id} was not sold on sale ${data.original_sale_id}`
         );
       }
 
-      const key = lineKey(item.product_id, item.variant_id);
-      const remaining = Number(saleItem.quantity) - (alreadyTaken.get(key) ?? 0);
+      const remaining = sold.quantity - (alreadyTakenByLine.get(key) ?? 0);
       if ((requestedByLine.get(key) ?? 0) > remaining) {
         throw new PublicError(
           'VALIDATION_ERROR',
@@ -141,12 +177,42 @@ export class ExchangesService implements IExchangesService {
         );
       }
 
+      // A second cap, on the product rather than the line. A refund recorded before
+      // `variant_id` existed on a refund line is stored under the product-only key, so
+      // its per-line cap above reads zero for a variant line. Summing every prior for
+      // the product, whichever way it was keyed, keeps those rows counting.
+      const productRemaining =
+        (soldByProduct.get(item.product_id) ?? 0) -
+        (alreadyTakenByProduct.get(item.product_id) ?? 0);
+      if ((requestedByProduct.get(item.product_id) ?? 0) > productRemaining) {
+        throw new PublicError(
+          'VALIDATION_ERROR',
+          `Return quantity exceeds what remains of product ${item.product_id} ` +
+            `(${Math.max(0, productRemaining)} remaining)`
+        );
+      }
+
       // Valued from the sale, never from the request -- the same rule refunds and
       // checkout follow.
-      returnTotal += Number(saleItem.unit_price) * item.quantity;
+      returnTotal += sold.unitPrice * item.quantity;
+      pricedReturns.push({ ...item, price: sold.unitPrice });
     }
 
-    const newTotal = data.new_items.reduce((s, i) => s + i.price * i.quantity, 0);
+    // The goods going OUT are priced from the catalog, for the same reason the ones
+    // coming back are priced from the sale: `price` is the caller's number. Left
+    // trusted, an exchange could take real stock out at 0.01 a unit and pay the
+    // difference as store credit.
+    let newTotal = 0;
+    const pricedNewItems: Array<NewItemInput & { price: number }> = [];
+    for (const item of data.new_items) {
+      const catalog = await this.repo.getCatalogPrice(item.product_id, item.variant_id, client);
+      if (catalog === null) {
+        throw new PublicError('VALIDATION_ERROR', `Product not found: ID ${item.product_id}`);
+      }
+      newTotal += catalog * item.quantity;
+      pricedNewItems.push({ ...item, price: catalog });
+    }
+
     const difference = newTotal - returnTotal;
 
     const exchange = await this.repo.createExchange(
@@ -166,10 +232,14 @@ export class ExchangesService implements IExchangesService {
 
     // Line rows first. They touch the exchange's own child tables, never a product row,
     // so their order is irrelevant to locking and can stay the request's.
-    for (const item of data.returned_items) {
+    //
+    // The PRICED lines are persisted, not the request's: a row storing a price the
+    // header total does not use would contradict it, and any report summing those rows
+    // would be wrong.
+    for (const item of pricedReturns) {
       await this.repo.createReturnedItem(exchange.id, item, client);
     }
-    for (const item of data.new_items) {
+    for (const item of pricedNewItems) {
       await this.repo.createNewItem(exchange.id, item, client);
     }
 

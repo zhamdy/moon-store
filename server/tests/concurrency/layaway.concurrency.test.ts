@@ -83,6 +83,13 @@ describeWithPostgres('layaway installments under concurrency (#127)', () => {
     return { remaining: Number(rows[0].remaining_balance), status: rows[0].status };
   }
 
+  async function countRowsIn(table: string): Promise<number> {
+    const { rows } = await harness.pool.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM ${table}`
+    );
+    return rows[0].n;
+  }
+
   async function countPayments(planId: number): Promise<number> {
     const { rows } = await harness.pool.query<{ n: number }>(
       'SELECT COUNT(*)::int AS n FROM layaway_payments WHERE plan_id = $1',
@@ -202,6 +209,45 @@ describeWithPostgres('layaway installments under concurrency (#127)', () => {
     expect(error).toMatchObject({ name: 'PublicError', code: 'CONFLICT' });
     expect((await readPlan(planB)).remaining).toBe(800);
     expect(await countPayments(planB)).toBe(0);
+  });
+
+  it('refuses a plan for more units than exist, on a variant line as well as a plain one', async () => {
+    // The product path was guarded and the variant path beside it was not, so a plan
+    // for more of a variant than exists drove its stock negative or tripped migration
+    // 004's CHECK and surfaced as the 500 this issue is about.
+    const { rows: products } = await harness.pool.query<{ id: number }>(
+      "INSERT INTO products (name, sku, price, stock) VALUES ('Silk Dress', 'SKU-L1', 500, 2) RETURNING id"
+    );
+    const productId = products[0].id;
+    const { rows: variants } = await harness.pool.query<{ id: number }>(
+      `INSERT INTO product_variants (product_id, sku, price, stock, attributes)
+       VALUES ($1, 'SKU-L1-RED', 500, 2, '{"color":"Red"}') RETURNING id`,
+      [productId]
+    );
+    const variantId = variants[0].id;
+
+    const plan = (items: unknown[]) => ({
+      customer_id: customerId,
+      total_amount: 1000,
+      deposit_amount: 200,
+      due_date: new Date(Date.now() + 30 * 86400000).toISOString(),
+      items: items as never,
+    });
+
+    await expect(
+      service.createPlan(
+        plan([{ product_id: productId, variant_id: variantId, quantity: 5, price: 500 }]),
+        cashierId
+      )
+    ).rejects.toMatchObject({ name: 'PublicError', code: 'CONFLICT' });
+
+    // Refused, not written: the variant's stock is untouched and no plan exists.
+    const { rows: after } = await harness.pool.query<{ stock: number }>(
+      'SELECT stock FROM product_variants WHERE id = $1',
+      [variantId]
+    );
+    expect(Number(after[0].stock)).toBe(2);
+    expect(await countRowsIn('layaway_plans')).toBe(0);
   });
 
   it('serializes a cancel against a payment: one wins, the plan stays consistent', async () => {

@@ -1,5 +1,6 @@
 import { withTransaction } from '../../../database/transaction';
 import { withDocumentNumber } from '../../../database/documentNumber';
+import { sortForStockWrites } from '../stockWriteOrder';
 import { ILayawayRepository, layawayRepository as defaultRepo } from './repository';
 import {
   CreateLayawayDTO,
@@ -75,26 +76,29 @@ export class LayawayService implements ILayawayService {
 
           for (const item of data.items) {
             await this.repo.createPlanItem(plan.id, item, client);
+          }
 
-            if (item.variant_id) {
-              await this.repo.deductVariantStock(item.variant_id, item.quantity, client);
-            } else {
-              // Guarded, so a plan for more units than exist is a typed refusal rather
-              // than negative stock or an unmapped CHECK violation.
-              const remaining = await this.repo.deductProductStock(
-                item.product_id,
-                item.quantity,
-                client
+          // Stock writes in the one canonical order every path in this repo uses.
+          // Request order would let two plans naming the same products in opposite
+          // order take their row locks in opposite order and deadlock -- SQLSTATE
+          // 40P01, which reaches the caller as exactly the 500 this issue is about.
+          for (const item of sortForStockWrites(data.items)) {
+            // Guarded on both sides, so a plan for more units than exist is a typed
+            // refusal rather than negative stock or an unmapped CHECK violation.
+            const remaining = item.variant_id
+              ? await this.repo.deductVariantStock(item.variant_id, item.quantity, client)
+              : await this.repo.deductProductStock(item.product_id, item.quantity, client);
+
+            if (remaining === null) {
+              const available = item.variant_id
+                ? await this.repo.getVariantStock(item.variant_id, client)
+                : await this.repo.getProductStock(item.product_id, client);
+              throw new PublicError(
+                'CONFLICT',
+                available === null
+                  ? `Product not found: ID ${item.product_id}`
+                  : `Only ${available} left of product ${item.product_id}`
               );
-              if (remaining === null) {
-                const available = await this.repo.getProductStock(item.product_id, client);
-                throw new PublicError(
-                  'CONFLICT',
-                  available === null
-                    ? `Product not found: ID ${item.product_id}`
-                    : `Only ${available} left of product ${item.product_id}`
-                );
-              }
             }
           }
 

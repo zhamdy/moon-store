@@ -23,7 +23,12 @@ export interface ILayawayRepository {
     queryable: Queryable
   ): Promise<LayawayPlanRow>;
   createPlanItem(planId: number, item: LayawayItemInput, queryable: Queryable): Promise<void>;
-  deductVariantStock(variantId: number, quantity: number, queryable: Queryable): Promise<void>;
+  deductVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
+  getVariantStock(variantId: number, queryable: Queryable): Promise<number | null>;
   deductProductStock(
     productId: number,
     quantity: number,
@@ -110,15 +115,28 @@ export class LayawayRepository implements ILayawayRepository {
     );
   }
 
+  /** Variant counterpart of {@link deductProductStock}, guarded for the same reason. */
   async deductVariantStock(
     variantId: number,
     quantity: number,
     queryable: Queryable
-  ): Promise<void> {
-    await this.q(queryable).query(`UPDATE product_variants SET stock = stock - $1 WHERE id = $2`, [
-      quantity,
-      variantId,
-    ]);
+  ): Promise<number | null> {
+    const res = await this.q(queryable).query<{ stock: number }>(
+      `UPDATE product_variants SET stock = stock - $1::int, updated_at = NOW()
+        WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
+      [quantity, variantId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /** Reads variant stock without taking it, for the refusal path. */
+  async getVariantStock(variantId: number, queryable: Queryable): Promise<number | null> {
+    const res = await this.q(queryable).query<{ stock: number }>(
+      'SELECT stock FROM product_variants WHERE id = $1',
+      [variantId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
   }
 
   /**

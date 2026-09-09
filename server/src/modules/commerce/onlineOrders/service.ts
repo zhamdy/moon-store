@@ -1,6 +1,7 @@
 import { withTransaction } from '../../../database/transaction';
 import { withDocumentNumber } from '../../../database/documentNumber';
 import { PublicError } from '../../../http/errors';
+import { sortForStockWrites } from '../../pos/stockWriteOrder';
 import { IOnlineOrdersRepository, onlineOrdersRepository as defaultRepo } from './repository';
 import { CreateOnlineOrderDTO, OnlineOrderFilters, OnlineOrderRecord } from './types';
 
@@ -115,7 +116,14 @@ export class OnlineOrdersService {
               },
               client
             );
+          }
 
+          // Stock writes in the one canonical order every path in this repo uses, and
+          // in their own pass. Deducting in request order lets two shoppers who name the
+          // same products in opposite order take their row locks in opposite order and
+          // deadlock -- SQLSTATE 40P01, which reaches the shopper as exactly the 500
+          // this issue set out to remove.
+          for (const item of sortForStockWrites(priced)) {
             const remaining = await this.repo.deductStock(
               item.product_id,
               item.variant_id,

@@ -21,6 +21,11 @@ export interface IExchangesRepository {
   findSaleById(saleId: number, queryable?: Queryable): Promise<Record<string, any> | null>;
   findSaleByIdForUpdate(saleId: number, queryable: Queryable): Promise<SaleRow | null>;
   findSaleItems(saleId: number, queryable?: Queryable): Promise<SaleItemRow[]>;
+  getCatalogPrice(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable?: Queryable
+  ): Promise<number | null>;
   findReturnedQuantitiesBySaleId(
     saleId: number,
     queryable?: Queryable
@@ -112,6 +117,29 @@ export class ExchangesRepository implements IExchangesRepository {
       [saleId]
     );
     return res.rows;
+  }
+
+  /**
+   * The catalog price of a line going out on an exchange. Read server-side for the same
+   * reason checkout re-prices every line: `price` in the request is the caller's number.
+   */
+  async getCatalogPrice(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable?: Queryable
+  ): Promise<number | null> {
+    const res = variantId
+      ? await this.q(queryable).query<{ price: string }>(
+          `SELECT COALESCE(pv.price, p.price) AS price
+             FROM product_variants pv JOIN products p ON pv.product_id = p.id
+            WHERE pv.id = $1 AND pv.product_id = $2`,
+          [variantId, productId]
+        )
+      : await this.q(queryable).query<{ price: string }>(
+          'SELECT price FROM products WHERE id = $1',
+          [productId]
+        );
+    return res.rows[0] ? Number(res.rows[0].price) : null;
   }
 
   /** How much of each line earlier exchanges against this sale already took back. */

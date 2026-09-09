@@ -104,6 +104,7 @@ describe('Exchange stock invariants', () => {
         { product_id: 1, variant_id: 3, quantity: 99, unit_price: 100 },
         { product_id: 2, variant_id: 4, quantity: 99, unit_price: 100 },
       ]),
+      getCatalogPrice: vi.fn().mockResolvedValue(10),
       findReturnedQuantitiesBySaleId: vi.fn().mockResolvedValue([]),
       findRefundedQuantitiesBySaleId: vi.fn().mockResolvedValue([]),
       createExchange: vi.fn().mockResolvedValue({ id: 10, exchange_number: 'EXC-1' }),
