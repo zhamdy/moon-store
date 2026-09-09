@@ -10,3 +10,6 @@ export { default as Customers } from './pages/Customers';
 export { default as Feedback } from './pages/Feedback';
 export { default as Segments } from './pages/Segments';
 export { default as Warranty } from './pages/Warranty';
+
+// The route file validates `?segment=` against the same list the tiles render.
+export { CUSTOMER_SEGMENTS, type CustomerSegmentKey } from './types';

@@ -4,6 +4,7 @@ import {
   parseAnalyticsDaysPageQuery,
   parseAnalyticsDaysQuery,
   parseAnalyticsPageQuery,
+  analyticsSegmentQuerySchema,
 } from '../src/modules/intelligence/analytics/types';
 import {
   parseAiListQuery,
@@ -31,6 +32,17 @@ describe('intelligence collection contracts', () => {
     expect(parseAnalyticsDaysQuery({ days: '30' }, 90)).toEqual({ days: 30 });
     expect(parseAiListQuery({ page: '3', pageSize: '10' })).toEqual({ page: 3, pageSize: 10 });
     expect(parseRecommendationQuery({ productId: '7' })).toMatchObject({ productId: 7 });
+  });
+
+  it('parses the RFM segment filter and rejects a segment it cannot produce', () => {
+    expect(analyticsSegmentQuerySchema.parse({ page: '2', segment: 'at_risk' })).toEqual({
+      page: 2,
+      pageSize: 25,
+      segment: 'at_risk',
+    });
+    expect(analyticsSegmentQuerySchema.parse({})).toEqual({ page: 1, pageSize: 25 });
+    expect(() => analyticsSegmentQuerySchema.parse({ segment: 'vip' })).toThrow();
+    expect(() => analyticsSegmentQuerySchema.parse({ from: '2026-01-01' })).toThrow();
   });
 
   it('parses notifications and sales reports with canonical names', () => {

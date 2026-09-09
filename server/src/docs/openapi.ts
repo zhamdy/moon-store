@@ -10869,6 +10869,55 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/analytics/customer-segments': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'List / Query Analytics (Admin)',
+        description:
+          'RFM segmentation of every customer who has purchased. Endpoint classification: P. Allowed Roles: Admin.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Successful operation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean',
+                      example: true,
+                    },
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error / Bad request',
+          },
+          '401': {
+            description: 'Unauthorized / Missing or invalid token',
+          },
+          '403': {
+            description: 'Forbidden / Insufficient role privileges',
+          },
+          '404': {
+            description: 'Resource not found',
+          },
+          '500': {
+            description: 'Internal server error',
+          },
+        },
+      },
+    },
     '/api/v1/analytics/hourly-heatmap': {
       get: {
         tags: ['Analytics'],

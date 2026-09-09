@@ -1,15 +1,34 @@
 // Types owned by the customers slice. Cross-slice contracts (Customer,
 // AppSettings, ...) live in `shared/types` instead.
 
-/** One RFM segment's roll-up from GET /api/segments */
+/**
+ * The seven RFM segments the server can produce, in the order the tiles are
+ * drawn. Fixed labels, not the user-authored segments under `/api/v1/segments`.
+ */
+export const CUSTOMER_SEGMENTS = [
+  'champions',
+  'loyal',
+  'potential',
+  'at_risk',
+  'hibernating',
+  'lost',
+  'new',
+] as const;
+
+export type CustomerSegmentKey = (typeof CUSTOMER_SEGMENTS)[number];
+
+/** One RFM segment's roll-up from GET /api/v1/analytics/customer-segments */
 export interface SegmentSummary {
-  segment: string;
+  segment: CustomerSegmentKey;
   count: number;
   total_revenue: number;
   avg_frequency: number;
 }
 
-/** A customer scored on recency/frequency/monetary, from GET /api/segments */
+/**
+ * A customer scored on recency/frequency/monetary, from
+ * GET /api/v1/analytics/customer-segments.
+ */
 export interface CustomerRFM {
   id: number;
   name: string;
@@ -18,11 +37,16 @@ export interface CustomerRFM {
   recency_days: number;
   frequency: number;
   monetary: number;
-  segment: string;
+  segment: CustomerSegmentKey;
   loyalty_points: number;
 }
 
-/** Body of GET /api/segments */
+/**
+ * Body of GET /api/v1/analytics/customer-segments.
+ *
+ * `customers` is one page; `summary` always covers every scored customer, which
+ * is why the tiles keep their counts while paging or filtering.
+ */
 export interface SegmentsResponse {
   customers: CustomerRFM[];
   summary: SegmentSummary[];

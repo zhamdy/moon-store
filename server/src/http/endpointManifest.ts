@@ -940,6 +940,12 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
   {
     method: 'GET',
+    path: '/api/v1/analytics/customer-segments',
+    classification: 'P',
+    authorization: adminOnly,
+  },
+  {
+    method: 'GET',
     path: '/api/v1/analytics/hourly-heatmap',
     classification: 'B',
     authorization: adminOnly,

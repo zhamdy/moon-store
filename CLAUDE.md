@@ -79,7 +79,7 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 | Ratchet | Where | Today |
 | --- | --- | --- |
 | ESLint warnings | `--max-warnings` in `server/package.json` | `385`, essentially all `@typescript-eslint/no-explicit-any` |
-| Operations with no request contract | `EXPECTED_UNCONVERTED` in `server/src/docs/requestContracts.ts` | `3` of 203 — the health probes |
+| Operations with no request contract | `EXPECTED_UNCONVERTED` in `server/src/docs/requestContracts.ts` | `3` of 204 — the health probes |
 | Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
 
 **Never raise one. Lower it in the same commit that earns the reduction.** A ratchet left
@@ -167,6 +167,10 @@ Chunk size warning (>500KB) is expected for the SPA bundle — safe to ignore.
 Project-specific quirks and decisions worth not rediscovering. Keep under 20 entries and
 prune stale ones; anything cross-project belongs in the global instructions instead.
 
+- The Segments page was written against an RFM endpoint the server never had: it read
+  `GET /api/v1/segments`, which serves rule-authored segment records, and crashed on
+  `data.summary.map`. RFM now lives at `GET /api/v1/analytics/customer-segments`, and the
+  two features are unrelated despite the shared word (2026-09-09)
 - HeroUI's `Input`/`Textarea` hold their own controlled value, so react-hook-form's
   `setValue` never reaches the DOM. Any programmatically-filled field needs `Controller`;
   the delivery customer picker had been silently failing to populate since it was written

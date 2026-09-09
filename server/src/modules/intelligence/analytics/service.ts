@@ -17,6 +17,11 @@ import {
   HourlyHeatmapRow,
   DashboardAllData,
   AnalyticsPagedResult,
+  CUSTOMER_SEGMENTS,
+  CustomerSegment,
+  CustomerSegmentSummaryRow,
+  CustomerSegmentsResult,
+  CustomerRfmRow,
 } from './types';
 
 function buildDateFilter(
@@ -37,6 +42,58 @@ function buildDateFilter(
     params: [],
     nextIdx: startIdx,
   };
+}
+
+/**
+ * A customer's quintile by percentile rank: 5 is the best fifth, 1 the worst.
+ *
+ * The quintiles are relative to the whole customer base, so they cannot be
+ * computed on a page — which is why the scoring runs here, over every scored
+ * customer, rather than in the paging query.
+ *
+ * Percentile rank rather than `NTILE(5)`, which is what this would have been in
+ * SQL, because NTILE degrades badly on a small shop: over a single customer it
+ * returns bucket 1, and the only customer a boutique has would be labelled
+ * "Lost" on the day they bought something. Ranking says the top-ranked customer
+ * is in the top fifth however few of them there are, which is the claim the
+ * segment tiles actually make. On a population that divides evenly the two
+ * agree exactly.
+ */
+function quintile(rank: number, total: number): number {
+  if (total <= 0) return 1;
+  return Math.max(1, Math.min(5, Math.ceil(((rank + 1) / total) * 5)));
+}
+
+/**
+ * Rank ascending by "how good this number is", then bucket into quintiles.
+ * Ties are broken by customer id so the same population always scores the same
+ * way; NTILE makes no promise about ties either.
+ */
+function scoreBy<T extends { id: number }>(
+  rows: readonly T[],
+  goodness: (row: T) => number
+): Map<number, number> {
+  const ordered = [...rows].sort((a, b) => goodness(a) - goodness(b) || a.id - b.id);
+  const scores = new Map<number, number>();
+  ordered.forEach((row, index) => scores.set(row.id, quintile(index, ordered.length)));
+  return scores;
+}
+
+/**
+ * The segment ladder: first match wins, and the seven cases cover all 25
+ * (recency, frequency) score pairs, so every scored customer gets a label.
+ * Monetary is reported but does not decide the label — a high spender who has
+ * not returned in a year is at risk, and calling them a champion because of the
+ * money would hide exactly the customer this page exists to surface.
+ */
+function labelSegment(recencyScore: number, frequencyScore: number): CustomerSegment {
+  if (recencyScore >= 4 && frequencyScore >= 4) return 'champions';
+  if (frequencyScore >= 4) return 'loyal';
+  if (recencyScore === 5 && frequencyScore === 1) return 'new';
+  if (recencyScore >= 3) return 'potential';
+  if (recencyScore === 1 && frequencyScore <= 2) return 'lost';
+  if (frequencyScore >= 3) return 'at_risk';
+  return 'hibernating';
 }
 
 export class AnalyticsService {
@@ -707,6 +764,64 @@ export class AnalyticsService {
       },
       totalItems: result.totalItems,
     };
+  }
+
+  /**
+   * RFM segmentation over every customer who has ever bought something.
+   *
+   * The summary is built from the whole scored population and ignores the
+   * `segment` filter: it feeds the seven tiles, which are the control for that
+   * filter and would be nonsense if they only counted what the filter left.
+   */
+  async getCustomerSegmentsPage(
+    page: number,
+    pageSize: number,
+    segment?: CustomerSegment
+  ): Promise<{ data: CustomerSegmentsResult; totalItems: number }> {
+    const raw = await this.repo.getCustomerRfmRaw();
+    const metrics = raw.map((r) => ({
+      id: r.id,
+      name: r.name,
+      phone: r.phone,
+      email: r.email,
+      loyalty_points: Number(r.loyalty_points ?? 0),
+      recency_days: Number(r.recency_days),
+      frequency: Number(r.frequency),
+      monetary: Number(r.monetary),
+    }));
+
+    // Fewer days since the last purchase is better, so recency is scored on its negation.
+    const recencyScores = scoreBy(metrics, (m) => -m.recency_days);
+    const frequencyScores = scoreBy(metrics, (m) => m.frequency);
+
+    const scored: CustomerRfmRow[] = metrics.map((m) => ({
+      ...m,
+      segment: labelSegment(recencyScores.get(m.id) ?? 1, frequencyScores.get(m.id) ?? 1),
+    }));
+
+    const summary = this.rollUpSegments(scored);
+    const matching = segment ? scored.filter((c) => c.segment === segment) : scored;
+    const start = (page - 1) * pageSize;
+
+    return {
+      data: { customers: matching.slice(start, start + pageSize), summary },
+      totalItems: matching.length,
+    };
+  }
+
+  /** One row per segment, in a fixed order, including the segments nobody is in. */
+  private rollUpSegments(scored: readonly CustomerRfmRow[]): CustomerSegmentSummaryRow[] {
+    return CUSTOMER_SEGMENTS.map((segment) => {
+      const members = scored.filter((c) => c.segment === segment);
+      const revenue = members.reduce((sum, c) => sum + c.monetary, 0);
+      const frequency = members.reduce((sum, c) => sum + c.frequency, 0);
+      return {
+        segment,
+        count: members.length,
+        total_revenue: Math.round(revenue * 100) / 100,
+        avg_frequency: members.length ? Math.round((frequency / members.length) * 100) / 100 : 0,
+      };
+    });
   }
 
   async getHourlyHeatmap(days: number = 30): Promise<HourlyHeatmapRow[]> {
