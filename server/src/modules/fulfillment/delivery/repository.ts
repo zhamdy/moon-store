@@ -228,6 +228,18 @@ export class DeliveryRepository implements IDeliveryRepository {
     return res.rows[0] || null;
   }
 
+  /**
+   * Claims the customer row for a phone number, whoever gets there first.
+   *
+   * `customers.phone` is UNIQUE and the caller reaches this with no lookup at
+   * all, so a delivery for a phone already in `customers` -- a returning
+   * customer, which is the normal case -- raised 23505 and reached the operator
+   * as a 500. Unlike the online-order path this was not a race but a certainty
+   * (#150; #143 is the same defect one table over).
+   *
+   * The conflicting update deliberately touches nothing but `updated_at`: an
+   * existing customer's name and address are theirs, not the new delivery's.
+   */
   async createCustomer(
     name: string,
     phone: string,
@@ -235,7 +247,9 @@ export class DeliveryRepository implements IDeliveryRepository {
     queryable?: Queryable
   ): Promise<{ id: number }> {
     const res = await this.q(queryable).query<{ id: number }>(
-      'INSERT INTO customers (name, phone, address) VALUES ($1, $2, $3) RETURNING id',
+      `INSERT INTO customers (name, phone, address) VALUES ($1, $2, $3)
+       ON CONFLICT (phone) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+       RETURNING id`,
       [name, phone, address || null]
     );
     return res.rows[0];
