@@ -89,6 +89,35 @@ describeWithPostgres('online orders under concurrency (#125, #128)', () => {
     expect(await countRows('online_orders')).toBe(1);
   });
 
+  it('lets two concurrent first orders from one phone share a customer', async () => {
+    // `customers.phone` is UNIQUE and the order path finds-then-creates, so both of
+    // these saw no customer and both inserted. The loser's 23505 is on
+    // `customers_phone_key`, which the document-number retry correctly declines to
+    // re-roll -- so before the upsert it escaped raw and the shopper got a 500.
+    await harness.pool.query('UPDATE products SET stock = 2 WHERE id = 1');
+
+    const outcomes = await Promise.allSettled([
+      service.createOrder(order({ customer_phone: '01555000111' })),
+      service.createOrder(order({ customer_phone: '01555000111' })),
+    ]);
+
+    for (const outcome of outcomes) {
+      expect(outcome.status).toBe('fulfilled');
+    }
+
+    // One phone is one customer, and both orders point at it.
+    const { rows } = await harness.pool.query<{ customer_id: number }>(
+      `SELECT o.customer_id FROM online_orders o
+       JOIN customers c ON c.id = o.customer_id
+       WHERE c.phone = $1`,
+      ['01555000111']
+    );
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((r) => r.customer_id)).size).toBe(1);
+    expect(await countRows('online_orders')).toBe(2);
+    expect(await stockOf(1)).toBe(0);
+  });
+
   it('rolls the order and its items back when a later line is out of stock', async () => {
     await harness.pool.query(
       `INSERT INTO products (id, name, sku, price, cost_price, stock)
