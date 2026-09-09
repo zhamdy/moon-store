@@ -96,7 +96,11 @@ export class PurchaseOrdersRepository implements IPurchaseOrdersRepository {
     const offsetIdx = paramIdx++;
 
     const orders = await this.q(queryable).query(
-      `SELECT po.id, po.po_number, po.distributor_id, po.total_amount, po.status,
+      // `po.total`, not `po.total_amount`: `create` writes `total`, and the table carries
+      // both columns from migration 009. The projection read the one nothing writes, so
+      // every row came back at its default and the client's `accessorKey: 'total'` found
+      // no field at all -- the Total column rendered `NaN EG` (#129).
+      `SELECT po.id, po.po_number, po.distributor_id, po.total, po.status,
               po.expected_delivery, po.notes, po.created_by, po.created_at, po.updated_at,
               d.name as distributor_name, u.name as created_by_name,
               COUNT(poi.id)::int as item_count
@@ -105,7 +109,7 @@ export class PurchaseOrdersRepository implements IPurchaseOrdersRepository {
        LEFT JOIN users u ON po.created_by = u.id
        LEFT JOIN purchase_order_items poi ON poi.po_id = po.id
        ${whereClause}
-       GROUP BY po.id, po.po_number, po.distributor_id, po.total_amount, po.status,
+       GROUP BY po.id, po.po_number, po.distributor_id, po.total, po.status,
                 po.expected_delivery, po.notes, po.created_by, po.created_at, po.updated_at,
                 d.name, u.name
        ORDER BY po.created_at ${direction}, po.id ${direction}
