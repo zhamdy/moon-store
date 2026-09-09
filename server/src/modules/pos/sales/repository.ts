@@ -173,6 +173,16 @@ export class SalesRepository implements ISalesRepository {
     return res.rows;
   }
 
+  /**
+   * `refunds.items` is a `TEXT` column holding JSON, not a normalized table, so it is
+   * parsed here -- once, at the boundary -- rather than by each caller. Leaving it a
+   * string reached the refund dialog as something iterable character by character, which
+   * silently produced "nothing has been refunded yet" for every line (#120).
+   *
+   * An unparseable row throws rather than degrading to `[]`: this JSON is the only record
+   * of how much of a line has already gone back, and reading a damaged one as zero is
+   * exactly the double-refund the cumulative cap exists to prevent.
+   */
   async findRefundsBySaleId(
     saleId: number | string,
     queryable?: Queryable
@@ -185,7 +195,10 @@ export class SalesRepository implements ISalesRepository {
        ORDER BY r.created_at DESC`,
       [saleId]
     );
-    return res.rows;
+    return res.rows.map((row: Record<string, unknown>) => ({
+      ...row,
+      items: typeof row.items === 'string' ? JSON.parse(row.items) : (row.items ?? []),
+    }));
   }
 
   async listSales(

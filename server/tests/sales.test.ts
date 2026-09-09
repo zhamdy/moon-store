@@ -607,6 +607,34 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
       expect(await readSale(sale.id)).toMatchObject({ refund_status: 'full' });
     });
 
+    it('aggregates duplicate lines within one request instead of checking each in isolation', async () => {
+      // A two-line sale with room under the total: dress 1 @ 500, shirt 1 @ 200.
+      // Three separate entries for the dress each pass a per-entry check (1 <= 1) and
+      // together refund 1500 for a line that sold 500, restocking 3 of 1 sold.
+      const sale = await sellDressAndShirt();
+
+      await expect(
+        executeRefundTransaction(
+          sale.id,
+          {
+            items: [
+              { product_id: 1, quantity: 1, unit_price: 500 },
+              { product_id: 1, quantity: 1, unit_price: 500 },
+              { product_id: 1, quantity: 1, unit_price: 500 },
+            ],
+            reason: 'Three times over',
+            restock: true,
+          },
+          1,
+          testPool
+        )
+      ).rejects.toThrow(/Refund quantity exceeds sold quantity/);
+
+      expect(await readStock(1)).toBe(9); // untouched by the rejected refund
+      const refunds = await testPool.query('SELECT * FROM refunds WHERE sale_id = $1', [sale.id]);
+      expect(refunds.rows).toHaveLength(0);
+    });
+
     it('rejects a refund naming a product that was never sold on this sale', async () => {
       const sale = await sellOneDress();
 
@@ -621,6 +649,24 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
 
       const refunds = await testPool.query('SELECT * FROM refunds WHERE sale_id = $1', [sale.id]);
       expect(refunds.rows).toHaveLength(0);
+    });
+
+    it("returns each refund's items already parsed, not as the JSON string the column holds", async () => {
+      // `refunds.items` is a TEXT column. Handed to a consumer as a string it is still
+      // iterable -- character by character -- so the refund dialog read every line as
+      // "nothing refunded yet" and silently offered the full quantity again (#120).
+      const sale = await sellOneDress();
+      await executeRefundTransaction(
+        sale.id,
+        { items: [{ product_id: 1, quantity: 1, unit_price: 500 }], reason: 'Wrong size' },
+        1,
+        testPool
+      );
+
+      const refunds = await new SalesRepository().findRefundsBySaleId(sale.id, testPool);
+      expect(refunds).toHaveLength(1);
+      expect(Array.isArray(refunds[0].items)).toBe(true);
+      expect(refunds[0].items).toEqual([{ product_id: 1, quantity: 1, unit_price: 500 }]);
     });
 
     it('refuses a further refund once the sale is fully refunded', async () => {
@@ -778,6 +824,74 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
 
         expect(await readVariantStock(variantId)).toBe(3);
         expect(await readStock(1)).toBe(10);
+      });
+
+      it('aggregates duplicate entries per line, not merely per product', async () => {
+        // A plain line and a variant line of the same product: 2 sold of product 1 in
+        // total, 1 on each line. Two entries for the plain line pass a per-entry check
+        // (1 <= 1 each) and also pass a product-level cap (2 requested <= 2 sold) --
+        // only aggregating per line catches that the plain line is refunded twice.
+        const variantId = await createVariant(4);
+        const input = {
+          items: [
+            { product_id: 1, quantity: 1, unit_price: 500 },
+            { product_id: 1, variant_id: variantId, quantity: 1, unit_price: 500 },
+          ],
+          discount: 0,
+          discount_type: 'fixed',
+          payment_method: 'Cash',
+        };
+        const totals = await calculateSaleTotals(input, testPool);
+        const sale = await executeSaleTransaction(input, totals, 1, testPool);
+
+        await expect(
+          executeRefundTransaction(
+            sale.id,
+            {
+              items: [
+                { product_id: 1, quantity: 1, unit_price: 500 },
+                { product_id: 1, quantity: 1, unit_price: 500 },
+              ],
+              reason: 'Plain line twice',
+              restock: true,
+            },
+            1,
+            testPool
+          )
+        ).rejects.toThrow(/Refund quantity exceeds sold quantity/);
+
+        const refunds = await testPool.query('SELECT * FROM refunds WHERE sale_id = $1', [sale.id]);
+        expect(refunds.rows).toHaveLength(0);
+      });
+
+      it('counts a historical refund stored without variant_id against the variant line it came from', async () => {
+        // Refunds written before #121 recorded no variant_id at all, so a variant line
+        // refunded back then sits under the product-only key. Keyed strictly per line,
+        // that prior reads as zero and the same goods are refundable a second time.
+        const variantId = await createVariant(4);
+        const sale = await sellVariant(variantId, 1);
+        expect(await readVariantStock(variantId)).toBe(3);
+
+        await testPool.query(
+          `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
+           VALUES ($1, 500, 'Legacy refund', $2, 1, 1)`,
+          [sale.id, JSON.stringify([{ product_id: 1, quantity: 1, unit_price: 500 }])]
+        );
+
+        await expect(
+          executeRefundTransaction(
+            sale.id,
+            {
+              items: [{ product_id: 1, variant_id: variantId, quantity: 1, unit_price: 500 }],
+              reason: 'Second bite',
+              restock: true,
+            },
+            1,
+            testPool
+          )
+        ).rejects.toThrow(/Refund quantity exceeds sold quantity/);
+
+        expect(await readVariantStock(variantId)).toBe(3); // no phantom restock
       });
 
       it('rejects a variant_id that does not belong to any line of this sale', async () => {

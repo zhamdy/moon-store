@@ -158,14 +158,17 @@ export interface SaleDetail {
   calculation?: SaleCalculationSnapshotDTO;
   /** Additive since Unit 4 -- present only when the sale used split-tender payments. */
   payments?: SalePaymentEntry[];
+  /** Every refund already taken against this sale; empty when there are none. */
+  refunds?: SaleRefund[];
 }
 
-/** One refund against a sale, from GET /api/v1/sales/:id/refunds. */
+/** One refund against a sale, carried on GET /api/v1/sales/:id alongside its items. */
 export interface SaleRefund {
   id: number;
   amount: number;
   reason: string;
   cashier_name: string | null;
   created_at: string;
+  /** Refunded lines. Stored as a JSON blob server-side and parsed there, not here. */
   items: SaleItem[];
 }

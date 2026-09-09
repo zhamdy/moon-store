@@ -936,16 +936,41 @@ export class SalesService {
       // read-then-write safe against a sibling refund committing concurrently.
       const priorRefunds = await this.repo.findRefundsBySaleId(saleId, client);
       const previouslyRefundedByLine = new Map<string, number>();
+      const previouslyRefundedByProduct = new Map<number, number>();
       for (const priorRefund of priorRefunds) {
         const items: Array<{ product_id: number; variant_id?: number | null; quantity: number }> =
           typeof priorRefund.items === 'string' ? JSON.parse(priorRefund.items) : priorRefund.items;
         for (const item of items) {
           const key = lineKey(item.product_id, item.variant_id);
-          previouslyRefundedByLine.set(
-            key,
-            (previouslyRefundedByLine.get(key) || 0) + Number(item.quantity)
+          const quantity = Number(item.quantity);
+          previouslyRefundedByLine.set(key, (previouslyRefundedByLine.get(key) || 0) + quantity);
+          previouslyRefundedByProduct.set(
+            item.product_id,
+            (previouslyRefundedByProduct.get(item.product_id) || 0) + quantity
           );
         }
+      }
+
+      // What this request itself asks for, per line and per product. Aggregated before
+      // the caps are checked: three entries for the same line each pass a per-entry
+      // check on their own, and together refund three times what was sold.
+      const requestedByLine = new Map<string, number>();
+      const requestedByProduct = new Map<number, number>();
+      for (const refundItem of input.items) {
+        const key = lineKey(refundItem.product_id, refundItem.variant_id);
+        requestedByLine.set(key, (requestedByLine.get(key) || 0) + refundItem.quantity);
+        requestedByProduct.set(
+          refundItem.product_id,
+          (requestedByProduct.get(refundItem.product_id) || 0) + refundItem.quantity
+        );
+      }
+
+      const soldByProduct = new Map<number, number>();
+      for (const saleItem of saleItems) {
+        soldByProduct.set(
+          saleItem.product_id,
+          (soldByProduct.get(saleItem.product_id) || 0) + Number(saleItem.quantity)
+        );
       }
 
       let refundAmount = 0;
@@ -964,11 +989,27 @@ export class SalesService {
         const key = lineKey(refundItem.product_id, refundItem.variant_id);
         const alreadyRefunded = previouslyRefundedByLine.get(key) || 0;
         const remaining = Number(saleItem.quantity) - alreadyRefunded;
-        if (refundItem.quantity > remaining) {
+        if ((requestedByLine.get(key) || 0) > remaining) {
           throw new PublicError(
             'VALIDATION_ERROR',
             `Refund quantity exceeds sold quantity for product ${refundItem.product_id} ` +
               `(${remaining} remaining)`
+          );
+        }
+
+        // A second cap, on the product rather than the line. `variant_id` only started
+        // being recorded in `refunds.items` with #121, so a variant line refunded before
+        // that is stored under the product-only key and its per-line cap above reads
+        // zero. Summing every prior for the product, whichever way it was keyed, keeps
+        // those historical rows counting against what the sale actually sold.
+        const productRemaining =
+          (soldByProduct.get(refundItem.product_id) || 0) -
+          (previouslyRefundedByProduct.get(refundItem.product_id) || 0);
+        if ((requestedByProduct.get(refundItem.product_id) || 0) > productRemaining) {
+          throw new PublicError(
+            'VALIDATION_ERROR',
+            `Refund quantity exceeds sold quantity for product ${refundItem.product_id} ` +
+              `(${Math.max(0, productRemaining)} remaining)`
           );
         }
 

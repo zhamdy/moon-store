@@ -34,7 +34,6 @@ import { formatCurrency, formatDateTime } from '../../../shared/lib/utils';
 import { exportToExcel } from '../../../shared/lib/exportUtils';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
@@ -95,12 +94,10 @@ export default function SalesHistory() {
 
   const { data: saleDetail } = saleDetails.useOne(expandedRow);
 
-  const { data: saleRefunds } = useApiQuery<SaleRefund[]>(
-    ['sale-refunds', expandedRow],
-    `sales/${expandedRow}/refunds`,
-    undefined,
-    { enabled: !!expandedRow }
-  );
+  // Refunds ride along on the sale detail. This used to be a second query against
+  // `sales/:id/refunds`, a route the server has never mounted, so the expanded row's
+  // refund history was permanently empty.
+  const saleRefunds = saleDetail?.refunds;
 
   const handleExportCSV = () => {
     const exported = rows || [];
@@ -129,9 +126,6 @@ export default function SalesHistory() {
 
   const readSale = (saleId: number) =>
     transport.request<SaleDetail>({ method: 'GET', path: `sales/${saleId}` });
-
-  const readSaleRefunds = (saleId: number) =>
-    transport.request<SaleRefund[]>({ method: 'GET', path: `sales/${saleId}/refunds` });
 
   const handlePrintReceipt = async (saleId: number) => {
     try {
@@ -181,18 +175,16 @@ export default function SalesHistory() {
 
   const handleRefund = async (sale: Sale) => {
     try {
-      // Prior refunds come along so the dialog can cap each line at what is left of it,
-      // rather than offering a quantity the server will reject (#120).
-      const [{ data: detail }, { data: priorRefunds }] = await Promise.all([
-        readSale(sale.id),
-        readSaleRefunds(sale.id),
-      ]);
+      // The sale detail already carries every prior refund, so the dialog can cap each
+      // line at what is left of it rather than offering a quantity the server will
+      // reject (#120). No second request: there is no /sales/:id/refunds endpoint.
+      const { data: detail } = await readSale(sale.id);
       setRefundSale({
         id: sale.id,
         total: sale.total,
         refundedAmount: sale.refunded_amount || 0,
         items: detail.items || [],
-        refunds: priorRefunds || [],
+        refunds: detail.refunds || [],
       });
       setRefundOpen(true);
     } catch {
