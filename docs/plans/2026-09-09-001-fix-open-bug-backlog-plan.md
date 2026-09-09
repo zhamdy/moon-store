@@ -235,7 +235,7 @@ flowchart TD
 
 ### Phase 1 — #119, on its own branch and PR
 
-- [ ] **Unit 1: Narrow `purchase_orders_status_check` to the application vocabulary (#119)**
+- [x] **Unit 1: Narrow `purchase_orders_status_check` to the application vocabulary (#119)**
 
 **Goal:** A purchase order can be Sent, partially received and received; a partial receive
 commits the stock it booked in.
@@ -318,7 +318,7 @@ These three rewrite the same block (`SalesService.executeRefund`,
 `server/src/modules/pos/sales/service.ts:905-984`) and cannot be landed independently
 without conflicting. Unit 5 is the client half.
 
-- [ ] **Unit 2: Cap cumulative refunded quantity and derive the refund value from the sale (#120)**
+- [x] **Unit 2: Cap cumulative refunded quantity and derive the refund value from the sale (#120)**
 
 **Goal:** A line cannot be refunded for more than it was sold, across all prior refunds, and
 the payout is the persisted price.
@@ -377,7 +377,7 @@ before the code satisfies it.
 
 ---
 
-- [ ] **Unit 3: Restock variant lines to `product_variants` (#121)**
+- [x] **Unit 3: Restock variant lines to `product_variants` (#121)**
 
 **Goal:** A refunded variant line returns to the variant's stock row, and two variants of one
 product are distinguishable on the wire.
@@ -428,7 +428,7 @@ product are distinguishable on the wire.
 
 ---
 
-- [ ] **Unit 4: Debit the drawer only for the cash component of a refund (#126)**
+- [x] **Unit 4: Debit the drawer only for the cash component of a refund (#126)**
 
 **Goal:** `expected_cash` and the Z report move only by cash that actually left the till.
 
@@ -473,7 +473,7 @@ product are distinguishable on the wire.
 
 ---
 
-- [ ] **Unit 5: Key the refund dialog by sale line and subtract what is already refunded (#120, #121 client half)**
+- [x] **Unit 5: Key the refund dialog by sale line and subtract what is already refunded (#120, #121 client half)**
 
 **Goal:** The cashier cannot select more than remains refundable, and two variant lines of one
 product are two rows.
@@ -518,7 +518,7 @@ product are two rows.
 
 ### Phase 3 — PR 3: the bundle price contract (#123, #124)
 
-- [ ] **Unit 6: One wire name for the bundle price, and a list that returns what was written (#123, #124)**
+- [x] **Unit 6: One wire name for the bundle price, and a list that returns what was written (#123, #124)**
 
 **Goal:** Bundles can be created and edited from the UI, and the list returns the written
 price plus the fields the client declares.
@@ -569,7 +569,7 @@ price plus the fields the client declares.
 
 ---
 
-- [ ] **Unit 7: Let `bundle_id` reach the sales service so a bundle sells at its bundle price (#124)**
+- [x] **Unit 7: Let `bundle_id` reach the sales service so a bundle sells at its bundle price (#124)**
 
 **Goal:** The amount charged matches the bundle price the cashier sees.
 
@@ -615,7 +615,7 @@ the two halves of the bundle contract ship together.
 
 ### Phase 4 — PR 4: commerce and fulfillment hardening (#122, #125, #127, #128)
 
-- [ ] **Unit 8: Validate exchange returned items against the original sale (#122)**
+- [x] **Unit 8: Validate exchange returned items against the original sale (#122)**
 
 **Goal:** Only goods that were actually sold on the named sale can be returned, at the price
 they were sold for.
@@ -664,7 +664,7 @@ land PR 2 first so the two are written the same way.
 
 ---
 
-- [ ] **Unit 9: Price online orders from the catalog and guard the stock write (#125)**
+- [x] **Unit 9: Price online orders from the catalog and guard the stock write (#125)**
 
 **Goal:** An unauthenticated shopper cannot dictate a price, and an over-order gets a typed
 error.
@@ -716,7 +716,7 @@ error.
 
 ---
 
-- [ ] **Unit 10: Move the layaway balance with a guarded relative write (#127)**
+- [x] **Unit 10: Move the layaway balance with a guarded relative write (#127)**
 
 **Goal:** Two concurrent installments both reduce the balance, and a retried request is not a
 second payment.
@@ -777,7 +777,7 @@ invisible on pg-mem and the test is the only thing that proves the fix.
 
 ---
 
-- [ ] **Unit 11: Allocate document numbers through a bounded retry on the unique violation (#128)**
+- [x] **Unit 11: Allocate document numbers through a bounded retry on the unique violation (#128)**
 
 **Goal:** Creating a delivery, purchase order, layaway plan or online order does not
 intermittently 500.
@@ -832,7 +832,7 @@ intermittently 500.
 
 ### Phase 5 — PR 5: read paths and authorization (#129, #130)
 
-- [ ] **Unit 12: The purchase-orders list projects the column the writer wrote (#129)**
+- [x] **Unit 12: The purchase-orders list projects the column the writer wrote (#129)**
 
 **Goal:** The Total column shows each order's value.
 
@@ -865,7 +865,7 @@ intermittently 500.
 
 ---
 
-- [ ] **Unit 13: Scope the register session report to its owner, with an Admin bypass (#130)**
+- [x] **Unit 13: Scope the register session report to its owner, with an Admin bypass (#130)**
 
 **Goal:** A Cashier reads only their own session reports.
 
@@ -962,19 +962,48 @@ intermittently 500.
   in Unit 9; it currently documents reservation behavior the code does not implement.
 - Deploy note for PR 1: migration and code ship together (see System-Wide Impact).
 
-## Follow-Up Issues to File
+## Delivery
 
-1. Stock reservations for the public online-order endpoint, per the original published
-   contract (#125 remainder).
-2. Store credit — `payment_method: 'store_credit'` is documented in the exchanges schema but
-   no code writes any balance (#122 note).
-3. Retire the duplicated dead columns `purchase_orders.total_amount` and
+Six PRs, in the order they merged. Every issue #119–#130 is closed.
+
+| PR | Units | Issues |
+| --- | --- | --- |
+| #131 | 1 | #119 |
+| #132 | 2, 3, 4, 5 | #120, #121, #126 |
+| #133 | 6, 7 | #123, #124 |
+| #134 | 8, 9, 10, 11 | #122, #125, #127, #128 |
+| #135 | 12, 13 | #129, #130 |
+| #136 | — | documentation |
+
+One defect was found by this batch's own CI rather than by the plan: #143, a find-then-create
+race on `customers.phone` in the online-order path. Two simultaneous first orders from one
+phone both inserted, and the loser's 23505 — on `customers_phone_key`, not on the order
+number — escaped the Unit 11 retry that correctly declined to re-roll it, reaching the
+shopper as the 500 Unit 9 set out to remove. It surfaced intermittently, in the
+three-concurrent-orders test where all three orders share a phone.
+
+That is worth recording as a shape, not just an incident: narrowing a retry by constraint
+name is right, and it means every *other* unique index reachable from the same insert is
+a 500 waiting to happen unless something else handles it.
+
+## Follow-Up Issues
+
+All filed.
+
+1. #144 — stock reservations for the public online-order endpoint, per the original
+   published contract (#125 remainder).
+2. #145 — store credit; `payment_method: 'store_credit'` is documented in the exchanges
+   schema but no code writes any balance (#122 note).
+3. #146 — retire the duplicated dead columns `purchase_orders.total_amount` and
    `product_bundles.price` in one migration.
-4. Normalize `refunds.items` into a `refund_items` table so cumulative quantities are a query
-   rather than a JSON parse.
-5. `GiftCardsService.create`'s check-then-insert code loop is TOCTOU-racy; move it to the
+4. #147 — normalize `refunds.items` into a `refund_items` table so cumulative quantities are
+   a query rather than a JSON parse.
+5. #148 — `GiftCardsService.create`'s check-then-insert loop is TOCTOU-racy; move it to the
    catch-and-retry helper from Unit 11.
-6. A purchase-order status state machine (reject `Received → Draft` and friends).
+6. #149 — a purchase-order status state machine (reject `Received → Draft` and friends).
+7. #150 — `DeliveryService.resolveCustomer` inserts a customer with no lookup at all, so a
+   delivery for an already-known phone collides deterministically. Found while fixing #143;
+   not part of the original twelve.
 
 ## Sources & References
 
