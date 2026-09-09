@@ -402,16 +402,14 @@ export class SalesService {
       }
     }
 
-    // The bundles table has both a legacy `price` column and the `bundle_price`
-    // column that the bundles module's own create/update paths write to (see
-    // server/src/modules/inventory/bundles/repository.ts); prefer the latter.
-    const bundleRow = bundle as unknown as { bundle_price?: number; price?: number };
-    const bundlePriceMajor = Number(bundleRow.bundle_price ?? bundleRow.price ?? 0);
+    // `price` on the wire, `bundle_price` in the column: the bundles repository aliases
+    // it on every read path (#123), so there is one name to read here.
+    const bundlePriceMajor = Number(bundle.price ?? 0);
     const totalAllocatedMinor = toMinorUnits(bundlePriceMajor) * (multiplier || 1);
 
     const catalogLineMinor: number[] = bundleItems.map((bi) => {
       const requestedQty = requestedByProduct.get(bi.product_id)!;
-      return toMinorUnits(Number(bi.original_price || 0)) * requestedQty;
+      return toMinorUnits(Number(bi.product_price || 0)) * requestedQty;
     });
     const totalCatalogMinor = catalogLineMinor.reduce((s, v) => s + v, 0);
 

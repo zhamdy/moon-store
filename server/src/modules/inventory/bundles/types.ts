@@ -1,16 +1,23 @@
 import { z } from 'zod';
 import { createListQuerySchema } from '../../../http/pagination';
 
+/**
+ * A bundle as it goes over the wire. `price` is the column `bundle_price`, aliased on
+ * every read path so exactly one name for the value reaches a consumer (#123, #124).
+ */
 export interface BundleRecord {
   id: number;
   name: string;
   description?: string | null;
-  bundle_price: number;
+  price: number;
   starts_at?: string | null;
   expires_at?: string | null;
   status: string;
   item_count?: number;
   original_price?: number;
+  savings?: number;
+  savings_percent?: number;
+  items?: BundleItemRecord[];
   created_at: string;
   updated_at: string;
 }
@@ -22,7 +29,8 @@ export interface BundleItemRecord {
   quantity: number;
   product_name?: string;
   sku?: string;
-  original_price?: number;
+  /** The product's own catalog price -- what the line would cost outside the bundle. */
+  product_price?: number;
   stock?: number;
   image_url?: string | null;
 }
@@ -39,7 +47,8 @@ export interface BundleItemDTO {
 export interface CreateBundleDTO {
   name: string;
   description?: string | null;
-  bundle_price: number;
+  price: number;
+  status?: 'active' | 'inactive';
   starts_at?: string | null;
   expires_at?: string | null;
   items: BundleItemDTO[];

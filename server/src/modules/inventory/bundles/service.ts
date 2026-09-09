@@ -1,5 +1,5 @@
 import { withTransaction } from '../../../database/transaction';
-import { IBundlesRepository, bundlesRepository as defaultRepo } from './repository';
+import { IBundlesRepository, bundlesRepository as defaultRepo, withSavings } from './repository';
 import {
   BundleFilters,
   CreateBundleDTO,
@@ -24,8 +24,16 @@ export class BundlesService {
     if (!bundle) return null;
 
     const items = await this.repo.findItemsByBundleId(id);
+    // The detail response carries the same derived figures as the list, computed from
+    // the items it has just read; the page renders original price and savings from both.
+    const originalPrice = items.reduce(
+      (sum, item) => sum + Number(item.product_price ?? 0) * Number(item.quantity ?? 0),
+      0
+    );
+
     return {
-      ...bundle,
+      ...withSavings({ ...bundle, original_price: originalPrice }),
+      item_count: items.length,
       items,
     };
   }
