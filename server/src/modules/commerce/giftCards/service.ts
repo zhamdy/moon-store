@@ -1,3 +1,4 @@
+import { withDocumentNumber } from '../../../database/documentNumber';
 import { Queryable, withTransaction } from '../../../database/transaction';
 import { PublicError } from '../../../http/errors';
 import { IGiftCardsRepository, giftCardsRepository as defaultRepo } from './repository';
@@ -23,7 +24,11 @@ export function generateGiftCardCode(): string {
 }
 
 export class GiftCardsService {
-  constructor(private repo: IGiftCardsRepository = defaultRepo) {}
+  constructor(
+    private repo: IGiftCardsRepository = defaultRepo,
+    /** Injected so a test can hand it a code it knows is taken. */
+    private generateCode: () => string = generateGiftCardCode
+  ) {}
 
   getRepository(): IGiftCardsRepository {
     return this.repo;
@@ -60,30 +65,53 @@ export class GiftCardsService {
     return this.repo.findById(id);
   }
 
+  /**
+   * Issues a gift card, letting the unique indexes referee both of its identifiers.
+   *
+   * Two values here are minted rather than supplied, and each has a UNIQUE index:
+   * the code (random) and the barcode (`MAX(barcode) + 1`). Both used to be chosen
+   * by looking first -- `findByCode` in a loop for the code, a max-read for the
+   * barcode -- which is check-then-insert and races by construction: two callers
+   * can both find a value free, or both read the same maximum, and both insert it.
+   * The loser's 23505 reached the caller as a `CONFLICT` telling them a code they
+   * never chose was taken (#141).
+   *
+   * A supplied `code` is deliberately *not* retried. The caller named that code, so
+   * a collision is genuinely theirs to resolve, and silently issuing a different one
+   * would be worse than refusing; the controller maps it to `CONFLICT`. Only the
+   * barcode is re-rolled in that case, because nobody asked for a particular one.
+   */
   async create(data: CreateGiftCardInput, createdByUserId: number): Promise<Record<string, any>> {
     const { code, initial_value, customer_id, expires_at } = data;
 
-    let finalCode = code || generateGiftCardCode();
-    if (!code) {
-      let existing = await this.repo.findByCode(finalCode);
-      let attempts = 0;
-      while (existing && attempts < 10) {
-        finalCode = generateGiftCardCode();
-        existing = await this.repo.findByCode(finalCode);
-        attempts++;
-      }
-    }
+    const insertWithCode = (finalCode: string) =>
+      withDocumentNumber(
+        {
+          generate: () => this.generateGiftCardBarcode(),
+          constraint: 'gift_cards_barcode_key',
+          label: 'gift card barcode',
+        },
+        (barcode) =>
+          this.repo.create({
+            code: finalCode,
+            barcode,
+            initial_value,
+            customer_id,
+            expires_at,
+            created_by: createdByUserId,
+          })
+      );
 
-    const barcode = await this.generateGiftCardBarcode();
+    if (code) return insertWithCode(code);
 
-    return this.repo.create({
-      code: finalCode,
-      barcode,
-      initial_value,
-      customer_id,
-      expires_at,
-      created_by: createdByUserId,
-    });
+    return withDocumentNumber(
+      {
+        generate: this.generateCode,
+        constraint: 'gift_cards_code_key',
+        label: 'gift card code',
+      },
+      insertWithCode
+    );
   }
 
   async getBalance(code: string): Promise<GiftCardBalanceResult | null> {

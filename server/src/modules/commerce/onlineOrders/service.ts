@@ -45,7 +45,7 @@ export class OnlineOrdersService {
       {
         generate: this.generateNumber,
         constraint: 'online_orders_order_number_key',
-        label: 'online order',
+        label: 'online order number',
       },
       (orderNumber) =>
         withTransaction(async (client) => {

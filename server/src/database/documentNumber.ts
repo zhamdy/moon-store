@@ -24,8 +24,14 @@ import { constraintName, isUniqueViolation } from './constraintErrors';
 import logger from '../../lib/logger';
 
 export interface DocumentNumberOptions {
-  /** Mints a candidate. Called once per attempt, so each retry gets a fresh number. */
-  generate: () => string;
+  /**
+   * Mints a candidate. Called once per attempt, so each retry gets a fresh number.
+   *
+   * May be async: a generator that derives the next value from what is already
+   * stored -- gift-card barcodes are `MAX(barcode) + 1` -- has to read the
+   * database to mint one, and that read is itself part of what races.
+   */
+  generate: () => string | Promise<string>;
   /**
    * The UNIQUE constraint that means "this number is taken".
    *
@@ -34,7 +40,11 @@ export interface DocumentNumberOptions {
    * say, a duplicate email before failing with a message about document numbers.
    */
   constraint: string;
-  /** What is being numbered, for the error a caller sees. */
+  /**
+   * What is being allocated, named as it should read in the error a caller sees:
+   * `Could not allocate a unique <label>`. So `'delivery order number'`, not
+   * `'delivery order'`.
+   */
   label: string;
   /** Attempts in total, including the first. */
   maxAttempts?: number;
@@ -56,7 +66,7 @@ export async function withDocumentNumber<T>(
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 
   for (let attempt = 1; ; attempt += 1) {
-    const documentNumber = options.generate();
+    const documentNumber = await options.generate();
 
     try {
       return await run(documentNumber);
@@ -71,7 +81,7 @@ export async function withDocumentNumber<T>(
           });
           throw new PublicError(
             'CONFLICT',
-            `Could not allocate a unique ${options.label} number; please retry`
+            `Could not allocate a unique ${options.label}; please retry`
           );
         }
         throw error;
