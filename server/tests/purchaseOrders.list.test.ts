@@ -1,10 +1,13 @@
 /**
  * The purchase-orders list projects the column the writer wrote (#129).
  *
- * `purchase_orders` carries both `total` and `total_amount` since migration 009. `create`
+ * `purchase_orders` carried both `total` and `total_amount` from migration 009. `create`
  * writes `total`; the list projected `total_amount`, which nothing writes. Every row came
  * back at that column's default, and the client's `accessorKey: 'total'` found no field
  * of that name at all -- so the Total column rendered `NaN EG` for every order.
+ *
+ * Migration 011 (#139) has since dropped `total_amount`, so the duplication that caused
+ * this is gone from the schema as well as from the projection.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import path from 'path';
@@ -74,13 +77,15 @@ describe('purchase orders list total (#129)', () => {
     expect(rows).toHaveLength(1);
     expect(Number(rows[0].total)).toBe(500);
 
-    // Not the column nothing writes: it is still there, still at its default, and no
-    // longer read by anything.
-    const stored = await testPool.query<{ total: string; total_amount: string }>(
-      'SELECT total, total_amount FROM purchase_orders'
-    );
+    // Not the column nothing writes. It used to be read here to assert it was still at
+    // its default; migration 011 (#139) dropped it, so the schema now guarantees what the
+    // assertion used to check by hand.
+    const stored = await testPool.query<{ total: string }>('SELECT total FROM purchase_orders');
     expect(Number(stored.rows[0].total)).toBe(500);
-    expect(Number(stored.rows[0].total_amount)).toBe(0);
+
+    await expect(testPool.query('SELECT total_amount FROM purchase_orders')).rejects.toThrow(
+      /total_amount/
+    );
   });
 
   it('renders a real number for an order with no items rather than nothing at all', async () => {
