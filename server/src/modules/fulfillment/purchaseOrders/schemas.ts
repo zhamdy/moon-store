@@ -51,6 +51,11 @@ export const purchaseOrdersRequestContracts = {
     beyondSchema: [
       'Setting a status here does not move stock. Only `receive` does that, which is why ' +
         'marking an order Received by hand leaves the inventory untouched.',
+      'Not every status is reachable from every other. `Received` and `Cancelled` are ' +
+        'final, and `Partially Received` cannot be set here at all -- it is derived from ' +
+        'what has actually arrived, and only `receive` writes it. An illegal move is a ' +
+        '409 `CONFLICT` naming both statuses; re-asserting the order’s current status ' +
+        'is accepted and changes nothing.',
     ],
   }),
 

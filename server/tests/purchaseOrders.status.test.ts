@@ -156,4 +156,125 @@ describeWithPostgres('purchase order status vocabulary (#119)', () => {
     expect(error).toMatchObject({ name: 'PublicError', code: 'CONFLICT' });
     spy.mockRestore();
   });
+
+  // --- Which transitions are legal by hand (#142) -------------------------------------
+  //
+  // 010 made all five statuses writable but could not say which moves are legal: a CHECK
+  // sees the new value and never where the row came from.
+
+  async function draftOrder(): Promise<number> {
+    const created = await purchaseOrdersService.create(
+      {
+        distributor_id: distributorId,
+        items: [{ product_id: productId, quantity: 4, cost_price: 10 }],
+      },
+      userId
+    );
+    return created.id;
+  }
+
+  it('refuses to move a Received order back to Draft', async () => {
+    // The issue's repro: the stock has already moved, so there is nothing sensible for
+    // a Draft order to mean afterwards.
+    const id = await draftOrder();
+    await purchaseOrdersService.updateStatus(id, 'Sent');
+    const items = await purchaseOrdersService.getRepository().findItemsByPoId(id);
+    await purchaseOrdersService.receiveItems(
+      id,
+      { items: [{ item_id: items[0].id, quantity: 4 }] },
+      userId
+    );
+    expect((await purchaseOrdersService.findById(id))?.status).toBe('Received');
+
+    await expect(purchaseOrdersService.updateStatus(id, 'Draft')).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+
+    // Refused, not partially applied.
+    expect((await purchaseOrdersService.findById(id))?.status).toBe('Received');
+    expect(await stockOf(productId)).toBe(4);
+  });
+
+  it('refuses to move a Cancelled order anywhere', async () => {
+    const id = await draftOrder();
+    await purchaseOrdersService.updateStatus(id, 'Cancelled');
+
+    await expect(purchaseOrdersService.updateStatus(id, 'Sent')).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    await expect(purchaseOrdersService.updateStatus(id, 'Received')).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    expect((await purchaseOrdersService.findById(id))?.status).toBe('Cancelled');
+  });
+
+  it('never lets Partially Received be set by hand', async () => {
+    // It is derived from what actually arrived, so naming it by hand is a claim about
+    // receipts that did not happen.
+    const id = await draftOrder();
+    await expect(
+      purchaseOrdersService.updateStatus(id, 'Partially Received')
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    await purchaseOrdersService.updateStatus(id, 'Sent');
+    await expect(
+      purchaseOrdersService.updateStatus(id, 'Partially Received')
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    expect((await purchaseOrdersService.findById(id))?.status).toBe('Sent');
+  });
+
+  it('still lets receiveItems write Partially Received, which the guard sits above', async () => {
+    const id = await draftOrder();
+    await purchaseOrdersService.updateStatus(id, 'Sent');
+    const items = await purchaseOrdersService.getRepository().findItemsByPoId(id);
+
+    const status = await purchaseOrdersService.receiveItems(
+      id,
+      { items: [{ item_id: items[0].id, quantity: 1 }] },
+      userId
+    );
+
+    expect(status).toBe('Partially Received');
+  });
+
+  it('accepts re-asserting the current status as a no-op', async () => {
+    // A retried request must not fail where the first one succeeded.
+    const id = await draftOrder();
+    await purchaseOrdersService.updateStatus(id, 'Sent');
+
+    await expect(purchaseOrdersService.updateStatus(id, 'Sent')).resolves.toMatchObject({
+      status: 'Sent',
+    });
+    expect((await purchaseOrdersService.findById(id))?.status).toBe('Sent');
+  });
+
+  it('keeps Sent -> Received legal, and it still moves no stock', async () => {
+    // The path for goods reconciled outside the system. The request contract already
+    // says setting a status does not move stock; this pins that it stays true.
+    const id = await draftOrder();
+    await purchaseOrdersService.updateStatus(id, 'Sent');
+
+    await expect(purchaseOrdersService.updateStatus(id, 'Received')).resolves.toMatchObject({
+      status: 'Received',
+    });
+    expect(await stockOf(productId)).toBe(0);
+  });
+
+  it('lets a partially received order be cancelled or completed', async () => {
+    const id = await draftOrder();
+    await purchaseOrdersService.updateStatus(id, 'Sent');
+    const items = await purchaseOrdersService.getRepository().findItemsByPoId(id);
+    await purchaseOrdersService.receiveItems(
+      id,
+      { items: [{ item_id: items[0].id, quantity: 1 }] },
+      userId
+    );
+
+    await expect(purchaseOrdersService.updateStatus(id, 'Cancelled')).resolves.toMatchObject({
+      status: 'Cancelled',
+    });
+    // The unit already received stays received; cancelling does not reverse it.
+    expect(await stockOf(productId)).toBe(1);
+  });
 });
