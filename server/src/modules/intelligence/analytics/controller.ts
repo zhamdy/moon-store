@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { analyticsRequestContracts } from './schemas';
 import { analyticsService } from './service';
-import { withDefaultDays, type AnalyticsPageQuery } from './types';
+import { withDefaultDays, type AnalyticsPageQuery, type CustomerSegment } from './types';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 
@@ -176,6 +176,28 @@ export class AnalyticsController {
         query.pageSize,
         from,
         to
+      );
+      res.json(
+        success(result.data, {
+          pagination: paginationMeta(query.page, query.pageSize, result.totalItems),
+        })
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getCustomerSegments(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const query = contracts.getCustomerSegments.parseQuery<{
+        page: number;
+        pageSize: number;
+        segment?: CustomerSegment;
+      }>(req.query);
+      const result = await analyticsService.getCustomerSegmentsPage(
+        query.page,
+        query.pageSize,
+        query.segment
       );
       res.json(
         success(result.data, {

@@ -1,5 +1,23 @@
 import { z } from 'zod';
 
+/**
+ * The seven RFM segments. Fixed, not user-defined: these are the labels the
+ * scoring rule can produce, and the client has an icon, a colour and a
+ * translation for each one. A rule-authored segment is a different feature and
+ * lives under `/api/v1/segments`.
+ */
+export const CUSTOMER_SEGMENTS = [
+  'champions',
+  'loyal',
+  'potential',
+  'at_risk',
+  'hibernating',
+  'lost',
+  'new',
+] as const;
+
+export type CustomerSegment = (typeof CUSTOMER_SEGMENTS)[number];
+
 export interface DashboardKpis {
   today_revenue: number;
   month_revenue: number;
@@ -32,6 +50,12 @@ export const analyticsPageQuerySchema = z
   .object({ ...pageFields, ...dateFilters })
   .strict()
   .superRefine(validateDateRange);
+export const analyticsSegmentQuerySchema = z
+  .object({
+    ...pageFields,
+    segment: z.enum(CUSTOMER_SEGMENTS).optional(),
+  })
+  .strict();
 export const analyticsDaysPageQuerySchema = z
   .object({
     ...pageFields,
@@ -227,6 +251,38 @@ export interface CustomerLtvResult {
     avg_ltv: number;
     top10_revenue_share: number;
   };
+}
+
+export interface CustomerRfmRow {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  recency_days: number;
+  frequency: number;
+  monetary: number;
+  segment: CustomerSegment;
+  loyalty_points: number;
+}
+
+export interface CustomerSegmentSummaryRow {
+  segment: CustomerSegment;
+  count: number;
+  total_revenue: number;
+  avg_frequency: number;
+}
+
+/**
+ * The page of scored customers plus the roll-up.
+ *
+ * The summary is deliberately computed over every scored customer, not over the
+ * page and not through the `segment` filter: it is what the segment tiles are
+ * drawn from, and a tile that only counted the current page would change every
+ * time someone paged.
+ */
+export interface CustomerSegmentsResult {
+  customers: CustomerRfmRow[];
+  summary: CustomerSegmentSummaryRow[];
 }
 
 export interface HourlyHeatmapRow {

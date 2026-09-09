@@ -11,6 +11,7 @@ import {
   analyticsDaysPageQuerySchema,
   analyticsDaysQuerySchema,
   analyticsPageQuerySchema,
+  analyticsSegmentQuerySchema,
 } from './types';
 
 export const analyticsRequestContracts = {
@@ -102,6 +103,20 @@ export const analyticsRequestContracts = {
     beyondSchema: [
       '`days` is optional on the wire and defaults to 30 after parsing, so an omitted ' +
         'value is a 30-day window rather than an unbounded one.',
+    ],
+  }),
+
+  getCustomerSegments: defineRequestContract({
+    method: 'GET',
+    path: '/api/v1/analytics/customer-segments',
+    operation: 'getCustomerSegments',
+    query: analyticsSegmentQuerySchema,
+    beyondSchema: [
+      '`segment` filters the customer page only. The seven-row summary is always ' +
+        'computed over the whole scored population, because it is what the segment ' +
+        'tiles are drawn from.',
+      'Scores are quintiles of the whole customer base, so a customer can change ' +
+        'segment without buying anything — someone else buying moves the boundary.',
     ],
   }),
 

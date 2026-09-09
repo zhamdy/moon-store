@@ -59,6 +59,11 @@ router.get('/customer-ltv', verifyToken, requireRole('Admin'), (req, res, next) 
   analyticsController.getCustomerLtv(req, res, next)
 );
 
+// GET /api/analytics/customer-segments — RFM segmentation
+router.get('/customer-segments', verifyToken, requireRole('Admin'), (req, res, next) =>
+  analyticsController.getCustomerSegments(req, res, next)
+);
+
 // GET /api/analytics/hourly-heatmap — Sales by day-of-week and hour
 router.get('/hourly-heatmap', verifyToken, requireRole('Admin'), (req, res, next) =>
   analyticsController.getHourlyHeatmap(req, res, next)

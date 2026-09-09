@@ -141,6 +141,18 @@ export interface IAnalyticsRepository {
       recency_days: string | number;
     }>
   >;
+  getCustomerRfmRaw(queryable?: Queryable): Promise<
+    Array<{
+      id: number;
+      name: string;
+      phone: string | null;
+      email: string | null;
+      loyalty_points: string | number | null;
+      recency_days: string | number;
+      frequency: string | number;
+      monetary: string | number;
+    }>
+  >;
   getHourlyHeatmapRaw(
     days: number,
     queryable?: Queryable
@@ -624,6 +636,40 @@ export class AnalyticsRepository implements IAnalyticsRepository {
        GROUP BY c.id
        ORDER BY lifetime_revenue DESC`,
       params
+    );
+    return result.rows;
+  }
+
+  async getCustomerRfmRaw(queryable?: Queryable): Promise<
+    Array<{
+      id: number;
+      name: string;
+      phone: string | null;
+      email: string | null;
+      loyalty_points: string | number | null;
+      recency_days: string | number;
+      frequency: string | number;
+      monetary: string | number;
+    }>
+  > {
+    const result = await this.q(queryable).query<{
+      id: number;
+      name: string;
+      phone: string | null;
+      email: string | null;
+      loyalty_points: string | number | null;
+      recency_days: string | number;
+      frequency: string | number;
+      monetary: string | number;
+    }>(
+      `SELECT c.id, c.name, c.phone, c.email, c.loyalty_points,
+              FLOOR(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - MAX(s.created_at))) / 86400.0)::int AS recency_days,
+              COUNT(DISTINCT s.id)::int AS frequency,
+              COALESCE(SUM(s.total - COALESCE(s.refunded_amount, 0)), 0) AS monetary
+       FROM customers c
+       INNER JOIN sales s ON c.id = s.customer_id
+       GROUP BY c.id
+       ORDER BY monetary DESC, c.id ASC`
     );
     return result.rows;
   }
