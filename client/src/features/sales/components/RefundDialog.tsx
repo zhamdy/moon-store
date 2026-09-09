@@ -14,10 +14,19 @@ import {
 import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation } from '../../../shared/i18n/index';
-import type { SaleItem } from '../types';
+import type { SaleItem, SaleRefund } from '../types';
 
 /** Only the refund sub-action is reached from here, so no row shape surfaces. */
 const sales = resource<{ id: number }>('sales');
+
+/**
+ * The key a sale line is identified by, matching the server's own composite key: two
+ * variants of one product are distinct lines, and a plain line normalizes to the empty
+ * variant. `product_id` alone would collapse them onto one row and let the cashier
+ * request a refund the server has to reject (#120, #121).
+ */
+const lineKey = (item: { product_id: number; variant_id?: number | null }): string =>
+  `${item.product_id}:${item.variant_id ?? ''}`;
 
 interface RefundDialogProps {
   open: boolean;
@@ -26,6 +35,8 @@ interface RefundDialogProps {
   saleTotal: number;
   refundedAmount: number;
   items: SaleItem[];
+  /** Prior refunds against this sale; each line's remaining quantity is derived from them. */
+  refunds?: SaleRefund[];
 }
 
 type RefundReason = 'Customer Return' | 'Cashier Error' | 'Defective' | 'Other';
@@ -37,12 +48,13 @@ export default function RefundDialog({
   saleTotal,
   refundedAmount,
   items,
+  refunds = [],
 }: RefundDialogProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const [selectedItems, setSelectedItems] = useState<
-    Record<number, { selected: boolean; quantity: number }>
+    Record<string, { selected: boolean; quantity: number }>
   >({});
   const [reason, setReason] = useState<RefundReason>('Customer Return');
   const [restock, setRestock] = useState(true);
@@ -53,9 +65,24 @@ export default function RefundDialog({
     setRestock(true);
   };
 
+  /** How much of each line prior refunds have already taken, keyed the server's way. */
+  const alreadyRefunded = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const refund of refunds) {
+      for (const item of refund.items ?? []) {
+        counts[lineKey(item)] = (counts[lineKey(item)] ?? 0) + item.quantity;
+      }
+    }
+    return counts;
+  }, [refunds]);
+
+  /** Sold minus already refunded: the most this line can still be refunded for. */
+  const remainingFor = (item: SaleItem): number =>
+    Math.max(0, item.quantity - (alreadyRefunded[lineKey(item)] ?? 0));
+
   const refundAmount = useMemo(() => {
     return items.reduce((sum, item) => {
-      const sel = selectedItems[item.product_id];
+      const sel = selectedItems[lineKey(item)];
       if (sel?.selected && sel.quantity > 0) {
         return sum + item.unit_price * sel.quantity;
       }
@@ -80,12 +107,14 @@ export default function RefundDialog({
 
     const refundItems = items
       .filter((item) => {
-        const sel = selectedItems[item.product_id];
+        const sel = selectedItems[lineKey(item)];
         return sel?.selected && sel.quantity > 0;
       })
       .map((item) => ({
         product_id: item.product_id,
-        quantity: selectedItems[item.product_id].quantity,
+        // Sent only for a variant line, so a plain line's payload is unchanged.
+        ...(item.variant_id ? { variant_id: item.variant_id } : {}),
+        quantity: selectedItems[lineKey(item)].quantity,
         unit_price: item.unit_price,
       }));
 
@@ -94,20 +123,20 @@ export default function RefundDialog({
     refunder.run({ id: saleId, body: { items: refundItems, reason, restock } });
   };
 
-  const toggleItem = (productId: number, maxQty: number) => {
+  const toggleItem = (key: string, maxQty: number) => {
     setSelectedItems((prev) => {
-      const current = prev[productId];
+      const current = prev[key];
       if (current?.selected) {
-        return { ...prev, [productId]: { selected: false, quantity: 0 } };
+        return { ...prev, [key]: { selected: false, quantity: 0 } };
       }
-      return { ...prev, [productId]: { selected: true, quantity: maxQty } };
+      return { ...prev, [key]: { selected: true, quantity: maxQty } };
     });
   };
 
-  const updateQuantity = (productId: number, qty: number) => {
+  const updateQuantity = (key: string, qty: number) => {
     setSelectedItems((prev) => ({
       ...prev,
-      [productId]: { selected: qty > 0, quantity: qty },
+      [key]: { selected: qty > 0, quantity: qty },
     }));
   };
 
@@ -152,40 +181,68 @@ export default function RefundDialog({
                 </label>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {items.map((item) => {
-                    const sel = selectedItems[item.product_id];
+                    const key = lineKey(item);
+                    const sel = selectedItems[key];
+                    const remaining = remainingFor(item);
+                    const exhausted = remaining === 0;
                     return (
                       <div
-                        key={item.product_id}
-                        className="flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/10 hover:border-primary/40 transition-colors"
+                        key={key}
+                        className={`flex items-center gap-3 p-2.5 rounded-xl border border-border bg-muted/10 transition-colors ${
+                          exhausted ? 'opacity-60' : 'hover:border-primary/40'
+                        }`}
                       >
                         <Checkbox
                           isSelected={sel?.selected || false}
-                          onValueChange={() => toggleItem(item.product_id, item.quantity)}
+                          isDisabled={exhausted}
+                          onValueChange={() => toggleItem(key, remaining)}
                           size="sm"
-                          aria-label={`Select ${item.product_name}`}
+                          aria-label={`Select ${item.product_name}${
+                            item.variant_sku ? ` (${item.variant_sku})` : ''
+                          }`}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">
                             {item.product_name}
+                            {item.variant_sku && (
+                              <span className="text-muted-foreground font-normal">
+                                {' '}
+                                · {item.variant_sku}
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-muted-foreground font-data">
                             {formatCurrency(item.unit_price)} x {item.quantity}
+                            {remaining < item.quantity && !exhausted && (
+                              <span>
+                                {' · '}
+                                {t('sales.refundRemaining', { remaining, sold: item.quantity })}
+                              </span>
+                            )}
                           </p>
                         </div>
-                        {sel?.selected && (
+                        {/* Stated in words, not only by the dimmed row: a disabled control
+                            that does not say why reads as a broken one. */}
+                        {exhausted && (
+                          <span className="text-xs text-muted-foreground">
+                            {t('sales.alreadyFullyRefunded')}
+                          </span>
+                        )}
+                        {!exhausted && sel?.selected && (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground" id={`qty-label-${key}`}>
                               {t('sales.qtyToRefund')}
                             </span>
                             <input
                               type="number"
                               min={1}
-                              max={item.quantity}
+                              max={remaining}
                               value={sel.quantity}
+                              aria-labelledby={`qty-label-${key}`}
                               onChange={(e) =>
                                 updateQuantity(
-                                  item.product_id,
-                                  Math.min(item.quantity, Math.max(1, Number(e.target.value)))
+                                  key,
+                                  Math.min(remaining, Math.max(1, Number(e.target.value)))
                                 )
                               }
                               className="w-14 h-8 text-center text-sm border border-border rounded-lg bg-card text-foreground font-data focus:outline-none focus:border-primary"

@@ -370,6 +370,7 @@
   "sales.selectItems": "Select items to refund",
   "sales.qtyToRefund": "Qty to refund",
   "sales.alreadyFullyRefunded": "Fully refunded",
+  "sales.refundRemaining": "{remaining} of {sold} left to refund",
   "sales.customer": "Customer",
   "sales.walkIn": "Walk-in",
   "users.title": "Users",

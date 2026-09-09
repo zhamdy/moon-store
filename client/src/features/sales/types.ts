@@ -4,6 +4,9 @@
 /** Sale line item from GET /api/sales/:id (read shape, not the write payload) */
 export interface SaleItem {
   product_id: number;
+  /** Present on a variant line; two variants of one product are two distinct lines. */
+  variant_id?: number | null;
+  variant_sku?: string | null;
   product_name: string;
   quantity: number;
   unit_price: number;

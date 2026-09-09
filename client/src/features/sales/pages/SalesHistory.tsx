@@ -40,7 +40,7 @@ import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { ColumnDef, PaginationState, SortingState } from '@tanstack/react-table';
 import type { ReceiptData } from '../../../shared/components/Receipt';
-import type { Sale, SaleDetail, SaleRefund, SalesMeta } from '../types';
+import type { Sale, SaleDetail, SaleItem, SaleRefund, SalesMeta } from '../types';
 
 const sales = resource<Sale, SalesMeta>('sales');
 const saleDetails = resource<SaleDetail>('sales');
@@ -75,7 +75,8 @@ export default function SalesHistory() {
     id: number;
     total: number;
     refundedAmount: number;
-    items: { product_id: number; product_name: string; quantity: number; unit_price: number }[];
+    items: SaleItem[];
+    refunds: SaleRefund[];
   } | null>(null);
 
   const params: Record<string, string> = {};
@@ -129,6 +130,9 @@ export default function SalesHistory() {
   const readSale = (saleId: number) =>
     transport.request<SaleDetail>({ method: 'GET', path: `sales/${saleId}` });
 
+  const readSaleRefunds = (saleId: number) =>
+    transport.request<SaleRefund[]>({ method: 'GET', path: `sales/${saleId}/refunds` });
+
   const handlePrintReceipt = async (saleId: number) => {
     try {
       const { data: sale } = await readSale(saleId);
@@ -177,12 +181,18 @@ export default function SalesHistory() {
 
   const handleRefund = async (sale: Sale) => {
     try {
-      const { data: detail } = await readSale(sale.id);
+      // Prior refunds come along so the dialog can cap each line at what is left of it,
+      // rather than offering a quantity the server will reject (#120).
+      const [{ data: detail }, { data: priorRefunds }] = await Promise.all([
+        readSale(sale.id),
+        readSaleRefunds(sale.id),
+      ]);
       setRefundSale({
         id: sale.id,
         total: sale.total,
         refundedAmount: sale.refunded_amount || 0,
         items: detail.items || [],
+        refunds: priorRefunds || [],
       });
       setRefundOpen(true);
     } catch {
@@ -552,6 +562,7 @@ export default function SalesHistory() {
           saleTotal={refundSale.total}
           refundedAmount={refundSale.refundedAmount}
           items={refundSale.items}
+          refunds={refundSale.refunds}
         />
       )}
     </div>
