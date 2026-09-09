@@ -156,3 +156,80 @@ describe('RegisterService.recordSaleMovement - transaction threading', () => {
     await expect(service.recordSaleMovement(1, 999999, 100, testPool)).rejects.toBeTruthy();
   });
 });
+
+/**
+ * #130: `GET /api/v1/register/:id/report` took an id from the URL and answered for it.
+ * Every sibling handler in the same controller resolves its session from the token, so
+ * this one was the outlier -- and register session ids are sequential, so any Cashier
+ * could read any other cashier's takings, movements and float by walking them.
+ */
+describe('Register session report authorization', () => {
+  const session = (cashierId: number) => ({
+    report: {
+      session: { id: 7, cashier_id: cashierId, opening_float: 500, expected_cash: 800 },
+      movements: [],
+      summary: { total_sales: 0, total_refunds: 0, total_cash_in: 0, total_cash_out: 0 },
+    },
+  });
+
+  function callReport(reportOwnerId: number, caller: { id: number; role: string }) {
+    const service = {
+      getSessionReport: vi.fn().mockResolvedValue(session(reportOwnerId)),
+    } as unknown as IRegisterService;
+    const json = vi.fn();
+    const next = vi.fn();
+
+    return new RegisterController(service)
+      .getSessionReport(
+        { params: { id: '7' }, user: { ...caller, name: 'X', email: 'x@moon.com' } } as never,
+        { json } as unknown as Response,
+        next
+      )
+      .then(() => ({ json, next }));
+  }
+
+  it('lets a cashier read their own session report', async () => {
+    const { json, next } = await callReport(4, { id: 4, role: 'Cashier' });
+
+    expect(next).not.toHaveBeenCalled();
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ movements: [] }) })
+    );
+  });
+
+  it("refuses another cashier's session, and answers with no session data (#130 repro)", async () => {
+    const { json, next } = await callReport(4, { id: 9, role: 'Cashier' });
+
+    expect(json).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'PublicError', code: 'FORBIDDEN' })
+    );
+  });
+
+  it('lets an Admin read any cashier’s session report', async () => {
+    const { json, next } = await callReport(4, { id: 1, role: 'Admin' });
+
+    expect(next).not.toHaveBeenCalled();
+    expect(json).toHaveBeenCalled();
+  });
+
+  it('still answers 404 for a session that does not exist', async () => {
+    const service = {
+      getSessionReport: vi.fn().mockResolvedValue({ error: 'Session not found' }),
+    } as unknown as IRegisterService;
+    const next = vi.fn();
+
+    await new RegisterController(service).getSessionReport(
+      {
+        params: { id: '999' },
+        user: { id: 4, role: 'Cashier', name: 'X', email: 'x@moon.com' },
+      } as never,
+      { json: vi.fn() } as unknown as Response,
+      next
+    );
+
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'PublicError', code: 'NOT_FOUND' })
+    );
+  });
+});

@@ -64,6 +64,21 @@ describe('PurchaseOrders', () => {
     );
   });
 
+  /**
+   * #129: the Total column reads `total`, and the server's list projected a column
+   * nothing writes — so the field was simply absent and every row rendered `NaN EG`.
+   * This pins the wire name the column depends on.
+   */
+  it('renders each order’s value, never NaN', async () => {
+    const transport = createMemoryTransport({ 'purchase-orders': [DRAFT_ORDER] });
+
+    render(<PurchaseOrders />, { wrapper: wrapperFor(transport) });
+
+    await screen.findByText('PO-0003');
+    expect(screen.getAllByText(/1,800/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/NaN/)).toBeNull();
+  });
+
   it('marks a draft order sent through the status sub-action', async () => {
     const transport = createMemoryTransport({ 'purchase-orders': [DRAFT_ORDER] });
 
