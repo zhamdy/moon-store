@@ -70,11 +70,16 @@ describeWithPostgres('migration 011 — retiring the duplicate value columns', (
     expect(await hasColumn(harness.pool, 'product_bundles', 'bundle_price')).toBe(true);
   });
 
-  it('leaves total_amount alone on the tables where it is live', async () => {
-    // Only the `purchase_orders` one was dead. Dropping by column name across the schema
-    // would have taken two columns that carry real money with it.
-    expect(await hasColumn(harness.pool, 'expenses', 'total_amount')).toBe(true);
+  it('leaves total_amount alone on the table where it is live', async () => {
+    // Only the `purchase_orders` one was dead. `layaway_plans.total_amount` is the plan's
+    // agreed price, NOT NULL and read on every balance calculation, so dropping by column
+    // name across the schema would have taken real money with it.
+    //
+    // (`expenses` has no such column despite the module talking about `total_amount` --
+    // that name is a `SUM(amount)` alias in the list query, which is exactly the kind of
+    // thing that makes "grep the name and drop it" the wrong way to do this.)
     expect(await hasColumn(harness.pool, 'layaway_plans', 'total_amount')).toBe(true);
+    expect(await hasColumn(harness.pool, 'expenses', 'amount')).toBe(true);
   });
 
   it('restores both columns on rollback and drops them again on re-apply', async () => {

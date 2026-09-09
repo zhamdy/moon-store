@@ -4,7 +4,11 @@ import fs from 'fs';
 import path from 'path';
 import { randomBytes } from 'crypto';
 import { describeWithPostgres, TEST_DATABASE_URL } from '../support/realPostgres';
-import { ensureMigrationTable, runMigrationsUp } from '../../src/database/migrate';
+import {
+  ensureMigrationTable,
+  runMigrationsDown,
+  runMigrationsUp,
+} from '../../src/database/migrate';
 import production from './fixtures/production-schema-2026-09-05.json';
 
 const dir = path.join(__dirname, '../../src/database/migrations');
@@ -110,8 +114,19 @@ describeWithPostgres('009 legacy production schema repair', () => {
       '011_retire_duplicate_value_columns.sql',
     ]);
     expect(await runMigrationsUp(pool, dir)).toEqual([]);
+
+    // Replaying the raw SQL is how this test proves 009 and 010 are re-runnable. 011 has
+    // to come back off first: 009 backfills `product_bundles.bundle_price` from `price`,
+    // and 011 drops `price`, so replaying 009 on top of 011 fails on a column the schema
+    // no longer has. That is inherent to replaying an older migration after a newer one
+    // removes what it referenced -- the same shape as 009 re-adding its own wider CHECK
+    // over 010's narrowed one -- and not a fault in either file.
+    expect(await runMigrationsDown(1, pool, dir)).toEqual([
+      '011_retire_duplicate_value_columns.sql',
+    ]);
     await pool.query(sql);
     await pool.query(nextSql);
+    expect(await runMigrationsUp(pool, dir)).toEqual(['011_retire_duplicate_value_columns.sql']);
     expect((await pool.query('SELECT favorites FROM users')).rows[0].favorites).toBe('[]');
     expect(
       (await pool.query('SELECT bundle_price FROM product_bundles WHERE id=51')).rows[0]

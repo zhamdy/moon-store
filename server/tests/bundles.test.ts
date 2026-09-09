@@ -170,13 +170,13 @@ describe('bundle price contract (#123, #124)', () => {
     it('never returns the dead price column alongside the aliased one', async () => {
       const created = await service.create(bundleSchema.parse(pagePayload()));
 
-      // The legacy `price` column is still there and still 0; nothing may read it, and
-      // no response may carry two answers for one question.
-      const legacy = await testPool.query<{ price: string }>(
-        'SELECT price FROM product_bundles WHERE id = $1',
-        [created.id]
-      );
-      expect(Number(legacy.rows[0].price)).toBe(0);
+      // The legacy `price` column is gone as of migration 011 (#139) -- this used to read
+      // it and assert it was still 0. The contract it protects is unchanged: `price` on
+      // the wire is `bundle_price` in the table, and no response carries two answers for
+      // one question. Now the schema is what guarantees it.
+      await expect(
+        testPool.query('SELECT price FROM product_bundles WHERE id = $1', [created.id])
+      ).rejects.toThrow(/price/);
 
       const detail = await service.findById(created.id);
       expect(Number(detail?.price)).toBe(500);
