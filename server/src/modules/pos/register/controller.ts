@@ -99,10 +99,24 @@ export class RegisterController {
 
   async getSessionReport(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const authReq = req as AuthRequest;
       const { id } = contracts.getSessionReport.parseParams<{ id: string }>(req.params);
       const result = await this.service.getSessionReport(id);
       if (result.error) {
         throw new PublicError('NOT_FOUND', result.error);
+      }
+
+      // Every sibling handler in this controller resolves its session from the token;
+      // this one took an id from the URL and answered for it, so any Cashier could read
+      // any other cashier's X/Z report — takings, movements and float — by walking a
+      // sequential id (#130). An Admin still reads any session, which is what the
+      // end-of-day review needs.
+      const user = authReq.user!;
+      const session = result.report!.session;
+      if (user.role !== 'Admin' && Number(session.cashier_id) !== user.id) {
+        // FORBIDDEN rather than NOT_FOUND: the id space is sequential and already
+        // enumerable, so a 404 would conceal nothing and a 403 is the honest answer.
+        throw new PublicError('FORBIDDEN', 'This register session belongs to another cashier');
       }
 
       res.json(success(result.report));

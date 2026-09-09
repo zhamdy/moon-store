@@ -72,6 +72,12 @@ export interface SaleItemInput {
   quantity: number;
   unit_price: number;
   memo?: string | null;
+  /**
+   * The bundle this line belongs to, when it came from one. Declared here and not only
+   * spread into the payload: #124 was a field the server silently dropped, and a wire
+   * type that does not mention it lets the next mapper drop it again with no type error.
+   */
+  bundle_id?: number | null;
 }
 
 export interface PaymentEntry {

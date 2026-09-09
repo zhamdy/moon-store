@@ -84,6 +84,10 @@ export const registerRequestContracts = {
     path: '/api/v1/register/{id}/report',
     operation: 'getSessionReport',
     params: pathIdParams(),
+    beyondSchema: [
+      'A Cashier may read only their own sessions; another cashier’s is a 403. An Admin ' +
+        'may read any, which is what an end-of-day review needs.',
+    ],
   }),
 
   forceCloseSession: defineRequestContract({

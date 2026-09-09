@@ -48,6 +48,11 @@ export const exchangesRequestContracts = {
         '`good` does; `damaged` and `defective` are recorded and written off.',
       'The price difference either way is settled by `payment_method`; `store_credit` ' +
         'issues or consumes credit rather than moving cash.',
+      'A returned line must be a line of the named sale, matched on ' +
+        '(product_id, variant_id). Its `price` is accepted for backward compatibility ' +
+        'and ignored: the credit is what the line actually sold for.',
+      'The cumulative quantity returned per line — counting BOTH earlier exchanges and ' +
+        'earlier refunds of that sale — can never exceed what was sold.',
     ],
   }),
 

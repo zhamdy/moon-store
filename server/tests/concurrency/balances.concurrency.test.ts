@@ -99,12 +99,23 @@ describeWithPostgres('gift card and exchange balance invariants', () => {
     return code;
   }
 
+  /**
+   * Creates a product AND records it as sold on the shared sale. Since #122 an exchange
+   * may only take back a line the named sale actually sold, so a product that was never
+   * on it is refused before the stock behaviour under test here is reached.
+   */
   async function makeProduct(sku: string, stock: number): Promise<number> {
     const { rows } = await harness.pool.query<{ id: number }>(
       'INSERT INTO products (name, sku, price, stock) VALUES ($1, $2, 100, $3) RETURNING id',
       [`Product ${sku}`, sku, stock]
     );
-    return rows[0].id;
+    const productId = rows[0].id;
+
+    await harness.pool.query(
+      'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) VALUES ($1, $2, 100, 10)',
+      [saleId, productId]
+    );
+    return productId;
   }
 
   async function redeem(code: string, amount: number, key?: string): Promise<Outcome> {

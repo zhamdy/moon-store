@@ -6,6 +6,14 @@ export const saleItemSchema = z.object({
   quantity: z.number().int().positive('Quantity must be at least 1'),
   unit_price: z.number().positive(),
   memo: z.string().max(200).optional().nullable(),
+  /**
+   * The bundle this line belongs to. Zod strips unknown keys, so until this field
+   * existed the client's `bundle_id` never reached the service and every bundle line
+   * was priced from the catalog -- the cashier was shown the bundle price and the
+   * customer was charged the sum of the parts (#124). The server still prices the group
+   * itself; this only identifies which group a line belongs to.
+   */
+  bundle_id: z.number().int().positive().optional().nullable(),
 });
 
 // Split-payment integrity (Unit 4 of the checkout total-parity plan, #49):
@@ -64,6 +72,7 @@ export const saleSchema = z.object({
 
 export const refundItemSchema = z.object({
   product_id: z.number().int().positive(),
+  variant_id: z.number().int().positive().optional().nullable(),
   quantity: z.number().int().positive('Quantity must be at least 1'),
   unit_price: z.number().positive(),
 });

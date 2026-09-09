@@ -127,12 +127,13 @@ describeWithPostgres('checkout stock under concurrency', () => {
       expect(await countRows('stock_adjustments')).toBe(0);
     });
 
-    it('reports available as what was really on the shelf, not the mid-transaction figure', async () => {
-      // Two lines of one product, 5 in stock. The first decrement succeeds and drives the
-      // row to 0; the second is refused. Reporting 0 would be a number that stops being
-      // true the instant this transaction rolls back -- and the cashier would be told to
-      // remove a line they can in fact still sell 5 of. Only a real database can prove
-      // this, because it needs the rollback to actually happen.
+    it('counts two lines of one product against one stock figure, and says so before writing', async () => {
+      // Two lines of one product, 5 in stock, 6 asked for. Each line passes a check
+      // against 5 on its own; only their sum does not. This used to reach the write
+      // phase, where the first decrement drove the row to 0 and the second was refused,
+      // and the cashier was told "1 requested, 5 available" -- true of neither line and
+      // impossible to act on. The pre-check now reports the cart's own arithmetic: 6
+      // wanted, 5 there.
       const productId = await makeProduct('SKU-SPLIT', 5);
 
       await expect(
@@ -148,9 +149,10 @@ describeWithPostgres('checkout stock under concurrency', () => {
         )
       ).rejects.toMatchObject({
         name: 'InsufficientStockError',
-        conflicts: [{ productId, variantId: null, requested: 1, available: 5 }],
+        conflicts: [{ productId, variantId: null, requested: 6, available: 5 }],
       });
 
+      // Refused before anything was written, so the shelf figure never moved.
       expect(await stockOf(productId)).toBe(5);
       expect(await countRows('sales')).toBe(0);
       expect(await countRows('stock_adjustments')).toBe(0);
@@ -172,7 +174,14 @@ describeWithPostgres('checkout stock under concurrency', () => {
         });
 
       try {
-        await expect(sell(productId, 1)).rejects.toBeInstanceOf(InsufficientStockError);
+        // `available` is re-read from the row rather than reported from the failed
+        // update, so it is what is really on the shelf -- here 0, because the concurrent
+        // buyer genuinely took it.
+        const rejection = expect(sell(productId, 1)).rejects;
+        await rejection.toBeInstanceOf(InsufficientStockError);
+        await rejection.toMatchObject({
+          conflicts: [{ productId, variantId: null, requested: 1, available: 0 }],
+        });
       } finally {
         vi.restoreAllMocks();
       }

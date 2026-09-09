@@ -8,7 +8,15 @@ import { bundleListQuerySchema } from './types';
 export const bundleSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
-  bundle_price: z.number().positive(),
+  /**
+   * One wire name for the bundle's price (#123). The column is still `bundle_price`,
+   * and the repository maps between the two -- the client, its types and the POS cart
+   * have all said `price` since they were written, so the schema was the outlier and a
+   * create from the Bundles page failed validation on a field it never sends.
+   */
+  price: z.number().positive(),
+  /** Mirrors the column's own CHECK, so an unknown value is a 400 rather than a 23514. */
+  status: z.enum(['active', 'inactive']).optional(),
   starts_at: z.string().optional().nullable(),
   expires_at: z.string().optional().nullable(),
   items: z
@@ -49,7 +57,8 @@ export const bundlesRequestContracts = {
     body: bundleSchema,
     beyondSchema: [
       'At least two products: one product at a discount is a price change, not a bundle.',
-      '`bundle_price` is the total for the set, not a per-item price or a discount rate.',
+      '`price` is the total for the set, not a per-item price or a discount rate.',
+      '`status` defaults to `active` when omitted.',
       '`starts_at` and `expires_at` are strings and are not range-checked here.',
     ],
   }),

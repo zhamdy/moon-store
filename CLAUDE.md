@@ -191,6 +191,12 @@ prune stale ones; anything cross-project belongs in the global instructions inst
 - Playwright's `element is not stable` on the POS grid is `useAutoAnimate` animating cards
   out, not a slow render. It reads identically to a moving element and ends in
   `element was detached from the DOM` (2026-09-07)
+- `purchase_orders_status_check` (009) never actually admitted `'Sent'` or
+  `'Partially Received'` — the server enum, TS union, client chips/filters and i18n keys
+  all used those spellings anyway, so any status write past `Draft` was an unmapped 23514
+  since 009 shipped. Migration 010 narrowed the constraint to the app's five values; the
+  application vocabulary won over the three lowercase legacy spellings 009 had tolerated
+  (2026-09-09)
 - `refunds.items` is a `TEXT` column holding JSON and is the **only** record of how much
   of each sale line has been refunded — there is no `refund_items` table. It is parsed in
   `findRefundsBySaleId`, not by callers; handed on as a string it is still iterable, so a

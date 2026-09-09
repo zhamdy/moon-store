@@ -44,12 +44,27 @@ describeWithPostgres('exchange stock under concurrency', () => {
     saleId = sales.rows[0].id;
   });
 
+  /**
+   * Creates a product AND records it as sold on the original sale.
+   *
+   * Since #122 an exchange may only take back a line the named sale actually sold, so a
+   * fixture that creates a bare sale with no lines is refused before any of the stock
+   * behaviour below is reached. The sold quantity is deliberately generous: these cases
+   * are about locking and rollback, not about the cumulative return cap, which
+   * `exchanges.validation.test.ts` owns.
+   */
   async function makeProduct(sku: string, stock: number): Promise<number> {
     const { rows } = await harness.pool.query<{ id: number }>(
       'INSERT INTO products (name, sku, price, stock) VALUES ($1, $2, 100, $3) RETURNING id',
       [`Product ${sku}`, sku, stock]
     );
-    return rows[0].id;
+    const productId = rows[0].id;
+
+    await harness.pool.query(
+      'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) VALUES ($1, $2, 100, 100)',
+      [saleId, productId]
+    );
+    return productId;
   }
 
   async function stockOf(productId: number): Promise<number> {

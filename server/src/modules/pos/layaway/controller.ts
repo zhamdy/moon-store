@@ -8,6 +8,12 @@ import { layawayService, ILayawayService } from './service';
 import { PublicError } from '../../../http/errors';
 import { paginationMeta } from '../../../http/pagination';
 import { success } from '../../../http/responses';
+import {
+  IDEMPOTENCY_REPLAY_HEADER,
+  readIdempotencyKey,
+  toIdempotencyPublicError,
+  withIdempotency,
+} from '../../../http/idempotency';
 
 /** Parsed through the contracts, so the document and the validators cannot differ (#102). */
 const contracts = layawayRequestContracts;
@@ -63,16 +69,41 @@ export class LayawayController {
       const id = Number(contracts.payInstallment.parseParams<{ id: string }>(req.params).id);
       const parsed = contracts.payInstallment.parseBody<InstallmentBody>(req.body);
 
-      const result = await this.service.recordPayment(id, parsed, authReq.user!.id);
-
-      logAuditFromReq(req, 'payment', 'layaway', id, {
-        amount: parsed.amount,
-        remaining: result.remaining_balance,
-        completed: result.status === 'completed',
+      // A retried installment must not be taken twice. The claim shares the payment's
+      // transaction, so the two commit or roll back together -- a failed payment
+      // releases its key, and a corrected retry runs normally.
+      const outcome = await withIdempotency({
+        key: readIdempotencyKey(req),
+        endpoint: 'POST /api/v1/layaway/:id/pay',
+        userId: authReq.user!.id,
+        // The validated body plus the plan, so the same key against a different plan
+        // conflicts rather than replaying this one's response.
+        payload: { planId: id, ...parsed },
+        run: async (client) => {
+          const paid = await this.service.recordPayment(id, parsed, authReq.user!.id, client);
+          return { status: 200, body: success(paid), result: paid };
+        },
       });
 
-      res.json(success(result));
+      if (outcome.replayed) {
+        // No second audit entry for a request that took no second payment.
+        res.setHeader(IDEMPOTENCY_REPLAY_HEADER, 'true');
+      } else {
+        const result = outcome.result!;
+        logAuditFromReq(req, 'payment', 'layaway', id, {
+          amount: parsed.amount,
+          remaining: result.remaining_balance,
+          completed: result.status === 'completed',
+        });
+      }
+
+      res.status(outcome.status).json(outcome.body);
     } catch (err) {
+      const conflict = toIdempotencyPublicError(err);
+      if (conflict) {
+        next(conflict);
+        return;
+      }
       next(err instanceof z.ZodError ? err : this.mapDomainError(err));
     }
   }

@@ -50,8 +50,15 @@ export const salesRequestContracts = {
     params: pathIdParams(),
     beyondSchema: [
       'Partial refunds are allowed, but the cumulative quantity refunded per line can ' +
-        'never exceed what was sold — the check is against prior refunds, not this one.',
+        'never exceed what was sold — the check is against prior refunds AND prior ' +
+        'exchanges of the same sale, not against this request alone. A refund and an ' +
+        'exchange are two routes to the same recovery and draw on one quantity.',
       'Refunded stock is returned to inventory in the same transaction.',
+      "A line's unit_price is accepted for backward compatibility but ignored: the " +
+        'payout is always the price the line actually sold for, read from the sale.',
+      'A line is matched on (product_id, variant_id): two variants of the same product ' +
+        'are distinct lines, each with its own remaining-quantity cap. Omitting ' +
+        'variant_id matches the plain (non-variant) line for that product.',
     ],
   }),
 } as const;
