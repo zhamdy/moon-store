@@ -83,10 +83,25 @@ describeWithPostgres('online orders under concurrency (#125, #128)', () => {
       expect((outcome as PromiseRejectedResult).reason).toMatchObject({ code: 'CONFLICT' });
     }
 
-    // Never negative, and never oversold: the guard is in the WHERE clause, so the two
-    // losers' updates matched no row rather than reading a stale count.
-    expect(await stockOf(1)).toBe(0);
+    // Never oversold. Since #137 the winner HOLDS the unit rather than deducting it, so
+    // stock is untouched and the exclusion lives in the reservation: the two losers took
+    // the row lock after the winner committed and saw availability at zero, rather than
+    // each reading a stale count and all three passing.
+    expect(await stockOf(1)).toBe(1);
     expect(await countRows('online_orders')).toBe(1);
+    expect(await countRows('stock_reservations')).toBe(1);
+  });
+
+  it('turns the hold into a deduction when the order is processed', async () => {
+    // The other half of the same invariant: the unit the winner held above comes off the
+    // shelf here, and the hold goes with it, so the two can never both count.
+    const created = await service.createOrder(order());
+    expect(await stockOf(1)).toBe(1);
+
+    await service.updateStatus(created.id, 'processing');
+
+    expect(await stockOf(1)).toBe(0);
+    expect(await countRows('stock_reservations')).toBe(0);
   });
 
   it('lets two concurrent first orders from one phone share a customer', async () => {
@@ -135,11 +150,12 @@ describeWithPostgres('online orders under concurrency (#125, #128)', () => {
       )
     ).rejects.toMatchObject({ code: 'CONFLICT' });
 
-    // The first line's deduction happened before the second line refused; only a real
-    // rollback puts it back.
+    // The first line's reservation was written before the second line refused; only a
+    // real rollback removes it. Stock was never touched either way since #137.
     expect(await stockOf(1)).toBe(1);
     expect(await countRows('online_orders')).toBe(0);
     expect(await countRows('online_order_items')).toBe(0);
+    expect(await countRows('stock_reservations')).toBe(0);
   });
 
   /** Seeds an order that already owns `number`, so the next attempt at it collides. */

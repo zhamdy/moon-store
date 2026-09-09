@@ -45,6 +45,7 @@ describe('online orders (#125)', () => {
   });
 
   beforeEach(async () => {
+    await testPool.query('DELETE FROM stock_reservations');
     await testPool.query('DELETE FROM online_order_items');
     await testPool.query('DELETE FROM online_orders');
     await testPool.query('DELETE FROM product_variants');
@@ -56,6 +57,27 @@ describe('online orders (#125)', () => {
        VALUES (1, 'Silk Dress', 'SKU-001', 500, 250, 5)`
     );
   });
+
+  /** What an order is currently holding, as `stock_reservations` records it. */
+  async function reservedFor(
+    orderId: number | string
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>> {
+    const { rows } = await testPool.query<{
+      product_id: number;
+      variant_id: number | null;
+      quantity: number;
+    }>(
+      `SELECT product_id, variant_id, quantity FROM stock_reservations
+        WHERE source_type = 'online_order' AND source_id = $1
+        ORDER BY id`,
+      [String(orderId)]
+    );
+    return rows.map((r) => ({
+      product_id: Number(r.product_id),
+      variant_id: r.variant_id === null ? null : Number(r.variant_id),
+      quantity: Number(r.quantity),
+    }));
+  }
 
   async function stockOf(productId: number): Promise<number> {
     const { rows } = await testPool.query<{ stock: number }>(
@@ -106,9 +128,41 @@ describe('online orders (#125)', () => {
     ).rejects.toThrow(/Only 5 left of Silk Dress/);
   });
 
-  it('deducts exactly the ordered quantity when it fits', async () => {
-    await service.createOrder(order({ items: [{ product_id: 1, quantity: 2, price: 500 }] }));
+  it('holds the ordered quantity without taking it off the shelf (#137)', async () => {
+    const created = await service.createOrder(
+      order({ items: [{ product_id: 1, quantity: 2, price: 500 }] })
+    );
+
+    // Placing an order reserves; it no longer deducts. The units stay sellable at the
+    // till until the shop starts fulfilling.
+    expect(await stockOf(1)).toBe(5);
+    expect(await reservedFor(created.id)).toEqual([
+      { product_id: 1, variant_id: null, quantity: 2 },
+    ]);
+  });
+
+  it('deducts and releases the hold when the order moves to processing (#137)', async () => {
+    const created = await service.createOrder(
+      order({ items: [{ product_id: 1, quantity: 2, price: 500 }] })
+    );
+
+    await service.updateStatus(created.id, 'processing');
+
     expect(await stockOf(1)).toBe(3);
+    expect(await reservedFor(created.id)).toEqual([]);
+  });
+
+  it("counts another order's hold against what is available (#137)", async () => {
+    await service.createOrder(order({ items: [{ product_id: 1, quantity: 4, price: 500 }] }));
+
+    // 5 on hand, 4 held: only one left to promise, even though nothing has been deducted.
+    await expect(
+      service.createOrder(order({ items: [{ product_id: 1, quantity: 2, price: 500 }] }))
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    await expect(
+      service.createOrder(order({ items: [{ product_id: 1, quantity: 1, price: 500 }] }))
+    ).resolves.toBeTruthy();
   });
 
   it('refuses a product that does not exist rather than pricing it at nothing', async () => {
@@ -125,12 +179,30 @@ describe('online orders (#125)', () => {
       );
     });
 
-    it('prices and deducts from the variant, not its parent product', async () => {
+    it('prices from the variant and holds against it, not its parent product', async () => {
       const created = await service.createOrder(
         order({ items: [{ product_id: 1, variant_id: 10, quantity: 1, price: 1 }] })
       );
 
       expect(Number(created.subtotal)).toBe(550);
+      expect(await reservedFor(created.id)).toEqual([
+        { product_id: 1, variant_id: 10, quantity: 1 },
+      ]);
+
+      // Nothing is deducted yet, from either row.
+      const { rows } = await testPool.query<{ stock: number }>(
+        'SELECT stock FROM product_variants WHERE id = 10'
+      );
+      expect(Number(rows[0].stock)).toBe(2);
+      expect(await stockOf(1)).toBe(5);
+    });
+
+    it('deducts the variant row, not its parent, once processing starts', async () => {
+      const created = await service.createOrder(
+        order({ items: [{ product_id: 1, variant_id: 10, quantity: 1, price: 1 }] })
+      );
+
+      await service.updateStatus(created.id, 'processing');
 
       const { rows } = await testPool.query<{ stock: number }>(
         'SELECT stock FROM product_variants WHERE id = 10'
@@ -156,8 +228,21 @@ describe('online orders (#125)', () => {
       return created.id;
     }
 
-    it('restores stock once when a pending order is cancelled', async () => {
+    it('releases the hold and restores nothing when a pending order is cancelled (#137)', async () => {
       const id = await place();
+      // Never deducted, so there is nothing to give back -- restoring here would invent
+      // inventory, which is what every cancel used to do.
+      expect(await stockOf(1)).toBe(5);
+
+      await service.updateStatus(id, 'cancelled');
+
+      expect(await stockOf(1)).toBe(5);
+      expect(await reservedFor(id)).toEqual([]);
+    });
+
+    it('restores stock once when an order that had been processing is cancelled', async () => {
+      const id = await place();
+      await service.updateStatus(id, 'processing');
       expect(await stockOf(1)).toBe(3);
 
       await service.updateStatus(id, 'cancelled');
@@ -166,6 +251,7 @@ describe('online orders (#125)', () => {
 
     it('does not restore twice when an already-cancelled order is cancelled again', async () => {
       const id = await place();
+      await service.updateStatus(id, 'processing');
       await service.updateStatus(id, 'cancelled');
       await service.updateStatus(id, 'cancelled');
 
