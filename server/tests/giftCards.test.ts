@@ -30,7 +30,7 @@ describeWithPostgres('issuing gift cards (#141)', () => {
   beforeEach(async () => {
     await harness.truncate();
     await harness.pool.query(
-      `INSERT INTO users (id, name, email, password, role)
+      `INSERT INTO users (id, name, email, password_hash, role)
        VALUES (1, 'Admin', 'admin@moon.com', 'x', 'Admin')`
     );
   });
