@@ -65,6 +65,18 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
     return res.rows[0] || null;
   }
 
+  /**
+   * Claims the customer row for a phone number, whoever gets there first.
+   *
+   * `customers.phone` is UNIQUE and the caller reaches this through a
+   * find-then-create pair, so two simultaneous first orders from one phone both
+   * saw no customer and both inserted -- the loser's 23505 escaped the
+   * document-number retry (which narrows on the order-number constraint) and
+   * reached the shopper as a 500. The upsert makes the insert the only authority:
+   * a concurrent winner's row is returned instead of colliding with it. The
+   * conflicting update deliberately touches nothing but `updated_at`, because an
+   * existing customer's name and address are theirs, not the new order's.
+   */
   async createCustomer(
     name: string,
     phone: string,
@@ -72,7 +84,9 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
     queryable?: Queryable
   ): Promise<Record<string, any>> {
     const res = await this.q(queryable).query<Record<string, any>>(
-      'INSERT INTO customers (name, phone, address) VALUES ($1, $2, $3) RETURNING *',
+      `INSERT INTO customers (name, phone, address) VALUES ($1, $2, $3)
+       ON CONFLICT (phone) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
       [name, phone, address]
     );
     return res.rows[0];
