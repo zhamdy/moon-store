@@ -919,6 +919,24 @@ export class SalesService {
 
       const saleItems = await this.repo.findItemsBySaleId(saleId, client);
 
+      // Prior refunds are the only record of how much of each line has already gone
+      // back -- `refunds.items` is a JSON blob, not a normalized table (#120) -- so they
+      // are aggregated here, inside the same `FOR UPDATE` lock on `sale` that makes the
+      // read-then-write safe against a sibling refund committing concurrently.
+      const priorRefunds = await this.repo.findRefundsBySaleId(saleId, client);
+      const previouslyRefundedByProduct = new Map<number, number>();
+      for (const priorRefund of priorRefunds) {
+        const items: Array<{ product_id: number; quantity: number }> =
+          typeof priorRefund.items === 'string' ? JSON.parse(priorRefund.items) : priorRefund.items;
+        for (const item of items) {
+          previouslyRefundedByProduct.set(
+            item.product_id,
+            (previouslyRefundedByProduct.get(item.product_id) || 0) + Number(item.quantity)
+          );
+        }
+      }
+
+      let refundAmount = 0;
       for (const refundItem of input.items) {
         const saleItem = saleItems.find((si) => si.product_id === refundItem.product_id);
         if (!saleItem)
@@ -926,20 +944,26 @@ export class SalesService {
             'VALIDATION_ERROR',
             `Product ${refundItem.product_id} not in this sale`
           );
-        if (refundItem.quantity > saleItem.quantity) {
+
+        const alreadyRefunded = previouslyRefundedByProduct.get(refundItem.product_id) || 0;
+        const remaining = Number(saleItem.quantity) - alreadyRefunded;
+        if (refundItem.quantity > remaining) {
           throw new PublicError(
             'VALIDATION_ERROR',
-            `Refund quantity exceeds sold quantity for product ${refundItem.product_id}`
+            `Refund quantity exceeds sold quantity for product ${refundItem.product_id} ` +
+              `(${remaining} remaining)`
           );
         }
-      }
 
-      let refundAmount = 0;
-      for (const item of input.items) {
-        refundAmount += item.unit_price * item.quantity;
+        // The payout is what the sale line actually sold for, never the client's
+        // `unit_price` -- accepted on the wire for compatibility (see schemas.ts) and
+        // ignored, exactly as checkout re-prices every line rather than trusting it.
+        refundAmount += Number(saleItem.unit_price) * refundItem.quantity;
       }
 
       const previouslyRefunded = Number(sale.refunded_amount) || 0;
+      // Redundant with the per-line cap above once every line is accounted for, but kept
+      // as a second, cheap belt against a rounding or bookkeeping mismatch.
       if (previouslyRefunded + refundAmount > Number(sale.total)) {
         throw new PublicError('VALIDATION_ERROR', 'Refund amount exceeds sale total');
       }

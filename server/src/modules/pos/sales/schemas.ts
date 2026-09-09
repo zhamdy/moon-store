@@ -52,6 +52,8 @@ export const salesRequestContracts = {
       'Partial refunds are allowed, but the cumulative quantity refunded per line can ' +
         'never exceed what was sold — the check is against prior refunds, not this one.',
       'Refunded stock is returned to inventory in the same transaction.',
+      "A line's unit_price is accepted for backward compatibility but ignored: the " +
+        'payout is always the price the line actually sold for, read from the sale.',
     ],
   }),
 } as const;
