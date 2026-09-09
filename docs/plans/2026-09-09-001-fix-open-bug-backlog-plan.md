@@ -1,7 +1,7 @@
 ---
 title: 'fix: the open bug backlog (#119–#130), with #119 shipped alone'
 type: fix
-status: active
+status: completed
 date: 2026-09-09
 ---
 
