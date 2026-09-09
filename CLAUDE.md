@@ -197,3 +197,22 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   since 009 shipped. Migration 010 narrowed the constraint to the app's five values; the
   application vocabulary won over the three lowercase legacy spellings 009 had tolerated
   (2026-09-09)
+- `refunds.items` is a `TEXT` column holding JSON and is the **only** record of how much
+  of each sale line has been refunded — there is no `refund_items` table. It is parsed in
+  `findRefundsBySaleId`, not by callers; handed on as a string it is still iterable, so a
+  consumer reads it character by character and silently sees no prior refunds (2026-09-09)
+- A refund and an exchange are two routes to the same recovery and draw on one sold
+  quantity, so each caps against the other's history. Capping one alone leaves the
+  opposite direction open, and it is easy to close only the direction the issue named
+  (2026-09-09)
+- Zod strips unknown keys, so a field missing from a request schema never reaches the
+  service however carefully the service handles it. `bundle_id` was absent from
+  `saleItemSchema`, so `resolveBundleGroup` had never executed — while service-level tests
+  that called past the schema passed the whole time. Test the boundary, not just the
+  service (2026-09-09)
+- pg-mem reports `err.code` for a unique violation but **not** `err.constraint`. Logic that
+  narrows by constraint name — the document-number retry — can only be proven on real
+  PostgreSQL; on pg-mem the narrowed branch simply never runs (2026-09-09)
+- The cart line's `data-testid` is built from `lineKey`, and `e2e/support/locators.ts`
+  rebuilds that same string by hand. Adding a segment to the key breaks every cart-line
+  locator with no type error — seven smoke specs — so the two move together (2026-09-09)

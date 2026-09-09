@@ -27,6 +27,19 @@ prove on rollback which row was its own — declares it with the line
 The script refuses to run against a database whose name does not look disposable, and
 works in its own `migration_verify` schema.
 
+**A migration that both moves data and narrows a CHECK must drop the constraint first.**
+`010` remaps `purchase_orders.status` into the vocabulary the application speaks, and the
+old constraint did not admit two of the values it writes — so backfilling before dropping
+made the UPDATE itself a CHECK violation. Drop, backfill, then add the narrowed
+constraint *validated*: the backfill immediately above guarantees every row conforms, so
+the `NOT VALID` that `009` needed does not apply. Its `.down.sql` does the same in
+reverse, for the same reason.
+
+Note that replaying an *older* migration's raw SQL after a newer one has narrowed the
+same object undoes the narrowing — `009` re-adds its own wider list. That is inherent to
+what "replay migration N" means, not a bug in either file, and it is why
+`migration009.test.ts` replays both in order rather than only the one it is named for.
+
 ## Rate-limit bucketing
 
 The global limiter is keyed on the **authenticated user**, not on the IP. Several tills
@@ -65,6 +78,14 @@ byte-identically with `Idempotent-Replay: true`; the same key with a different p
 endpoint, or user returns `409` with the code `IDEMPOTENCY_KEY_REUSED`. Keys live 24h and
 identify a *committed outcome* — a failed mutation releases its key, so a corrected retry
 under the same key runs normally.
+
+**`POST /api/v1/layaway/:id/pay` joined that set with #127.** An installment is money
+taken from a customer, so a retried request must not take it twice. Its claim shares the
+payment's transaction, which is what makes the pair atomic: the alternative — claiming in
+one transaction and paying in another — can leave a key recorded for a payment that
+rolled back, and the customer's retry is then answered with a replay of a payment that
+never happened. The plan id is part of the fingerprinted payload, so one key reused
+against a different plan conflicts rather than replaying this one's response.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
