@@ -51,6 +51,19 @@ describe('buildSalePayload', () => {
     }
     expect(payload.items[0]).not.toHaveProperty('variant_id');
     expect(payload.items[0]).not.toHaveProperty('memo');
+    expect(payload.items[0]).not.toHaveProperty('bundle_id');
+  });
+
+  /**
+   * #124: the server prices a bundle group only when its lines say which bundle they
+   * belong to. Both bodies carry it -- a bundle sale queued offline must not replay at
+   * catalog prices.
+   */
+  it('sends bundle_id on a bundle line, in both the full and the offline body', () => {
+    const bundleLine = composition({ items: [{ ...SILK_DRESS, bundle_id: 7 }] });
+
+    expect(buildSalePayload(bundleLine).items[0]).toMatchObject({ bundle_id: 7 });
+    expect(buildOfflineSalePayload(bundleLine).items[0]).toMatchObject({ bundle_id: 7 });
   });
 
   it('carries every configured extra through', () => {

@@ -242,7 +242,7 @@ export default function POS() {
         stock: product?.stock ?? 0,
       };
     });
-    addBundle({ name: bundle.name, price: bundle.price, items: itemsWithStock });
+    addBundle({ id: bundle.id, name: bundle.name, price: bundle.price, items: itemsWithStock });
     toast.success(t('pos.productFound', { name: bundle.name }));
   };
 

@@ -11,6 +11,13 @@ export interface CartItem {
   quantity: number;
   stock: number;
   memo?: string;
+  /**
+   * The bundle this line came from. Sent to the server, which re-derives the
+   * allocation itself -- the prices computed here are for the cashier's screen, and the
+   * server has no other way to tell a bundle member from a loose line of the same
+   * product (#124).
+   */
+  bundle_id?: number | null;
 }
 
 /** addItem input: the product columns the cart needs, plus POS-side variant selection */
@@ -20,6 +27,7 @@ export type Product = Pick<ServerProduct, 'id' | 'name' | 'price' | 'stock'> & {
 };
 
 export interface BundleForCart {
+  id: number;
   name: string;
   price: number;
   items: {
@@ -162,6 +170,14 @@ export function sanitizeCartItem(raw: unknown): CartItem | null {
       ? null
       : sanitizeFiniteNumber(r.variant_id, 0);
 
+  // Preserved through rehydration: a cart restored from localStorage that lost its
+  // bundle tagging would check out at catalog prices, which is the whole of #124 again
+  // for exactly the carts a till reload is most likely to produce.
+  const bundleId =
+    r.bundle_id === null || r.bundle_id === undefined
+      ? null
+      : sanitizeFiniteNumber(r.bundle_id, 0) || null;
+
   return {
     product_id: productId,
     variant_id: variantId,
@@ -169,6 +185,7 @@ export function sanitizeCartItem(raw: unknown): CartItem | null {
     unit_price: unitPrice,
     quantity,
     stock: sanitizeFiniteNumber(r.stock, 0),
+    ...(bundleId ? { bundle_id: bundleId } : {}),
     ...(typeof r.memo === 'string' && r.memo ? { memo: r.memo } : {}),
   };
 }
@@ -294,8 +311,12 @@ export const useCartStore = create<CartState>()(
                 : 1 / bundle.items.length;
             const adjustedUnitPrice = (proportion * bundle.price) / item.quantity;
 
+            // Only another line of the SAME bundle merges. A loose line of the same
+            // product must stay separate: the server validates a bundle group against
+            // its definition, so folding a loose unit into it would both fail that
+            // check and price the loose unit at the bundle's discount.
             const existing = newItems.find(
-              (i) => i.product_id === item.product_id && !i.variant_id
+              (i) => i.product_id === item.product_id && !i.variant_id && i.bundle_id === bundle.id
             );
             if (existing) {
               existing.quantity += item.quantity;
@@ -307,6 +328,7 @@ export const useCartStore = create<CartState>()(
                 quantity: item.quantity,
                 stock: item.stock,
                 memo: `[${bundle.name}]`,
+                bundle_id: bundle.id,
               });
             }
           }

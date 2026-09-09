@@ -1133,6 +1133,60 @@ describe('Unit 2 - SalesService authoritative calculation and snapshot persisten
     expect(Number(inclusiveSale.total)).toBe(1000); // tax already included in the taxable base
   });
 
+  /**
+   * #124: every other bundle test in this file calls the service directly, so they
+   * proved `resolveBundleGroup` works while the field it keys on was being stripped one
+   * layer above them. Zod drops unknown keys, `bundle_id` was not in `saleItemSchema`,
+   * and so the allocation path had never executed against a real request: the cashier
+   * saw the bundle price and the customer was charged the catalog total.
+   */
+  it('keeps bundle_id through request validation, the layer that used to drop it (#124 repro)', () => {
+    const parsed = saleSchema.parse({
+      items: [
+        { product_id: 1, quantity: 1, unit_price: 500, bundle_id: 7 },
+        { product_id: 2, quantity: 1, unit_price: 200, bundle_id: 7 },
+      ],
+      payment_method: 'Cash',
+    });
+
+    expect(parsed.items.map((item) => item.bundle_id)).toEqual([7, 7]);
+  });
+
+  it('leaves bundle_id absent on an ordinary catalog line', () => {
+    const parsed = saleSchema.parse({
+      items: [{ product_id: 1, quantity: 1, unit_price: 500 }],
+      payment_method: 'Cash',
+    });
+
+    expect(parsed.items[0].bundle_id).toBeUndefined();
+  });
+
+  it('integration: a request validated through the schema prices the bundle at its bundle price', async () => {
+    await testPool.query(
+      `INSERT INTO product_bundles (id, name, bundle_price, status) VALUES ($1, $2, $3, $4)`,
+      [1, 'Outfit Bundle', 630, 'active']
+    );
+    await testPool.query(
+      'INSERT INTO bundle_items (bundle_id, product_id, quantity) VALUES ($1, $2, $3), ($1, $4, $5)',
+      [1, 1, 1, 2, 1]
+    );
+
+    // The whole path, not the service alone: parse the body the POS actually sends,
+    // then check out with exactly what validation produced.
+    const parsed = saleSchema.parse({
+      items: [
+        { product_id: 1, quantity: 1, unit_price: 500, bundle_id: 1 },
+        { product_id: 2, quantity: 1, unit_price: 200, bundle_id: 1 },
+      ],
+      payment_method: 'Cash',
+    });
+
+    const sale = await salesService.executeSale(parsed, 1);
+
+    // 500 + 200 as loose items; 630 as the bundle.
+    expect(Number(sale.total)).toBe(630);
+  });
+
   it('integration: a valid bundle checkout persists the server-validated allocated bundle price, not the catalog total', async () => {
     await testPool.query(
       `INSERT INTO product_bundles (id, name, bundle_price, status) VALUES ($1, $2, $3, $4)`,
