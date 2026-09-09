@@ -40,8 +40,14 @@ export const onlineOrdersRequestContracts = {
     operation: 'createOnlineOrder',
     body: createOnlineOrderSchema,
     beyondSchema: [
-      'Public: a shopper places this without a token, so it reserves stock rather than ' +
-        'deducting it, and the sale is only written when the order is confirmed.',
+      'Public: a shopper places this without a token. Stock is DEDUCTED when the order ' +
+        'is placed, not reserved — cancelling a pending, processing or shipped order ' +
+        'restores it; a delivered one cannot be cancelled. (Reservation is not ' +
+        'implemented; this text used to describe it, and did not match the code.)',
+      "Each line's `price` is accepted and ignored: the order is priced from the " +
+        'catalog, since a public endpoint cannot let a caller name its own price.',
+      'An order for more units than are in stock is refused with a 409, naming how ' +
+        'many remain.',
     ],
   }),
 

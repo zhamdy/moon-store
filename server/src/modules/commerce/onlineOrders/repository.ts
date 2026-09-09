@@ -17,7 +17,17 @@ export interface IOnlineOrdersRepository {
     variantId: number | null | undefined,
     quantity: number,
     queryable?: Queryable
-  ): Promise<void>;
+  ): Promise<number | null>;
+  getStock(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable?: Queryable
+  ): Promise<number | null>;
+  getCatalogLine(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable?: Queryable
+  ): Promise<{ price: number; name: string } | null>;
   restoreStock(
     productId: number,
     variantId: number | null | undefined,
@@ -106,23 +116,83 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
     );
   }
 
+  /**
+   * Conditional relative decrement, the same shape as
+   * `SalesRepository.decrementProductStock`. This used to be an unguarded
+   * `stock = stock - $1`, so a public, unauthenticated order for more units than exist
+   * either drove stock negative or tripped migration 004's non-negative CHECK and
+   * reached the shopper as a 500 (#125). Folding the sufficiency test into the WHERE
+   * clause removes the stale-read window: under READ COMMITTED PostgreSQL re-evaluates
+   * it after a concurrent writer's row lock is released, so two orders for the last
+   * unit cannot both succeed.
+   *
+   * `$1::int` is cast explicitly because pg-mem evaluates `column - $param` with the
+   * operands inverted unless the parameter is typed.
+   *
+   * @returns the resulting stock, or null when there was not enough (or no such row).
+   */
   async deductStock(
     productId: number,
     variantId: number | null | undefined,
     quantity: number,
     queryable?: Queryable
-  ): Promise<void> {
-    if (variantId) {
-      await this.q(queryable).query(
-        'UPDATE product_variants SET stock = stock - $1 WHERE id = $2',
-        [quantity, variantId]
-      );
-    } else {
-      await this.q(queryable).query(
-        'UPDATE products SET stock = stock - $1, updated_at = NOW() WHERE id = $2',
-        [quantity, productId]
-      );
-    }
+  ): Promise<number | null> {
+    const res = variantId
+      ? await this.q(queryable).query<{ stock: number }>(
+          `UPDATE product_variants SET stock = stock - $1::int, updated_at = NOW()
+            WHERE id = $2 AND stock >= $1::int
+            RETURNING stock`,
+          [quantity, variantId]
+        )
+      : await this.q(queryable).query<{ stock: number }>(
+          `UPDATE products SET stock = stock - $1::int, updated_at = NOW()
+            WHERE id = $2 AND stock >= $1::int
+            RETURNING stock`,
+          [quantity, productId]
+        );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /**
+   * Reads stock without taking it, for the refusal path only: the guarded UPDATE above
+   * returns nothing whether the row was missing or merely short, and those are different
+   * answers to give a shopper.
+   */
+  async getStock(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable?: Queryable
+  ): Promise<number | null> {
+    const res = variantId
+      ? await this.q(queryable).query<{ stock: number }>(
+          'SELECT stock FROM product_variants WHERE id = $1',
+          [variantId]
+        )
+      : await this.q(queryable).query<{ stock: number }>(
+          'SELECT stock FROM products WHERE id = $1',
+          [productId]
+        );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /** Catalog price and name for pricing an order line server-side. */
+  async getCatalogLine(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable?: Queryable
+  ): Promise<{ price: number; name: string } | null> {
+    const res = variantId
+      ? await this.q(queryable).query<{ price: string; name: string }>(
+          `SELECT COALESCE(pv.price, p.price) AS price, p.name
+             FROM product_variants pv JOIN products p ON pv.product_id = p.id
+            WHERE pv.id = $1 AND pv.product_id = $2`,
+          [variantId, productId]
+        )
+      : await this.q(queryable).query<{ price: string; name: string }>(
+          'SELECT price, name FROM products WHERE id = $1',
+          [productId]
+        );
+    return res.rows[0] ? { price: Number(res.rows[0].price), name: res.rows[0].name } : null;
   }
 
   async restoreStock(
