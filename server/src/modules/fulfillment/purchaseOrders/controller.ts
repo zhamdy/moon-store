@@ -9,7 +9,7 @@ import { purchaseOrdersService } from './service';
 import { success } from '../../../http/responses';
 import { paginationMeta } from '../../../http/pagination';
 import { PublicError } from '../../../http/errors';
-import { isCheckViolation } from '../../../database/constraintErrors';
+import { constraintName, isCheckViolation } from '../../../database/constraintErrors';
 
 /** Parsed through the contracts, so the document and the validators cannot differ (#102). */
 const contracts = purchaseOrdersRequestContracts;
@@ -76,7 +76,7 @@ export class PurchaseOrdersController {
 
       res.json(success(updated));
     } catch (err: unknown) {
-      if (isCheckViolation(err)) {
+      if (isCheckViolation(err) && constraintName(err) === 'purchase_orders_status_check') {
         next(new PublicError('CONFLICT', 'Purchase order status is not a valid value'));
         return;
       }
