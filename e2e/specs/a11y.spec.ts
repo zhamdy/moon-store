@@ -301,19 +301,19 @@ test.describe('keyboard and focus @smoke', () => {
     await expect(dialog.getByRole('combobox', { name: /select customer/i })).toBeVisible();
 
     /*
-     * From here on, locate from the page rather than through `dialog`.
+     * #113. Located by role and name from here on, including while the listbox is open,
+     * which is the whole point: HeroUI's popover hides everything outside itself when it
+     * opens (`ariaHideOutside`, run whether or not the popover is modal), and from inside
+     * a modal that took the dialog — and this combobox with it — out of the accessibility
+     * tree at exactly the moment a screen-reader user is choosing from it. A locator that
+     * resolves on one line and times out on the next reads like the element changing; it
+     * was the element being hidden by an ancestor.
      *
-     * Opening the listbox makes its popover the top layer, and react-aria marks everything
-     * outside it `aria-hidden` — including the modal dialog. `getByRole('dialog')` is
-     * resolved against the accessibility tree, so it stops matching, and every locator
-     * chained through it stops matching with it. The combobox is still there and still
-     * named; its *ancestor* is what disappears.
-     *
-     * That cost three CI runs to see, because the symptom is a locator that resolves on
-     * one line and times out on the next, which reads like the element changing rather
-     * than the scope changing.
+     * Scoped to the page rather than to `dialog` because while the listbox is open the
+     * popover contributes a second `dialog` of its own, and `getByRole('dialog')` would
+     * then be ambiguous. The name is what identifies the field.
      */
-    const picker = page.getByTestId('delivery-customer-picker');
+    const picker = page.getByRole('combobox', { name: /select customer/i });
 
     await picker.focus();
     expect(await picker.evaluate((el) => el === document.activeElement)).toBe(true);
