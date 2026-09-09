@@ -100,10 +100,14 @@ describeWithPostgres('009 legacy production schema repair', () => {
       INSERT INTO shifts (user_id,start_time) VALUES (21,'2026-01-01');
     `);
     // Only 001-008 were pre-marked applied, so this call also runs every migration after
-    // 009 that exists today (010 narrows purchase_orders_status_check).
+    // 009 that exists today (010 narrows purchase_orders_status_check; 011 drops the two
+    // duplicate value columns). This list is deliberately exact rather than a length
+    // check -- a migration landing without anyone considering its effect on the legacy
+    // upgrade path is the thing worth failing on.
     expect(await runMigrationsUp(pool, dir)).toEqual([
       migration,
       '010_purchase_order_status_vocabulary.sql',
+      '011_retire_duplicate_value_columns.sql',
     ]);
     expect(await runMigrationsUp(pool, dir)).toEqual([]);
     await pool.query(sql);
