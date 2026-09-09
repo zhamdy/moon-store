@@ -7,6 +7,7 @@ import {
   PurchaseOrderListResult,
 } from './types';
 import { PublicError } from '../../../http/errors';
+import { withDocumentNumber } from '../../../database/documentNumber';
 
 export function generatePONumber(): string {
   const now = new Date();
@@ -18,7 +19,11 @@ export function generatePONumber(): string {
 }
 
 export class PurchaseOrdersService {
-  constructor(private repo: IPurchaseOrdersRepository = defaultRepo) {}
+  constructor(
+    private repo: IPurchaseOrdersRepository = defaultRepo,
+    /** Injected so a test can hand it a number it knows is taken. */
+    private generateNumber: () => string = generatePONumber
+  ) {}
 
   getRepository(): IPurchaseOrdersRepository {
     return this.repo;
@@ -51,34 +56,43 @@ export class PurchaseOrdersService {
     data: CreatePurchaseOrderDTO,
     userId: number
   ): Promise<{ id: number; po_number: string }> {
-    const poNumber = generatePONumber();
     const total = data.items.reduce((sum, item) => sum + item.cost_price * item.quantity, 0);
 
-    const poId = await withTransaction(async (client) => {
-      const newPoId = await this.repo.create(
-        poNumber,
-        data.distributor_id,
-        data.notes || null,
-        total,
-        userId,
-        client
-      );
+    // Retried as a whole transaction on a number collision; see `withDocumentNumber`.
+    return withDocumentNumber(
+      {
+        generate: this.generateNumber,
+        constraint: 'purchase_orders_po_number_key',
+        label: 'purchase order',
+      },
+      async (poNumber) => {
+        const poId = await withTransaction(async (client) => {
+          const newPoId = await this.repo.create(
+            poNumber,
+            data.distributor_id,
+            data.notes || null,
+            total,
+            userId,
+            client
+          );
 
-      for (const item of data.items) {
-        await this.repo.createItem(
-          newPoId,
-          item.product_id,
-          item.variant_id || null,
-          item.quantity,
-          item.cost_price,
-          client
-        );
+          for (const item of data.items) {
+            await this.repo.createItem(
+              newPoId,
+              item.product_id,
+              item.variant_id || null,
+              item.quantity,
+              item.cost_price,
+              client
+            );
+          }
+
+          return newPoId;
+        });
+
+        return { id: poId, po_number: poNumber };
       }
-
-      return newPoId;
-    });
-
-    return { id: poId, po_number: poNumber };
+    );
   }
 
   async updateStatus(

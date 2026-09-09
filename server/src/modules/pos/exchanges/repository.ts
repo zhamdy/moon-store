@@ -2,8 +2,38 @@ import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
 import { ExchangeRow, ReturnedItemRow, NewItemRow, ReturnedItemInput, NewItemInput } from './types';
 
+/** Just the sale columns an exchange needs; the row carries more. */
+export interface SaleRow {
+  id: number;
+  customer_id: number | null;
+}
+
+/** A line of the original sale: what may come back, and what it is worth. */
+export interface SaleItemRow {
+  product_id: number;
+  variant_id: number | null;
+  quantity: number;
+  unit_price: string | number;
+  product_name: string;
+}
+
 export interface IExchangesRepository {
   findSaleById(saleId: number, queryable?: Queryable): Promise<Record<string, any> | null>;
+  findSaleByIdForUpdate(saleId: number, queryable: Queryable): Promise<SaleRow | null>;
+  findSaleItems(saleId: number, queryable?: Queryable): Promise<SaleItemRow[]>;
+  getCatalogPrice(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable?: Queryable
+  ): Promise<number | null>;
+  findReturnedQuantitiesBySaleId(
+    saleId: number,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>>;
+  findRefundedQuantitiesBySaleId(
+    saleId: number,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>>;
   createExchange(
     data: {
       exchange_number: string;
@@ -63,6 +93,107 @@ export class ExchangesRepository implements IExchangesRepository {
   async findSaleById(saleId: number, queryable?: Queryable): Promise<Record<string, any> | null> {
     const res = await this.q(queryable).query('SELECT * FROM sales WHERE id = $1', [saleId]);
     return res.rows[0] || null;
+  }
+
+  /**
+   * Locks the sale for the rest of the transaction, so the cumulative check below spans
+   * sibling exchanges AND concurrent refunds of the same lines rather than racing them.
+   * Mirrors `SalesRepository.findByIdForUpdate`, which the refund path already uses.
+   */
+  async findSaleByIdForUpdate(saleId: number, queryable: Queryable): Promise<SaleRow | null> {
+    const res = await this.q(queryable).query<SaleRow>(
+      'SELECT * FROM sales WHERE id = $1 FOR UPDATE',
+      [saleId]
+    );
+    return res.rows[0] || null;
+  }
+
+  /** The lines the sale actually sold: what may be returned, and what it is worth. */
+  async findSaleItems(saleId: number, queryable?: Queryable): Promise<SaleItemRow[]> {
+    const res = await this.q(queryable).query<SaleItemRow>(
+      `SELECT si.product_id, si.variant_id, si.quantity, si.unit_price, p.name AS product_name
+         FROM sale_items si JOIN products p ON si.product_id = p.id
+        WHERE si.sale_id = $1`,
+      [saleId]
+    );
+    return res.rows;
+  }
+
+  /**
+   * The catalog price of a line going out on an exchange. Read server-side for the same
+   * reason checkout re-prices every line: `price` in the request is the caller's number.
+   */
+  async getCatalogPrice(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable?: Queryable
+  ): Promise<number | null> {
+    const res = variantId
+      ? await this.q(queryable).query<{ price: string }>(
+          `SELECT COALESCE(pv.price, p.price) AS price
+             FROM product_variants pv JOIN products p ON pv.product_id = p.id
+            WHERE pv.id = $1 AND pv.product_id = $2`,
+          [variantId, productId]
+        )
+      : await this.q(queryable).query<{ price: string }>(
+          'SELECT price FROM products WHERE id = $1',
+          [productId]
+        );
+    return res.rows[0] ? Number(res.rows[0].price) : null;
+  }
+
+  /** How much of each line earlier exchanges against this sale already took back. */
+  async findReturnedQuantitiesBySaleId(
+    saleId: number,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>> {
+    const res = await this.q(queryable).query<{
+      product_id: number;
+      variant_id: number | null;
+      quantity: string;
+    }>(
+      `SELECT eri.product_id, eri.variant_id, SUM(eri.quantity)::int AS quantity
+         FROM exchange_returned_items eri
+         JOIN exchanges e ON eri.exchange_id = e.id
+        WHERE e.original_sale_id = $1
+        GROUP BY eri.product_id, eri.variant_id`,
+      [saleId]
+    );
+    return res.rows.map((row) => ({
+      product_id: row.product_id,
+      variant_id: row.variant_id,
+      quantity: Number(row.quantity),
+    }));
+  }
+
+  /**
+   * Prior refunds of the same sale. #122 notes the double-recovery path between the two
+   * routes: capping only exchanges would still let a line be refunded and then exchanged.
+   * `refunds.items` is a TEXT column holding JSON, so it is parsed here at the boundary.
+   */
+  async findRefundedQuantitiesBySaleId(
+    saleId: number,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>> {
+    const res = await this.q(queryable).query<{ items: string | unknown }>(
+      'SELECT items FROM refunds WHERE sale_id = $1',
+      [saleId]
+    );
+
+    const totals: Array<{ product_id: number; variant_id: number | null; quantity: number }> = [];
+    for (const row of res.rows) {
+      const items = (
+        typeof row.items === 'string' ? JSON.parse(row.items) : (row.items ?? [])
+      ) as Array<{ product_id: number; variant_id?: number | null; quantity: number }>;
+      for (const item of items) {
+        totals.push({
+          product_id: item.product_id,
+          variant_id: item.variant_id ?? null,
+          quantity: Number(item.quantity),
+        });
+      }
+    }
+    return totals;
   }
 
   async createExchange(

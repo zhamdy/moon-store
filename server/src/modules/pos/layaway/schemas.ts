@@ -74,6 +74,12 @@ export const layawayRequestContracts = {
     beyondSchema: [
       '`amount` is this payment, not the running total. Paying off the balance completes ' +
         'the plan and releases the goods.',
+      'Send an `Idempotency-Key` header. A repeated key returns the original outcome ' +
+        'byte-identically with `Idempotent-Replay: true`; the same key against a ' +
+        'different plan or amount is a 409 `IDEMPOTENCY_KEY_REUSED`. Generate one per ' +
+        'installment taken, not per HTTP request, so a transport retry shares it.',
+      'The balance moves by a guarded relative write, so two installments taken at once ' +
+        'both land, and one that would take the plan past zero is refused.',
     ],
   }),
 
