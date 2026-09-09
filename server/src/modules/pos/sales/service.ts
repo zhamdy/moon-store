@@ -1015,10 +1015,47 @@ export class SalesService {
         }
       }
 
+      // Only cash that actually came in can go back out of the drawer (#126). The
+      // refund used to debit `expected_cash` by its whole amount, so a card sale
+      // refunded in full left the till short by the refund on close-out.
+      //
+      // The cash taken is derived from the confirmed tender split the same way
+      // `executeSale` derives what it put in (see the cashComponentMinor block above):
+      // sum the split's Cash entries, or -- in non-split compatibility mode, where there
+      // are no `sale_payments` rows -- the whole total when the one declared method was
+      // Cash.
+      const payments = await this.repo.findPaymentsBySaleId(saleId, client);
+      const cashTakenMinor =
+        payments.length > 0
+          ? payments
+              .filter((p) => p.method === 'Cash')
+              .reduce((sum, p) => sum + toMinorUnits(Number(p.amount)), 0)
+          : sale.payment_method === 'Cash'
+            ? toMinorUnits(Number(sale.total))
+            : 0;
+
+      // Refunds draw the cash component down first, so what remains refundable in cash
+      // is the cash taken minus whatever earlier refunds against this sale already took
+      // out of the drawer. Both are capped at the cash taken, which is what makes the
+      // "two halves of a split" case stop at the split's Cash entry rather than paying
+      // out card money in cash.
+      const cashAlreadyRefundedMinor = Math.min(toMinorUnits(previouslyRefunded), cashTakenMinor);
+      const refundCashMinor = Math.min(
+        toMinorUnits(refundAmount),
+        cashTakenMinor - cashAlreadyRefundedMinor
+      );
+
       // Inside the transaction (R4): the previous after-the-fact, error-swallowing call
       // from the controller could leave a drawer movement behind for a refund that
-      // rolled back. Mirrors `executeSale`'s in-transaction sale movement.
-      await this.register.recordRefundMovement(cashierId, refundAmount, client);
+      // rolled back. Mirrors `executeSale`'s in-transaction sale movement, including its
+      // "only when it is positive" guard.
+      if (refundCashMinor > 0) {
+        await this.register.recordRefundMovement(
+          cashierId,
+          fromMinorUnits(refundCashMinor),
+          client
+        );
+      }
 
       return { refund, refundStatus, newRefundedTotal };
     }, clientOrPool);

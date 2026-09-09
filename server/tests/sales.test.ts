@@ -1875,6 +1875,165 @@ describe('Unit 4 - SalesService split-payment integrity and confirmed response',
   });
 });
 
+describe('Refunds debit the drawer only for the cash actually taken (#126)', () => {
+  beforeEach(async () => {
+    await testPool.query('DELETE FROM register_movements');
+    await testPool.query('DELETE FROM register_sessions');
+    await testPool.query('DELETE FROM refunds');
+    await testPool.query('DELETE FROM sale_payments');
+    await testPool.query('DELETE FROM sale_calculations');
+    await testPool.query('DELETE FROM sale_items');
+    await testPool.query('DELETE FROM sales');
+    await testPool.query('DELETE FROM products');
+    await testPool.query('DELETE FROM users');
+
+    await testPool.query(
+      'INSERT INTO users (id, name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
+      [1, 'Admin', 'admin@moon.com', 'hash', 'Admin']
+    );
+    await testPool.query(
+      'INSERT INTO products (id, name, sku, price, cost_price, stock) VALUES ($1, $2, $3, $4, $5, $6)',
+      [1, 'Silk Dress', 'SKU-001', 300, 50, 10]
+    );
+    await testPool.query(
+      'INSERT INTO register_sessions (cashier_id, opening_float, expected_cash) VALUES ($1, $2, $2)',
+      [1, 500]
+    );
+  });
+
+  async function expectedCash(): Promise<number> {
+    const { rows } = await testPool.query<{ expected_cash: string }>(
+      'SELECT expected_cash FROM register_sessions'
+    );
+    return Number(rows[0].expected_cash);
+  }
+
+  async function refundMovements(): Promise<number[]> {
+    const { rows } = await testPool.query<{ amount: string }>(
+      "SELECT amount FROM register_movements WHERE type = 'refund' ORDER BY id ASC"
+    );
+    return rows.map((r) => Number(r.amount));
+  }
+
+  it('writes no drawer movement for a card sale refunded in full (#126 repro)', async () => {
+    const sale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 1 }], payment_method: 'Card' },
+      1
+    );
+    expect(await expectedCash()).toBe(500); // a card sale put nothing in the drawer
+
+    await executeRefundTransaction(
+      sale.id,
+      { items: [{ product_id: 1, quantity: 1, unit_price: 300 }], reason: 'Returned' },
+      1,
+      testPool
+    );
+
+    expect(await refundMovements()).toEqual([]);
+    expect(await expectedCash()).toBe(500);
+  });
+
+  it('debits the full amount for a cash sale refunded in full', async () => {
+    const sale = await salesService.executeSale(
+      { items: [{ product_id: 1, quantity: 1 }], payment_method: 'Cash' },
+      1
+    );
+    expect(await expectedCash()).toBe(800); // 500 float + 300 taken
+
+    await executeRefundTransaction(
+      sale.id,
+      { items: [{ product_id: 1, quantity: 1, unit_price: 300 }], reason: 'Returned' },
+      1,
+      testPool
+    );
+
+    expect(await refundMovements()).toEqual([300]);
+    expect(await expectedCash()).toBe(500);
+  });
+
+  it('debits only the Cash entry of a split tender refunded in full', async () => {
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }],
+        payment_method: 'Card',
+        payments: [
+          { method: 'Cash', amount: 100 },
+          { method: 'Card', amount: 200 },
+        ],
+      },
+      1
+    );
+    expect(await expectedCash()).toBe(600); // 500 float + 100 cash
+
+    await executeRefundTransaction(
+      sale.id,
+      { items: [{ product_id: 1, quantity: 1, unit_price: 300 }], reason: 'Returned' },
+      1,
+      testPool
+    );
+
+    expect(await refundMovements()).toEqual([100]);
+    expect(await expectedCash()).toBe(500);
+  });
+
+  it('never pays out more cash than the split brought in, across successive partial refunds', async () => {
+    // 100 Cash + 200 Card, refunded as two halves of 150. The first refund can only
+    // draw the 100 that was actually taken; the second must write no movement at all.
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 2 }], // 600
+        payment_method: 'Card',
+        payments: [
+          { method: 'Cash', amount: 100 },
+          { method: 'Card', amount: 500 },
+        ],
+      },
+      1
+    );
+    expect(await expectedCash()).toBe(600);
+
+    await executeRefundTransaction(
+      sale.id,
+      { items: [{ product_id: 1, quantity: 1, unit_price: 300 }], reason: 'First half' },
+      1,
+      testPool
+    );
+    expect(await refundMovements()).toEqual([100]);
+
+    await executeRefundTransaction(
+      sale.id,
+      { items: [{ product_id: 1, quantity: 1, unit_price: 300 }], reason: 'Second half' },
+      1,
+      testPool
+    );
+
+    expect(await refundMovements()).toEqual([100]);
+    expect(await expectedCash()).toBe(500); // back to the opening float, never below
+  });
+
+  it('writes no drawer movement for a sale paid entirely by gift card', async () => {
+    const sale = await salesService.executeSale(
+      {
+        items: [{ product_id: 1, quantity: 1 }],
+        payment_method: 'Card',
+        payments: [{ method: 'Gift Card', amount: 300 }],
+      },
+      1
+    );
+    expect(await expectedCash()).toBe(500);
+
+    await executeRefundTransaction(
+      sale.id,
+      { items: [{ product_id: 1, quantity: 1, unit_price: 300 }], reason: 'Returned' },
+      1,
+      testPool
+    );
+
+    expect(await refundMovements()).toEqual([]);
+    expect(await expectedCash()).toBe(500);
+  });
+});
+
 describe('Unit 4 - Controller: stable validation error mapping', () => {
   it('maps a SalesValidationError to a 400 VALIDATION_ERROR with the stable SPLIT_PAYMENT_MISMATCH detail code', async () => {
     vi.spyOn(salesService, 'executeSale').mockRejectedValueOnce(
