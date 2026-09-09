@@ -39,11 +39,16 @@ export class BundlesService {
   }
 
   async create(data: CreateBundleDTO): Promise<BundleRecord> {
-    return withTransaction(async (client) => {
+    const created = await withTransaction(async (client) => {
       const bundle = await this.repo.create(data, client);
       await this.repo.createBundleItems(bundle.id, data.items, client);
       return bundle;
     });
+
+    // Re-read so the mutation response is the same shape as a read: the INSERT's
+    // RETURNING cannot supply `items` or the figures derived from them, and the client
+    // declares those non-optional.
+    return (await this.findById(created.id)) ?? created;
   }
 
   async update(
@@ -62,7 +67,8 @@ export class BundlesService {
       return b;
     });
 
-    return { success: true, data: updated! };
+    // Same shape as a read, for the same reason as `create`.
+    return { success: true, data: (await this.findById(id)) ?? updated! };
   }
 
   async delete(id: number | string): Promise<{ success: boolean; error?: string }> {

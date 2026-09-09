@@ -1187,6 +1187,69 @@ describe('Unit 2 - SalesService authoritative calculation and snapshot persisten
     expect(Number(sale.total)).toBe(630);
   });
 
+  it('refuses to sell a bundle whose price was never set, rather than giving it away', async () => {
+    // `product_bundles.bundle_price` is NUMERIC DEFAULT 0, so a row that predates the
+    // create path working carries 0. Allocating 0 across the members would ring the
+    // whole bundle up free, with no error for anyone to notice.
+    await testPool.query(
+      `INSERT INTO product_bundles (id, name, bundle_price, status) VALUES ($1, $2, $3, $4)`,
+      [2, 'Unpriced Bundle', 0, 'active']
+    );
+    await testPool.query(
+      'INSERT INTO bundle_items (bundle_id, product_id, quantity) VALUES ($1, $2, $3), ($1, $4, $5)',
+      [2, 1, 1, 2, 1]
+    );
+
+    await expect(
+      salesService.executeSale(
+        {
+          items: [
+            { product_id: 1, quantity: 1, bundle_id: 2 },
+            { product_id: 2, quantity: 1, bundle_id: 2 },
+          ],
+          payment_method: 'Cash',
+        },
+        1
+      )
+    ).rejects.toThrow(/Bundle has no price set/);
+
+    expect((await testPool.query('SELECT * FROM sales')).rows).toHaveLength(0);
+  });
+
+  it('counts a product ordered both loose and inside a bundle against one stock figure', async () => {
+    // Two lines, one product. Each passes its own check against stock 1; together they
+    // ask for 2. Without an aggregate pass the cart reaches the write phase and fails
+    // there with a bare conflict instead of the itemized shortfall.
+    await testPool.query('UPDATE products SET stock = 1 WHERE id = 1');
+    await testPool.query(
+      `INSERT INTO product_bundles (id, name, bundle_price, status) VALUES ($1, $2, $3, $4)`,
+      [3, 'Outfit Bundle', 630, 'active']
+    );
+    await testPool.query(
+      'INSERT INTO bundle_items (bundle_id, product_id, quantity) VALUES ($1, $2, $3), ($1, $4, $5)',
+      [3, 1, 1, 2, 1]
+    );
+
+    await expect(
+      salesService.executeSale(
+        {
+          items: [
+            { product_id: 1, quantity: 1 },
+            { product_id: 1, quantity: 1, bundle_id: 3 },
+            { product_id: 2, quantity: 1, bundle_id: 3 },
+          ],
+          payment_method: 'Cash',
+        },
+        1
+      )
+    ).rejects.toMatchObject({
+      name: 'InsufficientStockError',
+      conflicts: expect.arrayContaining([
+        expect.objectContaining({ productId: 1, requested: 2, available: 1 }),
+      ]),
+    });
+  });
+
   it('integration: a valid bundle checkout persists the server-validated allocated bundle price, not the catalog total', async () => {
     await testPool.query(
       `INSERT INTO product_bundles (id, name, bundle_price, status) VALUES ($1, $2, $3, $4)`,

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateTotals } from '../../../shared/lib/checkout';
+import { lineKey } from '../lib/cartLines';
 import { useCartStore, sanitizeCartItem, type Product, type CartPersistedV0 } from './cartStore';
 
 /**
@@ -336,6 +337,65 @@ describe('Cart - addBundle', () => {
     const { items } = useCartStore.getState();
     expect(items).toHaveLength(2);
     expect(items.map((i) => i.quantity)).toEqual([2, 2]);
+  });
+
+  /**
+   * A bundle line and a loose line can hold the same product at different prices, so
+   * every action that names a line has to name the bundle too. Identifying a line by
+   * (product, variant) alone now matches two of them.
+   */
+  describe('once a loose line and a bundle line coexist', () => {
+    beforeEach(() => {
+      useCartStore.getState().addItem({ id: 1, name: 'Silk Dress', price: 500, stock: 10 });
+      useCartStore.getState().addBundle(bundle);
+    });
+
+    it('scanning the product again adds to the loose line, not the bundle line', () => {
+      useCartStore.getState().addItem({ id: 1, name: 'Silk Dress', price: 500, stock: 10 });
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items).toHaveLength(2);
+      expect(items.find((i) => !i.bundle_id)?.quantity).toBe(2);
+      // Incrementing the bundle's line would break the group against its definition.
+      expect(items.find((i) => i.bundle_id === 7)?.quantity).toBe(1);
+    });
+
+    it('removing the loose line leaves the bundle line intact', () => {
+      useCartStore.getState().removeItem(1, null, null);
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items).toHaveLength(1);
+      expect(items[0].bundle_id).toBe(7);
+    });
+
+    it('removing the bundle line leaves the loose line intact', () => {
+      useCartStore.getState().removeItem(1, null, 7);
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items).toHaveLength(1);
+      expect(items[0].bundle_id).toBeUndefined();
+    });
+
+    it('changing the quantity of one does not change the other', () => {
+      useCartStore.getState().updateQuantity(1, 5, null, null);
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items.find((i) => !i.bundle_id)?.quantity).toBe(5);
+      expect(items.find((i) => i.bundle_id === 7)?.quantity).toBe(1);
+    });
+
+    it('a memo written on one does not appear on the other', () => {
+      useCartStore.getState().setItemMemo(1, 'gift wrap', null, null);
+
+      const items = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(items.find((i) => !i.bundle_id)?.memo).toBe('gift wrap');
+      expect(items.find((i) => i.bundle_id === 7)?.memo).toBe('[Outfit Bundle]');
+    });
+
+    it('gives the two lines distinct keys, so the UI can tell them apart', () => {
+      const [a, b] = useCartStore.getState().items.filter((i) => i.product_id === 1);
+      expect(lineKey(a)).not.toBe(lineKey(b));
+    });
   });
 });
 

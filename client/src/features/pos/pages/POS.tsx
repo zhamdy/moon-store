@@ -118,21 +118,24 @@ export default function POS() {
           toast.success(t('cart.holdSuccess'));
         }
       },
+      // Each shortcut names the last line by its whole identity. Passing the product id
+      // alone matched any line with that product and no variant -- so with a variant or
+      // bundle line last, it moved a different line than the one it meant.
       incrementLastItem: () => {
         const last = items[items.length - 1];
         if (last && last.quantity < last.stock) {
-          updateQuantity(last.product_id, last.quantity + 1);
+          updateQuantity(last.product_id, last.quantity + 1, last.variant_id, last.bundle_id);
         }
       },
       decrementLastItem: () => {
         const last = items[items.length - 1];
         if (last && last.quantity > 1) {
-          updateQuantity(last.product_id, last.quantity - 1);
+          updateQuantity(last.product_id, last.quantity - 1, last.variant_id, last.bundle_id);
         }
       },
       removeLastItem: () => {
         const last = items[items.length - 1];
-        if (last) removeItem(last.product_id);
+        if (last) removeItem(last.product_id, last.variant_id, last.bundle_id);
       },
       showHelp: () => setShowShortcuts(true),
     }),
