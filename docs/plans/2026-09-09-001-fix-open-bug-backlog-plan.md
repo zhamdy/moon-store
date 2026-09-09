@@ -990,17 +990,17 @@ a 500 waiting to happen unless something else handles it.
 
 All filed.
 
-1. #144 — stock reservations for the public online-order endpoint, per the original
+1. #137 — stock reservations for the public online-order endpoint, per the original
    published contract (#125 remainder).
-2. #145 — store credit; `payment_method: 'store_credit'` is documented in the exchanges
+2. #138 — store credit; `payment_method: 'store_credit'` is documented in the exchanges
    schema but no code writes any balance (#122 note).
-3. #146 — retire the duplicated dead columns `purchase_orders.total_amount` and
+3. #139 — retire the duplicated dead columns `purchase_orders.total_amount` and
    `product_bundles.price` in one migration.
-4. #147 — normalize `refunds.items` into a `refund_items` table so cumulative quantities are
+4. #140 — normalize `refunds.items` into a `refund_items` table so cumulative quantities are
    a query rather than a JSON parse.
-5. #148 — `GiftCardsService.create`'s check-then-insert loop is TOCTOU-racy; move it to the
+5. #141 — `GiftCardsService.create`'s check-then-insert loop is TOCTOU-racy; move it to the
    catch-and-retry helper from Unit 11.
-6. #149 — a purchase-order status state machine (reject `Received → Draft` and friends).
+6. #142 — a purchase-order status state machine (reject `Received → Draft` and friends).
 7. #150 — `DeliveryService.resolveCustomer` inserts a customer with no lookup at all, so a
    delivery for an already-known phone collides deterministically. Found while fixing #143;
    not part of the original twelve.
