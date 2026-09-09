@@ -1,4 +1,5 @@
 import { withTransaction } from '../../../database/transaction';
+import { withDocumentNumber } from '../../../database/documentNumber';
 import { ILayawayRepository, layawayRepository as defaultRepo } from './repository';
 import {
   CreateLayawayDTO,
@@ -25,13 +26,18 @@ export interface ILayawayService {
   recordPayment(
     planId: number,
     data: InstallmentDTO,
-    cashierId: number
+    cashierId: number,
+    clientOrPool?: Parameters<typeof withTransaction>[1]
   ): Promise<{ remaining_balance: number; status: string }>;
   cancelPlan(planId: number): Promise<{ status: string }>;
 }
 
 export class LayawayService implements ILayawayService {
-  constructor(private repo: ILayawayRepository = defaultRepo) {}
+  constructor(
+    private repo: ILayawayRepository = defaultRepo,
+    /** Injected so a test can hand it a number it knows is taken; see OnlineOrdersService. */
+    private generateNumber: () => string = generatePlanNumber
+  ) {}
 
   getRepository(): ILayawayRepository {
     return this.repo;
@@ -42,47 +48,70 @@ export class LayawayService implements ILayawayService {
       throw new PublicError('VALIDATION_ERROR', 'Deposit cannot equal or exceed total amount');
     }
 
-    const planNumber = generatePlanNumber();
     const remainingBalance = data.total_amount - data.deposit_amount;
 
-    return withTransaction(async (client) => {
-      const plan = await this.repo.createPlan(
-        {
-          plan_number: planNumber,
-          customer_id: data.customer_id,
-          total_amount: data.total_amount,
-          deposit_amount: data.deposit_amount,
-          remaining_balance: remainingBalance,
-          due_date: data.due_date,
-          notes: data.notes || null,
-          created_by: userId,
-        },
-        client
-      );
+    // Retried as a whole transaction on a plan-number collision; see `withDocumentNumber`.
+    return withDocumentNumber(
+      {
+        generate: this.generateNumber,
+        constraint: 'layaway_plans_plan_number_key',
+        label: 'layaway plan',
+      },
+      (planNumber) =>
+        withTransaction(async (client) => {
+          const plan = await this.repo.createPlan(
+            {
+              plan_number: planNumber,
+              customer_id: data.customer_id,
+              total_amount: data.total_amount,
+              deposit_amount: data.deposit_amount,
+              remaining_balance: remainingBalance,
+              due_date: data.due_date,
+              notes: data.notes || null,
+              created_by: userId,
+            },
+            client
+          );
 
-      for (const item of data.items) {
-        await this.repo.createPlanItem(plan.id, item, client);
+          for (const item of data.items) {
+            await this.repo.createPlanItem(plan.id, item, client);
 
-        if (item.variant_id) {
-          await this.repo.deductVariantStock(item.variant_id, item.quantity, client);
-        } else {
-          await this.repo.deductProductStock(item.product_id, item.quantity, client);
-        }
-      }
+            if (item.variant_id) {
+              await this.repo.deductVariantStock(item.variant_id, item.quantity, client);
+            } else {
+              // Guarded, so a plan for more units than exist is a typed refusal rather
+              // than negative stock or an unmapped CHECK violation.
+              const remaining = await this.repo.deductProductStock(
+                item.product_id,
+                item.quantity,
+                client
+              );
+              if (remaining === null) {
+                const available = await this.repo.getProductStock(item.product_id, client);
+                throw new PublicError(
+                  'CONFLICT',
+                  available === null
+                    ? `Product not found: ID ${item.product_id}`
+                    : `Only ${available} left of product ${item.product_id}`
+                );
+              }
+            }
+          }
 
-      await this.repo.createPayment(
-        {
-          plan_id: plan.id,
-          amount: data.deposit_amount,
-          payment_method: data.payment_method || 'cash',
-          notes: 'Initial deposit',
-          cashier_id: userId,
-        },
-        client
-      );
+          await this.repo.createPayment(
+            {
+              plan_id: plan.id,
+              amount: data.deposit_amount,
+              payment_method: data.payment_method || 'cash',
+              notes: 'Initial deposit',
+              cashier_id: userId,
+            },
+            client
+          );
 
-      return plan;
-    });
+          return plan;
+        })
+    );
   }
 
   async listPlans(filters: LayawayFilters): Promise<{ rows: LayawayPlanRow[]; total: number }> {
@@ -108,7 +137,9 @@ export class LayawayService implements ILayawayService {
   async recordPayment(
     planId: number,
     data: InstallmentDTO,
-    cashierId: number
+    cashierId: number,
+    /** When the caller already owns a transaction (idempotency), run inside it. */
+    clientOrPool?: Parameters<typeof withTransaction>[1]
   ): Promise<{ remaining_balance: number; status: string }> {
     const plan = await this.repo.findById(planId);
     if (!plan) {
@@ -118,6 +149,9 @@ export class LayawayService implements ILayawayService {
       throw new PublicError('CONFLICT', 'Plan is not active');
     }
 
+    // The reads above are a courtesy that produces a better message; they are NOT what
+    // makes this safe. The balance moves by one guarded relative statement inside the
+    // transaction below, so two installments cannot both act on the same stale figure.
     const remaining = Number(plan.remaining_balance);
     if (data.amount > remaining) {
       throw new PublicError(
@@ -126,11 +160,20 @@ export class LayawayService implements ILayawayService {
       );
     }
 
-    const newRemaining = remaining - data.amount;
-    const isCompleted = newRemaining <= 0;
-    const newStatus = isCompleted ? 'completed' : 'active';
+    return withTransaction(async (client) => {
+      const newRemaining = await this.repo.decrementPlanBalance(planId, data.amount, client);
+      if (newRemaining === null) {
+        // The statement refused: the plan is no longer active, or no longer owes this
+        // much. Re-read to say which, since the UPDATE cannot tell us.
+        const current = await this.repo.findById(planId, client);
+        throw current && current.status !== 'active'
+          ? new PublicError('CONFLICT', 'Plan is not active')
+          : new PublicError(
+              'VALIDATION_ERROR',
+              `Payment amount exceeds remaining balance of ${Number(current?.remaining_balance ?? 0)}`
+            );
+      }
 
-    await withTransaction(async (client) => {
       await this.repo.createPayment(
         {
           plan_id: planId,
@@ -142,13 +185,16 @@ export class LayawayService implements ILayawayService {
         client
       );
 
-      await this.repo.updatePlanBalance(planId, newRemaining, newStatus, client);
-    });
+      // Derived from the balance the database returned, never from the pre-read: with
+      // two installments in flight, only the winner of each statement knows what the
+      // plan actually owes afterwards.
+      const newStatus = newRemaining <= 0 ? 'completed' : 'active';
+      if (newStatus !== 'active') {
+        await this.repo.updatePlanStatus(planId, newStatus, client);
+      }
 
-    return {
-      remaining_balance: newRemaining,
-      status: newStatus,
-    };
+      return { remaining_balance: newRemaining, status: newStatus };
+    }, clientOrPool);
   }
 
   async cancelPlan(planId: number): Promise<{ status: string }> {
@@ -160,7 +206,16 @@ export class LayawayService implements ILayawayService {
       throw new PublicError('CONFLICT', 'Only active plans can be cancelled');
     }
 
-    await withTransaction(async (client) => {
+    return withTransaction(async (client) => {
+      // Claim the cancellation FIRST, with the active check in the statement itself. A
+      // cancel racing an installment used to be decided by whichever read the row first,
+      // so both could proceed -- restocking goods for a plan that was being paid off, or
+      // booking a payment against a plan that had just been cancelled.
+      const cancelled = await this.repo.cancelActivePlan(planId, client);
+      if (!cancelled) {
+        throw new PublicError('CONFLICT', 'Only active plans can be cancelled');
+      }
+
       const items = await this.repo.findItemsByPlanId(planId, client);
       for (const item of items) {
         if (item.variant_id) {
@@ -170,10 +225,8 @@ export class LayawayService implements ILayawayService {
         }
       }
 
-      await this.repo.updatePlanStatus(planId, 'cancelled', client);
+      return { status: 'cancelled' };
     });
-
-    return { status: 'cancelled' };
   }
 }
 
