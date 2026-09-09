@@ -142,14 +142,14 @@ describe('DeliveryFormDialog customer picker', () => {
     expect(input).toHaveAttribute('aria-label', 'Select Customer');
 
     /*
-     * And crucially, no `aria-labelledby` — which is what actually broke this.
+     * And no `aria-labelledby`, which HeroUI's `label` prop emits alongside `aria-label`
+     * pointing at an id that does not exist.
      *
-     * HeroUI's `label` prop emits both, and a reference wins the accessible-name
-     * algorithm over an attribute. Its reference pointed at the input itself and at an id
-     * that does not exist, so a browser computed no name at all while jsdom fell back to
-     * `aria-label` and reported success. Asserting only the presence of `aria-label`
-     * would therefore still pass against the broken markup; asserting the absence of the
-     * reference is what pins the fix.
+     * #111 recorded that as erasing the name; measuring it in Chromium (#113) showed it
+     * does not — a wholly dangling reference is skipped and the name falls back to
+     * `aria-label`. It is still markup to keep out, and asserting its absence is what
+     * pins this field to the attribute rather than the prop, which is a promise jsdom
+     * can actually keep.
      */
     expect(input).not.toHaveAttribute('aria-labelledby');
   });

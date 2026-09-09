@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Gift,
   Percent,
+  WifiOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Input, Button, Card, CardBody, Skeleton } from '@heroui/react';
@@ -69,6 +70,9 @@ export default function POS() {
     products,
     favoriteProducts,
     isLoadingProducts,
+    isCatalogueUnreachable,
+    isServingCachedCatalogue,
+    refetchProducts,
     hasMoreProducts,
     loadMoreProducts,
     isLoadingMoreProducts,
@@ -205,6 +209,21 @@ export default function POS() {
     return 'success';
   };
 
+  /*
+   * #114: the grid had a loading branch and nothing else, so a catalogue read that
+   * settled into error rendered an empty <div> -- no cards, no message, and a till
+   * a cashier cannot ring anything up on. Two honest states replace that blank:
+   * rows narrowed from the last catalogue that loaded (with their age admitted),
+   * or an explicit failure with a way to retry.
+   */
+  const hasNoProducts = (products?.length ?? 0) === 0;
+  const catalogueFailed = isCatalogueUnreachable && hasNoProducts;
+  const catalogueStatus = isServingCachedCatalogue
+    ? t('pos.cachedCatalogue')
+    : catalogueFailed
+      ? t('pos.catalogueUnavailable')
+      : '';
+
   const isBundleInStock = (bundle: PosBundle) =>
     bundle.items.every((item) => {
       const product = products?.find((p) => p.id === item.product_id);
@@ -292,6 +311,30 @@ export default function POS() {
                   {cat.name}
                 </Button>
               ))}
+            </div>
+          )}
+
+          {/*
+            Mounted whatever the catalogue is doing: a live region rendered together
+            with its own message has no content *change* to announce
+            (docs/ACCESSIBILITY.md), so it cannot appear only when it has something
+            to say.
+          */}
+          <p role="status" className="sr-only">
+            {catalogueStatus}
+          </p>
+
+          {/* Stale-catalogue banner */}
+          {isServingCachedCatalogue && (
+            <div
+              className="flex items-center gap-3 p-3 rounded-xl border border-warning/30 bg-warning/5"
+              data-testid="pos-cached-catalogue-banner"
+            >
+              <WifiOff className="h-5 w-5 text-warning shrink-0" aria-hidden="true" />
+              <p className="text-sm text-foreground flex-1">{t('pos.cachedCatalogue')}</p>
+              <Button size="sm" variant="bordered" onPress={refetchProducts}>
+                {t('offline.retry')}
+              </Button>
             </div>
           )}
 
@@ -407,6 +450,24 @@ export default function POS() {
               {[...Array(8)].map((_, i) => (
                 <Skeleton key={i} className="h-36 rounded-xl" />
               ))}
+            </div>
+          ) : catalogueFailed ? (
+            <div
+              className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card p-8 text-center"
+              data-testid="pos-catalogue-error"
+            >
+              <WifiOff className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+              <p className="text-sm font-medium text-foreground">
+                {isServingCachedCatalogue
+                  ? t('pos.cachedNoMatches')
+                  : t('pos.catalogueUnavailable')}
+              </p>
+              <p className="max-w-md text-xs text-muted-foreground">
+                {t('pos.catalogueUnavailableHint')}
+              </p>
+              <Button size="sm" variant="bordered" onPress={refetchProducts}>
+                {t('offline.retry')}
+              </Button>
             </div>
           ) : (
             <div ref={animateGrid} className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">

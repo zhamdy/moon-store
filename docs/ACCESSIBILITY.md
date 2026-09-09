@@ -43,20 +43,44 @@ interface the way a person does will.
 #103 (pointer-only customer picker), #104 (controls nested inside pressable cards) and
 #105 (`role="status"` on a `<td>`) are the earlier three, all fixed.
 
-**#113 — does a combobox keep its accessible name while its listbox is open?** Open, and
-narrower than it first looked.
+**#113 — does a combobox keep its accessible name while its listbox is open?** Closed, and
+the answer was no, but not for the reason the question assumed.
 
-The symptom that produced it — a locator resolving on one line and timing out on the next
-— turned out to be about *scope*, not naming. Opening the listbox makes its popover the
-top layer, and react-aria marks everything outside it `aria-hidden`, including the modal
-dialog. `getByRole('dialog')` resolves against the accessibility tree, so it stops
-matching, and every locator chained through it goes with it. **Locate from the page, not
-through the dialog, once a popover is open.** That is the practical rule; it cost four CI
-runs to see, because a vanishing ancestor reads exactly like a changing element.
+Measured in Chromium against the same HeroUI versions this app ships, with the listbox
+open:
 
-What is still genuinely open is only whether the field keeps its name while expanded. The
-aria snapshot suggested not, and every sibling input looked the same — but that snapshot
-was taken of a page where most of the tree was hidden, so it is not clean evidence.
+| | closed | open |
+| --- | --- | --- |
+| combobox named by `aria-label` | `combobox "Select Customer"` | name intact, but `ignored: true`, `ariaHiddenSubtree` |
+| its ancestor | — | `aria-hidden="true"` on the wrapper the modal is portaled into |
+| `getByRole('combobox', { name })` | 1 match | **0 matches** |
+
+The name never went anywhere: it is an attribute, and no amount of hiding empties it. The
+*element* did. **HeroUI's `usePopover` calls `ariaHideOutside([popover])` unconditionally**
+whenever a popover opens — it never consults `isNonModal`, which defaults to `true` in that
+same hook, and which react-aria's own equivalent guards on. Everything not containing the
+popover is hidden, and from inside a modal that is the dialog, every field in it, and the
+combobox that owns the open listbox. A screen-reader user choosing from that list is
+choosing from a control that is not in the tree.
+
+`useExposedWhileListboxOpen` in the delivery slice drops that `aria-hidden` from the field's
+ancestors while the listbox is open, and leaves react-aria's own hiding
+(`ariaHideOutside([input, popover])`, which correctly hides the *siblings*) alone. The
+signal it works is the E2E spec: it locates the picker by role and name throughout, with no
+`data-testid` indirection.
+
+Two things measured on the way that did **not** match what #111 recorded, and are worth not
+rediscovering. HeroUI's `label` prop does emit an `aria-labelledby` pointing at an id that
+does not exist — but Chromium skips a wholly dangling reference and falls back to
+`aria-label`, so the name computed correctly all along. On `Input` the same prop names the
+field *twice* (`"Customer Name Customer Name"`), because its reference list includes both
+the label and the input itself. Neither is a missing name; both are still markup worth
+keeping out.
+
+The rule the four CI runs bought stands on its own: **once a popover is open, locate by
+name from the page rather than chaining through the dialog** — the popover contributes a
+second `dialog` of its own, so `getByRole('dialog')` is ambiguous there even now that the
+modal is back in the tree.
 
 Record the next gap here **with an issue** rather than only in a comment or a commit
 message, and drop the rule that catches it back to `warn` only if the fix genuinely cannot

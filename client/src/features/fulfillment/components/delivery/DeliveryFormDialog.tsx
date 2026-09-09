@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type Key } from 'react';
+import { useState, useEffect, useMemo, useRef, type Key } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,6 +16,7 @@ import {
   ModalFooter,
 } from '@heroui/react';
 import { useTranslation, t as tStandalone } from '../../../../shared/i18n/index';
+import { useExposedWhileListboxOpen } from './useExposedWhileListboxOpen';
 
 import type { Customer, Product } from '../../../../shared/types/index';
 import type { DeliveryOrder, DeliveryPayload, ShippingCompany } from '../../types';
@@ -91,6 +92,11 @@ export default function DeliveryFormDialog({
   const { t } = useTranslation();
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [isCustomerListOpen, setIsCustomerListOpen] = useState(false);
+  const customerFieldRef = useRef<HTMLDivElement>(null);
+  // The picker's listbox takes the whole dialog out of the accessibility tree
+  // while it is open, this combobox included -- see the hook.
+  useExposedWhileListboxOpen(customerFieldRef, isCustomerListOpen);
 
   const {
     register,
@@ -235,20 +241,23 @@ export default function DeliveryFormDialog({
             </ModalHeader>
             <ModalBody className="py-4 space-y-4">
               {/* Customer selector */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5" ref={customerFieldRef}>
                 {/*
                  * The visible label is its own element, and the accessible name comes from
-                 * `aria-label` rather than HeroUI's `label` prop (#111).
+                 * `aria-label` rather than HeroUI's `label` prop (#111, #113).
                  *
-                 * That prop emits `aria-labelledby` *as well as* `aria-label`, pointing at
-                 * the input itself and at an id that does not exist, so the name resolves
-                 * to nothing in a real browser — `aria-labelledby` wins the accessible-name
-                 * algorithm. jsdom's implementation quietly falls back to `aria-label`,
-                 * which is why the unit tests disagreed with Playwright.
+                 * That prop emits `aria-labelledby` *as well as* `aria-label`, and on this
+                 * Autocomplete the reference points at an id that does not exist. Measured
+                 * in Chromium: the name still computes, because a wholly dangling
+                 * `aria-labelledby` is skipped and the algorithm falls back to `aria-label`
+                 * — so the name was never actually empty, contrary to what #111 recorded.
+                 * The dangling reference is still markup no screen reader should be handed,
+                 * and the same prop on `Input` names the field twice over ("X X"), so the
+                 * attribute stays the way this field is named.
                  *
-                 * Naming the field with an attribute rather than a reference also survives
-                 * the popover: opening the list marks everything outside it `aria-hidden`,
-                 * which empties any name computed from a referenced element.
+                 * Naming with an attribute rather than a reference also survives the
+                 * popover: opening the list marks everything outside it `aria-hidden`,
+                 * including the visible label, which would empty a referenced name.
                  */}
                 <p className="text-xs font-medium text-foreground" aria-hidden="true">
                   {t('deliveries.selectCustomer')}
@@ -263,6 +272,7 @@ export default function DeliveryFormDialog({
                   onInputChange={onCustomerSearchChange}
                   selectedKey={selectedCustomerKey}
                   onSelectionChange={handleCustomerSelection}
+                  onOpenChange={setIsCustomerListOpen}
                   // Results are already filtered by the server; filtering them again
                   // client-side would hide rows the query deliberately returned.
                   defaultFilter={() => true}
@@ -278,7 +288,6 @@ export default function DeliveryFormDialog({
                       ? t('deliveries.noCustomersFound')
                       : undefined
                   }
-                  data-testid="delivery-customer-picker"
                 >
                   {[
                     <AutocompleteItem
