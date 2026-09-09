@@ -79,6 +79,31 @@ describeWithPostgres('POST /api/v1/sales/:id/refund concurrency and idempotency'
     return saleId;
   }
 
+  /**
+   * A two-line, 700-total sale: one Silk Dress (1 unit, 500) and one second product
+   * (1 unit, 200). Enough headroom on the sale total that a per-line-only bug would let
+   * a second refund of the fully-refunded dress line through (#120).
+   */
+  async function makeTwoLineSale(): Promise<{ saleId: number; secondProductId: number }> {
+    const secondProduct = await harness.pool.query<{ id: number }>(
+      "INSERT INTO products (name, sku, price, stock) VALUES ('Cotton Shirt', 'SKU-R2', 200, 5) RETURNING id"
+    );
+    const secondProductId = secondProduct.rows[0].id;
+
+    const sale = await harness.pool.query<{ id: number }>(
+      `INSERT INTO sales (subtotal, total, payment_method, cashier_id)
+       VALUES (700, 700, 'Cash', $1) RETURNING id`,
+      [cashierId]
+    );
+    const saleId = sale.rows[0].id;
+    await harness.pool.query(
+      `INSERT INTO sale_items (sale_id, product_id, quantity, unit_price)
+       VALUES ($1, $2, 1, 500), ($1, $3, 1, 200)`,
+      [saleId, productId, secondProductId]
+    );
+    return { saleId, secondProductId };
+  }
+
   async function openRegisterSession(): Promise<number> {
     const { rows } = await harness.pool.query<{ id: number }>(
       `INSERT INTO register_sessions (cashier_id, opening_float, expected_cash)
@@ -152,15 +177,16 @@ describeWithPostgres('POST /api/v1/sales/:id/refund concurrency and idempotency'
     };
   }
 
-  it('never lets concurrent partial refunds exceed the sale total (R1)', async () => {
+  it('never lets concurrent refunds exceed what the line actually sold (R1)', async () => {
     const saleId = await makeSale();
 
-    // Three simultaneous 400 refunds against a 1000 sale: two fit, the third must not.
-    // Without the FOR UPDATE lock all three read refunded_amount = 0 and all three commit.
+    // Three simultaneous 1-unit refunds against a 2-unit line: two fit, the third must
+    // not -- caught by the per-line remaining-quantity check once the line is exhausted.
+    // Without the FOR UPDATE lock all three read the line as unrefunded and all commit.
     const outcomes = await Promise.all([
-      postRefund(saleId, refundBody(1, 400)),
-      postRefund(saleId, refundBody(1, 400)),
-      postRefund(saleId, refundBody(1, 400)),
+      postRefund(saleId, refundBody(1, 500)),
+      postRefund(saleId, refundBody(1, 500)),
+      postRefund(saleId, refundBody(1, 500)),
     ]);
 
     const accepted = outcomes.filter((o) => o.error === null);
@@ -168,15 +194,18 @@ describeWithPostgres('POST /api/v1/sales/:id/refund concurrency and idempotency'
 
     expect(accepted).toHaveLength(2);
     expect(rejected).toHaveLength(1);
-    expect(rejected[0].error).toMatchObject({
-      code: 'VALIDATION_ERROR',
-      message: 'Refund amount exceeds sale total',
-    });
+    // Either message is a correct rejection for this race: the loser sees either the
+    // line already exhausted or (if it read after both winners committed) the sale
+    // already fully refunded -- which one depends on commit order, not on correctness.
+    expect(rejected[0].error).toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect((rejected[0].error as Error).message).toMatch(
+      /Refund quantity exceeds sold quantity|Sale already fully refunded/
+    );
 
     const sale = await readSale(saleId);
-    expect(sale.refunded).toBe(800);
+    expect(sale.refunded).toBe(1000);
     expect(sale.refunded).toBeLessThanOrEqual(1000);
-    expect(sale.status).toBe('partial');
+    expect(sale.status).toBe('full');
     expect(await countRows('refunds')).toBe(2);
   });
 
@@ -184,8 +213,8 @@ describeWithPostgres('POST /api/v1/sales/:id/refund concurrency and idempotency'
     const saleId = await makeSale();
 
     await Promise.all([
-      postRefund(saleId, refundBody(1, 400, true)),
-      postRefund(saleId, refundBody(1, 400, true)),
+      postRefund(saleId, refundBody(1, 500, true)),
+      postRefund(saleId, refundBody(1, 500, true)),
     ]);
 
     // 8 + 1 + 1. A read-then-write of an absolute value loses one of the two.
@@ -196,12 +225,39 @@ describeWithPostgres('POST /api/v1/sales/:id/refund concurrency and idempotency'
     expect(Number(rows[0].stock)).toBe(10);
   });
 
+  it('lets only one of two concurrent refunds of an already-otherwise-refundable line through (#120)', async () => {
+    // The sale total (700) has plenty of headroom left after the dress line (500) is
+    // refunded once -- the unrefunded shirt line (200) leaves room a sale-total-only
+    // check would happily admit. Only the per-line remaining-quantity check, made safe
+    // by the same sale-row lock, can catch a second concurrent attempt on the same line.
+    const { saleId } = await makeTwoLineSale();
+
+    const outcomes = await Promise.all([
+      postRefund(saleId, refundBody(1, 500, true)),
+      postRefund(saleId, refundBody(1, 500, true)),
+    ]);
+
+    const accepted = outcomes.filter((o) => o.error === null);
+    const rejected = outcomes.filter((o) => o.error !== null);
+
+    expect(accepted).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0].error).toMatchObject({ code: 'VALIDATION_ERROR' });
+
+    const { rows } = await harness.pool.query<{ stock: number }>(
+      'SELECT stock FROM products WHERE id = $1',
+      [productId]
+    );
+    expect(Number(rows[0].stock)).toBe(9); // restocked exactly once, not twice
+    expect(await countRows('refunds')).toBe(1);
+  });
+
   it('replays a retried refund without refunding, restocking, or paying out twice (R2)', async () => {
     const saleId = await makeSale();
     await openRegisterSession();
 
-    const first = await postRefund(saleId, refundBody(1, 400, true), 'refund-key');
-    const second = await postRefund(saleId, refundBody(1, 400, true), 'refund-key');
+    const first = await postRefund(saleId, refundBody(1, 500, true), 'refund-key');
+    const second = await postRefund(saleId, refundBody(1, 500, true), 'refund-key');
 
     expect(first.error).toBeNull();
     expect(second.error).toBeNull();
@@ -211,7 +267,7 @@ describeWithPostgres('POST /api/v1/sales/:id/refund concurrency and idempotency'
 
     expect(await countRows('refunds')).toBe(1);
     expect(await countRows('register_movements')).toBe(1);
-    expect((await readSale(saleId)).refunded).toBe(400);
+    expect((await readSale(saleId)).refunded).toBe(500);
 
     const { rows } = await harness.pool.query<{ stock: number }>(
       'SELECT stock FROM products WHERE id = $1',
@@ -224,8 +280,8 @@ describeWithPostgres('POST /api/v1/sales/:id/refund concurrency and idempotency'
     const saleA = await makeSale();
     const saleB = await makeSale();
 
-    await postRefund(saleA, refundBody(1, 400), 'shared-key');
-    const { error } = await postRefund(saleB, refundBody(1, 400), 'shared-key');
+    await postRefund(saleA, refundBody(1, 500), 'shared-key');
+    const { error } = await postRefund(saleB, refundBody(1, 500), 'shared-key');
 
     // The sale id lives in the fingerprinted payload, not the endpoint label, so the
     // second refund conflicts rather than replaying saleA's response.
@@ -246,7 +302,7 @@ describeWithPostgres('POST /api/v1/sales/:id/refund concurrency and idempotency'
       new Error('register write failed')
     );
 
-    const { error } = await postRefund(saleId, refundBody(1, 400, true), 'doomed-key');
+    const { error } = await postRefund(saleId, refundBody(1, 500, true), 'doomed-key');
 
     expect(error).toMatchObject({ message: 'register write failed' });
     expect(await countRows('refunds')).toBe(0);

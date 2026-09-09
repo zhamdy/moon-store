@@ -178,6 +178,17 @@ export function calculateSaleBreakdown(input: SaleCalculationInput): SaleCalcula
   };
 }
 
+/**
+ * The composite key a refund line is matched and aggregated on: two variants of the same
+ * product are distinct lines, and a plain (non-variant) line is keyed on `product_id`
+ * alone with `variant_id` normalized to `null` (both `undefined` and `null` collapse to
+ * the same key, since the wire, the DB row and historical `refunds.items` JSON can each
+ * spell "no variant" differently).
+ */
+function lineKey(productId: number, variantId?: number | null): string {
+  return `${productId}:${variantId ?? ''}`;
+}
+
 export class SalesService {
   constructor(
     private repo: ISalesRepository = defaultRepo,
@@ -919,27 +930,115 @@ export class SalesService {
 
       const saleItems = await this.repo.findItemsBySaleId(saleId, client);
 
+      // Prior refunds are the only record of how much of each line has already gone
+      // back -- `refunds.items` is a JSON blob, not a normalized table (#120) -- so they
+      // are aggregated here, inside the same `FOR UPDATE` lock on `sale` that makes the
+      // read-then-write safe against a sibling refund committing concurrently.
+      const priorRefunds = await this.repo.findRefundsBySaleId(saleId, client);
+      const previouslyRefundedByLine = new Map<string, number>();
+      const previouslyRefundedByProduct = new Map<number, number>();
+
+      const countAsTaken = (
+        productId: number,
+        variantId: number | null | undefined,
+        quantity: number
+      ): void => {
+        const key = lineKey(productId, variantId);
+        previouslyRefundedByLine.set(key, (previouslyRefundedByLine.get(key) || 0) + quantity);
+        previouslyRefundedByProduct.set(
+          productId,
+          (previouslyRefundedByProduct.get(productId) || 0) + quantity
+        );
+      };
+
+      for (const priorRefund of priorRefunds) {
+        const items: Array<{ product_id: number; variant_id?: number | null; quantity: number }> =
+          typeof priorRefund.items === 'string' ? JSON.parse(priorRefund.items) : priorRefund.items;
+        for (const item of items) {
+          countAsTaken(item.product_id, item.variant_id, Number(item.quantity));
+        }
+      }
+
+      // Exchanges draw on the same sold quantity. A refund and an exchange are two
+      // routes to the same recovery, so counting only refunds leaves one direction
+      // open: return a line on an exchange for credit, then refund it for cash, and the
+      // goods come back twice. The exchange path caps itself against refunds for the
+      // same reason, which is what makes the pair symmetrical.
+      for (const exchanged of await this.repo.findExchangedQuantitiesBySaleId(saleId, client)) {
+        countAsTaken(exchanged.product_id, exchanged.variant_id, exchanged.quantity);
+      }
+
+      // What this request itself asks for, per line and per product. Aggregated before
+      // the caps are checked: three entries for the same line each pass a per-entry
+      // check on their own, and together refund three times what was sold.
+      const requestedByLine = new Map<string, number>();
+      const requestedByProduct = new Map<number, number>();
       for (const refundItem of input.items) {
-        const saleItem = saleItems.find((si) => si.product_id === refundItem.product_id);
+        const key = lineKey(refundItem.product_id, refundItem.variant_id);
+        requestedByLine.set(key, (requestedByLine.get(key) || 0) + refundItem.quantity);
+        requestedByProduct.set(
+          refundItem.product_id,
+          (requestedByProduct.get(refundItem.product_id) || 0) + refundItem.quantity
+        );
+      }
+
+      const soldByProduct = new Map<number, number>();
+      for (const saleItem of saleItems) {
+        soldByProduct.set(
+          saleItem.product_id,
+          (soldByProduct.get(saleItem.product_id) || 0) + Number(saleItem.quantity)
+        );
+      }
+
+      let refundAmount = 0;
+      for (const refundItem of input.items) {
+        const saleItem = saleItems.find(
+          (si) =>
+            si.product_id === refundItem.product_id &&
+            (si.variant_id ?? null) === (refundItem.variant_id ?? null)
+        );
         if (!saleItem)
           throw new PublicError(
             'VALIDATION_ERROR',
             `Product ${refundItem.product_id} not in this sale`
           );
-        if (refundItem.quantity > saleItem.quantity) {
+
+        const key = lineKey(refundItem.product_id, refundItem.variant_id);
+        const alreadyRefunded = previouslyRefundedByLine.get(key) || 0;
+        const remaining = Number(saleItem.quantity) - alreadyRefunded;
+        if ((requestedByLine.get(key) || 0) > remaining) {
           throw new PublicError(
             'VALIDATION_ERROR',
-            `Refund quantity exceeds sold quantity for product ${refundItem.product_id}`
+            `Refund quantity exceeds sold quantity for product ${refundItem.product_id} ` +
+              `(${remaining} remaining)`
           );
         }
-      }
 
-      let refundAmount = 0;
-      for (const item of input.items) {
-        refundAmount += item.unit_price * item.quantity;
+        // A second cap, on the product rather than the line. `variant_id` only started
+        // being recorded in `refunds.items` with #121, so a variant line refunded before
+        // that is stored under the product-only key and its per-line cap above reads
+        // zero. Summing every prior for the product, whichever way it was keyed, keeps
+        // those historical rows counting against what the sale actually sold.
+        const productRemaining =
+          (soldByProduct.get(refundItem.product_id) || 0) -
+          (previouslyRefundedByProduct.get(refundItem.product_id) || 0);
+        if ((requestedByProduct.get(refundItem.product_id) || 0) > productRemaining) {
+          throw new PublicError(
+            'VALIDATION_ERROR',
+            `Refund quantity exceeds sold quantity for product ${refundItem.product_id} ` +
+              `(${Math.max(0, productRemaining)} remaining)`
+          );
+        }
+
+        // The payout is what the sale line actually sold for, never the client's
+        // `unit_price` -- accepted on the wire for compatibility (see schemas.ts) and
+        // ignored, exactly as checkout re-prices every line rather than trusting it.
+        refundAmount += Number(saleItem.unit_price) * refundItem.quantity;
       }
 
       const previouslyRefunded = Number(sale.refunded_amount) || 0;
+      // Redundant with the per-line cap above once every line is accounted for, but kept
+      // as a second, cheap belt against a rounding or bookkeeping mismatch.
       if (previouslyRefunded + refundAmount > Number(sale.total)) {
         throw new PublicError('VALIDATION_ERROR', 'Refund amount exceeds sale total');
       }
@@ -962,19 +1061,59 @@ export class SalesService {
       await this.repo.updateSaleRefundStatus(saleId, refundStatus, newRefundedTotal, client);
 
       if (input.restock) {
-        // Ascending by product id, the same canonical order the checkout write phase
-        // uses, so a refund and a checkout touching the same two products cannot lock
-        // them in opposite order and deadlock.
-        const restockOrder = [...input.items].sort((a, b) => a.product_id - b.product_id);
-        for (const item of restockOrder) {
-          await this.repo.incrementProductStock(item.product_id, item.quantity, client);
+        // The same canonical order the checkout write phase uses (products before
+        // variants, then ascending by id), so a refund and a checkout touching the same
+        // rows cannot lock them in opposite order and deadlock.
+        for (const item of sortForStockWrites(input.items)) {
+          if (item.variant_id) {
+            await this.repo.incrementVariantStock(item.variant_id, item.quantity, client);
+          } else {
+            await this.repo.incrementProductStock(item.product_id, item.quantity, client);
+          }
         }
       }
 
+      // Only cash that actually came in can go back out of the drawer (#126). The
+      // refund used to debit `expected_cash` by its whole amount, so a card sale
+      // refunded in full left the till short by the refund on close-out.
+      //
+      // The cash taken is derived from the confirmed tender split the same way
+      // `executeSale` derives what it put in (see the cashComponentMinor block above):
+      // sum the split's Cash entries, or -- in non-split compatibility mode, where there
+      // are no `sale_payments` rows -- the whole total when the one declared method was
+      // Cash.
+      const payments = await this.repo.findPaymentsBySaleId(saleId, client);
+      const cashTakenMinor =
+        payments.length > 0
+          ? payments
+              .filter((p) => p.method === 'Cash')
+              .reduce((sum, p) => sum + toMinorUnits(Number(p.amount)), 0)
+          : sale.payment_method === 'Cash'
+            ? toMinorUnits(Number(sale.total))
+            : 0;
+
+      // Refunds draw the cash component down first, so what remains refundable in cash
+      // is the cash taken minus whatever earlier refunds against this sale already took
+      // out of the drawer. Both are capped at the cash taken, which is what makes the
+      // "two halves of a split" case stop at the split's Cash entry rather than paying
+      // out card money in cash.
+      const cashAlreadyRefundedMinor = Math.min(toMinorUnits(previouslyRefunded), cashTakenMinor);
+      const refundCashMinor = Math.min(
+        toMinorUnits(refundAmount),
+        cashTakenMinor - cashAlreadyRefundedMinor
+      );
+
       // Inside the transaction (R4): the previous after-the-fact, error-swallowing call
       // from the controller could leave a drawer movement behind for a refund that
-      // rolled back. Mirrors `executeSale`'s in-transaction sale movement.
-      await this.register.recordRefundMovement(cashierId, refundAmount, client);
+      // rolled back. Mirrors `executeSale`'s in-transaction sale movement, including its
+      // "only when it is positive" guard.
+      if (refundCashMinor > 0) {
+        await this.register.recordRefundMovement(
+          cashierId,
+          fromMinorUnits(refundCashMinor),
+          client
+        );
+      }
 
       return { refund, refundStatus, newRefundedTotal };
     }, clientOrPool);

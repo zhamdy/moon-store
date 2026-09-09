@@ -14,6 +14,10 @@ export interface ISalesRepository {
     saleId: number | string,
     queryable?: Queryable
   ): Promise<Record<string, any>[]>;
+  findExchangedQuantitiesBySaleId(
+    saleId: number | string,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>>;
   listSales(
     filters: SaleFilters,
     queryable?: Queryable
@@ -80,6 +84,11 @@ export interface ISalesRepository {
     queryable: Queryable
   ): Promise<number | null>;
   decrementVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null>;
+  incrementVariantStock(
     variantId: number,
     quantity: number,
     queryable: Queryable
@@ -168,6 +177,16 @@ export class SalesRepository implements ISalesRepository {
     return res.rows;
   }
 
+  /**
+   * `refunds.items` is a `TEXT` column holding JSON, not a normalized table, so it is
+   * parsed here -- once, at the boundary -- rather than by each caller. Leaving it a
+   * string reached the refund dialog as something iterable character by character, which
+   * silently produced "nothing has been refunded yet" for every line (#120).
+   *
+   * An unparseable row throws rather than degrading to `[]`: this JSON is the only record
+   * of how much of a line has already gone back, and reading a damaged one as zero is
+   * exactly the double-refund the cumulative cap exists to prevent.
+   */
   async findRefundsBySaleId(
     saleId: number | string,
     queryable?: Queryable
@@ -180,7 +199,41 @@ export class SalesRepository implements ISalesRepository {
        ORDER BY r.created_at DESC`,
       [saleId]
     );
-    return res.rows;
+    return res.rows.map((row: Record<string, unknown>) => ({
+      ...row,
+      items: typeof row.items === 'string' ? JSON.parse(row.items) : (row.items ?? []),
+    }));
+  }
+
+  /**
+   * How much of each line an exchange against this sale already took back.
+   *
+   * A refund and an exchange are two routes to the same recovery, and both draw on the
+   * quantity the sale sold. Counting only refunds would leave one direction open: return
+   * a line on an exchange for credit, then refund the same line for cash, and the goods
+   * come back twice. The exchange path caps itself against refunds for the same reason.
+   */
+  async findExchangedQuantitiesBySaleId(
+    saleId: number | string,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>> {
+    const res = await this.q(queryable).query<{
+      product_id: number;
+      variant_id: number | null;
+      quantity: string;
+    }>(
+      `SELECT eri.product_id, eri.variant_id, SUM(eri.quantity)::int AS quantity
+         FROM exchange_returned_items eri
+         JOIN exchanges e ON eri.exchange_id = e.id
+        WHERE e.original_sale_id = $1
+        GROUP BY eri.product_id, eri.variant_id`,
+      [saleId]
+    );
+    return res.rows.map((row) => ({
+      product_id: row.product_id,
+      variant_id: row.variant_id,
+      quantity: Number(row.quantity),
+    }));
   }
 
   async listSales(
@@ -557,6 +610,21 @@ export class SalesRepository implements ISalesRepository {
     const res = await queryable.query<{ stock: number }>(
       `UPDATE product_variants SET stock = stock - $1::int, updated_at = NOW()
         WHERE id = $2 AND stock >= $1::int
+        RETURNING stock`,
+      [quantity, variantId]
+    );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /** Variant counterpart of {@link incrementProductStock}. No guard, for the same reason. */
+  async incrementVariantStock(
+    variantId: number,
+    quantity: number,
+    queryable: Queryable
+  ): Promise<number | null> {
+    const res = await queryable.query<{ stock: number }>(
+      `UPDATE product_variants SET stock = stock + $1::int, updated_at = NOW()
+        WHERE id = $2
         RETURNING stock`,
       [quantity, variantId]
     );

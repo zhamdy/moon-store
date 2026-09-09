@@ -370,6 +370,7 @@
   "sales.selectItems": "اختر العناصر للاسترجاع",
   "sales.qtyToRefund": "الكمية للاسترجاع",
   "sales.alreadyFullyRefunded": "تم الاسترجاع بالكامل",
+  "sales.refundRemaining": "متبقٍ للاسترجاع {remaining} من {sold}",
   "sales.customer": "العميل",
   "sales.walkIn": "عميل عابر",
   "users.title": "المستخدمون",
