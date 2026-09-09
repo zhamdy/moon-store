@@ -95,6 +95,36 @@ export class PurchaseOrdersService {
     );
   }
 
+  /**
+   * Where a purchase order may be moved to **by hand**.
+   *
+   * Migration 010 made all five statuses writable; it could not say which
+   * transitions are legal, because a CHECK constraint sees one row's new value and
+   * never where that row came from. So `Received -> Draft` was accepted, on an
+   * order whose stock had already moved (#142).
+   *
+   * Two rules, and both are about not letting a hand-set status contradict what
+   * `receiveItems` actually took in:
+   *
+   * - **`Received` and `Cancelled` are final.** They are the states that assert the
+   *   order is done with, and leaving them would strand the stock already received.
+   * - **`Partially Received` is never settable here.** It is derived from what has
+   *   actually arrived, so naming it by hand is always a claim about receipts that
+   *   did not happen. `receiveItems` computes and writes it through the repository,
+   *   below this guard.
+   *
+   * `Sent -> Received` deliberately stays legal: the request contract already
+   * documents that setting a status does not move stock, and it is the path for
+   * goods reconciled outside the system.
+   */
+  private static readonly MANUAL_TRANSITIONS: Record<string, readonly string[]> = {
+    Draft: ['Sent', 'Cancelled'],
+    Sent: ['Received', 'Cancelled'],
+    'Partially Received': ['Received', 'Cancelled'],
+    Received: [],
+    Cancelled: [],
+  };
+
   async updateStatus(
     id: number | string,
     status: string
@@ -102,6 +132,22 @@ export class PurchaseOrdersService {
     const existing = await this.repo.findById(id);
     if (!existing) {
       return null;
+    }
+
+    const from = String(existing.status);
+
+    // Re-asserting the current status changes nothing, so it is not a transition to
+    // refuse -- a retried request should not fail where the first one succeeded.
+    if (from !== status) {
+      const allowed = PurchaseOrdersService.MANUAL_TRANSITIONS[from] ?? [];
+      if (!allowed.includes(status)) {
+        throw new PublicError(
+          'CONFLICT',
+          allowed.length === 0
+            ? `A ${from} purchase order is final and cannot be moved to ${status}`
+            : `Cannot move a purchase order from ${from} to ${status}`
+        );
+      }
     }
 
     await this.repo.updateStatus(id, status);
