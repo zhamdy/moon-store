@@ -41,6 +41,14 @@ export interface IExchangesService {
   getExchangeById(id: number | string): Promise<ExchangeDetail | null>;
 }
 
+/**
+ * The composite key a returned line is matched and capped on: two variants of one
+ * product are distinct lines, and a plain line normalizes to the empty variant.
+ */
+function lineKey(productId: number, variantId?: number | null): string {
+  return `${productId}:${variantId ?? ''}`;
+}
+
 export class ExchangesService implements IExchangesService {
   constructor(private repo: IExchangesRepository = defaultRepo) {}
 
@@ -60,7 +68,9 @@ export class ExchangesService implements IExchangesService {
     if (client) {
       // Read on the caller's connection, not a second one from the pool: holding two
       // connections per request halves the pool's effective capacity under load.
-      const originalSale = await this.repo.findSaleById(data.original_sale_id, client);
+      // Locked, so the cumulative check below cannot race a sibling exchange or a
+      // concurrent refund of the same lines (#122).
+      const originalSale = await this.repo.findSaleByIdForUpdate(data.original_sale_id, client);
       if (!originalSale) {
         throw new PublicError('NOT_FOUND', 'Original sale not found');
       }
@@ -68,7 +78,7 @@ export class ExchangesService implements IExchangesService {
     }
 
     return withTransaction(async (tx) => {
-      const originalSale = await this.repo.findSaleById(data.original_sale_id, tx);
+      const originalSale = await this.repo.findSaleByIdForUpdate(data.original_sale_id, tx);
       if (!originalSale) {
         throw new PublicError('NOT_FOUND', 'Original sale not found');
       }
@@ -82,7 +92,60 @@ export class ExchangesService implements IExchangesService {
     originalSale: Record<string, any>,
     client: Queryable
   ): Promise<ExchangeRow> {
-    const returnTotal = data.returned_items.reduce((s, i) => s + i.price * i.quantity, 0);
+    // Nothing used to check that a returned line was ever on this sale, and the credit
+    // came from `price` in the request. A cashier could hand back goods the shop never
+    // sold, at a figure they chose, and the exchange both paid for them and restocked
+    // them (#122). Every returned line is now resolved against the sale's own lines and
+    // valued from `sale_items.unit_price`.
+    const saleItems = await this.repo.findSaleItems(data.original_sale_id, client);
+
+    // Both recovery routes count against the same sold quantity. Capping exchanges alone
+    // would leave the door open: refund a line, then exchange it, and it comes back twice.
+    const alreadyTaken = new Map<string, number>();
+    for (const prior of [
+      ...(await this.repo.findReturnedQuantitiesBySaleId(data.original_sale_id, client)),
+      ...(await this.repo.findRefundedQuantitiesBySaleId(data.original_sale_id, client)),
+    ]) {
+      const key = lineKey(prior.product_id, prior.variant_id);
+      alreadyTaken.set(key, (alreadyTaken.get(key) ?? 0) + prior.quantity);
+    }
+
+    // This request's own lines, aggregated first: several entries for one line each pass
+    // an individual check and together exceed what was sold.
+    const requestedByLine = new Map<string, number>();
+    for (const item of data.returned_items) {
+      const key = lineKey(item.product_id, item.variant_id);
+      requestedByLine.set(key, (requestedByLine.get(key) ?? 0) + item.quantity);
+    }
+
+    let returnTotal = 0;
+    for (const item of data.returned_items) {
+      const saleItem = saleItems.find(
+        (si) =>
+          si.product_id === item.product_id && (si.variant_id ?? null) === (item.variant_id ?? null)
+      );
+      if (!saleItem) {
+        throw new PublicError(
+          'VALIDATION_ERROR',
+          `Product ${item.product_id} was not sold on sale ${data.original_sale_id}`
+        );
+      }
+
+      const key = lineKey(item.product_id, item.variant_id);
+      const remaining = Number(saleItem.quantity) - (alreadyTaken.get(key) ?? 0);
+      if ((requestedByLine.get(key) ?? 0) > remaining) {
+        throw new PublicError(
+          'VALIDATION_ERROR',
+          `Return quantity exceeds what remains of product ${item.product_id} ` +
+            `(${Math.max(0, remaining)} remaining)`
+        );
+      }
+
+      // Valued from the sale, never from the request -- the same rule refunds and
+      // checkout follow.
+      returnTotal += Number(saleItem.unit_price) * item.quantity;
+    }
+
     const newTotal = data.new_items.reduce((s, i) => s + i.price * i.quantity, 0);
     const difference = newTotal - returnTotal;
 

@@ -92,6 +92,20 @@ describe('Exchange stock invariants', () => {
 
     const repo = {
       findSaleById: vi.fn().mockResolvedValue({ id: 1, customer_id: null }),
+      findSaleByIdForUpdate: vi.fn().mockResolvedValue({ id: 1, customer_id: null }),
+      // Every returned line these cases use must be a line of the sale, since #122; the
+      // quantities are generous so the cumulative cap is not what is under test here.
+      findSaleItems: vi.fn().mockResolvedValue([
+        { product_id: 1, variant_id: null, quantity: 99, unit_price: 100 },
+        { product_id: 2, variant_id: null, quantity: 99, unit_price: 100 },
+        { product_id: 4, variant_id: null, quantity: 99, unit_price: 100 },
+        { product_id: 5, variant_id: null, quantity: 99, unit_price: 100 },
+        { product_id: 7, variant_id: null, quantity: 99, unit_price: 100 },
+        { product_id: 1, variant_id: 3, quantity: 99, unit_price: 100 },
+        { product_id: 2, variant_id: 4, quantity: 99, unit_price: 100 },
+      ]),
+      findReturnedQuantitiesBySaleId: vi.fn().mockResolvedValue([]),
+      findRefundedQuantitiesBySaleId: vi.fn().mockResolvedValue([]),
       createExchange: vi.fn().mockResolvedValue({ id: 10, exchange_number: 'EXC-1' }),
       createReturnedItem: vi.fn().mockResolvedValue(undefined),
       createNewItem: vi.fn().mockResolvedValue(undefined),
