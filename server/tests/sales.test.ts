@@ -317,9 +317,15 @@ describe('Sales - Schema Validation', () => {
 
 describe('Sales - PostgreSQL Service & Transaction', () => {
   beforeEach(async () => {
-    // Clear and seed test items
+    // Clear and seed test items. Refunds and exchanges reference `sales`, so they go
+    // first -- a failed DELETE here breaks every case after it, not just its own.
+    await testPool.query('DELETE FROM exchange_returned_items');
+    await testPool.query('DELETE FROM exchange_new_items');
+    await testPool.query('DELETE FROM exchanges');
+    await testPool.query('DELETE FROM refunds');
     await testPool.query('DELETE FROM sale_items');
     await testPool.query('DELETE FROM sales');
+    await testPool.query('DELETE FROM product_variants');
     await testPool.query('DELETE FROM products');
     await testPool.query('DELETE FROM users');
 
@@ -631,6 +637,36 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
       ).rejects.toThrow(/Refund quantity exceeds sold quantity/);
 
       expect(await readStock(1)).toBe(9); // untouched by the rejected refund
+      const refunds = await testPool.query('SELECT * FROM refunds WHERE sale_id = $1', [sale.id]);
+      expect(refunds.rows).toHaveLength(0);
+    });
+
+    it('counts an earlier EXCHANGE of the same line against what is left to refund', async () => {
+      // The mirror image of the exchange path's own cap. Two routes recover the same
+      // goods, so capping only one leaves the other open: return the line on an
+      // exchange for credit, then refund it for cash, and it comes back twice.
+      const sale = await sellOneDress();
+
+      const exchange = await testPool.query<{ id: number }>(
+        `INSERT INTO exchanges (exchange_number, original_sale_id, cashier_id, return_total, new_total, difference, payment_method)
+         VALUES ($1, $2, 1, 500, 0, -500, 'store_credit') RETURNING id`,
+        [`EXC-${Date.now()}`, sale.id]
+      );
+      await testPool.query(
+        `INSERT INTO exchange_returned_items (exchange_id, product_id, quantity, price, condition)
+         VALUES ($1, 1, 1, 500, 'good')`,
+        [exchange.rows[0].id]
+      );
+
+      await expect(
+        executeRefundTransaction(
+          sale.id,
+          { items: [{ product_id: 1, quantity: 1, unit_price: 500 }], reason: 'Again' },
+          1,
+          testPool
+        )
+      ).rejects.toThrow(/Refund quantity exceeds sold quantity/);
+
       const refunds = await testPool.query('SELECT * FROM refunds WHERE sale_id = $1', [sale.id]);
       expect(refunds.rows).toHaveLength(0);
     });

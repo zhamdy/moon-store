@@ -14,6 +14,10 @@ export interface ISalesRepository {
     saleId: number | string,
     queryable?: Queryable
   ): Promise<Record<string, any>[]>;
+  findExchangedQuantitiesBySaleId(
+    saleId: number | string,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>>;
   listSales(
     filters: SaleFilters,
     queryable?: Queryable
@@ -198,6 +202,37 @@ export class SalesRepository implements ISalesRepository {
     return res.rows.map((row: Record<string, unknown>) => ({
       ...row,
       items: typeof row.items === 'string' ? JSON.parse(row.items) : (row.items ?? []),
+    }));
+  }
+
+  /**
+   * How much of each line an exchange against this sale already took back.
+   *
+   * A refund and an exchange are two routes to the same recovery, and both draw on the
+   * quantity the sale sold. Counting only refunds would leave one direction open: return
+   * a line on an exchange for credit, then refund the same line for cash, and the goods
+   * come back twice. The exchange path caps itself against refunds for the same reason.
+   */
+  async findExchangedQuantitiesBySaleId(
+    saleId: number | string,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>> {
+    const res = await this.q(queryable).query<{
+      product_id: number;
+      variant_id: number | null;
+      quantity: string;
+    }>(
+      `SELECT eri.product_id, eri.variant_id, SUM(eri.quantity)::int AS quantity
+         FROM exchange_returned_items eri
+         JOIN exchanges e ON eri.exchange_id = e.id
+        WHERE e.original_sale_id = $1
+        GROUP BY eri.product_id, eri.variant_id`,
+      [saleId]
+    );
+    return res.rows.map((row) => ({
+      product_id: row.product_id,
+      variant_id: row.variant_id,
+      quantity: Number(row.quantity),
     }));
   }
 

@@ -937,18 +937,35 @@ export class SalesService {
       const priorRefunds = await this.repo.findRefundsBySaleId(saleId, client);
       const previouslyRefundedByLine = new Map<string, number>();
       const previouslyRefundedByProduct = new Map<number, number>();
+
+      const countAsTaken = (
+        productId: number,
+        variantId: number | null | undefined,
+        quantity: number
+      ): void => {
+        const key = lineKey(productId, variantId);
+        previouslyRefundedByLine.set(key, (previouslyRefundedByLine.get(key) || 0) + quantity);
+        previouslyRefundedByProduct.set(
+          productId,
+          (previouslyRefundedByProduct.get(productId) || 0) + quantity
+        );
+      };
+
       for (const priorRefund of priorRefunds) {
         const items: Array<{ product_id: number; variant_id?: number | null; quantity: number }> =
           typeof priorRefund.items === 'string' ? JSON.parse(priorRefund.items) : priorRefund.items;
         for (const item of items) {
-          const key = lineKey(item.product_id, item.variant_id);
-          const quantity = Number(item.quantity);
-          previouslyRefundedByLine.set(key, (previouslyRefundedByLine.get(key) || 0) + quantity);
-          previouslyRefundedByProduct.set(
-            item.product_id,
-            (previouslyRefundedByProduct.get(item.product_id) || 0) + quantity
-          );
+          countAsTaken(item.product_id, item.variant_id, Number(item.quantity));
         }
+      }
+
+      // Exchanges draw on the same sold quantity. A refund and an exchange are two
+      // routes to the same recovery, so counting only refunds leaves one direction
+      // open: return a line on an exchange for credit, then refund it for cash, and the
+      // goods come back twice. The exchange path caps itself against refunds for the
+      // same reason, which is what makes the pair symmetrical.
+      for (const exchanged of await this.repo.findExchangedQuantitiesBySaleId(saleId, client)) {
+        countAsTaken(exchanged.product_id, exchanged.variant_id, exchanged.quantity);
       }
 
       // What this request itself asks for, per line and per product. Aggregated before
