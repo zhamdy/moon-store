@@ -481,13 +481,20 @@ export default function POS() {
                  * it over the card keeps the appearance and makes it a real, separately
                  * focusable button.
                  */
-                <div key={product.id} className="relative">
+                <div key={product.id} className="relative h-full">
                   <Card
                     /* E2E: the card's accessible name concatenates stock badge, category,
                      name and SKU, so an exact role+name query is not usable. */
                     data-testid={`product-card-${product.sku}`}
                     isPressable={getEffectiveStock(product) > 0}
-                    className={`relative transition-all border border-border bg-card shadow-sm ${
+                    /* `w-full h-full` is load-bearing, not tidying: HeroUI's Card defaults
+                     `fullWidth` to false, and `isPressable` renders it as a <button>, which
+                     shrinks to its content. The card then stopped short of its grid cell
+                     while the favourite star — positioned on the wrapper, because it has to
+                     be a sibling — stayed out at the cell edge, detached from the card it
+                     belongs to. An out-of-stock card is not pressable, so it renders as a
+                     <div> and stretched anyway: the row's cards were different widths. */
+                    className={`relative w-full h-full transition-all border border-border bg-card shadow-sm ${
                       getEffectiveStock(product) === 0
                         ? 'opacity-60 cursor-not-allowed'
                         : 'hover:border-primary/50'
