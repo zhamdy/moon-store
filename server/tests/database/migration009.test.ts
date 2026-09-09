@@ -10,6 +10,13 @@ import production from './fixtures/production-schema-2026-09-05.json';
 const dir = path.join(__dirname, '../../src/database/migrations');
 const migration = '009_legacy_schema_alignment.sql';
 const sql = fs.readFileSync(path.join(dir, migration), 'utf8');
+// 010 narrows purchase_orders_status_check further than 009 does. Both files are
+// idempotent on their own (DROP CONSTRAINT IF EXISTS / ADD CONSTRAINT), but replaying
+// 009's raw text alone, after the tracked runner has already applied both, would widen
+// the constraint back to 009's list and undo 010's narrowing -- so the idempotency check
+// below replays both, in order, to land on the same final state the runner produced.
+const nextMigration = '010_purchase_order_status_vocabulary.sql';
+const nextSql = fs.readFileSync(path.join(dir, nextMigration), 'utf8');
 
 describeWithPostgres('009 legacy production schema repair', () => {
   const prefix = `test_repair_${randomBytes(5).toString('hex')}`;
@@ -92,9 +99,15 @@ describeWithPostgres('009 legacy production schema repair', () => {
       INSERT INTO purchase_order_items (po_order_id,product_id,quantity,unit_cost) VALUES (71,41,3,25);
       INSERT INTO shifts (user_id,start_time) VALUES (21,'2026-01-01');
     `);
-    expect(await runMigrationsUp(pool, dir)).toEqual([migration]);
+    // Only 001-008 were pre-marked applied, so this call also runs every migration after
+    // 009 that exists today (010 narrows purchase_orders_status_check).
+    expect(await runMigrationsUp(pool, dir)).toEqual([
+      migration,
+      '010_purchase_order_status_vocabulary.sql',
+    ]);
     expect(await runMigrationsUp(pool, dir)).toEqual([]);
     await pool.query(sql);
+    await pool.query(nextSql);
     expect((await pool.query('SELECT favorites FROM users')).rows[0].favorites).toBe('[]');
     expect(
       (await pool.query('SELECT bundle_price FROM product_bundles WHERE id=51')).rows[0]
@@ -120,7 +133,7 @@ describeWithPostgres('009 legacy production schema repair', () => {
     ).rejects.toMatchObject({ code: '23503' });
     await pool.query(`INSERT INTO product_bundles (name,bundle_price) VALUES ('New bundle',30);
       INSERT INTO shifts (user_id,status) VALUES (21,'on_break');
-      INSERT INTO purchase_orders (po_number,status) VALUES ('NEW-PO','Ordered');
+      INSERT INTO purchase_orders (po_number,status) VALUES ('NEW-PO','Sent');
       SELECT user_id FROM notifications WHERE read=0;
       SELECT contact_info FROM distributors;
       SELECT image_url,season,is_featured,status,updated_at FROM collections;

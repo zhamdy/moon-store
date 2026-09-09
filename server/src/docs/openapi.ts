@@ -9985,6 +9985,9 @@ export const openApiSpec = {
           '404': {
             description: 'Resource not found',
           },
+          '409': {
+            description: 'Status value rejected by the database constraint',
+          },
           '500': {
             description: 'Internal server error',
           },
