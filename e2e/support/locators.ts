@@ -55,9 +55,16 @@ export function posPage(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOpti
 }
 
 export function cartPanel(page: Page, { locale = DEFAULT_TEST_LOCALE }: LocaleOptions = {}) {
-  /** One cart line. Keyed by product and variant, matching the component's own key. */
-  const line = (productId: number, variantId = 0): Locator =>
-    page.getByTestId(`cart-line-${productId}-${variantId}`);
+  /**
+   * One cart line. Keyed by product, variant AND bundle, matching the component's own
+   * key — `cartLines.ts` builds both, and this string is coupled to it by construction.
+   *
+   * The bundle segment joined the key with #124: a product can now sit in the cart twice,
+   * once loose and once as a member of a bundle, at different prices. `0` is the loose
+   * line, which is what every caller here means.
+   */
+  const line = (productId: number, variantId = 0, bundleId = 0): Locator =>
+    page.getByTestId(`cart-line-${productId}-${variantId}-${bundleId}`);
 
   return {
     line,
