@@ -63,7 +63,7 @@ export class PurchaseOrdersService {
       {
         generate: this.generateNumber,
         constraint: 'purchase_orders_po_number_key',
-        label: 'purchase order',
+        label: 'purchase order number',
       },
       async (poNumber) => {
         const poId = await withTransaction(async (client) => {

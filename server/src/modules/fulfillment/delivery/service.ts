@@ -86,7 +86,7 @@ export class DeliveryService {
       {
         generate: this.generateNumber,
         constraint: 'delivery_orders_order_number_key',
-        label: 'delivery order',
+        label: 'delivery order number',
       },
       (order_number) =>
         withTransaction(async (client) => {

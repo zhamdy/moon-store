@@ -56,7 +56,7 @@ export class LayawayService implements ILayawayService {
       {
         generate: this.generateNumber,
         constraint: 'layaway_plans_plan_number_key',
-        label: 'layaway plan',
+        label: 'layaway plan number',
       },
       (planNumber) =>
         withTransaction(async (client) => {

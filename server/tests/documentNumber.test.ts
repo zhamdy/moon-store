@@ -21,7 +21,7 @@ function uniqueViolation(constraint?: string): Error {
 const options = (overrides: Partial<Parameters<typeof withDocumentNumber>[0]> = {}) => ({
   generate: () => 'DOC-1',
   constraint: 'widgets_number_key',
-  label: 'widget',
+  label: 'widget number',
   ...overrides,
 });
 
