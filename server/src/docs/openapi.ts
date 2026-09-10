@@ -7476,6 +7476,192 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/store-credit/{id}': {
+      get: {
+        tags: ['Store Credit'],
+        summary: 'Read a customer store credit balance (Admin, Cashier, Delivery)',
+        description: 'Endpoint classification: S. Allowed Roles: Admin, Cashier, Delivery.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Target customer id',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Successful operation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean',
+                      example: true,
+                    },
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error / Bad request',
+          },
+          '401': {
+            description: 'Unauthorized / Missing or invalid token',
+          },
+          '403': {
+            description: 'Forbidden / Insufficient role privileges',
+          },
+          '404': {
+            description: 'Resource not found',
+          },
+          '409': {
+            description: 'Conflict / Insufficient store credit',
+          },
+          '500': {
+            description: 'Internal server error',
+          },
+        },
+      },
+    },
+    '/api/v1/store-credit/{id}/redeem': {
+      post: {
+        tags: ['Store Credit'],
+        summary: 'Spend store credit (Admin, Cashier, Delivery)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier, Delivery.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Target customer id',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Successful operation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean',
+                      example: true,
+                    },
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error / Bad request',
+          },
+          '401': {
+            description: 'Unauthorized / Missing or invalid token',
+          },
+          '403': {
+            description: 'Forbidden / Insufficient role privileges',
+          },
+          '404': {
+            description: 'Resource not found',
+          },
+          '409': {
+            description: 'Conflict / Insufficient store credit',
+          },
+          '500': {
+            description: 'Internal server error',
+          },
+        },
+      },
+    },
+    '/api/v1/store-credit/{id}/issue': {
+      post: {
+        tags: ['Store Credit'],
+        summary: 'Issue store credit as a correction (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+            description: 'Target customer id',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Successful operation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean',
+                      example: true,
+                    },
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error / Bad request',
+          },
+          '401': {
+            description: 'Unauthorized / Missing or invalid token',
+          },
+          '403': {
+            description: 'Forbidden / Insufficient role privileges',
+          },
+          '404': {
+            description: 'Resource not found',
+          },
+          '409': {
+            description: 'Conflict / Insufficient store credit',
+          },
+          '500': {
+            description: 'Internal server error',
+          },
+        },
+      },
+    },
     '/api/v1/gift-cards/{code}/balance': {
       get: {
         tags: ['Gift Cards'],
