@@ -101,6 +101,45 @@ export class OnlineOrdersService {
           const subtotal = priced.reduce((sum, item) => sum + item.price * item.quantity, 0);
           const total = subtotal + shippingFee;
 
+          // Availability is settled BEFORE anything else in this transaction is written.
+          //
+          // Not merely tidy: `online_order_items.product_id` is a foreign key, so writing
+          // a line takes a FOR KEY SHARE lock on the product row. Locking the same row
+          // FOR UPDATE afterwards is a lock upgrade, and two orders for one product each
+          // holding KEY SHARE and each waiting to upgrade is a deadlock -- SQLSTATE
+          // 40P01, reported by the three-concurrent-orders test before this moved.
+          // Taking the strongest lock first gives every transaction the same lock order.
+          //
+          // Within the pass, rows are locked in the one canonical order every stock path
+          // in this repo uses, so two shoppers naming the same products in opposite order
+          // cannot deadlock against each other either.
+          const held = sortForStockWrites(priced);
+          for (const item of held) {
+            const onHand = await this.repo.lockStockForUpdate(
+              item.product_id,
+              item.variant_id,
+              client
+            );
+            if (onHand === null) {
+              throw new PublicError('CONFLICT', `Product not available: ID ${item.product_id}`);
+            }
+
+            // Read after the lock, so a competing order's reservation is either committed
+            // and counted here or still waiting on the lock this transaction holds.
+            const reserved = await this.reservations.getReservedQuantity(
+              item.product_id,
+              item.variant_id,
+              client
+            );
+            const available = onHand - reserved;
+            if (item.quantity > available) {
+              throw new PublicError(
+                'CONFLICT',
+                `Only ${Math.max(0, available)} left of ${item.name}`
+              );
+            }
+          }
+
           // Find or create customer
           let customerId: number | null = null;
           const custRes = await this.repo.findCustomerByPhone(data.customer_phone, client);
@@ -146,41 +185,10 @@ export class OnlineOrdersService {
             );
           }
 
-          // Holds, not deductions (#137). Placing an order no longer takes the goods off
-          // the shelf -- it reserves them, and `updateStatus` deducts when the shop
-          // actually starts fulfilling. Until then the units are still sellable at the
-          // till, which is deliberate: the shop floor has the goods in hand and the web
-          // order is the speculative one.
-          //
-          // Locks are taken in the one canonical order every stock path in this repo
-          // uses. Two shoppers naming the same products in opposite order would otherwise
-          // take their row locks in opposite order and deadlock -- SQLSTATE 40P01, which
-          // reaches the shopper as exactly the 500 #125 set out to remove.
-          for (const item of sortForStockWrites(priced)) {
-            const onHand = await this.repo.lockStockForUpdate(
-              item.product_id,
-              item.variant_id,
-              client
-            );
-            if (onHand === null) {
-              throw new PublicError('CONFLICT', `Product not available: ID ${item.product_id}`);
-            }
-
-            // Read after the lock, so a competing order's reservation is either committed
-            // and counted here or still waiting on the lock we hold.
-            const reserved = await this.reservations.getReservedQuantity(
-              item.product_id,
-              item.variant_id,
-              client
-            );
-            const available = onHand - reserved;
-            if (item.quantity > available) {
-              throw new PublicError(
-                'CONFLICT',
-                `Only ${Math.max(0, available)} left of ${item.name}`
-              );
-            }
-
+          // The holds themselves, now that the order has an id to hang them on. The
+          // stock rows locked above are still held, so nothing can have taken the units
+          // between the check and this write.
+          for (const item of held) {
             await this.reservations.createReservation(
               {
                 product_id: item.product_id,

@@ -130,7 +130,9 @@ describeWithPostgres('online orders under concurrency (#125, #128)', () => {
     expect(rows).toHaveLength(2);
     expect(new Set(rows.map((r) => r.customer_id)).size).toBe(1);
     expect(await countRows('online_orders')).toBe(2);
-    expect(await stockOf(1)).toBe(0);
+    // Both units are held, not taken: since #137 placing an order reserves.
+    expect(await stockOf(1)).toBe(2);
+    expect(await countRows('stock_reservations')).toBe(2);
   });
 
   it('rolls the order and its items back when a later line is out of stock', async () => {
