@@ -40,14 +40,21 @@ export const onlineOrdersRequestContracts = {
     operation: 'createOnlineOrder',
     body: createOnlineOrderSchema,
     beyondSchema: [
-      'Public: a shopper places this without a token. Stock is DEDUCTED when the order ' +
-        'is placed, not reserved — cancelling a pending, processing or shipped order ' +
-        'restores it; a delivered one cannot be cancelled. (Reservation is not ' +
-        'implemented; this text used to describe it, and did not match the code.)',
+      'Public: a shopper places this without a token. Stock is RESERVED when the order ' +
+        'is placed, not deducted: the units stay sellable at the till until the shop ' +
+        'starts fulfilling. Moving the order to processing, shipped or delivered ' +
+        'releases the hold and deducts the stock in one transaction.',
+      'A hold lasts 48 hours. After that it lapses and the units are available again, ' +
+        'while the order stays pending — so processing it later is re-checked against ' +
+        'real stock and can be refused with a 409 if the goods went elsewhere.',
+      'Cancelling releases the hold. It restores stock only if the order had reached a ' +
+        'status that deducted it; a pending order never took its units off the shelf, ' +
+        'so there is nothing to restore. A delivered order cannot be cancelled.',
       "Each line's `price` is accepted and ignored: the order is priced from the " +
         'catalog, since a public endpoint cannot let a caller name its own price.',
-      'An order for more units than are in stock is refused with a 409, naming how ' +
-        'many remain.',
+      'An order for more units than are AVAILABLE — stock on hand minus what other ' +
+        'online orders are already holding — is refused with a 409, naming how many ' +
+        'remain.',
     ],
   }),
 

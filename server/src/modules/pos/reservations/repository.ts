@@ -23,6 +23,7 @@ export interface IReservationsRepository {
   ): Promise<ReservationRow>;
   deleteById(id: number | string, queryable?: Queryable): Promise<boolean>;
   deleteBySourceId(sourceId: string, queryable?: Queryable): Promise<number>;
+  deleteBySource(sourceType: string, sourceId: string, queryable?: Queryable): Promise<number>;
   deleteExpired(queryable?: Queryable): Promise<number>;
 }
 
@@ -109,6 +110,25 @@ export class ReservationsRepository implements IReservationsRepository {
     const res = await this.q(queryable).query(
       'DELETE FROM stock_reservations WHERE source_id = $1 RETURNING id',
       [sourceId]
+    );
+    return res.rowCount || 0;
+  }
+
+  /**
+   * Releases one source's holds, scoped by what kind of source it is.
+   *
+   * `deleteBySourceId` keys on the id alone, which is only safe while one kind of thing
+   * reserves stock. Online orders reserve under their own numeric id (#137), and cart
+   * ids share that space -- so releasing order 7's hold would take cart 7's with it.
+   */
+  async deleteBySource(
+    sourceType: string,
+    sourceId: string,
+    queryable?: Queryable
+  ): Promise<number> {
+    const res = await this.q(queryable).query(
+      'DELETE FROM stock_reservations WHERE source_type = $1 AND source_id = $2 RETURNING id',
+      [sourceType, sourceId]
     );
     return res.rowCount || 0;
   }

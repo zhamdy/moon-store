@@ -23,6 +23,11 @@ export interface IOnlineOrdersRepository {
     variantId: number | null | undefined,
     queryable?: Queryable
   ): Promise<number | null>;
+  lockStockForUpdate(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable: Queryable
+  ): Promise<number | null>;
   getCatalogLine(
     productId: number,
     variantId: number | null | undefined,
@@ -184,6 +189,34 @@ export class OnlineOrdersRepository implements IOnlineOrdersRepository {
         )
       : await this.q(queryable).query<{ stock: number }>(
           'SELECT stock FROM products WHERE id = $1',
+          [productId]
+        );
+    return res.rows[0] ? Number(res.rows[0].stock) : null;
+  }
+
+  /**
+   * Locks the stock row this line draws on and returns what it holds.
+   *
+   * Reserving is a read-then-write across two tables -- `products.stock` minus the live
+   * rows in `stock_reservations` -- so it cannot be a single guarded UPDATE the way
+   * deducting was. Locking the stock row first is what makes the pair atomic: two
+   * shoppers reaching for the last unit serialize here, and the loser recomputes
+   * availability after the winner's reservation is committed and visible (#137).
+   *
+   * @returns the row's stock, or null when there is no such row.
+   */
+  async lockStockForUpdate(
+    productId: number,
+    variantId: number | null | undefined,
+    queryable: Queryable
+  ): Promise<number | null> {
+    const res = variantId
+      ? await queryable.query<{ stock: number }>(
+          'SELECT stock FROM product_variants WHERE id = $1 FOR UPDATE',
+          [variantId]
+        )
+      : await queryable.query<{ stock: number }>(
+          'SELECT stock FROM products WHERE id = $1 FOR UPDATE',
           [productId]
         );
     return res.rows[0] ? Number(res.rows[0].stock) : null;
