@@ -46,8 +46,15 @@ export const exchangesRequestContracts = {
         'sale, and one with nothing going out is a refund. Those endpoints exist.',
       '`condition` decides whether a returned item goes back into sellable stock. Only ' +
         '`good` does; `damaged` and `defective` are recorded and written off.',
-      'The price difference either way is settled by `payment_method`; `store_credit` ' +
-        'issues or consumes credit rather than moving cash.',
+      'The price difference either way is settled by `payment_method`, and defaults to ' +
+        '`store_credit` when the shop ends up owing the customer. That now writes a real ' +
+        'balance to the customer credit ledger, inside the same transaction as the ' +
+        'exchange itself — ' +
+        'readable at `GET /api/v1/store-credit/{customerId}` and spendable through its ' +
+        '`redeem` endpoint. Credit never expires and is not redeemable for cash.',
+      'An exchange that owes the customer money and is settled as `store_credit` is ' +
+        'REFUSED when the original sale has no customer: there is nobody to credit, and ' +
+        'recording it anyway is how the money used to go missing.',
       'A returned line must be a line of the named sale, matched on ' +
         '(product_id, variant_id). Its `price` is accepted for backward compatibility ' +
         'and ignored: the credit is what the line actually sold for.',

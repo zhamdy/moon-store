@@ -40,6 +40,7 @@ import { reportsContractList } from '../modules/intelligence/reports/schemas';
 import { customersContractList } from '../modules/commerce/customers/schemas';
 import { feedbackContractList } from '../modules/commerce/feedback/schemas';
 import { giftCardsContractList } from '../modules/commerce/giftCards/schemas';
+import { storeCreditContractList } from '../modules/commerce/storeCredit/schemas';
 import { onlineOrdersContractList } from '../modules/commerce/onlineOrders/schemas';
 import { segmentsContractList } from '../modules/commerce/segments/schemas';
 import { storefrontContractList } from '../modules/commerce/storefront/schemas';
@@ -86,6 +87,7 @@ export const requestContracts: readonly RequestContract[] = [
   ...customersContractList,
   ...feedbackContractList,
   ...giftCardsContractList,
+  ...storeCreditContractList,
   ...onlineOrdersContractList,
   ...segmentsContractList,
   ...storefrontContractList,

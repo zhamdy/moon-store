@@ -11,6 +11,10 @@ import {
 import { sortForStockWrites } from '../stockWriteOrder';
 import { INSUFFICIENT_STOCK_CODE, type StockConflict } from '../sales/types';
 import { PublicError } from '../../../http/errors';
+import {
+  StoreCreditService,
+  storeCreditService as defaultStoreCredit,
+} from '../../commerce/storeCredit/service';
 
 /**
  * A new exchange line could not be taken out of stock. Rolls the whole exchange back.
@@ -57,7 +61,10 @@ function lineKey(productId: number, variantId?: number | null): string {
 }
 
 export class ExchangesService implements IExchangesService {
-  constructor(private repo: IExchangesRepository = defaultRepo) {}
+  constructor(
+    private repo: IExchangesRepository = defaultRepo,
+    private storeCredit: StoreCreditService = defaultStoreCredit
+  ) {}
 
   getRepository(): IExchangesRepository {
     return this.repo;
@@ -215,6 +222,14 @@ export class ExchangesService implements IExchangesService {
 
     const difference = newTotal - returnTotal;
 
+    // Store credit is the default when the shop ends up owing -- but only for a sale
+    // with a customer on it. A walk-in has nobody to hold a balance, so defaulting to
+    // credit there would mint a promise with no one to keep it to; cash is what actually
+    // happens at the counter.
+    const owesCustomer = difference < 0;
+    const defaultMethod = owesCustomer && originalSale.customer_id ? 'store_credit' : 'cash';
+    const paymentMethod = data.payment_method || defaultMethod;
+
     const exchange = await this.repo.createExchange(
       {
         exchange_number: generateExchangeNumber(),
@@ -224,11 +239,44 @@ export class ExchangesService implements IExchangesService {
         return_total: returnTotal,
         new_total: newTotal,
         difference,
-        payment_method: data.payment_method || (difference >= 0 ? 'cash' : 'store_credit'),
+        payment_method: paymentMethod,
         notes: data.notes || null,
       },
       client
     );
+
+    // Credit the customer when the shop ends up owing them and store credit is how it is
+    // being settled. This is the whole of #138: `store_credit` has always been the
+    // DEFAULT for a negative difference, and nothing anywhere wrote a balance -- the
+    // exchange recorded that the customer was owed money and then lost it.
+    //
+    // Issued inside the exchange's own transaction, so credit for an exchange that then
+    // failed cannot survive it. A negative difference with no customer on the original
+    // sale is refused rather than silently dropped: there is nobody to credit, and
+    // recording the exchange anyway is how the money went missing in the first place.
+    if (owesCustomer && paymentMethod === 'store_credit') {
+      if (!originalSale.customer_id) {
+        // Only reachable when the caller ASKED for store credit on a sale that has no
+        // customer. Refusing is the honest answer: the alternative is recording that the
+        // shop owes money and having nowhere to write it, which is the defect itself.
+        throw new PublicError(
+          'VALIDATION_ERROR',
+          'This exchange owes the customer money, but the original sale has no customer to credit. Settle it as cash or card instead.'
+        );
+      }
+
+      await this.storeCredit.issue(
+        {
+          customer_id: originalSale.customer_id,
+          amount: -difference,
+          reason: `Exchange ${exchange.exchange_number}`,
+          source_type: 'exchange',
+          source_id: String(exchange.id),
+          created_by: cashierId,
+        },
+        client
+      );
+    }
 
     // Line rows first. They touch the exchange's own child tables, never a product row,
     // so their order is irrelevant to locking and can stay the request's.

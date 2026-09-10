@@ -62,6 +62,7 @@ export const endpointManifest: Record<string, EndpointManifestEntry> = {
   '/api/v1/customers': authenticated(['P', 'S', 'M']),
   '/api/v1/coupons': authenticated(['P', 'M']),
   '/api/v1/gift-cards': authenticated(['P', 'S', 'M']),
+  '/api/v1/store-credit': authenticated(['S', 'M']),
   '/api/v1/feedback': authenticated(['P', 'M']),
   '/api/v1/segments': authenticated(['B', 'M']),
   '/api/v1/storefront': publicEntry(['B', 'P', 'M']),
@@ -649,6 +650,24 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   { method: 'DELETE', path: '/api/v1/coupons/:id', classification: 'M', authorization: adminOnly },
 
   // Commerce / Gift Cards
+  {
+    method: 'GET',
+    path: '/api/v1/store-credit/:id',
+    classification: 'S',
+    authorization: allAuthenticated,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/store-credit/:id/redeem',
+    classification: 'M',
+    authorization: allAuthenticated,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/store-credit/:id/issue',
+    classification: 'M',
+    authorization: adminOnly,
+  },
   {
     method: 'GET',
     path: '/api/v1/gift-cards',

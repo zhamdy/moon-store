@@ -36,6 +36,7 @@ describe('exchange returned-item validation (#122)', () => {
   });
 
   beforeEach(async () => {
+    await testPool.query('DELETE FROM customer_credit_ledger');
     await testPool.query('DELETE FROM exchange_returned_items');
     await testPool.query('DELETE FROM exchange_new_items');
     await testPool.query('DELETE FROM exchanges');
@@ -43,6 +44,7 @@ describe('exchange returned-item validation (#122)', () => {
     await testPool.query('DELETE FROM sale_items');
     await testPool.query('DELETE FROM sales');
     await testPool.query('DELETE FROM products');
+    await testPool.query('DELETE FROM customers');
     await testPool.query('DELETE FROM users');
 
     await testPool.query(
@@ -55,10 +57,14 @@ describe('exchange returned-item validation (#122)', () => {
               (3, 'Never Sold', 'SKU-003', 900, 400, 10)`
     );
 
+    await testPool.query(
+      `INSERT INTO customers (id, name, phone) VALUES (1, 'Nadia', '01000000000')`
+    );
+
     // A sale of 2 dresses at 500 and 1 shirt at 200.
     const sale = await testPool.query<{ id: number }>(
-      `INSERT INTO sales (subtotal, total, payment_method, cashier_id)
-       VALUES (1200, 1200, 'Cash', 1) RETURNING id`
+      `INSERT INTO sales (subtotal, total, payment_method, cashier_id, customer_id)
+       VALUES (1200, 1200, 'Cash', 1, 1) RETURNING id`
     );
     saleId = sale.rows[0].id;
     await testPool.query(
@@ -279,5 +285,112 @@ describe('exchange returned-item validation (#122)', () => {
       1
     );
     expect(await stockOf(1)).toBe(before + 1);
+  });
+
+  // --- Store credit (#138) ------------------------------------------------------------
+
+  async function creditBalance(customerId: number): Promise<number> {
+    const { rows } = await testPool.query<{ balance: string }>(
+      'SELECT COALESCE(SUM(delta), 0) AS balance FROM customer_credit_ledger WHERE customer_id = $1',
+      [customerId]
+    );
+    return Number(rows[0].balance);
+  }
+
+  it('credits the customer when the exchange leaves the shop owing them (#138 repro)', async () => {
+    // Return a 500 dress, take nothing out: the shop owes 500, and `store_credit` is the
+    // default settlement. Before this, that fact was recorded on the exchange row and
+    // then lost -- no balance was written anywhere.
+    const created = await service.createExchange(exchange([returned(1, 1)]), 1);
+
+    expect(Number(created.difference)).toBe(-500);
+    expect(await creditBalance(1)).toBe(500);
+  });
+
+  it('ties the credit entry back to the exchange that issued it', async () => {
+    const created = await service.createExchange(exchange([returned(1, 1)]), 1);
+
+    const { rows } = await testPool.query<{
+      source_type: string;
+      source_id: string;
+      reason: string;
+    }>('SELECT source_type, source_id, reason FROM customer_credit_ledger WHERE customer_id = 1');
+
+    expect(rows[0]).toMatchObject({ source_type: 'exchange', source_id: String(created.id) });
+    expect(rows[0].reason).toContain(created.exchange_number);
+  });
+
+  it('writes no credit when the exchange is settled as cash', async () => {
+    await service.createExchange(
+      { ...exchange([returned(1, 1)]), payment_method: 'cash' } as never,
+      1
+    );
+
+    expect(await creditBalance(1)).toBe(0);
+  });
+
+  it('writes no credit when the customer owes the shop instead', async () => {
+    // Return the 200 shirt, take out a 500 dress: the customer owes 300, so there is
+    // nothing to credit.
+    const created = await service.createExchange(
+      exchange([returned(2, 1)], [{ product_id: 1, quantity: 1, price: 1 }]),
+      1
+    );
+
+    expect(Number(created.difference)).toBe(300);
+    expect(await creditBalance(1)).toBe(0);
+  });
+
+  it('settles a walk-in exchange as cash rather than minting credit for nobody', async () => {
+    // A walk-in sale has no customer to hold a balance, so credit is not the default
+    // there -- cash is what actually happens at the counter.
+    const anon = await testPool.query<{ id: number }>(
+      `INSERT INTO sales (subtotal, total, payment_method, cashier_id)
+       VALUES (500, 500, 'Cash', 1) RETURNING id`
+    );
+    await testPool.query(
+      `INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) VALUES ($1, 1, 1, 500)`,
+      [anon.rows[0].id]
+    );
+
+    const created = await service.createExchange(
+      { ...exchange([returned(1, 1)]), original_sale_id: anon.rows[0].id } as never,
+      1
+    );
+
+    expect(created.payment_method).toBe('cash');
+    expect(await creditBalance(1)).toBe(0);
+  });
+
+  it('refuses when store credit is asked for and there is nobody to credit', async () => {
+    // Asking explicitly is different from falling through to a default: the caller named
+    // a settlement the shop cannot record, and the alternative is losing the money.
+    const anon = await testPool.query<{ id: number }>(
+      `INSERT INTO sales (subtotal, total, payment_method, cashier_id)
+       VALUES (500, 500, 'Cash', 1) RETURNING id`
+    );
+    await testPool.query(
+      `INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) VALUES ($1, 1, 1, 500)`,
+      [anon.rows[0].id]
+    );
+
+    await expect(
+      service.createExchange(
+        {
+          ...exchange([returned(1, 1)]),
+          original_sale_id: anon.rows[0].id,
+          payment_method: 'store_credit',
+        } as never,
+        1
+      )
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+    // No credit was written for anyone. That the exchange row rolls back too is not
+    // asserted here: pg-mem accepts ROLLBACK and keeps the rows anyway, so the claim
+    // would pass without proving anything.
+    const { rows } = await testPool.query<{ n: number }>(
+      'SELECT COUNT(*)::int AS n FROM customer_credit_ledger'
+    );
+    expect(rows[0].n).toBe(0);
   });
 });

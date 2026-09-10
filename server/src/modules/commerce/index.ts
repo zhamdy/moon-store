@@ -1,6 +1,7 @@
 export * from './customers';
 export * from './coupons';
 export * from './giftCards';
+export * from './storeCredit';
 export * from './feedback';
 export * from './segments';
 export * from './storefront';
