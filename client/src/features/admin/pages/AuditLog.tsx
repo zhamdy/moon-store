@@ -137,8 +137,15 @@ export default function AuditLog() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
 
-  const tAction = (action: string) => t(`activity.action.${action}`) || action;
-  const tEntity = (entity: string) => t(`activity.entity.${entity}`) || entity;
+  // translate() returns the key itself when unmapped, so humanise the raw value instead
+  // of rendering `activity.entity.shift` at the user.
+  const tLabel = (prefix: string, value: string) => {
+    const key = `activity.${prefix}.${value}`;
+    const label = t(key);
+    return label === key ? value.replace(/_/g, ' ') : label;
+  };
+  const tAction = (action: string) => tLabel('action', action);
+  const tEntity = (entity: string) => tLabel('entity', entity);
 
   const {
     data: entries = [],
