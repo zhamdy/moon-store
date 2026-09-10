@@ -908,10 +908,19 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
         const sale = await sellVariant(variantId, 1);
         expect(await readVariantStock(variantId)).toBe(3);
 
-        await testPool.query(
+        // Written as a pre-#121 refund recorded it, and carried into `refund_items` the
+        // way 012's backfill does: product_id set, variant_id NULL. A fixture writing only
+        // the blob would describe a state that no longer occurs, and the cap would pass by
+        // reading nothing at all.
+        const legacy = await testPool.query<{ id: number }>(
           `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
-           VALUES ($1, 500, 'Legacy refund', $2, 1, 1)`,
+           VALUES ($1, 500, 'Legacy refund', $2, 1, 1) RETURNING id`,
           [sale.id, JSON.stringify([{ product_id: 1, quantity: 1, unit_price: 500 }])]
+        );
+        await testPool.query(
+          `INSERT INTO refund_items (refund_id, product_id, variant_id, quantity, unit_price)
+           VALUES ($1, 1, NULL, 1, 500)`,
+          [legacy.rows[0].id]
         );
 
         await expect(

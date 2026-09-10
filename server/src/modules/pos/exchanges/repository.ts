@@ -169,31 +169,33 @@ export class ExchangesRepository implements IExchangesRepository {
   /**
    * Prior refunds of the same sale. #122 notes the double-recovery path between the two
    * routes: capping only exchanges would still let a line be refunded and then exchanged.
-   * `refunds.items` is a TEXT column holding JSON, so it is parsed here at the boundary.
+   *
+   * A `SUM ... GROUP BY` over `refund_items` since #140. It used to decode the
+   * `refunds.items` JSON blob here, which meant this module and the sales module each
+   * carried their own parser for the same undeclared shape and had to agree.
    */
   async findRefundedQuantitiesBySaleId(
     saleId: number,
     queryable?: Queryable
   ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>> {
-    const res = await this.q(queryable).query<{ items: string | unknown }>(
-      'SELECT items FROM refunds WHERE sale_id = $1',
+    const res = await this.q(queryable).query<{
+      product_id: number;
+      variant_id: number | null;
+      quantity: string;
+    }>(
+      `SELECT ri.product_id, ri.variant_id, SUM(ri.quantity)::int AS quantity
+         FROM refund_items ri
+         JOIN refunds r ON r.id = ri.refund_id
+        WHERE r.sale_id = $1
+        GROUP BY ri.product_id, ri.variant_id`,
       [saleId]
     );
 
-    const totals: Array<{ product_id: number; variant_id: number | null; quantity: number }> = [];
-    for (const row of res.rows) {
-      const items = (
-        typeof row.items === 'string' ? JSON.parse(row.items) : (row.items ?? [])
-      ) as Array<{ product_id: number; variant_id?: number | null; quantity: number }>;
-      for (const item of items) {
-        totals.push({
-          product_id: item.product_id,
-          variant_id: item.variant_id ?? null,
-          quantity: Number(item.quantity),
-        });
-      }
-    }
-    return totals;
+    return res.rows.map((row) => ({
+      product_id: row.product_id,
+      variant_id: row.variant_id ?? null,
+      quantity: Number(row.quantity),
+    }));
   }
 
   async createExchange(

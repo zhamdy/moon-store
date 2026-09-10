@@ -82,6 +82,36 @@ describe('exchange returned-item validation (#122)', () => {
     condition: 'good' as const,
   });
 
+  /**
+   * A refund as it exists after migration 012: the `refunds.items` blob it was written
+   * with, plus the `refund_items` rows 012's backfill derives from it. A fixture that
+   * writes only the blob describes a database state that no longer occurs, and would let
+   * these caps pass by reading nothing at all.
+   */
+  async function insertHistoricalRefund(
+    saleId: number,
+    amount: number,
+    items: Array<{
+      product_id: number;
+      variant_id?: number | null;
+      quantity: number;
+      unit_price: number;
+    }>
+  ): Promise<void> {
+    const { rows } = await testPool.query<{ id: number }>(
+      `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
+       VALUES ($1, $2, 'Returned', $3, 1, 1) RETURNING id`,
+      [saleId, amount, JSON.stringify(items)]
+    );
+    for (const item of items) {
+      await testPool.query(
+        `INSERT INTO refund_items (refund_id, product_id, variant_id, quantity, unit_price)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [rows[0].id, item.product_id, item.variant_id ?? null, item.quantity, item.unit_price]
+      );
+    }
+  }
+
   async function stockOf(productId: number): Promise<number> {
     const { rows } = await testPool.query<{ stock: number }>(
       'SELECT stock FROM products WHERE id = $1',
@@ -133,11 +163,7 @@ describe('exchange returned-item validation (#122)', () => {
   it('counts an earlier REFUND of the same line against what is left (#122 double recovery)', async () => {
     // The goods came back through the refund endpoint. Exchanging them again would
     // recover the same units twice -- once as cash, once as credit plus stock.
-    await testPool.query(
-      `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
-       VALUES ($1, 1000, 'Returned', $2, 1, 1)`,
-      [saleId, JSON.stringify([{ product_id: 1, quantity: 2, unit_price: 500 }])]
-    );
+    await insertHistoricalRefund(saleId, 1000, [{ product_id: 1, quantity: 2, unit_price: 500 }]);
 
     await expect(service.createExchange(exchange([returned(1, 1)]), 1)).rejects.toThrow(
       /exceeds what remains of product 1 \(0 remaining\)/
@@ -145,11 +171,7 @@ describe('exchange returned-item validation (#122)', () => {
   });
 
   it('allows what genuinely remains after a partial refund', async () => {
-    await testPool.query(
-      `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
-       VALUES ($1, 500, 'Returned', $2, 1, 1)`,
-      [saleId, JSON.stringify([{ product_id: 1, quantity: 1, unit_price: 500 }])]
-    );
+    await insertHistoricalRefund(saleId, 500, [{ product_id: 1, quantity: 1, unit_price: 500 }]);
 
     // One dress of the two is still the customer's to bring back.
     const created = await service.createExchange(exchange([returned(1, 1)]), 1);
@@ -201,12 +223,11 @@ describe('exchange returned-item validation (#122)', () => {
        VALUES ($1, 1, 10, 1, 500)`,
       [variantSaleId]
     );
-    await testPool.query(
-      `INSERT INTO refunds (sale_id, amount, reason, items, restock, cashier_id)
-       VALUES ($1, 500, 'Returned', $2, 1, 1)`,
-      // No variant_id, exactly as a pre-#121 refund recorded it.
-      [variantSaleId, JSON.stringify([{ product_id: 1, quantity: 1, unit_price: 500 }])]
-    );
+    // No variant_id, exactly as a pre-#121 refund recorded it -- and exactly as 012's
+    // backfill leaves such a row: product_id set, variant_id NULL.
+    await insertHistoricalRefund(variantSaleId, 500, [
+      { product_id: 1, quantity: 1, unit_price: 500 },
+    ]);
 
     await expect(
       service.createExchange(

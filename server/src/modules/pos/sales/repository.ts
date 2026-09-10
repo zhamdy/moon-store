@@ -14,6 +14,10 @@ export interface ISalesRepository {
     saleId: number | string,
     queryable?: Queryable
   ): Promise<Record<string, any>[]>;
+  findRefundedQuantitiesBySaleId(
+    saleId: number | string,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>>;
   findExchangedQuantitiesBySaleId(
     saleId: number | string,
     queryable?: Queryable
@@ -499,6 +503,14 @@ export class SalesRepository implements ISalesRepository {
     );
   }
 
+  /**
+   * Writes the refund and its lines, in the same transaction the caller is already in.
+   *
+   * The `items` JSON is still written alongside `refund_items` (#140). It is not
+   * belt-and-braces for its own sake: 012 derives the table *from* the blob, so keeping
+   * the blob is what lets that migration be rolled back and re-applied. Retiring it is a
+   * separate change and must not land before this one has been proven in production.
+   */
   async createRefund(
     data: Record<string, any>,
     queryable: Queryable
@@ -515,7 +527,57 @@ export class SalesRepository implements ISalesRepository {
         data.cashier_id,
       ]
     );
-    return res.rows[0];
+    const refund = res.rows[0];
+
+    for (const item of data.items as Array<{
+      product_id: number;
+      variant_id?: number | null;
+      quantity: number;
+      unit_price?: number;
+    }>) {
+      await queryable.query(
+        `INSERT INTO refund_items (refund_id, product_id, variant_id, quantity, unit_price)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [refund.id, item.product_id, item.variant_id ?? null, item.quantity, item.unit_price ?? 0]
+      );
+    }
+
+    return refund;
+  }
+
+  /**
+   * How much of each line of a sale has already been refunded.
+   *
+   * This is what `refunds.items` used to be parsed in a loop to answer (#140). The cap it
+   * feeds is a financial invariant, so it being a `SUM ... GROUP BY` over real rows rather
+   * than a JSON decode is the point: there is now a shape the database enforces, and one
+   * query where there were two decoders that had to agree with each other.
+   *
+   * Grouped on `(product_id, variant_id)` because that is the identity of a sale line --
+   * two variants of one product are two lines and cap independently.
+   */
+  async findRefundedQuantitiesBySaleId(
+    saleId: number | string,
+    queryable?: Queryable
+  ): Promise<Array<{ product_id: number; variant_id: number | null; quantity: number }>> {
+    const res = await this.q(queryable).query<{
+      product_id: number;
+      variant_id: number | null;
+      quantity: string;
+    }>(
+      `SELECT ri.product_id, ri.variant_id, SUM(ri.quantity)::int AS quantity
+         FROM refund_items ri
+         JOIN refunds r ON r.id = ri.refund_id
+        WHERE r.sale_id = $1
+        GROUP BY ri.product_id, ri.variant_id`,
+      [saleId]
+    );
+
+    return res.rows.map((row) => ({
+      product_id: row.product_id,
+      variant_id: row.variant_id ?? null,
+      quantity: Number(row.quantity),
+    }));
   }
 
   async updateSaleRefundStatus(

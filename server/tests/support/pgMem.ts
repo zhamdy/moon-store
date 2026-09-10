@@ -25,11 +25,25 @@ import type { Pool as PgPool, PoolClient, QueryResult, QueryResultRow } from 'pg
 /** Matches a trailing `NOT VALID` on an ALTER TABLE ... ADD CONSTRAINT statement. */
 const TRAILING_NOT_VALID = /\s+NOT\s+VALID(?=\s*;|\s*$)/gi;
 
+/**
+ * Matches 012's tagged backfill block, and only it.
+ *
+ * Stripped rather than stubbing the whole file the way `DO $repair_009$` is: 009 is
+ * nothing but its repair block, while 012 also creates `refund_items` and its indexes --
+ * statements pg-mem handles and the suites need. Replacing the file wholesale left every
+ * refund test failing on `relation "refund_items" does not exist`.
+ */
+const BACKFILL_012 = /DO \$backfill_012\$[\s\S]*?\$backfill_012\$;/g;
+
 export function toPgMemCompatibleSql(sql: string): string {
   // 009 upgrades legacy schemas only. pg-mem fixtures start from the corrected 001;
   // its catalog-driven PL/pgSQL repair is exercised on real PostgreSQL instead.
   if (sql.includes('DO $repair_009$')) return 'SELECT 1;';
-  return sql.replace(TRAILING_NOT_VALID, '');
+  // 012 backfills `refund_items` from the `refunds.items` blob with CROSS JOIN LATERAL
+  // and `jsonb_array_elements`, which pg-mem's parser rejects. A pg-mem database is always
+  // freshly created and so has no refunds to backfill, and the CREATE TABLE around it is
+  // kept. The backfill is proven on real PostgreSQL in `tests/database/migration012.test.ts`.
+  return sql.replace(BACKFILL_012, 'SELECT 1;').replace(TRAILING_NOT_VALID, '');
 }
 
 type QueryArgs = [string | { text: string }, unknown[]?];

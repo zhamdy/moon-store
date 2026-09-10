@@ -972,11 +972,11 @@ export class SalesService {
 
       const saleItems = await this.repo.findItemsBySaleId(saleId, client);
 
-      // Prior refunds are the only record of how much of each line has already gone
-      // back -- `refunds.items` is a JSON blob, not a normalized table (#120) -- so they
-      // are aggregated here, inside the same `FOR UPDATE` lock on `sale` that makes the
-      // read-then-write safe against a sibling refund committing concurrently.
-      const priorRefunds = await this.repo.findRefundsBySaleId(saleId, client);
+      // How much of each line has already gone back. Read inside the same `FOR UPDATE`
+      // lock on `sale` that makes the read-then-write safe against a sibling refund
+      // committing concurrently -- the lock, not the storage, is what makes the cap
+      // sound. What the storage changes is that this is now a SUM over `refund_items`
+      // rather than a JSON blob decoded in a loop (#140).
       const previouslyRefundedByLine = new Map<string, number>();
       const previouslyRefundedByProduct = new Map<number, number>();
 
@@ -993,12 +993,8 @@ export class SalesService {
         );
       };
 
-      for (const priorRefund of priorRefunds) {
-        const items: Array<{ product_id: number; variant_id?: number | null; quantity: number }> =
-          typeof priorRefund.items === 'string' ? JSON.parse(priorRefund.items) : priorRefund.items;
-        for (const item of items) {
-          countAsTaken(item.product_id, item.variant_id, Number(item.quantity));
-        }
+      for (const refunded of await this.repo.findRefundedQuantitiesBySaleId(saleId, client)) {
+        countAsTaken(refunded.product_id, refunded.variant_id, refunded.quantity);
       }
 
       // Exchanges draw on the same sold quantity. A refund and an exchange are two
