@@ -213,7 +213,7 @@ export default function Deliveries() {
     },
     {
       accessorKey: 'status',
-      header: t('common.status') || t('deliveries.status'),
+      header: t('common.status'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <StatusBadge status={row.original.status} showDot />

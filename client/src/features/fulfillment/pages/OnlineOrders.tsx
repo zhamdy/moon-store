@@ -272,7 +272,7 @@ export default function OnlineOrdersPage() {
                             })
                           }
                         >
-                          {t('onlineOrders.deliver')}
+                          {t('onlineOrders.markDelivered')}
                         </Button>
                       )}
                       {!['delivered', 'cancelled', 'refunded'].includes(selectedOrder.status) && (

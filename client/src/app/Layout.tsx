@@ -29,7 +29,7 @@ export default function Layout(): React.JSX.Element {
               variant="light"
               className="lg:hidden h-9 w-9 text-muted-foreground hover:text-foreground"
               onPress={() => setMobileOpen(true)}
-              aria-label={t('nav.openNav') || 'Open navigation'}
+              aria-label={t('nav.openNav')}
             >
               <Menu className="h-5 w-5" />
             </Button>
