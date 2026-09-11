@@ -305,7 +305,6 @@ function resolvePathParams(rawPath: string, fixtures: SeededFixtures): string {
     .replace(':userId', String(fixtures.user?.id || 1))
     .replace(':customerId', String(fixtures.customer?.id || 1))
     .replace(':distributorId', String(fixtures.distributor?.id || 1))
-    .replace(':vendorId', String(fixtures.vendor?.id || 1))
     .replace(':shippingCompanyId', String(fixtures.shippingCompany?.id || 1))
     .replace(':couponId', String(fixtures.coupon?.id || 1))
     .replace(':code', fixtures.coupon?.code || 'WELCOME10');

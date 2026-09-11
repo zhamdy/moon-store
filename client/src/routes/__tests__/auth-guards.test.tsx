@@ -189,6 +189,19 @@ describe('TanStack Router Auth and Layout Guards', () => {
     }
   );
 
+  it('sends Admin from the removed /vendors path to / via the catch-all', async () => {
+    const router = createTestRouter('/vendors', {
+      isAuthenticated: true,
+      user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+    });
+
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/');
+    });
+  });
+
   it('redirects Admin from /locations to the default route, since /branches is postponed', async () => {
     const router = createTestRouter('/locations', {
       isAuthenticated: true,

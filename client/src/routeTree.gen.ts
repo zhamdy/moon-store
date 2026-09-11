@@ -47,7 +47,6 @@ import { Route as AuthenticatedAdminSmartPricingRouteImport } from './routes/_au
 import { Route as AuthenticatedAdminStockCountRouteImport } from './routes/_authenticated/_admin/stock-count'
 import { Route as AuthenticatedAdminStorefrontRouteImport } from './routes/_authenticated/_admin/storefront'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/_admin/users'
-import { Route as AuthenticatedAdminVendorsRouteImport } from './routes/_authenticated/_admin/vendors'
 import { Route as AuthenticatedAdminWarrantyRouteImport } from './routes/_authenticated/_admin/warranty'
 
 const SplatRoute = SplatRouteImport.update({
@@ -261,12 +260,6 @@ const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedAdminVendorsRoute =
-  AuthenticatedAdminVendorsRouteImport.update({
-    id: '/vendors',
-    path: '/vendors',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminWarrantyRoute =
   AuthenticatedAdminWarrantyRouteImport.update({
     id: '/warranty',
@@ -311,7 +304,6 @@ export interface FileRoutesByFullPath {
   '/stock-count': typeof AuthenticatedAdminStockCountRoute
   '/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/users': typeof AuthenticatedAdminUsersRoute
-  '/vendors': typeof AuthenticatedAdminVendorsRoute
   '/warranty': typeof AuthenticatedAdminWarrantyRoute
 }
 export interface FileRoutesByTo {
@@ -351,7 +343,6 @@ export interface FileRoutesByTo {
   '/stock-count': typeof AuthenticatedAdminStockCountRoute
   '/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/users': typeof AuthenticatedAdminUsersRoute
-  '/vendors': typeof AuthenticatedAdminVendorsRoute
   '/warranty': typeof AuthenticatedAdminWarrantyRoute
 }
 export interface FileRoutesById {
@@ -393,7 +384,6 @@ export interface FileRoutesById {
   '/_authenticated/_admin/stock-count': typeof AuthenticatedAdminStockCountRoute
   '/_authenticated/_admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/_authenticated/_admin/users': typeof AuthenticatedAdminUsersRoute
-  '/_authenticated/_admin/vendors': typeof AuthenticatedAdminVendorsRoute
   '/_authenticated/_admin/warranty': typeof AuthenticatedAdminWarrantyRoute
   '/_authenticated/_admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -436,7 +426,6 @@ export interface FileRouteTypes {
     | '/stock-count'
     | '/storefront'
     | '/users'
-    | '/vendors'
     | '/warranty'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -476,7 +465,6 @@ export interface FileRouteTypes {
     | '/stock-count'
     | '/storefront'
     | '/users'
-    | '/vendors'
     | '/warranty'
   id:
     | '__root__'
@@ -517,7 +505,6 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin/stock-count'
     | '/_authenticated/_admin/storefront'
     | '/_authenticated/_admin/users'
-    | '/_authenticated/_admin/vendors'
     | '/_authenticated/_admin/warranty'
     | '/_authenticated/_admin/'
   fileRoutesById: FileRoutesById
@@ -798,13 +785,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/_admin/vendors': {
-      id: '/_authenticated/_admin/vendors'
-      path: '/vendors'
-      fullPath: '/vendors'
-      preLoaderRoute: typeof AuthenticatedAdminVendorsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/_admin/warranty': {
       id: '/_authenticated/_admin/warranty'
       path: '/warranty'
@@ -840,7 +820,6 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminStockCountRoute: typeof AuthenticatedAdminStockCountRoute
   AuthenticatedAdminStorefrontRoute: typeof AuthenticatedAdminStorefrontRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
-  AuthenticatedAdminVendorsRoute: typeof AuthenticatedAdminVendorsRoute
   AuthenticatedAdminWarrantyRoute: typeof AuthenticatedAdminWarrantyRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
@@ -870,7 +849,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminStockCountRoute: AuthenticatedAdminStockCountRoute,
   AuthenticatedAdminStorefrontRoute: AuthenticatedAdminStorefrontRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
-  AuthenticatedAdminVendorsRoute: AuthenticatedAdminVendorsRoute,
   AuthenticatedAdminWarrantyRoute: AuthenticatedAdminWarrantyRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }

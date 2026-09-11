@@ -27,7 +27,6 @@ import {
   segmentsRouter,
   storefrontRouter,
   onlineOrdersRouter,
-  vendorsRouter,
   warrantyRouter,
   deliveryRouter,
   shippingCompaniesRouter,
@@ -77,7 +76,6 @@ export const routeTable: [string, Router][] = [
   ['/api/v1/segments', segmentsRouter],
   ['/api/v1/storefront', storefrontRouter],
   ['/api/v1/online-orders', onlineOrdersRouter],
-  ['/api/v1/vendors', vendorsRouter],
   ['/api/v1/warranty', warrantyRouter],
 
   // Fulfillment Domain

@@ -66,7 +66,6 @@ export const endpointManifest: Record<string, EndpointManifestEntry> = {
   '/api/v1/segments': authenticated(['B', 'M']),
   '/api/v1/storefront': publicEntry(['B', 'P', 'M']),
   '/api/v1/online-orders': authenticated(['P', 'S', 'M']),
-  '/api/v1/vendors': authenticated(['P', 'M']),
   '/api/v1/warranty': authenticated(['P', 'M']),
   '/api/v1/delivery': authenticated(['P', 'S', 'M']),
   '/api/v1/shipping-companies': authenticated(['B', 'M']),
@@ -743,23 +742,6 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     path: '/api/v1/online-orders/:id/status',
     classification: 'M',
     authorization: adminOrDelivery,
-  },
-
-  // Commerce / Vendors
-  { method: 'GET', path: '/api/v1/vendors', classification: 'P', authorization: adminOnly },
-  { method: 'POST', path: '/api/v1/vendors', classification: 'M', authorization: adminOnly },
-  { method: 'PUT', path: '/api/v1/vendors/:id', classification: 'M', authorization: adminOnly },
-  {
-    method: 'GET',
-    path: '/api/v1/vendors/:id/payouts',
-    classification: 'P',
-    authorization: adminOnly,
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/vendors/:id/payouts',
-    classification: 'M',
-    authorization: adminOnly,
   },
 
   // Commerce / Warranty
