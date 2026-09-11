@@ -623,7 +623,7 @@ this module's paths.
 
 ---
 
-- [ ] **Unit 6: Rewire the Exports page to the CSV endpoints**
+- [x] **Unit 6: Rewire the Exports page to the CSV endpoints**
 
 **Goal:** Make the retained Exports page work against the endpoints that exist.
 
