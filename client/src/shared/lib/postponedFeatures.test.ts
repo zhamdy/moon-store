@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { POSTPONED_PATHS, isPostponedPath } from './postponedFeatures';
+import { BUNDLES_PATH, POSTPONED_PATHS, isPostponedPath } from './postponedFeatures';
 
 describe('isPostponedPath', () => {
   it.each(POSTPONED_PATHS)('is true for %s', (path) => {
     expect(isPostponedPath(path)).toBe(true);
+  });
+
+  it('is true for BUNDLES_PATH', () => {
+    expect(isPostponedPath(BUNDLES_PATH)).toBe(true);
   });
 
   it('is true for a sub-path of a postponed path', () => {
