@@ -1,7 +1,7 @@
 ---
 title: "refactor: Reduce Moon Store to the agreed MVP scope"
 type: refactor
-status: active
+status: completed
 date: 2026-09-11
 ---
 
@@ -866,7 +866,7 @@ search in Unit 10.
 
 ---
 
-- [ ] **Unit 10: Final verification, ratchet, API contract audit**
+- [x] **Unit 10: Final verification, ratchet, API contract audit**
 
 **Goal:** Prove R4, R5 and R9 across both halves, lower the lint ratchet, and produce the
 final report.
