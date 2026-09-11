@@ -1,13 +1,19 @@
 import { IExportsRepository, exportsRepository as defaultRepo } from './repository';
 import { ExportSalesFilters, CsvExportResult } from './types';
 
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+// node-postgres delivers NUMERIC columns as strings, so a plain decimal literal is still a number.
+const DECIMAL_LITERAL = /^-?\d+(\.\d+)?$/;
+
 export function escapeCsv(val: unknown): string {
   if (val === null || val === undefined) return '';
-  const str = String(val);
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-    return `"${str.replace(/"/g, '""')}"`;
+  let str = String(val);
+  let quote = /[",\n\r]/.test(str);
+  if (typeof val !== 'number' && FORMULA_TRIGGER.test(str) && !DECIMAL_LITERAL.test(str)) {
+    str = `'${str}`;
+    quote = true;
   }
-  return str;
+  return quote ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
 export function toCsv(headers: string[], rows: Record<string, unknown>[]): string {

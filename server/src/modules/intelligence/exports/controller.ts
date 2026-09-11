@@ -1,19 +1,23 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { exportSalesQuerySchema } from './types';
+import { CsvExportResult, exportSalesQuerySchema } from './types';
 import { exportsRequestContracts } from './schemas';
 import { exportsService } from './service';
 
 /** Parsed through the contracts, so the document and the validators cannot differ (#102). */
 const contracts = exportsRequestContracts;
 
+/** The BOM is what makes Excel read the file as UTF-8 rather than the system code page. */
+function sendCsv(res: Response, { csv, filename }: CsvExportResult): void {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+  res.send(`\uFEFF${csv}`);
+}
+
 export class ExportsController {
   async exportProducts(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { csv, filename } = await exportsService.exportProducts();
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-      res.send(csv);
+      sendCsv(res, await exportsService.exportProducts());
     } catch (err) {
       next(err);
     }
@@ -21,12 +25,12 @@ export class ExportsController {
 
   async exportSales(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { csv, filename } = await exportsService.exportSales(
-        contracts.exportSales.parseQuery<z.infer<typeof exportSalesQuerySchema>>(req.query)
+      sendCsv(
+        res,
+        await exportsService.exportSales(
+          contracts.exportSales.parseQuery<z.infer<typeof exportSalesQuerySchema>>(req.query)
+        )
       );
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-      res.send(csv);
     } catch (err) {
       next(err);
     }
@@ -34,10 +38,7 @@ export class ExportsController {
 
   async exportCustomers(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { csv, filename } = await exportsService.exportCustomers();
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
-      res.send(csv);
+      sendCsv(res, await exportsService.exportCustomers());
     } catch (err) {
       next(err);
     }
