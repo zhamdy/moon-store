@@ -120,30 +120,6 @@ export interface Bundle {
   created_at: string;
 }
 
-/** A pending price change from GET /api/v1/ai/pricing/suggestions. */
-export interface PriceSuggestion {
-  id: number;
-  product_id: number;
-  product_name: string;
-  sku: string;
-  current_price: number;
-  suggested_price: number;
-  reason: string;
-  confidence: number;
-  status: string;
-}
-
-/** A standing rule from GET /api/v1/ai/pricing/rules. */
-export interface PricingRule {
-  id: number;
-  name: string;
-  rule_type: string;
-  config: string;
-  priority: number;
-  is_active: number;
-  applies_to: string;
-}
-
 /** A stock count row from GET /api/v1/stock-counts, with its progress totals. */
 export interface StockCountSummary {
   id: number;

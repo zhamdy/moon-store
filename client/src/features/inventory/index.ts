@@ -11,7 +11,6 @@ export { default as Categories } from './pages/Categories';
 export { default as Collections } from './pages/Collections';
 export { default as StockCount } from './pages/StockCount';
 export { default as Bundles } from './pages/Bundles';
-export { default as SmartPricing } from './pages/SmartPricing';
 // BarcodeGenerator is deliberately NOT re-exported here: the only consumer
 // (features/pos/pages/BarcodeTools.tsx) imports it via a documented deep
 // import instead of the barrel. Keeping this export line, even unused by

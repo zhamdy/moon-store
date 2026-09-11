@@ -23,10 +23,8 @@ import { Route as AuthenticatedRegisterRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
 import { Route as AuthenticatedShiftsRouteImport } from './routes/_authenticated/shifts'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/_admin/index'
-import { Route as AuthenticatedAdminAiInsightsRouteImport } from './routes/_authenticated/_admin/ai-insights'
 import { Route as AuthenticatedAdminAnalyticsRouteImport } from './routes/_authenticated/_admin/analytics'
 import { Route as AuthenticatedAdminAuditLogRouteImport } from './routes/_authenticated/_admin/audit-log'
-import { Route as AuthenticatedAdminBackupRouteImport } from './routes/_authenticated/_admin/backup'
 import { Route as AuthenticatedAdminBranchesRouteImport } from './routes/_authenticated/_admin/branches'
 import { Route as AuthenticatedAdminBundlesRouteImport } from './routes/_authenticated/_admin/bundles'
 import { Route as AuthenticatedAdminCategoriesRouteImport } from './routes/_authenticated/_admin/categories'
@@ -40,10 +38,8 @@ import { Route as AuthenticatedAdminGiftCardsRouteImport } from './routes/_authe
 import { Route as AuthenticatedAdminOnlineOrdersRouteImport } from './routes/_authenticated/_admin/online-orders'
 import { Route as AuthenticatedAdminPromotionsRouteImport } from './routes/_authenticated/_admin/promotions'
 import { Route as AuthenticatedAdminPurchaseOrdersRouteImport } from './routes/_authenticated/_admin/purchase-orders'
-import { Route as AuthenticatedAdminReportBuilderRouteImport } from './routes/_authenticated/_admin/report-builder'
 import { Route as AuthenticatedAdminSegmentsRouteImport } from './routes/_authenticated/_admin/segments'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/_admin/settings'
-import { Route as AuthenticatedAdminSmartPricingRouteImport } from './routes/_authenticated/_admin/smart-pricing'
 import { Route as AuthenticatedAdminStockCountRouteImport } from './routes/_authenticated/_admin/stock-count'
 import { Route as AuthenticatedAdminStorefrontRouteImport } from './routes/_authenticated/_admin/storefront'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/_admin/users'
@@ -117,12 +113,6 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedAdminAiInsightsRoute =
-  AuthenticatedAdminAiInsightsRouteImport.update({
-    id: '/ai-insights',
-    path: '/ai-insights',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminAnalyticsRoute =
   AuthenticatedAdminAnalyticsRouteImport.update({
     id: '/analytics',
@@ -133,12 +123,6 @@ const AuthenticatedAdminAuditLogRoute =
   AuthenticatedAdminAuditLogRouteImport.update({
     id: '/audit-log',
     path: '/audit-log',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminBackupRoute =
-  AuthenticatedAdminBackupRouteImport.update({
-    id: '/backup',
-    path: '/backup',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminBranchesRoute =
@@ -219,12 +203,6 @@ const AuthenticatedAdminPurchaseOrdersRoute =
     path: '/purchase-orders',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminReportBuilderRoute =
-  AuthenticatedAdminReportBuilderRouteImport.update({
-    id: '/report-builder',
-    path: '/report-builder',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminSegmentsRoute =
   AuthenticatedAdminSegmentsRouteImport.update({
     id: '/segments',
@@ -235,12 +213,6 @@ const AuthenticatedAdminSettingsRoute =
   AuthenticatedAdminSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminSmartPricingRoute =
-  AuthenticatedAdminSmartPricingRouteImport.update({
-    id: '/smart-pricing',
-    path: '/smart-pricing',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminStockCountRoute =
@@ -280,10 +252,8 @@ export interface FileRoutesByFullPath {
   '/register': typeof AuthenticatedRegisterRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/shifts': typeof AuthenticatedShiftsRoute
-  '/ai-insights': typeof AuthenticatedAdminAiInsightsRoute
   '/analytics': typeof AuthenticatedAdminAnalyticsRoute
   '/audit-log': typeof AuthenticatedAdminAuditLogRoute
-  '/backup': typeof AuthenticatedAdminBackupRoute
   '/branches': typeof AuthenticatedAdminBranchesRoute
   '/bundles': typeof AuthenticatedAdminBundlesRoute
   '/categories': typeof AuthenticatedAdminCategoriesRoute
@@ -297,10 +267,8 @@ export interface FileRoutesByFullPath {
   '/online-orders': typeof AuthenticatedAdminOnlineOrdersRoute
   '/promotions': typeof AuthenticatedAdminPromotionsRoute
   '/purchase-orders': typeof AuthenticatedAdminPurchaseOrdersRoute
-  '/report-builder': typeof AuthenticatedAdminReportBuilderRoute
   '/segments': typeof AuthenticatedAdminSegmentsRoute
   '/settings': typeof AuthenticatedAdminSettingsRoute
-  '/smart-pricing': typeof AuthenticatedAdminSmartPricingRoute
   '/stock-count': typeof AuthenticatedAdminStockCountRoute
   '/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/users': typeof AuthenticatedAdminUsersRoute
@@ -319,10 +287,8 @@ export interface FileRoutesByTo {
   '/register': typeof AuthenticatedRegisterRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/shifts': typeof AuthenticatedShiftsRoute
-  '/ai-insights': typeof AuthenticatedAdminAiInsightsRoute
   '/analytics': typeof AuthenticatedAdminAnalyticsRoute
   '/audit-log': typeof AuthenticatedAdminAuditLogRoute
-  '/backup': typeof AuthenticatedAdminBackupRoute
   '/branches': typeof AuthenticatedAdminBranchesRoute
   '/bundles': typeof AuthenticatedAdminBundlesRoute
   '/categories': typeof AuthenticatedAdminCategoriesRoute
@@ -336,10 +302,8 @@ export interface FileRoutesByTo {
   '/online-orders': typeof AuthenticatedAdminOnlineOrdersRoute
   '/promotions': typeof AuthenticatedAdminPromotionsRoute
   '/purchase-orders': typeof AuthenticatedAdminPurchaseOrdersRoute
-  '/report-builder': typeof AuthenticatedAdminReportBuilderRoute
   '/segments': typeof AuthenticatedAdminSegmentsRoute
   '/settings': typeof AuthenticatedAdminSettingsRoute
-  '/smart-pricing': typeof AuthenticatedAdminSmartPricingRoute
   '/stock-count': typeof AuthenticatedAdminStockCountRoute
   '/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/users': typeof AuthenticatedAdminUsersRoute
@@ -360,10 +324,8 @@ export interface FileRoutesById {
   '/_authenticated/register': typeof AuthenticatedRegisterRoute
   '/_authenticated/sales': typeof AuthenticatedSalesRoute
   '/_authenticated/shifts': typeof AuthenticatedShiftsRoute
-  '/_authenticated/_admin/ai-insights': typeof AuthenticatedAdminAiInsightsRoute
   '/_authenticated/_admin/analytics': typeof AuthenticatedAdminAnalyticsRoute
   '/_authenticated/_admin/audit-log': typeof AuthenticatedAdminAuditLogRoute
-  '/_authenticated/_admin/backup': typeof AuthenticatedAdminBackupRoute
   '/_authenticated/_admin/branches': typeof AuthenticatedAdminBranchesRoute
   '/_authenticated/_admin/bundles': typeof AuthenticatedAdminBundlesRoute
   '/_authenticated/_admin/categories': typeof AuthenticatedAdminCategoriesRoute
@@ -377,10 +339,8 @@ export interface FileRoutesById {
   '/_authenticated/_admin/online-orders': typeof AuthenticatedAdminOnlineOrdersRoute
   '/_authenticated/_admin/promotions': typeof AuthenticatedAdminPromotionsRoute
   '/_authenticated/_admin/purchase-orders': typeof AuthenticatedAdminPurchaseOrdersRoute
-  '/_authenticated/_admin/report-builder': typeof AuthenticatedAdminReportBuilderRoute
   '/_authenticated/_admin/segments': typeof AuthenticatedAdminSegmentsRoute
   '/_authenticated/_admin/settings': typeof AuthenticatedAdminSettingsRoute
-  '/_authenticated/_admin/smart-pricing': typeof AuthenticatedAdminSmartPricingRoute
   '/_authenticated/_admin/stock-count': typeof AuthenticatedAdminStockCountRoute
   '/_authenticated/_admin/storefront': typeof AuthenticatedAdminStorefrontRoute
   '/_authenticated/_admin/users': typeof AuthenticatedAdminUsersRoute
@@ -402,10 +362,8 @@ export interface FileRouteTypes {
     | '/register'
     | '/sales'
     | '/shifts'
-    | '/ai-insights'
     | '/analytics'
     | '/audit-log'
-    | '/backup'
     | '/branches'
     | '/bundles'
     | '/categories'
@@ -419,10 +377,8 @@ export interface FileRouteTypes {
     | '/online-orders'
     | '/promotions'
     | '/purchase-orders'
-    | '/report-builder'
     | '/segments'
     | '/settings'
-    | '/smart-pricing'
     | '/stock-count'
     | '/storefront'
     | '/users'
@@ -441,10 +397,8 @@ export interface FileRouteTypes {
     | '/register'
     | '/sales'
     | '/shifts'
-    | '/ai-insights'
     | '/analytics'
     | '/audit-log'
-    | '/backup'
     | '/branches'
     | '/bundles'
     | '/categories'
@@ -458,10 +412,8 @@ export interface FileRouteTypes {
     | '/online-orders'
     | '/promotions'
     | '/purchase-orders'
-    | '/report-builder'
     | '/segments'
     | '/settings'
-    | '/smart-pricing'
     | '/stock-count'
     | '/storefront'
     | '/users'
@@ -481,10 +433,8 @@ export interface FileRouteTypes {
     | '/_authenticated/register'
     | '/_authenticated/sales'
     | '/_authenticated/shifts'
-    | '/_authenticated/_admin/ai-insights'
     | '/_authenticated/_admin/analytics'
     | '/_authenticated/_admin/audit-log'
-    | '/_authenticated/_admin/backup'
     | '/_authenticated/_admin/branches'
     | '/_authenticated/_admin/bundles'
     | '/_authenticated/_admin/categories'
@@ -498,10 +448,8 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin/online-orders'
     | '/_authenticated/_admin/promotions'
     | '/_authenticated/_admin/purchase-orders'
-    | '/_authenticated/_admin/report-builder'
     | '/_authenticated/_admin/segments'
     | '/_authenticated/_admin/settings'
-    | '/_authenticated/_admin/smart-pricing'
     | '/_authenticated/_admin/stock-count'
     | '/_authenticated/_admin/storefront'
     | '/_authenticated/_admin/users'
@@ -617,13 +565,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/_admin/ai-insights': {
-      id: '/_authenticated/_admin/ai-insights'
-      path: '/ai-insights'
-      fullPath: '/ai-insights'
-      preLoaderRoute: typeof AuthenticatedAdminAiInsightsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/_admin/analytics': {
       id: '/_authenticated/_admin/analytics'
       path: '/analytics'
@@ -636,13 +577,6 @@ declare module '@tanstack/react-router' {
       path: '/audit-log'
       fullPath: '/audit-log'
       preLoaderRoute: typeof AuthenticatedAdminAuditLogRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/_admin/backup': {
-      id: '/_authenticated/_admin/backup'
-      path: '/backup'
-      fullPath: '/backup'
-      preLoaderRoute: typeof AuthenticatedAdminBackupRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/_admin/branches': {
@@ -736,13 +670,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminPurchaseOrdersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/_admin/report-builder': {
-      id: '/_authenticated/_admin/report-builder'
-      path: '/report-builder'
-      fullPath: '/report-builder'
-      preLoaderRoute: typeof AuthenticatedAdminReportBuilderRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/_admin/segments': {
       id: '/_authenticated/_admin/segments'
       path: '/segments'
@@ -755,13 +682,6 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/_admin/smart-pricing': {
-      id: '/_authenticated/_admin/smart-pricing'
-      path: '/smart-pricing'
-      fullPath: '/smart-pricing'
-      preLoaderRoute: typeof AuthenticatedAdminSmartPricingRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/_admin/stock-count': {
@@ -796,10 +716,8 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAdminRouteChildren {
-  AuthenticatedAdminAiInsightsRoute: typeof AuthenticatedAdminAiInsightsRoute
   AuthenticatedAdminAnalyticsRoute: typeof AuthenticatedAdminAnalyticsRoute
   AuthenticatedAdminAuditLogRoute: typeof AuthenticatedAdminAuditLogRoute
-  AuthenticatedAdminBackupRoute: typeof AuthenticatedAdminBackupRoute
   AuthenticatedAdminBranchesRoute: typeof AuthenticatedAdminBranchesRoute
   AuthenticatedAdminBundlesRoute: typeof AuthenticatedAdminBundlesRoute
   AuthenticatedAdminCategoriesRoute: typeof AuthenticatedAdminCategoriesRoute
@@ -813,10 +731,8 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminOnlineOrdersRoute: typeof AuthenticatedAdminOnlineOrdersRoute
   AuthenticatedAdminPromotionsRoute: typeof AuthenticatedAdminPromotionsRoute
   AuthenticatedAdminPurchaseOrdersRoute: typeof AuthenticatedAdminPurchaseOrdersRoute
-  AuthenticatedAdminReportBuilderRoute: typeof AuthenticatedAdminReportBuilderRoute
   AuthenticatedAdminSegmentsRoute: typeof AuthenticatedAdminSegmentsRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
-  AuthenticatedAdminSmartPricingRoute: typeof AuthenticatedAdminSmartPricingRoute
   AuthenticatedAdminStockCountRoute: typeof AuthenticatedAdminStockCountRoute
   AuthenticatedAdminStorefrontRoute: typeof AuthenticatedAdminStorefrontRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
@@ -825,10 +741,8 @@ interface AuthenticatedAdminRouteChildren {
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
-  AuthenticatedAdminAiInsightsRoute: AuthenticatedAdminAiInsightsRoute,
   AuthenticatedAdminAnalyticsRoute: AuthenticatedAdminAnalyticsRoute,
   AuthenticatedAdminAuditLogRoute: AuthenticatedAdminAuditLogRoute,
-  AuthenticatedAdminBackupRoute: AuthenticatedAdminBackupRoute,
   AuthenticatedAdminBranchesRoute: AuthenticatedAdminBranchesRoute,
   AuthenticatedAdminBundlesRoute: AuthenticatedAdminBundlesRoute,
   AuthenticatedAdminCategoriesRoute: AuthenticatedAdminCategoriesRoute,
@@ -842,10 +756,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminOnlineOrdersRoute: AuthenticatedAdminOnlineOrdersRoute,
   AuthenticatedAdminPromotionsRoute: AuthenticatedAdminPromotionsRoute,
   AuthenticatedAdminPurchaseOrdersRoute: AuthenticatedAdminPurchaseOrdersRoute,
-  AuthenticatedAdminReportBuilderRoute: AuthenticatedAdminReportBuilderRoute,
   AuthenticatedAdminSegmentsRoute: AuthenticatedAdminSegmentsRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
-  AuthenticatedAdminSmartPricingRoute: AuthenticatedAdminSmartPricingRoute,
   AuthenticatedAdminStockCountRoute: AuthenticatedAdminStockCountRoute,
   AuthenticatedAdminStorefrontRoute: AuthenticatedAdminStorefrontRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,

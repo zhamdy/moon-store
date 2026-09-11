@@ -202,6 +202,22 @@ describe('TanStack Router Auth and Layout Guards', () => {
     });
   });
 
+  it.each(['/report-builder', '/smart-pricing', '/ai-insights', '/backup'])(
+    'sends Admin from the removed %s path to / via the catch-all',
+    async (removedPath) => {
+      const router = createTestRouter(removedPath, {
+        isAuthenticated: true,
+        user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+      });
+
+      render(<RouterProvider router={router} />);
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/');
+      });
+    }
+  );
+
   it('redirects Admin from /locations to the default route, since /branches is postponed', async () => {
     const router = createTestRouter('/locations', {
       isAuthenticated: true,
