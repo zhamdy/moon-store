@@ -776,7 +776,7 @@ before Unit 9.
 
 ---
 
-- [ ] **Unit 8: Regroup the Admin navigation**
+- [x] **Unit 8: Regroup the Admin navigation**
 
 **Goal:** Arrange the retained items into the six concern-based sections.
 
