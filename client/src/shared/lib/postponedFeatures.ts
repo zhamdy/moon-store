@@ -15,7 +15,6 @@
  * 3. Re-check `README.md` and `server/CLAUDE.md` for wording that still
  *    lists the feature as postponed.
  */
-// Named so POS's own bundles-fetch gating doesn't retype the path by hand.
 export const BUNDLES_PATH = '/bundles';
 
 export const POSTPONED_PATHS = [
