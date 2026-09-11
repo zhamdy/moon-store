@@ -4,3 +4,5 @@ server/db/moon.db
 server/db/moon.db-wal
 server/db/moon.db-shm
 package-lock.json
+# Written by the TanStack Router plugin in its own style; formatting it churns on every build.
+client/src/routeTree.gen.ts
