@@ -376,7 +376,7 @@ test. The rule is one editor per file; the units are otherwise independent.
 
 ## Implementation Units
 
-- [ ] **Unit 1: Postponed-feature registry and hiding**
+- [x] **Unit 1: Postponed-feature registry and hiding**
 
 **Goal:** Hide Branches (with Transfers), Bundles, Feedback, Online Orders, Storefront and
 Warranty from the sidebar, from direct URLs, and from the POS screen.
@@ -439,7 +439,7 @@ Warranty from the sidebar, from direct URLs, and from the POS screen.
 
 ---
 
-- [ ] **Unit 2: Remove Layaway**
+- [x] **Unit 2: Remove Layaway**
 
 **Goal:** Delete the Layaway client feature and server module. The tables become dormant.
 
@@ -494,7 +494,7 @@ OpenAPI and contracts in lockstep (#101, `docs/CONVENTIONS.md`).
 
 ---
 
-- [ ] **Unit 3: Remove Vendors / Consignment**
+- [x] **Unit 3: Remove Vendors / Consignment**
 
 **Goal:** Delete the vendors feature without touching distributors or purchase orders.
 
@@ -541,7 +541,7 @@ OpenAPI and contracts in lockstep (#101, `docs/CONVENTIONS.md`).
 
 ---
 
-- [ ] **Unit 4: Remove the dead client pages (Report Builder, Smart Pricing, AI Insights,
+- [x] **Unit 4: Remove the dead client pages (Report Builder, Smart Pricing, AI Insights,
   Backup)**
 
 **Goal:** Delete four pages whose every API call targets a nonexistent route.
@@ -582,7 +582,7 @@ OpenAPI and contracts in lockstep (#101, `docs/CONVENTIONS.md`).
 
 ---
 
-- [ ] **Unit 5: Delete the server `ai` module**
+- [x] **Unit 5: Delete the server `ai` module**
 
 **Goal:** Remove the consumerless heuristic endpoints that were presented as AI.
 
