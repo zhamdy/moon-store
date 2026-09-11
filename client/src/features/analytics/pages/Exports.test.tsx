@@ -68,6 +68,7 @@ const exportCalls = (calls: TransportRequest[]) =>
   calls.filter((call) => call.path === 'exports' || call.path.startsWith('exports/'));
 
 let downloads: string[];
+let connectedAtClick: boolean[];
 let createObjectURL: ReturnType<typeof vi.fn>;
 let revokeObjectURL: ReturnType<typeof vi.fn>;
 
@@ -78,6 +79,7 @@ beforeEach(() => {
   useSettingsStore.setState({ locale: 'en' });
 
   downloads = [];
+  connectedAtClick = [];
   createObjectURL = vi.fn(() => 'blob:moon-export');
   revokeObjectURL = vi.fn();
   Object.assign(URL, { createObjectURL, revokeObjectURL });
@@ -85,6 +87,7 @@ beforeEach(() => {
     this: HTMLAnchorElement
   ) {
     downloads.push(this.download);
+    connectedAtClick.push(this.isConnected);
   });
 });
 
@@ -105,7 +108,10 @@ describe('Exports page', () => {
       expect.objectContaining({ method: 'GET', path: 'exports/products', responseType: 'blob' }),
     ]);
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:moon-export');
+    expect(connectedAtClick).toEqual([true]);
+    expect(document.querySelector('a[download="moon-products-2026-09-11.csv"]')).toBeNull();
+    // The revoke is deferred with setTimeout, so it lands after click resolves.
+    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:moon-export'));
   });
 
   it('dates the filename by the local calendar, not UTC, just after midnight', async () => {

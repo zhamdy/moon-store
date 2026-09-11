@@ -29,8 +29,12 @@ export default function ExportsPage() {
       const now = new Date();
       const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       a.download = `moon-${selected}-${day}.csv`;
+      // Detached anchors can navigate to the blob URL instead of downloading (WebKit), so
+      // attach before clicking and revoke after the browser has had a turn to start the save.
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     },
     successMessage: t('exports.downloadedFile'),
     fallbackMessage: t('exports.downloadFailed'),
