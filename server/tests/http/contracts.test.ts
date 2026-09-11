@@ -1,4 +1,7 @@
 import { EventEmitter } from 'node:events';
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import express from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { success } from '../../src/http/responses';
@@ -189,6 +192,29 @@ describe('HTTP contract foundations', () => {
     response.status(204).end();
     expect(end).toHaveBeenCalledOnce();
     expect(json).not.toHaveBeenCalled();
+  });
+
+  it('answers a retired route group with the not-found envelope', async () => {
+    const app = express();
+    for (const [routePath, router] of routeTable) app.use(routePath, router);
+    // The same fallback index.ts installs after the route table. The request carries no
+    // token on purpose: a group that is still mounted answers 401, never 404.
+    app.use((_req: express.Request, res: express.Response) => {
+      res.status(404).json(errorResponse('NOT_FOUND'));
+    });
+    const server: Server = await new Promise((resolve) => {
+      const s = app.listen(0, '127.0.0.1', () => resolve(s));
+    });
+    try {
+      const { port } = server.address() as AddressInfo;
+      const response = await fetch(`http://127.0.0.1:${port}/api/v1/ai/forecast`);
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual(errorResponse('NOT_FOUND'));
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((err) => (err ? reject(err) : resolve()))
+      );
+    }
   });
 
   it('logs only sanitized diagnostics for uncaught errors', () => {

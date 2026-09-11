@@ -32,7 +32,6 @@ import { deliveryContractList } from '../modules/fulfillment/delivery/schemas';
 import { expensesContractList } from '../modules/fulfillment/expenses/schemas';
 import { purchaseOrdersContractList } from '../modules/fulfillment/purchaseOrders/schemas';
 import { shippingCompaniesContractList } from '../modules/fulfillment/shippingCompanies/schemas';
-import { aiContractList } from '../modules/intelligence/ai/schemas';
 import { analyticsContractList } from '../modules/intelligence/analytics/schemas';
 import { exportsContractList } from '../modules/intelligence/exports/schemas';
 import { notificationsContractList } from '../modules/intelligence/notifications/schemas';
@@ -97,7 +96,6 @@ export const requestContracts: readonly RequestContract[] = [
   ...shippingCompaniesContractList,
 
   // Intelligence
-  ...aiContractList,
   ...analyticsContractList,
   ...exportsContractList,
   ...notificationsContractList,

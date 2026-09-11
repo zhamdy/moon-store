@@ -35,7 +35,6 @@ import {
   analyticsRouter,
   reportsRouter,
   exportsRouter,
-  aiRouter,
   notificationsRouter,
 } from './modules';
 
@@ -88,6 +87,5 @@ export const routeTable: [string, Router][] = [
   ['/api/v1/analytics', analyticsRouter],
   ['/api/v1/reports', reportsRouter],
   ['/api/v1/exports', exportsRouter],
-  ['/api/v1/ai', aiRouter],
   ['/api/v1/notifications', notificationsRouter],
 ];

@@ -74,7 +74,6 @@ export const endpointManifest: Record<string, EndpointManifestEntry> = {
   '/api/v1/analytics': authenticated(['P', 'S', 'M']),
   '/api/v1/reports': authenticated(['S']),
   '/api/v1/exports': authenticated(['E']),
-  '/api/v1/ai': authenticated(['S', 'M']),
   '/api/v1/notifications': authenticated(['P', 'M']),
 };
 
@@ -982,23 +981,6 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     classification: 'E',
     authorization: adminOnly,
   },
-
-  // Intelligence / AI
-  { method: 'GET', path: '/api/v1/ai/forecast', classification: 'S', authorization: adminOnly },
-  {
-    method: 'GET',
-    path: '/api/v1/ai/recommendations',
-    classification: 'P',
-    authorization: adminOnly,
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/ai/pricing-suggestions',
-    classification: 'P',
-    authorization: adminOnly,
-  },
-  { method: 'GET', path: '/api/v1/ai/churn-risk', classification: 'P', authorization: adminOnly },
-  { method: 'GET', path: '/api/v1/ai/anomalies', classification: 'P', authorization: adminOnly },
 
   // Intelligence / Notifications
   {

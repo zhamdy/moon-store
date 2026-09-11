@@ -58,7 +58,7 @@ describe('API contract conformance guardrails', () => {
 
     // An exact count rather than a lower bound, so a new
     // route group cannot appear without someone deciding it should.
-    expect(mounts).toHaveLength(36);
+    expect(mounts).toHaveLength(35);
     expect(new Set(mounts).size).toBe(mounts.length);
     for (const mount of mounts) {
       expect(manifestSource).toContain(`'${mount}':`);
