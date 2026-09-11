@@ -200,6 +200,50 @@ describe('GET /api/v1/online-orders/:id', () => {
   });
 });
 
+describe('GET /api/v1/online-orders', () => {
+  it.each(NON_ADMIN)('refuses a %s token the order list', async (_role, token) => {
+    expectForbidden(await call('GET', '/api/v1/online-orders', token));
+  });
+
+  it('lets an Admin list orders', async () => {
+    const res = await call('GET', '/api/v1/online-orders', getAdminToken());
+
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('PUT /api/v1/online-orders/:id/status', () => {
+  let orderId: number;
+
+  beforeEach(async () => {
+    const created = await onlineOrdersService.createOrder({ ...order, shipping_fee: 0 });
+    orderId = created.id;
+  });
+
+  it.each(NON_ADMIN)('refuses a %s token and leaves the status unchanged', async (_role, token) => {
+    expectForbidden(
+      await call('PUT', `/api/v1/online-orders/${orderId}/status`, token, { status: 'processing' })
+    );
+
+    const { rows } = await testPool.query('SELECT status FROM online_orders WHERE id = $1', [
+      orderId,
+    ]);
+    expect(rows[0].status).toBe('pending');
+  });
+
+  it('lets an Admin update the status', async () => {
+    const res = await call('PUT', `/api/v1/online-orders/${orderId}/status`, getAdminToken(), {
+      status: 'processing',
+    });
+
+    expect(res.status).toBe(200);
+    const { rows } = await testPool.query('SELECT status FROM online_orders WHERE id = $1', [
+      orderId,
+    ]);
+    expect(rows[0].status).toBe('processing');
+  });
+});
+
 describe('/api/v1/reservations', () => {
   const hold = { product_id: 1, quantity: 1, source_type: 'cart', source_id: 'cart-1' };
 
