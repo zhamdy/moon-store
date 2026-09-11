@@ -2953,8 +2953,8 @@ export const openApiSpec = {
     '/api/v1/reservations': {
       post: {
         tags: ['POS Reservations'],
-        summary: 'Create / Submit Reservations (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
+        summary: 'Create / Submit Reservations (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -3012,8 +3012,8 @@ export const openApiSpec = {
     '/api/v1/reservations/{id}': {
       delete: {
         tags: ['POS Reservations'],
-        summary: 'Delete Reservations (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
+        summary: 'Delete Reservations (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -3071,8 +3071,8 @@ export const openApiSpec = {
     '/api/v1/reservations/source/{sourceId}': {
       delete: {
         tags: ['POS Reservations'],
-        summary: 'Delete Reservations (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
+        summary: 'Delete Reservations (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -7612,8 +7612,8 @@ export const openApiSpec = {
     '/api/v1/feedback': {
       post: {
         tags: ['Customer Feedback'],
-        summary: 'Create / Submit Customer Feedback (Admin, Cashier, Delivery)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier, Delivery.',
+        summary: 'Create / Submit Customer Feedback (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -8225,9 +8225,13 @@ export const openApiSpec = {
     '/api/v1/online-orders': {
       post: {
         tags: ['Online Orders'],
-        summary: 'Create / Submit Online Orders (Public)',
-        description: 'Endpoint classification: M. Allowed Roles: Public.',
-        security: [],
+        summary: 'Create / Submit Online Orders (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -8278,8 +8282,8 @@ export const openApiSpec = {
       },
       get: {
         tags: ['Online Orders'],
-        summary: 'List / Query Online Orders (Admin, Delivery)',
-        description: 'Endpoint classification: P. Allowed Roles: Admin, Delivery.',
+        summary: 'List / Query Online Orders (Admin)',
+        description: 'Endpoint classification: P. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -8326,8 +8330,8 @@ export const openApiSpec = {
     '/api/v1/online-orders/{id}': {
       get: {
         tags: ['Online Orders'],
-        summary: 'Get Online Orders by ID (Admin, Delivery)',
-        description: 'Endpoint classification: S. Allowed Roles: Admin, Delivery.',
+        summary: 'Get Online Orders by ID (Admin)',
+        description: 'Endpoint classification: S. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -8385,8 +8389,8 @@ export const openApiSpec = {
     '/api/v1/online-orders/{id}/status': {
       put: {
         tags: ['Online Orders'],
-        summary: 'Update Online Orders (Admin, Delivery)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Delivery.',
+        summary: 'Update Online Orders (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],

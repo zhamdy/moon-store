@@ -287,19 +287,19 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'POST',
     path: '/api/v1/reservations',
     classification: 'M',
-    authorization: adminOrCashier,
+    authorization: adminOnly,
   },
   {
     method: 'DELETE',
     path: '/api/v1/reservations/:id',
     classification: 'M',
-    authorization: adminOrCashier,
+    authorization: adminOnly,
   },
   {
     method: 'DELETE',
     path: '/api/v1/reservations/source/:sourceId',
     classification: 'M',
-    authorization: adminOrCashier,
+    authorization: adminOnly,
   },
 
   // Inventory / Products
@@ -680,7 +680,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'POST',
     path: '/api/v1/feedback',
     classification: 'M',
-    authorization: allAuthenticated,
+    authorization: adminOnly,
   },
   { method: 'GET', path: '/api/v1/feedback', classification: 'P', authorization: adminOnly },
 
@@ -723,24 +723,24 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
 
   // Commerce / Online Orders
-  { method: 'POST', path: '/api/v1/online-orders', classification: 'M', authorization: publicAuth },
+  { method: 'POST', path: '/api/v1/online-orders', classification: 'M', authorization: adminOnly },
   {
     method: 'GET',
     path: '/api/v1/online-orders',
     classification: 'P',
-    authorization: adminOrDelivery,
+    authorization: adminOnly,
   },
   {
     method: 'GET',
     path: '/api/v1/online-orders/:id',
     classification: 'S',
-    authorization: adminOrDelivery,
+    authorization: adminOnly,
   },
   {
     method: 'PUT',
     path: '/api/v1/online-orders/:id/status',
     classification: 'M',
-    authorization: adminOrDelivery,
+    authorization: adminOnly,
   },
 
   // Commerce / Warranty

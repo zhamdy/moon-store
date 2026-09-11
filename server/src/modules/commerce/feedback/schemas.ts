@@ -25,8 +25,8 @@ export const feedbackRequestContracts = {
     operation: 'createFeedback',
     body: feedbackSchema,
     beyondSchema: [
-      'Public: a shopper submits this without a token, which is why the rate limit is ' +
-        'the only thing standing between it and a flood of ratings.',
+      'Admin-only while the storefront is postponed. It reopens to shoppers only ' +
+        'together with a rate limit of its own, never as an anonymous write.',
     ],
   }),
 

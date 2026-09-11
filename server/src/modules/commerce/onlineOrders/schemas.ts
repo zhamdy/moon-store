@@ -40,7 +40,7 @@ export const onlineOrdersRequestContracts = {
     operation: 'createOnlineOrder',
     body: createOnlineOrderSchema,
     beyondSchema: [
-      'Public: a shopper places this without a token. Stock is RESERVED when the order ' +
+      'Admin-only while the storefront is postponed. Stock is RESERVED when the order ' +
         'is placed, not deducted: the units stay sellable at the till until the shop ' +
         'starts fulfilling. Moving the order to processing, shipped or delivered ' +
         'releases the hold and deducts the stock in one transaction.',
@@ -51,7 +51,7 @@ export const onlineOrdersRequestContracts = {
         'status that deducted it; a pending order never took its units off the shelf, ' +
         'so there is nothing to restore. A delivered order cannot be cancelled.',
       "Each line's `price` is accepted and ignored: the order is priced from the " +
-        'catalog, since a public endpoint cannot let a caller name its own price.',
+        'catalog, since a storefront endpoint cannot let a caller name its own price.',
       'An order for more units than are AVAILABLE — stock on hand minus what other ' +
         'online orders are already holding — is refused with a 409, naming how many ' +
         'remain.',
