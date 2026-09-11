@@ -1,5 +1,5 @@
 // Auto-generated Comprehensive OpenAPI 3.1.0 Specification
-// Covers all 200 system endpoints across all 38 modules for Scalar API Reference
+// Covers every served endpoint for Scalar API Reference
 
 export const openApiSpec = {
   openapi: '3.1.0',

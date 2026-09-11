@@ -155,7 +155,7 @@ test.describe('accessibility @smoke', () => {
     await scan(page, 'collections');
   });
 
-  // Bundles is postponed (MVP scope reduction, Unit 1): /bundles now redirects
+  // Bundles is postponed: /bundles now redirects
   // to the default route, so there is nothing to scan. Restore this scan per
   // the reactivation checklist in client/src/shared/lib/postponedFeatures.ts
   // when Bundles ships again.
