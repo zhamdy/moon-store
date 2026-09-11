@@ -692,7 +692,7 @@ from git history, not an import.
 
 ---
 
-- [ ] **Unit 7: Close the hidden modules' and reservations' access gaps**
+- [x] **Unit 7: Close the hidden modules' and reservations' access gaps**
 
 **Goal:** No unauthenticated caller can create online orders (which reserve stock) or
 feedback while those features are postponed. No non-Admin role can hold or release stock
