@@ -40,6 +40,48 @@ same object undoes the narrowing — `009` re-adds its own wider list. That is i
 what "replay migration N" means, not a bug in either file, and it is why
 `migration009.test.ts` replays both in order rather than only the one it is named for.
 
+## Dormant tables
+
+Fourteen tables belong to features removed from the application but not from the schema.
+
+| Removed feature | Tables |
+| --- | --- |
+| Layaway | `layaway_plans`, `layaway_items`, `layaway_payments` |
+| Vendors / consignment | `vendors`, `vendor_products`, `vendor_commissions`, `vendor_payouts`, `vendor_reviews` |
+| Report builder | `report_builder`, `saved_reports` |
+| AI module | `sales_predictions`, `ai_chat_sessions`, `ai_chat_messages`, `auto_descriptions` |
+
+No route reads or writes them. They are kept because production holds rows in them, and
+`vendor_payouts` and `layaway_payments` are financial history: a drop migration's down can
+recreate a table for `verify:migrations`, never its rows. They go in one dedicated
+migration once the production database has been reset — or, if the reset slips, after an
+export. That export holds vendor contact and tax data and customer payment history, so it
+belongs in access-controlled, encrypted storage with a named owner and a deletion date,
+never the repo or a shared drive. Until the drop, they stay in the seed `tablesToClear`
+list and in the e2e suite's table count.
+
+**Dormant is not inert.** `layaway_plans.customer_id` and `layaway_items.product_id`
+reference `customers` and `products` with no `ON DELETE` action, so deleting a customer or
+product that ever had a layaway plan fails on the foreign key — and nothing maps that
+error, so the caller gets an unmapped database error. That lasts until the drop.
+
+**Deploy preflight, only when deploying onto a database that still has layaway data.**
+Every plan not in a terminal state has taken a deposit and may hold deducted stock, and no
+screen can settle it any more. Before the deploy, list them with what each customer has
+paid:
+
+```sql
+SELECT plan_number, customer_id, status, total_amount,
+       total_amount - remaining_balance AS paid
+  FROM layaway_plans
+ WHERE status IS NULL OR status NOT IN ('completed', 'cancelled');
+```
+
+Pre-009 rows may carry other status spellings, hence the negative filter. The owner
+decides honour, refund or complete for each, and settles it on the release that still
+has layaway, recording any refund owed before the deploy. Cancelling a plan puts the stock
+back but records no refund. After a production reset there is nothing to settle.
+
 ## Rate-limit bucketing
 
 The global limiter is keyed on the **authenticated user**, not on the IP. Several tills
@@ -79,13 +121,13 @@ endpoint, or user returns `409` with the code `IDEMPOTENCY_KEY_REUSED`. Keys liv
 identify a *committed outcome* — a failed mutation releases its key, so a corrected retry
 under the same key runs normally.
 
-**`POST /api/v1/layaway/:id/pay` joined that set with #127.** An installment is money
-taken from a customer, so a retried request must not take it twice. Its claim shares the
+**`POST /api/v1/layaway/:id/pay` was in that set from #127 until layaway was removed**, and
+its design is the one to copy for any mutation that takes money. The claim shares the
 payment's transaction, which is what makes the pair atomic: the alternative — claiming in
 one transaction and paying in another — can leave a key recorded for a payment that
 rolled back, and the customer's retry is then answered with a replay of a payment that
-never happened. The plan id is part of the fingerprinted payload, so one key reused
-against a different plan conflicts rather than replaying this one's response.
+never happened. The plan id was part of the fingerprinted payload, so one key reused
+against a different plan conflicted rather than replaying the first plan's response.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -144,7 +186,8 @@ the wording. Services throw `PublicError` with one of the seven public codes, an
 controller's `catch` passes it to `next` unchanged.
 
 Before #47 this was inverted: services threw bare `Error`s and controllers recovered the
-status by testing the message. `layaway` chose 404 on `message.includes('not found')`, and
+status by testing the message. `layaway` (since removed) chose 404 on
+`message.includes('not found')`, and
 the checkout path had **eight** substring tests — one of them the bare word `'Bundle'`.
 That made every one of those strings part of the API without anyone declaring it, in both
 directions:
@@ -262,6 +305,28 @@ this server validates a response, so there is nothing to compare one against.
 `src/http/endpointManifest.ts` carries classification and authorization metadata that no
 schema knows — which roles may call an operation is not inferable from what it accepts.
 Keep it independent of contract conversion.
+
+Its authorization kinds are **unverified**: `check:api-docs` compares endpoint sets and
+request shapes, never authorization, and they have drifted from the middleware before.
+Feedback was `allAuthenticated` on a route with no auth at all, online-order reads were
+`adminOrDelivery` on Admin-only routes, and reservations were `adminOrCashier` on routes
+that only required a token. So a question like "which writes are public?" is answered by
+walking `routeTable` for `verifyToken`, not by reading the manifest. The last walk found
+exactly two — `POST /auth/login` and `POST /auth/refresh`, both deliberately public behind
+`authLimiter`.
+
+## Postponed modules: served, behind Admin
+
+Branches, bundles, feedback, online orders, storefront and warranty are hidden in the
+client but still mounted and documented here. The routes among them that were anonymous
+or open to any token — `POST /online-orders`, `GET /online-orders/:id`, `POST /feedback`
+and all three `/reservations` routes — are Admin-only while Storefront is postponed. An
+anonymous order reserves POS stock, and nothing a customer can reach needs one yet.
+
+Each gated route carries the lift rule in a comment: the gate lifts only when Storefront
+ships, and only together with a named abuse control — a rate limit, or a hold cap where
+stock is reserved. It must never go back to anonymous stock holds. `GET /storefront/banners`
+stays public because it is a read with no side effects.
 
 ## Scheduled jobs
 

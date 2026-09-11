@@ -28,13 +28,16 @@ dependency rules and diagrams: `docs/ARCHITECTURE.md`.
 |---|---|
 | `auth` | Login, session/auth store, route guard |
 | `pos` | Point of sale, register, shifts, cart, held carts |
-| `inventory` | Products, stock, categories, bundles, pricing |
-| `sales` | Sales history, promotions, gift cards, layaway |
-| `customers` | Customer records, feedback, segments |
-| `purchasing` | Distributors, vendors, expenses, purchase orders |
-| `fulfillment` | Deliveries, online orders, storefront |
-| `analytics` | Dashboard, reports, exports, AI insights |
-| `admin` | Users, settings, audit log, backup, branches |
+| `inventory` | Products, stock, categories, collections; bundles (postponed) |
+| `sales` | Sales history, promotions, gift cards |
+| `customers` | Customer records, segments; feedback and warranty (postponed) |
+| `purchasing` | Distributors, expenses, purchase orders |
+| `fulfillment` | Deliveries; online orders and storefront (postponed) |
+| `analytics` | Dashboard, advanced analytics, exports |
+| `admin` | Users, settings, audit log; branches (postponed) |
+
+A postponed feature keeps its code in its slice and is hidden by one list,
+`shared/lib/postponedFeatures.ts`; see `client/CLAUDE.md`.
 
 ### Where does a file go? (R5 placement checklist)
 

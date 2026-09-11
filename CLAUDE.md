@@ -79,7 +79,7 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 | Ratchet | Where | Today |
 | --- | --- | --- |
 | ESLint warnings | `--max-warnings` in `server/package.json` | `385`, essentially all `@typescript-eslint/no-explicit-any` |
-| Operations with no request contract | `EXPECTED_UNCONVERTED` in `server/src/docs/requestContracts.ts` | `3` of 204 — the health probes |
+| Operations with no request contract | `EXPECTED_UNCONVERTED` in `server/src/docs/requestContracts.ts` | `3` of 192 — the health probes |
 | Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
 
 **Never raise one. Lower it in the same commit that earns the reduction.** A ratchet left
@@ -210,9 +210,20 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   `saleItemSchema`, so `resolveBundleGroup` had never executed — while service-level tests
   that called past the schema passed the whole time. Test the boundary, not just the
   service (2026-09-09)
-- pg-mem reports `err.code` for a unique violation but **not** `err.constraint`. Logic that
-  narrows by constraint name — the document-number retry — can only be proven on real
-  PostgreSQL; on pg-mem the narrowed branch simply never runs (2026-09-09)
+- pg-mem diverges from PostgreSQL in ways a green suite hides, so anything that depends on
+  either difference is proven only on real PostgreSQL. It reports `err.code` for a unique
+  violation but **not** `err.constraint`, so logic that narrows by constraint name — the
+  document-number retry — never takes the narrowed branch there. And it returns `NUMERIC`
+  as a JS number, where node-postgres returns a string (`"-5.00"`); the repo sets no
+  `setTypeParser`, so a `typeof value === 'number'` branch behaves differently on each —
+  which is why the CSV formula guard exempts plain decimal strings (2026-09-09, 2026-09-11)
 - The cart line's `data-testid` is built from `lineKey`, and `e2e/support/locators.ts`
   rebuilds that same string by hand. Adding a segment to the key breaks every cart-line
   locator with no type error — seven smoke specs — so the two move together (2026-09-09)
+- Postponed features are hidden by one list, `client/src/shared/lib/postponedFeatures.ts`,
+  read by three consumers: the Sidebar filter, the `_admin` `beforeLoad` guard and the POS
+  Bundles strip. A hidden path redirects to the user's default route instead of 404ing, and
+  its code and tests stay compiled, so reactivating is a one-line removal plus the checklist
+  in the file's header. The removed features' 14 tables stay dormant, with no drop, until
+  the production reset or an export: some hold financial history, and a down migration can
+  recreate a table but not its rows. See `server/CLAUDE.md` → *Dormant tables* (2026-09-11)
