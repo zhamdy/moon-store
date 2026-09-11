@@ -39,6 +39,10 @@ describe('escapeCsv', () => {
     ['+', '+SUM(A1:A9)', `"'+SUM(A1:A9)"`],
     ['-', '-cmd|calc', `"'-cmd|calc"`],
     ['@', '@SUM(A1)', `"'@SUM(A1)"`],
+    ['a space before =', ' =HYPERLINK("x")', `"' =HYPERLINK(""x"")"`],
+    ['whitespace before +', '  +1+1', `"'  +1+1"`],
+    ['|', '|cmd|calc', `"'|cmd|calc"`],
+    ['a space before |', ' |cmd', `"' |cmd"`],
     ['tab', '\t=1+1', `"'\t=1+1"`],
     ['CR', '\r=1+1', `"'\r=1+1"`],
   ])('prefixes and quotes a cell starting with %s', (_label, input, expected) => {
@@ -50,6 +54,7 @@ describe('escapeCsv', () => {
     ['a negative fractional JS number', -2.5, '-2.5'],
     ['a NUMERIC string', '-5.00', '-5.00'],
     ['an integer string', '-5', '-5'],
+    ['a space-led plain value', ' Silk Dress', ' Silk Dress'],
   ])('leaves %s unprefixed', (_label, input, expected) => {
     expect(escapeCsv(input)).toBe(expected);
   });

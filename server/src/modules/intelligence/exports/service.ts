@@ -1,7 +1,8 @@
 import { IExportsRepository, exportsRepository as defaultRepo } from './repository';
 import { ExportSalesFilters, CsvExportResult } from './types';
 
-const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+// Excel skips leading whitespace before a formula, and a leading `|` opens a DDE call.
+const FORMULA_TRIGGER = /^(?:[\t\r]|\s*[=+\-@|])/;
 // node-postgres delivers NUMERIC columns as strings, so a plain decimal literal is still a number.
 const DECIMAL_LITERAL = /^-?\d+(\.\d+)?$/;
 
