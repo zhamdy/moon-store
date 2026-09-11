@@ -37,6 +37,13 @@ describe('Sidebar navigation', () => {
 
     const users = await screen.findAllByText(/Users/i);
     expect(users.length).toBeGreaterThan(0);
+
+    expect(screen.queryByText(/Branches/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Bundles/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Feedback/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Online Orders/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Storefront/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Warranty/i)).not.toBeInTheDocument();
   });
 
   it('renders only permitted items for Cashier user', async () => {
@@ -57,6 +64,12 @@ describe('Sidebar navigation', () => {
     expect(posItems.length).toBeGreaterThan(0);
     expect(screen.queryByText(/Users/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Settings/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Branches/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Bundles/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Feedback/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Online Orders/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Storefront/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Warranty/i)).not.toBeInTheDocument();
   });
 
   it('calls logout when logout button is clicked', async () => {

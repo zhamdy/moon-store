@@ -29,6 +29,7 @@ import { useTransport } from '../../../shared/lib/transport/index';
 import { useTranslation } from '../../../shared/i18n/index';
 import type { Product, ProductVariant } from '../../../shared/types/index';
 import { assetUrl } from '../../../shared/lib/apiBase';
+import { isPostponedPath } from '../../../shared/lib/postponedFeatures';
 
 /**
  * Where uploaded product images are served from. The transport owns request
@@ -393,8 +394,10 @@ export default function POS() {
             </div>
           )}
 
-          {/* Bundles section */}
-          {bundles && bundles.length > 0 && products && (
+          {/* Bundles section. Postponed (Unit 1): the strip stays hidden even
+              if `bundles` somehow carries data, since handleBundleClick and
+              cart plumbing must keep working for historical/priced lines. */}
+          {!isPostponedPath('/bundles') && bundles && bundles.length > 0 && products && (
             <div className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <Gift className="h-3.5 w-3.5 text-primary" /> {t('pos.bundles')}

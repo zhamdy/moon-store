@@ -155,13 +155,10 @@ test.describe('accessibility @smoke', () => {
     await scan(page, 'collections');
   });
 
-  test('the bundles grid has no high-impact violations', async ({ adminContext }) => {
-    const page = await adminContext.newPage();
-    await page.goto('/bundles');
-    await expect(page.getByRole('heading', { name: /bundles/i }).first()).toBeVisible();
-
-    await scan(page, 'bundles');
-  });
+  // Bundles is postponed (MVP scope reduction, Unit 1): /bundles now redirects
+  // to the default route, so there is nothing to scan. Restore this scan per
+  // the reactivation checklist in client/src/shared/lib/postponedFeatures.ts
+  // when Bundles ships again.
 
   test('the inventory table has no high-impact violations', async ({ adminContext }) => {
     const page = await adminContext.newPage();

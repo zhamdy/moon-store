@@ -154,6 +154,35 @@ describe('TanStack Router Auth and Layout Guards', () => {
     });
   });
 
+  it.each(['/branches', '/bundles', '/feedback', '/online-orders', '/storefront', '/warranty'])(
+    'redirects Admin from postponed path %s to the default route',
+    async (postponedPath) => {
+      const router = createTestRouter(postponedPath, {
+        isAuthenticated: true,
+        user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+      });
+
+      render(<RouterProvider router={router} />);
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/');
+      });
+    }
+  );
+
+  it('redirects Admin from /locations to the default route, since /branches is postponed', async () => {
+    const router = createTestRouter('/locations', {
+      isAuthenticated: true,
+      user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+    });
+
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/');
+    });
+  });
+
   it('redirects /locations to /branches via beforeLoad', async () => {
     const { Route: LocationsRoute } = await import('../locations');
     try {

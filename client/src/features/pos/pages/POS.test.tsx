@@ -185,3 +185,46 @@ describe('POS customer-display broadcasting', () => {
     });
   });
 });
+
+describe('Bundles, postponed', () => {
+  beforeEach(() => {
+    useSettingsStore.setState({ locale: 'en' });
+    useOfflineStore.setState({ queue: [], isSyncing: false });
+    useHeldCartsStore.setState({ carts: [] });
+    useCartStore.setState({
+      items: [],
+      discount: 0,
+      discountType: 'fixed',
+      notes: '',
+      tip: 0,
+      couponCode: '',
+      couponDiscount: 0,
+      needsReview: false,
+    });
+  });
+
+  it('issues no bundles request and shows no bundles strip, even for an active bundle', async () => {
+    const transport = makeTransport({
+      bundles: [
+        {
+          id: 1,
+          name: 'Summer Set',
+          description: null,
+          price: 100,
+          status: 'active',
+          items: [],
+          original_price: 150,
+          savings: 50,
+          savings_percent: 33,
+        },
+      ],
+    });
+
+    render(<POS />, { wrapper: wrapperFor(transport) });
+
+    expect(await screen.findByText('Silk Dress')).toBeInTheDocument();
+    expect(transport.calls().some((call) => call.path === 'bundles')).toBe(false);
+    expect(screen.queryByText('Summer Set')).not.toBeInTheDocument();
+    expect(screen.queryByText(/bundles/i)).not.toBeInTheDocument();
+  });
+});

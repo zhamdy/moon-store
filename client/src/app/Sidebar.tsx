@@ -48,6 +48,7 @@ import {
 import { useAuthStore } from '../features/auth/store/authStore';
 import { useTranslation } from '../shared/i18n/index';
 import { useTransport } from '../shared/lib/transport/index';
+import { isPostponedPath } from '../shared/lib/postponedFeatures';
 import moonLogo from '../shared/assets/moon-logo.svg';
 
 interface NavItem {
@@ -159,7 +160,9 @@ export default function Sidebar({
   const renderNavContent = (onItemClick?: () => void) => (
     <nav className="flex-1 p-3 space-y-4 overflow-y-auto" aria-label={t('nav.mainNav')}>
       {navSections.map((section) => {
-        const visibleItems = section.items.filter((item) => item.roles.includes(userRole));
+        const visibleItems = section.items.filter(
+          (item) => item.roles.includes(userRole) && !isPostponedPath(item.to)
+        );
         if (visibleItems.length === 0) return null;
 
         return (
