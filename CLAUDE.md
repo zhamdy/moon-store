@@ -78,7 +78,7 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 
 | Ratchet | Where | Today |
 | --- | --- | --- |
-| ESLint warnings | `--max-warnings` in `server/package.json` | `385`, essentially all `@typescript-eslint/no-explicit-any` |
+| ESLint warnings | `--max-warnings` in `server/package.json` | `384`, essentially all `@typescript-eslint/no-explicit-any` |
 | Operations with no request contract | `EXPECTED_UNCONVERTED` in `server/src/docs/requestContracts.ts` | `3` of 192 — the health probes |
 | Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
 
@@ -86,7 +86,7 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 above the true count has silently stopped ratcheting, which is why the contract one is an
 exact count rather than a ceiling and fails in both directions. The lint number exists
 because errors were already fatal while warnings gated nothing, so nothing stopped the
-next `any` from landing; it has gone 391 → 385, and lowering it further is #47's work.
+next `any` from landing; it has gone 391 → 385 → 384, and lowering it further is #47's work.
 
 The two contract numbers answer different questions on purpose. `EXPECTED_UNCONVERTED`
 counts what is *derived* and moves only on real conversion; `EXPECTED_UNCLASSIFIED` counts
