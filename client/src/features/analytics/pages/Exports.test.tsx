@@ -49,7 +49,7 @@ const downloadButton = () => screen.getByRole('button', { name: /download/i });
 const downloadButtonAfterChoosing = () =>
   screen.getByRole('button', { name: /download/i, hidden: true });
 
-const sourceTrigger = () => screen.getByRole('button', { name: /module/i });
+const sourceTrigger = () => screen.getByRole('button', { name: /data/i });
 
 async function openSources() {
   fireEvent.click(sourceTrigger());
