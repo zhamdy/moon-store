@@ -1,5 +1,5 @@
 /**
- * Postponed-feature registry (MVP scope reduction, Unit 1).
+ * Postponed-feature registry.
  *
  * Branches (with Transfers), Bundles, Feedback, Online Orders, Storefront and
  * Warranty are shipped features whose code is retained but must be
@@ -11,9 +11,9 @@
  * Reactivation checklist, per feature removed from this list:
  * 1. Delete its entry from `POSTPONED_PATHS` below.
  * 2. Restore its accessibility scan in `e2e/specs/a11y.spec.ts` (removed for
- *    `/bundles` when this registry was introduced).
- * 3. Re-check `README.md` and `server/CLAUDE.md` for stale "postponed"
- *    wording introduced by this same change.
+ *    `/bundles` while it is postponed).
+ * 3. Re-check `README.md` and `server/CLAUDE.md` for wording that still
+ *    lists the feature as postponed.
  */
 export const POSTPONED_PATHS = [
   '/branches',
