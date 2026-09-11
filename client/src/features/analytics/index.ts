@@ -8,6 +8,4 @@
 
 export { default as Dashboard } from './pages/Dashboard';
 export { default as Exports } from './pages/Exports';
-export { default as ReportBuilder } from './pages/ReportBuilder';
-export { default as AiInsights } from './pages/AiInsights';
 export { default as AdvancedAnalytics } from './pages/AdvancedAnalytics';

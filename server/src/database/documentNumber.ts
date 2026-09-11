@@ -1,7 +1,7 @@
 /**
  * Allocating a human-facing document number that a UNIQUE index will accept.
  *
- * Delivery orders, purchase orders, layaway plans and online orders all name themselves
+ * Delivery orders, purchase orders and online orders all name themselves
  * `PREFIX-YYYYMMDD-NNNN` with a random suffix, and every one of those columns carries a
  * UNIQUE index. Nothing checked whether the number was free, so a same-day collision
  * surfaced as an unmapped SQLSTATE 23505 and the caller got a 500 for a create that was

@@ -4,6 +4,17 @@ Subsystem contracts for the React SPA. These load when you work under `client/`;
 always-loaded root `CLAUDE.md` holds the project-wide rules, including the `features/`
 placement checklist.
 
+## Postponed features
+
+Branches (with Transfers), Bundles, Feedback, Online Orders, Storefront and Warranty are
+hidden, not deleted. `shared/lib/postponedFeatures.ts` is the one list, and three
+consumers read it: the Sidebar filter; the `_admin` `beforeLoad` guard, which redirects a
+hidden path or any sub-path of one to the user's default route; and the POS screen, which
+neither fetches nor renders the Bundles strip. Pages, routes and tests stay compiled, and
+bundle pricing at checkout (`bundle_id` on a sale line) is untouched. Reactivate a feature
+by following the checklist in the file's header; a new check reads the list rather than
+copying it.
+
 ## Offline queue
 
 The queue in `localStorage` is replayed by `client/src/shared/hooks/useOffline.ts`. A failed

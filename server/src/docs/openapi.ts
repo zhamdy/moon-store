@@ -1,5 +1,5 @@
 // Auto-generated Comprehensive OpenAPI 3.1.0 Specification
-// Covers all 200 system endpoints across all 38 modules for Scalar API Reference
+// Covers every served endpoint for Scalar API Reference
 
 export const openApiSpec = {
   openapi: '3.1.0',
@@ -51,10 +51,6 @@ export const openApiSpec = {
     {
       name: 'POS Exchanges',
       description: 'Product exchanges & returns',
-    },
-    {
-      name: 'POS Layaway',
-      description: 'Layaway plans & installments',
     },
     {
       name: 'POS Reservations',
@@ -117,10 +113,6 @@ export const openApiSpec = {
       description: 'E-commerce orders & status tracking',
     },
     {
-      name: 'Vendors',
-      description: 'Brand vendors & suppliers',
-    },
-    {
       name: 'Warranty',
       description: 'Item warranty tracking & claims',
     },
@@ -155,10 +147,6 @@ export const openApiSpec = {
     {
       name: 'Exports',
       description: 'Data export in CSV / Excel formats',
-    },
-    {
-      name: 'AI Insights',
-      description: 'AI inventory and revenue predictions',
     },
     {
       name: 'Notifications',
@@ -2962,315 +2950,11 @@ export const openApiSpec = {
         },
       },
     },
-    '/api/v1/layaway': {
-      post: {
-        tags: ['POS Layaway'],
-        summary: 'Create / Submit Layaway (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                additionalProperties: true,
-              },
-            },
-          },
-        },
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-      get: {
-        tags: ['POS Layaway'],
-        summary: 'List / Query Layaway (Admin, Cashier)',
-        description: 'Endpoint classification: P. Allowed Roles: Admin, Cashier.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/layaway/{id}': {
-      get: {
-        tags: ['POS Layaway'],
-        summary: 'Get Layaway by ID (Admin, Cashier)',
-        description: 'Endpoint classification: S. Allowed Roles: Admin, Cashier.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'integer',
-            },
-            description: 'Target id',
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/layaway/{id}/pay': {
-      post: {
-        tags: ['POS Layaway'],
-        summary: 'Create / Submit Layaway (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'integer',
-            },
-            description: 'Target id',
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                additionalProperties: true,
-              },
-            },
-          },
-        },
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/layaway/{id}/cancel': {
-      post: {
-        tags: ['POS Layaway'],
-        summary: 'Create / Submit Layaway (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'integer',
-            },
-            description: 'Target id',
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                additionalProperties: true,
-              },
-            },
-          },
-        },
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
     '/api/v1/reservations': {
       post: {
         tags: ['POS Reservations'],
-        summary: 'Create / Submit Reservations (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
+        summary: 'Create / Submit Reservations (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -3328,8 +3012,8 @@ export const openApiSpec = {
     '/api/v1/reservations/{id}': {
       delete: {
         tags: ['POS Reservations'],
-        summary: 'Delete Reservations (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
+        summary: 'Delete Reservations (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -3387,8 +3071,8 @@ export const openApiSpec = {
     '/api/v1/reservations/source/{sourceId}': {
       delete: {
         tags: ['POS Reservations'],
-        summary: 'Delete Reservations (Admin, Cashier)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier.',
+        summary: 'Delete Reservations (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -7928,8 +7612,8 @@ export const openApiSpec = {
     '/api/v1/feedback': {
       post: {
         tags: ['Customer Feedback'],
-        summary: 'Create / Submit Customer Feedback (Admin, Cashier, Delivery)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Cashier, Delivery.',
+        summary: 'Create / Submit Customer Feedback (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -8541,9 +8225,13 @@ export const openApiSpec = {
     '/api/v1/online-orders': {
       post: {
         tags: ['Online Orders'],
-        summary: 'Create / Submit Online Orders (Public)',
-        description: 'Endpoint classification: M. Allowed Roles: Public.',
-        security: [],
+        summary: 'Create / Submit Online Orders (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -8594,8 +8282,8 @@ export const openApiSpec = {
       },
       get: {
         tags: ['Online Orders'],
-        summary: 'List / Query Online Orders (Admin, Delivery)',
-        description: 'Endpoint classification: P. Allowed Roles: Admin, Delivery.',
+        summary: 'List / Query Online Orders (Admin)',
+        description: 'Endpoint classification: P. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -8642,8 +8330,8 @@ export const openApiSpec = {
     '/api/v1/online-orders/{id}': {
       get: {
         tags: ['Online Orders'],
-        summary: 'Get Online Orders by ID (Admin, Delivery)',
-        description: 'Endpoint classification: S. Allowed Roles: Admin, Delivery.',
+        summary: 'Get Online Orders by ID (Admin)',
+        description: 'Endpoint classification: S. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],
@@ -8701,309 +8389,7 @@ export const openApiSpec = {
     '/api/v1/online-orders/{id}/status': {
       put: {
         tags: ['Online Orders'],
-        summary: 'Update Online Orders (Admin, Delivery)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin, Delivery.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'integer',
-            },
-            description: 'Target id',
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                additionalProperties: true,
-              },
-            },
-          },
-        },
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/vendors': {
-      get: {
-        tags: ['Vendors'],
-        summary: 'List / Query Vendors (Admin)',
-        description: 'Endpoint classification: P. Allowed Roles: Admin.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-      post: {
-        tags: ['Vendors'],
-        summary: 'Create / Submit Vendors (Admin)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                additionalProperties: true,
-              },
-            },
-          },
-        },
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/vendors/{id}': {
-      put: {
-        tags: ['Vendors'],
-        summary: 'Update Vendors (Admin)',
-        description: 'Endpoint classification: M. Allowed Roles: Admin.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'integer',
-            },
-            description: 'Target id',
-          },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                additionalProperties: true,
-              },
-            },
-          },
-        },
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/vendors/{id}/payouts': {
-      get: {
-        tags: ['Vendors'],
-        summary: 'List / Query Vendors (Admin)',
-        description: 'Endpoint classification: P. Allowed Roles: Admin.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        parameters: [
-          {
-            name: 'id',
-            in: 'path',
-            required: true,
-            schema: {
-              type: 'integer',
-            },
-            description: 'Target id',
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-      post: {
-        tags: ['Vendors'],
-        summary: 'Create / Submit Vendors (Admin)',
+        summary: 'Update Online Orders (Admin)',
         description: 'Endpoint classification: M. Allowed Roles: Admin.',
         security: [
           {
@@ -11603,246 +10989,6 @@ export const openApiSpec = {
         tags: ['Exports'],
         summary: 'Export Exports data (Admin)',
         description: 'Endpoint classification: E. Allowed Roles: Admin.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/ai/forecast': {
-      get: {
-        tags: ['AI Insights'],
-        summary: 'List / Query AI Insights (Admin)',
-        description: 'Endpoint classification: S. Allowed Roles: Admin.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/ai/recommendations': {
-      get: {
-        tags: ['AI Insights'],
-        summary: 'List / Query AI Insights (Admin)',
-        description: 'Endpoint classification: P. Allowed Roles: Admin.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/ai/pricing-suggestions': {
-      get: {
-        tags: ['AI Insights'],
-        summary: 'List / Query AI Insights (Admin)',
-        description: 'Endpoint classification: P. Allowed Roles: Admin.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/ai/churn-risk': {
-      get: {
-        tags: ['AI Insights'],
-        summary: 'List / Query AI Insights (Admin)',
-        description: 'Endpoint classification: P. Allowed Roles: Admin.',
-        security: [
-          {
-            BearerAuth: [],
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Successful operation',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: {
-                      type: 'boolean',
-                      example: true,
-                    },
-                    data: {
-                      type: 'object',
-                    },
-                  },
-                },
-              },
-            },
-          },
-          '400': {
-            description: 'Validation error / Bad request',
-          },
-          '401': {
-            description: 'Unauthorized / Missing or invalid token',
-          },
-          '403': {
-            description: 'Forbidden / Insufficient role privileges',
-          },
-          '404': {
-            description: 'Resource not found',
-          },
-          '500': {
-            description: 'Internal server error',
-          },
-        },
-      },
-    },
-    '/api/v1/ai/anomalies': {
-      get: {
-        tags: ['AI Insights'],
-        summary: 'List / Query AI Insights (Admin)',
-        description: 'Endpoint classification: P. Allowed Roles: Admin.',
         security: [
           {
             BearerAuth: [],

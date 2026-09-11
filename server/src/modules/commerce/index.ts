@@ -6,5 +6,4 @@ export * from './feedback';
 export * from './segments';
 export * from './storefront';
 export * from './onlineOrders';
-export * from './vendors';
 export * from './warranty';

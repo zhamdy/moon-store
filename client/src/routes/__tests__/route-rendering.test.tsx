@@ -149,7 +149,7 @@ describe('Route rendering and access control', () => {
       expect(router.state.location.pathname).toBe('/pos');
     });
   });
-it('allows Admin to access collections (/collections)', async () => {
+  it('allows Admin to access collections (/collections)', async () => {
     const router = createTestRouter('/collections', {
       isAuthenticated: true,
       user: adminUser,
@@ -175,7 +175,7 @@ it('allows Admin to access collections (/collections)', async () => {
     });
   });
 
-  it('allows Admin to access warranty (/warranty)', async () => {
+  it('redirects Admin from warranty (/warranty) to the default route, since it is postponed', async () => {
     const router = createTestRouter('/warranty', {
       isAuthenticated: true,
       user: adminUser,
@@ -184,7 +184,7 @@ it('allows Admin to access collections (/collections)', async () => {
     render(<RouterProvider router={router} />);
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/warranty');
+      expect(router.state.location.pathname).toBe('/');
     });
   });
 

@@ -9,7 +9,6 @@ import {
   registerRouter,
   shiftsRouter,
   exchangesRouter,
-  layawayRouter,
   reservationsRouter,
   cleanupExpiredReservations,
   productsRouter,
@@ -28,7 +27,6 @@ import {
   segmentsRouter,
   storefrontRouter,
   onlineOrdersRouter,
-  vendorsRouter,
   warrantyRouter,
   deliveryRouter,
   shippingCompaniesRouter,
@@ -37,7 +35,6 @@ import {
   analyticsRouter,
   reportsRouter,
   exportsRouter,
-  aiRouter,
   notificationsRouter,
 } from './modules';
 
@@ -57,7 +54,6 @@ export const routeTable: [string, Router][] = [
   ['/api/v1/register', registerRouter],
   ['/api/v1/shifts', shiftsRouter],
   ['/api/v1/exchanges', exchangesRouter],
-  ['/api/v1/layaway', layawayRouter],
   ['/api/v1/reservations', reservationsRouter],
 
   // Inventory Domain
@@ -79,7 +75,6 @@ export const routeTable: [string, Router][] = [
   ['/api/v1/segments', segmentsRouter],
   ['/api/v1/storefront', storefrontRouter],
   ['/api/v1/online-orders', onlineOrdersRouter],
-  ['/api/v1/vendors', vendorsRouter],
   ['/api/v1/warranty', warrantyRouter],
 
   // Fulfillment Domain
@@ -92,6 +87,5 @@ export const routeTable: [string, Router][] = [
   ['/api/v1/analytics', analyticsRouter],
   ['/api/v1/reports', reportsRouter],
   ['/api/v1/exports', exportsRouter],
-  ['/api/v1/ai', aiRouter],
   ['/api/v1/notifications', notificationsRouter],
 ];

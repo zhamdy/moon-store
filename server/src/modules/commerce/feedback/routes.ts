@@ -4,8 +4,11 @@ import { feedbackController } from './controller';
 
 const router: Router = Router();
 
-// POST /api/feedback — Submit customer feedback (public or POS)
-router.post('/', (req, res, next) => feedbackController.submitFeedback(req, res, next));
+// POST /api/feedback — Submit customer feedback (Admin)
+// Admin-only until Storefront ships; lift only with a named abuse control (a rate limit), never back to anonymous writes.
+router.post('/', verifyToken, requireRole('Admin'), (req, res, next) =>
+  feedbackController.submitFeedback(req, res, next)
+);
 
 // GET /api/feedback — List feedback (Admin)
 router.get('/', verifyToken, requireRole('Admin'), (req, res, next) =>

@@ -154,6 +154,83 @@ describe('TanStack Router Auth and Layout Guards', () => {
     });
   });
 
+  it.each(['/branches', '/bundles', '/feedback', '/online-orders', '/storefront', '/warranty'])(
+    'redirects Admin from postponed path %s to the default route',
+    async (postponedPath) => {
+      const router = createTestRouter(postponedPath, {
+        isAuthenticated: true,
+        user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+      });
+
+      render(<RouterProvider router={router} />);
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/');
+      });
+    }
+  );
+
+  it.each([
+    { role: 'Admin', expected: '/' },
+    { role: 'Cashier', expected: '/pos' },
+  ] as const)(
+    'sends $role from the removed /layaway path to $expected via the catch-all',
+    async ({ role, expected }) => {
+      const router = createTestRouter('/layaway', {
+        isAuthenticated: true,
+        user: { id: 1, name: role, email: `${role.toLowerCase()}@moon.com`, role },
+      });
+
+      render(<RouterProvider router={router} />);
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe(expected);
+      });
+    }
+  );
+
+  it('sends Admin from the removed /vendors path to / via the catch-all', async () => {
+    const router = createTestRouter('/vendors', {
+      isAuthenticated: true,
+      user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+    });
+
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/');
+    });
+  });
+
+  it.each(['/report-builder', '/smart-pricing', '/ai-insights', '/backup'])(
+    'sends Admin from the removed %s path to / via the catch-all',
+    async (removedPath) => {
+      const router = createTestRouter(removedPath, {
+        isAuthenticated: true,
+        user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+      });
+
+      render(<RouterProvider router={router} />);
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/');
+      });
+    }
+  );
+
+  it('redirects Admin from /locations to the default route, since /branches is postponed', async () => {
+    const router = createTestRouter('/locations', {
+      isAuthenticated: true,
+      user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+    });
+
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/');
+    });
+  });
+
   it('redirects /locations to /branches via beforeLoad', async () => {
     const { Route: LocationsRoute } = await import('../locations');
     try {

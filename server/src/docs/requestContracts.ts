@@ -32,7 +32,6 @@ import { deliveryContractList } from '../modules/fulfillment/delivery/schemas';
 import { expensesContractList } from '../modules/fulfillment/expenses/schemas';
 import { purchaseOrdersContractList } from '../modules/fulfillment/purchaseOrders/schemas';
 import { shippingCompaniesContractList } from '../modules/fulfillment/shippingCompanies/schemas';
-import { aiContractList } from '../modules/intelligence/ai/schemas';
 import { analyticsContractList } from '../modules/intelligence/analytics/schemas';
 import { exportsContractList } from '../modules/intelligence/exports/schemas';
 import { notificationsContractList } from '../modules/intelligence/notifications/schemas';
@@ -44,10 +43,8 @@ import { storeCreditContractList } from '../modules/commerce/storeCredit/schemas
 import { onlineOrdersContractList } from '../modules/commerce/onlineOrders/schemas';
 import { segmentsContractList } from '../modules/commerce/segments/schemas';
 import { storefrontContractList } from '../modules/commerce/storefront/schemas';
-import { vendorsContractList } from '../modules/commerce/vendors/schemas';
 import { warrantyContractList } from '../modules/commerce/warranty/schemas';
 import { exchangesContractList } from '../modules/pos/exchanges/schemas';
-import { layawayContractList } from '../modules/pos/layaway/schemas';
 import { registerContractList } from '../modules/pos/register/schemas';
 import { reservationsContractList } from '../modules/pos/reservations/schemas';
 import { salesContractList } from '../modules/pos/sales/schemas';
@@ -76,7 +73,6 @@ export const requestContracts: readonly RequestContract[] = [
 
   // POS
   ...exchangesContractList,
-  ...layawayContractList,
   ...registerContractList,
   ...reservationsContractList,
   ...salesContractList,
@@ -91,7 +87,6 @@ export const requestContracts: readonly RequestContract[] = [
   ...onlineOrdersContractList,
   ...segmentsContractList,
   ...storefrontContractList,
-  ...vendorsContractList,
   ...warrantyContractList,
 
   // Fulfillment
@@ -101,7 +96,6 @@ export const requestContracts: readonly RequestContract[] = [
   ...shippingCompaniesContractList,
 
   // Intelligence
-  ...aiContractList,
   ...analyticsContractList,
   ...exportsContractList,
   ...notificationsContractList,

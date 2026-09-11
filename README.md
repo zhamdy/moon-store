@@ -4,7 +4,7 @@
 
 **نظام نقاط البيع للأزياء والموضة**
 
-A full-stack, bilingual (Arabic/English) Point of Sale system built for fashion retail — from a single boutique to multi-branch operations.
+A full-stack, bilingual (Arabic/English) Point of Sale system built for fashion retail.
 
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
@@ -19,7 +19,12 @@ A full-stack, bilingual (Arabic/English) Point of Sale system built for fashion 
 
 ## ✨ Features
 
-### 🛒 Point of Sale
+Three lists, because not everything in the codebase is in the product: what ships, what is
+built but hidden until later, and what was taken out.
+
+### ✅ MVP
+
+#### 🛒 Point of Sale
 - Fast barcode scanning (camera + manual entry)
 - Product search with variant picker (size, color)
 - Multi-payment support (cash, card, split)
@@ -27,61 +32,79 @@ A full-stack, bilingual (Arabic/English) Point of Sale system built for fashion 
 - Refunds and exchanges
 - Register sessions with cash-in/out tracking
 - Shift management (clock-in, breaks, clock-out)
+- Customer-facing display
 
-### 📦 Inventory
+#### 📦 Inventory
 - Full product catalog with SKU & barcode generation
 - Product variants (size, color, custom attributes)
-- Categories, collections, and product bundles
-- Smart pricing rules and price history
+- Categories and collections
 - Stock counts with variance reporting
 - Stock adjustments with reason logging
 - Low-stock alerts and ABC classification
-- Label/barcode printing templates
+- Barcode label printing
 
-### 💰 Sales & Promotions
+#### 💰 Sales & Promotions
 - Sales history with detailed receipts
-- Promotions & discount rules engine
-- Coupon management (percentage, fixed, BOGO)
+- Coupon promotions (percentage or fixed amount)
 - Gift cards (issue, redeem, track balance)
-- Layaway plans with scheduled payments
-- Customer loyalty points system
 
-### 👥 Customers
+#### 👥 Customers
 - Customer database with purchase history
 - Loyalty points (earn & redeem)
 - Customer segments for targeted marketing
-- Feedback collection and product reviews
 
-### 🚚 Fulfillment & Purchasing
+#### 🚚 Fulfillment & Purchasing
 - Delivery tracking with status timeline
-- Online order management
-- Storefront configuration
-- Purchase orders for distributor restocking
-- Vendor management with commissions and reviews
+- Purchase orders for distributor restocking, through to receiving stock
 - Expense tracking by category
 - Shipping company management
 
-### 📊 Analytics & Intelligence
+#### 📊 Analytics & Reporting
 - Real-time dashboard with KPI widgets
 - Sales by category & distributor charts
 - Cashier performance metrics
-- Custom report builder with saved reports
-- CSV/PDF export for any chart or full dashboard
-- AI chat assistant for business insights
-- Sales predictions and auto product descriptions
+- Advanced analytics: ABC classification, dead stock, customer lifetime value, sales heatmap
+- CSV/PDF export of the dashboard
+- CSV downloads of products, sales and customers
+- Predefined sales, inventory and profit-and-loss reports — **API only**
+  (`GET /api/v1/reports/sales|inventory|profit-loss`, Admin); there is no screen for them
 
-### ⚙️ Administration
+#### ⚙️ Administration
 - Role-based access control (Admin, Cashier, Delivery)
-- Multi-branch support with inter-store transfers
 - System-wide settings (currency, tax/VAT, locale)
 - Audit log for all user actions
-- Notification center (low-stock, sale alerts)
-- Data backup management
+- Notification center (low-stock, new-sale alerts)
 
-### 🌐 Bilingual & RTL
+#### 🌐 Bilingual & RTL
 - Full Arabic (العربية) and English UI
 - Right-to-left layout support
 - Tajawal typography for Arabic readability
+
+### ⏸️ Postponed (hidden)
+
+Built, but held back from the MVP. Their code, routes and API are kept; they are hidden
+from navigation, and their URLs redirect. The list lives in
+`client/src/shared/lib/postponedFeatures.ts`, whose header holds the reactivation checklist.
+
+- Branches, with inter-store transfers
+- Bundles (the sales API still prices bundle lines; only the POS bundle strip is hidden)
+- Customer feedback and product reviews
+- Online orders
+- Storefront configuration
+- Warranty claims
+
+### 🗑️ Removed
+
+- Layaway plans
+- Vendor management and consignment
+- Custom report builder
+- Smart pricing rules
+- AI insights (chat assistant, sales predictions, auto product descriptions) and the
+  server's `/ai/*` API
+- Backup page
+
+Their database tables remain, unused, until a dedicated migration drops them — see
+*Dormant tables* in [`server/CLAUDE.md`](server/CLAUDE.md).
 
 ---
 
@@ -113,15 +136,15 @@ moon-store/
 │   └── src/
 │       ├── app/                # Shell, providers, composition root
 │       ├── features/           # 9 domain slices
-│       │   ├── admin/          #   Users, settings, audit, branches
-│       │   ├── analytics/      #   Dashboard, reports, exports, AI
+│       │   ├── admin/          #   Users, settings, audit log (branches: postponed)
+│       │   ├── analytics/      #   Dashboard, advanced analytics, exports
 │       │   ├── auth/           #   Login, session store, route guard
-│       │   ├── customers/      #   Customer records, segments, feedback
-│       │   ├── fulfillment/    #   Deliveries, online orders, storefront
-│       │   ├── inventory/      #   Products, stock, categories, bundles
+│       │   ├── customers/      #   Customer records, segments (feedback, warranty: postponed)
+│       │   ├── fulfillment/    #   Deliveries (online orders, storefront: postponed)
+│       │   ├── inventory/      #   Products, stock, categories, collections (bundles: postponed)
 │       │   ├── pos/            #   Register, cart, shifts, barcode tools
-│       │   ├── purchasing/     #   Vendors, expenses, purchase orders
-│       │   └── sales/          #   History, promotions, gift cards, layaway
+│       │   ├── purchasing/     #   Distributors, expenses, purchase orders
+│       │   └── sales/          #   History, promotions, gift cards
 │       ├── routes/             # TanStack file-based route definitions
 │       └── shared/             # Components, hooks, i18n, types, utils
 │
@@ -131,16 +154,16 @@ moon-store/
 │       ├── database/           # Pool, migrations, seed data
 │       └── modules/            # 6 domain groups
 │           ├── core/           #   Auth, users, settings, audit, branches
-│           ├── commerce/       #   Customers, coupons, gift cards, vendors
+│           ├── commerce/       #   Customers, coupons, gift cards, store credit
 │           ├── fulfillment/    #   Delivery, expenses, purchase orders
-│           ├── intelligence/   #   Analytics, reports, AI, notifications
-│           ├── inventory/      #   Products, categories, bundles, stock
+│           ├── intelligence/   #   Analytics, reports, exports, notifications
+│           ├── inventory/      #   Products, categories, distributors, stock
 │           └── pos/            #   Sales, register, shifts, exchanges
 │
 └── docs/                       # Architecture docs & plans
 ```
 
-Each server module follows a **5-file pattern**: `types.ts` → `repository.ts` → `service.ts` → `controller.ts` → `routes.ts`
+Each server module follows a **6-file pattern**: `types.ts` → `schemas.ts` → `repository.ts` → `service.ts` → `controller.ts` → `routes.ts`
 
 ---
 
@@ -254,7 +277,7 @@ Open **http://localhost:5173** in your browser.
 ## 🧪 Testing
 
 ```bash
-# Client tests (148 tests, 21 suites)
+# Client tests
 cd client && npm test
 
 # Server tests (database pool, migrations, seeds, transactions)
@@ -276,13 +299,14 @@ the legacy tables and columns in a single transaction. Back up production before
 deploying and set the Render dashboard Start Command to match `render.yaml`.
 Stop application writes during this upgrade: old code cannot use renamed tables
 or columns after it commits. A failed deployment can leave the old instance running.
-Verify favorites, notifications, bundles, segments, layaway, distributors and
-collections after deployment. Do not clear `_migrations` or run production seeding.
+Verify favorites, notifications, bundles, segments, distributors and collections
+after deployment. Do not clear `_migrations` or run production seeding.
 
 The repair retains legacy data, renames bundle/layaway tables in place (preserving
 foreign keys), and imports serialized layaway items with explicit product IDs,
 quantities and `unit_price` or `price`. Ambiguous tables or malformed items abort the
-transaction. Legacy notifications without an owner remain unassigned; the repair
+transaction. Layaway has since been removed from the application; its tables stay in the
+schema, dormant. Legacy notifications without an owner remain unassigned; the repair
 does not invent user ownership. Older exchange detail and transfer tables remain
 available for historical reconciliation. Migration 009 has no destructive rollback;
 restore the pre-upgrade backup with its matching release if rollback is required.
