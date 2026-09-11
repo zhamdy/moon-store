@@ -817,7 +817,7 @@ before Unit 9.
 
 ---
 
-- [ ] **Unit 9: Documentation**
+- [x] **Unit 9: Documentation**
 
 **Goal:** Make the docs tell the truth about active, hidden and removed features, and
 record what is dormant and why.
