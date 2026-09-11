@@ -26,7 +26,9 @@ export default function ExportsPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `moon-${selected}-${new Date().toISOString().split('T')[0]}.csv`;
+      const now = new Date();
+      const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      a.download = `moon-${selected}-${day}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     },

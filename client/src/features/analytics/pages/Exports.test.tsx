@@ -108,6 +108,15 @@ describe('Exports page', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:moon-export');
   });
 
+  it('dates the filename by the local calendar, not UTC, just after midnight', async () => {
+    vi.setSystemTime(new Date(2026, 8, 12, 0, 30));
+    renderExports(csvTransport());
+
+    fireEvent.click(downloadButton());
+
+    await waitFor(() => expect(downloads).toEqual(['moon-products-2026-09-12.csv']));
+  });
+
   it.each([
     ['Sales', 'sales'],
     ['Customers', 'customers'],
