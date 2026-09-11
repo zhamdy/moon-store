@@ -227,3 +227,9 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   in the file's header. The removed features' 14 tables stay dormant, with no drop, until
   the production reset or an export: some hold financial history, and a down migration can
   recreate a table but not its rows. See `server/CLAUDE.md` → *Dormant tables* (2026-09-11)
+- An e2e run deletes the tracked images in `server/uploads`: global setup empties every table,
+  then the API Playwright starts runs `orphaned-media-cleanup`, which finds no `image_url`
+  references and removes everything older than its 24h grace from the default
+  `MEDIA_LOCAL_ROOT` — the real `server/uploads`. The sweep is right for production; the
+  harness points it at the wrong root. Until the harness sets a scratch root, run
+  `git restore server/uploads` after an e2e run (2026-09-11)
