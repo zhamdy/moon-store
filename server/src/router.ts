@@ -9,7 +9,6 @@ import {
   registerRouter,
   shiftsRouter,
   exchangesRouter,
-  layawayRouter,
   reservationsRouter,
   cleanupExpiredReservations,
   productsRouter,
@@ -57,7 +56,6 @@ export const routeTable: [string, Router][] = [
   ['/api/v1/register', registerRouter],
   ['/api/v1/shifts', shiftsRouter],
   ['/api/v1/exchanges', exchangesRouter],
-  ['/api/v1/layaway', layawayRouter],
   ['/api/v1/reservations', reservationsRouter],
 
   // Inventory Domain

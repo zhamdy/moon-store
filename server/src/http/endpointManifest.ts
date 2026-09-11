@@ -49,7 +49,6 @@ export const endpointManifest: Record<string, EndpointManifestEntry> = {
   '/api/v1/register': authenticated(['P', 'S', 'M']),
   '/api/v1/shifts': authenticated(['P', 'S', 'M']),
   '/api/v1/exchanges': authenticated(['P', 'S', 'M']),
-  '/api/v1/layaway': authenticated(['P', 'S', 'M']),
   '/api/v1/reservations': authenticated(['M']),
   '/api/v1/products': authenticated(['P', 'B', 'S', 'M']),
   '/api/v1/categories': authenticated(['B', 'M']),
@@ -282,28 +281,6 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'GET',
     path: '/api/v1/exchanges/:id',
     classification: 'S',
-    authorization: adminOrCashier,
-  },
-
-  // POS / Layaway
-  { method: 'POST', path: '/api/v1/layaway', classification: 'M', authorization: adminOrCashier },
-  { method: 'GET', path: '/api/v1/layaway', classification: 'P', authorization: adminOrCashier },
-  {
-    method: 'GET',
-    path: '/api/v1/layaway/:id',
-    classification: 'S',
-    authorization: adminOrCashier,
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/layaway/:id/pay',
-    classification: 'M',
-    authorization: adminOrCashier,
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/layaway/:id/cancel',
-    classification: 'M',
     authorization: adminOrCashier,
   },
 

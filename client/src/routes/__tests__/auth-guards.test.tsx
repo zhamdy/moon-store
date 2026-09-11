@@ -170,6 +170,25 @@ describe('TanStack Router Auth and Layout Guards', () => {
     }
   );
 
+  it.each([
+    { role: 'Admin', expected: '/' },
+    { role: 'Cashier', expected: '/pos' },
+  ] as const)(
+    'sends $role from the removed /layaway path to $expected via the catch-all',
+    async ({ role, expected }) => {
+      const router = createTestRouter('/layaway', {
+        isAuthenticated: true,
+        user: { id: 1, name: role, email: `${role.toLowerCase()}@moon.com`, role },
+      });
+
+      render(<RouterProvider router={router} />);
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe(expected);
+      });
+    }
+  );
+
   it('redirects Admin from /locations to the default route, since /branches is postponed', async () => {
     const router = createTestRouter('/locations', {
       isAuthenticated: true,

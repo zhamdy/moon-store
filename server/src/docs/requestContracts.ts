@@ -47,7 +47,6 @@ import { storefrontContractList } from '../modules/commerce/storefront/schemas';
 import { vendorsContractList } from '../modules/commerce/vendors/schemas';
 import { warrantyContractList } from '../modules/commerce/warranty/schemas';
 import { exchangesContractList } from '../modules/pos/exchanges/schemas';
-import { layawayContractList } from '../modules/pos/layaway/schemas';
 import { registerContractList } from '../modules/pos/register/schemas';
 import { reservationsContractList } from '../modules/pos/reservations/schemas';
 import { salesContractList } from '../modules/pos/sales/schemas';
@@ -76,7 +75,6 @@ export const requestContracts: readonly RequestContract[] = [
 
   // POS
   ...exchangesContractList,
-  ...layawayContractList,
   ...registerContractList,
   ...reservationsContractList,
   ...salesContractList,

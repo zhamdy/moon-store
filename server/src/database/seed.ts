@@ -59,6 +59,7 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       'exchange_returned_items',
       'exchange_items',
       'exchanges',
+      // Layaway was removed; its tables stay dormant until a drop migration retires them.
       'layaway_payments',
       'layaway_items',
       'layaway_plans',

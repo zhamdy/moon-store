@@ -18,7 +18,6 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedBarcodeRouteImport } from './routes/_authenticated/barcode'
 import { Route as AuthenticatedDeliveriesRouteImport } from './routes/_authenticated/deliveries'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
-import { Route as AuthenticatedLayawayRouteImport } from './routes/_authenticated/layaway'
 import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
 import { Route as AuthenticatedRegisterRouteImport } from './routes/_authenticated/register'
 import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
@@ -92,11 +91,6 @@ const AuthenticatedDeliveriesRoute = AuthenticatedDeliveriesRouteImport.update({
 const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedLayawayRoute = AuthenticatedLayawayRouteImport.update({
-  id: '/layaway',
-  path: '/layaway',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedPosRoute = AuthenticatedPosRouteImport.update({
@@ -289,7 +283,6 @@ export interface FileRoutesByFullPath {
   '/barcode': typeof AuthenticatedBarcodeRoute
   '/deliveries': typeof AuthenticatedDeliveriesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
-  '/layaway': typeof AuthenticatedLayawayRoute
   '/pos': typeof AuthenticatedPosRoute
   '/register': typeof AuthenticatedRegisterRoute
   '/sales': typeof AuthenticatedSalesRoute
@@ -330,7 +323,6 @@ export interface FileRoutesByTo {
   '/barcode': typeof AuthenticatedBarcodeRoute
   '/deliveries': typeof AuthenticatedDeliveriesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
-  '/layaway': typeof AuthenticatedLayawayRoute
   '/pos': typeof AuthenticatedPosRoute
   '/register': typeof AuthenticatedRegisterRoute
   '/sales': typeof AuthenticatedSalesRoute
@@ -373,7 +365,6 @@ export interface FileRoutesById {
   '/_authenticated/barcode': typeof AuthenticatedBarcodeRoute
   '/_authenticated/deliveries': typeof AuthenticatedDeliveriesRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
-  '/_authenticated/layaway': typeof AuthenticatedLayawayRoute
   '/_authenticated/pos': typeof AuthenticatedPosRoute
   '/_authenticated/register': typeof AuthenticatedRegisterRoute
   '/_authenticated/sales': typeof AuthenticatedSalesRoute
@@ -417,7 +408,6 @@ export interface FileRouteTypes {
     | '/barcode'
     | '/deliveries'
     | '/inventory'
-    | '/layaway'
     | '/pos'
     | '/register'
     | '/sales'
@@ -458,7 +448,6 @@ export interface FileRouteTypes {
     | '/barcode'
     | '/deliveries'
     | '/inventory'
-    | '/layaway'
     | '/pos'
     | '/register'
     | '/sales'
@@ -500,7 +489,6 @@ export interface FileRouteTypes {
     | '/_authenticated/barcode'
     | '/_authenticated/deliveries'
     | '/_authenticated/inventory'
-    | '/_authenticated/layaway'
     | '/_authenticated/pos'
     | '/_authenticated/register'
     | '/_authenticated/sales'
@@ -605,13 +593,6 @@ declare module '@tanstack/react-router' {
       path: '/inventory'
       fullPath: '/inventory'
       preLoaderRoute: typeof AuthenticatedInventoryRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/layaway': {
-      id: '/_authenticated/layaway'
-      path: '/layaway'
-      fullPath: '/layaway'
-      preLoaderRoute: typeof AuthenticatedLayawayRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/pos': {
@@ -902,7 +883,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBarcodeRoute: typeof AuthenticatedBarcodeRoute
   AuthenticatedDeliveriesRoute: typeof AuthenticatedDeliveriesRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
-  AuthenticatedLayawayRoute: typeof AuthenticatedLayawayRoute
   AuthenticatedPosRoute: typeof AuthenticatedPosRoute
   AuthenticatedRegisterRoute: typeof AuthenticatedRegisterRoute
   AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
@@ -914,7 +894,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBarcodeRoute: AuthenticatedBarcodeRoute,
   AuthenticatedDeliveriesRoute: AuthenticatedDeliveriesRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
-  AuthenticatedLayawayRoute: AuthenticatedLayawayRoute,
   AuthenticatedPosRoute: AuthenticatedPosRoute,
   AuthenticatedRegisterRoute: AuthenticatedRegisterRoute,
   AuthenticatedSalesRoute: AuthenticatedSalesRoute,
