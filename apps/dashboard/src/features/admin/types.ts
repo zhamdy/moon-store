@@ -28,7 +28,8 @@ export interface Branch {
   manager_id: number | null;
   currency: string;
   tax_rate: number;
-  is_primary: number;
+  /** `branches.is_main INTEGER`, sent as 0/1 with no cast; read it truthily. */
+  is_main: number;
   product_count: number;
   total_stock: number;
   opening_hours: string | null;
@@ -57,6 +58,6 @@ export interface ConsolidatedBranch {
   id: number;
   name: string;
   code: string;
-  is_main: number | boolean;
+  is_main: number;
   stats: { products: number; stock: number };
 }

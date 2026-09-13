@@ -83,7 +83,7 @@ describe('Branches manager selector', () => {
           name: 'Zamalek Store',
           type: 'Store',
           status: 'active',
-          is_primary: 0,
+          is_main: 0,
           product_count: 0,
         },
       ],
@@ -110,7 +110,7 @@ describe('Branches manager selector', () => {
           name: 'Heliopolis Store',
           type: 'Store',
           status: 'inactive',
-          is_primary: 0,
+          is_main: 0,
           product_count: 0,
         },
       ],
@@ -121,6 +121,40 @@ describe('Branches manager selector', () => {
     expect(
       screen.queryByRole('button', { name: 'Heliopolis Store: Deactivate' })
     ).not.toBeInTheDocument();
+  });
+
+  /**
+   * Issue #188: the page read `is_primary`, a field the server never sends, so the main
+   * branch offered a Deactivate the server refuses with 409. Rows below mirror
+   * `BranchRepository.findAllWithInventory`, where `is_main` is the raw INTEGER column.
+   */
+  it('offers no deactivate action on the main branch and marks it as primary', async () => {
+    const row = {
+      code: '',
+      address: null,
+      phone: null,
+      currency: 'EGP',
+      status: 'active',
+      created_at: '2026-09-01T00:00:00.000Z',
+      updated_at: '2026-09-01T00:00:00.000Z',
+      product_count: 0,
+      total_stock: 0,
+    };
+    const transport = createMemoryTransport({
+      branches: [
+        { ...row, id: 1, name: 'Maadi Store', code: 'MAADI', is_main: 1 },
+        { ...row, id: 2, name: 'Zamalek Store', code: 'ZMLK', is_main: 0 },
+      ],
+    });
+    render(<BranchesPage />, { wrapper: wrapperFor(transport) });
+
+    expect(
+      await screen.findByRole('button', { name: 'Zamalek Store: Deactivate' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Maadi Store: Deactivate' })
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText('Primary')).toHaveLength(1);
   });
 
   /**
