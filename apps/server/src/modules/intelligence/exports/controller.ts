@@ -25,14 +25,26 @@ export class ExportsController {
 
   async exportSales(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      sendCsv(
-        res,
-        await exportsService.exportSales(
-          contracts.exportSales.parseQuery<z.infer<typeof exportSalesQuerySchema>>(req.query)
-        )
+      const filters = contracts.exportSales.parseQuery<z.infer<typeof exportSalesQuerySchema>>(
+        req.query
       );
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=${exportsService.salesExportFilename()}`
+      );
+      for await (const chunk of exportsService.exportSalesChunks(filters)) {
+        res.write(chunk);
+      }
+      res.end();
     } catch (err) {
-      next(err);
+      // Headers (and possibly rows) may already be on the wire once streaming starts, so the
+      // response can no longer carry an error status — end the connection rather than hang it.
+      if (res.headersSent) {
+        res.end();
+      } else {
+        next(err);
+      }
     }
   }
 
