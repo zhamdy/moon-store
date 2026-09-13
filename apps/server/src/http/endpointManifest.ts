@@ -137,7 +137,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   { method: 'DELETE', path: '/api/v1/users/:id', classification: 'M', authorization: adminOnly },
 
   // Core / Settings
-  { method: 'GET', path: '/api/v1/settings', classification: 'S', authorization: adminOnly },
+  { method: 'GET', path: '/api/v1/settings', classification: 'S', authorization: adminOrCashier },
   { method: 'PUT', path: '/api/v1/settings', classification: 'M', authorization: adminOnly },
 
   // Core / Audit Log
@@ -1035,24 +1035,9 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
  * loosened just to make the gate pass. `npm run check:route-auth` fails on an
  * under-protected route missing from this list and on an entry that no longer applies.
  */
-export const UNDER_PROTECTED_ROUTES: readonly { key: string; reason: string }[] = [
-  {
-    key: 'GET /api/v1/settings',
-    reason: 'Token-only; manifest says Admin. POS checkout reads tax/loyalty settings as Cashier.',
-  },
-  {
-    key: 'GET /api/v1/sales/:id',
-    reason: 'Token-only; manifest says Admin+Cashier. A Delivery token can read any sale.',
-  },
-  {
-    key: 'GET /api/v1/exchanges',
-    reason: 'Token-only; manifest says Admin+Cashier. A Delivery token can list exchanges.',
-  },
-  {
-    key: 'GET /api/v1/exchanges/:id',
-    reason: 'Token-only; manifest says Admin+Cashier. A Delivery token can read any exchange.',
-  },
-];
+// Empty since the 2026-09-13 owner decision gated GET /settings, GET /sales/:id,
+// GET /exchanges and GET /exchanges/:id to Admin + Cashier. An entry here needs the owner.
+export const UNDER_PROTECTED_ROUTES: readonly { key: string; reason: string }[] = [];
 
 /** Exact, both directions. Lower it in the commit that resolves an entry; never raise it. */
-export const EXPECTED_UNDER_PROTECTED = 4;
+export const EXPECTED_UNDER_PROTECTED = 0;

@@ -87,7 +87,7 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 | ESLint warnings | `--max-warnings` in `apps/server/package.json` | `384`, essentially all `@typescript-eslint/no-explicit-any` |
 | Operations with no request contract | `EXPECTED_UNCONVERTED` in `apps/server/src/docs/requestContracts.ts` | `3` of 192 — the health probes |
 | Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
-| Routes weaker than their manifest | `EXPECTED_UNDER_PROTECTED` in `apps/server/src/http/endpointManifest.ts` | `4`, each an open owner decision listed in `UNDER_PROTECTED_ROUTES` |
+| Routes weaker than their manifest | `EXPECTED_UNDER_PROTECTED` in `apps/server/src/http/endpointManifest.ts` | `0`; any entry in `UNDER_PROTECTED_ROUTES` is an open owner decision |
 
 **Never raise one. Lower it in the same commit that earns the reduction.** A ratchet left
 above the true count has silently stopped ratcheting, which is why the contract one is an

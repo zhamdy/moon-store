@@ -328,8 +328,11 @@ A disagreement is handled by direction:
   owner's security decision, so it is never settled by loosening the manifest. Each one is
   an entry in `UNDER_PROTECTED_ROUTES` with a reason, counted by `EXPECTED_UNDER_PROTECTED`
   (both in `src/http/endpointManifest.ts`). The list is exact in both directions: a new
-  one fails, and a fixed one fails until its entry is removed. Today: `GET /settings`,
-  `GET /sales/:id`, `GET /exchanges`, `GET /exchanges/:id`, all token-only.
+  one fails, and a fixed one fails until its entry is removed. It stands at **0**: the
+  first run found `GET /settings`, `GET /sales/:id`, `GET /exchanges` and
+  `GET /exchanges/:id` token-only, and the owner gated all four to Admin + Cashier
+  (`tests/http/underProtectedReadsRoleAuth.test.ts`). Cashier keeps `GET /settings`
+  because POS checkout reads tax and loyalty settings from it.
 
 `requireRole` ahead of `verifyToken` also fails: it reads `req.user`, which only
 `verifyToken` sets, so the route refuses everyone.

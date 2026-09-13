@@ -8,7 +8,10 @@ const router: Router = Router();
 router.get('/', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
   salesController.getSales(req, res, next)
 );
-router.get('/:id', verifyToken, (req, res, next) => salesController.getSaleById(req, res, next));
+// Token-only until #162: a Delivery token could read any sale.
+router.get('/:id', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
+  salesController.getSaleById(req, res, next)
+);
 router.post('/', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
   salesController.createSale(req, res, next)
 );

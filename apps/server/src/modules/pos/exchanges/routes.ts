@@ -10,10 +10,13 @@ router.post('/', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) 
 );
 
 // GET /api/exchanges
-router.get('/', verifyToken, (req, res, next) => exchangesController.getExchanges(req, res, next));
+// Token-only until #162: a Delivery token could list every exchange.
+router.get('/', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
+  exchangesController.getExchanges(req, res, next)
+);
 
 // GET /api/exchanges/:id
-router.get('/:id', verifyToken, (req, res, next) =>
+router.get('/:id', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
   exchangesController.getExchangeById(req, res, next)
 );
 
