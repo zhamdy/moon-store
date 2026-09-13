@@ -4,7 +4,8 @@ import { Container } from '@/components/ui/container';
 import { BrandLogo } from '@/components/brand/brand-logo';
 import { NavLink } from '../nav-link';
 import { MobileMenu } from '../mobile-menu/mobile-menu';
-import { getLocaleSwitcherLabels } from '../locale-labels';
+import { getLocaleSwitcherLabels, getLocaleToggleLabels } from '../locale-labels';
+import { LocaleToggle } from '../locale-switcher';
 import { cn } from '@/lib/utils/cn';
 import { primaryNavItems, headerActionItems } from '../navigation-items';
 import { HeaderShell } from './header-shell';
@@ -22,6 +23,7 @@ import { HeaderShell } from './header-shell';
 export async function Header() {
   const t = await getTranslations('navigation');
   const localeSwitcher = await getLocaleSwitcherLabels();
+  const localeToggle = await getLocaleToggleLabels();
 
   const mobileItems = primaryNavItems.map((item) => ({ ...item, label: t(item.messageKey) }));
 
@@ -31,8 +33,11 @@ export async function Header() {
         as="div"
         className="flex h-(--header-h) items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr]"
       >
+        {/* Mobile: Menu and the language toggle on the start side balance Search
+            and Bag on the end side, two 44px targets each, so the mark stays
+            centred. Desktop: the toggle joins the actions instead. */}
         <div className="flex flex-1 items-center lg:flex-none">
-          <div className="-ms-2.5 lg:hidden">
+          <div className="-ms-2.5 flex items-center lg:hidden">
             <MobileMenu
               menuLabel={t('menu')}
               closeLabel={t('closeMenu')}
@@ -41,6 +46,7 @@ export async function Header() {
               items={mobileItems}
               localeSwitcher={localeSwitcher}
             />
+            <LocaleToggle {...localeToggle} />
           </div>
 
           <nav aria-label={t('primaryLabel')} className="hidden items-center gap-8 lg:flex">
@@ -66,6 +72,7 @@ export async function Header() {
         {/* Negative inline-end margin so the last glyph, not its 44px hit area,
             aligns with the page gutter. */}
         <div className="-me-2.5 flex flex-1 items-center justify-end gap-1 lg:flex-none lg:gap-2">
+          <LocaleToggle {...localeToggle} className="hidden lg:flex lg:me-2" />
           {headerActionItems.map((item) => (
             <Link
               key={item.key}

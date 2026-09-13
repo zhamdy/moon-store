@@ -21,6 +21,10 @@
     "localeNames": {
       "en": "English",
       "ar": "العربية"
+    },
+    "localeShort": {
+      "en": "EN",
+      "ar": "ع"
     }
   },
   "products": {

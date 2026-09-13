@@ -126,7 +126,9 @@ Server Components by default (R21/R22). `'use client'` is limited to six entries
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
 3. `components/layout/locale-switcher.tsx` — needs `usePathname` to preserve the
-   current path across a locale switch.
+   current path across a locale switch. Exports both `LocaleSwitcher` (the
+   both-locales list in the mobile menu and footer) and `LocaleToggle` (the
+   header's single link to the other locale); one module, one boundary.
 4. `components/layout/header/header-shell.tsx` — owns the `IntersectionObserver` that
    narrows the header surface; takes children only.
 5. `components/motion/reveal.tsx` — an `IntersectionObserver` for the scroll reveal;
