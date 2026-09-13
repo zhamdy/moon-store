@@ -79,6 +79,7 @@ Each gate is its own job, so the checks list says what broke without anyone open
 | `Migrations (up, down, re-apply)` | Every `.down.sql` actually reverses its `.sql`. |
 | API documentation drift (a step on the server job) | Every route the router serves is documented, manifested, and describes its request shape with the schema that validates it; and nothing is documented that is not served. |
 | `Client (lint, typecheck, test)` | ESLint, `tsc --noEmit`, vitest. |
+| `Storefront (typecheck, lint, test, build)` | `tsc --noEmit`, ESLint, vitest (API client contract, translation-key parity), `next build`. |
 | `E2E smoke (pull requests)` | The money paths, under a ~3 minute budget. |
 | `E2E full (main)` / `E2E settings` | The sharded suite and the serial settings project. |
 

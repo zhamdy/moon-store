@@ -73,8 +73,14 @@ Server Components by default (R21/R22). `"use client"` is limited to three place
    current path across a locale switch.
 
 Client islands receive translated strings as props, never the message catalogue —
-`MobileMenu`'s props are `menuLabel`/`closeLabel`/`primaryLabel`/`accountLabel` and a
-resolved `items` array, not a namespace object. Before adding a fourth `"use client"`
+`MobileMenu`'s props are `menuLabel`/`closeLabel`/`primaryLabel`/`accountLabel`, a
+resolved `items` array and `localeSwitcher`; `LocaleSwitcher`'s are `groupLabel` and
+`labels: Record<AppLocale, string>`, resolved on the server by
+`components/layout/locale-labels.ts` — not a namespace object. The layout's
+`NextIntlClientProvider` passes `messages={null}` on purpose: it stays for the locale
+(next-intl's client `usePathname`/`Link` read it from context), but left undefined it
+would inherit and ship the whole catalogue. No client file calls `useTranslations`; one
+that needs to would bring the catalogue back. Before adding a fourth `"use client"`
 boundary, check whether the interactive part can be isolated into a small leaf instead
 of converting an entire Server Component tree.
 
@@ -125,9 +131,15 @@ rather than being imported cross-slice.
 ## API client and the DTO rule
 
 `lib/api/client.ts`'s `apiFetch<T>` is the only thing that should call the Express API.
-It unwraps the server's `{ success, data, meta }` envelope and throws `ApiError` for
+It unwraps the server's `{ data, meta }` envelope and throws `ApiError` for
 anything else — see `lib/api/errors.ts` for the code union and `lib/api/client.test.ts`
 for the exact contract (204 handling, error shapes, network failures).
+
+The 10s default timeout (`TIMEOUT`) applies **in the browser only**. On the server,
+Next excludes any `fetch` carrying a `signal` from per-render memoization, so a default
+deadline would make every GET shared between a layout and its page hit the API twice.
+Server callers that need a deadline pass `timeoutMs`, knowingly giving up memoization
+for that call.
 
 Types added under `lib/api/endpoints.ts` or a future `features/*/types/` model the
 API's response DTOs. They must never be the server's repository or database types —
