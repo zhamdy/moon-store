@@ -555,6 +555,7 @@
   "export.csvExported": "CSV exported",
   "export.pdfExported": "PDF report exported",
   "export.pdfFailed": "Failed to generate PDF",
+  "export.failed": "Export failed. Check your connection and try again.",
   "variants.title": "Variants",
   "variants.addVariant": "Add Variant",
   "variants.editVariant": "Edit Variant",

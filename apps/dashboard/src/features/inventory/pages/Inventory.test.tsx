@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { loadExportUtils, type ExportUtils } from '../../../shared/lib/loadExportUtils';
 import { TransportProvider } from '../../../shared/lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
 import { useSettingsStore } from '../../../shared/store/settingsStore';
@@ -8,6 +10,14 @@ import { useAuthStore } from '../../auth';
 import type { Product } from '../../../shared/types/index';
 import { renderWithRouter } from '../../../shared/tests/routerTestUtils';
 import Inventory from './Inventory';
+
+vi.mock('react-hot-toast', () => ({
+  default: { success: vi.fn(), error: vi.fn() },
+}));
+
+// The export chunk is reached only through this loader (#184); mocking it proves the page
+// goes through the lazy path, since a static import of `exportUtils` would bypass it.
+vi.mock('../../../shared/lib/loadExportUtils', () => ({ loadExportUtils: vi.fn() }));
 
 const SILK_DRESS: Product = {
   id: 1,
@@ -176,6 +186,45 @@ describe('Inventory bulk operations', () => {
       )
     );
     expect(await screen.findByText('Deficit')).toBeInTheDocument();
+  }, 20000);
+
+  it('exports the selected products through the lazily loaded export chunk', async () => {
+    const exportToExcel = vi.fn();
+    vi.mocked(loadExportUtils).mockResolvedValue({ exportToExcel } as unknown as ExportUtils);
+    vi.mocked(toast.success).mockClear();
+
+    renderInventory(transportWithProducts());
+    await screen.findByText('Silk Dress');
+
+    selectRow(1);
+    fireEvent.click(await screen.findByRole('button', { name: /^Export CSV$/ }));
+
+    await waitFor(() => expect(exportToExcel).toHaveBeenCalledTimes(1));
+    const [filename, rows] = exportToExcel.mock.calls[0];
+    expect(filename).toMatch(/^products-export-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(rows).toEqual([expect.objectContaining({ sku: 'DRS-001' })]);
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('1 products exported'));
+  }, 20000);
+
+  it('shows an error toast when the export chunk fails to load', async () => {
+    vi.mocked(loadExportUtils).mockRejectedValue(
+      new TypeError('Failed to fetch dynamically imported module')
+    );
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+
+    renderInventory(transportWithProducts());
+    await screen.findByText('Silk Dress');
+
+    selectRow(1);
+    fireEvent.click(await screen.findByRole('button', { name: /^Export CSV$/ }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Export failed. Check your connection and try again.'
+      )
+    );
+    expect(toast.success).not.toHaveBeenCalled();
   }, 20000);
 });
 

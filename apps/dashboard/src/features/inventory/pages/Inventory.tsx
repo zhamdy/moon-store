@@ -36,7 +36,7 @@ import BulkOperationDialogs from '../components/inventory/BulkOperationDialogs';
 import VariantManagerDialog from '../components/inventory/VariantManagerDialog';
 import { useVariantManagement } from '../hooks/useVariantManagement';
 import { formatCurrency } from '../../../shared/lib/utils';
-import { exportToExcel } from '../../../shared/lib/exportUtils';
+import { useSpreadsheetExport } from '../../../shared/hooks/useSpreadsheetExport';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport, type TransportMethod } from '../../../shared/lib/transport/index';
 import { useAuthStore } from '../../auth';
@@ -107,6 +107,7 @@ export default function Inventory() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'Admin';
   const { t } = useTranslation();
+  const spreadsheet = useSpreadsheetExport();
   const navigate = useNavigate({ from: '/inventory' });
   const rawSearch = useSearch({ strict: false }) as Record<string, unknown>;
   const page = typeof rawSearch.page === 'number' && rawSearch.page > 0 ? rawSearch.page : 1;
@@ -336,7 +337,7 @@ export default function Inventory() {
     setDialogOpen(true);
   };
 
-  const handleBulkExport = () => {
+  const handleBulkExport = async () => {
     const selected = currentData.filter((p) => selectedIds.includes(p.id));
     const exportData = selected.map((p) => ({
       name: p.name,
@@ -348,21 +349,23 @@ export default function Inventory() {
       category: p.category || '',
       min_stock: p.min_stock,
     }));
-    exportToExcel(
-      `products-export-${new Date().toISOString().slice(0, 10)}.xlsx`,
-      exportData as unknown as Record<string, unknown>[],
-      [
-        { key: 'name', label: 'Name' },
-        { key: 'sku', label: 'SKU' },
-        { key: 'barcode', label: 'Barcode' },
-        { key: 'price', label: 'Price' },
-        { key: 'cost_price', label: 'Cost Price' },
-        { key: 'stock', label: 'Stock' },
-        { key: 'category', label: 'Category' },
-        { key: 'min_stock', label: 'Min Stock' },
-      ]
+    const exported = await spreadsheet.run(({ exportToExcel }) =>
+      exportToExcel(
+        `products-export-${new Date().toISOString().slice(0, 10)}.xlsx`,
+        exportData as unknown as Record<string, unknown>[],
+        [
+          { key: 'name', label: 'Name' },
+          { key: 'sku', label: 'SKU' },
+          { key: 'barcode', label: 'Barcode' },
+          { key: 'price', label: 'Price' },
+          { key: 'cost_price', label: 'Cost Price' },
+          { key: 'stock', label: 'Stock' },
+          { key: 'category', label: 'Category' },
+          { key: 'min_stock', label: 'Min Stock' },
+        ]
+      )
     );
-    toast.success(t('bulk.exportSuccess', { count: String(selected.length) }));
+    if (exported) toast.success(t('bulk.exportSuccess', { count: String(selected.length) }));
   };
 
   const handleCSVImport = (e: ChangeEvent<HTMLInputElement>) => {
@@ -855,8 +858,11 @@ export default function Inventory() {
               <Button
                 variant="bordered"
                 size="sm"
-                startContent={<Download className="h-3.5 w-3.5" />}
+                startContent={
+                  spreadsheet.isExporting ? undefined : <Download className="h-3.5 w-3.5" />
+                }
                 onPress={handleBulkExport}
+                isLoading={spreadsheet.isExporting}
               >
                 {t('bulk.export')}
               </Button>

@@ -31,7 +31,7 @@ import {
 import ReceiptDialog from '../../../shared/components/ReceiptDialog';
 import RefundDialog from '../components/RefundDialog';
 import { formatCurrency, formatDateTime } from '../../../shared/lib/utils';
-import { exportToExcel } from '../../../shared/lib/exportUtils';
+import { useSpreadsheetExport } from '../../../shared/hooks/useSpreadsheetExport';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
@@ -47,6 +47,7 @@ const saleDetails = resource<SaleDetail>('sales');
 export default function SalesHistory() {
   const { t } = useTranslation();
   const transport = useTransport();
+  const spreadsheet = useSpreadsheetExport();
   const { search: routeSearch, page, pageSize, update } = useListRouteState();
 
   const paymentFilter =
@@ -113,15 +114,17 @@ export default function SalesHistory() {
       cashier_name: s.cashier_name || '',
     }));
 
-    exportToExcel(`moon-sales-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, exportData, [
-      { key: 'id', label: 'Sale ID' },
-      { key: 'date', label: 'Date' },
-      { key: 'items_count', label: 'Items' },
-      { key: 'discount', label: 'Discount' },
-      { key: 'total', label: 'Total' },
-      { key: 'payment_method', label: 'Payment' },
-      { key: 'cashier_name', label: 'Cashier' },
-    ]);
+    void spreadsheet.run(({ exportToExcel }) =>
+      exportToExcel(`moon-sales-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, exportData, [
+        { key: 'id', label: 'Sale ID' },
+        { key: 'date', label: 'Date' },
+        { key: 'items_count', label: 'Items' },
+        { key: 'discount', label: 'Discount' },
+        { key: 'total', label: 'Total' },
+        { key: 'payment_method', label: 'Payment' },
+        { key: 'cashier_name', label: 'Cashier' },
+      ])
+    );
   };
 
   const readSale = (saleId: number) =>
@@ -353,8 +356,9 @@ export default function SalesHistory() {
           <Button
             variant="bordered"
             size="sm"
-            startContent={<Download className="w-4 h-4" />}
+            startContent={spreadsheet.isExporting ? undefined : <Download className="w-4 h-4" />}
             onPress={handleExportCSV}
+            isLoading={spreadsheet.isExporting}
           >
             {t('sales.exportCsv')}
           </Button>
