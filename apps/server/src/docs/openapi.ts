@@ -1714,6 +1714,140 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/branches/{id}/deactivate': {
+      post: {
+        tags: ['Branches'],
+        summary: 'Deactivate Branches (Admin)',
+        description:
+          'Endpoint classification: M. Allowed Roles: Admin.\n\n' +
+          'Soft deactivation: sets `status` to `inactive`. The branch row, its inventory and ' +
+          'its transfer history are kept; branches are never hard-deleted.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'integer',
+            },
+            description: 'Target id',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Deactivated branch',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error / Bad request',
+          },
+          '401': {
+            description: 'Unauthorized / Missing or invalid token',
+          },
+          '403': {
+            description: 'Forbidden / Insufficient role privileges',
+          },
+          '404': {
+            description: 'Resource not found',
+          },
+          '409': {
+            description: 'Conflict',
+          },
+          '500': {
+            description: 'Internal server error',
+          },
+        },
+      },
+    },
+    '/api/v1/branches/{id}/settings': {
+      put: {
+        tags: ['Branches'],
+        summary: 'Update Branches (Admin)',
+        description:
+          'Endpoint classification: M. Allowed Roles: Admin.\n\n' +
+          'Stored in the global settings table under `branch_<id>_<key>`, not a table of ' +
+          'its own; `setting_key` is limited to the keys the settings dialog offers.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'integer',
+            },
+            description: 'Target id',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                additionalProperties: true,
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Successful operation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean',
+                      example: true,
+                    },
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error / Bad request',
+          },
+          '401': {
+            description: 'Unauthorized / Missing or invalid token',
+          },
+          '403': {
+            description: 'Forbidden / Insufficient role privileges',
+          },
+          '404': {
+            description: 'Resource not found',
+          },
+          '500': {
+            description: 'Internal server error',
+          },
+        },
+      },
+    },
     '/api/v1/sales': {
       get: {
         tags: ['POS Sales'],
@@ -7908,6 +8042,111 @@ export const openApiSpec = {
             description: 'Target id',
           },
         ],
+        responses: {
+          '200': {
+            description: 'Successful operation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean',
+                      example: true,
+                    },
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error / Bad request',
+          },
+          '401': {
+            description: 'Unauthorized / Missing or invalid token',
+          },
+          '403': {
+            description: 'Forbidden / Insufficient role privileges',
+          },
+          '404': {
+            description: 'Resource not found',
+          },
+          '500': {
+            description: 'Internal server error',
+          },
+        },
+      },
+    },
+    '/api/v1/storefront/config': {
+      get: {
+        tags: ['Storefront'],
+        summary: 'List / Query Storefront (Admin)',
+        description: 'Endpoint classification: S. Allowed Roles: Admin.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Successful operation',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean',
+                      example: true,
+                    },
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Validation error / Bad request',
+          },
+          '401': {
+            description: 'Unauthorized / Missing or invalid token',
+          },
+          '403': {
+            description: 'Forbidden / Insufficient role privileges',
+          },
+          '404': {
+            description: 'Resource not found',
+          },
+          '500': {
+            description: 'Internal server error',
+          },
+        },
+      },
+      put: {
+        tags: ['Storefront'],
+        summary: 'Update Storefront (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [
+          {
+            BearerAuth: [],
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                additionalProperties: true,
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Successful operation',

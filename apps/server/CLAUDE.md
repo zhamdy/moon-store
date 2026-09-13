@@ -306,14 +306,60 @@ this server validates a response, so there is nothing to compare one against.
 schema knows — which roles may call an operation is not inferable from what it accepts.
 Keep it independent of contract conversion.
 
-Its authorization kinds are **unverified**: `check:api-docs` compares endpoint sets and
-request shapes, never authorization, and they have drifted from the middleware before.
-Feedback was `allAuthenticated` on a route with no auth at all, online-order reads were
-`adminOrDelivery` on Admin-only routes, and reservations were `adminOrCashier` on routes
-that only required a token. So a question like "which writes are public?" is answered by
-walking `routeTable` for `verifyToken`, not by reading the manifest. The last walk found
-exactly two — `POST /auth/login` and `POST /auth/refresh`, both deliberately public behind
-`authLimiter`.
+### Manifest authorization (#162)
+
+`npm run check:route-auth` walks `createApp()` for each route's middleware chain and
+compares it with the manifest entry's `authorization`. Before it existed they drifted
+freely: feedback was `allAuthenticated` on a route with no auth at all, reservations were
+`adminOrCashier` on token-only routes, and its first run found 14 entries weaker than their
+routes plus a `GET /customers/:id` entry for a route nothing serves.
+
+Only `verifyToken` and `requireRole(...)` are read. `requireRole` records its roles on the
+function it returns (`rolesRequiredBy` in `middleware/auth.ts`) so the gate reads them
+rather than re-parsing route source. A check made inside a controller is invisible here;
+that belongs in the entry's `predicate`, which the gate does not compare. Auth middleware
+on a sub-path `router.use('/x', ...)` or a router mounted outside `routeTable` makes the
+walker throw rather than guess.
+
+A disagreement is handled by direction:
+
+- **Manifest weaker than the route** — correct the manifest.
+- **Route weaker than the manifest** — a caller the manifest refuses gets in. That is an
+  owner's security decision, so it is never settled by loosening the manifest. Each one is
+  an entry in `UNDER_PROTECTED_ROUTES` with a reason, counted by `EXPECTED_UNDER_PROTECTED`
+  (both in `src/http/endpointManifest.ts`). The list is exact in both directions: a new
+  one fails, and a fixed one fails until its entry is removed. It stands at **0**: the
+  first run found `GET /settings`, `GET /sales/:id`, `GET /exchanges` and
+  `GET /exchanges/:id` token-only, and the owner gated all four to Admin + Cashier
+  (`tests/http/underProtectedReadsRoleAuth.test.ts`). Cashier keeps `GET /settings`
+  because POS checkout reads tax and loyalty settings from it.
+
+`requireRole` ahead of `verifyToken` also fails: it reads `req.user`, which only
+`verifyToken` sets, so the route refuses everyone.
+
+### Client API paths (#162)
+
+`npm run check:client-paths` parses `apps/dashboard/src` with the TypeScript parser for
+every `transport.request({ method, path })`, `useApiQuery(key, path)` and
+`resource(name)` hook, rebuilds the URL each builds, and matches it against the routes
+`createApp()` serves with Express segment rules: a route `:param` matches anything, and a
+client interpolation never matches a literal route segment.
+
+- **Postponed features** (read from `postponedFeatures.ts`, never copied) are reported as
+  known exceptions, not failures. Fix them before reactivating the feature.
+- **A path or method that is not a literal** fails unless `RESOLUTIONS` in
+  `scripts/checkClientApiPaths.ts` names the concrete calls that site makes; the resolved
+  calls are then checked like any other, and a resolution matching no call site fails.
+- **`useSave()`** sends POST without an id and PUT with one. Both served or neither is
+  unambiguous; exactly one served needs a resolution saying which the page uses.
+
+**What it does not claim.** That the *intended* handler answers. Express semantics are the
+point, so a literal client segment matches a route parameter: `GET products/gone` counts as
+served by `GET /products/:id`. The gate proves a route answers the URL, not that it is the
+route the page meant.
+
+Negative tests for both gates live in `tests/gates/`, and each gate fails on implausible
+input (no manifest entries, no client calls, no postponed list) rather than passing empty.
 
 ## Postponed modules: served, behind Admin
 

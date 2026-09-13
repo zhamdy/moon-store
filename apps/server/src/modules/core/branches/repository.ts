@@ -16,6 +16,8 @@ export interface IBranchesRepository {
   resetMainBranch(excludeId?: number, queryable?: Queryable): Promise<void>;
   create(data: CreateBranchDTO, queryable?: Queryable): Promise<Branch>;
   update(id: number, data: UpdateBranchDTO, queryable?: Queryable): Promise<Branch | null>;
+  deactivate(id: number, queryable?: Queryable): Promise<Branch | null>;
+  upsertSetting(branchId: number, key: string, value: string, queryable?: Queryable): Promise<void>;
   getConsolidatedBranches(queryable?: Queryable): Promise<ConsolidatedBranch[]>;
   findTransfers(
     filters: TransferFilters,
@@ -87,6 +89,33 @@ export class BranchesRepository implements IBranchesRepository {
       [data.name, data.code, data.address || null, data.phone || null, isMain, id]
     );
     return result.rows[0] || null;
+  }
+
+  async deactivate(id: number, queryable?: Queryable): Promise<Branch | null> {
+    const result = await this.q(queryable).query<Branch>(
+      `UPDATE branches SET status = 'inactive', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    return result.rows[0] || null;
+  }
+
+  /**
+   * Per-branch settings have no table of their own; they live in the same generic
+   * `settings` key/value table the global settings module writes, namespaced by branch id
+   * so `receipt_footer` for branch 3 can never collide with branch 5's or with the
+   * till-wide settings of the same name.
+   */
+  async upsertSetting(
+    branchId: number,
+    key: string,
+    value: string,
+    queryable?: Queryable
+  ): Promise<void> {
+    await this.q(queryable).query(
+      `INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW())
+       ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      [`branch_${branchId}_${key}`, value]
+    );
   }
 
   async getConsolidatedBranches(queryable?: Queryable): Promise<ConsolidatedBranch[]> {

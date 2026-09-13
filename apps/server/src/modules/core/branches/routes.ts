@@ -13,6 +13,12 @@ router.post('/', verifyToken, requireRole('Admin'), (req, res, next) =>
 router.put('/:id', verifyToken, requireRole('Admin'), (req, res, next) =>
   branchesController.updateBranch(req, res, next)
 );
+router.post('/:id/deactivate', verifyToken, requireRole('Admin'), (req, res, next) =>
+  branchesController.deactivateBranch(req, res, next)
+);
+router.put('/:id/settings', verifyToken, requireRole('Admin'), (req, res, next) =>
+  branchesController.updateBranchSetting(req, res, next)
+);
 router.get('/consolidated', verifyToken, requireRole('Admin'), (req, res, next) =>
   branchesController.getConsolidated(req, res, next)
 );

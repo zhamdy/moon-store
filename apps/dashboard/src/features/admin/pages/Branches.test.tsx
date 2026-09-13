@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -73,5 +73,104 @@ describe('Branches manager selector', () => {
         })
       )
     );
+  });
+
+  it('deactivates a branch through the soft-deactivate action, never a DELETE', async () => {
+    const transport = createMemoryTransport({
+      branches: [
+        {
+          id: 2,
+          name: 'Zamalek Store',
+          type: 'Store',
+          status: 'active',
+          is_primary: 0,
+          product_count: 0,
+        },
+      ],
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<BranchesPage />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Zamalek Store: Deactivate' }));
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({ method: 'POST', path: 'branches/2/deactivate' })
+      )
+    );
+    expect(transport.calls().some((call) => call.method === 'DELETE')).toBe(false);
+    confirmSpy.mockRestore();
+  });
+
+  it('shows an inactive branch as inactive and offers no deactivate action on it', async () => {
+    const transport = createMemoryTransport({
+      branches: [
+        {
+          id: 3,
+          name: 'Heliopolis Store',
+          type: 'Store',
+          status: 'inactive',
+          is_primary: 0,
+          product_count: 0,
+        },
+      ],
+    });
+    render(<BranchesPage />, { wrapper: wrapperFor(transport) });
+
+    expect(await screen.findByText('Inactive')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Heliopolis Store: Deactivate' })
+    ).not.toBeInTheDocument();
+  });
+
+  /**
+   * The server never served `branches/dashboard/consolidated` -- only
+   * `GET /api/v1/branches/consolidated`, returning one row per branch with
+   * `stats.products`/`stats.stock` rather than the sales/revenue shape this page used to
+   * assume (issue #163). Confirms the page now asks for the real path and reads the real
+   * shape back.
+   */
+  it('reads the consolidated dashboard from the endpoint the server actually serves', async () => {
+    const transport = createMemoryTransport(
+      { branches: [] },
+      {
+        reads: {
+          'branches/consolidated': [
+            {
+              id: 1,
+              name: 'Maadi Store',
+              code: 'MAADI',
+              is_main: 1,
+              stats: { products: 40, stock: 120 },
+            },
+            {
+              id: 2,
+              name: 'Zamalek Store',
+              code: 'ZMLK',
+              is_main: 0,
+              stats: { products: 25, stock: 60 },
+            },
+          ],
+        },
+      }
+    );
+    render(<BranchesPage />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Consolidated' }));
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({ method: 'GET', path: 'branches/consolidated' })
+      )
+    );
+    expect(transport.calls().some((call) => call.path === 'branches/dashboard/consolidated')).toBe(
+      false
+    );
+
+    expect(await screen.findByText('Maadi Store')).toBeInTheDocument();
+    expect(screen.getByText('Zamalek Store')).toBeInTheDocument();
+    // Two stores' worth of stock (120 + 60), not a per-branch revenue figure the schema
+    // cannot supply.
+    expect(screen.getByText('180')).toBeInTheDocument();
   });
 });

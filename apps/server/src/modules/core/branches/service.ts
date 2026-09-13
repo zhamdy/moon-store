@@ -1,4 +1,5 @@
 import { withTransaction } from '../../../database/transaction';
+import { PublicError } from '../../../http/errors';
 import { IBranchesRepository, branchesRepository as defaultRepo } from './repository';
 import {
   Branch,
@@ -47,6 +48,50 @@ export class BranchesService {
       }
       return updated;
     });
+  }
+
+  /**
+   * A branch is deactivated, never deleted. `branch_inventory` cascades on delete (live
+   * stock would vanish), `shifts` would lose their branch, and `branch_transfers` references
+   * branches with no ON DELETE at all -- so a hard delete either destroys history or fails
+   * on a foreign key nothing maps. Setting `status` keeps every referencing row intact.
+   */
+  async deactivate(id: number): Promise<Branch> {
+    return withTransaction(async (client) => {
+      const existing = await this.repo.findById(id, client);
+      if (!existing) {
+        throw new PublicError('NOT_FOUND', 'Branch not found');
+      }
+
+      if (existing.is_main) {
+        throw new PublicError('CONFLICT', 'Cannot deactivate the main branch');
+      }
+
+      // Idempotent: a second deactivation is the state the caller asked for, not an error.
+      if (existing.status === 'inactive') {
+        return existing;
+      }
+
+      const updated = await this.repo.deactivate(id, client);
+      if (!updated) {
+        throw new PublicError('NOT_FOUND', 'Branch not found');
+      }
+      return updated;
+    });
+  }
+
+  async updateSetting(
+    id: number,
+    key: string,
+    value: string
+  ): Promise<{ id: number; setting_key: string; setting_value: string }> {
+    const existing = await this.repo.findById(id);
+    if (!existing) {
+      throw new PublicError('NOT_FOUND', 'Branch not found');
+    }
+
+    await this.repo.upsertSetting(id, key, value);
+    return { id, setting_key: key, setting_value: value };
   }
 
   async getConsolidated(): Promise<ConsolidatedBranch[]> {
