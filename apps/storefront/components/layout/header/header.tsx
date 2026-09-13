@@ -44,8 +44,12 @@ export async function Header({ variant = 'solid' }: HeaderProps) {
         </div>
 
         <Link href="/" aria-label="Moon Fashion" className="flex items-center justify-center">
+          {/* Only one variant is ever visible (CSS breakpoint), but Next.js fetches
+              eagerly for whichever carries `priority` regardless of display:none — so
+              only the mobile-default gets it. The desktop variant stays lazy; it is
+              only fetched if the viewport is actually ≥1024px. */}
           <BrandLogo variant="mark" height={40} priority className="lg:hidden" />
-          <BrandLogo variant="logo" height={56} priority className="hidden lg:block" />
+          <BrandLogo variant="logo" height={56} className="hidden lg:block" />
         </Link>
 
         <div className="flex flex-1 items-center justify-end gap-1 lg:flex-none lg:gap-8">
