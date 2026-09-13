@@ -1,141 +1,87 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Download, FileSpreadsheet } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Download } from 'lucide-react';
 import { Button, Select, SelectItem, Card, CardBody } from '@heroui/react';
-import { Badge, PageHeader } from '../../../shared';
+import { PageHeader } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
-import { exportToExcel } from '../../../shared/lib/exportUtils';
-import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
+import { useGuardedMutation } from '../../../shared/lib/useGuardedMutation';
 
-interface ExportRecord {
-  id: number;
-  module: string;
-  format: string;
-  record_count: number;
-  user_name: string;
-  created_at: string;
-}
+const SOURCES = ['products', 'sales', 'customers'] as const;
+type ExportSource = (typeof SOURCES)[number];
 
-/** POST exports/generate */
-interface ExportPayload {
-  module: string;
-  columns: string[];
-  rows: Record<string, unknown>[];
-}
-
-const MODULES = ['products', 'sales', 'customers', 'inventory', 'deliveries'] as const;
+const isExportSource = (value: string): value is ExportSource =>
+  (SOURCES as readonly string[]).includes(value);
 
 export default function ExportsPage() {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const transport = useTransport();
-  const [selectedModule, setSelectedModule] = useState<string>('products');
+  const [source, setSource] = useState<ExportSource>('products');
 
-  const { data: history } = useApiQuery<ExportRecord[]>(['exports'], 'exports');
-
-  const generateMutation = useMutation({
-    mutationFn: () =>
-      transport.request<ExportPayload>({
-        method: 'POST',
-        path: 'exports/generate',
-        body: { module: selectedModule, format: 'xlsx' },
-      }),
-    onSuccess: (res) => {
-      const { columns, rows, module: mod } = res.data;
-      const exportData = rows;
-      const cols = columns.map((c) => ({ key: c, label: c }));
-      const filename = `moon-${mod}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-      exportToExcel(filename, exportData, cols);
-      toast.success(t('exports.downloaded', { count: String(rows.length) }));
-      queryClient.invalidateQueries({ queryKey: ['exports'] });
+  const download = useGuardedMutation<ExportSource, Blob>({
+    mutationFn: (selected) =>
+      transport
+        .request<Blob>({ method: 'GET', path: `exports/${selected}`, responseType: 'blob' })
+        .then((r) => r.data),
+    onSuccess: (blob, selected) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      a.download = `moon-${selected}-${day}.csv`;
+      // Detached anchors can navigate to the blob URL instead of downloading (WebKit), so
+      // attach before clicking and revoke after the browser has had a turn to start the save.
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     },
-    onError: (err: Error) => toast.error(err.message || 'Export failed'),
+    successMessage: t('exports.downloadedFile'),
+    fallbackMessage: t('exports.downloadFailed'),
   });
 
-  const moduleLabels: Record<string, string> = {
+  const sourceLabels: Record<ExportSource, string> = {
     products: t('exports.products'),
     sales: t('exports.sales'),
     customers: t('exports.customers'),
-    inventory: t('exports.inventory'),
-    deliveries: t('exports.deliveries'),
   };
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <PageHeader title={t('exports.title')} />
 
-      {/* Generator */}
       <Card className="max-w-lg border border-border bg-card shadow-sm">
         <CardBody className="p-6 space-y-4">
-          <h2 className="text-base font-semibold text-foreground">{t('exports.generate')}</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            {t('exports.downloadHeading')}
+          </h2>
           <Select
-            label={t('exports.module')}
+            label={t('exports.source')}
             size="sm"
             variant="bordered"
-            selectedKeys={[selectedModule]}
-            onChange={(e) => setSelectedModule(e.target.value || 'products')}
+            selectedKeys={[source]}
+            disallowEmptySelection
+            onChange={(e) => {
+              if (isExportSource(e.target.value)) setSource(e.target.value);
+            }}
           >
-            {MODULES.map((m) => (
-              <SelectItem key={m} textValue={moduleLabels[m]}>
-                {moduleLabels[m]}
+            {SOURCES.map((s) => (
+              <SelectItem key={s} textValue={sourceLabels[s]}>
+                {sourceLabels[s]}
               </SelectItem>
             ))}
           </Select>
           <Button
             color="primary"
-            onPress={() => generateMutation.mutate()}
-            isLoading={generateMutation.isPending}
+            onPress={() => download.submit(source)}
+            isLoading={download.isPending}
             className="w-full"
-            startContent={!generateMutation.isPending && <Download className="h-4 w-4" />}
+            startContent={!download.isPending && <Download className="h-4 w-4" />}
           >
-            {generateMutation.isPending ? t('common.loading') : t('exports.download')}
+            {t('exports.download')}
           </Button>
         </CardBody>
       </Card>
-
-      {/* History */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">{t('exports.history')}</h2>
-        {!history?.length ? (
-          <div className="text-center py-16">
-            <FileSpreadsheet className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">{t('exports.noExports')}</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="bg-card border-b border-border text-muted-foreground text-[11px] uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="text-start p-3 font-semibold">{t('exports.module')}</th>
-                  <th className="text-start p-3 font-semibold">{t('exports.format')}</th>
-                  <th className="text-start p-3 font-semibold">{t('exports.recordCount')}</th>
-                  <th className="text-start p-3 font-semibold">{t('common.user')}</th>
-                  <th className="text-start p-3 font-semibold">{t('common.date')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((exp) => (
-                  <tr key={exp.id} className="border-b border-border/50 hover:bg-muted/30">
-                    <td className="p-3">
-                      <Badge size="sm" variant="secondary">
-                        {moduleLabels[exp.module] || exp.module}
-                      </Badge>
-                    </td>
-                    <td className="p-3 font-data uppercase">{exp.format}</td>
-                    <td className="p-3 font-data">{exp.record_count}</td>
-                    <td className="p-3">{exp.user_name}</td>
-                    <td className="p-3 font-data text-muted-foreground">
-                      {new Date(exp.created_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

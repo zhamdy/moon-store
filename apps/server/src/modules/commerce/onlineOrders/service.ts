@@ -77,9 +77,10 @@ export class OnlineOrdersService {
       },
       (orderNumber) =>
         withTransaction(async (client) => {
-          // Price every line from the catalog, inside the transaction. This endpoint is
-          // public and unauthenticated, and it used to bill `data.items[].price` -- the
-          // shopper's own number -- so anyone could order at a price they chose (#125).
+          // Price every line from the catalog, inside the transaction. When this endpoint
+          // was public it billed `data.items[].price` -- the shopper's own number -- so
+          // anyone could order at a price they chose (#125). It is Admin-only while the
+          // storefront is postponed, but that gate is meant to lift, so pricing stays here.
           // The request's `price` is still accepted for compatibility and ignored, the
           // same posture as checkout and refunds.
           const priced = [];

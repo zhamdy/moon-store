@@ -174,7 +174,7 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
 
     /**
      * A named sub-action on one record, e.g. `useAction('status', { method: 'PUT' })`
-     * for `vendors/7/status`. The record is named per call rather than bound
+     * for `online-orders/7/status`. The record is named per call rather than bound
      * here, so one hook serves every row in a list.
      *
      * The verb is part of the action: the same page can carry a PUT status

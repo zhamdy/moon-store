@@ -9,4 +9,3 @@
 export { default as Distributors } from './pages/Distributors';
 export { default as Expenses } from './pages/Expenses';
 export { default as PurchaseOrders } from './pages/PurchaseOrders';
-export { default as Vendors } from './pages/Vendors';

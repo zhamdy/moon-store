@@ -175,7 +175,7 @@ describe('Route rendering and access control', () => {
     });
   });
 
-  it('allows Admin to access warranty (/warranty)', async () => {
+  it('redirects Admin from warranty (/warranty) to the default route, since it is postponed', async () => {
     const router = createTestRouter('/warranty', {
       isAuthenticated: true,
       user: adminUser,
@@ -184,7 +184,7 @@ describe('Route rendering and access control', () => {
     render(<RouterProvider router={router} />);
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/warranty');
+      expect(router.state.location.pathname).toBe('/');
     });
   });
 

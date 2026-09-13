@@ -49,7 +49,6 @@ export const endpointManifest: Record<string, EndpointManifestEntry> = {
   '/api/v1/register': authenticated(['P', 'S', 'M']),
   '/api/v1/shifts': authenticated(['P', 'S', 'M']),
   '/api/v1/exchanges': authenticated(['P', 'S', 'M']),
-  '/api/v1/layaway': authenticated(['P', 'S', 'M']),
   '/api/v1/reservations': authenticated(['M']),
   '/api/v1/products': authenticated(['P', 'B', 'S', 'M']),
   '/api/v1/categories': authenticated(['B', 'M']),
@@ -67,7 +66,6 @@ export const endpointManifest: Record<string, EndpointManifestEntry> = {
   '/api/v1/segments': authenticated(['B', 'M']),
   '/api/v1/storefront': publicEntry(['B', 'P', 'M']),
   '/api/v1/online-orders': authenticated(['P', 'S', 'M']),
-  '/api/v1/vendors': authenticated(['P', 'M']),
   '/api/v1/warranty': authenticated(['P', 'M']),
   '/api/v1/delivery': authenticated(['P', 'S', 'M']),
   '/api/v1/shipping-companies': authenticated(['B', 'M']),
@@ -76,7 +74,6 @@ export const endpointManifest: Record<string, EndpointManifestEntry> = {
   '/api/v1/analytics': authenticated(['P', 'S', 'M']),
   '/api/v1/reports': authenticated(['S']),
   '/api/v1/exports': authenticated(['E']),
-  '/api/v1/ai': authenticated(['S', 'M']),
   '/api/v1/notifications': authenticated(['P', 'M']),
 };
 
@@ -285,46 +282,24 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     authorization: adminOrCashier,
   },
 
-  // POS / Layaway
-  { method: 'POST', path: '/api/v1/layaway', classification: 'M', authorization: adminOrCashier },
-  { method: 'GET', path: '/api/v1/layaway', classification: 'P', authorization: adminOrCashier },
-  {
-    method: 'GET',
-    path: '/api/v1/layaway/:id',
-    classification: 'S',
-    authorization: adminOrCashier,
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/layaway/:id/pay',
-    classification: 'M',
-    authorization: adminOrCashier,
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/layaway/:id/cancel',
-    classification: 'M',
-    authorization: adminOrCashier,
-  },
-
   // POS / Reservations
   {
     method: 'POST',
     path: '/api/v1/reservations',
     classification: 'M',
-    authorization: adminOrCashier,
+    authorization: adminOnly,
   },
   {
     method: 'DELETE',
     path: '/api/v1/reservations/:id',
     classification: 'M',
-    authorization: adminOrCashier,
+    authorization: adminOnly,
   },
   {
     method: 'DELETE',
     path: '/api/v1/reservations/source/:sourceId',
     classification: 'M',
-    authorization: adminOrCashier,
+    authorization: adminOnly,
   },
 
   // Inventory / Products
@@ -705,7 +680,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'POST',
     path: '/api/v1/feedback',
     classification: 'M',
-    authorization: allAuthenticated,
+    authorization: adminOnly,
   },
   { method: 'GET', path: '/api/v1/feedback', classification: 'P', authorization: adminOnly },
 
@@ -748,39 +723,22 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
 
   // Commerce / Online Orders
-  { method: 'POST', path: '/api/v1/online-orders', classification: 'M', authorization: publicAuth },
+  { method: 'POST', path: '/api/v1/online-orders', classification: 'M', authorization: adminOnly },
   {
     method: 'GET',
     path: '/api/v1/online-orders',
     classification: 'P',
-    authorization: adminOrDelivery,
+    authorization: adminOnly,
   },
   {
     method: 'GET',
     path: '/api/v1/online-orders/:id',
     classification: 'S',
-    authorization: adminOrDelivery,
+    authorization: adminOnly,
   },
   {
     method: 'PUT',
     path: '/api/v1/online-orders/:id/status',
-    classification: 'M',
-    authorization: adminOrDelivery,
-  },
-
-  // Commerce / Vendors
-  { method: 'GET', path: '/api/v1/vendors', classification: 'P', authorization: adminOnly },
-  { method: 'POST', path: '/api/v1/vendors', classification: 'M', authorization: adminOnly },
-  { method: 'PUT', path: '/api/v1/vendors/:id', classification: 'M', authorization: adminOnly },
-  {
-    method: 'GET',
-    path: '/api/v1/vendors/:id/payouts',
-    classification: 'P',
-    authorization: adminOnly,
-  },
-  {
-    method: 'POST',
-    path: '/api/v1/vendors/:id/payouts',
     classification: 'M',
     authorization: adminOnly,
   },
@@ -1023,23 +981,6 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     classification: 'E',
     authorization: adminOnly,
   },
-
-  // Intelligence / AI
-  { method: 'GET', path: '/api/v1/ai/forecast', classification: 'S', authorization: adminOnly },
-  {
-    method: 'GET',
-    path: '/api/v1/ai/recommendations',
-    classification: 'P',
-    authorization: adminOnly,
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/ai/pricing-suggestions',
-    classification: 'P',
-    authorization: adminOnly,
-  },
-  { method: 'GET', path: '/api/v1/ai/churn-risk', classification: 'P', authorization: adminOnly },
-  { method: 'GET', path: '/api/v1/ai/anomalies', classification: 'P', authorization: adminOnly },
 
   // Intelligence / Notifications
   {

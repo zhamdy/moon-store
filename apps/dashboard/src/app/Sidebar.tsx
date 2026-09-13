@@ -22,16 +22,10 @@ import {
   Clock,
   Receipt,
   PieChart,
-  CalendarClock,
   Star,
-  Database,
   GitBranch,
   Globe,
   ShoppingBag,
-  BarChart3,
-  Store,
-  Zap,
-  Brain,
   TrendingUp,
   Palette,
   ShieldCheck,
@@ -48,6 +42,7 @@ import {
 import { useAuthStore } from '../features/auth/store/authStore';
 import { useTranslation } from '../shared/i18n/index';
 import { useTransport } from '../shared/lib/transport/index';
+import { isPostponedPath } from '../shared/lib/postponedFeatures';
 import moonLogo from '../shared/assets/moon-logo.svg';
 
 interface NavItem {
@@ -76,56 +71,60 @@ const navSections: NavSection[] = [
         labelKey: 'nav.shifts',
         roles: ['Admin', 'Cashier', 'Delivery'],
       },
-      { to: '/expenses', icon: Receipt, labelKey: 'nav.expenses', roles: ['Admin'] },
-      { to: '/segments', icon: PieChart, labelKey: 'nav.segments', roles: ['Admin'] },
-      { to: '/layaway', icon: CalendarClock, labelKey: 'nav.layaway', roles: ['Admin', 'Cashier'] },
-      { to: '/feedback', icon: Star, labelKey: 'nav.feedback', roles: ['Admin'] },
-      { to: '/backup', icon: Database, labelKey: 'nav.backup', roles: ['Admin'] },
+      { to: '/deliveries', icon: Truck, labelKey: 'nav.deliveries', roles: ['Admin', 'Delivery'] },
+      { to: '/online-orders', icon: ShoppingBag, labelKey: 'nav.onlineOrders', roles: ['Admin'] },
     ],
   },
   {
-    labelKey: 'nav.sectionProducts',
+    labelKey: 'nav.sectionCatalog',
     items: [
       { to: '/inventory', icon: Package, labelKey: 'nav.inventory', roles: ['Admin', 'Cashier'] },
       { to: '/categories', icon: Layers, labelKey: 'nav.categories', roles: ['Admin'] },
       { to: '/collections', icon: Palette, labelKey: 'nav.collections', roles: ['Admin'] },
+      { to: '/stock-count', icon: PackageCheck, labelKey: 'nav.stockCount', roles: ['Admin'] },
       { to: '/barcode', icon: ScanBarcode, labelKey: 'nav.barcode', roles: ['Admin', 'Cashier'] },
+      { to: '/bundles', icon: Gift, labelKey: 'nav.bundles', roles: ['Admin'] },
+    ],
+  },
+  {
+    labelKey: 'nav.sectionCustomersMarketing',
+    items: [
+      { to: '/customers', icon: UserRound, labelKey: 'nav.customers', roles: ['Admin'] },
+      { to: '/segments', icon: PieChart, labelKey: 'nav.segments', roles: ['Admin'] },
+      { to: '/promotions', icon: Ticket, labelKey: 'nav.promotions', roles: ['Admin'] },
+      { to: '/gift-cards', icon: Gift, labelKey: 'nav.giftCards', roles: ['Admin'] },
+      { to: '/feedback', icon: Star, labelKey: 'nav.feedback', roles: ['Admin'] },
+      { to: '/warranty', icon: ShieldCheck, labelKey: 'nav.warranty', roles: ['Admin'] },
+    ],
+  },
+  {
+    labelKey: 'nav.sectionPurchasing',
+    items: [
       {
         to: '/purchase-orders',
         icon: ClipboardList,
         labelKey: 'nav.purchaseOrders',
         roles: ['Admin'],
       },
-      { to: '/promotions', icon: Ticket, labelKey: 'nav.promotions', roles: ['Admin'] },
-      { to: '/gift-cards', icon: Gift, labelKey: 'nav.giftCards', roles: ['Admin'] },
-      { to: '/bundles', icon: Gift, labelKey: 'nav.bundles', roles: ['Admin'] },
-      { to: '/stock-count', icon: PackageCheck, labelKey: 'nav.stockCount', roles: ['Admin'] },
       { to: '/distributors', icon: Building2, labelKey: 'nav.distributors', roles: ['Admin'] },
+      { to: '/expenses', icon: Receipt, labelKey: 'nav.expenses', roles: ['Admin'] },
     ],
   },
   {
-    labelKey: 'nav.sectionOrders',
+    labelKey: 'nav.sectionInsights',
     items: [
-      { to: '/deliveries', icon: Truck, labelKey: 'nav.deliveries', roles: ['Admin', 'Delivery'] },
-      { to: '/customers', icon: UserRound, labelKey: 'nav.customers', roles: ['Admin'] },
-      { to: '/warranty', icon: ShieldCheck, labelKey: 'nav.warranty', roles: ['Admin'] },
+      { to: '/analytics', icon: TrendingUp, labelKey: 'nav.advancedAnalytics', roles: ['Admin'] },
+      { to: '/exports', icon: Download, labelKey: 'nav.exports', roles: ['Admin'] },
     ],
   },
   {
     labelKey: 'nav.sectionAdmin',
     items: [
       { to: '/users', icon: Users, labelKey: 'nav.users', roles: ['Admin'] },
-      { to: '/exports', icon: Download, labelKey: 'nav.exports', roles: ['Admin'] },
-      { to: '/branches', icon: GitBranch, labelKey: 'nav.branches', roles: ['Admin'] },
-      { to: '/storefront', icon: Globe, labelKey: 'nav.storefront', roles: ['Admin'] },
-      { to: '/online-orders', icon: ShoppingBag, labelKey: 'nav.onlineOrders', roles: ['Admin'] },
-      { to: '/report-builder', icon: BarChart3, labelKey: 'nav.reportBuilder', roles: ['Admin'] },
-      { to: '/vendors', icon: Store, labelKey: 'nav.vendors', roles: ['Admin'] },
-      { to: '/smart-pricing', icon: Zap, labelKey: 'nav.smartPricing', roles: ['Admin'] },
-      { to: '/ai-insights', icon: Brain, labelKey: 'nav.aiInsights', roles: ['Admin'] },
-      { to: '/analytics', icon: TrendingUp, labelKey: 'nav.advancedAnalytics', roles: ['Admin'] },
       { to: '/audit-log', icon: ScrollText, labelKey: 'nav.auditLog', roles: ['Admin'] },
       { to: '/settings', icon: Settings, labelKey: 'nav.settings', roles: ['Admin'] },
+      { to: '/branches', icon: GitBranch, labelKey: 'nav.branches', roles: ['Admin'] },
+      { to: '/storefront', icon: Globe, labelKey: 'nav.storefront', roles: ['Admin'] },
     ],
   },
 ];
@@ -159,7 +158,9 @@ export default function Sidebar({
   const renderNavContent = (onItemClick?: () => void) => (
     <nav className="flex-1 p-3 space-y-4 overflow-y-auto" aria-label={t('nav.mainNav')}>
       {navSections.map((section) => {
-        const visibleItems = section.items.filter((item) => item.roles.includes(userRole));
+        const visibleItems = section.items.filter(
+          (item) => item.roles.includes(userRole) && !isPostponedPath(item.to)
+        );
         if (visibleItems.length === 0) return null;
 
         return (

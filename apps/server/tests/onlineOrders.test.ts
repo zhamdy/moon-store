@@ -2,10 +2,11 @@
  * Online orders: a public endpoint that priced itself, and an unguarded stock write
  * (#125).
  *
- * `POST /api/v1/online-orders` takes no token -- a shopper places it -- and it used to
- * bill `items[].price` straight from the request body, so anyone could order at a price
- * they chose. The stock write was an unguarded `stock = stock - $1`, so an over-order
- * either drove stock negative or tripped migration 004's non-negative CHECK and reached
+ * `POST /api/v1/online-orders` was built for a shopper to place without a token (it is
+ * Admin-only while the storefront is postponed), and it used to bill `items[].price`
+ * straight from the request body, so anyone could order at a price they chose. The
+ * stock write was an unguarded `stock = stock - $1`, so an over-order either drove
+ * stock negative or tripped migration 004's non-negative CHECK and reached
  * the shopper as a 500. Cancelling a delivered order put its units back on the shelf.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';

@@ -9,5 +9,4 @@
 export { default as Users } from './pages/Users';
 export { default as Settings } from './pages/Settings';
 export { default as AuditLog } from './pages/AuditLog';
-export { default as Backup } from './pages/Backup';
 export { default as Branches } from './pages/Branches';

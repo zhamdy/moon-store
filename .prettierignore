@@ -5,5 +5,7 @@ apps/server/db/moon.db-wal
 apps/server/db/moon.db-shm
 package-lock.json
 pnpm-lock.yaml
+# Written by the TanStack Router plugin in its own style; formatting it churns on every build.
+apps/dashboard/src/routeTree.gen.ts
 
 **/.next/

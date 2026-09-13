@@ -5,6 +5,7 @@ import { resource } from '../../../shared/lib/resource';
 import { useTransport } from '../../../shared/lib/transport/index';
 import type { Category, Product, ProductVariant } from '../../../shared/types/index';
 import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
+import { BUNDLES_PATH, isPostponedPath } from '../../../shared/lib/postponedFeatures';
 
 const products = resource<Product>('products');
 
@@ -102,9 +103,11 @@ export function usePosData({
     { staleTime: 0 }
   );
 
-  // Active bundles for POS
+  // Active bundles for POS. Bundles are postponed: no request fires while
+  // `/bundles` is hidden, so a disabled feature costs nothing on every till load.
   const { data: allBundles } = useApiQuery<PosBundle[]>(['bundles-pos'], 'bundles', undefined, {
     staleTime: 0,
+    enabled: !isPostponedPath(BUNDLES_PATH),
   });
   const bundles = useMemo(
     () => allBundles?.filter((bundle) => bundle.status === 'active'),

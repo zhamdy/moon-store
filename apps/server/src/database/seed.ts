@@ -48,6 +48,7 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       'delivery_items',
       'delivery_orders',
       'shipping_companies',
+      // Vendors was removed; its tables stay dormant until a drop migration retires them.
       'vendor_reviews',
       'vendor_payouts',
       'vendor_commissions',
@@ -59,6 +60,7 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       'exchange_returned_items',
       'exchange_items',
       'exchanges',
+      // Layaway was removed; its tables stay dormant until a drop migration retires them.
       'layaway_payments',
       'layaway_items',
       'layaway_plans',

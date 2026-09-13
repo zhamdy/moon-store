@@ -9,4 +9,3 @@
 export { default as SalesHistory } from './pages/SalesHistory';
 export { default as Promotions } from './pages/Promotions';
 export { default as GiftCards } from './pages/GiftCards';
-export { default as Layaway } from './pages/Layaway';

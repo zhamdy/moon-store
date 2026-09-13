@@ -56,40 +56,6 @@ export interface GiftCardTransaction {
   created_at: string;
 }
 
-/** A line being composed in the layaway form, before it is sent */
-export interface LayawayLine {
-  product_id: number;
-  product_name: string;
-  unit_price: number;
-  quantity: number;
-}
-
-/** Layaway order row from GET /api/v1/layaway */
-export interface LayawayOrder {
-  id: number;
-  customer_id: number;
-  customer_name: string;
-  customer_phone: string | null;
-  total: number;
-  deposit: number;
-  balance: number;
-  due_date: string;
-  status: string;
-  created_at: string;
-}
-
-/** GET /api/v1/layaway/:id — the list row plus its lines and payments */
-export interface LayawayDetail extends LayawayOrder {
-  items: { id: number; product_name: string; quantity: number; unit_price: number }[];
-  payments: {
-    id: number;
-    amount: number;
-    payment_method: string;
-    cashier_name: string;
-    created_at: string;
-  }[];
-}
-
 /** A sale row from GET /api/v1/sales. */
 export interface Sale {
   id: number;

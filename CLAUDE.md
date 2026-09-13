@@ -82,15 +82,15 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 
 | Ratchet | Where | Today |
 | --- | --- | --- |
-| ESLint warnings | `--max-warnings` in `apps/server/package.json` | `385`, essentially all `@typescript-eslint/no-explicit-any` |
-| Operations with no request contract | `EXPECTED_UNCONVERTED` in `apps/server/src/docs/requestContracts.ts` | `3` of 204 — the health probes |
+| ESLint warnings | `--max-warnings` in `apps/server/package.json` | `384`, essentially all `@typescript-eslint/no-explicit-any` |
+| Operations with no request contract | `EXPECTED_UNCONVERTED` in `apps/server/src/docs/requestContracts.ts` | `3` of 192 — the health probes |
 | Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
 
 **Never raise one. Lower it in the same commit that earns the reduction.** A ratchet left
 above the true count has silently stopped ratcheting, which is why the contract one is an
 exact count rather than a ceiling and fails in both directions. The lint number exists
 because errors were already fatal while warnings gated nothing, so nothing stopped the
-next `any` from landing; it has gone 391 → 385, and lowering it further is #47's work.
+next `any` from landing; it has gone 391 → 385 → 384, and lowering it further is #47's work.
 
 The two contract numbers answer different questions on purpose. `EXPECTED_UNCONVERTED`
 counts what is *derived* and moves only on real conversion; `EXPECTED_UNCLASSIFIED` counts
@@ -214,12 +214,29 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   `saleItemSchema`, so `resolveBundleGroup` had never executed — while service-level tests
   that called past the schema passed the whole time. Test the boundary, not just the
   service (2026-09-09)
-- pg-mem reports `err.code` for a unique violation but **not** `err.constraint`. Logic that
-  narrows by constraint name — the document-number retry — can only be proven on real
-  PostgreSQL; on pg-mem the narrowed branch simply never runs (2026-09-09)
+- pg-mem diverges from PostgreSQL in ways a green suite hides, so anything that depends on
+  either difference is proven only on real PostgreSQL. It reports `err.code` for a unique
+  violation but **not** `err.constraint`, so logic that narrows by constraint name — the
+  document-number retry — never takes the narrowed branch there. And it returns `NUMERIC`
+  as a JS number, where node-postgres returns a string (`"-5.00"`); the repo sets no
+  `setTypeParser`, so a `typeof value === 'number'` branch behaves differently on each —
+  which is why the CSV formula guard exempts plain decimal strings (2026-09-09, 2026-09-11)
 - The cart line's `data-testid` is built from `lineKey`, and `e2e/support/locators.ts`
   rebuilds that same string by hand. Adding a segment to the key breaks every cart-line
   locator with no type error — seven smoke specs — so the two move together (2026-09-09)
+- Postponed features are hidden by one list, `apps/dashboard/src/shared/lib/postponedFeatures.ts`,
+  read by three consumers: the Sidebar filter, the `_admin` `beforeLoad` guard and the POS
+  Bundles strip. A hidden path redirects to the user's default route instead of 404ing, and
+  its code and tests stay compiled, so reactivating is a one-line removal plus the checklist
+  in the file's header. The removed features' 14 tables stay dormant, with no drop, until
+  the production reset or an export: some hold financial history, and a down migration can
+  recreate a table but not its rows. See `apps/server/CLAUDE.md` → *Dormant tables* (2026-09-11)
+- An e2e run deletes the tracked images in `apps/server/uploads`: global setup empties every table,
+  then the API Playwright starts runs `orphaned-media-cleanup`, which finds no `image_url`
+  references and removes everything older than its 24h grace from the default
+  `MEDIA_LOCAL_ROOT` — the real `apps/server/uploads`. The sweep is right for production; the
+  harness points it at the wrong root. Until the harness sets a scratch root, run
+  `git restore apps/server/uploads` after an e2e run (2026-09-11)
 - Under pnpm, library `.d.ts` files that import `react` without a `@types/react` peer
   resolve the hidden hoist `node_modules/.pnpm/node_modules/@types/react` — the
   storefront's React 19 — so the dashboard's 18 build failed with 457 JSX errors.

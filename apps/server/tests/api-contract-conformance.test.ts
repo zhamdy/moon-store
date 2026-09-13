@@ -56,9 +56,9 @@ describe('API contract conformance guardrails', () => {
       (match) => match[1]
     );
 
-    // 38 since store credit got its own group (#138). An exact count rather than a
-    // lower bound, so a new route group cannot appear without someone deciding it should.
-    expect(mounts).toHaveLength(38);
+    // An exact count rather than a lower bound, so a new
+    // route group cannot appear without someone deciding it should.
+    expect(mounts).toHaveLength(35);
     expect(new Set(mounts).size).toBe(mounts.length);
     for (const mount of mounts) {
       expect(manifestSource).toContain(`'${mount}':`);

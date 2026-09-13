@@ -16,7 +16,7 @@ export interface TransportRequest {
   body?: unknown;
   /**
    * What the server sends back. A few endpoints stream a file rather than an
-   * envelope — a database backup, an export — and those yield the `Blob`
+   * envelope — the CSV exports — and those yield the `Blob`
    * itself. Encoding is the transport's business either way, so callers do not
    * reach past it to `fetch` and lose the token-refresh retry.
    */
