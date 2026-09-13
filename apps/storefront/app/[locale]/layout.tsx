@@ -4,7 +4,11 @@ import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing, getDirection } from '@/i18n/routing';
+import { bodoniModa, manrope, notoNaskhArabic, ibmPlexSansArabic } from '../fonts';
 import '../globals.css';
+
+const latinFontVariables = `${bodoniModa.variable} ${manrope.variable}`;
+const arabicFontVariables = `${notoNaskhArabic.variable} ${ibmPlexSansArabic.variable}`;
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -42,8 +46,10 @@ export default async function LocaleLayout({
 
   setRequestLocale(locale);
 
+  const fontVariables = locale === 'ar' ? arabicFontVariables : latinFontVariables;
+
   return (
-    <html lang={locale} dir={getDirection(locale)}>
+    <html lang={locale} dir={getDirection(locale)} className={fontVariables}>
       <body>{children}</body>
     </html>
   );
