@@ -1,4 +1,5 @@
 import { withTransaction } from '../../../database/transaction';
+import { PublicError } from '../../../http/errors';
 import { IBranchesRepository, branchesRepository as defaultRepo } from './repository';
 import {
   Branch,
@@ -47,6 +48,38 @@ export class BranchesService {
       }
       return updated;
     });
+  }
+
+  async delete(id: number): Promise<void> {
+    return withTransaction(async (client) => {
+      const existing = await this.repo.findById(id, client);
+      if (!existing) {
+        throw new PublicError('NOT_FOUND', 'Branch not found');
+      }
+
+      if (existing.is_main) {
+        throw new PublicError('CONFLICT', 'Cannot delete the main branch');
+      }
+
+      const deleted = await this.repo.delete(id, client);
+      if (!deleted) {
+        throw new PublicError('NOT_FOUND', 'Branch not found');
+      }
+    });
+  }
+
+  async updateSetting(
+    id: number,
+    key: string,
+    value: string
+  ): Promise<{ id: number; setting_key: string; setting_value: string }> {
+    const existing = await this.repo.findById(id);
+    if (!existing) {
+      throw new PublicError('NOT_FOUND', 'Branch not found');
+    }
+
+    await this.repo.upsertSetting(id, key, value);
+    return { id, setting_key: key, setting_value: value };
   }
 
   async getConsolidated(): Promise<ConsolidatedBranch[]> {

@@ -46,6 +46,26 @@ export const transferStatusSchema = z
   .object({ status: z.enum(['in_transit', 'completed', 'cancelled']) })
   .strict();
 
+/**
+ * The settings dialog's own dropdown is the enum: it is the only writer of this endpoint,
+ * so a key it does not offer is a request nothing built ever sends. Stored in the global
+ * `settings` table under `branch_<id>_<key>`, which is why the value stays a plain string
+ * rather than being typed per key -- the table already speaks that shape and boolean-ish
+ * keys like `allow_negative_stock` are read back as strings elsewhere in this repo too.
+ */
+export const branchSettingSchema = z
+  .object({
+    setting_key: z.enum([
+      'receipt_header',
+      'receipt_footer',
+      'default_payment_method',
+      'allow_negative_stock',
+      'auto_print_receipt',
+    ]),
+    setting_value: z.string().max(500),
+  })
+  .strict();
+
 export const branchesRequestContracts = {
   listBranches: defineRequestContract({
     method: 'GET',
@@ -114,6 +134,25 @@ export const branchesRequestContracts = {
       'Moving to `completed` moves the stock, in one transaction, and is not reversible ' +
         'by setting the status back.',
     ],
+  }),
+
+  deleteBranch: defineRequestContract({
+    method: 'DELETE',
+    path: '/api/v1/branches/{id}',
+    operation: 'deleteBranch',
+    params: branchIdParamsSchema,
+    beyondSchema: [
+      'The main branch cannot be deleted: a 409 names it, rather than leaving every ' +
+        'other branch to fall back on no primary at all.',
+    ],
+  }),
+
+  updateBranchSetting: defineRequestContract({
+    method: 'PUT',
+    path: '/api/v1/branches/{id}/settings',
+    operation: 'updateBranchSetting',
+    body: branchSettingSchema,
+    params: branchIdParamsSchema,
   }),
 } as const;
 
