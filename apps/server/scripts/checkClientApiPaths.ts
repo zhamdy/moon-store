@@ -80,7 +80,7 @@ const RESOLUTIONS: readonly Resolution[] = [
   {
     file: 'features/analytics/pages/Exports.tsx',
     expression:
-      "transport .request<Blob>({ method: 'GET', path: `exports/${selected}`, responseType: 'blob' })",
+      "transport .request<Blob>({ method: 'GET', path: `exports/${selected}`, responseType: 'blob', // Only the sales export takes a date range — the server rejects unknown query // params on the others, so nothing is sent unless the source is sales. ...(selected === 'sales' ? { params: { ...(range.start ? { from: format(range.start, 'yyyy-MM-dd') } : {}), ...(range.end ? { to: format(range.end, 'yyyy-MM-dd') } : {}), }, } : {}), })",
     calls: [
       { method: 'GET', path: 'exports/products' },
       { method: 'GET', path: 'exports/sales' },
