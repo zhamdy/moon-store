@@ -16,9 +16,10 @@ export const manrope = Manrope({
 // Arabic display/body pair, active for the `ar` locale. Both include the `latin`
 // subset so brand text and numerals on /ar don't fall back to a system font.
 //
-// "Noto Serif Arabic" (named in the original design guideline) does not exist in
-// the Google Fonts catalog — verified against Google's own font metadata, not just
-// next/font's data. Noto Naskh Arabic is the closest published equivalent: a
+// "Noto Serif Arabic" (named in the original design guideline) was not available
+// through any font source or tooling verified for this project — the installed
+// next/font catalog, Google's own font metadata API, Fontsource and the notofonts
+// GitHub org all came back with no match. Noto Naskh Arabic is the substitute: a
 // traditional Arabic serif/calligraphic display style (user decision, 2026-09-13).
 //
 // preload: false on both — all four families are called from this one module, so

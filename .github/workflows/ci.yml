@@ -416,7 +416,7 @@ jobs:
           retention-days: 7
 
   storefront:
-    name: Storefront (typecheck, build)
+    name: Storefront (typecheck, lint, test, build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -428,4 +428,6 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @moon/storefront typecheck
+      - run: pnpm --filter @moon/storefront lint
+      - run: pnpm --filter @moon/storefront test
       - run: pnpm build:storefront

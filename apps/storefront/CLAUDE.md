@@ -50,11 +50,14 @@ worked around per-callsite.
   in it (a file extension-shaped slug, for instance) would silently bypass locale
   handling — the root layout's `hasLocale` guard is defence in depth against that, but
   the matcher is the thing to fix if it happens.
-- "Noto Serif Arabic", named in the original design guideline, does not exist in the
-  Google Fonts catalog (verified against Google's own font metadata API, not just
-  `next/font`'s data — see `app/fonts.ts`). Noto Naskh Arabic is the substitute (user
-  decision, 2026-09-13). If the guideline doc is ever revised, its Arabic display font
-  section is stale against that decision.
+- "Noto Serif Arabic", named in the original design guideline, was not available
+  through any font source or tooling verified for this project — the installed
+  `next/font` catalog, Google's own font metadata API, Fontsource, and the notofonts
+  GitHub org all came back with no match (see `app/fonts.ts`). Moon Fashion uses
+  **Noto Naskh Arabic** as its Arabic display font instead (user decision,
+  2026-09-13); IBM Plex Sans Arabic remains the Arabic UI/body face. If the guideline
+  doc is ever revised, its Arabic display font section is stale against that
+  decision.
 - `app/fonts.ts` calls all four font loaders in one module, so `next/font` preloads
   every face on every locale's render, not just the active pair — confirmed in the
   built HTML. The Arabic pair opts out with `preload: false` since `en` is the default
@@ -79,6 +82,27 @@ of converting an entire Server Component tree.
 doesn't — there's no real routing yet (see Scope Boundaries below), so it takes an
 explicit `current?: boolean` prop that every caller currently passes as `false`. That's
 the seam a future page wires up; it does not need `usePathname`.
+
+## Known technical debt: the React 19 `tsconfig` paths pin
+
+`tsconfig.json`'s `paths` pins `react`/`react-dom` to this app's own `node_modules/
+@types/react` (19.x). This is a **temporary workspace type-resolution workaround**,
+not a permanent architectural requirement:
+
+- The dashboard intentionally stays on React 18; the storefront intentionally uses
+  React 19. That split is deliberate and this workaround doesn't change it.
+- The problem: `@tanstack/react-query`'s own `.d.ts` has no local `@types/react`, so
+  under pnpm it resolved a workspace-shared type hoist that happened to hold the
+  dashboard's React 18 types instead of the storefront's own 19 — a real `ReactNode`
+  mismatch, not a false positive. `apps/dashboard/tsconfig.json` carries the mirror
+  fix for the same hoist landing on the storefront's 19 instead of the dashboard's 18.
+- **Do not remove this pin** without first confirming normal (non-pinned) resolution
+  now works — rerun `typecheck` with the pin removed.
+- **Re-test after upgrading** React, React DOM, TanStack Query, TypeScript, or pnpm —
+  any of these could change whether the hoist collision still happens.
+- **Do not copy this `paths` block into another package automatically.** It's a fix
+  for a specific collision this app hit, not a template — a future package should
+  only add it if it actually reproduces the same symptom.
 
 ## Feature slice shape (documented, not scaffolded)
 
