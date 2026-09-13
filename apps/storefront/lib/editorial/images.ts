@@ -2,6 +2,12 @@ import type { StaticImageData } from 'next/image';
 import type { ImageRole, ImageSlot } from './slots';
 import heroDesktop from '@/assets/editorial/hero-desktop.jpg';
 import heroMobile from '@/assets/editorial/hero-mobile.jpg';
+import heroLinenDesktop from '@/assets/editorial/hero-linen-desktop.jpg';
+import heroLinenMobile from '@/assets/editorial/hero-linen-mobile.jpg';
+import heroAbayaDesktop from '@/assets/editorial/hero-abaya-desktop.jpg';
+import heroAbayaMobile from '@/assets/editorial/hero-abaya-mobile.jpg';
+import heroKnitwearDesktop from '@/assets/editorial/hero-knitwear-desktop.jpg';
+import heroKnitwearMobile from '@/assets/editorial/hero-knitwear-mobile.jpg';
 import strip01 from '@/assets/editorial/strip-01.jpg';
 import strip02 from '@/assets/editorial/strip-02.jpg';
 import strip03 from '@/assets/editorial/strip-03.jpg';
@@ -57,6 +63,12 @@ export interface EditorialImage {
 export const editorialImages = {
   'hero-desktop': { src: heroDesktop, role: 'hero' },
   'hero-mobile': { src: heroMobile, role: 'hero' },
+  'hero-linen-desktop': { src: heroLinenDesktop, role: 'hero' },
+  'hero-linen-mobile': { src: heroLinenMobile, role: 'hero' },
+  'hero-abaya-desktop': { src: heroAbayaDesktop, role: 'hero' },
+  'hero-abaya-mobile': { src: heroAbayaMobile, role: 'hero' },
+  'hero-knitwear-desktop': { src: heroKnitwearDesktop, role: 'hero' },
+  'hero-knitwear-mobile': { src: heroKnitwearMobile, role: 'hero' },
   'strip-01': { src: strip01, role: 'editorial' },
   'strip-02': { src: strip02, role: 'editorial' },
   'strip-03': { src: strip03, role: 'editorial' },

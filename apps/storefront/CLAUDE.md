@@ -120,8 +120,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to six entries
-(seven files):
+Server Components by default (R21/R22). `'use client'` is limited to seven entries
+(eight files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -135,6 +135,9 @@ Server Components by default (R21/R22). `'use client'` is limited to six entries
    the transition itself is CSS. Takes children only.
 6. `components/motion/parallax.tsx` — `scroll()` from `motion` driving a WAAPI
    animation from `motion/mini`. Takes children only.
+7. `features/home/components/hero/hero-carousel.tsx` — which hero slide is active,
+   autoplay, tabs, swipe. Slide content arrives server-rendered as `ReactNode`s and
+   every string arrives resolved; it renders no image itself.
 
 **Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
 `useInView` import put the whole engine (~46 KB gz across two chunks) into the eager
@@ -165,12 +168,13 @@ Four ideas, reused everywhere, three of them without the motion runtime (guideli
 §12/§13). Every effect has a reduced-motion fallback; nothing hijacks scroll, pins,
 bounces or blocks interaction.
 
-1. **Entrance** — `@keyframes moon-fade-up` / `moon-line-reveal` / `moon-image-settle`
-   behind the `entrance-fade-up` / `entrance-line` / `entrance-settle` utilities, staggered
-   with `[--entrance-delay:…]`. The hero applies them from the server HTML (never gated on
-   a JS-applied class) so no-JS users see the copy. `entrance-line` needs an
-   overflow-hidden parent; each hero title line has its own so a wrapped line is never
-   clipped. The mobile menu's links use the same fade-up with a 70ms stagger.
+1. **Entrance** — `@keyframes moon-fade-up` / `moon-line-reveal` / `moon-image-settle`,
+   staggered with `[--entrance-delay:…]`. The hero slides apply them through CSS keyed on
+   the slide's `data-active` (`data-hero-image`, `data-enter="fade" | "line"`), so the
+   first slide's entrance plays from the server HTML with no JS and each slide replays it
+   when it becomes active. The line reveal needs an overflow-hidden parent; each title
+   line has its own so a wrapped line is never clipped. The mobile menu's links use the
+   `entrance-fade-up` utility with a 70ms stagger.
 2. **Scroll reveal** — `<Reveal>`: the server HTML is the visible state. On mount,
    `decideInitialRevealState` (`reveal-policy.ts`, unit-tested) marks *only* elements
    entirely below the fold as pending, never under reduced motion; an
@@ -189,8 +193,9 @@ bounces or blocks interaction.
    copy is removed and the single track scrolls naturally. Duration lives in
    `.marquee` in `globals.css`.
 
-Both leaves read `prefers-reduced-motion` once at mount; a preference change
-mid-session is honoured on reload. The global reduced-motion rule zeroes animation and
+`Reveal` and `Parallax` read `prefers-reduced-motion` once at mount; a preference change
+mid-session is honoured on reload. `HeroCarousel` subscribes to it, so turning the
+setting on mid-session stops autoplay immediately. The global reduced-motion rule zeroes animation and
 transition *delays* as well as durations — with `fill-mode: both`, a zero-duration
 animation would otherwise hold its `from` state for the whole stagger. Embla is
 installed but unused: CSS scroll-snap gives the category and lookbook rails swipe,
@@ -211,10 +216,16 @@ Every homepage image is a static import behind one registry, swappable by file d
 - `docs/design/editorial-image-brief.md` lists every slot's ratio, minimum pixels,
   art direction and generation prompt, and the zones that must stay dark. Real
   photography lands by replacing files at the same paths — no code change.
-- The hero is the only art-directed image (16:10 desktop, 4:5 mobile via
-  `getImageProps()` × 2 into one `<picture>`) and the only eager one (`loading="eager"`,
-  `fetchPriority="high"`, no blur — incompatible with `<picture>` anyway). Everything
-  else is a single lazy import with `placeholder="blur"` and an honest `sizes`.
+- The hero slides are the only art-directed images (16:10 desktop, 4:5 mobile via
+  `getImageProps()` × 2 into one `<picture>` each, no blur — incompatible with
+  `<picture>`). The first slide is the page's only eager image (`loading="eager"`,
+  `fetchPriority="high"`); the other slides are lazy and `fetchPriority="low"`, so put the
+  strongest photograph first in `features/home/data/hero-slides.ts`. Everything else is a
+  single lazy import with `placeholder="blur"` and an honest `sizes`.
+- The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
+  other slides are `hero-<collection>-desktop` / `-mobile`. Their photos must leave the
+  bottom 45% dark across the full width, because the copy sits bottom-left in English and
+  bottom-right in Arabic and photos are never mirrored (see the brief).
 - There is no image-shape test: under vitest a `.jpg` import has no dimensions, every
   frame is CSS `aspect-ratio` + `object-cover` (a wrong shape crops, never distorts), and
   the screenshot review is the guard. A missing file fails `next build`, not typecheck.

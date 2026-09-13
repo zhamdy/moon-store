@@ -40,12 +40,49 @@
   },
   "home": {
     "hero": {
-      "eyebrow": "New collection",
-      "title1": "Moonlight,",
-      "title2": "redefined.",
-      "body": "A refined wardrobe for modern femininity.",
-      "cta": "Explore Collection",
-      "imageAlt": "A woman in a floor-length evening dress, standing in soft dusk light"
+      "heading": "New collections at Moon Fashion",
+      "tabList": "Collections",
+      "pause": "Pause slideshow",
+      "play": "Play slideshow",
+      "slideOf": "{index} of {total}",
+      "slides": {
+        "evening": {
+          "tab": "Evening",
+          "eyebrow": "New collection",
+          "title1": "Moonlight,",
+          "title2": "redefined.",
+          "body": "A refined wardrobe for modern femininity.",
+          "cta": "Explore Evening",
+          "imageAlt": "A woman in an embroidered black evening gown with a sheer cape, standing in a dark stone hall"
+        },
+        "linen": {
+          "tab": "Linen",
+          "eyebrow": "Summer collection",
+          "title1": "Light that",
+          "title2": "moves with you.",
+          "body": "Washed linen and open weaves for long, warm days.",
+          "cta": "Explore Linen",
+          "imageAlt": "A woman in an ivory linen dress walking through a shaded stone courtyard"
+        },
+        "abaya": {
+          "tab": "Abaya",
+          "eyebrow": "Signature collection",
+          "title1": "Quiet",
+          "title2": "presence.",
+          "body": "Fluid abayas in silk crepe and soft chiffon.",
+          "cta": "Explore Abayas",
+          "imageAlt": "A woman in a flowing black abaya over a brown dress, standing by a lattice window"
+        },
+        "knitwear": {
+          "tab": "Knitwear",
+          "eyebrow": "Autumn collection",
+          "title1": "Soft,",
+          "title2": "by design.",
+          "body": "Cashmere and wool in the warm tones of the season.",
+          "cta": "Explore Knitwear",
+          "imageAlt": "A woman in a cream cashmere sweater and wide trousers, standing in warm window light"
+        }
+      }
     },
     "strip": {
       "heading": "Collections",

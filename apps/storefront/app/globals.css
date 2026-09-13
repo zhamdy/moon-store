@@ -414,15 +414,6 @@ header[data-surface][data-surface-ready] {
   animation-delay: var(--entrance-delay, 0ms);
 }
 
-@utility entrance-line {
-  animation: moon-line-reveal 900ms var(--ease-editorial) both;
-  animation-delay: var(--entrance-delay, 0ms);
-}
-
-@utility entrance-settle {
-  animation: moon-image-settle 1100ms var(--ease-editorial) both;
-  animation-delay: var(--entrance-delay, 0ms);
-}
 
 /* (2) Scroll reveal, driven by components/motion/reveal.tsx. No attribute on
    the server HTML means visible; `pending` is applied only after mount and only
@@ -448,6 +439,74 @@ header[data-surface][data-surface-ready] {
   opacity: 1;
   clip-path: inset(0 0 100% 0);
   transform: translateY(0.3em);
+}
+
+/* Hero slides — features/home/components/hero/. The active slide crossfades in
+   and replays the entrance: these rules start matching when `data-active` lands,
+   which restarts each animation. The first slide is active in the server HTML,
+   so the entrance plays on first paint with no JS. Visibility is delayed on the
+   way out so the outgoing slide can fade. */
+[data-hero-slide] {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 900ms var(--ease-editorial),
+    visibility 0s linear 900ms;
+}
+
+[data-hero-slide][data-active] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 900ms var(--ease-editorial);
+}
+
+[data-hero-slide][data-active] [data-hero-image] {
+  animation: moon-image-settle 1400ms var(--ease-editorial) both;
+}
+
+[data-hero-slide][data-active] [data-enter='fade'] {
+  animation: moon-fade-up var(--motion-slow) var(--ease-editorial) both;
+  animation-delay: var(--entrance-delay, 0ms);
+}
+
+/* Needs an overflow-hidden parent: each title line has its own mask. */
+[data-hero-slide][data-active] [data-enter='line'] {
+  animation: moon-line-reveal 900ms var(--ease-editorial) both;
+  animation-delay: var(--entrance-delay, 0ms);
+}
+
+/* Tab progress. Full on the selected tab when stopped; while rotating it fills
+   over --hero-interval and its animationend advances the slide, so pausing the
+   animation pauses the timer. */
+[data-hero-progress] {
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+[dir='rtl'] [data-hero-progress] {
+  transform-origin: right;
+}
+
+[data-hero-tab][aria-selected='true'] [data-hero-progress] {
+  transform: scaleX(1);
+}
+
+[data-carousel-state='running'] [data-hero-tab][aria-selected='true'] [data-hero-progress],
+[data-carousel-state='paused'] [data-hero-tab][aria-selected='true'] [data-hero-progress] {
+  animation: moon-hero-progress var(--hero-interval) linear both;
+}
+
+[data-carousel-state='paused'] [data-hero-progress] {
+  animation-play-state: paused;
+}
+
+@keyframes moon-hero-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 
 /* (3) Parallax — components/motion/parallax.tsx. The layer is over-scaled by the

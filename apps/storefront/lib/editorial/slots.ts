@@ -10,8 +10,16 @@
  * distorts, and the screenshot review is the guard.
  */
 export const editorialSlots = [
+  // Hero slides, one desktop (16:10) and one mobile (4:5) crop each. The Evening
+  // slide keeps the original `hero-desktop` / `hero-mobile` names.
   'hero-desktop',
   'hero-mobile',
+  'hero-linen-desktop',
+  'hero-linen-mobile',
+  'hero-abaya-desktop',
+  'hero-abaya-mobile',
+  'hero-knitwear-desktop',
+  'hero-knitwear-mobile',
   'strip-01',
   'strip-02',
   'strip-03',

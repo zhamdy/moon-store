@@ -1,6 +1,6 @@
 # Moon Fashion — editorial image brief
 
-The homepage (`apps/storefront`) composes 38 image slots. Every slot is a file in
+The homepage (`apps/storefront`) composes 44 image slots. Every slot is a file in
 `apps/storefront/assets/editorial/<slot>.jpg`, bound by `apps/storefront/lib/editorial/images.ts`.
 The files shipped today are flat toned placeholders at the exact ratios below. To deliver
 the real photography, **replace each file at the same path, at the same ratio** — no code
@@ -31,8 +31,14 @@ Output as JPEG, sRGB, quality 82–90.
 
 | Slot | Ratio | Min px | Role | Subject / crop | Light & palette |
 | --- | --- | --- | --- | --- | --- |
-| `hero-desktop` | 16:10 | 2400×1500 | hero | Full-length figure in an evening dress, standing, placed in the **upper inline-end** third; large negative space at inline-start and bottom for the copy | Dusk interior or blue-hour exterior; charcoal/ink shadows, warm skin, muted gold highlights; **dark overall** |
-| `hero-mobile` | 4:5 | 1200×1500 | hero | Same shoot, tighter: figure centred-high, bottom third empty | As above, dark overall |
+| `hero-desktop` | 16:10 | 2400×1500 | hero | **Evening slide.** Full-length figure in an embroidered black evening gown, standing near the horizontal centre with the head in the upper third; the **bottom 45% of the frame is empty floor across the full width** | Dusk interior; charcoal/ink shadows, warm skin, muted gold highlights; **dark overall** |
+| `hero-mobile` | 4:5 | 1200×1500 | hero | Evening slide, same shoot, tighter: figure centred-high, bottom 45% empty | As above, dark overall |
+| `hero-linen-desktop` | 16:10 | 2400×1500 | hero | **Linen slide.** A woman in an ivory linen dress walking through a stone courtyard, near the centre; bottom 45% empty paving across the full width | Late sun, but a **deep-shadowed** courtyard so ivory text reads; warm stone, olive, ivory; darker than the lookbook linen shots |
+| `hero-linen-mobile` | 4:5 | 1200×1500 | hero | Linen slide, tighter: figure centred-high, bottom 45% empty | As above |
+| `hero-abaya-desktop` | 16:10 | 2400×1500 | hero | **Abaya slide.** A woman in a flowing black abaya over a brown dress, standing by a lattice (mashrabiya) window, near the centre; bottom 45% empty floor | Dim interior lit only through the lattice; ink, warm brown, gold; **dark overall** |
+| `hero-abaya-mobile` | 4:5 | 1200×1500 | hero | Abaya slide, tighter: figure centred-high, bottom 45% empty | As above |
+| `hero-knitwear-desktop` | 16:10 | 2400×1500 | hero | **Knitwear slide.** A woman in a cream cashmere sweater and wide trousers, standing in window light, near the centre; bottom 45% empty floor | Low warm light with dark surroundings so the cream knit glows; cream, brown, stone; **dark overall** |
+| `hero-knitwear-mobile` | 4:5 | 1200×1500 | hero | Knitwear slide, tighter: figure centred-high, bottom 45% empty | As above |
 | `strip-01`…`strip-04` | 3:4 | 900×1200 | editorial | Four details from the shoot: fabric close-up, a hand with a bag, a hem in motion, a knit texture | Ivory/cream/stone; light, airy |
 | `moment` | 4:5 | 1600×2000 | editorial | Portrait, three-quarter length, seated or leaning, quiet expression | Warm window light, cream wall |
 | `featured-large` | 3:2 | 2400×1600 | editorial | Two figures or one figure in an evening look, wide environmental frame | Evening, warm lamplight, stone/gold |
@@ -62,9 +68,13 @@ Ivory text (`#faf8f4`) and the gold logo sit directly on these images. Code appl
 ink scrim behind each text zone, tuned to be near-invisible on a correctly dark image; if
 the scrim becomes visible after a swap, the image is too light there.
 
-- `hero-desktop`: the **top 30%** (header band) and the **bottom-start 45% × 55%** (copy
-  block) should stay at or below ~35% luminance.
-- `hero-mobile`: the top 25% and the bottom 45% should stay at or below ~35% luminance.
+- Every hero desktop crop (`hero-desktop`, `hero-*-desktop`): the **top 30%** (header band)
+  and the **bottom 45% across the full width** (copy and collection tabs) should stay at or
+  below ~35% luminance. Full width, not one side: the copy sits bottom-left in English and
+  bottom-right in Arabic, and the photo is never mirrored, so the figure must not stand
+  where either language puts the text.
+- Every hero mobile crop (`hero-mobile`, `hero-*-mobile`): the top 25% and the bottom 45%
+  should stay at or below ~35% luminance.
 - `campaign`: a horizontal band across the vertical centre, full width, at or below ~35%
   luminance; the mobile 4:5 crop uses the central 43% of the width.
 
