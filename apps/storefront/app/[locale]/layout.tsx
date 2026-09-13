@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { hasLocale } from 'next-intl';
+import { hasLocale, NextIntlClientProvider } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing, getDirection } from '@/i18n/routing';
+import { AppProviders } from '@/providers/app-providers';
 import { bodoniModa, manrope, notoNaskhArabic, ibmPlexSansArabic } from '../fonts';
 import '../globals.css';
 
@@ -50,7 +51,11 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} dir={getDirection(locale)} className={fontVariables}>
-      <body>{children}</body>
+      <body>
+        <NextIntlClientProvider>
+          <AppProviders>{children}</AppProviders>
+        </NextIntlClientProvider>
+      </body>
     </html>
   );
 }
