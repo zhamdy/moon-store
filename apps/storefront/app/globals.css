@@ -102,6 +102,11 @@
 
   --color-scrim: rgb(23 21 19 / 0.4);
 
+  /* Named apart from Tailwind's own built-in `stone-*` palette, which these
+     utility names would otherwise silently shadow with a different, coincidentally
+     similar grey — see Button's disabled state. */
+  --color-disabled: var(--moon-stone-400);
+
   --font-display: var(--font-display-active);
   --font-body: var(--font-body-active);
 
