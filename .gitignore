@@ -15,6 +15,10 @@ dist/
 # both of these for a long time while neither could ever be committed, which is a failed
 # install and no error anywhere (#53). Anything under apps/dashboard/public/ is a shipped asset.
 !apps/dashboard/public/*.png
+# Same failure mode as #53, for the storefront brand lockup and the preserved original
+# it was derived from: both are shipped assets, not incidental output.
+!apps/storefront/public/brand/*.png
+!docs/design/brand/*.png
 nul
 .playwright-mcp/
 .tanstack/
