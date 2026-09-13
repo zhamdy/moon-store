@@ -156,7 +156,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
 
   // Core / Branches
-  { method: 'GET', path: '/api/v1/branches', classification: 'B', authorization: allAuthenticated },
+  { method: 'GET', path: '/api/v1/branches', classification: 'B', authorization: adminOnly },
   { method: 'POST', path: '/api/v1/branches', classification: 'M', authorization: adminOnly },
   {
     method: 'GET',
@@ -224,7 +224,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'GET',
     path: '/api/v1/register/history',
     classification: 'P',
-    authorization: adminOrCashier,
+    authorization: adminOnly,
   },
   {
     method: 'GET',
@@ -449,7 +449,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'GET',
     path: '/api/v1/distributors',
     classification: 'B',
-    authorization: allAuthenticated,
+    authorization: adminOnly,
   },
   { method: 'POST', path: '/api/v1/distributors', classification: 'M', authorization: adminOnly },
   {
@@ -567,37 +567,31 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'POST',
     path: '/api/v1/customers',
     classification: 'M',
-    authorization: allAuthenticated,
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/customers/:id',
-    classification: 'S',
-    authorization: allAuthenticated,
+    authorization: adminOrCashier,
   },
   {
     method: 'PUT',
     path: '/api/v1/customers/:id',
     classification: 'M',
-    authorization: allAuthenticated,
+    authorization: adminOnly,
   },
   {
     method: 'GET',
     path: '/api/v1/customers/:id/stats',
     classification: 'S',
-    authorization: allAuthenticated,
+    authorization: adminOnly,
   },
   {
     method: 'GET',
     path: '/api/v1/customers/:id/sales',
     classification: 'P',
-    authorization: allAuthenticated,
+    authorization: adminOnly,
   },
   {
     method: 'GET',
     path: '/api/v1/customers/:id/loyalty',
     classification: 'S',
-    authorization: allAuthenticated,
+    authorization: adminOrCashier,
   },
   {
     method: 'POST',
@@ -613,7 +607,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
 
   // Commerce / Coupons
-  { method: 'GET', path: '/api/v1/coupons', classification: 'P', authorization: allAuthenticated },
+  { method: 'GET', path: '/api/v1/coupons', classification: 'P', authorization: adminOnly },
   { method: 'POST', path: '/api/v1/coupons', classification: 'M', authorization: adminOnly },
   {
     method: 'POST',
@@ -647,13 +641,13 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'GET',
     path: '/api/v1/gift-cards',
     classification: 'P',
-    authorization: allAuthenticated,
+    authorization: adminOnly,
   },
   {
     method: 'POST',
     path: '/api/v1/gift-cards',
     classification: 'M',
-    authorization: adminOrCashier,
+    authorization: adminOnly,
   },
   {
     method: 'GET',
@@ -671,7 +665,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'GET',
     path: '/api/v1/gift-cards/:id/transactions',
     classification: 'P',
-    authorization: allAuthenticated,
+    authorization: adminOnly,
   },
   { method: 'PUT', path: '/api/v1/gift-cards/:id', classification: 'M', authorization: adminOnly },
 
@@ -744,12 +738,12 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
 
   // Commerce / Warranty
-  { method: 'GET', path: '/api/v1/warranty', classification: 'P', authorization: allAuthenticated },
+  { method: 'GET', path: '/api/v1/warranty', classification: 'P', authorization: adminOrCashier },
   {
     method: 'POST',
     path: '/api/v1/warranty',
     classification: 'M',
-    authorization: allAuthenticated,
+    authorization: adminOrCashier,
   },
   { method: 'PUT', path: '/api/v1/warranty/:id', classification: 'M', authorization: adminOnly },
 
@@ -1008,3 +1002,33 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     authorization: allAuthenticated,
   },
 ];
+
+/**
+ * Routes whose middleware admits callers this manifest says are refused (#162).
+ *
+ * Each is an open owner decision, not an accepted state: tighten the route, or confirm the
+ * wider access and change the manifest entry *with* that decision. The manifest is never
+ * loosened just to make the gate pass. `npm run check:route-auth` fails on an
+ * under-protected route missing from this list and on an entry that no longer applies.
+ */
+export const UNDER_PROTECTED_ROUTES: readonly { key: string; reason: string }[] = [
+  {
+    key: 'GET /api/v1/settings',
+    reason: 'Token-only; manifest says Admin. POS checkout reads tax/loyalty settings as Cashier.',
+  },
+  {
+    key: 'GET /api/v1/sales/:id',
+    reason: 'Token-only; manifest says Admin+Cashier. A Delivery token can read any sale.',
+  },
+  {
+    key: 'GET /api/v1/exchanges',
+    reason: 'Token-only; manifest says Admin+Cashier. A Delivery token can list exchanges.',
+  },
+  {
+    key: 'GET /api/v1/exchanges/:id',
+    reason: 'Token-only; manifest says Admin+Cashier. A Delivery token can read any exchange.',
+  },
+];
+
+/** Exact, both directions. Lower it in the commit that resolves an entry; never raise it. */
+export const EXPECTED_UNDER_PROTECTED = 4;

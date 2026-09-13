@@ -31,8 +31,11 @@ function verifyToken(req: AuthRequest, res: Response, next: NextFunction): void 
   }
 }
 
+/** Where `requireRole` records the roles it admits, so a gate can read them back. */
+const ROLES = Symbol.for('moon.requireRole.roles');
+
 function requireRole(...roles: string[]) {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+  const middleware = (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json(errorResponse('UNAUTHORIZED'));
       return;
@@ -43,6 +46,16 @@ function requireRole(...roles: string[]) {
     }
     next();
   };
+  // A closure hides its roles; `scripts/checkRouteAuthorization.ts` compares them against
+  // the endpoint manifest, and reading them here beats re-parsing route source text.
+  Object.defineProperty(middleware, ROLES, { value: Object.freeze([...roles]) });
+  return middleware;
 }
 
-export { verifyToken, requireRole };
+/** The roles a `requireRole(...)` middleware admits, or `null` for any other function. */
+function rolesRequiredBy(handler: unknown): readonly string[] | null {
+  if (typeof handler !== 'function') return null;
+  return (handler as unknown as Record<symbol, readonly string[] | undefined>)[ROLES] ?? null;
+}
+
+export { verifyToken, requireRole, rolesRequiredBy };
