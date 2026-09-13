@@ -242,3 +242,9 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   storefront's React 19 — so the dashboard's 18 build failed with 457 JSX errors.
   Dashboard `tsconfig.json` `paths` pin those declarations to its own `@types`
   (2026-09-13)
+- Tailwind's `content` glob `./node_modules/@heroui/theme/dist/**` matched nothing after the
+  pnpm move: npm had hoisted `@heroui/theme`, pnpm links only direct dependencies. The build
+  still passed and every unit test stayed green while HeroUI's component CSS was missing;
+  e2e smoke caught it as a radio whose dot intercepted the click. The dashboard now declares
+  `@heroui/theme` itself — a path a config reaches into must belong to a direct dependency
+  (2026-09-13)

@@ -359,7 +359,10 @@ declarations import `react` without a `@types/react` peer would otherwise resolv
 hidden hoist (`node_modules/.pnpm/node_modules/@types/react`, React 19), so dashboard
 `tsconfig.json` `paths` pin `react`/`react-dom` declarations to its own node_modules.
 Its existing test import of `@react-aria/i18n` is now an explicit dev dependency at the
-previously locked version, because pnpm isolates dependencies.
+previously locked version, because pnpm isolates dependencies. For the same reason
+`@heroui/theme` is a direct dependency: `tailwind.config.js` scans
+`./node_modules/@heroui/theme/dist`, and without it HeroUI's component CSS is silently
+missing from the build.
 `pnpm-lock.yaml` is the only lock for `apps/*`; the old root, dashboard and server
 `package-lock.json` files were removed. E2E remains an independent npm package under
 `e2e/` with its own `package-lock.json` and disposable PostgreSQL requirements.
