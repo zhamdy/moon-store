@@ -73,7 +73,7 @@ function toExpressStyle(path: string): string {
 }
 
 /**
- * Mounted directly on the app in `index.ts` rather than through `routeTable`, because the
+ * Mounted directly on the app in `src/app.ts` rather than through `routeTable`, because the
  * probes must answer before and independently of the feature routers. They are served, so
  * they are listed here; walking only `routeTable` would report them as documented-but-
  * absent and teach everyone to ignore this gate's output.

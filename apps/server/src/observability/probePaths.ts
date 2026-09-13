@@ -2,7 +2,7 @@
  * The paths an uptime probe or orchestrator may call.
  *
  * A standalone, dependency-free module on purpose: it is the single list that both the
- * route registration in `server/index.ts` and the rate-limit exemption in
+ * route registration in `server/src/app.ts` and the rate-limit exemption in
  * `src/http/rateLimits.ts` read. Splitting `/api/health` into liveness and readiness
  * without updating the exemption would silently put the probes back on the shop's
  * request budget — a regression that fails no test and surfaces as the monitoring

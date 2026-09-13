@@ -4,7 +4,7 @@ import { assertSafeKey, type PutOptions, type StorageDriver, type StoredObject }
 
 /**
  * The path every image written before `MEDIA_PUBLIC_BASE_URL` existed was stored under,
- * and the path `index.ts` mounts unconditionally. Owned forever: rows holding it are still
+ * and the path `src/app.ts` mounts unconditionally. Owned forever: rows holding it are still
  * live references no matter where new URLs point.
  */
 export const LEGACY_PUBLIC_PATH = '/uploads';
@@ -125,7 +125,7 @@ export class LocalStorageDriver implements StorageDriver {
       }
     }
 
-    // The compatibility mount in `index.ts`, which is unconditional.
+    // The compatibility mount in `src/app.ts`, which is unconditional.
     prefixes.push(LEGACY_PUBLIC_PATH);
 
     return [...new Set(prefixes)].sort((a, b) => b.length - a.length);
