@@ -36,18 +36,22 @@ const BUDGETS = path.join(import.meta.dirname, 'budgets.json');
  * a dynamic one appears inside `import("./x.js")` and in the `__vitePreload` dependency
  * array, and neither of those forms matches here — which is the point.
  */
+let fromImports = 0;
 function staticImports(source) {
   const found = new Set();
   // Two forms, and the whitespace matters: minified output is `}from"./x.js"` with no
   // space before `from`, so a pattern requiring one silently matches nothing and every
   // closure comes out too small. That is exactly how this was wrong first time round.
-  const withFrom = /from\s*["']\.\/([A-Za-z0-9_.-]+\.js)["']/g;
+  const withFrom = /from\s*["']\.\/([A-Za-z0-9_.-]+\.js)["']/g;
   // A bare side-effect import. `import(` — a dynamic one — cannot match, because the
   // quote must follow directly, and NOT counting those is the entire point.
   const sideEffect = /(?:^|[;}\s])import\s*["']\.\/([A-Za-z0-9_.-]+\.js)["']/g;
   for (const re of [withFrom, sideEffect]) {
     let m;
-    while ((m = re.exec(source))) found.add(m[1]);
+    while ((m = re.exec(source))) {
+      found.add(m[1]);
+      if (re === withFrom) fromImports++;
+    }
   }
   return found;
 }
@@ -58,6 +62,13 @@ const gzipped = new Map(
   files.map((f) => [f, gzipSync(readFileSync(path.join(ASSETS, f))).length])
 );
 const graph = new Map([...sources].map(([f, s]) => [f, staticImports(s)]));
+
+// Chunks link almost entirely through `from"./x.js"`, so zero means the pattern broke, not
+// the build. A stray backspace in it made every route measure only its own chunk from #98.
+if (fromImports === 0) {
+  console.error('\n✗ No `from"./x.js"` import found in any chunk: the import pattern matches nothing.');
+  process.exit(1);
+}
 
 /** Everything the browser must have before this chunk can run. */
 function closure(entries) {
