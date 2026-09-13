@@ -20,6 +20,9 @@ dist/
 # it was derived from: both are shipped assets, not incidental output.
 !apps/storefront/public/brand/*.png
 !docs/design/brand/*.png
+# The storefront's editorial photography is source too: `next/image` static imports,
+# swapped by file drop at the same path (docs/design/editorial-image-brief.md).
+!apps/storefront/assets/editorial/*.jpg
 nul
 .playwright-mcp/
 .tanstack/
