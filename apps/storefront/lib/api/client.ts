@@ -52,7 +52,7 @@ export function resolveApiBaseUrl(): string {
   return DEV_FALLBACK;
 }
 
-interface SuccessBody<T> {
+export interface ApiFetchResult<T> {
   data: T;
   meta?: Record<string, unknown>;
 }
@@ -72,9 +72,11 @@ function isErrorBody(value: unknown): value is ErrorBody {
   );
 }
 
-function isSuccessBody<T>(value: unknown): value is SuccessBody<T> {
+function isSuccessBody<T>(value: unknown): value is ApiFetchResult<T> {
   return typeof value === 'object' && value !== null && 'data' in value;
 }
+
+export const DEFAULT_TIMEOUT_MS = 10_000;
 
 export interface ApiFetchOptions {
   method?: string;
@@ -82,13 +84,13 @@ export interface ApiFetchOptions {
   headers?: Record<string, string>;
   credentials?: RequestCredentials;
   signal?: AbortSignal;
+  /**
+   * Aborts the request (fetch and body read) after this long. Defaults to 10s in the
+   * browser; unset on the server, where a signal would opt out of fetch memoization.
+   */
+  timeoutMs?: number;
   cache?: RequestCache;
   next?: NextFetchRequestConfig;
-}
-
-export interface ApiFetchResult<T> {
-  data: T;
-  meta?: Record<string, unknown>;
 }
 
 export async function apiFetch<T>(
@@ -105,6 +107,33 @@ export async function apiFetch<T>(
     body = JSON.stringify(options.body);
   }
 
+  // Without a deadline a hung API holds a query open indefinitely, so the browser always
+  // gets one. On the server any fetch carrying a signal opts out of Next's per-render
+  // memoization, so a default deadline there would silently double every shared GET —
+  // server callers opt in with timeoutMs (or bring their own signal).
+  const isBrowser = typeof window !== 'undefined';
+  const timeoutMs = options.timeoutMs ?? (isBrowser ? DEFAULT_TIMEOUT_MS : undefined);
+  const timeoutSignal = timeoutMs === undefined ? undefined : AbortSignal.timeout(timeoutMs);
+  const signal =
+    options.signal && timeoutSignal
+      ? AbortSignal.any([options.signal, timeoutSignal])
+      : (options.signal ?? timeoutSignal);
+
+  // A caller's own abort is intent, not failure: it propagates unchanged so callers
+  // (React Query's cancellation included) can recognise their AbortError.
+  const abortFailure = (cause: unknown): unknown => {
+    if (options.signal?.aborted) return cause;
+    if (timeoutSignal?.aborted) {
+      return new ApiError({
+        status: 0,
+        code: 'TIMEOUT',
+        message: 'The request timed out.',
+        cause,
+      });
+    }
+    return undefined;
+  };
+
   let response: Response;
   try {
     response = await fetch(url, {
@@ -112,17 +141,20 @@ export async function apiFetch<T>(
       headers,
       body,
       credentials: options.credentials ?? 'omit',
-      signal: options.signal,
+      signal,
       cache: options.cache,
       next: options.next,
     });
   } catch (cause) {
-    throw new ApiError({
-      status: 0,
-      code: 'NETWORK_ERROR',
-      message: 'The network request failed.',
-      cause,
-    });
+    throw (
+      abortFailure(cause) ??
+      new ApiError({
+        status: 0,
+        code: 'NETWORK_ERROR',
+        message: 'The network request failed.',
+        cause,
+      })
+    );
   }
 
   if (response.status === 204) {
@@ -132,7 +164,9 @@ export async function apiFetch<T>(
   let payload: unknown;
   try {
     payload = await response.json();
-  } catch {
+  } catch (cause) {
+    const aborted = abortFailure(cause);
+    if (aborted !== undefined) throw aborted;
     throw new ApiError({
       status: response.status,
       code: 'INVALID_RESPONSE',

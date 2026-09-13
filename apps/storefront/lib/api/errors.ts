@@ -1,6 +1,6 @@
 /**
  * Mirrors apps/server/src/http/errors.ts's PublicErrorCode. Duplicated rather than
- * imported — the storefront never imports server source — plus the two client-only
+ * imported — the storefront never imports server source — plus the three client-only
  * codes for failures the server never produces. Kept as a string fallback (not a
  * closed union) so a new server code widens what a caller can read, not what the
  * type system rejects.
@@ -14,6 +14,7 @@ export type ApiErrorCode =
   | 'RATE_LIMITED'
   | 'INTERNAL_ERROR'
   | 'NETWORK_ERROR'
+  | 'TIMEOUT'
   | 'INVALID_RESPONSE'
   | (string & {});
 
