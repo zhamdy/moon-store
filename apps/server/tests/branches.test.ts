@@ -53,37 +53,35 @@ describe('Branches HTTP contract', () => {
     });
   });
 
-  describe('DELETE /branches/:id', () => {
-    it('refuses to delete the main branch with a 409, not a 200', async () => {
-      vi.spyOn(branchesService, 'delete').mockRejectedValue(
-        new PublicError('CONFLICT', 'Cannot delete the main branch')
+  describe('POST /branches/:id/deactivate', () => {
+    it('passes the service refusal for the main branch through as a 409', async () => {
+      vi.spyOn(branchesService, 'deactivate').mockRejectedValue(
+        new PublicError('CONFLICT', 'Cannot deactivate the main branch')
       );
       const next = vi.fn();
 
-      await new BranchesController().deleteBranch(
+      await new BranchesController().deactivateBranch(
         { params: { id: '1' } } as unknown as Request,
-        { status: vi.fn().mockReturnThis(), send: vi.fn() } as unknown as Response,
+        { json: vi.fn() } as unknown as Response,
         next
       );
 
-      expect(next).toHaveBeenCalled();
-      const err = next.mock.calls[0][0];
-      expect(err.code).toBe('CONFLICT');
+      expect(next.mock.calls[0][0].code).toBe('CONFLICT');
     });
 
-    it('sends a bare 204 once the service confirms the delete', async () => {
-      vi.spyOn(branchesService, 'delete').mockResolvedValue(undefined);
-      const send = vi.fn();
-      const status = vi.fn().mockReturnValue({ send });
+    it('returns the deactivated branch under the canonical envelope', async () => {
+      const branch = { id: 7, name: 'Zamalek', code: 'ZMLK', is_main: 0, status: 'inactive' };
+      vi.spyOn(branchesService, 'deactivate').mockResolvedValue(branch);
+      const json = vi.fn();
 
-      await new BranchesController().deleteBranch(
+      await new BranchesController().deactivateBranch(
         { params: { id: '7' } } as unknown as Request,
-        { status } as unknown as Response,
+        { json } as unknown as Response,
         vi.fn()
       );
 
-      expect(status).toHaveBeenCalledWith(204);
-      expect(send).toHaveBeenCalled();
+      expect(branchesService.deactivate).toHaveBeenCalledWith(7);
+      expect(json).toHaveBeenCalledWith({ data: branch });
     });
   });
 
@@ -140,11 +138,14 @@ describe('Branches HTTP contract', () => {
       expect(query.mock.calls[0][1]).toEqual(['branch_5_receipt_footer', 'Thanks!']);
     });
 
-    it('deletes the branch row and reports whether one existed', async () => {
-      const query = vi.fn().mockResolvedValue({ rows: [{ id: 5 }] });
-      const deleted = await new BranchesRepository().delete(5, { query } as unknown as Queryable);
-      expect(deleted).toBe(true);
-      expect(query.mock.calls[0][0]).toContain('DELETE FROM branches');
+    it('deactivates with an UPDATE, never a DELETE', async () => {
+      const query = vi.fn().mockResolvedValue({ rows: [{ id: 5, status: 'inactive' }] });
+      const branch = await new BranchesRepository().deactivate(5, {
+        query,
+      } as unknown as Queryable);
+      expect(branch).toEqual({ id: 5, status: 'inactive' });
+      expect(query.mock.calls[0][0]).toContain("SET status = 'inactive'");
+      expect(query.mock.calls[0][0]).not.toContain('DELETE');
     });
   });
 });

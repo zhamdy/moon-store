@@ -72,11 +72,11 @@ export class BranchesController {
     }
   }
 
-  async deleteBranch(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async deactivateBranch(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = Number(contracts.deleteBranch.parseParams<{ id: string }>(req.params).id);
-      await branchesService.delete(id);
-      res.status(204).send();
+      const id = Number(contracts.deactivateBranch.parseParams<{ id: string }>(req.params).id);
+      const branch = await branchesService.deactivate(id);
+      res.json(success(branch));
     } catch (err) {
       next(err);
     }

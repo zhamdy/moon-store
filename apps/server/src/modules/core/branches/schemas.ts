@@ -136,14 +136,16 @@ export const branchesRequestContracts = {
     ],
   }),
 
-  deleteBranch: defineRequestContract({
-    method: 'DELETE',
-    path: '/api/v1/branches/{id}',
-    operation: 'deleteBranch',
+  deactivateBranch: defineRequestContract({
+    method: 'POST',
+    path: '/api/v1/branches/{id}/deactivate',
+    operation: 'deactivateBranch',
     params: branchIdParamsSchema,
     beyondSchema: [
-      'The main branch cannot be deleted: a 409 names it, rather than leaving every ' +
-        'other branch to fall back on no primary at all.',
+      'A soft deactivation: sets `status` to `inactive` and keeps the branch, its ' +
+        'inventory and its transfer history. Branches are never hard-deleted.',
+      'The main branch cannot be deactivated (409). Deactivating an already-inactive ' +
+        'branch succeeds and changes nothing.',
     ],
   }),
 

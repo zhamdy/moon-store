@@ -10,7 +10,7 @@ import {
   Package,
   Settings2,
   BarChart3,
-  Trash2,
+  PowerOff,
   ArrowRightLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -150,8 +150,11 @@ export default function BranchesPage() {
     onDone: editor.close,
   });
 
-  const deleteBranch = branches.useRemove({
-    message: t('branches.deleted'),
+  // Branches are deactivated, never deleted: a hard delete would cascade away the branch's
+  // stock and fail on its transfer history.
+  const deactivateBranch = branches.useAction('deactivate', {
+    method: 'POST',
+    message: t('branches.deactivated'),
     fallbackMessage: 'Error',
   });
 
@@ -316,7 +319,7 @@ export default function BranchesPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      {!b.is_primary && (
+                      {!b.is_primary && b.status !== 'inactive' && (
                         <Button
                           isIconOnly
                           variant="light"
@@ -324,11 +327,13 @@ export default function BranchesPage() {
                           size="sm"
                           className="h-8 w-8"
                           onPress={() => {
-                            if (confirm(t('branches.deleteConfirm'))) deleteBranch.remove(b.id);
+                            if (confirm(t('branches.deactivateConfirm'))) {
+                              deactivateBranch.run({ id: b.id });
+                            }
                           }}
-                          aria-label={t('common.delete')}
+                          aria-label={`${b.name}: ${t('branches.deactivate')}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <PowerOff className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
@@ -337,6 +342,11 @@ export default function BranchesPage() {
                     <Badge size="sm" variant="primary">
                       {b.type}
                     </Badge>
+                    {b.status === 'inactive' ? (
+                      <Badge size="sm" variant="default">
+                        {t('common.inactive')}
+                      </Badge>
+                    ) : null}
                     {b.is_primary ? (
                       <Badge size="sm" variant="secondary">
                         {t('branches.primary')}

@@ -184,8 +184,8 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
   { method: 'PUT', path: '/api/v1/branches/:id', classification: 'M', authorization: adminOnly },
   {
-    method: 'DELETE',
-    path: '/api/v1/branches/:id',
+    method: 'POST',
+    path: '/api/v1/branches/:id/deactivate',
     classification: 'M',
     authorization: adminOnly,
   },

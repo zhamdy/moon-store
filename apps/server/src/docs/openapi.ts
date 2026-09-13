@@ -1713,13 +1713,15 @@ export const openApiSpec = {
           },
         },
       },
-      delete: {
+    },
+    '/api/v1/branches/{id}/deactivate': {
+      post: {
         tags: ['Branches'],
-        summary: 'Delete Branches (Admin)',
+        summary: 'Deactivate Branches (Admin)',
         description:
           'Endpoint classification: M. Allowed Roles: Admin.\n\n' +
-          'The main branch cannot be deleted; the response is a 409 naming it rather than ' +
-          'leaving every other branch with no primary at all.',
+          'Soft deactivation: sets `status` to `inactive`. The branch row, its inventory and ' +
+          'its transfer history are kept; branches are never hard-deleted.',
         security: [
           {
             BearerAuth: [],
@@ -1737,8 +1739,20 @@ export const openApiSpec = {
           },
         ],
         responses: {
-          '204': {
-            description: 'Deleted',
+          '200': {
+            description: 'Deactivated branch',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    data: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
           },
           '400': {
             description: 'Validation error / Bad request',

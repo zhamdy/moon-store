@@ -16,7 +16,7 @@ export interface IBranchesRepository {
   resetMainBranch(excludeId?: number, queryable?: Queryable): Promise<void>;
   create(data: CreateBranchDTO, queryable?: Queryable): Promise<Branch>;
   update(id: number, data: UpdateBranchDTO, queryable?: Queryable): Promise<Branch | null>;
-  delete(id: number, queryable?: Queryable): Promise<boolean>;
+  deactivate(id: number, queryable?: Queryable): Promise<Branch | null>;
   upsertSetting(branchId: number, key: string, value: string, queryable?: Queryable): Promise<void>;
   getConsolidatedBranches(queryable?: Queryable): Promise<ConsolidatedBranch[]>;
   findTransfers(
@@ -91,12 +91,12 @@ export class BranchesRepository implements IBranchesRepository {
     return result.rows[0] || null;
   }
 
-  async delete(id: number, queryable?: Queryable): Promise<boolean> {
-    const result = await this.q(queryable).query(
-      'DELETE FROM branches WHERE id = $1 RETURNING id',
+  async deactivate(id: number, queryable?: Queryable): Promise<Branch | null> {
+    const result = await this.q(queryable).query<Branch>(
+      `UPDATE branches SET status = 'inactive', updated_at = NOW() WHERE id = $1 RETURNING *`,
       [id]
     );
-    return result.rows.length > 0;
+    return result.rows[0] || null;
   }
 
   /**

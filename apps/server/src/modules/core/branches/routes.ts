@@ -13,8 +13,8 @@ router.post('/', verifyToken, requireRole('Admin'), (req, res, next) =>
 router.put('/:id', verifyToken, requireRole('Admin'), (req, res, next) =>
   branchesController.updateBranch(req, res, next)
 );
-router.delete('/:id', verifyToken, requireRole('Admin'), (req, res, next) =>
-  branchesController.deleteBranch(req, res, next)
+router.post('/:id/deactivate', verifyToken, requireRole('Admin'), (req, res, next) =>
+  branchesController.deactivateBranch(req, res, next)
 );
 router.put('/:id/settings', verifyToken, requireRole('Admin'), (req, res, next) =>
   branchesController.updateBranchSetting(req, res, next)
