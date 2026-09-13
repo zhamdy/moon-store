@@ -49,11 +49,13 @@ const downloadButton = () => screen.getByRole('button', { name: /download/i });
 const downloadButtonAfterChoosing = () =>
   screen.getByRole('button', { name: /download/i, hidden: true });
 
-const sourceTrigger = () => screen.getByRole('button', { name: /data/i });
+// `hidden: true` also covers re-opening the source Select a second time in one test: the
+// first choice leaves the outer page aria-hidden per the note above.
+const sourceTrigger = () => screen.getByRole('button', { name: /data/i, hidden: true });
 
 async function openSources() {
   fireEvent.click(sourceTrigger());
-  return within(await screen.findByRole('listbox'));
+  return within(await screen.findByRole('listbox', { hidden: true }));
 }
 
 async function chooseSource(name: string) {
@@ -137,6 +139,91 @@ describe('Exports page', () => {
     expect(exportCalls(transport.calls())).toEqual([
       expect.objectContaining({ method: 'GET', path: `exports/${source}`, responseType: 'blob' }),
     ]);
+  });
+
+  // The date-range picker has no native label association (it opens a custom popover
+  // rather than being a labelled input), so it is found by its trigger's accessible name
+  // and its manual-entry inputs are found next to their (unassociated) text labels.
+  // jsdom never finishes the source listbox's exit animation either, so once a source has
+  // been chosen the rest of the page (this control included) stays aria-hidden.
+  const dateRangeTrigger = () =>
+    screen.queryByRole('button', { name: /select date range/i, hidden: true });
+  const dateInput = (labelText: string): HTMLInputElement => {
+    const label = screen.getByText(labelText);
+    const input = label.parentElement?.querySelector('input[type="date"]');
+    if (!input) throw new Error(`No date input next to "${labelText}"`);
+    return input as HTMLInputElement;
+  };
+
+  it('shows no date range control for Products or Customers', async () => {
+    renderExports(csvTransport());
+
+    expect(dateRangeTrigger()).not.toBeInTheDocument();
+
+    await chooseSource('Customers');
+    expect(dateRangeTrigger()).not.toBeInTheDocument();
+  });
+
+  it('sends no date params for Sales when no range is chosen', async () => {
+    const transport = csvTransport();
+    renderExports(transport);
+
+    await chooseSource('Sales');
+    expect(dateRangeTrigger()).toBeInTheDocument();
+    fireEvent.click(downloadButtonAfterChoosing());
+
+    await waitFor(() => expect(downloads).toEqual(['moon-sales-2026-09-11.csv']));
+    expect(exportCalls(transport.calls())).toEqual([
+      expect.objectContaining({
+        method: 'GET',
+        path: 'exports/sales',
+        responseType: 'blob',
+        params: {},
+      }),
+    ]);
+  });
+
+  it('passes the chosen range as from/to on the Sales export', async () => {
+    const transport = csvTransport();
+    renderExports(transport);
+
+    await chooseSource('Sales');
+    fireEvent.click(dateRangeTrigger() as HTMLElement);
+    fireEvent.change(dateInput('Start Date'), { target: { value: '2026-09-01' } });
+    fireEvent.change(dateInput('End Date'), { target: { value: '2026-09-10' } });
+
+    fireEvent.click(downloadButtonAfterChoosing());
+
+    await waitFor(() => expect(downloads).toEqual(['moon-sales-2026-09-11.csv']));
+    expect(exportCalls(transport.calls())).toEqual([
+      expect.objectContaining({
+        method: 'GET',
+        path: 'exports/sales',
+        responseType: 'blob',
+        params: { from: '2026-09-01', to: '2026-09-10' },
+      }),
+    ]);
+  });
+
+  it('drops a chosen range when switching back to Products', async () => {
+    const transport = csvTransport();
+    renderExports(transport);
+
+    await chooseSource('Sales');
+    fireEvent.click(dateRangeTrigger() as HTMLElement);
+    fireEvent.change(dateInput('Start Date'), { target: { value: '2026-09-01' } });
+
+    await chooseSource('Products');
+    fireEvent.click(downloadButtonAfterChoosing());
+
+    await waitFor(() => expect(downloads).toEqual(['moon-products-2026-09-11.csv']));
+    const [call] = exportCalls(transport.calls());
+    expect(call).toMatchObject({
+      method: 'GET',
+      path: 'exports/products',
+      responseType: 'blob',
+    });
+    expect(call).not.toHaveProperty('params');
   });
 
   it('shows the translated error toast and creates no download when the request fails', async () => {

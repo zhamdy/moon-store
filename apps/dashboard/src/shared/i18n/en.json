@@ -817,6 +817,8 @@
   "exports.download": "Download",
   "exports.downloadedFile": "Export downloaded",
   "exports.downloadFailed": "Export failed. Try again.",
+  "exports.dateRange": "Date Range",
+  "exports.dateRangeHelp": "Optional — leave blank to export every sale",
   "customerDisplay.welcome": "Welcome to MOON",
   "customerDisplay.items": "Items",
   "customerDisplay.total": "Total",
