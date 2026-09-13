@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { verifyToken } from '../../../../middleware/auth';
+import { verifyToken, requireRole } from '../../../../middleware/auth';
 import { shiftsController } from './controller';
 
 const router: Router = Router();
@@ -27,7 +27,9 @@ router.post('/break/end', verifyToken, (req, res, next) =>
   shiftsController.endBreak(req, res, next)
 );
 
-// GET /api/shifts — List shifts (Admin or user's own)
-router.get('/', verifyToken, (req, res, next) => shiftsController.getShifts(req, res, next));
+// GET /api/shifts — List shifts (Admin or Cashier; had no role check at all — #172)
+router.get('/', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
+  shiftsController.getShifts(req, res, next)
+);
 
 export default router;

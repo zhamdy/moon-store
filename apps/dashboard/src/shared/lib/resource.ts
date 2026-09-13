@@ -91,7 +91,7 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
   const all = [name] as const;
 
   return {
-    useList(params?: Record<string, unknown>) {
+    useList(params?: Record<string, unknown>, options?: { enabled?: boolean }) {
       const transport = useTransport();
       const normalizedParams = normalizeQueryParams(params);
       const query = useQuery({
@@ -99,6 +99,7 @@ export function resource<Row, Meta = Record<string, unknown>>(name: string) {
         queryFn: () =>
           transport.request<Row[]>({ method: 'GET', path: name, params: normalizedParams }),
         placeholderData: keepPreviousData,
+        enabled: options?.enabled,
       });
 
       return {

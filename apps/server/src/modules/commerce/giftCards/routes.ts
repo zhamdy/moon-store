@@ -19,8 +19,8 @@ router.get('/:code/balance', verifyToken, (req, res, next) =>
   giftCardsController.getBalance(req, res, next)
 );
 
-// POST /api/gift-cards/:code/redeem — Redeem gift card
-router.post('/:code/redeem', verifyToken, (req, res, next) =>
+// POST /api/gift-cards/:code/redeem — Redeem gift card (had no role check at all — #172)
+router.post('/:code/redeem', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
   giftCardsController.redeemGiftCard(req, res, next)
 );
 

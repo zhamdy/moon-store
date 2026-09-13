@@ -158,7 +158,9 @@ export default function Inventory() {
     lowStock: lowStockFilter || undefined,
   });
   const { data: categories } = products.useRead<Category[]>('categories');
-  const { data: distributorRows } = distributors.useList();
+  // GET /distributors is Admin-only server-side; fetching it as a Cashier is a guaranteed
+  // 403, not a missing feature to build (#172).
+  const { data: distributorRows } = distributors.useList(undefined, { enabled: isAdmin });
 
   const currentData: Product[] = list.data ?? [];
   const paginationMeta = (list.meta as { pagination?: PaginationMeta } | undefined)?.pagination;

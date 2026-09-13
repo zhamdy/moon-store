@@ -561,7 +561,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'GET',
     path: '/api/v1/customers',
     classification: 'P',
-    authorization: allAuthenticated,
+    authorization: adminOrCashier,
   },
   {
     method: 'POST',
@@ -635,7 +635,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'POST',
     path: '/api/v1/store-credit/:id/redeem',
     classification: 'M',
-    authorization: allAuthenticated,
+    authorization: adminOrCashier,
   },
   {
     method: 'POST',
