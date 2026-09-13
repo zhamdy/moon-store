@@ -252,3 +252,9 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   e2e smoke caught it as a radio whose dot intercepted the click. The dashboard now declares
   `@heroui/theme` itself — a path a config reaches into must belong to a direct dependency
   (2026-09-13)
+- The bundle budget gate measured almost nothing from #98 on: the `from"./x.js"` regex in
+  `apps/dashboard/scripts/bundleBudget.mjs` began with an invisible `\x08` byte, so each route
+  counted only its own chunk and every budget was set from those numbers (`/pos` 15 KiB, real
+  37; `/inventory` 11, real 125). It stayed green until a chunk split happened to land on a
+  side-effect import. The script now fails on zero `from` imports; `cat -A` shows the byte
+  where an editor shows nothing (2026-09-13)

@@ -183,6 +183,18 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     authorization: adminOnly,
   },
   { method: 'PUT', path: '/api/v1/branches/:id', classification: 'M', authorization: adminOnly },
+  {
+    method: 'POST',
+    path: '/api/v1/branches/:id/deactivate',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'PUT',
+    path: '/api/v1/branches/:id/settings',
+    classification: 'M',
+    authorization: adminOnly,
+  },
 
   // POS / Sales
   { method: 'GET', path: '/api/v1/sales', classification: 'P', authorization: adminOrCashier },
@@ -685,6 +697,18 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   { method: 'DELETE', path: '/api/v1/segments/:id', classification: 'M', authorization: adminOnly },
 
   // Commerce / Storefront
+  {
+    method: 'GET',
+    path: '/api/v1/storefront/config',
+    classification: 'S',
+    authorization: adminOnly,
+  },
+  {
+    method: 'PUT',
+    path: '/api/v1/storefront/config',
+    classification: 'M',
+    authorization: adminOnly,
+  },
   {
     method: 'GET',
     path: '/api/v1/storefront/banners',

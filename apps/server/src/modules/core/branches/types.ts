@@ -8,6 +8,8 @@ export interface Branch {
   address?: string | null;
   phone?: string | null;
   is_main: number | boolean;
+  /** `'active'` (default) or `'inactive'`; branches are deactivated, never deleted. */
+  status?: string;
   created_at?: string;
   updated_at?: string;
   product_count?: number;

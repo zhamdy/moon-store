@@ -72,6 +72,30 @@ export class BranchesController {
     }
   }
 
+  async deactivateBranch(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = Number(contracts.deactivateBranch.parseParams<{ id: string }>(req.params).id);
+      const branch = await branchesService.deactivate(id);
+      res.json(success(branch));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async updateBranchSetting(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = Number(contracts.updateBranchSetting.parseParams<{ id: string }>(req.params).id);
+      const { setting_key, setting_value } = contracts.updateBranchSetting.parseBody<{
+        setting_key: string;
+        setting_value: string;
+      }>(req.body);
+      const result = await branchesService.updateSetting(id, setting_key, setting_value);
+      res.json(success(result));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async getConsolidated(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await branchesService.getConsolidated();

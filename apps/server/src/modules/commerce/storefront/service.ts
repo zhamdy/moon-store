@@ -1,5 +1,6 @@
+import { withTransaction } from '../../../database/transaction';
 import { IStorefrontRepository, storefrontRepository as defaultRepo } from './repository';
-import { BannerDTO, BannerRecord } from './types';
+import { BannerDTO, BannerRecord, StorefrontConfigMap } from './types';
 
 export class StorefrontService {
   constructor(private repo: IStorefrontRepository = defaultRepo) {}
@@ -30,6 +31,18 @@ export class StorefrontService {
 
   async deleteBanner(id: number | string): Promise<boolean> {
     return this.repo.deleteBanner(id);
+  }
+
+  async getConfig(): Promise<StorefrontConfigMap> {
+    return this.repo.getConfig();
+  }
+
+  /** A merge, exactly like the global settings write: keys absent from `data` keep their stored value. */
+  async updateConfig(data: Partial<StorefrontConfigMap>): Promise<StorefrontConfigMap> {
+    await withTransaction(async (client) => {
+      await this.repo.upsertConfig(data, client);
+    });
+    return this.repo.getConfig();
   }
 }
 
