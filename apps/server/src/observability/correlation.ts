@@ -77,7 +77,7 @@ export function runWithContext<T>(context: RequestContext, fn: () => T): T {
  * Assigns the request its id, echoes it to the client, and runs the rest of the chain
  * inside the context so every downstream log line carries it.
  *
- * Mounted before the rate limiter in `server/index.ts`: a `429` is precisely the response
+ * Mounted before the rate limiter in `server/src/app.ts`: a `429` is precisely the response
  * a shop will call support about, and it is worthless without an id to look up.
  */
 export function correlationMiddleware(req: Request, res: Response, next: NextFunction): void {

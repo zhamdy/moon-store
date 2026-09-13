@@ -660,8 +660,8 @@ describe('health check exemption', () => {
 
   it('exempts every path the server actually registers as a probe', () => {
     // The list and the predicate share one source; this pins that they still agree with
-    // the routes `server/index.ts` mounts.
-    const registered = readFileSync(resolve(__dirname, '../../index.ts'), 'utf8');
+    // the routes `src/app.ts`'s createApp() mounts (shared by index.ts and the tests).
+    const registered = readFileSync(resolve(__dirname, '../../src/app.ts'), 'utf8');
     const mounted = [...registered.matchAll(/app\.get\('(\/api\/health[^']*)'/g)].map((m) => m[1]);
 
     expect(mounted.length).toBeGreaterThan(0);

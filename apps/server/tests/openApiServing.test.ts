@@ -14,7 +14,9 @@ import { buildOpenApiSpec } from '../src/docs/buildOpenApi';
 type Json = Record<string, unknown>;
 
 const serverRoot = resolve(__dirname, '..');
-const entrypoint = readFileSync(resolve(serverRoot, 'index.ts'), 'utf8');
+// The route registration lives in src/app.ts (createApp()), shared by index.ts and the
+// tests — index.ts itself only wires process lifecycle around whatever createApp() builds.
+const entrypoint = readFileSync(resolve(serverRoot, 'src/app.ts'), 'utf8');
 
 describe('the served OpenAPI document', () => {
   it('is the built document, not the hand-written base', () => {
