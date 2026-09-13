@@ -16,7 +16,9 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "verify:migrations": "tsx scripts/verifyMigrations.ts",
-    "check:api-docs": "tsx scripts/checkApiDocDrift.ts"
+    "check:api-docs": "tsx scripts/checkApiDocDrift.ts",
+    "check:route-auth": "tsx scripts/checkRouteAuthorization.ts",
+    "check:client-paths": "tsx scripts/checkClientApiPaths.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "7.3.4",
