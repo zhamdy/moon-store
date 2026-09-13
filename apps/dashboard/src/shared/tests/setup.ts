@@ -1,5 +1,19 @@
 import { vi } from 'vitest';
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
+
+/**
+ * `waitFor`/`findBy*` default to a 1000ms internal ceiling (`@testing-library/dom`'s
+ * `asyncUtilTimeout`), independent of vitest's own `testTimeout`. `vitest.config.ts`
+ * already raised `testTimeout` to 20000ms because page-level tests -- a full render,
+ * a fetch chain, a re-render -- run comfortably alone but crowd the CPU once several
+ * files run concurrently, and that showed up as flaky timeouts rather than real
+ * failures (#169: `Collections.test.tsx`'s product-removal `waitFor` timing out under a
+ * full parallel run while the test still had most of its budget left). Raising only
+ * `testTimeout` did not touch this inner ceiling, so any `waitFor` could still time
+ * out under load even though the test itself had 20s left to give it.
+ */
+configure({ asyncUtilTimeout: 10000 });
 
 // jsdom implements neither the Pointer Capture API nor ResizeObserver, both of
 // which Radix's Select reaches for as soon as it opens. Without them the
