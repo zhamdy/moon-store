@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import toast from 'react-hot-toast';
-import { Plus, Send, PackageCheck, Trash2, X, Eye, Wand2 } from 'lucide-react';
+import { Plus, Send, PackageCheck, Trash2, X, Eye } from 'lucide-react';
 import { Button, Select, SelectItem } from '@heroui/react';
 import { Badge, PageHeader, ConfirmDialog, DataTable } from '../../../shared';
 import POFormDialog from '../components/purchase-orders/POFormDialog';
@@ -10,17 +9,11 @@ import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
-import { useTransport } from '../../../shared/lib/transport/index';
 import { useListRouteState, useLastPageRecovery } from '../../../shared/hooks/useListRouteState';
 import type { ColumnDef, PaginationState } from '@tanstack/react-table';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
 import type { Distributor } from '../../../shared/types/index';
-import type {
-  LowStockSuggestion,
-  PurchaseOrder,
-  PurchaseOrderDetail,
-  PurchaseOrderLine,
-} from '../types';
+import type { PurchaseOrder, PurchaseOrderDetail } from '../types';
 
 const purchaseOrders = resource<PurchaseOrder>('purchase-orders');
 const purchaseOrderDetails = resource<PurchaseOrderDetail>('purchase-orders');
@@ -28,7 +21,6 @@ const distributorsResource = resource<Distributor>('distributors');
 
 export default function PurchaseOrders() {
   const { t } = useTranslation();
-  const transport = useTransport();
   const { search: routeSearch, page, pageSize, update } = useListRouteState();
 
   const statusFilter = typeof routeSearch.status === 'string' ? routeSearch.status : 'All';
@@ -37,9 +29,7 @@ export default function PurchaseOrders() {
 
   // Create PO state
   const [createOpen, setCreateOpen] = useState(false);
-  const [autoDistributorId, setAutoDistributorId] = useState('');
-  const [autoLineItems, setAutoLineItems] = useState<PurchaseOrderLine[] | undefined>(undefined);
-  // Key forces POFormDialog remount when auto-generate populates initial data
+  // Key forces POFormDialog remount on each fresh "Create" open
   const [formKey, setFormKey] = useState(0);
   const [productSearch, setProductSearch] = useState('');
   const debouncedProductSearch = useDebouncedValue(productSearch, 300);
@@ -82,17 +72,13 @@ export default function PurchaseOrders() {
   } = useProductCatalog({
     search: debouncedProductSearch,
     enabled: createOpen,
-    selectedIds: autoLineItems?.map((item) => item.product_id) ?? [],
+    selectedIds: [],
   });
 
   const createOrder = purchaseOrders.useSave({
     message: t('po.created'),
     fallbackMessage: t('po.createFailed'),
-    onDone: () => {
-      setCreateOpen(false);
-      setAutoDistributorId('');
-      setAutoLineItems(undefined);
-    },
+    onDone: () => setCreateOpen(false),
   });
 
   const changeStatus = purchaseOrders.useAction('status', {
@@ -112,38 +98,7 @@ export default function PurchaseOrders() {
     onDone: () => setDeleteId(null),
   });
 
-  const handleAutoGenerate = async () => {
-    try {
-      const { data: suggestions } = await transport.request<LowStockSuggestion[]>({
-        method: 'GET',
-        path: 'purchase-orders/auto-generate',
-      });
-      if (suggestions.length === 0) {
-        toast.error(t('po.autoGenerateEmpty'));
-        return;
-      }
-      // Group by first distributor and pre-fill
-      const firstDist = suggestions[0].distributor_id;
-      const distItems = suggestions.filter((s) => s.distributor_id === firstDist);
-      setAutoDistributorId(String(firstDist));
-      setAutoLineItems(
-        distItems.map((s) => ({
-          product_id: s.product_id,
-          product_name: s.name,
-          quantity: Math.max(s.suggested_qty, 1),
-          cost_price: s.cost_price || 0,
-        }))
-      );
-      setFormKey((k) => k + 1);
-      setCreateOpen(true);
-    } catch {
-      toast.error(t('po.createFailed'));
-    }
-  };
-
   const handleCreateOpen = () => {
-    setAutoDistributorId('');
-    setAutoLineItems(undefined);
     setFormKey((k) => k + 1);
     setProductSearch('');
     setCreateOpen(true);
@@ -325,15 +280,6 @@ export default function PurchaseOrders() {
         actions={
           <div className="flex gap-2">
             <Button
-              variant="bordered"
-              size="sm"
-              className="gap-2"
-              onPress={handleAutoGenerate}
-              startContent={<Wand2 className="h-4 w-4 text-primary" />}
-            >
-              {t('po.autoGenerate')}
-            </Button>
-            <Button
               color="primary"
               size="sm"
               className="gap-2"
@@ -438,8 +384,6 @@ export default function PurchaseOrders() {
         isLoadingMoreProducts={isLoadingMoreProducts}
         onSubmit={(data) => createOrder.save(data)}
         isSubmitting={createOrder.isSaving}
-        initialDistributorId={autoDistributorId}
-        initialLineItems={autoLineItems}
       />
 
       {/* Detail / Receive Dialog */}
