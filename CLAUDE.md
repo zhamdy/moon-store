@@ -7,8 +7,11 @@ contracts load on demand, when you work in the tree they govern.
 ## Quick Start
 
 Run `pnpm install` at the repository root first. The workspace contains
-`apps/dashboard`, `apps/server`, and the empty `apps/storefront` Next.js shell.
-Use `pnpm dev:storefront` for the shell on port 3000.
+`apps/dashboard`, `apps/server`, and `apps/storefront` (a Next.js storefront with its
+foundation built — locale routing, design tokens, shell — but no commerce pages yet).
+Use `pnpm dev:storefront` for it on port 3000; copy `apps/storefront/.env.example` to
+`apps/storefront/.env.local` first (see `apps/storefront/CLAUDE.md` for what each
+variable does).
 
 ```bash
 # Terminal 1 — Server (port 3001)
@@ -33,6 +36,9 @@ cd apps/dashboard && npm run dev
   storage, refresh-token rotation, migration verification.
 - **`apps/dashboard/CLAUDE.md`** — the offline queue replay contract, PWA install/update policy,
   react-hook-form on HeroUI inputs, the accessibility rules and patterns.
+- **`apps/storefront/CLAUDE.md`** — the token/utility vocabulary, locale/RTL rules, the
+  client boundary rule, the API client's DTO rule and `API_URL` vs `NEXT_PUBLIC_API_URL`,
+  the logo swap procedure. Nothing is shared with the dashboard.
 - **`e2e/README.md`** — ownership, the flake policy, and what the suite has already found.
 - **`docs/CONVENTIONS.md`** — placement detail, the string-coupling contract, E2E
   conventions. **`docs/ACCESSIBILITY.md`** — what is scanned, what is manual, what is not
@@ -107,6 +113,7 @@ Every `.down.sql` must actually reverse its `.sql`, and CI proves it. Details, t
 ```bash
 cd apps/server && npm test          # pg-mem suites; real-PostgreSQL suites report as skipped
 cd apps/dashboard && npm test
+cd apps/storefront && npm test      # API client contract and translation-key parity only
 ```
 
 ### Real-PostgreSQL suites
@@ -241,6 +248,14 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   resolve the hidden hoist `node_modules/.pnpm/node_modules/@types/react` — the
   storefront's React 19 — so the dashboard's 18 build failed with 457 JSX errors.
   Dashboard `tsconfig.json` `paths` pin those declarations to its own `@types`
+  (2026-09-13)
+- The pnpm hoist collision above cuts both ways: `@tanstack/react-query`'s own `.d.ts`
+  has no local `@types/react` either, and inside the storefront it resolved the shared
+  hoist's dashboard-installed React 18 types instead of the storefront's own 19 —
+  `ReactNode` mismatched in `providers/query-provider.tsx` even though the storefront's
+  own files resolve 19 correctly on their own. Same fix, mirrored: `apps/storefront/
+  tsconfig.json` `paths` pins `react`/`react-dom` to its own `@types`. Any dependency
+  with no local `@types/react` of its own is exposed to this, in either direction
   (2026-09-13)
 - Tailwind's `content` glob `./node_modules/@heroui/theme/dist/**` matched nothing after the
   pnpm move: npm had hoisted `@heroui/theme`, pnpm links only direct dependencies. The build
