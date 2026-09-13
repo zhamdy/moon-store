@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { storefrontRequestContracts, bannerSchema } from './schemas';
+import { storefrontRequestContracts, bannerSchema, storefrontConfigSchema } from './schemas';
 import { storefrontService } from './service';
 import { success } from '../../../http/responses';
 import { PublicError } from '../../../http/errors';
@@ -63,6 +63,27 @@ export class StorefrontController {
       }
 
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getConfig(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const config = await storefrontService.getConfig();
+      res.json(success(config));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async updateConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const parsed = contracts.updateStorefrontConfig.parseBody<
+        z.infer<typeof storefrontConfigSchema>
+      >(req.body);
+      const config = await storefrontService.updateConfig(parsed);
+      res.json(success(config));
     } catch (err) {
       next(err);
     }

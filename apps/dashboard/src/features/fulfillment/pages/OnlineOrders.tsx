@@ -12,9 +12,12 @@ import type { PaginationMeta } from '../../../shared/lib/transport/types';
 
 const onlineOrders = resource<OnlineOrder>('online-orders');
 
+// Kept in sync with the server's allowed statuses (onlineOrderStatusSchema in
+// apps/server/src/modules/commerce/onlineOrders/schemas.ts). 'confirmed' is not one of
+// them -- the server's model goes straight from 'pending' to 'processing', which is also
+// where the stock hold turns into a deduction -- so it must never appear here.
 const statusVariantMap: Record<string, BadgeVariant> = {
   pending: 'warning',
-  confirmed: 'primary',
   processing: 'secondary',
   shipped: 'primary',
   delivered: 'success',
@@ -55,7 +58,7 @@ export default function OnlineOrdersPage() {
   };
 
   const fmt = (n: number) => formatCurrency(n);
-  const statuses = ['', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+  const statuses = ['', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
   const columns: ColumnDef<OnlineOrder>[] = [
     {
@@ -226,26 +229,15 @@ export default function OnlineOrdersPage() {
                           onPress={() =>
                             updateStatus.run({
                               id: selectedOrder.id,
-                              body: { status: 'confirmed' },
-                            })
-                          }
-                        >
-                          {t('onlineOrders.confirm')}
-                        </Button>
-                      )}
-                      {selectedOrder.status === 'confirmed' && (
-                        <Button
-                          size="sm"
-                          color="primary"
-                          startContent={<CheckCircle className="w-4 h-4" />}
-                          onPress={() =>
-                            updateStatus.run({
-                              id: selectedOrder.id,
+                              // 'processing' is the real status 'confirm' maps to on this
+                              // server: there is no separate 'confirmed' state, and this
+                              // is also the transition that turns the stock hold into a
+                              // deduction (see onlineOrders/service.ts).
                               body: { status: 'processing' },
                             })
                           }
                         >
-                          {t('onlineOrders.process')}
+                          {t('onlineOrders.confirm')}
                         </Button>
                       )}
                       {selectedOrder.status === 'processing' && (

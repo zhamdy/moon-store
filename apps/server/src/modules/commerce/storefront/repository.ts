@@ -1,6 +1,16 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import { BannerDTO, BannerRecord } from './types';
+import { BannerDTO, BannerRecord, StorefrontConfigMap } from './types';
+
+/**
+ * The storefront config is stored in the generic `settings` key/value table, under this
+ * prefix, rather than a table of its own. Two reasons: it is the same shape settings
+ * already are (a flat string map with a growing key set), and the plain field names the
+ * client uses -- `store_name`, in particular -- collide with settings the till already
+ * reads for its own purposes (seed.ts writes a `store_name` for the business itself). The
+ * prefix keeps the two namespaces from ever writing over each other.
+ */
+const CONFIG_KEY_PREFIX = 'storefront_config_';
 
 export interface IStorefrontRepository {
   getActiveBanners(queryable?: Queryable): Promise<BannerRecord[]>;
@@ -13,6 +23,8 @@ export interface IStorefrontRepository {
     queryable?: Queryable
   ): Promise<BannerRecord | null>;
   deleteBanner(id: number | string, queryable?: Queryable): Promise<boolean>;
+  getConfig(queryable?: Queryable): Promise<StorefrontConfigMap>;
+  upsertConfig(data: Partial<StorefrontConfigMap>, queryable?: Queryable): Promise<void>;
 }
 
 export class StorefrontRepository implements IStorefrontRepository {
@@ -87,6 +99,30 @@ export class StorefrontRepository implements IStorefrontRepository {
       [id]
     );
     return result.rows.length > 0;
+  }
+
+  async getConfig(queryable?: Queryable): Promise<StorefrontConfigMap> {
+    const result = await this.q(queryable).query<{ key: string; value: string }>(
+      'SELECT key, value FROM settings WHERE key LIKE $1',
+      [`${CONFIG_KEY_PREFIX}%`]
+    );
+    const config: StorefrontConfigMap = {};
+    for (const row of result.rows) {
+      config[row.key.slice(CONFIG_KEY_PREFIX.length)] = row.value;
+    }
+    return config;
+  }
+
+  async upsertConfig(data: Partial<StorefrontConfigMap>, queryable?: Queryable): Promise<void> {
+    const client = this.q(queryable);
+    for (const [field, value] of Object.entries(data)) {
+      if (value === undefined) continue;
+      await client.query(
+        `INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW())
+         ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [`${CONFIG_KEY_PREFIX}${field}`, value]
+      );
+    }
   }
 }
 
