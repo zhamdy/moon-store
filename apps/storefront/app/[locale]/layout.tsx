@@ -5,6 +5,9 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing, getDirection } from '@/i18n/routing';
 import { AppProviders } from '@/providers/app-providers';
+import { SkipLink } from '@/components/layout/skip-link';
+import { Header } from '@/components/layout/header/header';
+import { Footer } from '@/components/layout/footer/footer';
 import { bodoniModa, manrope, notoNaskhArabic, ibmPlexSansArabic } from '../fonts';
 import '../globals.css';
 
@@ -53,7 +56,14 @@ export default async function LocaleLayout({
     <html lang={locale} dir={getDirection(locale)} className={fontVariables}>
       <body>
         <NextIntlClientProvider>
-          <AppProviders>{children}</AppProviders>
+          <AppProviders>
+            <SkipLink />
+            <Header />
+            <main id="main-content" tabIndex={-1}>
+              {children}
+            </main>
+            <Footer />
+          </AppProviders>
         </NextIntlClientProvider>
       </body>
     </html>
