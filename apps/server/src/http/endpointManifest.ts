@@ -759,7 +759,7 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'GET',
     path: '/api/v1/delivery/analytics/performance',
     classification: 'S',
-    authorization: adminOnly,
+    authorization: adminOrDelivery,
   },
   {
     method: 'GET',
