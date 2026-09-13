@@ -106,18 +106,17 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
   in it (a file extension-shaped slug, for instance) would silently bypass locale
   handling — the root layout's `hasLocale` guard is defence in depth against that, but
   the matcher is the thing to fix if it happens.
-- "Noto Serif Arabic", named in the original design guideline, was not available
-  through any font source or tooling verified for this project — the installed
-  `next/font` catalog, Google's own font metadata API, Fontsource, and the notofonts
-  GitHub org all came back with no match (see `app/fonts.ts`). Moon Fashion uses
-  **Noto Naskh Arabic** as its Arabic display font instead (user decision,
-  2026-09-13); IBM Plex Sans Arabic remains the Arabic UI/body face. If the guideline
-  doc is ever revised, its Arabic display font section is stale against that
-  decision.
-- `app/fonts.ts` calls all four font loaders in one module, so `next/font` preloads
-  every face on every locale's render, not just the active pair — confirmed in the
-  built HTML. The Arabic pair opts out with `preload: false` since `en` is the default
-  locale; don't add a fifth family here without rechecking preload output.
+- Faces (user decision, 2026-09-13, superseding the guideline's Bodoni Moda / Manrope
+  and Noto Serif Arabic / IBM Plex Sans Arabic): English display **Lora**, English
+  body/UI **Inter**; Arabic **Tajawal** for both roles (`app/fonts.ts`). Tajawal is not
+  a variable font, so its weights are listed there. The guideline's typography chapter
+  is stale against this decision. The `type-*` line-heights under `:lang(ar)` were
+  tuned for a Naskh face; Tajawal's shorter ascenders may allow tightening them after
+  the screenshot review.
+- `app/fonts.ts` calls all three font loaders in one module, so `next/font` preloads
+  every face on every locale's render, not just the active family — confirmed in the
+  built HTML. The Arabic face opts out with `preload: false` since `en` is the default
+  locale; don't add a fourth family here without rechecking preload output.
 
 ## Client boundary rule
 

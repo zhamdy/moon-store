@@ -68,13 +68,14 @@
   /* Locale font switch goes through this indirection, never through
      --font-display/--font-body directly — see app/[locale]/layout.tsx and
      apps/storefront/CLAUDE.md. */
-  --font-display-active: var(--font-bodoni);
-  --font-body-active: var(--font-manrope);
+  --font-display-active: var(--font-lora);
+  --font-body-active: var(--font-inter);
 }
 
+/* Tajawal carries both roles in Arabic (app/fonts.ts). */
 :lang(ar) {
-  --font-display-active: var(--font-noto-naskh-arabic);
-  --font-body-active: var(--font-plex-arabic);
+  --font-display-active: var(--font-tajawal);
+  --font-body-active: var(--font-tajawal);
 }
 
 @media (min-width: 768px) {
