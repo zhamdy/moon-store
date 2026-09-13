@@ -6,27 +6,32 @@ import { NavLink } from '../nav-link';
 import { MobileMenu } from '../mobile-menu/mobile-menu';
 import { getLocaleSwitcherLabels } from '../locale-labels';
 import { primaryNavItems, mobileActionItems, desktopActionItems } from '../navigation-items';
+import { HeaderShell } from './header-shell';
 
-export interface HeaderProps {
-  /** The transparent-over-hero state is a seam for later, not yet rendered — see
-   *  Scope Boundaries (no header scroll-transition logic in this task). */
-  variant?: 'solid' | 'overlay';
-}
-
-export async function Header({ variant = 'solid' }: HeaderProps) {
+/**
+ * Server Component. `HeaderShell` (client) owns the `<header>` element and its
+ * `data-surface`: transparent with ivory text over a page's hero, ivory with ink
+ * text and a hairline everywhere else — see header-shell.tsx and the Surfaces
+ * section of app/globals.css. Colours come from `text-text` / `bg-bg` /
+ * `border-border` as usual; the surface swaps what those resolve to.
+ *
+ * Sticky, above the hero (which is later in DOM order and positioned for its
+ * scrim), keeping its `--header-h` flow slot so non-home pages need nothing.
+ */
+export async function Header() {
   const t = await getTranslations('navigation');
   const localeSwitcher = await getLocaleSwitcherLabels();
 
   const mobileItems = primaryNavItems.map((item) => ({ ...item, label: t(item.messageKey) }));
 
   return (
-    <header data-variant={variant} className="border-b border-border bg-bg">
+    <HeaderShell className="sticky top-0 z-40 border-b border-border bg-bg text-text">
       <Container
         as="div"
-        className="flex h-[72px] items-center justify-between lg:grid lg:h-20 lg:grid-cols-[1fr_auto_1fr]"
+        className="flex h-(--header-h) items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr]"
       >
         <div className="flex flex-1 items-center lg:flex-none">
-          <div className="lg:hidden">
+          <div className="-ms-2.5 lg:hidden">
             <MobileMenu
               menuLabel={t('menu')}
               closeLabel={t('closeMenu')}
@@ -50,12 +55,14 @@ export async function Header({ variant = 'solid' }: HeaderProps) {
           {/* Only one variant is ever visible (CSS breakpoint), but Next.js emits a
               <link rel="preload"> for whichever carries `preload` regardless of
               display:none — so only the mobile-default gets it. The desktop variant
-              stays lazy; it is only fetched if the viewport is actually ≥1024px. */}
-          <BrandLogo variant="mark" height={40} preload className="lg:hidden" />
-          <BrandLogo variant="logo" height={56} className="hidden lg:block" />
+              stays lazy; it is only fetched if the viewport is actually ≥1024px.
+              The gold artwork is never recoloured for the overlay surface: the hero
+              is dusk-toned so gold reads on it (see apps/storefront/CLAUDE.md). */}
+          <BrandLogo variant="mark" height={36} preload className="lg:hidden" />
+          <BrandLogo variant="logo" height={52} className="hidden lg:block" />
         </Link>
 
-        <div className="flex flex-1 items-center justify-end gap-1 lg:flex-none lg:gap-8">
+        <div className="-me-2.5 flex flex-1 items-center justify-end gap-1 lg:me-0 lg:flex-none lg:gap-8">
           <div className="flex items-center gap-1 lg:hidden">
             {mobileActionItems.map((item) => (
               <Link
@@ -78,6 +85,6 @@ export async function Header({ variant = 'solid' }: HeaderProps) {
           </div>
         </div>
       </Container>
-    </header>
+    </HeaderShell>
   );
 }

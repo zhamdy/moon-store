@@ -30,6 +30,21 @@
   --page-gutter: 20px;
   --section-space: 80px;
 
+  /* Header flow slot (guideline §8: 72–84px desktop). The header is sticky and
+     keeps this slot; the homepage hero pulls up beneath it by the same amount.
+     HeaderShell reads this from computed style for its IntersectionObserver. */
+  --header-h: 64px;
+
+  /* Surface indirection. The semantic colours are declared `@theme inline`, so
+     `text-text` compiles to the *value* below and a scoped `--color-text`
+     override would be inert. Mirroring --font-display-active: components keep
+     reading text-text / bg-bg / border-border, and a surface ([data-surface=
+     'overlay' | 'ink']) overrides these --surface-* variables instead. */
+  --surface-bg: var(--moon-ivory);
+  --surface-text: var(--moon-ink);
+  --surface-text-secondary: var(--moon-stone-600);
+  --surface-border: var(--moon-stone-200);
+
   /* Motion (guideline §13/§19). Mapped to Tailwind's --duration- and --ease-
      theme keys below, under distinct names so that mapping isn't a
      self-reference. */
@@ -73,6 +88,7 @@
   :root {
     --page-gutter: 48px;
     --section-space: 144px;
+    --header-h: 80px;
   }
 }
 
@@ -83,18 +99,18 @@
 }
 
 @theme inline {
-  --color-bg: var(--moon-ivory);
+  --color-bg: var(--surface-bg);
   --color-surface: var(--moon-white);
   --color-surface-soft: var(--moon-cream);
 
-  --color-text: var(--moon-ink);
-  --color-text-secondary: var(--moon-stone-600);
+  --color-text: var(--surface-text);
+  --color-text-secondary: var(--surface-text-secondary);
 
   --color-brand: var(--moon-gold);
   --color-brand-dark: var(--moon-gold-dark);
   --color-brand-soft: var(--moon-gold-soft);
 
-  --color-border: var(--moon-stone-200);
+  --color-border: var(--surface-border);
 
   --color-action: var(--moon-ink);
   --color-action-hover: var(--moon-charcoal);
@@ -294,9 +310,45 @@
   }
 
   [data-surface='ink'],
-  [data-variant='overlay'] {
+  [data-surface='overlay'],
+  body:has([data-header-boundary]) header[data-surface='auto'] {
     --focus-ring-color: var(--moon-ivory);
   }
+}
+
+/* ============================================================
+   Surfaces. One attribute drives colours and the focus ring.
+   `overlay`: the header over a hero — transparent, ivory text.
+   `ink`: the footer and primary buttons — ink ground, ivory text.
+   The header renders data-surface='auto' from the server; the :has()
+   rule resolves it to overlay whenever the page has a hero carrying
+   data-header-boundary (components/layout/header/header-boundary.ts —
+   the one place that string is repeated by hand), so the server HTML is
+   already correct and there is no first-paint flip. HeaderShell narrows
+   it to 'solid' once the hero leaves the header band.
+   ============================================================ */
+[data-surface='overlay'],
+body:has([data-header-boundary]) header[data-surface='auto'] {
+  --surface-bg: transparent;
+  --surface-text: var(--moon-ivory);
+  --surface-text-secondary: rgb(250 248 244 / 0.72);
+  --surface-border: transparent;
+}
+
+[data-surface='ink'] {
+  --surface-bg: var(--moon-ink);
+  --surface-text: var(--moon-ivory);
+  --surface-text-secondary: var(--moon-stone-400);
+  --surface-border: var(--moon-stone-600);
+}
+
+/* The surface change is a cut until HeaderShell's first observation, then a
+   fast colour transition — no shadow, blur or pill (guideline §8). */
+header[data-surface][data-surface-ready] {
+  transition:
+    background-color var(--motion-fast) var(--ease-ui),
+    color var(--motion-fast) var(--ease-ui),
+    border-color var(--motion-fast) var(--ease-ui);
 }
 
 .skip-link {
@@ -317,6 +369,128 @@
 }
 
 /* ============================================================
+   Motion — guideline §12 (hero sequence), §13 (reveal, parallax,
+   marquee). Four ideas, reused everywhere; three of them need no JS.
+   ============================================================ */
+
+/* (1) Entrance. Opacity + a short rise, a line wipe for display type, and the
+   image settle (scale 1.05 → 1). The hero applies these with staggered
+   --entrance-delay directly from the server HTML, so they run for no-JS users
+   too; nothing waits on hydration. */
+@keyframes moon-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Needs an overflow-hidden parent (the "mask"); each hero title line has its own
+   so a wrapped line is never clipped by its neighbour. */
+@keyframes moon-line-reveal {
+  from {
+    transform: translateY(110%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes moon-image-settle {
+  from {
+    transform: scale(1.05);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@utility entrance-fade-up {
+  animation: moon-fade-up var(--motion-slow) var(--ease-editorial) both;
+  animation-delay: var(--entrance-delay, 0ms);
+}
+
+@utility entrance-line {
+  animation: moon-line-reveal 900ms var(--ease-editorial) both;
+  animation-delay: var(--entrance-delay, 0ms);
+}
+
+@utility entrance-settle {
+  animation: moon-image-settle 1100ms var(--ease-editorial) both;
+  animation-delay: var(--entrance-delay, 0ms);
+}
+
+/* (2) Scroll reveal, driven by components/motion/reveal.tsx. No attribute on
+   the server HTML means visible; `pending` is applied only after mount and only
+   to elements entirely below the fold. */
+[data-reveal] {
+  transition:
+    opacity var(--motion-slow) var(--ease-editorial),
+    transform var(--motion-slow) var(--ease-editorial),
+    clip-path var(--motion-slow) var(--ease-editorial);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+[data-reveal='pending'] {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+[data-reveal-effect='mask'][data-reveal='in'] {
+  clip-path: inset(-0.2em 0 -0.2em 0);
+}
+
+[data-reveal-effect='mask'][data-reveal='pending'] {
+  opacity: 1;
+  clip-path: inset(0 0 100% 0);
+  transform: translateY(0.3em);
+}
+
+/* (4) Marquee — features/home/components/editorial-strip/marquee.tsx. The track
+   renders twice; translating by one track plus the gap puts the copy exactly
+   where the original was, so the loop is seamless. RTL travels the other way. */
+.marquee {
+  --marquee-gap: 40px;
+  --marquee-duration: 48s;
+  display: flex;
+  gap: var(--marquee-gap);
+  overflow: hidden;
+}
+
+.marquee-track {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--marquee-gap);
+  min-inline-size: 100%;
+  animation: moon-marquee var(--marquee-duration) linear infinite;
+}
+
+.marquee:hover .marquee-track,
+.marquee:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+
+[dir='rtl'] .marquee-track {
+  animation-name: moon-marquee-rtl;
+}
+
+@keyframes moon-marquee {
+  to {
+    transform: translateX(calc(-100% - var(--marquee-gap)));
+  }
+}
+
+@keyframes moon-marquee-rtl {
+  to {
+    transform: translateX(calc(100% + var(--marquee-gap)));
+  }
+}
+
+/* ============================================================
    Reduced motion — guideline §15.
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
@@ -327,5 +501,19 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Static strip: the content once, scrolling naturally. */
+  .marquee {
+    overflow-x: auto;
+  }
+
+  .marquee-track {
+    animation: none;
+    min-inline-size: 0;
+  }
+
+  .marquee-track[aria-hidden='true'] {
+    display: none;
   }
 }
