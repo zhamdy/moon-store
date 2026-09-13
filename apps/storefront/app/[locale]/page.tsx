@@ -1,9 +1,15 @@
+import { hasLocale } from 'next-intl';
 import { setRequestLocale, getTranslations } from 'next-intl/server';
+import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { Container } from '@/components/ui/container';
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
+  // The layout already guards this; repeated because params arrive untyped here too.
+  if (!hasLocale(routing.locales, locale)) {
+    notFound();
+  }
   setRequestLocale(locale);
   const t = await getTranslations('foundation');
 

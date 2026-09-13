@@ -18,8 +18,10 @@
   "common": {
     "skipToContent": "تخطَّ إلى المحتوى",
     "languageLabel": "اللغة",
-    "english": "English",
-    "arabic": "العربية"
+    "localeNames": {
+      "en": "English",
+      "ar": "العربية"
+    }
   },
   "footer": {
     "rights": "© {year} مون فاشون. جميع الحقوق محفوظة."

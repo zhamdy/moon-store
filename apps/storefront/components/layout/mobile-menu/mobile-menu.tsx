@@ -5,7 +5,7 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/re
 import { Menu as MenuIcon, X } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/brand-logo';
 import { NavLink } from '../nav-link';
-import { LocaleSwitcher } from '../locale-switcher';
+import { LocaleSwitcher, type LocaleSwitcherProps } from '../locale-switcher';
 import { accountItem, type NavItem } from '../navigation-items';
 
 export interface MobileMenuProps {
@@ -14,6 +14,7 @@ export interface MobileMenuProps {
   primaryLabel: string;
   accountLabel: string;
   items: Array<NavItem & { label: string }>;
+  localeSwitcher: LocaleSwitcherProps;
 }
 
 /**
@@ -27,6 +28,7 @@ export function MobileMenu({
   primaryLabel,
   accountLabel,
   items,
+  localeSwitcher,
 }: MobileMenuProps) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
@@ -80,7 +82,7 @@ export function MobileMenu({
                 {accountLabel}
               </NavLink>
               <div className="mt-6">
-                <LocaleSwitcher />
+                <LocaleSwitcher {...localeSwitcher} />
               </div>
             </div>
           </DialogPanel>

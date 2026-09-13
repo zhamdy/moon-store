@@ -18,8 +18,10 @@
   "common": {
     "skipToContent": "Skip to content",
     "languageLabel": "Language",
-    "english": "English",
-    "arabic": "العربية"
+    "localeNames": {
+      "en": "English",
+      "ar": "العربية"
+    }
   },
   "footer": {
     "rights": "© {year} Moon Fashion. All rights reserved."

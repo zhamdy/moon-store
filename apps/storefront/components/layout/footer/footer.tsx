@@ -4,10 +4,12 @@ import { Container } from '@/components/ui/container';
 import { BrandLogo } from '@/components/brand/brand-logo';
 import { NavLink } from '../nav-link';
 import { LocaleSwitcher } from '../locale-switcher';
+import { getLocaleSwitcherLabels } from '../locale-labels';
 import { primaryNavItems } from '../navigation-items';
 
 export async function Footer() {
   const t = await getTranslations();
+  const localeSwitcher = await getLocaleSwitcherLabels();
   const year = new Date().getFullYear();
 
   return (
@@ -28,7 +30,7 @@ export async function Footer() {
           ))}
         </nav>
 
-        <LocaleSwitcher />
+        <LocaleSwitcher {...localeSwitcher} />
 
         <p className="type-caption text-text-secondary">{t('footer.rights', { year })}</p>
       </Container>

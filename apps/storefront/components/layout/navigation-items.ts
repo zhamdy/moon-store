@@ -1,9 +1,10 @@
 import { Search, ShoppingBag, type LucideIcon } from 'lucide-react';
+import type { Messages } from 'next-intl';
 
 export interface NavItem {
   key: string;
   href: string;
-  messageKey: 'shop' | 'newIn' | 'collections' | 'search' | 'account' | 'bag';
+  messageKey: keyof Messages['navigation'];
 }
 
 export interface ActionNavItem extends NavItem {

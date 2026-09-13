@@ -4,6 +4,7 @@ import { Container } from '@/components/ui/container';
 import { BrandLogo } from '@/components/brand/brand-logo';
 import { NavLink } from '../nav-link';
 import { MobileMenu } from '../mobile-menu/mobile-menu';
+import { getLocaleSwitcherLabels } from '../locale-labels';
 import { primaryNavItems, mobileActionItems, desktopActionItems } from '../navigation-items';
 
 export interface HeaderProps {
@@ -14,6 +15,7 @@ export interface HeaderProps {
 
 export async function Header({ variant = 'solid' }: HeaderProps) {
   const t = await getTranslations('navigation');
+  const localeSwitcher = await getLocaleSwitcherLabels();
 
   const mobileItems = primaryNavItems.map((item) => ({ ...item, label: t(item.messageKey) }));
 
@@ -31,6 +33,7 @@ export async function Header({ variant = 'solid' }: HeaderProps) {
               primaryLabel={t('primaryLabel')}
               accountLabel={t('account')}
               items={mobileItems}
+              localeSwitcher={localeSwitcher}
             />
           </div>
 
@@ -44,11 +47,11 @@ export async function Header({ variant = 'solid' }: HeaderProps) {
         </div>
 
         <Link href="/" aria-label="Moon Fashion" className="flex items-center justify-center">
-          {/* Only one variant is ever visible (CSS breakpoint), but Next.js fetches
-              eagerly for whichever carries `priority` regardless of display:none — so
-              only the mobile-default gets it. The desktop variant stays lazy; it is
-              only fetched if the viewport is actually ≥1024px. */}
-          <BrandLogo variant="mark" height={40} priority className="lg:hidden" />
+          {/* Only one variant is ever visible (CSS breakpoint), but Next.js emits a
+              <link rel="preload"> for whichever carries `preload` regardless of
+              display:none — so only the mobile-default gets it. The desktop variant
+              stays lazy; it is only fetched if the viewport is actually ≥1024px. */}
+          <BrandLogo variant="mark" height={40} preload className="lg:hidden" />
           <BrandLogo variant="logo" height={56} className="hidden lg:block" />
         </Link>
 

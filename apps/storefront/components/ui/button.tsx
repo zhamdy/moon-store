@@ -13,6 +13,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  */
 export function Button({
   variant = 'primary',
+  type = 'button',
   trailingArrow,
   className,
   children,
@@ -21,6 +22,8 @@ export function Button({
   return (
     <button
       {...props}
+      // A native <button> defaults to submit, so one dropped inside a form would submit it.
+      type={type}
       data-surface={variant === 'primary' ? 'ink' : undefined}
       className={cn(
         'group inline-flex min-h-12 items-center justify-center gap-2 rounded-sm px-7',
