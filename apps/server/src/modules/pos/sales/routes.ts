@@ -4,7 +4,10 @@ import { salesController } from './controller';
 
 const router: Router = Router();
 
-router.get('/', verifyToken, (req, res, next) => salesController.getSales(req, res, next));
+// GET /api/v1/sales — had no role check at all (#172)
+router.get('/', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
+  salesController.getSales(req, res, next)
+);
 router.get('/:id', verifyToken, (req, res, next) => salesController.getSaleById(req, res, next));
 router.post('/', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
   salesController.createSale(req, res, next)

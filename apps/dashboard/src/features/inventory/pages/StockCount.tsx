@@ -63,32 +63,30 @@ export default function StockCountPage() {
     onError: (error: Error) => toast.error(error.message || 'Error'),
   });
 
+  // `counted_qty` is what the server's contract actually names this (#172) --
+  // `actual_qty` was a field the server never read, silently stripped by Zod, so every
+  // per-item count typed here was lost until the whole count was completed and re-read.
   const updateItemMutation = useMutation({
-    mutationFn: ({ itemId, actual_qty }: { itemId: number; actual_qty: number }) =>
+    mutationFn: ({ itemId, counted_qty }: { itemId: number; counted_qty: number }) =>
       transport.request({
         method: 'PUT',
         path: `stock-counts/${selectedCount}/items/${itemId}`,
-        body: { actual_qty },
+        body: { counted_qty },
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-counts'] }),
   });
 
-  const toggleApproveMutation = useMutation({
-    mutationFn: (itemId: number) =>
-      transport.request({
-        method: 'PUT',
-        path: `stock-counts/${selectedCount}/items/${itemId}/approve`,
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-counts'] }),
-  });
-
-  const approveCountMutation = stockCounts.useAction('approve', {
-    message: t('stockCount.approved'),
+  // "Approve & Apply" is the count's finalization step -- the server calls that
+  // `POST /:id/complete`, which applies every counted variance to live stock. There is no
+  // per-item approve concept server-side (no such column, no such route), so that control
+  // is gone rather than pointed at a 404 (#172).
+  const completeCountMutation = stockCounts.useAction('complete', {
+    message: t('stockCount.completed'),
     fallbackMessage: 'Error',
     onDone: () => setSelectedCount(null),
   });
 
-  const cancelMutation = stockCounts.useRemove({
+  const cancelCountMutation = stockCounts.useAction('cancel', {
     message: t('stockCount.cancelled'),
     onDone: () => setSelectedCount(null),
   });
@@ -152,7 +150,6 @@ export default function StockCountPage() {
                 <th className="text-center p-3">{t('stockCount.expected')}</th>
                 <th className="text-center p-3">{t('stockCount.actual')}</th>
                 <th className="text-center p-3">{t('stockCount.variance')}</th>
-                <th className="text-center p-3">{t('stockCount.approved')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
@@ -178,7 +175,7 @@ export default function StockCountPage() {
                           onValueChange={(val) =>
                             updateItemMutation.mutate({
                               itemId: item.id,
-                              actual_qty: parseInt(val) || 0,
+                              counted_qty: parseInt(val) || 0,
                             })
                           }
                         />
@@ -204,25 +201,6 @@ export default function StockCountPage() {
                         '—'
                       )}
                     </td>
-                    <td className="p-3 text-center">
-                      {detail.status === 'in_progress' ? (
-                        <Button
-                          isIconOnly
-                          size="sm"
-                          variant={item.approved ? 'solid' : 'bordered'}
-                          color={item.approved ? 'primary' : 'default'}
-                          className="h-8 w-8 mx-auto"
-                          onPress={() => toggleApproveMutation.mutate(item.id)}
-                          aria-label={t('common.confirm')}
-                        >
-                          {item.approved ? <Check className="h-4 w-4" /> : null}
-                        </Button>
-                      ) : item.approved ? (
-                        <Check className="h-4 w-4 text-primary mx-auto" />
-                      ) : (
-                        <X className="h-4 w-4 text-muted-foreground mx-auto" />
-                      )}
-                    </td>
                   </tr>
                 );
               })}
@@ -236,8 +214,8 @@ export default function StockCountPage() {
               color="primary"
               size="sm"
               startContent={<Check className="h-4 w-4" />}
-              onPress={() => selectedCount && approveCountMutation.run({ id: selectedCount })}
-              isLoading={approveCountMutation.isRunning}
+              onPress={() => selectedCount && completeCountMutation.run({ id: selectedCount })}
+              isLoading={completeCountMutation.isRunning}
             >
               {t('stockCount.approveCount')}
             </Button>
@@ -246,7 +224,8 @@ export default function StockCountPage() {
               color="danger"
               size="sm"
               startContent={<X className="h-4 w-4" />}
-              onPress={() => selectedCount && cancelMutation.remove(selectedCount)}
+              onPress={() => selectedCount && cancelCountMutation.run({ id: selectedCount })}
+              isLoading={cancelCountMutation.isRunning}
             >
               {t('stockCount.cancel')}
             </Button>

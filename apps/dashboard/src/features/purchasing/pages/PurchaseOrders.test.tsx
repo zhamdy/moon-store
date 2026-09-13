@@ -166,4 +166,21 @@ describe('PurchaseOrders', () => {
       )
     );
   });
+
+  /**
+   * #172: the button called `GET purchase-orders/auto-generate`, a path Express never
+   * matched -- it fell through to `GET /:id`, treating "auto-generate" as an id and
+   * failing the numeric-id check with a 400. Removed rather than pointed at a real route.
+   */
+  it('has no Auto Generate button, and never requests the route that never existed', async () => {
+    const transport = createMemoryTransport({ 'purchase-orders': [DRAFT_ORDER] });
+
+    render(<PurchaseOrders />, { wrapper: wrapperFor(transport) });
+    await screen.findByText('PO-0003');
+
+    expect(screen.queryByRole('button', { name: /Auto Generate/i })).not.toBeInTheDocument();
+    expect(transport.calls().some((call) => call.path === 'purchase-orders/auto-generate')).toBe(
+      false
+    );
+  });
 });

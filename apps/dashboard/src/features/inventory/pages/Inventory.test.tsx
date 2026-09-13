@@ -178,3 +178,39 @@ describe('Inventory bulk operations', () => {
     expect(await screen.findByText('Deficit')).toBeInTheDocument();
   }, 20000);
 });
+
+describe('Inventory — distributor gating for non-Admin roles', () => {
+  beforeEach(() => useSettingsStore.setState({ locale: 'en' }));
+
+  it('never fetches GET distributors for a Cashier — it is Admin-only server-side (#172)', async () => {
+    useAuthStore.setState({
+      user: { id: 2, name: 'Sarah', email: 'sarah@moon.com', role: 'Cashier' },
+      accessToken: 'test-token',
+      isAuthenticated: true,
+    });
+    const transport = transportWithProducts();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+
+    renderWithRouter(
+      <TransportProvider transport={transport}>
+        <Inventory />
+      </TransportProvider>,
+      {
+        queryClient,
+        initialRoute: '/inventory',
+        authState: {
+          isAuthenticated: true,
+          user: { id: 2, name: 'Sarah', email: 'sarah@moon.com', role: 'Cashier' },
+        },
+      }
+    );
+
+    await screen.findByText('Silk Dress');
+
+    expect(transport.calls()).not.toContainEqual(
+      expect.objectContaining({ method: 'GET', path: 'distributors' })
+    );
+  });
+});
