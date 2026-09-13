@@ -1,5 +1,28 @@
 import { IExportsRepository, exportsRepository as defaultRepo } from './repository';
-import { ExportSalesFilters, CsvExportResult } from './types';
+import { ExportSalesFilters, CsvExportResult, SalesExportCursor } from './types';
+
+/** Rows per keyset page. Bounds one query's result set regardless of how large the export is. */
+export const SALES_EXPORT_PAGE_SIZE = 1000;
+
+/** Same BOM `sendCsv` prepends for the buffered exports — written by codepoint to avoid an
+ * actual BOM byte sequence sitting in the source file, which some linters flag as stray
+ * whitespace. */
+const BOM = String.fromCharCode(0xfeff);
+
+const SALES_EXPORT_HEADERS = [
+  'receipt_number',
+  'created_at',
+  'cashier',
+  'customer',
+  'customer_phone',
+  'subtotal',
+  'discount',
+  'tax',
+  'total',
+  'payment_method',
+  'status',
+  'notes',
+];
 
 // Excel skips leading whitespace before a formula, and a leading `|` opens a DDE call.
 const FORMULA_TRIGGER = /^(?:[\t\r]|\s*[=+\-@|])/;
@@ -51,41 +74,31 @@ export class ExportsService {
     return { csv, filename };
   }
 
-  async exportSales(filters: ExportSalesFilters): Promise<CsvExportResult> {
-    const { from, to } = filters;
-    const where: string[] = [];
-    const params: unknown[] = [];
-    let paramIdx = 1;
+  salesExportFilename(): string {
+    return `sales-${new Date().toISOString().split('T')[0]}.csv`;
+  }
 
-    if (from) {
-      where.push(`s.created_at >= $${paramIdx++}`);
-      params.push(from);
+  /**
+   * Streams the sales export as CSV chunks (BOM+header first, then one chunk per keyset
+   * page) instead of building one in-memory string — a sales table has no natural upper
+   * bound, and the old buffered `toCsv` held the whole export in memory at once and risked
+   * a proxy timeout while it built. The generator holds only one page at a time.
+   */
+  async *exportSalesChunks(filters: ExportSalesFilters): AsyncGenerator<string> {
+    yield BOM + SALES_EXPORT_HEADERS.join(',');
+
+    let cursor: SalesExportCursor | null = null;
+    for (;;) {
+      const rows = await this.repo.getSalesForExportPage(filters, cursor, SALES_EXPORT_PAGE_SIZE);
+      if (rows.length === 0) return;
+
+      const lines = rows.map((row) => SALES_EXPORT_HEADERS.map((h) => escapeCsv(row[h])).join(','));
+      yield `\n${lines.join('\n')}`;
+
+      if (rows.length < SALES_EXPORT_PAGE_SIZE) return;
+      const last = rows[rows.length - 1];
+      cursor = { createdAt: last.created_at as string, id: last.id as number };
     }
-    if (to) {
-      where.push(`s.created_at <= $${paramIdx++}`);
-      params.push(to);
-    }
-
-    const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
-    const rows = await this.repo.getSalesForExport(whereClause, params);
-
-    const headers = [
-      'receipt_number',
-      'created_at',
-      'cashier',
-      'customer',
-      'customer_phone',
-      'subtotal',
-      'discount',
-      'tax',
-      'total',
-      'payment_method',
-      'status',
-      'notes',
-    ];
-    const csv = toCsv(headers, rows);
-    const filename = `sales-${new Date().toISOString().split('T')[0]}.csv`;
-    return { csv, filename };
   }
 
   async exportCustomers(): Promise<CsvExportResult> {

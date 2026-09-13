@@ -817,6 +817,8 @@
   "exports.download": "تحميل",
   "exports.downloadedFile": "تم تحميل ملف التصدير",
   "exports.downloadFailed": "تعذّر التصدير. حاول مرة أخرى.",
+  "exports.dateRange": "النطاق الزمني",
+  "exports.dateRangeHelp": "اختياري — اتركه فارغًا لتصدير جميع المبيعات",
   "customerDisplay.welcome": "مرحباً بكم في MOON",
   "customerDisplay.items": "الأصناف",
   "customerDisplay.total": "الإجمالي",

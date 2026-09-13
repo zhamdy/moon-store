@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { Button, Select, SelectItem, Card, CardBody } from '@heroui/react';
-import { PageHeader } from '../../../shared';
+import { format } from 'date-fns';
+import { PageHeader, DateRangePicker, type DateRange } from '../../../shared';
 import { useTranslation } from '../../../shared/i18n/index';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useGuardedMutation } from '../../../shared/lib/useGuardedMutation';
@@ -12,17 +13,39 @@ type ExportSource = (typeof SOURCES)[number];
 const isExportSource = (value: string): value is ExportSource =>
   (SOURCES as readonly string[]).includes(value);
 
+const EMPTY_RANGE: DateRange = { start: null, end: null };
+
+interface DownloadRequest {
+  source: ExportSource;
+  range: DateRange;
+}
+
 export default function ExportsPage() {
   const { t } = useTranslation();
   const transport = useTransport();
   const [source, setSource] = useState<ExportSource>('products');
+  const [dateRange, setDateRange] = useState<DateRange>(EMPTY_RANGE);
 
-  const download = useGuardedMutation<ExportSource, Blob>({
-    mutationFn: (selected) =>
+  const download = useGuardedMutation<DownloadRequest, Blob>({
+    mutationFn: ({ source: selected, range }) =>
       transport
-        .request<Blob>({ method: 'GET', path: `exports/${selected}`, responseType: 'blob' })
+        .request<Blob>({
+          method: 'GET',
+          path: `exports/${selected}`,
+          responseType: 'blob',
+          // Only the sales export takes a date range — the server rejects unknown query
+          // params on the others, so nothing is sent unless the source is sales.
+          ...(selected === 'sales'
+            ? {
+                params: {
+                  ...(range.start ? { from: format(range.start, 'yyyy-MM-dd') } : {}),
+                  ...(range.end ? { to: format(range.end, 'yyyy-MM-dd') } : {}),
+                },
+              }
+            : {}),
+        })
         .then((r) => r.data),
-    onSuccess: (blob, selected) => {
+    onSuccess: (blob, { source: selected }) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -62,7 +85,12 @@ export default function ExportsPage() {
             selectedKeys={[source]}
             disallowEmptySelection
             onChange={(e) => {
-              if (isExportSource(e.target.value)) setSource(e.target.value);
+              if (isExportSource(e.target.value)) {
+                setSource(e.target.value);
+                // The range only applies to sales; drop it so a stale filter can't carry
+                // over silently if the source is switched back later.
+                if (e.target.value !== 'sales') setDateRange(EMPTY_RANGE);
+              }
             }}
           >
             {SOURCES.map((s) => (
@@ -71,9 +99,17 @@ export default function ExportsPage() {
               </SelectItem>
             ))}
           </Select>
+          {source === 'sales' && (
+            <DateRangePicker
+              label={t('exports.dateRange')}
+              helperText={t('exports.dateRangeHelp')}
+              value={dateRange}
+              onChange={setDateRange}
+            />
+          )}
           <Button
             color="primary"
-            onPress={() => download.submit(source)}
+            onPress={() => download.submit({ source, range: dateRange })}
             isLoading={download.isPending}
             className="w-full"
             startContent={!download.isPending && <Download className="h-4 w-4" />}

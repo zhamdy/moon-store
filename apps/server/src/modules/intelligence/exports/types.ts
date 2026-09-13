@@ -62,3 +62,9 @@ export interface CsvExportResult {
   csv: string;
   filename: string;
 }
+
+/** Keyset cursor for paging `sales`, so a large export never holds an OFFSET scan or the whole table in memory. */
+export interface SalesExportCursor {
+  createdAt: string;
+  id: number;
+}
