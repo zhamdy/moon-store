@@ -5,6 +5,16 @@ import { storefrontController } from './controller';
 
 const router: Router = Router();
 
+// GET /api/storefront/config (Admin)
+router.get('/config', verifyToken, requireRole('Admin'), (req, res, next) =>
+  storefrontController.getConfig(req, res, next)
+);
+
+// PUT /api/storefront/config (Admin)
+router.put('/config', verifyToken, requireRole('Admin'), (req, res, next) =>
+  storefrontController.updateConfig(req, res, next)
+);
+
 // GET /api/storefront/banners (Public)
 router.get('/banners', cacheControl(60), (req, res, next) =>
   storefrontController.getActiveBanners(req, res, next)
