@@ -10,7 +10,6 @@ import {
   shiftsRouter,
   exchangesRouter,
   reservationsRouter,
-  cleanupExpiredReservations,
   productsRouter,
   categoriesRouter,
   distributorsRouter,
@@ -37,8 +36,6 @@ import {
   exportsRouter,
   notificationsRouter,
 } from './modules';
-
-export { cleanupExpiredReservations };
 
 // Route table: [apiPath, router]
 export const routeTable: [string, Router][] = [
