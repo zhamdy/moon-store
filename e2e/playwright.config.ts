@@ -19,9 +19,9 @@ import {
 const E2E_DATABASE_URL = requireE2eDatabaseUrl();
 
 /**
- * `webServer.env` inherits `process.env`, and `server/index.ts` additionally calls
+ * `webServer.env` inherits `process.env`, and `apps/server/index.ts` additionally calls
  * `dotenv/config` — so without explicit overrides the server under test picks up the
- * developer's `server/.env` and writes into their dev database while the assertions read
+ * developer's `apps/server/.env` and writes into their dev database while the assertions read
  * the E2E one. Every variable here is load-bearing; none is a default worth trusting.
  */
 const serverEnv: Record<string, string> = {
@@ -35,7 +35,7 @@ const serverEnv: Record<string, string> = {
   // The CORS allowlist is `CLIENT_URL` plus localhost:5173/5174/5175 under
   // `credentials: true`, so the preview origin is on no list by default and every API
   // call would fail preflight. The fix is this variable — never widening
-  // `allowedOrigins` in `server/index.ts` or setting `origin: true`.
+  // `allowedOrigins` in `apps/server/index.ts` or setting `origin: true`.
   CLIENT_URL: BASE_URL,
   ALLOWED_ORIGINS: BASE_URL,
   // Both limiters key on `req.ip`, and every worker is 127.0.0.1 sharing one in-process
@@ -148,7 +148,7 @@ export default defineConfig({
       name: 'Web',
       // The client build is deliberately NOT part of this command. Folding it in would
       // let the boot timeout silently cover compilation and report a build failure as a
-      // readiness timeout. Run `npm run build --prefix client` as its own step.
+      // readiness timeout. Run `npm run build --prefix apps/dashboard` as its own step.
       command: `npx vite preview --port ${PREVIEW_PORT} --strictPort`,
       cwd: CLIENT_DIR,
       url: BASE_URL,

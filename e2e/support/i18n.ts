@@ -1,5 +1,5 @@
 /**
- * The app's own translation catalogs, read straight from `client/src/shared/i18n`.
+ * The app's own translation catalogs, read straight from `apps/dashboard/src/shared/i18n`.
  *
  * Locators are built from these rather than from hardcoded strings for two reasons. The
  * app ships **Arabic RTL by default**, so an English string literal would be testing a
@@ -7,8 +7,8 @@
  * loudly here instead of silently matching nothing — which makes the translation itself
  * part of what the suite tests.
  */
-import en from '../../client/src/shared/i18n/en.json';
-import ar from '../../client/src/shared/i18n/ar.json';
+import en from '../../apps/dashboard/src/shared/i18n/en.json';
+import ar from '../../apps/dashboard/src/shared/i18n/ar.json';
 
 export type Locale = 'en' | 'ar';
 

@@ -2,7 +2,7 @@
  * The money contract, read rather than restated (D7).
  *
  * `contracts/checkout-totals.v1.json` is already consumed by both calculators —
- * `client/src/shared/lib/checkout.ts` and `server/src/modules/pos/sales/service.ts` — and
+ * `apps/dashboard/src/shared/lib/checkout.ts` and `apps/server/src/modules/pos/sales/service.ts` — and
  * each side is proven against it by its own unit suite. This suite's job is the wire
  * between them, not the arithmetic: it asserts that a named case *entered through the UI*
  * produces that case's `amountDueMinor` on screen and in the persisted row.

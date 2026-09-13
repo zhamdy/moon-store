@@ -6,7 +6,7 @@
  * query cannot find a control, the first move is to **fix the accessible name** in the
  * component: a missing name is a real accessibility defect, and reaching for a test id
  * buries it. The six test ids used below each carry a justification comment at their
- * definition site in `client/src`.
+ * definition site in `apps/dashboard/src`.
  *
  * Every helper takes the locale, so the same spec body runs against the shipped Arabic
  * default and against the `en` the bulk of the suite is pinned to.

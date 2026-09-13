@@ -1,7 +1,7 @@
 /**
  * The same money path, in the configuration the app actually ships.
  *
- * `settingsStore` defaults to `locale: 'ar'` and `client/index.html` is
+ * `settingsStore` defaults to `locale: 'ar'` and `apps/dashboard/index.html` is
  * `<html lang="ar" dir="rtl">`, so Arabic RTL is what a till runs unless someone changes
  * it. The rest of the suite pins `en` for readable diagnostics, which means without this
  * spec the default configuration would be the one configuration never tested.

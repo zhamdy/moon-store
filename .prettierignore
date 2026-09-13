@@ -1,6 +1,9 @@
 node_modules
 dist
-server/db/moon.db
-server/db/moon.db-wal
-server/db/moon.db-shm
+apps/server/db/moon.db
+apps/server/db/moon.db-wal
+apps/server/db/moon.db-shm
 package-lock.json
+pnpm-lock.yaml
+
+**/.next/

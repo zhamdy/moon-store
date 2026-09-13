@@ -33,7 +33,7 @@ export interface SeededAccounts {
 }
 
 /**
- * The accounts `server/src/database/seed.ts` creates. A spec may *authenticate* as one of
+ * The accounts `apps/server/src/database/seed.ts` creates. A spec may *authenticate* as one of
  * these, but must never mutate its shift, register, or sale state: `register_sessions`
  * allows one open session per cashier and carries `expected_cash` as a running
  * accumulator, and `shifts` has the same one-active-per-user shape. Two workers driving

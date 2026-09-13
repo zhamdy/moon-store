@@ -3,7 +3,7 @@
  *
  * This is presentation, not arithmetic — the amounts themselves still come from
  * `contracts/checkout-totals.v1.json` (D7). It mirrors `formatCurrency` in
- * `client/src/shared/lib/utils.ts`, and the one detail that catches people out is the
+ * `apps/dashboard/src/shared/lib/utils.ts`, and the one detail that catches people out is the
  * first line of it: **whole numbers drop their decimals**. A 150.00 EGP total renders as
  * `150 EG`, never `150.00 EGP`. Asserting the obvious-looking string would fail against a
  * perfectly correct till.

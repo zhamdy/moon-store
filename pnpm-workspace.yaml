@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+
+onlyBuiltDependencies:
+  - bcrypt
+  - esbuild
+  - sharp
+  - "@tailwindcss/oxide"
+  - "@parcel/watcher"
+  - "@swc/core"
+  - unrs-resolver

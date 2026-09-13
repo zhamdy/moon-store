@@ -12,7 +12,7 @@
 - **Client**: `.tsx` for components/pages, `.ts` for stores/services/hooks/utils
 
 ### Path Aliases
-- `@/` maps to `client/src/` (configured in Vite + TypeScript)
+- `@/` maps to `apps/dashboard/src/` (configured in Vite + TypeScript)
 - Example: `import { cn } from '@/shared/lib/utils'`
 
 ---
@@ -22,11 +22,11 @@
 Run this checklist, in order, for every new or moved client file. It is meant to be executable without
 judgment — stop at the first question that matches.
 
-1. **Is it used by two or more slices?** → `client/src/shared/`, in the subfolder matching its kind
+1. **Is it used by two or more slices?** → `apps/dashboard/src/shared/`, in the subfolder matching its kind
    (`ui/`, `components/`, `hooks/`, `lib/`, `store/`, `i18n/`, `types/`).
 2. **Is it the app shell or the composition root** (renders/wires more than one feature, e.g. routing,
-   the sidebar, session bootstrapping)? → `client/src/app/`.
-3. **Otherwise** → the one slice that uses it (`client/src/features/<slice>/`), in the folder matching
+   the sidebar, session bootstrapping)? → `apps/dashboard/src/app/`.
+3. **Otherwise** → the one slice that uses it (`apps/dashboard/src/features/<slice>/`), in the folder matching
    its kind (`pages/`, `components/`, `hooks/`, `lib/`, `store/`, or `types.ts`). `lib/` is for
    slice-local **pure** logic — no React, no stores, no transport — the same role `shared/lib/`
    plays one layer up (e.g. `features/pos/lib/salePayload.ts`). If it is pure *and* a second slice
@@ -56,10 +56,10 @@ A shared component is imported from the barrel, never from the directory it live
 import { DataTable, PageHeader, ConfirmDialog, Badge } from '../../shared'; // or '@/shared'
 ```
 
-`client/src/shared/index.ts` re-exports `components/{forms,data-display,overlays,data-table,navigation}`
+`apps/dashboard/src/shared/index.ts` re-exports `components/{forms,data-display,overlays,data-table,navigation}`
 wholesale, so those five directories are an implementation detail: a component can move between them
 without touching a single consumer. A deep import into one of them is a second path to the same
-component, and `no-restricted-imports` in `client/eslint.config.mjs` fails the build for it.
+component, and `no-restricted-imports` in `apps/dashboard/eslint.config.mjs` fails the build for it.
 
 The components still at the root of `shared/components/` (`BarcodeScanner`, `Receipt`,
 `ErrorBoundary`, `PWAInstallPrompt`, …) are deliberately **not** in the barrel and are imported by
@@ -72,7 +72,7 @@ Two things follow that are easy to get wrong:
   `export * from './navigation/PageHeader'` files. They were a second canonical path, and the cost
   of having one showed up as a 45-line rewrite across 25 files when they were removed (#56).
 - **Don't re-export anything heavy from the barrel.** See the comment at the top of
-  `client/src/shared/index.ts`: a barrel re-export puts a module one `export *` away from every
+  `apps/dashboard/src/shared/index.ts`: a barrel re-export puts a module one `export *` away from every
   consumer, and tree-shaking is the only thing keeping it out of their chunks.
 
 ---
@@ -84,7 +84,7 @@ decision, not an oversight — do not "fix" it as a drive-by during unrelated wo
 
 - **The five zustand persist keys** — `moon-auth`, `moon-cart-recovery`, `moon-held-carts`,
   `moon-offline-queue`, `moon-settings` — are literal `localStorage` keys with no per-slice namespace.
-  They are centralized as named constants in `client/src/shared/lib/storageKeys.ts` so the flat
+  They are centralized as named constants in `apps/dashboard/src/shared/lib/storageKeys.ts` so the flat
   namespace is visible in one file, but the *values* are unchanged and must stay unchanged: renaming any
   of them drops persisted state (cart, session, offline queue, settings) for every existing user on
   their next load. Namespacing them is legitimate follow-up work; it is not in scope for the slice
@@ -95,8 +95,8 @@ decision, not an oversight — do not "fix" it as a drive-by during unrelated wo
   resource. This is intentional cache sharing, not an accidental collision; each call site comments the
   sharing at its use.
 - **Route path strings are duplicated** between the file-based route tree under
-  `client/src/routes/` (the router's source of truth — the path *is* the filename, and
-  `routeTree.gen.ts` is generated from it) and `client/src/app/Sidebar.tsx`'s `navItems[]` (the nav
+  `apps/dashboard/src/routes/` (the router's source of truth — the path *is* the filename, and
+  `routeTree.gen.ts` is generated from it) and `apps/dashboard/src/app/Sidebar.tsx`'s `navItems[]` (the nav
   source of truth, which also carries icons, labels and role gates the router doesn't need). A renamed
   route therefore means renaming a file *and* editing the sidebar by hand, with nothing checking they
   still agree. Deriving the nav from the route tree is legitimate follow-up work.
@@ -145,15 +145,15 @@ Rules that follow from it:
 ## Offline queue replay contract
 
 The persisted `moon-offline-queue` holds sales a till rang up but could not post. Four invariants
-govern how they are replayed; `client/src/shared/hooks/useOffline.ts` and
-`client/src/shared/store/offlineStore.ts` implement them, and a change to either should keep them.
+govern how they are replayed; `apps/dashboard/src/shared/hooks/useOffline.ts` and
+`apps/dashboard/src/shared/store/offlineStore.ts` implement them, and a change to either should keep them.
 
 1. **Every queued entry has a unique, opaque id.** Ids come from `createQueueItemId()`, not from
    `Date.now()` — two sales rung up in the same millisecond used to share an id, and syncing one
    silently deleted the other. Widening `id` to `string | number` only made old entries
    *addressable*; `migrateQueueIds` on rehydrate is what makes them *unique*, and it is what closes
    the defect for the tills that already have queued money.
-2. **A failed replay is classified before it is counted.** `client/src/shared/lib/offlineRetry.ts`
+2. **A failed replay is classified before it is counted.** `apps/dashboard/src/shared/lib/offlineRetry.ts`
    is the single place that decides retryable vs terminal, and owns the backoff policy. A new
    server error code that should be retried is added there and nowhere else.
 3. **A retryable failure backs off; a deterministic one parks immediately.** Backoff doubles from
@@ -218,7 +218,7 @@ in #78 found this in fourteen update paths; four were losing data in production.
 3. Nullable columns are `.nullable().optional()` — the schema has to distinguish *absent*
    from *explicitly null*, because they mean different things.
 4. The repository builds its SET clause with `buildPartialUpdate`
-   (`server/src/database/partialUpdate.ts`). Guard on `!== undefined`, never on truthiness:
+   (`apps/server/src/database/partialUpdate.ts`). Guard on `!== undefined`, never on truthiness:
    `0`, `''` and `false` are values a caller needs to be able to set.
 5. Nullable text columns pass through `orNull`, which preserves the existing "an empty
    string means NULL" behaviour for a *present* field while leaving an absent one absent.
@@ -308,7 +308,7 @@ use `useApiQuery` directly rather than widening `resource` to cover them.
 
 In tests, inject `createMemoryTransport()` via `<TransportProvider>` — no axios
 stubbing and no request-mocking library. Axios itself is not importable from application code — it is
-banned by `no-restricted-imports` in `client/eslint.config.mjs`; all HTTP goes through
+banned by `no-restricted-imports` in `apps/dashboard/eslint.config.mjs`; all HTTP goes through
 `shared/lib/transport/`.
 
 #### `useApiQuery()` — non-CRUD reads
@@ -422,7 +422,7 @@ lock blocks live checkouts for no benefit.
 
 The rule that is mechanically enforced: **all product and variant rows a transaction
 touches are locked in one pass, sorted by `sortForStockWrites`**
-(`server/src/modules/pos/stockWriteOrder.ts`). Every path that mutates stock must route
+(`apps/server/src/modules/pos/stockWriteOrder.ts`). Every path that mutates stock must route
 through that one comparator — two concurrent checkouts naming the same products in
 opposite request order would otherwise deadlock. A path with more than one stock phase
 (an exchange restocks returns and deducts new items) must sort the **combined** set;
@@ -447,7 +447,7 @@ only safe while every non-transactional side effect stays in the controller, aft
 transaction — which is also why notifications and audit writes live there.
 
 **Retry-prone mutations take an `Idempotency-Key`.** Wrap them in `withIdempotency`
-(`server/src/http/idempotency.ts`), which claims the key as the first statement inside the
+(`apps/server/src/http/idempotency.ts`), which claims the key as the first statement inside the
 business transaction so the claim shares its fate: a commit makes the outcome replayable,
 a failure releases the key. Keep slow work (notifications, audit writes, external calls)
 outside the transaction, and suppress it on a replay — see `SalesController.createSale`.
@@ -458,7 +458,7 @@ these invariants can actually be proven.
 
 ### Response Format
 
-JSON endpoints use the helpers in `server/src/modules/http/`. File downloads and operational
+JSON endpoints use the helpers in `apps/server/src/modules/http/`. File downloads and operational
 endpoints keep their purpose-specific representation.
 
 ```typescript
@@ -549,7 +549,7 @@ import { t } from '@/shared/i18n';
 
 ### Adding New Keys
 
-1. Add key to both `client/src/shared/i18n/en.json` and `ar.json`
+1. Add key to both `apps/dashboard/src/shared/i18n/en.json` and `ar.json`
 2. Use `{param}` syntax for interpolation
 3. Follow existing naming: `section.action` (e.g., `inventory.addProduct`)
 
@@ -576,7 +576,7 @@ const form = useForm({ resolver: zodResolver(schema) });
 
 ### Server-Side (Zod)
 
-Validators are in `server/validators/`. Parse request body before processing:
+Validators are in `apps/server/validators/`. Parse request body before processing:
 
 ```typescript
 import { productSchema } from '../validators/productSchema';
@@ -623,34 +623,34 @@ if (!parsed.success) {
 
 ## Adding a feature
 
-Paths, not prose — the previous version of this section named `server/db/migrations/`,
-`server/routes/`, `client/src/app/App.tsx` and `FEATURES_ROADMAP.md`, of which the first
+Paths, not prose — the previous version of this section named `apps/server/db/migrations/`,
+`apps/server/routes/`, `apps/dashboard/src/app/App.tsx` and `FEATURES_ROADMAP.md`, of which the first
 two moved and the last two do not exist. A checklist that sends people to the wrong
 directory is worse than none.
 
 **Server**
 
-1. **Migration** — `server/src/database/migrations/NNN_name.sql`, plus a matching
+1. **Migration** — `apps/server/src/database/migrations/NNN_name.sql`, plus a matching
    `NNN_name.down.sql`. The down file is not optional: CI rolls every migration back and
    re-applies it (`npm run verify:migrations`). If the down genuinely changes nothing, say
    `Intentionally a no-op.` in it — that marker is load-bearing.
-2. **Module** — `server/src/modules/<domain>/<module>/` with `routes.ts`, `controller.ts`,
+2. **Module** — `apps/server/src/modules/<domain>/<module>/` with `routes.ts`, `controller.ts`,
    `service.ts`, `repository.ts`, `types.ts`. Validation lives in the controller as a Zod
    schema; the update schema is a genuine partial and is `.strict()` where it has been
    tightened.
 3. **Register** — add the router to the module manifest, not to `index.ts` by hand.
 4. **Errors** — throw `PublicError` from the service with the code you mean. Never let a
    controller recover a status by reading a message; see *Error contracts* in `CLAUDE.md`.
-5. **Apply it** — `cd server && npm run migrate`.
+5. **Apply it** — `cd apps/server && npm run migrate`.
 
 **Client**
 
-6. **Page** — `client/src/features/<slice>/pages/Feature.tsx`. Run the R5 placement
+6. **Page** — `apps/dashboard/src/features/<slice>/pages/Feature.tsx`. Run the R5 placement
    checklist above if it is not obviously one slice's.
 7. **Route** — routing is file-based (TanStack Router): add a file under
-   `client/src/routes/`. `routeTree.gen.ts` is generated; never edit it.
+   `apps/dashboard/src/routes/`. `routeTree.gen.ts` is generated; never edit it.
 8. **Barrel** — export from the slice's `index.ts` only if `app/` or another slice needs it.
-9. **Sidebar** — add an entry to `navItems[]` in `client/src/app/Sidebar.tsx`.
+9. **Sidebar** — add an entry to `navItems[]` in `apps/dashboard/src/app/Sidebar.tsx`.
 10. **i18n** — add keys to **both** `en.json` and `ar.json`. A key present in one and not
     the other renders the key name to a user.
 11. **Shared components** — import from the barrel (`@/shared`), never from the directory a

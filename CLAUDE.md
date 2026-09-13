@@ -6,12 +6,16 @@ contracts load on demand, when you work in the tree they govern.
 
 ## Quick Start
 
+Run `pnpm install` at the repository root first. The workspace contains
+`apps/dashboard`, `apps/server`, and the empty `apps/storefront` Next.js shell.
+Use `pnpm dev:storefront` for the shell on port 3000.
+
 ```bash
 # Terminal 1 — Server (port 3001)
-cd server && npm run migrate && npm run seed && npm run dev
+cd apps/server && npm run migrate && npm run seed && npm run dev
 
 # Terminal 2 — Client (port 5173)
-cd client && npm run dev
+cd apps/dashboard && npm run dev
 ```
 
 ## Default Logins
@@ -24,10 +28,10 @@ cd client && npm run dev
 
 ## Subsystem contracts
 
-- **`server/CLAUDE.md`** — the API contract and its two gates, rate-limit bucketing,
+- **`apps/server/CLAUDE.md`** — the API contract and its two gates, rate-limit bucketing,
   idempotency, optimistic concurrency, typed error contracts, scheduled jobs, media
   storage, refresh-token rotation, migration verification.
-- **`client/CLAUDE.md`** — the offline queue replay contract, PWA install/update policy,
+- **`apps/dashboard/CLAUDE.md`** — the offline queue replay contract, PWA install/update policy,
   react-hook-form on HeroUI inputs, the accessibility rules and patterns.
 - **`e2e/README.md`** — ownership, the flake policy, and what the suite has already found.
 - **`docs/CONVENTIONS.md`** — placement detail, the string-coupling contract, E2E
@@ -36,11 +40,11 @@ cd client && npm run dev
 
 ## Key Patterns
 
-`client/src/` is three layers: `app/` (composition root — routing, shell, session wiring),
+`apps/dashboard/src/` is three layers: `app/` (composition root — routing, shell, session wiring),
 `features/` (nine domain slices), `shared/` (cross-cutting code, feature-agnostic).
-`ls client/src/features` lists the slices; `docs/CONVENTIONS.md` has the dependency rules.
+`ls apps/dashboard/src/features` lists the slices; `docs/CONVENTIONS.md` has the dependency rules.
 
-`server/src/modules/` is grouped by domain (`core`, `inventory`, `commerce`, `pos`,
+`apps/server/src/modules/` is grouped by domain (`core`, `inventory`, `commerce`, `pos`,
 `fulfillment`, `intelligence`), each module a `routes` / `controller` / `service` /
 `repository` / `types` / `schemas` set. `src/router.ts` mounts them all, and is the only
 authority on what this server actually serves — every gate that matters walks it rather
@@ -78,8 +82,8 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 
 | Ratchet | Where | Today |
 | --- | --- | --- |
-| ESLint warnings | `--max-warnings` in `server/package.json` | `385`, essentially all `@typescript-eslint/no-explicit-any` |
-| Operations with no request contract | `EXPECTED_UNCONVERTED` in `server/src/docs/requestContracts.ts` | `3` of 204 — the health probes |
+| ESLint warnings | `--max-warnings` in `apps/server/package.json` | `385`, essentially all `@typescript-eslint/no-explicit-any` |
+| Operations with no request contract | `EXPECTED_UNCONVERTED` in `apps/server/src/docs/requestContracts.ts` | `3` of 204 — the health probes |
 | Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
 
 **Never raise one. Lower it in the same commit that earns the reduction.** A ratchet left
@@ -96,20 +100,20 @@ have let the API reach zero by documenting reasons instead of schemas.
 ### Migration verification
 
 Every `.down.sql` must actually reverse its `.sql`, and CI proves it. Details, the
-`Intentionally a no-op.` marker, and how to run it: `server/CLAUDE.md`.
+`Intentionally a no-op.` marker, and how to run it: `apps/server/CLAUDE.md`.
 
 ## Testing
 
 ```bash
-cd server && npm test          # pg-mem suites; real-PostgreSQL suites report as skipped
-cd client && npm test
+cd apps/server && npm test          # pg-mem suites; real-PostgreSQL suites report as skipped
+cd apps/dashboard && npm test
 ```
 
 ### Real-PostgreSQL suites
 
 Concurrency and idempotency invariants (guarded relative writes, `FOR UPDATE`, unique-claim
 races) cannot be proven on pg-mem — they need two genuinely concurrent connections. Those
-suites use `describeWithPostgres` from `server/tests/support/realPostgres.ts` and run only
+suites use `describeWithPostgres` from `apps/server/tests/support/realPostgres.ts` and run only
 when `TEST_DATABASE_URL` is set. Without it they **skip loudly**; they never pass silently.
 
 ```bash
@@ -135,7 +139,7 @@ Chromium only. Full detail in `e2e/README.md`.
 
 ```bash
 npm ci --prefix e2e && npx --prefix e2e playwright install --with-deps chromium
-npm run build --prefix client                 # deliberately its own step, not webServer
+npm run build --prefix apps/dashboard                 # deliberately its own step, not webServer
 cd e2e && E2E_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/moon_store_e2e npm test
 ```
 
@@ -216,3 +220,8 @@ prune stale ones; anything cross-project belongs in the global instructions inst
 - The cart line's `data-testid` is built from `lineKey`, and `e2e/support/locators.ts`
   rebuilds that same string by hand. Adding a segment to the key breaks every cart-line
   locator with no type error — seven smoke specs — so the two move together (2026-09-09)
+- Under pnpm, library `.d.ts` files that import `react` without a `@types/react` peer
+  resolve the hidden hoist `node_modules/.pnpm/node_modules/@types/react` — the
+  storefront's React 19 — so the dashboard's 18 build failed with 457 JSX errors.
+  Dashboard `tsconfig.json` `paths` pin those declarations to its own `@types`
+  (2026-09-13)

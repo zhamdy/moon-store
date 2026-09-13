@@ -7,8 +7,8 @@ import { parse as parseConnectionString } from 'pg-connection-string';
 const here = __dirname;
 
 export const REPO_ROOT = path.resolve(here, '../..');
-export const SERVER_DIR = path.join(REPO_ROOT, 'server');
-export const CLIENT_DIR = path.join(REPO_ROOT, 'client');
+export const SERVER_DIR = path.join(REPO_ROOT, 'apps/server');
+export const CLIENT_DIR = path.join(REPO_ROOT, 'apps/dashboard');
 
 export const PREVIEW_PORT = 4173;
 export const BASE_URL = `http://localhost:${PREVIEW_PORT}`;
@@ -70,7 +70,7 @@ function targetOf(connectionString: string): string | null {
   }
 }
 
-/** The dev `DATABASE_URL`, from the environment or `server/.env`, if discoverable. */
+/** The dev `DATABASE_URL`, from the environment or `apps/server/.env`, if discoverable. */
 function developerDatabaseUrl(): string | undefined {
   if (process.env.DATABASE_URL?.trim()) return process.env.DATABASE_URL.trim();
   try {
@@ -88,7 +88,7 @@ function developerDatabaseUrl(): string | undefined {
  *
  * Having no default protects against *forgetting* to set it. It protects against nothing
  * once it is set to the wrong value — and the obvious wrong value is the developer's own
- * `DATABASE_URL`, copied out of `server/.env` because a database already existed and the
+ * `DATABASE_URL`, copied out of `apps/server/.env` because a database already existed and the
  * `createdb` step looked skippable. The preflight cannot catch that case either: the dev
  * server genuinely is on that database, so its identity check would pass by construction.
  * Hence the explicit comparison here.
@@ -124,9 +124,9 @@ export function requireE2eDatabaseUrl(): string {
  * JWT secrets for anything this suite starts in the server's own runtime — the API under
  * test, and the `migrate`/`seed` child processes in `globalSetup`.
  *
- * They are needed by more than the API. `server/src/config/env.ts` validates the whole
+ * They are needed by more than the API. `apps/server/src/config/env.ts` validates the whole
  * environment the moment `pool.ts` is imported, so `npm run migrate` hard-fails without
- * them. Locally `server/.env` supplies them and the omission is invisible; in CI there is
+ * them. Locally `apps/server/.env` supplies them and the omission is invisible; in CI there is
  * no `.env` and setup dies before the first spec. Sharing one block is what keeps those
  * two situations honest with each other.
  *

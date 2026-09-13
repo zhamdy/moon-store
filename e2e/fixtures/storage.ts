@@ -27,7 +27,7 @@ import {
   HELD_CARTS_STORAGE_KEY,
   OFFLINE_QUEUE_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
-} from '../../client/src/shared/lib/storageKeys';
+} from '../../apps/dashboard/src/shared/lib/storageKeys';
 
 export {
   AUTH_STORAGE_KEY,

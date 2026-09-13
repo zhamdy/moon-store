@@ -109,7 +109,7 @@ A full-stack, bilingual (Arabic/English) Point of Sale system built for fashion 
 
 ```
 moon-store/
-├── client/                     # React SPA
+├── apps/dashboard/            # Existing React dashboard / POS
 │   └── src/
 │       ├── app/                # Shell, providers, composition root
 │       ├── features/           # 9 domain slices
@@ -125,7 +125,10 @@ moon-store/
 │       ├── routes/             # TanStack file-based route definitions
 │       └── shared/             # Components, hooks, i18n, types, utils
 │
-├── server/                     # Express API
+├── apps/storefront/           # Empty Next.js 16 / React 19 / Tailwind CSS app
+│   └── app/                    # App Router shell only
+│
+├── apps/server/               # Existing Express API
 │   └── src/
 │       ├── config/             # Environment validation (Zod)
 │       ├── database/           # Pool, migrations, seed data
@@ -137,7 +140,9 @@ moon-store/
 │           ├── inventory/      #   Products, categories, bundles, stock
 │           └── pos/            #   Sales, register, shifts, exchanges
 │
-└── docs/                       # Architecture docs & plans
+├── pnpm-workspace.yaml        # apps/* workspace
+├── pnpm-lock.yaml             # Shared workspace dependency lock
+└── docs/                      # Architecture docs & plans
 ```
 
 Each server module follows a **5-file pattern**: `types.ts` → `repository.ts` → `service.ts` → `controller.ts` → `routes.ts`
@@ -148,9 +153,9 @@ Each server module follows a **5-file pattern**: `types.ts` → `repository.ts` 
 
 ### Prerequisites
 
-- **Node.js** ≥ 18
+- **Node.js** ≥ 20.9
 - **PostgreSQL** ≥ 14
-- **npm** ≥ 9
+- **pnpm** 10.28.2 (see `packageManager` in the root package.json)
 
 ### 1. Clone & Install
 
@@ -158,17 +163,14 @@ Each server module follows a **5-file pattern**: `types.ts` → `repository.ts` 
 git clone https://github.com/zhamdy/moon-store.git
 cd moon-store
 
-# Install root dev dependencies (husky, lint-staged)
-npm install
-
-# Install client & server
-cd client && npm install && cd ..
-cd server && npm install && cd ..
+# Install all three applications and root development tools
+corepack enable
+pnpm install
 ```
 
 ### 2. Configure Environment
 
-Create `server/.env`:
+Create `apps/server/.env`:
 
 ```env
 PORT=3001
@@ -192,7 +194,7 @@ CLIENT_URL=http://localhost:5173
 createdb moon_store
 
 # Run migrations & seed demo data
-cd server
+cd apps/server
 npm run migrate
 npm run seed
 ```
@@ -201,10 +203,13 @@ npm run seed
 
 ```bash
 # Terminal 1 — API server (port 3001)
-cd server && npm run dev
+pnpm dev:server
 
 # Terminal 2 — Client dev server (port 5173)
-cd client && npm run dev
+pnpm dev:dashboard
+
+# Terminal 3 — Empty storefront (port 3000)
+pnpm dev:storefront
 ```
 
 Open **http://localhost:5173** in your browser.
@@ -223,7 +228,7 @@ Open **http://localhost:5173** in your browser.
 
 ## 📜 Available Scripts
 
-### Client (`client/`)
+### Client (`apps/dashboard/`)
 
 | Script | Description |
 |--------|-------------|
@@ -236,7 +241,7 @@ Open **http://localhost:5173** in your browser.
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run format` | Format with Prettier |
 
-### Server (`server/`)
+### Server (`apps/server/`)
 
 | Script | Description |
 |--------|-------------|
@@ -255,10 +260,10 @@ Open **http://localhost:5173** in your browser.
 
 ```bash
 # Client tests (148 tests, 21 suites)
-cd client && npm test
+cd apps/dashboard && npm test
 
 # Server tests (database pool, migrations, seeds, transactions)
-cd server && npm test
+cd apps/server && npm test
 ```
 
 ---
@@ -269,7 +274,7 @@ The project includes a [`render.yaml`](render.yaml) for one-click deployment to 
 
 - **API**: Node.js web service running `npm run migrate && npm run start`; seed demo data only in development.
 - **Database**: Add a PostgreSQL instance on Render and set `DATABASE_URL`
-- **Client**: Deploy the `client/` build output to any static host (Vercel, Netlify, Render Static)
+- **Client**: Deploy the `apps/dashboard/` build output to any static host (Vercel, Netlify, Render Static)
 
 For databases created before the baseline schema corrections, migration 009 upgrades
 the legacy tables and columns in a single transaction. Back up production before
@@ -305,3 +310,43 @@ production backup or a substitute for checking custom constraints and real data.
 **Built with ☕ for fashion retail**
 
 </div>
+
+## Workspace verification and deployment
+
+From the repository root:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter moon-store-client typecheck
+pnpm --filter moon-store-client test
+pnpm build:dashboard
+pnpm --filter moon-store-server typecheck
+pnpm --filter moon-store-server test
+pnpm build:server
+pnpm --filter @moon/storefront typecheck
+pnpm build:storefront
+```
+
+`build:server` runs the existing TypeScript compiler configuration. Production still
+runs `tsx index.ts`; no runtime or database changes are part of this migration.
+The existing dashboard/server package names are retained. The dashboard owns React 18
+and its `@types/react*` 18 packages; the storefront owns React 19. Libraries whose
+declarations import `react` without a `@types/react` peer would otherwise resolve pnpm's
+hidden hoist (`node_modules/.pnpm/node_modules/@types/react`, React 19), so dashboard
+`tsconfig.json` `paths` pin `react`/`react-dom` declarations to its own node_modules.
+Its existing test import of `@react-aria/i18n` is now an explicit dev dependency at the
+previously locked version, because pnpm isolates dependencies.
+`pnpm-lock.yaml` is the only lock for `apps/*`; the old root, dashboard and server
+`package-lock.json` files were removed. E2E remains an independent npm package under
+`e2e/` with its own `package-lock.json` and disposable PostgreSQL requirements.
+
+The storefront installs the agreed base libraries without providers, components, API
+routes, or API integration. Its page only renders "Moon Store".
+
+Render uses the repository root so the pnpm workspace and lockfile are available.
+Its start command filters to `moon-store-server`, preserving the API working directory.
+Review hosted Render settings for overrides of the checked-in blueprint. For the existing
+Vercel dashboard project, change the hosted Root Directory from `client` to
+`apps/dashboard`; keep its existing environment variables and Vite build settings.
+Storefront deployment is not configured. Preserve any absolute upload paths and external
+scripts that refer to the old application locations.

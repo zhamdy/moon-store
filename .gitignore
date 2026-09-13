@@ -13,8 +13,8 @@ dist/
 *.jpg
 # ...but the PWA install icons are source, not incidental output. The manifest referenced
 # both of these for a long time while neither could ever be committed, which is a failed
-# install and no error anywhere (#53). Anything under client/public/ is a shipped asset.
-!client/public/*.png
+# install and no error anywhere (#53). Anything under apps/dashboard/public/ is a shipped asset.
+!apps/dashboard/public/*.png
 nul
 .playwright-mcp/
 .tanstack/
@@ -28,3 +28,6 @@ e2e/playwright-report/
 e2e/blob-report/
 e2e/test-results/
 e2e/playwright/.auth/
+
+# Next.js build output
+.next/

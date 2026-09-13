@@ -7,7 +7,7 @@ editing, data tables, navigation, dialogs and authentication.
 
 | Gate | Where | What it catches |
 | --- | --- | --- |
-| `eslint-plugin-jsx-a11y` | `client/eslint.config.mjs`, runs in `npm run lint` | Static markup errors: missing alt text, invalid ARIA, labels not tied to controls. |
+| `eslint-plugin-jsx-a11y` | `apps/dashboard/eslint.config.mjs`, runs in `npm run lint` | Static markup errors: missing alt text, invalid ARIA, labels not tied to controls. |
 | axe (`@axe-core/playwright`) | `e2e/specs/a11y.spec.ts`, tagged `@smoke` so it runs on every PR | Computed violations on real rendered pages: names, contrast, ARIA relationships, nested interactive controls. |
 | Keyboard and focus assertions | same file | Focus entering a dialog, staying in it, and returning to the trigger; adding to the cart without a pointer. |
 
@@ -34,7 +34,7 @@ It took the keyboard-only delivery spec added for #103, and that spec only ran a
 change had merged, at which point it turned `main` red.
 
 The lesson is not "add a rule" — the rule exists now
-(`no-restricted-syntax` in `client/eslint.config.mjs`, with
+(`no-restricted-syntax` in `apps/dashboard/eslint.config.mjs`, with
 `heroUiButtonKeyboard.test.tsx` pinning the behaviour so the rule cannot become
 superstition after a HeroUI upgrade). It is that **a component library can take a
 keyboard away from valid markup**, and no static check will tell you. Only driving the
@@ -111,7 +111,7 @@ could announce `lang="ar"` with `dir="ltr"`. To change direction now, change the
 act is to scan, and a register dialog exists to take one number. WCAG does not prohibit
 autofocus; the rule is an opinion about general web pages.
 
-**Reduced motion is honoured globally** (`client/src/app/index.css`), collapsing durations
+**Reduced motion is honoured globally** (`apps/dashboard/src/app/index.css`), collapsing durations
 to a single frame rather than removing animations — `animation: none` can strand an
 element on its opening keyframe, invisible.
 
@@ -142,7 +142,7 @@ navigation shell.
 ## Running the checks
 
 ```bash
-npm run lint --prefix client                   # jsx-a11y, among the rest
+npm run lint --prefix apps/dashboard                   # jsx-a11y, among the rest
 
 # axe + keyboard/focus, against a real browser and a real server
 cd e2e && E2E_DATABASE_URL=postgresql://.../moon_store_e2e npx playwright test specs/a11y.spec.ts
