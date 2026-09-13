@@ -319,7 +319,7 @@ export default function BranchesPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      {!b.is_primary && b.status !== 'inactive' && (
+                      {!b.is_main && b.status !== 'inactive' && (
                         <Button
                           isIconOnly
                           variant="light"
@@ -347,7 +347,7 @@ export default function BranchesPage() {
                         {t('common.inactive')}
                       </Badge>
                     ) : null}
-                    {b.is_primary ? (
+                    {b.is_main ? (
                       <Badge size="sm" variant="secondary">
                         {t('branches.primary')}
                       </Badge>
