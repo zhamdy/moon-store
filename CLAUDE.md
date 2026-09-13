@@ -72,6 +72,8 @@ Each gate is its own job, so the checks list says what broke without anyone open
 | `Server (lint, typecheck, test)` | ESLint clean of errors and **not above the warning ratchet**, `tsc --noEmit`, the full suite with a real PostgreSQL, plus a guard that the real-PG suites were not silently skipped. |
 | `Migrations (up, down, re-apply)` | Every `.down.sql` actually reverses its `.sql`. |
 | API documentation drift (a step on the server job) | Every route the router serves is documented, manifested, and describes its request shape with the schema that validates it; and nothing is documented that is not served. |
+| Manifest authorization (a step on the server job) | Every `endpointDetailsManifest` entry is served, and its `authorization` matches the route's real `verifyToken` / `requireRole` chain, walked from `createApp()`. A route weaker than its manifest passes only as a counted `UNDER_PROTECTED_ROUTES` entry. |
+| Client API paths (a step on the server job) | Every `transport.request`, `useApiQuery` and `resource()` URL in `apps/dashboard/src` maps to a route `createApp()` serves. Calls into postponed features are reported, not failed; a dynamic path needs an explicit resolution. |
 | `Client (lint, typecheck, test)` | ESLint, `tsc --noEmit`, vitest. |
 | `E2E smoke (pull requests)` | The money paths, under a ~3 minute budget. |
 | `E2E full (main)` / `E2E settings` | The sharded suite and the serial settings project. |
@@ -85,6 +87,7 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 | ESLint warnings | `--max-warnings` in `apps/server/package.json` | `384`, essentially all `@typescript-eslint/no-explicit-any` |
 | Operations with no request contract | `EXPECTED_UNCONVERTED` in `apps/server/src/docs/requestContracts.ts` | `3` of 192 — the health probes |
 | Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
+| Routes weaker than their manifest | `EXPECTED_UNDER_PROTECTED` in `apps/server/src/http/endpointManifest.ts` | `4`, each an open owner decision listed in `UNDER_PROTECTED_ROUTES` |
 
 **Never raise one. Lower it in the same commit that earns the reduction.** A ratchet left
 above the true count has silently stopped ratcheting, which is why the contract one is an
