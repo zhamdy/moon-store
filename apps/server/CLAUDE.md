@@ -350,6 +350,11 @@ client interpolation never matches a literal route segment.
 - **`useSave()`** sends POST without an id and PUT with one. Both served or neither is
   unambiguous; exactly one served needs a resolution saying which the page uses.
 
+**What it does not claim.** That the *intended* handler answers. Express semantics are the
+point, so a literal client segment matches a route parameter: `GET products/gone` counts as
+served by `GET /products/:id`. The gate proves a route answers the URL, not that it is the
+route the page meant.
+
 Negative tests for both gates live in `tests/gates/`, and each gate fails on implausible
 input (no manifest entries, no client calls, no postponed list) rather than passing empty.
 
