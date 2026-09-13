@@ -188,7 +188,10 @@ bounces or blocks interaction.
    reduced motion, so the server HTML, the no-JS state and the reduced-motion state are
    one unanimated element; JS attaches the translate only when motion is allowed.
 4. **Marquee** — `<Marquee>` (a Server Component in the home slice, its only consumer):
-   pure CSS, the track rendered twice with the copy `aria-hidden`, paused on hover and
+   pure CSS, two content-sized tracks (never stretched to full width: the spare space
+   would pile up at the loop seam as one oversized gap), each repeating the content
+   `repeat` times so a track outruns any viewport, every copy but the first
+   `aria-hidden`; paused on hover and
    focus-within, direction reversed under `[dir="rtl"]`, and under reduced motion the
    copy is removed and the single track scrolls naturally. Duration lives in
    `.marquee` in `globals.css`.

@@ -518,10 +518,14 @@ header[data-surface][data-surface-ready] {
 
 /* (4) Marquee — features/home/components/editorial-strip/marquee.tsx. The track
    renders twice; translating by one track plus the gap puts the copy exactly
-   where the original was, so the loop is seamless. RTL travels the other way. */
+   where the original was, so the loop is seamless. RTL travels the other way.
+   Tracks are content-sized, never stretched to the container: stretching leaves
+   the spare width at the seam as one oversized gap. The component repeats the
+   content inside each track instead, and duration scales with that repeat so the
+   speed stays the same (48s per set). */
 .marquee {
   --marquee-gap: 40px;
-  --marquee-duration: 48s;
+  --marquee-duration: calc(48s * var(--marquee-repeat, 1));
   display: flex;
   gap: var(--marquee-gap);
   overflow: hidden;
@@ -532,7 +536,6 @@ header[data-surface][data-surface-ready] {
   flex: none;
   align-items: center;
   gap: var(--marquee-gap);
-  min-inline-size: 100%;
   animation: moon-marquee var(--marquee-duration) linear infinite;
 }
 
@@ -587,10 +590,10 @@ header[data-surface][data-surface-ready] {
 
   .marquee-track {
     animation: none;
-    min-inline-size: 0;
   }
 
-  .marquee-track[aria-hidden='true'] {
+  .marquee-track[aria-hidden='true'],
+  [data-marquee-copy] {
     display: none;
   }
 }
