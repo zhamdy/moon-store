@@ -41,7 +41,7 @@ export async function Hero() {
       {...{ [HEADER_BOUNDARY_ATTR]: '' }}
       data-surface="ink"
       aria-labelledby="hero-title"
-      className="relative -mt-(--header-h) flex min-h-svh flex-col justify-end overflow-hidden bg-bg text-text lg:min-h-[88svh]"
+      className="relative -mt-(--header-h) flex min-h-svh flex-col justify-end overflow-hidden bg-bg text-text"
     >
       <picture className="absolute inset-0 block">
         <source media="(min-width: 768px)" srcSet={desktop.srcSet} sizes={desktop.sizes} />
