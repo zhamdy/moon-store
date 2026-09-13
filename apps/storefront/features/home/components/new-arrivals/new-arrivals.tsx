@@ -1,12 +1,9 @@
 import { getTranslations } from 'next-intl/server';
 import type { AppLocale } from '@/i18n/routing';
 import { Container } from '@/components/ui/container';
-import { ProductCard } from '@/features/products/components/product-card';
+import { CATALOG_CARD_SIZES, ProductCard } from '@/features/products/components/product-card';
 import { newArrivals } from '@/features/products/data/home-products';
 import { SectionHeading } from '../section-heading';
-
-/** Card width in the 4-up desktop grid / 2-up below (guideline §12·03, §16). */
-export const CATALOG_CARD_SIZES = '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, 46vw';
 
 /**
  * 03 — New Arrivals. Four columns from 1024, two at 768 and below: four products

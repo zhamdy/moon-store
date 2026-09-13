@@ -1,12 +1,13 @@
 import { getTranslations } from 'next-intl/server';
 import type { AppLocale } from '@/i18n/routing';
 import { Container } from '@/components/ui/container';
-import { ProductCard } from '@/features/products/components/product-card';
+import {
+  CATALOG_CARD_SIZES,
+  LARGE_CARD_SIZES,
+  ProductCard,
+} from '@/features/products/components/product-card';
 import { curatedEdit } from '@/features/products/data/home-products';
-import { CATALOG_CARD_SIZES } from '../new-arrivals/new-arrivals';
 import { SectionHeading } from '../section-heading';
-
-const LARGE_CARD_SIZES = '(min-width: 1440px) 672px, (min-width: 1024px) 48vw, 92vw';
 
 /**
  * 08 — The Edit (guideline §12·08: "one featured item + smaller products", no

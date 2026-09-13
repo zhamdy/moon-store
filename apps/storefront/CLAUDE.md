@@ -71,7 +71,10 @@ threshold 0, so "intersecting" means "some of the hero is still under the header
 The server HTML is already correct with no JS: `body:has([data-header-boundary])
 header[data-surface='auto']` in `globals.css` applies the overlay surface, so there is
 never an ivory→transparent flip on load; the shell only narrows to `solid` and back to
-`auto`. The attribute string lives in three places — the constant (two TypeScript
+`auto`. The shell lives in the locale layout and survives client-side navigation while
+the page is swapped beneath it, so it looks the boundary up again on every pathname
+change (its one `usePathname` use) and resets to `auto` first — otherwise a 404 → home
+transition would leave the header stuck on whatever surface the last page ended on. The attribute string lives in three places — the constant (two TypeScript
 consumers, so a rename fails typecheck) and, by hand, that one CSS selector. Pages with
 no boundary element (the 404 page, every future page) are solid and need nothing.
 
@@ -127,16 +130,16 @@ Server Components by default (R21/R22). `'use client'` is limited to six entries
    current path across a locale switch.
 4. `components/layout/header/header-shell.tsx` — owns the `IntersectionObserver` that
    narrows the header surface; takes children only.
-5. `components/motion/reveal.tsx` — `useInView` for the scroll reveal; the transition
-   itself is CSS. Takes children only.
-6. `components/motion/parallax.tsx` — `useScroll` + `useTransform` bound to a
-   `transform` string on an `m` element inside a leaf-scoped `LazyMotion` (async
-   `domAnimation`, `strict`). Takes children only. No global `LazyMotion` or
-   `MotionConfig` provider exists; do not add one.
+5. `components/motion/reveal.tsx` — an `IntersectionObserver` for the scroll reveal;
+   the transition itself is CSS. Takes children only.
+6. `components/motion/parallax.tsx` — `scroll()` from `motion` driving a WAAPI
+   animation from `motion/mini`. Takes children only.
 
-`motion/react-client` is itself a client module that exports elements only, so a Server
-Component may render one without becoming a client file; hooks come from `motion/react`
-and are client-only.
+**Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
+`useInView` import put the whole engine (~46 KB gz across two chunks) into the eager
+bundle, measured on the built `/en` page. The vanilla `motion` / `motion/mini` entries
+cost ~9 KB gz for the parallax. Measure the eager chunks of `.next/server/app/en.html`
+after touching anything under `components/motion/` before trusting a size claim.
 
 Client islands receive translated strings as props, never the message catalogue —
 `MobileMenu`'s props are `menuLabel`/`closeLabel`/`primaryLabel`/`accountLabel`, a
@@ -169,21 +172,28 @@ bounces or blocks interaction.
    clipped. The mobile menu's links use the same fade-up with a 70ms stagger.
 2. **Scroll reveal** — `<Reveal>`: the server HTML is the visible state. On mount,
    `decideInitialRevealState` (`reveal-policy.ts`, unit-tested) marks *only* elements
-   entirely below the fold as pending, never under reduced motion; `useInView` flips them
-   once. `effect="mask"` is the line wipe for display type. Used on section headings and
-   editorial images, never on product cards.
-3. **Parallax** — `<Parallax travel>`: 4–8% travel, transform only. The same element
-   renders in every state; reduced motion collapses the range after hydration via
-   `useSyncExternalStore`, so the `style` attribute never mismatches.
+   entirely below the fold as pending, never under reduced motion; an
+   `IntersectionObserver` flips them once. `effect="mask"` is the line wipe for display
+   type. Used on section headings and editorial images, never on product cards.
+3. **Parallax** — `<Parallax travel>`: 4–8% travel, transform only: a paused WAAPI
+   animation whose time is set from `scroll()`'s progress callback (one shared,
+   event-driven scroll listener per container — JS-driven, not a native ScrollTimeline;
+   see the component comment for why the animation form of `scroll()` is avoided). The
+   over-scale that hides the frame edge is CSS (`--parallax-scale`) and collapses under
+   reduced motion, so the server HTML, the no-JS state and the reduced-motion state are
+   one unanimated element; JS attaches the translate only when motion is allowed.
 4. **Marquee** — `<Marquee>` (a Server Component in the home slice, its only consumer):
    pure CSS, the track rendered twice with the copy `aria-hidden`, paused on hover and
    focus-within, direction reversed under `[dir="rtl"]`, and under reduced motion the
    copy is removed and the single track scrolls naturally. Duration lives in
    `.marquee` in `globals.css`.
 
-`useReducedMotion()` snapshots once; a preference change mid-session is honoured on
-reload. Embla is installed but unused: CSS scroll-snap gives the category and lookbook
-rails swipe, keyboard and RTL for free.
+Both leaves read `prefers-reduced-motion` once at mount; a preference change
+mid-session is honoured on reload. The global reduced-motion rule zeroes animation and
+transition *delays* as well as durations — with `fill-mode: both`, a zero-duration
+animation would otherwise hold its `from` state for the whole stagger. Embla is
+installed but unused: CSS scroll-snap gives the category and lookbook rails swipe,
+keyboard and RTL for free.
 
 ## Image pipeline
 

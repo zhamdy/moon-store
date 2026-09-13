@@ -6,6 +6,11 @@ import { cn } from '@/lib/utils/cn';
 import type { HomeProductMock } from '../types/home-product';
 import { formatPrice } from '../utils/price';
 
+/** Card width in the homepage's 4-up desktop grid / 2-up below (guideline §12·03, §16). */
+export const CATALOG_CARD_SIZES = '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, 46vw';
+/** The Curated Edit's 2×2 feature card. */
+export const LARGE_CARD_SIZES = '(min-width: 1440px) 672px, (min-width: 1024px) 48vw, 92vw';
+
 export interface ProductCardProps {
   product: HomeProductMock;
   locale: AppLocale;

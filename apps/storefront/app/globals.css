@@ -449,6 +449,13 @@ header[data-surface][data-surface-ready] {
   transform: translateY(0.3em);
 }
 
+/* (3) Parallax — components/motion/parallax.tsx. The layer is over-scaled by the
+   travel so the frame edge is never exposed; JS animates only the translate. */
+[data-parallax] > * {
+  transform: scale(var(--parallax-scale, 1));
+  will-change: transform;
+}
+
 /* (4) Marquee — features/home/components/editorial-strip/marquee.tsx. The track
    renders twice; translating by one track plus the gap puts the copy exactly
    where the original was, so the loop is seamless. RTL travels the other way. */
@@ -499,8 +506,18 @@ header[data-surface][data-surface-ready] {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Delays too: with fill-mode both, a zero-duration animation still holds its
+       `from` state for the whole delay, which would replay the hero and menu
+       staggers as content popping in one by one. */
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
+  }
+
+  [data-parallax] > * {
+    transform: none;
+    will-change: auto;
   }
 
   /* Static strip: the content once, scrolling naturally. */
