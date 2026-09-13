@@ -5,7 +5,7 @@ import { routing } from '@/i18n/routing';
 import { Hero } from '@/features/home/components/hero/hero';
 import { EditorialStrip } from '@/features/home/components/editorial-strip/editorial-strip';
 import { NewArrivals } from '@/features/home/components/new-arrivals/new-arrivals';
-import { EditorialMoment } from '@/features/home/components/editorial-moment/editorial-moment';
+import { PromoBanner } from '@/features/home/components/promo-banner/promo-banner';
 import { FeaturedCollection } from '@/features/home/components/featured-collection/featured-collection';
 import { CategoryGrid } from '@/features/home/components/category-grid/category-grid';
 import { Campaign } from '@/features/home/components/campaign/campaign';
@@ -32,7 +32,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <Hero />
       <EditorialStrip />
       <NewArrivals locale={locale} />
-      <EditorialMoment />
+      <PromoBanner />
       <FeaturedCollection />
       <CategoryGrid />
       <Campaign />

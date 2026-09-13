@@ -117,7 +117,7 @@
   --color-on-action: var(--moon-white);
 
   --color-scrim: rgb(23 21 19 / 0.4);
-  /* Behind display text set directly on photography (the editorial moment). */
+  /* Behind display text set directly on photography (the promo banner). */
   --color-scrim-strong: rgb(23 21 19 / 0.72);
 
   /* Named apart from Tailwind's own built-in `stone-*` palette, which these

@@ -53,7 +53,7 @@ surface overrides the `--surface-*` variables:
 
 | `data-surface` | Where | Effect |
 | --- | --- | --- |
-| `ink` | the footer, the hero, the editorial moment, the campaign, primary `Button` | ink bg, ivory text, stone-600 hairline, ivory focus ring |
+| `ink` | the footer, the hero, the promo banner, the campaign, primary `Button` | ink bg, ivory text, stone-600 hairline, ivory focus ring |
 | `overlay` | resolved on the header (see below) | transparent bg and border, ivory text, ivory focus ring |
 | `auto` | what the header renders from the server | overlay when the page has a header boundary, solid otherwise |
 | `solid` | written by `HeaderShell` as soon as the page scrolls | the defaults |
@@ -247,7 +247,10 @@ Every homepage image is a static import behind one registry, swappable by file d
 ## Guideline overrides and copy decisions
 
 - §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the
-  brief; §12·04's "Explore the story →" is dropped (an About-shaped destination); §12·12's
+  brief; §12·04's editorial brand moment is replaced by a promo banner for a new collection or
+  an offer (user decision, 2026-09-14; copy in `home.banner`, link in `BANNER_HREF`, and offer
+  terms only ever from the business), and its "Explore the story →" is dropped (an
+  About-shaped destination); §12·12's
   Customer Care column is omitted until Shipping/Returns/Contact pages are planned. No
   FAQ, Blog, About, Newsletter, social links, contact details or policy text anywhere.
 - Prices format on the server in `features/products/utils/price.ts`: Western digits in

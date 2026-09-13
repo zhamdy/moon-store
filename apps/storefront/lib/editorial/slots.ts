@@ -25,7 +25,7 @@ export const editorialSlots = [
   'strip-03',
   'strip-04',
   'moment',
-  // 16:9 desktop crop of the editorial moment; `moment` stays the 4:5 mobile crop.
+  // 16:9 desktop crop of the promo banner; `moment` stays the 4:5 mobile crop.
   'moment-wide',
   'featured-large',
   'featured-small',

@@ -96,10 +96,11 @@
       "title": "New Arrivals",
       "link": "View all"
     },
-    "moment": {
-      "line1": "Designed for the moments",
-      "line2": "between ordinary",
-      "line3": "and unforgettable.",
+    "banner": {
+      "eyebrow": "New collection",
+      "title": "The Silk Edit",
+      "body": "Fluid blouses and soft tailoring in ivory and warm brown.",
+      "cta": "Shop the collection",
       "imageAlt": "A woman in an ivory silk blouse and a long brown linen skirt, seated in warm window light"
     },
     "featured": {
