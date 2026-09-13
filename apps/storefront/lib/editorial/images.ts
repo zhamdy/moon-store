@@ -13,6 +13,7 @@ import strip02 from '@/assets/editorial/strip-02.jpg';
 import strip03 from '@/assets/editorial/strip-03.jpg';
 import strip04 from '@/assets/editorial/strip-04.jpg';
 import moment from '@/assets/editorial/moment.jpg';
+import momentWide from '@/assets/editorial/moment-wide.jpg';
 import featuredLarge from '@/assets/editorial/featured-large.jpg';
 import featuredSmall from '@/assets/editorial/featured-small.jpg';
 import categoryDresses from '@/assets/editorial/category-dresses.jpg';
@@ -74,6 +75,7 @@ export const editorialImages = {
   'strip-03': { src: strip03, role: 'editorial' },
   'strip-04': { src: strip04, role: 'editorial' },
   moment: { src: moment, role: 'editorial' },
+  'moment-wide': { src: momentWide, role: 'editorial' },
   'featured-large': { src: featuredLarge, role: 'editorial' },
   'featured-small': { src: featuredSmall, role: 'editorial' },
   'category-dresses': { src: categoryDresses, role: 'category' },

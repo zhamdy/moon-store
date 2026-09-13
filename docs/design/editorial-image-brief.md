@@ -1,6 +1,6 @@
 # Moon Fashion — editorial image brief
 
-The homepage (`apps/storefront`) composes 44 image slots. Every slot is a file in
+The homepage (`apps/storefront`) composes 45 image slots. Every slot is a file in
 `apps/storefront/assets/editorial/<slot>.jpg`, bound by `apps/storefront/lib/editorial/images.ts`.
 The files shipped today are flat toned placeholders at the exact ratios below. To deliver
 the real photography, **replace each file at the same path, at the same ratio** — no code
@@ -40,7 +40,8 @@ Output as JPEG, sRGB, quality 82–90.
 | `hero-knitwear-desktop` | 16:10 | 2400×1500 | hero | **Knitwear slide.** A woman in a cream cashmere sweater and wide trousers, standing in window light, near the centre; bottom 45% empty floor | Low warm light with dark surroundings so the cream knit glows; cream, brown, stone; **dark overall** |
 | `hero-knitwear-mobile` | 4:5 | 1200×1500 | hero | Knitwear slide, tighter: figure centred-high, bottom 45% empty | As above |
 | `strip-01`…`strip-04` | 3:4 | 900×1200 | editorial | Four details from the shoot: fabric close-up, a hand with a bag, a hem in motion, a knit texture | Ivory/cream/stone; light, airy |
-| `moment` | 4:5 | 1600×2000 | editorial | Portrait, three-quarter length, seated or leaning, quiet expression | Warm window light, cream wall |
+| `moment` | 4:5 | 1600×2000 | editorial | **Mobile crop** of the full-bleed editorial moment. Portrait, three-quarter length, seated or leaning, quiet expression; the bottom 40% calm and not bright, because the statement sits there | Warm window light, cream wall |
+| `moment-wide` | 16:9 | 2560×1440 | editorial | **Desktop crop**, same shoot. Figure in the right-hand third, head in the upper third; the left 45% calm. The statement sits left in English and right in Arabic over a strong scrim, so the figure's face must not be at the far right edge either. Today's file is a 1600×900 cut from `moment`, so regenerate it at full size | As above |
 | `featured-large` | 3:2 | 2400×1600 | editorial | Two figures or one figure in an evening look, wide environmental frame | Evening, warm lamplight, stone/gold |
 | `featured-small` | 4:5 | 1200×1500 | editorial | Detail from the same evening look: jewellery, clutch, embroidery | Same light as `featured-large` |
 | `category-dresses` | 3:4 | 1200×1600 | category | Dress on model, full length, neutral background | Ivory/stone |
@@ -75,6 +76,9 @@ the scrim becomes visible after a swap, the image is too light there.
   where either language puts the text.
 - Every hero mobile crop (`hero-mobile`, `hero-*-mobile`): the top 25% and the bottom 45%
   should stay at or below ~35% luminance.
+- `moment-wide`: nothing bright (window glare, lit wall) in the left 45% or the right 40%. The code
+  scrim is strong, 0.72 ink at the text edge, and measured ≥5.7:1 on the current photo.
+- `moment`: the bottom 40% calm; same scrim, rising from the bottom edge.
 - `campaign`: a horizontal band across the vertical centre, full width, at or below ~35%
   luminance; the mobile 4:5 crop uses the central 43% of the width.
 

@@ -53,7 +53,7 @@ surface overrides the `--surface-*` variables:
 
 | `data-surface` | Where | Effect |
 | --- | --- | --- |
-| `ink` | the footer, the hero, the campaign, primary `Button` | ink bg, ivory text, stone-600 hairline, ivory focus ring |
+| `ink` | the footer, the hero, the editorial moment, the campaign, primary `Button` | ink bg, ivory text, stone-600 hairline, ivory focus ring |
 | `overlay` | resolved on the header (see below) | transparent bg and border, ivory text, ivory focus ring |
 | `auto` | what the header renders from the server | overlay when the page has a header boundary, solid otherwise |
 | `solid` | written by `HeaderShell` as soon as the page scrolls | the defaults |
