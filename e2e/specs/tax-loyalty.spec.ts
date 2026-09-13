@@ -251,9 +251,9 @@ test.describe('loyalty', () => {
     const customer = await createCustomer(adminApi, 'e2e-loyalty', 'loyal');
     const startingPoints = await grantLoyaltyPoints(adminApi, customer.id, pointsToRedeem + 500);
 
-    // Driven as Admin, not as this worker's cashier: `GET /api/v1/customers` is
-    // Admin-only, so a cashier's customer search returns nothing and loyalty cannot be
-    // reached from a till at all. See the guardrail test at the bottom of this file.
+    // Driven as Admin. Until #172, `GET /api/v1/customers` was Admin-only and a cashier's
+    // customer search returned nothing; the guardrail at the bottom of this file now pins
+    // that a cashier can search.
     const page = await adminContext.newPage();
     await applySettingsAndOpen(page, adminApi, {
       ...SETTINGS_BASELINE,
@@ -371,20 +371,17 @@ test.describe('settings guardrails', () => {
     await restoreBaseline(adminApi);
   });
 
-  test('a Cashier cannot search customers, so loyalty is unreachable from a till', async ({
+  test('a Cashier can search customers, so loyalty is reachable from a till', async ({
     workerCashier,
     request,
   }) => {
-    // Recorded rather than worked around. `POST /customers` and `GET /customers/:id/loyalty`
-    // both allow Cashier, but the list/search endpoint the cart's customer picker uses is
-    // Admin-only — so a cashier can create a customer and read their points, yet cannot
-    // attach one to a sale. That asymmetry reads as an oversight, but widening an
-    // authorization rule is a product decision, not a test-suite decision, so this pins
-    // today's behaviour and the loyalty specs above run as Admin.
+    // This used to pin a 403: the cart's customer picker searched an Admin-only endpoint,
+    // so a cashier could create a customer and read their points but never attach one to
+    // a sale. The owner opened `GET /customers` to Cashier in #172; this pins that decision.
     const response = await request.get(`${API_BASE}/customers?search=e2e`, {
       headers: { Authorization: `Bearer ${workerCashier.accessToken}` },
     });
-    expect(response.status(), 'GET /customers as Cashier').toBe(403);
+    expect(response.status(), 'GET /customers as Cashier').toBe(200);
   });
 
   test('a non-Admin cannot write settings', async ({ workerCashier, request }) => {
