@@ -1,0 +1,38 @@
+{
+  "metadata": {
+    "title": "مون فاشون",
+    "description": "مون فاشون — أزياء فاخرة، مختارة لخزانة الملابس العصرية."
+  },
+  "navigation": {
+    "shop": "تسوّق",
+    "newIn": "وصل حديثًا",
+    "collections": "المجموعات",
+    "search": "بحث",
+    "account": "الحساب",
+    "bag": "الحقيبة",
+    "menu": "القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "primaryLabel": "الرئيسية",
+    "footerLabel": "التذييل"
+  },
+  "common": {
+    "skipToContent": "تخطَّ إلى المحتوى",
+    "languageLabel": "اللغة",
+    "localeNames": {
+      "en": "English",
+      "ar": "العربية"
+    }
+  },
+  "footer": {
+    "rights": "© {year} مون فاشون. جميع الحقوق محفوظة."
+  },
+  "foundation": {
+    "title": "مون فاشون",
+    "subtitle": "أساس المتجر الإلكتروني جاهز."
+  },
+  "notFound": {
+    "title": "الصفحة غير موجودة",
+    "body": "الصفحة التي تبحث عنها غير موجودة بعد.",
+    "backHome": "العودة إلى الصفحة الرئيسية"
+  }
+}

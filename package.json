@@ -26,6 +26,10 @@
       "eslint --fix --config apps/dashboard/eslint.config.mjs",
       "prettier --write"
     ],
+    "apps/storefront/**/*.{ts,tsx}": [
+      "eslint --fix --config apps/storefront/eslint.config.mjs",
+      "prettier --write"
+    ],
     "apps/server/**/*.ts": [
       "eslint --fix --config apps/server/eslint.config.mjs",
       "prettier --write"
