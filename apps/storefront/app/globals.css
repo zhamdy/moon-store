@@ -31,8 +31,7 @@
   --section-space: 80px;
 
   /* Header flow slot (guideline §8: 72–84px desktop). The header is sticky and
-     keeps this slot; the homepage hero pulls up beneath it by the same amount.
-     HeaderShell reads this from computed style for its IntersectionObserver. */
+     keeps this slot; the homepage hero pulls up beneath it by the same amount. */
   --header-h: 64px;
 
   /* Surface indirection. The semantic colours are declared `@theme inline`, so
@@ -326,7 +325,7 @@
    data-header-boundary (components/layout/header/header-boundary.ts —
    the one place that string is repeated by hand), so the server HTML is
    already correct and there is no first-paint flip. HeaderShell narrows
-   it to 'solid' once the hero leaves the header band.
+   it to 'solid' as soon as the page scrolls.
    ============================================================ */
 [data-surface='overlay'],
 body:has([data-header-boundary]) header[data-surface='auto'] {

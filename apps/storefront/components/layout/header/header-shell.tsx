@@ -15,17 +15,16 @@ export interface HeaderShellProps {
  * (a `body:has()` rule in app/globals.css), solid otherwise — so first paint is
  * right with no JS and there is never an ivory→transparent flip on load.
  *
- * This island only narrows that: it observes the hero region with a top
- * `rootMargin` equal to the header height, so "intersecting" means "some of the
- * hero is still under the header band". When it stops intersecting, the header
- * becomes `solid`; when it returns, `auto`. `--header-h` is read from computed
- * style so the observer and the CSS token cannot drift.
+ * On a page with a hero, the header turns solid as soon as the page scrolls at
+ * all, and is transparent over the hero only at the very top (user decision,
+ * 2026-09-13; it used to stay transparent until the hero left the header band).
+ * One passive scroll listener, writing the attribute only when the value changes.
  *
  * The shell lives in the locale layout and survives client-side navigation while
- * the page (and its hero) is swapped underneath it, so the boundary is looked up
- * again on every pathname change; a page with no boundary resets the surface to
- * `auto`, which CSS resolves to solid there. A client leaf: takes children only,
- * never the message catalogue.
+ * the page is swapped underneath it, so it re-checks for a boundary on every
+ * pathname change and resets to `auto` first — otherwise a 404 → home transition
+ * would keep whatever surface the last page ended on. A client leaf: takes
+ * children only, never the message catalogue.
  */
 export function HeaderShell({ className, children }: HeaderShellProps) {
   const ref = useRef<HTMLElement>(null);
@@ -37,52 +36,31 @@ export function HeaderShell({ className, children }: HeaderShellProps) {
       return;
     }
 
-    // Each page starts from the server's state: a cut, never an animation from
-    // whatever surface the previous page left behind.
     header.dataset.surface = 'auto';
     delete header.dataset.surfaceReady;
 
-    const boundary = document.querySelector(`[${HEADER_BOUNDARY_ATTR}]`);
-    if (!boundary) {
+    if (!document.querySelector(`[${HEADER_BOUNDARY_ATTR}]`)) {
       return;
     }
 
-    let observer: IntersectionObserver | undefined;
-    let readyFrame: number | undefined;
-
-    const observe = () => {
-      observer?.disconnect();
-      const headerHeight =
-        parseFloat(getComputedStyle(header).getPropertyValue('--header-h')) || header.offsetHeight;
-      observer = new IntersectionObserver(
-        ([entry]) => {
-          header.dataset.surface = entry.isIntersecting ? 'auto' : 'solid';
-          // Transitions are enabled one frame after the first observation: set
-          // in the same style change, the transition would apply to that very
-          // write and the first state would animate instead of cutting.
-          if (!('surfaceReady' in header.dataset) && readyFrame === undefined) {
-            readyFrame = requestAnimationFrame(() => {
-              header.dataset.surfaceReady = '';
-            });
-          }
-        },
-        { rootMargin: `-${headerHeight}px 0px 0px 0px`, threshold: 0 }
-      );
-      observer.observe(boundary);
+    const update = () => {
+      const next = window.scrollY > 0 ? 'solid' : 'auto';
+      if (header.dataset.surface !== next) {
+        header.dataset.surface = next;
+      }
     };
 
-    // The header height changes at the desktop breakpoint; a stale rootMargin
-    // would flip the surface a few pixels early or late.
-    const desktop = window.matchMedia('(min-width: 1024px)');
-    observe();
-    desktop.addEventListener('change', observe);
+    // The first write happens before transitions are enabled, so a page restored
+    // mid-scroll starts solid with a cut, never an animation from transparent.
+    update();
+    const readyFrame = requestAnimationFrame(() => {
+      header.dataset.surfaceReady = '';
+    });
+    window.addEventListener('scroll', update, { passive: true });
 
     return () => {
-      desktop.removeEventListener('change', observe);
-      observer?.disconnect();
-      if (readyFrame !== undefined) {
-        cancelAnimationFrame(readyFrame);
-      }
+      window.removeEventListener('scroll', update);
+      cancelAnimationFrame(readyFrame);
     };
   }, [pathname]);
 

@@ -56,7 +56,7 @@ surface overrides the `--surface-*` variables:
 | `ink` | the footer, the hero, the campaign, primary `Button` | ink bg, ivory text, stone-600 hairline, ivory focus ring |
 | `overlay` | resolved on the header (see below) | transparent bg and border, ivory text, ivory focus ring |
 | `auto` | what the header renders from the server | overlay when the page has a header boundary, solid otherwise |
-| `solid` | written by `HeaderShell` after the hero scrolls out | the defaults |
+| `solid` | written by `HeaderShell` as soon as the page scrolls | the defaults |
 
 Components keep reading `text-text` / `bg-bg` / `border-border` and never set colours
 per surface. Never override raw `--moon-*` in scope (it would also recolour
@@ -66,8 +66,9 @@ per surface. Never override raw `--moon-*` in scope (it would also recolour
 
 The header has no route awareness. The homepage hero's root carries the attribute
 exported from `components/layout/header/header-boundary.ts` (`HEADER_BOUNDARY_ATTR`);
-`header-shell.tsx` observes that element with `rootMargin: -<--header-h> 0 0 0` and
-threshold 0, so "intersecting" means "some of the hero is still under the header band".
+`header-shell.tsx` checks for that element and, where it exists, turns the header solid
+as soon as the page scrolls at all (`scrollY > 0`, one passive listener); it is
+transparent over the hero only at the very top (user decision, 2026-09-13).
 The server HTML is already correct with no JS: `body:has([data-header-boundary])
 header[data-surface='auto']` in `globals.css` applies the overlay surface, so there is
 never an ivory→transparent flip on load; the shell only narrows to `solid` and back to
@@ -80,10 +81,9 @@ no boundary element (the 404 page, every future page) are solid and need nothing
 
 `--header-h` is `64px` below 1024 and `80px` from it; the header is `position: sticky`
 and keeps that flow slot. The hero pulls up beneath it with `-mt-(--header-h)` and pads
-its own content by the same amount — non-home pages are untouched. The shell reads the
-token from computed style, so the observer and the CSS cannot drift. The accepted
-degraded case is no JS *and* scrolled past the hero: overlay over ivory, readable
-because the scrim keeps the at-rest state legible; no-JS is not a supported browsing
+its own content by the same amount — non-home pages are untouched. The accepted
+degraded case is no JS *and* scrolled: the header stays transparent, readable over the
+hero because of its scrim but not over the ivory sections below; no-JS is not a supported browsing
 mode here. Browsers without `:has()` get a solid header over the scrimmed hero.
 
 The gold logo is never recoloured for the overlay surface: the hero is dusk-toned so

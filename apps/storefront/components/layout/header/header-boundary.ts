@@ -1,7 +1,7 @@
 /**
- * The DOM attribute a page's hero carries to tell the header "some of me is still
- * under your band, stay transparent". Two consumers read this constant:
- * `header-shell.tsx` (observes it) and `features/home/components/hero/hero.tsx`
+ * The DOM attribute a page's hero carries to tell the header "this page opens on a
+ * hero: be transparent at the very top". Two consumers read this constant:
+ * `header-shell.tsx` (checks for it) and `features/home/components/hero/hero.tsx`
  * (sets it). A page with no element carrying it gets a solid header, so no
  * route matching is involved and future pages need nothing.
  *
