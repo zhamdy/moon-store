@@ -14,7 +14,6 @@ import {
   ArrowRightLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '../../../shared/lib/utils';
 import {
   Button,
   Input,
@@ -36,7 +35,7 @@ import { useEditorDialog } from '../../../shared/lib/editorDialog';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import type { User } from '../../../shared/types/index';
-import type { Branch, BranchTransfer, ConsolidatedBranches } from '../types';
+import type { Branch, BranchTransfer, ConsolidatedBranch } from '../types';
 
 const branches = resource<Branch>('branches');
 
@@ -89,8 +88,10 @@ export default function BranchesPage() {
   const debouncedManagerSearch = useDebouncedValue(managerSearch, 300);
 
   const { data: branchList } = branches.useList();
-  const { data: consolidated } = branches.useRead<ConsolidatedBranches>(
-    'dashboard/consolidated',
+  // GET /api/v1/branches/consolidated -- not 'dashboard/consolidated', which the server
+  // never served.
+  const { data: consolidated } = branches.useRead<ConsolidatedBranch[]>(
+    'consolidated',
     undefined,
     tab === 'dashboard'
   );
@@ -173,8 +174,6 @@ export default function BranchesPage() {
     onError: (err: Error) => toast.error(err.message || 'Error'),
   });
 
-  const fmt = (n: number) => formatCurrency(n);
-
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <PageHeader title={t('branches.title')}>
@@ -223,24 +222,22 @@ export default function BranchesPage() {
             <Card className="border border-border bg-card shadow-sm">
               <CardBody className="p-4">
                 <p className="text-xs text-muted-foreground">{t('branches.totalStores')}</p>
+                <p className="text-2xl font-bold mt-1 text-foreground">{consolidated.length}</p>
+              </CardBody>
+            </Card>
+            <Card className="border border-border bg-card shadow-sm">
+              <CardBody className="p-4">
+                <p className="text-xs text-muted-foreground">{t('branches.totalProducts')}</p>
                 <p className="text-2xl font-bold mt-1 text-foreground">
-                  {consolidated.totals.store_count}
+                  {consolidated.reduce((sum, s) => sum + s.stats.products, 0)}
                 </p>
               </CardBody>
             </Card>
             <Card className="border border-border bg-card shadow-sm">
               <CardBody className="p-4">
-                <p className="text-xs text-muted-foreground">{t('branches.todaySalesAll')}</p>
-                <p className="text-2xl font-bold mt-1 text-foreground">
-                  {consolidated.totals.total_today_sales}
-                </p>
-              </CardBody>
-            </Card>
-            <Card className="border border-border bg-card shadow-sm">
-              <CardBody className="p-4">
-                <p className="text-xs text-muted-foreground">{t('branches.todayRevenueAll')}</p>
+                <p className="text-xs text-muted-foreground">{t('branches.totalStockAll')}</p>
                 <p className="text-2xl font-bold mt-1 text-primary">
-                  {fmt(consolidated.totals.total_today_revenue)}
+                  {consolidated.reduce((sum, s) => sum + s.stats.stock, 0)}
                 </p>
               </CardBody>
             </Card>
@@ -251,39 +248,26 @@ export default function BranchesPage() {
                 <tr>
                   <th className="text-start p-3">{t('branches.storeName')}</th>
                   <th className="text-start p-3 font-semibold text-foreground text-xs">
-                    {t('branches.todaySales')}
-                  </th>
-                  <th className="text-start p-3 font-semibold text-foreground text-xs">
-                    {t('branches.todayRevenue')}
+                    {t('branches.products')}
                   </th>
                   <th className="text-start p-3 font-semibold text-foreground text-xs">
                     {t('branches.stockLevel')}
                   </th>
-                  <th className="text-start p-3 font-semibold text-foreground text-xs">
-                    {t('branches.lowStock')}
-                  </th>
                 </tr>
               </thead>
               <tbody>
-                {consolidated.stores.map((s) => (
+                {consolidated.map((s) => (
                   <tr key={s.id} className="border-b border-border/60 hover:bg-muted/30">
-                    <td className="p-3 font-medium">{s.name}</td>
-                    <td className="p-3 font-data">{s.today_sales}</td>
-                    <td className="p-3 font-data text-primary font-medium">
-                      {fmt(s.today_revenue)}
-                    </td>
-                    <td className="p-3 font-data">{s.total_stock}</td>
-                    <td className="p-3">
-                      {s.low_stock_count > 0 ? (
-                        <Badge size="sm" variant="danger">
-                          {s.low_stock_count}
+                    <td className="p-3 font-medium">
+                      {s.name}
+                      {s.is_main ? (
+                        <Badge size="sm" variant="secondary" className="ms-2">
+                          {t('branches.primary')}
                         </Badge>
-                      ) : (
-                        <Badge size="sm" variant="default">
-                          0
-                        </Badge>
-                      )}
+                      ) : null}
                     </td>
+                    <td className="p-3 font-data">{s.stats.products}</td>
+                    <td className="p-3 font-data">{s.stats.stock}</td>
                   </tr>
                 ))}
               </tbody>

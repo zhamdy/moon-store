@@ -74,4 +74,55 @@ describe('Branches manager selector', () => {
       )
     );
   });
+
+  /**
+   * The server never served `branches/dashboard/consolidated` -- only
+   * `GET /api/v1/branches/consolidated`, returning one row per branch with
+   * `stats.products`/`stats.stock` rather than the sales/revenue shape this page used to
+   * assume (issue #163). Confirms the page now asks for the real path and reads the real
+   * shape back.
+   */
+  it('reads the consolidated dashboard from the endpoint the server actually serves', async () => {
+    const transport = createMemoryTransport(
+      { branches: [] },
+      {
+        reads: {
+          'branches/consolidated': [
+            {
+              id: 1,
+              name: 'Maadi Store',
+              code: 'MAADI',
+              is_main: 1,
+              stats: { products: 40, stock: 120 },
+            },
+            {
+              id: 2,
+              name: 'Zamalek Store',
+              code: 'ZMLK',
+              is_main: 0,
+              stats: { products: 25, stock: 60 },
+            },
+          ],
+        },
+      }
+    );
+    render(<BranchesPage />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Consolidated' }));
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({ method: 'GET', path: 'branches/consolidated' })
+      )
+    );
+    expect(transport.calls().some((call) => call.path === 'branches/dashboard/consolidated')).toBe(
+      false
+    );
+
+    expect(await screen.findByText('Maadi Store')).toBeInTheDocument();
+    expect(screen.getByText('Zamalek Store')).toBeInTheDocument();
+    // Two stores' worth of stock (120 + 60), not a per-branch revenue figure the schema
+    // cannot supply.
+    expect(screen.getByText('180')).toBeInTheDocument();
+  });
 });

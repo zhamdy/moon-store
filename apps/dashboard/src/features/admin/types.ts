@@ -45,15 +45,18 @@ export interface BranchTransfer {
   created_at: string;
 }
 
-/** GET /api/v1/branches/dashboard/consolidated */
-export interface ConsolidatedBranches {
-  stores: {
-    id: number;
-    name: string;
-    today_sales: number;
-    today_revenue: number;
-    total_stock: number;
-    low_stock_count: number;
-  }[];
-  totals: { total_today_sales: number; total_today_revenue: number; store_count: number };
+/**
+ * One row of GET /api/v1/branches/consolidated.
+ *
+ * The endpoint reports what the schema can actually answer -- product count and stock on
+ * hand per branch -- not per-branch sales or revenue: `sales` carries no `branch_id`, so
+ * there is nothing to attribute a day's total to a store by. A page wanting sales-by-branch
+ * needs that column added first, not a client-side guess.
+ */
+export interface ConsolidatedBranch {
+  id: number;
+  name: string;
+  code: string;
+  is_main: number | boolean;
+  stats: { products: number; stock: number };
 }
