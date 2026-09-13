@@ -25,8 +25,8 @@ Dynamic imports are deliberately excluded. `import()` is a boundary the browser 
 cross until something asks it to; counting those chunks would make lazy-loading register
 as a regression, which is exactly backwards.
 
-Two mistakes are baked into the script's comments because both produced confidently wrong
-numbers on the way here:
+Three mistakes are baked into the script's comments because all three produced confidently
+wrong numbers on the way here:
 
 - The import regex must not require whitespace before `from`. Minified output is
   `}from"./x.js"`, and a pattern expecting a space silently matches nothing, so every
@@ -35,26 +35,36 @@ numbers on the way here:
   just the entry module. `vendor-motion` is referenced by the HTML but not statically
   imported by the entry; seeding from the entry alone under-reported the initial load as
   150 KiB when it is 394 KiB.
+- From #98 until 2026-09-13 the `from` pattern began with an invisible backspace byte
+  (`\x08`, most likely a `\b` that went through a string escape). It matched nothing, so
+  each route counted only its own chunk plus bare side-effect imports — the air the first
+  bullet warns about, arrived at a different way — and the 2026-09-05 baseline (`/pos` 15,
+  `/inventory` 11, `/analytics` 4, `/sales` 9) was measured by it. The initial figure was
+  unaffected, because it is seeded from `index.html` rather than walked. The script now
+  fails when no chunk yields a single `from"./x.js"` import.
 
-## Baseline (2026-09-05)
+## Baseline (2026-09-13)
 
 Gzipped KiB. Route figures are **marginal** — what navigating there costs on top of what
 the initial load already fetched.
 
 | Surface | Measured | Budget |
 | --- | --- | --- |
-| initial load | 394 | 414 |
-| `/pos` | 15 | 20 |
-| `/inventory` | 11 | 16 |
-| `/analytics` | 4 | 9 |
-| `/sales` | 9 | 14 |
+| initial load | 402 | 414 |
+| `/pos` | 37 | 42 |
+| `/inventory` | 125 | 132 |
+| `/analytics` | 127 | 134 |
+| `/sales` | 123 | 130 |
 
 Budgets are the measurement plus 5%, floored at +5 KiB. A budget set exactly at the
 current size fails on rounding and on an unrelated dependency bump, and a gate that cries
-wolf earns an `--update` reflex rather than a reading.
+wolf earns an `--update` reflex rather than a reading. The initial budget was left at 414
+rather than re-derived: nothing about it was mismeasured, and re-deriving would only loosen it.
 
-**The initial 394 KiB is the number worth attacking next.** The route chunks are already
-small; almost all of the initial cost is the vendor set (`vendor-ui-hero`, `vendor-router`,
+**The route figures are now the numbers worth attacking.** `/inventory` and `/sales` each
+statically load `exportUtils` — about 95 KiB of spreadsheet export nobody needs until they
+press Export (#184). `/analytics` is mostly `vendor-charts`, which that page genuinely
+renders. The initial cost is still the vendor set (`vendor-ui-hero`, `vendor-router`,
 `vendor-query`, `vendor-motion`, `vendor-forms`) that `index.html` loads up front.
 
 ## Heavy capabilities are off the initial path
