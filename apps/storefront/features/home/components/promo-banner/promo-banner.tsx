@@ -21,9 +21,14 @@ const BANNER_HREF = '/collections/silk';
  * Art-directed like the hero: a 16:9 `moment-wide` crop from 768 and the 4:5
  * `moment` below, through `getImageProps()` into one `<picture>` (lazy; no blur,
  * which `<picture>` cannot take). Contrast is code-guaranteed by a strong ink scrim
- * on the copy side, fading toward the inline end from 768 (mirrored under RTL) and
- * rising from the bottom on mobile — measured on the current photo at ≥5.7:1 for
- * ivory text (docs/design/editorial-image-brief.md).
+ * on the copy side: fading from the left edge from 768, rising from the bottom on
+ * mobile. Measured on the current photo at 8.1:1 for ivory text on desktop and
+ * 7.1:1 on mobile (docs/design/editorial-image-brief.md).
+ *
+ * From 768 the copy stays on the **physical left in both languages** (user
+ * feedback, 2026-09-14): the photograph is never mirrored and its figure stands on
+ * the right, so following the reading direction put the Arabic copy across her
+ * face. Arabic text keeps its natural right alignment inside the left-hand block.
  *
  * Layers are explicit (photo z-0, scrims z-10, copy z-20) and the copy has no
  * reveal animation, so the banner can never render as a bare photograph.
@@ -61,14 +66,16 @@ export async function PromoBanner() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-10 bg-linear-to-t from-scrim-strong to-transparent to-60% md:hidden"
       />
-      {/* 768+: copy at inline-start, scrim fading toward the inline end. */}
+      {/* 768+: copy on the physical left in both languages, scrim fading from there.
+          Deliberately not mirrored under RTL: the figure is on the right. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-10 hidden bg-linear-to-r from-scrim-strong from-0% via-scrim via-40% to-transparent to-75% md:block rtl:bg-linear-to-l"
+        className="pointer-events-none absolute inset-0 z-10 hidden bg-linear-to-r from-scrim-strong from-0% via-scrim via-40% to-transparent to-75% md:block"
       />
 
       <Container as="div" className="relative z-20 w-full py-(--section-space)">
-        <div className="max-w-xl">
+        {/* Under RTL, margin-inline-start: auto pushes the block to the physical left. */}
+        <div className="max-w-xl rtl:md:ms-auto">
           <p className="type-label text-text-secondary">{t('eyebrow')}</p>
           <h2 id="promo-banner-title" className="type-h1 mt-4 text-balance">
             {t('title')}
