@@ -23,12 +23,95 @@
       "ar": "العربية"
     }
   },
-  "footer": {
-    "rights": "© {year} Moon Fashion. All rights reserved."
+  "products": {
+    "new": "New",
+    "currency": "EGP"
   },
-  "foundation": {
-    "title": "Moon Fashion",
-    "subtitle": "Storefront foundation ready."
+  "categories": {
+    "dresses": "Dresses",
+    "tops": "Tops",
+    "knitwear": "Knitwear",
+    "bags": "Bags",
+    "abayas": "Abayas"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "New collection",
+      "title1": "Moonlight,",
+      "title2": "redefined.",
+      "body": "A refined wardrobe for modern femininity.",
+      "cta": "Explore Collection",
+      "imageAlt": "A woman in a floor-length evening dress, standing in soft dusk light"
+    },
+    "strip": {
+      "heading": "Collections",
+      "words": {
+        "evening": "Evening",
+        "linen": "Linen",
+        "knit": "Knit",
+        "abaya": "Abaya"
+      }
+    },
+    "newArrivals": {
+      "eyebrow": "Just in",
+      "title": "New Arrivals",
+      "link": "View all"
+    },
+    "moment": {
+      "line1": "Designed for the moments",
+      "line2": "between ordinary",
+      "line3": "and unforgettable.",
+      "imageAlt": "A woman seated by a window in a cream knit, looking away from the camera"
+    },
+    "featured": {
+      "eyebrow": "Featured collection",
+      "title": "The Evening Edit",
+      "body": "Silk, velvet and hand embroidery for the hours after dark.",
+      "link": "Discover",
+      "largeAlt": "Two women in evening dresses in a lamplit room",
+      "smallAlt": "Close-up of gold embroidery on a velvet clutch"
+    },
+    "categories": {
+      "eyebrow": "Shop by category",
+      "title": "Find your piece"
+    },
+    "campaign": {
+      "line": "Dressed for the night.",
+      "imageAlt": "A woman in a black abaya walking through a dusk courtyard"
+    },
+    "curated": {
+      "eyebrow": "Curated by Moon",
+      "title": "The Edit",
+      "link": "Shop the edit"
+    },
+    "benefits": {
+      "heading": "Shopping with Moon",
+      "delivery": {
+        "title": "Delivery across Egypt",
+        "body": "Every order is packed by hand and delivered to your door."
+      },
+      "returns": {
+        "title": "Easy returns",
+        "body": "Changed your mind? Return or exchange, no questions asked."
+      },
+      "payment": {
+        "title": "Secure payment",
+        "body": "Pay by card or on delivery, with your details protected."
+      }
+    },
+    "lookbook": {
+      "heading": "Lookbook",
+      "alt1": "A woman in a linen dress on a sunlit street",
+      "alt2": "A leather cross-body bag resting on a stone ledge",
+      "alt3": "Half-length portrait of a woman in a silk blouse",
+      "alt4": "A woman walking, the hem of her dress in motion",
+      "alt5": "Close-up of a cable-knit cashmere texture"
+    }
+  },
+  "footer": {
+    "tagline": "Luxury fashion, edited for the modern wardrobe.",
+    "shopLabel": "Shop",
+    "rights": "© {year} Moon Fashion. All rights reserved."
   },
   "notFound": {
     "title": "Page not found",
