@@ -5,7 +5,8 @@ import { BrandLogo } from '@/components/brand/brand-logo';
 import { NavLink } from '../nav-link';
 import { MobileMenu } from '../mobile-menu/mobile-menu';
 import { getLocaleSwitcherLabels } from '../locale-labels';
-import { primaryNavItems, mobileActionItems, desktopActionItems } from '../navigation-items';
+import { cn } from '@/lib/utils/cn';
+import { primaryNavItems, headerActionItems } from '../navigation-items';
 import { HeaderShell } from './header-shell';
 
 /**
@@ -62,27 +63,22 @@ export async function Header() {
           <BrandLogo variant="logo" height={52} className="hidden lg:block" />
         </Link>
 
-        <div className="-me-2.5 flex flex-1 items-center justify-end gap-1 lg:me-0 lg:flex-none lg:gap-8">
-          <div className="flex items-center gap-1 lg:hidden">
-            {mobileActionItems.map((item) => (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-label={t(item.messageKey)}
-                className="flex h-11 w-11 items-center justify-center"
-              >
-                <item.icon size={20} aria-hidden="true" />
-              </Link>
-            ))}
-          </div>
-
-          <div className="hidden items-center gap-8 lg:flex">
-            {desktopActionItems.map((item) => (
-              <NavLink key={item.key} href={item.href}>
-                {t(item.messageKey)}
-              </NavLink>
-            ))}
-          </div>
+        {/* Negative inline-end margin so the last glyph, not its 44px hit area,
+            aligns with the page gutter. */}
+        <div className="-me-2.5 flex flex-1 items-center justify-end gap-1 lg:flex-none lg:gap-2">
+          {headerActionItems.map((item) => (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-label={t(item.messageKey)}
+              className={cn(
+                'h-11 w-11 items-center justify-center transition-opacity duration-fast ease-ui hover:opacity-70',
+                item.desktopOnly ? 'hidden lg:flex' : 'flex'
+              )}
+            >
+              <item.icon size={20} strokeWidth={1.5} aria-hidden="true" />
+            </Link>
+          ))}
         </div>
       </Container>
     </HeaderShell>
