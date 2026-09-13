@@ -27,6 +27,10 @@
 // The rule is about static cost, not layering — a heavy module is still shared code
 // and still lives under `shared/`. Before adding an entry here, check what it drags
 // in behind it.
+//
+// Since #184 no page imports `exportUtils` statically at all: they go through
+// `hooks/useSpreadsheetExport`, which reaches it via `lib/loadExportUtils`'s dynamic
+// `import()`. Re-exporting either of those here is fine; re-exporting `exportUtils` is not.
 
 // Foundation & Providers
 export * from './providers/DirectionProvider';

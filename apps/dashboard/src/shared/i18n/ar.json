@@ -555,6 +555,7 @@
   "export.csvExported": "تم تصدير CSV",
   "export.pdfExported": "تم تصدير تقرير PDF",
   "export.pdfFailed": "فشل إنشاء PDF",
+  "export.failed": "فشل التصدير. تحقق من الاتصال وحاول مرة أخرى.",
   "variants.title": "المتغيرات",
   "variants.addVariant": "إضافة متغير",
   "variants.editVariant": "تعديل المتغير",

@@ -52,20 +52,28 @@ the initial load already fetched.
 | --- | --- | --- |
 | initial load | 402 | 414 |
 | `/pos` | 37 | 42 |
-| `/inventory` | 125 | 132 |
+| `/inventory` | 32 | 37 |
 | `/analytics` | 127 | 134 |
-| `/sales` | 123 | 130 |
+| `/sales` | 30 | 35 |
 
 Budgets are the measurement plus 5%, floored at +5 KiB. A budget set exactly at the
 current size fails on rounding and on an unrelated dependency bump, and a gate that cries
 wolf earns an `--update` reflex rather than a reading. The initial budget was left at 414
 rather than re-derived: nothing about it was mismeasured, and re-deriving would only loosen it.
 
-**The route figures are now the numbers worth attacking.** `/inventory` and `/sales` each
-statically load `exportUtils` — about 95 KiB of spreadsheet export nobody needs until they
-press Export (#184). `/analytics` is mostly `vendor-charts`, which that page genuinely
-renders. The initial cost is still the vendor set (`vendor-ui-hero`, `vendor-router`,
-`vendor-query`, `vendor-motion`, `vendor-forms`) that `index.html` loads up front.
+`/inventory` and `/sales` were 125 and 123 until #184: each statically loaded
+`exportUtils` (`xlsx`), about 93 KiB of spreadsheet export nobody needs until they press
+Export. Every export now goes through `shared/hooks/useSpreadsheetExport`, which fetches the
+chunk with a dynamic `import()` on the press, shows the button's loading state while it
+downloads, and turns a failed load (offline, or a stale deploy) into an error toast. The
+Dashboard (`/`, not a budgeted route) got the same treatment. Do not import
+`shared/lib/exportUtils` directly: the `HEAVY` check below only guards the initial load, so a
+static import from a route would pass it and show up only as a route budget failure.
+
+**What is left worth attacking.** `/analytics` is mostly `vendor-charts`, which that page
+genuinely renders. The initial cost is still the vendor set (`vendor-ui-hero`,
+`vendor-router`, `vendor-query`, `vendor-motion`, `vendor-forms`) that `index.html` loads
+up front.
 
 ## Heavy capabilities are off the initial path
 
