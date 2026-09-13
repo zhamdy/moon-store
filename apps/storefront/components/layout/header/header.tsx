@@ -13,7 +13,8 @@ import { HeaderShell } from './header-shell';
 /**
  * Server Component. `HeaderShell` (client) owns the `<header>` element and its
  * `data-surface`: transparent with ivory text over a page's hero, ivory with ink
- * text and a hairline everywhere else — see header-shell.tsx and the Surfaces
+ * text everywhere else, with no bottom border in either state (user decision) — see
+ * header-shell.tsx and the Surfaces
  * section of app/globals.css. Colours come from `text-text` / `bg-bg` /
  * `border-border` as usual; the surface swaps what those resolve to.
  *
@@ -28,7 +29,7 @@ export async function Header() {
   const mobileItems = primaryNavItems.map((item) => ({ ...item, label: t(item.messageKey) }));
 
   return (
-    <HeaderShell className="sticky top-0 z-40 border-b border-border bg-bg text-text">
+    <HeaderShell className="sticky top-0 z-40 bg-bg text-text">
       <Container
         as="div"
         className="flex h-(--header-h) items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr]"
