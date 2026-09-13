@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TransportProvider } from '../../../shared/lib/transport/index';
 import { createMemoryTransport, type MemoryTransport } from '../../../shared/lib/transport/memory';
 import { useSettingsStore } from '../../../shared/store/settingsStore';
+import { useAuthStore } from '../../auth';
 import type { RegisterReportData, RegisterSession } from '../types';
 import RegisterPage from './Register';
 
@@ -50,7 +51,16 @@ function wrapperFor(transport: MemoryTransport) {
 }
 
 describe('Register', () => {
-  beforeEach(() => useSettingsStore.setState({ locale: 'en' }));
+  beforeEach(() => {
+    useSettingsStore.setState({ locale: 'en' });
+    // Register.tsx gates the History button (and its 'register/history' read, an
+    // Admin-only route) to Admin, so most of this suite acts as one (#172).
+    useAuthStore.setState({
+      user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+      accessToken: 'token',
+      isAuthenticated: true,
+    });
+  });
 
   it('opens the drawer with the float that was counted into it', async () => {
     // No session yet, so the page offers to open one.
@@ -146,6 +156,23 @@ describe('Register', () => {
           params: { page: 1, pageSize: 25, sortBy: 'openedAt', sortOrder: 'desc' },
         })
       )
+    );
+  });
+
+  it('hides the register-history button for a Cashier, whom the server refuses (#172)', async () => {
+    useAuthStore.setState({
+      user: { id: 2, name: 'Sarah', email: 'sarah@moon.com', role: 'Cashier' },
+      accessToken: 'token',
+      isAuthenticated: true,
+    });
+    const transport = createMemoryTransport({}, { reads: { 'register/current': OPEN_SESSION } });
+
+    render(<RegisterPage />, { wrapper: wrapperFor(transport) });
+    await screen.findByText('Cash In');
+
+    expect(screen.queryByRole('button', { name: 'Register History' })).not.toBeInTheDocument();
+    expect(transport.calls()).not.toContainEqual(
+      expect.objectContaining({ path: 'register/history' })
     );
   });
 });

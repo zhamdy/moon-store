@@ -4,7 +4,8 @@ import { customersController } from './controller';
 
 const router: Router = Router();
 
-router.get('/', verifyToken, requireRole('Admin'), (req, res, next) =>
+// Cashiers search customers at checkout (#172)
+router.get('/', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
   customersController.getCustomers(req, res, next)
 );
 router.post('/', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>

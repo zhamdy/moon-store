@@ -9,8 +9,8 @@ router.get('/:id', verifyToken, (req, res, next) =>
   storeCreditController.getBalance(req, res, next)
 );
 
-// POST /api/v1/store-credit/:id/redeem — spend credit against a sale
-router.post('/:id/redeem', verifyToken, (req, res, next) =>
+// POST /api/v1/store-credit/:id/redeem — spend credit against a sale (had no role check — #172)
+router.post('/:id/redeem', verifyToken, requireRole('Admin', 'Cashier'), (req, res, next) =>
   storeCreditController.redeem(req, res, next)
 );
 

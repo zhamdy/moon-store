@@ -27,6 +27,7 @@ import { formatCurrency } from '../../../shared/lib/utils';
 import { resource } from '../../../shared/lib/resource';
 import { useApiQuery } from '../../../shared/lib/apiQuery';
 import { useTransport } from '../../../shared/lib/transport/index';
+import { useAuthStore } from '../../auth';
 import CashMovementDialog from '../components/register/CashMovementDialog';
 import RegisterReport from '../components/register/RegisterReport';
 import type { RegisterReportData, RegisterSession } from '../types';
@@ -49,6 +50,10 @@ function useRegisterWrite<Body>(path: string, message: string) {
 
 export default function RegisterPage() {
   const { t } = useTranslation();
+  const { user } = useAuthStore();
+  // GET /register/history is Admin-only server-side; the History button used to be shown
+  // to every role and 403 for a Cashier on click (#172).
+  const isAdmin = user?.role === 'Admin';
 
   const [openDialogOpen, setOpenDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
@@ -74,7 +79,7 @@ export default function RegisterPage() {
     ['register', 'history'],
     'register/history',
     { page: historyPage, pageSize: 25, sortBy: 'openedAt', sortOrder: 'desc' },
-    { enabled: historyDialogOpen }
+    { enabled: isAdmin && historyDialogOpen }
   );
   const historyPagination = historyMeta?.pagination;
 
@@ -156,14 +161,16 @@ export default function RegisterPage() {
         title={t('register.title')}
         actions={
           <div className="flex gap-2">
-            <Button
-              variant="bordered"
-              size="sm"
-              onPress={() => setHistoryDialogOpen(true)}
-              startContent={<Clock className="h-4 w-4" />}
-            >
-              {t('register.history')}
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="bordered"
+                size="sm"
+                onPress={() => setHistoryDialogOpen(true)}
+                startContent={<Clock className="h-4 w-4" />}
+              >
+                {t('register.history')}
+              </Button>
+            )}
             {!currentSession ? (
               <Button
                 color="primary"

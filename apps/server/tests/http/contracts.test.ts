@@ -1,7 +1,6 @@
 import { EventEmitter } from 'node:events';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import express from 'express';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { success } from '../../src/http/responses';
@@ -9,6 +8,7 @@ import { mapPublicError } from '../../src/http/errors';
 import { createListQuerySchema, paginationMeta } from '../../src/http/pagination';
 import { endpointManifest } from '../../src/http/endpointManifest';
 import { routeTable } from '../../src/router';
+import { createApp } from '../../src/app';
 import { requestLogger } from '../../src/observability/requestLogging';
 import logger from '../../lib/logger';
 import errorHandler from '../../middleware/errorHandler';
@@ -195,13 +195,10 @@ describe('HTTP contract foundations', () => {
   });
 
   it('answers a retired route group with the not-found envelope', async () => {
-    const app = express();
-    for (const [routePath, router] of routeTable) app.use(routePath, router);
-    // The same fallback index.ts installs after the route table. The request carries no
-    // token on purpose: a group that is still mounted answers 401, never 404.
-    app.use((_req: express.Request, res: express.Response) => {
-      res.status(404).json(errorResponse('NOT_FOUND'));
-    });
+    // The real app, built by the same createApp() index.ts runs — full middleware chain,
+    // router.ts mounted, the real 404 fallback. The request carries no token on purpose:
+    // a group that is still mounted answers 401, never 404.
+    const app = createApp();
     const server: Server = await new Promise((resolve) => {
       const s = app.listen(0, '127.0.0.1', () => resolve(s));
     });

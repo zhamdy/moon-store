@@ -1,4 +1,3 @@
-import logger from '../../../../lib/logger';
 import { IReservationsRepository, reservationsRepository as defaultRepo } from './repository';
 import { CreateReservationDTO, ReservationRow } from './types';
 import { PublicError } from '../../../http/errors';
@@ -7,7 +6,6 @@ export interface IReservationsService {
   createReservation(data: CreateReservationDTO): Promise<ReservationRow>;
   releaseReservation(id: number | string): Promise<void>;
   releaseBySourceId(sourceId: string): Promise<number>;
-  cleanupExpiredReservations(): Promise<void>;
 }
 
 export class ReservationsService implements IReservationsService {
@@ -54,22 +52,6 @@ export class ReservationsService implements IReservationsService {
   async releaseBySourceId(sourceId: string): Promise<number> {
     return this.repo.deleteBySourceId(sourceId);
   }
-
-  async cleanupExpiredReservations(): Promise<void> {
-    try {
-      const count = await this.repo.deleteExpired();
-      if (count > 0) {
-        logger.info('Cleaned up expired reservations', { count });
-      }
-    } catch (err) {
-      logger.error('Reservation cleanup failed', { error: (err as Error).message });
-    }
-  }
 }
 
 export const reservationsService = new ReservationsService();
-
-// Standalone function for scheduled jobs / router exports
-export async function cleanupExpiredReservations(): Promise<void> {
-  return reservationsService.cleanupExpiredReservations();
-}
