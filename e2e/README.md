@@ -26,8 +26,8 @@ npx --prefix e2e playwright install --with-deps chromium
 
 # 3. Build the client. Deliberately a separate step, not part of webServer.
 #    VITE_API_URL is baked in HERE, at build time — setting it on `vite preview` does
-#    nothing. If your client/.env points somewhere else, pass it explicitly:
-VITE_API_URL=http://localhost:3001 npm run build --prefix client
+#    nothing. If your apps/dashboard/.env points somewhere else, pass it explicitly:
+VITE_API_URL=http://localhost:3001 npm run build --prefix apps/dashboard
 
 # 4. Run
 cd e2e
@@ -73,8 +73,8 @@ not this one. Guarding only the setup path would guard the wrong process. So:
 2. **It is refused when it names the database the dev server uses.** Having no default
    protects against *forgetting* to set it; it protects against nothing once it is set to
    the wrong value, and the obvious wrong value is the connection string copied out of
-   `server/.env` because a database already existed and `createdb` looked skippable. The
-   value is compared against `DATABASE_URL` (environment, else `server/.env`). Override
+   `apps/server/.env` because a database already existed and `createdb` looked skippable. The
+   value is compared against `DATABASE_URL` (environment, else `apps/server/.env`). Override
    with `E2E_ALLOW_SHARED_DB=1` if sharing is genuinely intended.
 3. **A preflight asserts the running API is on that same database**, before any delete.
    The check is *identity-based, not count-based* — and that distinction is the guard.
@@ -218,7 +218,7 @@ Deliberate gaps, recorded so a green run is not mistaken for coverage it does no
   shadow route mocks and feed 24-hour-old stock into the very assertions this suite exists
   to make. The residue is real: a deployed till can render cached stock rows and this suite
   never sees that. Compounding it, `registerType: 'autoUpdate'` with no update prompt
-  anywhere in `client/src` means SW versions swap silently on reload with no user-visible
+  anywhere in `apps/dashboard/src` means SW versions swap silently on reload with no user-visible
   surface at all. That behavior is unowned and this suite is formally not looking at it.
 - **Camera barcode decoding.** `useScanner` drives Quagga2 against a real camera in
   `LiveStream` mode and there is no keyboard-wedge path. The *consequence* of a scan —

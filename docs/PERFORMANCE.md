@@ -6,12 +6,12 @@ that, not against a developer's laptop.
 ## Reproducing the baseline
 
 ```bash
-npm run build --prefix client
-npm run budget --prefix client            # check against scripts/budgets.json
-npm run budget --prefix client -- --update  # rewrite budgets from this build
+npm run build --prefix apps/dashboard
+npm run budget --prefix apps/dashboard            # check against scripts/budgets.json
+npm run budget --prefix apps/dashboard -- --update  # rewrite budgets from this build
 ```
 
-`client/scripts/bundleBudget.mjs` runs in CI as its own step of the client job.
+`apps/dashboard/scripts/bundleBudget.mjs` runs in CI as its own step of the client job.
 
 ## What is measured, and why it is not chunk sizes
 

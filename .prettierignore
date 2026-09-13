@@ -1,8 +1,11 @@
 node_modules
 dist
-server/db/moon.db
-server/db/moon.db-wal
-server/db/moon.db-shm
+apps/server/db/moon.db
+apps/server/db/moon.db-wal
+apps/server/db/moon.db-shm
 package-lock.json
+pnpm-lock.yaml
 # Written by the TanStack Router plugin in its own style; formatting it churns on every build.
-client/src/routeTree.gen.ts
+apps/dashboard/src/routeTree.gen.ts
+
+**/.next/

@@ -6,7 +6,7 @@
  * runs zero tests — the failure mode most likely to go unnoticed for months, because
  * every signal it produces looks like success.
  *
- * Same instinct as `server/scripts/assertRealPostgresSuitesRan.mjs`, applied to a tag
+ * Same instinct as `apps/server/scripts/assertRealPostgresSuitesRan.mjs`, applied to a tag
  * rather than to a `describe` wrapper.
  */
 import fs from 'fs';

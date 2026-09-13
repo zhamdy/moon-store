@@ -157,7 +157,7 @@ test.describe('accessibility @smoke', () => {
 
   // Bundles is postponed: /bundles now redirects
   // to the default route, so there is nothing to scan. Restore this scan per
-  // the reactivation checklist in client/src/shared/lib/postponedFeatures.ts
+  // the reactivation checklist in apps/dashboard/src/shared/lib/postponedFeatures.ts
   // when Bundles ships again.
 
   test('the inventory table has no high-impact violations', async ({ adminContext }) => {

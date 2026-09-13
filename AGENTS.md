@@ -1,11 +1,15 @@
 ## Quick Start
 
+Run `pnpm install` at the repository root first. The workspace contains
+`apps/dashboard`, `apps/server`, and the empty `apps/storefront` Next.js shell.
+Use `pnpm dev:storefront` for the shell on port 3000.
+
 ```bash
 # Terminal 1 — Server (port 3001)
-cd server && npm run migrate && npm run seed && npm run dev
+cd apps/server && npm run migrate && npm run seed && npm run dev
 
 # Terminal 2 — Client (port 5173)
-cd client && npm run dev
+cd apps/dashboard && npm run dev
 ```
 
 ## Default Logins
@@ -18,11 +22,11 @@ cd client && npm run dev
 
 ## Key Patterns
 
-`client/src/` is three layers: `app/` (composition root — routing, shell, session wiring),
+`apps/dashboard/src/` is three layers: `app/` (composition root — routing, shell, session wiring),
 `features/` (nine domain slices), `shared/` (cross-cutting code, feature-agnostic). Full model,
 dependency rules and diagrams: `docs/ARCHITECTURE.md`.
 
-### The nine slices (`client/src/features/<slice>/`)
+### The nine slices (`apps/dashboard/src/features/<slice>/`)
 
 | Slice | Purpose |
 |---|---|
@@ -37,7 +41,7 @@ dependency rules and diagrams: `docs/ARCHITECTURE.md`.
 | `admin` | Users, settings, audit log; branches (postponed) |
 
 A postponed feature keeps its code in its slice and is hidden by one list,
-`shared/lib/postponedFeatures.ts`; see `client/CLAUDE.md`.
+`shared/lib/postponedFeatures.ts`; see `apps/dashboard/CLAUDE.md`.
 
 ### Where does a file go? (R5 placement checklist)
 
@@ -65,3 +69,6 @@ Chunk size warning (>500KB) is expected for SPA bundle — safe to ignore.
 ## Learnings
 
 - Baseline 001 was edited after deployment; applied filenames do not prove schema compatibility. Add forward migrations and test upgrades from the legacy schema, not only fresh databases. Migration 009 repairs the September production export. (2026-09-05)
+
+- Applications live under `apps/`; root contracts stay under `contracts/`. E2E is independently npm-managed. The server still starts through tsx; `build:server` only compiles its existing tsconfig. (2026-09-13)
+- Dashboard `tsconfig.json` `paths` pin `react`/`react-dom` declarations to its own `@types` 18. Without them, library `.d.ts` files that import `react` (no `@types/react` peer) resolve pnpm's hidden hoist `node_modules/.pnpm/node_modules/@types/react`, which is the storefront's 19 — 457 JSX errors. (2026-09-13)

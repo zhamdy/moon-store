@@ -2,7 +2,13 @@
   "name": "moon-store",
   "private": true,
   "scripts": {
-    "prepare": "husky"
+    "prepare": "husky",
+    "dev:dashboard": "pnpm --filter moon-store-client dev",
+    "build:dashboard": "pnpm --filter moon-store-client build",
+    "dev:server": "pnpm --filter moon-store-server dev",
+    "build:server": "pnpm --filter moon-store-server exec tsc",
+    "dev:storefront": "pnpm --filter @moon/storefront dev",
+    "build:storefront": "pnpm --filter @moon/storefront build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.3",
@@ -16,17 +22,18 @@
     "typescript-eslint": "^8.56.0"
   },
   "lint-staged": {
-    "client/src/**/*.{ts,tsx}": [
-      "eslint --fix --config client/eslint.config.mjs",
+    "apps/dashboard/src/**/*.{ts,tsx}": [
+      "eslint --fix --config apps/dashboard/eslint.config.mjs",
       "prettier --write"
     ],
-    "server/**/*.ts": [
-      "eslint --fix --config server/eslint.config.mjs",
+    "apps/server/**/*.ts": [
+      "eslint --fix --config apps/server/eslint.config.mjs",
       "prettier --write"
     ],
     "e2e/**/*.ts": [
       "eslint --fix --config e2e/eslint.config.mjs",
       "prettier --write"
     ]
-  }
+  },
+  "packageManager": "pnpm@10.28.2"
 }

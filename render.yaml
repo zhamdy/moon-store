@@ -3,9 +3,9 @@ services:
     name: moon-store-api
     runtime: node
     plan: free
-    rootDir: server
-    buildCommand: npm install --include=dev
-    startCommand: npm run migrate && npm run start
+    rootDir: .
+    buildCommand: corepack pnpm install --frozen-lockfile --prod=false
+    startCommand: corepack pnpm --filter moon-store-server migrate && corepack pnpm --filter moon-store-server start
     envVars:
       - key: NODE_ENV
         value: production
@@ -39,7 +39,7 @@ services:
       #
       # (b) An S3-compatible bucket. Survives both redeploys and scaling out. Set these
       #     with `sync: false` so the credentials live in Render's dashboard and never in
-      #     this file. Copy the existing `server/uploads` tree into the bucket PRESERVING
+      #     this file. Copy the existing `apps/server/uploads` tree into the bucket PRESERVING
       #     KEYS before switching, and read the migration order in CLAUDE.md -> Media
       #     storage: old rows hold relative /uploads/... URLs and keep resolving through
       #     the /uploads mount, so the copy can happen either side of the config change,
