@@ -12,7 +12,6 @@ import {
   type ReactNode,
 } from 'react';
 import { useLocale } from 'next-intl';
-import { Pause, Play } from 'lucide-react';
 import { getDirection } from '@/i18n/routing';
 import { Container } from '@/components/ui/container';
 import { cn } from '@/lib/utils/cn';
@@ -31,8 +30,6 @@ export interface HeroCarouselSlide {
 export interface HeroCarouselProps {
   slides: HeroCarouselSlide[];
   tabListLabel: string;
-  pauseLabel: string;
-  playLabel: string;
 }
 
 const INTERVAL_MS = 7000;
@@ -46,24 +43,24 @@ function subscribeReducedMotion(onChange: () => void) {
 }
 
 /**
- * The hero's slides, on the WAI-ARIA tabbed carousel pattern: a rotation control
- * first, a tablist of collection names, one tabpanel per slide. Inactive slides
- * are `inert` and hidden, so assistive tech and the keyboard only ever meet the
- * visible one.
+ * The hero's slides, on the WAI-ARIA tabbed carousel pattern: a tablist of
+ * collection names, one tabpanel per slide. Inactive slides are `inert` and hidden,
+ * so assistive tech and the keyboard only ever meet the visible one.
  *
  * Rotation is driven by the active tab's CSS progress bar: its `animationend`
  * advances the slide, so pausing the animation pauses the timer with no drift.
  * Autoplay never starts before hydration or under reduced motion (read live, so
- * turning the setting on mid-session stops it). Hovering pauses it until the
- * pointer leaves; keyboard focus inside the carousel, a tab click, an arrow key or
- * a swipe stops it until the play button is pressed. The live region is `off`
- * while rotating and `polite` once stopped.
+ * turning the setting on mid-session stops it). There is deliberately no pause
+ * button (user decision): hovering pauses rotation until the pointer leaves, and
+ * keyboard focus inside the carousel, a tab click, an arrow key or a swipe stops it
+ * for the rest of the visit — that interaction is the WCAG 2.2.2 stop mechanism.
+ * The live region is `off` while rotating and `polite` once stopped.
  *
  * A client leaf: slide content arrives server-rendered as children, and every
  * string arrives resolved. Transitions and entrances are CSS keyed on
  * `data-active` — see "Hero slides" in app/globals.css.
  */
-export function HeroCarousel({ slides, tabListLabel, pauseLabel, playLabel }: HeroCarouselProps) {
+export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
   const rtl = getDirection(useLocale()) === 'rtl';
   const hydrated = useSyncExternalStore(
     subscribeNever,
@@ -82,8 +79,7 @@ export function HeroCarousel({ slides, tabListLabel, pauseLabel, playLabel }: He
   const swipeStartX = useRef<number | null>(null);
 
   const total = slides.length;
-  const canAutoplay = hydrated && !reducedMotion && total > 1;
-  const autoplay = canAutoplay && !stopped;
+  const autoplay = hydrated && !reducedMotion && total > 1 && !stopped;
   const state = autoplay ? (hovering ? 'paused' : 'running') : 'stopped';
 
   const goTo = (index: number) => setActive(wrapIndex(index, total));
@@ -166,30 +162,11 @@ export function HeroCarousel({ slides, tabListLabel, pauseLabel, playLabel }: He
 
       {total > 1 && (
         <div className="absolute inset-x-0 bottom-0">
-          <Container as="div" className="flex items-end gap-3 pb-6 md:gap-6 lg:pb-10">
-            <button
-              type="button"
-              onClick={() => setStopped((value) => !value)}
-              aria-label={autoplay ? pauseLabel : playLabel}
-              aria-hidden={canAutoplay ? undefined : true}
-              tabIndex={canAutoplay ? 0 : -1}
-              className={cn(
-                '-ms-2.5 flex h-11 w-11 shrink-0 items-center justify-center text-text',
-                'transition-opacity duration-fast ease-ui hover:opacity-70',
-                !canAutoplay && 'invisible'
-              )}
-            >
-              {autoplay ? (
-                <Pause size={18} strokeWidth={1.5} aria-hidden="true" />
-              ) : (
-                <Play size={18} strokeWidth={1.5} aria-hidden="true" />
-              )}
-            </button>
-
+          <Container as="div" className="pb-6 lg:pb-10">
             <div
               role="tablist"
               aria-label={tabListLabel}
-              className="grid flex-1 gap-2 md:gap-6"
+              className="grid gap-2 md:gap-6"
               style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}
             >
               {slides.map((slide, index) => {

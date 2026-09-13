@@ -42,8 +42,6 @@
     "hero": {
       "heading": "المجموعات الجديدة من مون فاشون",
       "tabList": "المجموعات",
-      "pause": "إيقاف العرض مؤقتًا",
-      "play": "تشغيل العرض",
       "slideOf": "{index} من {total}",
       "slides": {
         "evening": {

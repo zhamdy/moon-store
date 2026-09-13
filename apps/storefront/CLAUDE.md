@@ -195,7 +195,14 @@ bounces or blocks interaction.
 
 `Reveal` and `Parallax` read `prefers-reduced-motion` once at mount; a preference change
 mid-session is honoured on reload. `HeroCarousel` subscribes to it, so turning the
-setting on mid-session stops autoplay immediately. The global reduced-motion rule zeroes animation and
+setting on mid-session stops autoplay immediately.
+
+The hero has **no pause button** (user decision, 2026-09-13). WCAG 2.2.2 still needs a
+way to stop content that moves for more than five seconds, and the carousel's is
+interaction: clicking a tab, an arrow key, a swipe or any keyboard focus inside the hero
+stops rotation for the rest of the visit, and hovering pauses it. That is less
+discoverable than a visible control; if an accessibility review asks for one, it goes
+back as the first control before the tablist, per the WAI-ARIA carousel pattern. The global reduced-motion rule zeroes animation and
 transition *delays* as well as durations — with `fill-mode: both`, a zero-duration
 animation would otherwise hold its `from` state for the whole stagger. Embla is
 installed but unused: CSS scroll-snap gives the category and lookbook rails swipe,

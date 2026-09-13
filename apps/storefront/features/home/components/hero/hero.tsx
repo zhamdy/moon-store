@@ -55,12 +55,7 @@ export async function Hero() {
       <h1 id="hero-heading" className="sr-only">
         {t('heading')}
       </h1>
-      <HeroCarousel
-        slides={slides}
-        tabListLabel={t('tabList')}
-        pauseLabel={t('pause')}
-        playLabel={t('play')}
-      />
+      <HeroCarousel slides={slides} tabListLabel={t('tabList')} />
     </section>
   );
 }
@@ -145,10 +140,11 @@ function HeroSlidePanel({
               {eyebrow}
             </p>
             {/* Two authored lines, each in its own overflow mask so a wrapped line at
-                320px is never clipped by its neighbour. type-display below md,
-                type-display-xl at md+: a responsive pair, where Tailwind emits the
-                md: variant after the base utility, so the winner is deterministic. */}
-            <h2 className="type-display md:type-display-xl mt-5 text-balance">
+                320px is never clipped by its neighbour. type-h1 below md, type-display
+                at md+ (user decision: display-xl read too large): a responsive pair,
+                where Tailwind emits the md: variant after the base utility, so the
+                winner is deterministic. */}
+            <h2 className="type-h1 md:type-display mt-4 text-balance">
               <span className="-mb-[0.12em] block overflow-hidden pb-[0.12em]">
                 <span data-enter="line" className="block [--entrance-delay:300ms]">
                   {title1}
