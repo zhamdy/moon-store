@@ -73,6 +73,16 @@ jobs:
         # so a route added in code and forgotten in the spec and the manifest fails here.
         run: npm run check:api-docs
 
+      - name: Manifest authorization matches route middleware
+        # Walks createApp() for each route's verifyToken / requireRole chain. A route weaker
+        # than its manifest passes only as a counted UNDER_PROTECTED_ROUTES entry.
+        run: npm run check:route-auth
+
+      - name: Client API paths are served
+        # Parses apps/dashboard/src for every transport.request, useApiQuery and resource()
+        # URL and matches each against the routes createApp() serves.
+        run: npm run check:client-paths
+
   migrations:
     name: Migrations (up, down, re-apply)
     # Its own job rather than a step on `server`, so the report says which gate failed
