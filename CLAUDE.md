@@ -231,12 +231,13 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   in the file's header. The removed features' 14 tables stay dormant, with no drop, until
   the production reset or an export: some hold financial history, and a down migration can
   recreate a table but not its rows. See `apps/server/CLAUDE.md` → *Dormant tables* (2026-09-11)
-- An e2e run deletes the tracked images in `apps/server/uploads`: global setup empties every table,
-  then the API Playwright starts runs `orphaned-media-cleanup`, which finds no `image_url`
-  references and removes everything older than its 24h grace from the default
+- An e2e run used to delete the tracked images in `apps/server/uploads`: global setup empties
+  every table, then the API Playwright starts runs `orphaned-media-cleanup`, which finds no
+  `image_url` references and removes everything older than its 24h grace from the default
   `MEDIA_LOCAL_ROOT` — the real `apps/server/uploads`. The sweep is right for production; the
-  harness points it at the wrong root. Until the harness sets a scratch root, run
-  `git restore apps/server/uploads` after an e2e run (2026-09-11)
+  harness pointed it at the wrong root. Fixed (#170) by setting `MEDIA_LOCAL_ROOT` to a
+  per-run `os.tmpdir()` scratch directory in `e2e/playwright.config.ts`'s `webServer.env`;
+  no manual `git restore` needed going forward (2026-09-11, fixed 2026-09-13)
 - Under pnpm, library `.d.ts` files that import `react` without a `@types/react` peer
   resolve the hidden hoist `node_modules/.pnpm/node_modules/@types/react` — the
   storefront's React 19 — so the dashboard's 18 build failed with 457 JSX errors.

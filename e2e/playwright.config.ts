@@ -1,3 +1,5 @@
+import os from 'node:os';
+import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 import {
   API_URL,
@@ -44,6 +46,18 @@ const serverEnv: Record<string, string> = {
   AUTH_RATE_LIMIT_MAX: '100000',
   // Shared with the migrate/seed child processes in `globalSetup` — see TEST_JWT_ENV.
   ...TEST_JWT_ENV,
+  /**
+   * Without this, `orphaned-media-cleanup` (apps/server/src/scheduler) resolves its root
+   * from `apps/server/src/storage/index.ts`'s `DEFAULT_LOCAL_ROOT`, i.e. the real
+   * `apps/server/uploads`. `globalSetup` empties every table before this server boots, so
+   * every `image_url` reference is gone; once `MEDIA_ORPHAN_MIN_AGE_HOURS` (24h) elapses
+   * the sweep reads that as "everything is orphaned" and deletes the developer's tracked
+   * fixture images with no test having asked for that. Pointing this at a per-run scratch
+   * directory under the OS temp dir — never a path under the repo — makes the sweep's
+   * target disposable regardless of what it decides to delete. `LocalStorageDriver`
+   * creates it on first write, so it need not exist yet.
+   */
+  MEDIA_LOCAL_ROOT: path.join(os.tmpdir(), `moon-e2e-uploads-${process.pid}`),
 };
 
 export default defineConfig({
