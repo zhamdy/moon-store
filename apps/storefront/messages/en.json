@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "title": "Moon Fashion",
+    "description": "Moon Fashion — luxury fashion, edited for the modern wardrobe."
+  },
+  "navigation": {
+    "shop": "Shop",
+    "newIn": "New In",
+    "collections": "Collections",
+    "search": "Search",
+    "account": "Account",
+    "bag": "Bag",
+    "menu": "Menu",
+    "closeMenu": "Close menu",
+    "primaryLabel": "Primary",
+    "footerLabel": "Footer"
+  },
+  "common": {
+    "skipToContent": "Skip to content",
+    "languageLabel": "Language",
+    "english": "English",
+    "arabic": "العربية"
+  },
+  "footer": {
+    "rights": "© {year} Moon Fashion. All rights reserved."
+  },
+  "foundation": {
+    "title": "Moon Fashion",
+    "subtitle": "Storefront foundation ready."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "The page you're looking for doesn't exist yet.",
+    "backHome": "Back to home"
+  }
+}
