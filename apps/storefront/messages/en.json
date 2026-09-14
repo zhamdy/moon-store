@@ -293,7 +293,8 @@
     },
     "partOf": "Part of {collection}",
     "related": {
-      "heading": "More from {name}"
+      "heading": "Related products",
+      "description": "More pieces from {name}"
     },
     "breadcrumb": {
       "label": "Breadcrumb",

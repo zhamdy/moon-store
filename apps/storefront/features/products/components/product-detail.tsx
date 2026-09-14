@@ -58,7 +58,6 @@ export async function ProductDetail({
   ]);
   const name = localizedName(product, locale);
   const lead = productLead(product, locale);
-  const category = product.category ? localizedName(product.category, locale) : null;
   const facts = [
     {
       key: 'material' as const,
@@ -78,21 +77,10 @@ export async function ProductDetail({
           <div>{gallery ?? <div aria-hidden className="aspect-4/5 w-full bg-surface-soft" />}</div>
 
           <Reveal className="mt-8 max-w-[30rem] lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:mt-0">
-            {hrefs.category && category && (
-              <p data-motion="fade" className="type-label text-text-secondary">
-                <Link
-                  href={hrefs.category}
-                  {...langProps(category, locale)}
-                  className={`-my-3 inline-block py-3 ${LINK_HOVER}`}
-                >
-                  {category.text}
-                </Link>
-              </p>
-            )}
             <h1
               {...langProps(name, locale)}
               data-motion="rise"
-              className="type-h2 mt-3 text-balance [--motion-offset:120ms] [--motion-rise:24px]"
+              className="type-h2 text-balance [--motion-rise:24px]"
             >
               {name.text}
             </h1>

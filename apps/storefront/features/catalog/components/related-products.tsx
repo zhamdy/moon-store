@@ -23,9 +23,10 @@ export interface RelatedProductsProps {
 }
 
 /**
- * "More from {name}" under the product (PD-13), streamed in its own `<Suspense>`. Renders
- * nothing, heading included, when the scope lists nothing but this product or the read
- * fails with an `ApiError`. One Reveal on the list; cards rise (the catalog motion level).
+ * "Related products" under the product (PD-13), with a line naming the collection or
+ * category it draws from, streamed in its own `<Suspense>`. Renders nothing, heading
+ * included, when the scope lists nothing but this product or the read fails with an
+ * `ApiError`. One Reveal on the list; cards rise (the catalog motion level).
  */
 export async function RelatedProducts({ locale, product }: RelatedProductsProps) {
   const related = await loadRelatedProducts(product);
@@ -38,20 +39,25 @@ export async function RelatedProducts({ locale, product }: RelatedProductsProps)
   ]);
   const name = localizedName(related.scope.entity, locale);
   // Only the scope name may need its own `lang`, so the template is split around it.
-  const [before = '', after = ''] = (t.raw('related.heading') as string).split('{name}');
+  const [before = '', after = ''] = (t.raw('related.description') as string).split('{name}');
   const badgeLabels = { new: tp('new'), soldOut: tp('soldOut') };
   const currencyLabel = tp('currency');
 
   return (
     <Container as="section" aria-labelledby={HEADING_ID} className={SECTION_CLASS}>
       <div className={`flex flex-wrap items-end justify-between gap-x-8 gap-y-4 ${RULE_CLASS}`}>
-        <h2 id={HEADING_ID} className="type-h2 text-balance">
-          {before}
-          <span {...(name.lang === locale ? {} : { lang: name.lang, dir: 'auto' as const })}>
-            {name.text}
-          </span>
-          {after}
-        </h2>
+        <div>
+          <h2 id={HEADING_ID} className="type-h2 text-balance">
+            {t('related.heading')}
+          </h2>
+          <p className="type-body mt-2 text-text-secondary">
+            {before}
+            <span {...(name.lang === locale ? {} : { lang: name.lang, dir: 'auto' as const })}>
+              {name.text}
+            </span>
+            {after}
+          </p>
+        </div>
         <EditorialLink href={catalogPath(relatedRoute(related.scope))} className="mb-1">
           {tc('collections.explore')}
         </EditorialLink>

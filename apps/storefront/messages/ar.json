@@ -293,7 +293,8 @@
     },
     "partOf": "ضمن {collection}",
     "related": {
-      "heading": "المزيد من {name}"
+      "heading": "منتجات ذات صلة",
+      "description": "قطع أخرى من {name}"
     },
     "breadcrumb": {
       "label": "مسار التنقل",

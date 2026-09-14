@@ -610,8 +610,9 @@ column below), the details tabs at full container width, the related row.
   `aria-hidden`.
 - **Info column**, `position: sticky` from 1024 (PD-15), kept after the enhancement: with
   the description moved into the tabs the column is usually shorter than the 4:5 gallery,
-  so price and sizes stay in view beside it. Content capped at `max-w-[30rem]`. Category
-  eyebrow, h1 at `type-h2` (it must not compete with the photograph), a short lead (the first
+  so price and sizes stay in view beside it. Content capped at `max-w-[30rem]`. No category
+  eyebrow (owner, 2026-09-14: the breadcrumb already names it); the column opens with the
+  h1 at `type-h2` (it must not compete with the photograph), then a short lead (the first
   paragraph of the localized description, `productLead`; omitted without one), the
   purchase slot, `[data-product-action]` (the reserved, empty Add to Bag place, PD-B: no
   button and no copy until Cart, and no sticky mobile purchase bar, PD-14), quick facts (a
