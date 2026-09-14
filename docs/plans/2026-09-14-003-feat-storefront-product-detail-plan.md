@@ -433,7 +433,7 @@ semantics.
 **Verification:** Storefront typecheck and tests are green, and nothing imports the module
 from the client (the build fails if something does).
 
-- [ ] **Unit 3: Storefront: variant selection rules (pure)**
+- [x] **Unit 3: Storefront: variant selection rules (pure)**
 
 **Goal:** Every selection, availability and price rule as a pure function the island consumes.
 
