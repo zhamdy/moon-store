@@ -23,6 +23,7 @@ import { HeaderShell } from './header-shell';
  */
 export async function Header() {
   const t = await getTranslations('navigation');
+  const tCommon = await getTranslations('common');
   const localeSwitcher = await getLocaleSwitcherLabels();
   const localeToggle = await getLocaleToggleLabels();
 
@@ -59,7 +60,11 @@ export async function Header() {
           </nav>
         </div>
 
-        <Link href="/" aria-label="Moon Fashion" className="flex items-center justify-center">
+        <Link
+          href="/"
+          aria-label={tCommon('brandName')}
+          className="flex items-center justify-center"
+        >
           {/* Only one variant is ever visible (CSS breakpoint), but Next.js emits a
               <link rel="preload"> for whichever carries `preload` regardless of
               display:none — so only the mobile-default gets it. The desktop variant

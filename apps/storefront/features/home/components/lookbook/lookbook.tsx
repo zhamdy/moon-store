@@ -19,6 +19,20 @@ const MOSAIC = [
 const TRAVEL = [0.05, -0.04, 0.07, -0.03, 0.05];
 
 /**
+ * Rendered width per mosaic item, derived from its MOSAIC column span (12-column
+ * grid, lg:gap-8) against `--container-max`/`--page-gutter` at each breakpoint.
+ * Index 2 (5 columns) was previously under `sizes` by roughly half at 1440 (460px
+ * vs the ~528px it actually renders at).
+ */
+const SIZES = [
+  '(min-width: 1440px) 416px, (min-width: 1024px) 288px, 78vw',
+  '(min-width: 1440px) 304px, (min-width: 1024px) 208px, 78vw',
+  '(min-width: 1440px) 528px, (min-width: 1024px) 368px, 78vw',
+  '(min-width: 1440px) 416px, (min-width: 1024px) 288px, 78vw',
+  '(min-width: 1440px) 304px, (min-width: 1024px) 208px, 78vw',
+];
+
+/**
  * 10 - Lookbook. Five images with varied ratios on the 12-column grid from 1024,
  * staggered so the mosaic reads as a spread rather than a row; below that a
  * scroll-snap rail at ~78vw so the next image peeks. The rail is a focusable
@@ -43,6 +57,11 @@ export async function Lookbook() {
       <div
         role="region"
         aria-label={t('heading')}
+        // Accepted: from 1024 this is no longer a scroller (the mosaic grid has
+        // no overflow), so this tabIndex is one extra, labelled stop rather than
+        // a functional one. CSS cannot change tabindex, and the only no-JS
+        // alternative is rendering the mosaic twice (two DOM trees, ten Parallax
+        // instances, duplicated alt) for a small a11y gain.
         tabIndex={0}
         className={cn(
           '-mx-(--page-gutter) flex snap-x snap-mandatory gap-4 overflow-x-auto px-(--page-gutter) pb-2 [scrollbar-width:none]',
@@ -62,7 +81,7 @@ export async function Lookbook() {
                 src={editorialImages[item.slot].src}
                 alt={t(item.altKey)}
                 fill
-                sizes="(min-width: 1440px) 460px, (min-width: 1024px) 34vw, 78vw"
+                sizes={SIZES[index % SIZES.length]}
                 placeholder="blur"
                 className="object-cover"
               />

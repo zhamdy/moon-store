@@ -743,6 +743,19 @@ header[data-surface][data-surface-ready] {
   }
 }
 
+/* product-card.tsx: the alternate (hover) image only exists where hover exists.
+   display:none unless hover is available at 768+, so the lazy <img> inside is
+   never fetched on a touch device, which has no hover to reveal it. */
+.hover-alt-image {
+  display: none;
+}
+
+@media (hover: hover) and (min-width: 768px) {
+  .hover-alt-image {
+    display: block;
+  }
+}
+
 /* Editorial strip depth: each detail photograph drifts sideways inside its frame
    on its own slow cycle, over-scaled so no edge shows, so the images move at a
    different speed from the words without leaving the line. */

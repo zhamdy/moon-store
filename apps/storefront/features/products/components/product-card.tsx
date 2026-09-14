@@ -40,6 +40,13 @@ export interface ProductCardProps {
  * The whole card is one link whose accessible name is the product name (images
  * are decorative here: `alt=""`). No wishlist control until wishlist behaviour
  * exists: it would be a dead control for keyboard and screen-reader users.
+ *
+ * The "New" badge renders after the name and price in DOM order, so the link's
+ * accessible name starts with the product name, not "New" — but stays visually
+ * pinned to the image's top-start corner via `absolute start-3 top-3` against
+ * the `Link`'s own `relative`, which shares that corner with the image frame
+ * (the image is the Link's first child, at the same origin). Any future
+ * reorder must keep both in step: Shop and Collections reuse this card.
  */
 export function ProductCard({
   product,
@@ -54,7 +61,7 @@ export function ProductCard({
 
   return (
     <article data-motion="rise" className={cn('group', className)}>
-      <Link href={`/shop/${product.slug}`} className="block">
+      <Link href={`/shop/${product.slug}`} className="relative block">
         <div data-motion="image" className="relative aspect-4/5 overflow-hidden bg-surface-soft">
           <div data-motion-zoom="" className="absolute inset-0">
             <div className="absolute inset-0 transition-transform duration-[400ms] ease-ui group-hover:scale-[1.03]">
@@ -66,21 +73,21 @@ export function ProductCard({
                 placeholder="blur"
                 className="object-cover"
               />
-              <Image
-                src={alternate}
-                alt=""
-                fill
-                sizes={sizes}
-                placeholder="blur"
-                className="object-cover opacity-0 transition-opacity duration-[350ms] ease-ui group-hover:opacity-100"
-              />
+              {/* .hover-alt-image (app/globals.css): display:none unless
+                  (hover: hover) and (min-width: 768px), so this lazy image is
+                  never fetched on touch devices, which have no hover to reveal it. */}
+              <div className="hover-alt-image absolute inset-0">
+                <Image
+                  src={alternate}
+                  alt=""
+                  fill
+                  sizes={sizes}
+                  placeholder="blur"
+                  className="object-cover opacity-0 transition-opacity duration-[350ms] ease-ui group-hover:opacity-100"
+                />
+              </div>
             </div>
           </div>
-          {product.isNew && (
-            <span className="type-caption absolute start-3 top-3 bg-bg px-2 py-1 font-medium tracking-[0.08em] uppercase">
-              {newLabel}
-            </span>
-          )}
         </div>
 
         <div
@@ -103,6 +110,11 @@ export function ProductCard({
             {formatPrice(product.price, locale, currencyLabel)}
           </p>
         </div>
+        {product.isNew && (
+          <span className="type-caption absolute start-3 top-3 bg-bg px-2 py-1 font-medium tracking-[0.08em] uppercase">
+            {newLabel}
+          </span>
+        )}
       </Link>
     </article>
   );

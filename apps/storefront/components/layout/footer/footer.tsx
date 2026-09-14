@@ -55,7 +55,7 @@ export async function Footer() {
       <Container as="div" className="section-y">
         <div className="grid-editorial gap-y-12">
           <div className="col-span-4">
-            <Link href="/" aria-label="Moon Fashion" className="inline-block">
+            <Link href="/" aria-label={t('common.brandName')} className="inline-block">
               <BrandLogo variant="logo" height={120} />
             </Link>
             <p className="type-body mt-8 max-w-xs text-text-secondary">{t('footer.tagline')}</p>

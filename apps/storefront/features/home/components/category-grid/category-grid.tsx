@@ -34,8 +34,11 @@ export async function CategoryGrid() {
       <SectionHeading id="categories-title" eyebrow={t('eyebrow')} title={t('title')} />
       <Reveal
         className={cn(
-          '-mx-(--page-gutter) mt-10 flex snap-x snap-mandatory gap-4 overflow-x-auto px-(--page-gutter) pb-2 [scrollbar-width:none]',
-          'md:mx-0 md:grid md:grid-cols-2 md:gap-6 md:overflow-visible md:px-0 md:pb-0',
+          /* py-1.5: overflow-x-auto forces the y-axis to a matching computed
+             overflow (CSS overflow spec), which otherwise clips the focus
+             ring's outline-offset on the top edge of each tile. */
+          '-mx-(--page-gutter) mt-10 flex snap-x snap-mandatory gap-4 overflow-x-auto px-(--page-gutter) py-1.5 [scrollbar-width:none]',
+          'md:mx-0 md:grid md:grid-cols-2 md:gap-6 md:overflow-visible md:px-0 md:py-0',
           'lg:mt-14 lg:grid-cols-4 lg:gap-8',
           '[--motion-rise:72px] [--motion-step:90ms]'
         )}
@@ -49,7 +52,11 @@ export async function CategoryGrid() {
             sizes={
               index === 0
                 ? '(min-width: 1440px) 680px, (min-width: 1024px) 48vw, (min-width: 768px) 48vw, 70vw'
-                : '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, (min-width: 768px) 48vw, 70vw'
+                : index === last
+                  ? // md:col-span-2 spans the full row at 768-1023, back to one
+                    // column of four at 1024+.
+                    '(min-width: 1024px) 23vw, (min-width: 768px) 92vw, 70vw'
+                  : '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, (min-width: 768px) 48vw, 70vw'
             }
             className={cn(
               'w-[70vw] shrink-0 snap-start md:w-auto',
