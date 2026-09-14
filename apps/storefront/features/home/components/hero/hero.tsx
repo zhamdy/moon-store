@@ -9,6 +9,13 @@ import { heroSlides, type HeroSlide } from '../../data/hero-slides';
 import { HeroCarousel } from './hero-carousel';
 
 /**
+ * Which crop a viewport gets. By shape, not width: a 1024×768 laptop or a portrait
+ * tablet is too narrow for the wide crop's empty sides, so it gets the portrait
+ * crop, whose empty floor sits under the copy instead.
+ */
+const WIDE_CROP_MEDIA = '(min-aspect-ratio: 3/2)';
+
+/**
  * 01 — Hero (guideline §12·01): full-viewport slides, one per collection, over
  * which the gold logo and ivory nav float. The root carries `HEADER_BOUNDARY_ATTR`,
  * which is what makes the header transparent (see header-shell.tsx), and pulls
@@ -73,11 +80,17 @@ interface HeroSlidePanelProps {
 }
 
 /**
- * One slide. Art-directed through `getImageProps()` × 2 into one `<picture>`
- * (16:10 desktop, 4:5 mobile). Only the lead slide is `eager` +
+ * One slide. Art-directed through `getImageProps()` × 2 into one `<picture>`: the
+ * wide 16:10 crop when the viewport is at least 3:2, the 4:5 crop otherwise, so a
+ * browser downloads only the crop it shows. Only the lead slide is `eager` +
  * `fetchPriority="high"`; the rest are lazy and low priority. No blur: it is
  * incompatible with `<picture>`. Contrast is code-guaranteed by two soft ink
  * scrims (docs/design/editorial-image-brief.md, "Contrast zones").
+ *
+ * The copy column is deliberately narrow (26rem): every hero photograph keeps its
+ * figure in the middle of the frame, and a narrow column at the inline start clears
+ * it in both reading directions without mirroring the photograph. 26rem rather than
+ * `max-w-md` because at 1280px the wider column reached the Abaya slide's cape.
  *
  * Entrances are CSS keyed on the slide's `data-active` (`data-hero-image`,
  * `data-enter`), so they play on first paint from the server HTML and replay
@@ -99,19 +112,19 @@ function HeroSlidePanel({
     loading: lead ? 'eager' : 'lazy',
     fetchPriority: lead ? 'high' : 'low',
   } as const;
-  const { props: desktop } = getImageProps({ ...common, src: editorialImages[slide.desktop].src });
+  const { props: wide } = getImageProps({ ...common, src: editorialImages[slide.wide].src });
   const {
-    props: { alt, ...mobile },
-  } = getImageProps({ ...common, src: editorialImages[slide.mobile].src });
+    props: { alt, ...portrait },
+  } = getImageProps({ ...common, src: editorialImages[slide.portrait].src });
 
   return (
     <>
       <picture className="absolute inset-0 block">
-        <source media="(min-width: 768px)" srcSet={desktop.srcSet} sizes={desktop.sizes} />
+        <source media={WIDE_CROP_MEDIA} srcSet={wide.srcSet} sizes={wide.sizes} />
         {/* A raw <img> as the direct child of <picture> is the documented art-direction
             form of getImageProps(); @next/next/no-img-element exempts exactly this nesting. */}
         <img
-          {...mobile}
+          {...portrait}
           alt={alt}
           data-hero-image=""
           className={cn('h-full w-full object-cover', slide.imageClassName)}
@@ -131,8 +144,8 @@ function HeroSlidePanel({
 
       <div className="absolute inset-0 flex flex-col justify-end">
         {/* Bottom padding clears the tab row. */}
-        <Container as="div" className="w-full pt-(--header-h) pb-28 md:pb-32 lg:pb-40">
-          <div className="max-w-2xl">
+        <Container as="div" className="w-full pt-(--header-h) pb-32 md:pb-36 lg:pb-40">
+          <div className="max-w-[26rem]">
             <p
               data-enter="fade"
               className="type-label text-text-secondary [--entrance-delay:200ms]"
@@ -141,9 +154,8 @@ function HeroSlidePanel({
             </p>
             {/* Two authored lines, each in its own overflow mask so a wrapped line at
                 320px is never clipped by its neighbour. type-h1 below md, type-display
-                at md+ (user decision: display-xl read too large): a responsive pair,
-                where Tailwind emits the md: variant after the base utility, so the
-                winner is deterministic. */}
+                at md+: a responsive pair, where Tailwind emits the md: variant after
+                the base utility, so the winner is deterministic. */}
             <h2 className="type-h1 md:type-display mt-4 text-balance">
               <span className="-mb-[0.12em] block overflow-hidden pb-[0.12em]">
                 <span data-enter="line" className="block [--entrance-delay:300ms]">
@@ -158,14 +170,14 @@ function HeroSlidePanel({
             </h2>
             <p
               data-enter="fade"
-              className="type-body-lg mt-6 max-w-md text-text/85 [--entrance-delay:450ms]"
+              className="type-body-lg mt-5 text-text/85 [--entrance-delay:450ms]"
             >
               {body}
             </p>
             <EditorialLink
               href={slide.href}
               data-enter="fade"
-              className="mt-8 [--entrance-delay:550ms]"
+              className="mt-7 [--entrance-delay:550ms]"
             >
               {cta}
             </EditorialLink>

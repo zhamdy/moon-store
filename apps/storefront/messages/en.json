@@ -51,7 +51,7 @@
           "title2": "redefined.",
           "body": "A refined wardrobe for modern femininity.",
           "cta": "Explore Evening",
-          "imageAlt": "A woman in an embroidered black evening gown with a sheer cape, standing in a dark stone hall"
+          "imageAlt": "A woman in a long-sleeved black velvet column gown, standing in a dark marble hall"
         },
         "linen": {
           "tab": "Linen",
@@ -101,15 +101,15 @@
       "title": "The Silk Edit",
       "body": "Fluid blouses and soft tailoring in ivory and warm brown.",
       "cta": "Shop the collection",
-      "imageAlt": "A woman in an ivory silk blouse and a long brown linen skirt, seated in warm window light"
+      "imageAlt": "A woman in an ivory silk blouse and a long brown linen skirt, seated on a stone bench in warm light"
     },
     "featured": {
       "eyebrow": "Featured collection",
       "title": "The Evening Edit",
       "body": "Silk, velvet and hand embroidery for the hours after dark.",
       "link": "Discover",
-      "largeAlt": "Two women in evening dresses in a lamplit room",
-      "smallAlt": "Close-up of gold embroidery on a velvet clutch"
+      "largeAlt": "A woman in a champagne satin evening gown seated on lamplit limestone steps",
+      "smallAlt": "Hands holding a black velvet clutch with a gold clasp against champagne satin"
     },
     "categories": {
       "eyebrow": "Shop by category",
@@ -117,7 +117,7 @@
     },
     "campaign": {
       "line": "Dressed for the night.",
-      "imageAlt": "A woman in a black abaya walking through a dusk courtyard"
+      "imageAlt": "A woman in a flowing umber silk dress walking through a limestone colonnade at dusk"
     },
     "curated": {
       "eyebrow": "Curated by Moon",
@@ -127,25 +127,25 @@
     "benefits": {
       "heading": "Shopping with Moon",
       "delivery": {
-        "title": "Delivery across Egypt",
-        "body": "Every order is packed by hand and delivered to your door."
+        "title": "Delivery",
+        "body": "Every order is carefully packed and delivered to your address."
       },
       "returns": {
         "title": "Easy returns",
-        "body": "Changed your mind? Return or exchange, no questions asked."
+        "body": "Changed your mind? Returns and exchanges are kept simple."
       },
       "payment": {
         "title": "Secure payment",
-        "body": "Pay by card or on delivery, with your details protected."
+        "body": "Your payment details are kept protected."
       }
     },
     "lookbook": {
       "heading": "Lookbook",
-      "alt1": "A woman in a linen dress on a sunlit street",
-      "alt2": "A leather cross-body bag resting on a stone ledge",
-      "alt3": "Half-length portrait of a woman in a silk blouse",
-      "alt4": "A woman walking, the hem of her dress in motion",
-      "alt5": "Close-up of a cable-knit cashmere texture"
+      "alt1": "A woman in a brown tailored blazer and ivory wide trousers, standing in a lattice-lit hall",
+      "alt2": "Hands holding a black leather cross-body bag against a brown wool coat",
+      "alt3": "Half-length portrait of a woman in a camel coat draped over a black top, leaning in a carved doorway",
+      "alt4": "A woman climbing limestone stairs in wide black silk trousers and an ivory shirt",
+      "alt5": "Close-up of a brown wool jacket collar resting on folds of ivory silk"
     }
   },
   "footer": {

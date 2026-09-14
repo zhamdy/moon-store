@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import { getTranslations } from 'next-intl/server';
-import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
 import { editorialImages } from '@/lib/editorial/images';
 import { cn } from '@/lib/utils/cn';
@@ -22,6 +21,10 @@ const MOSAIC = [
  * is a focusable labelled region because it contains no focusable children —
  * Safari and Firefox do not make scrollers keyboard-reachable on their own. No
  * handles, captions or social chrome.
+ *
+ * No scroll reveal on the images: inside the horizontal rail, cards off to the
+ * side never intersect until swiped, so they arrived blank and faded in mid-swipe.
+ * The photographs carry the section on their own.
  */
 export async function Lookbook() {
   const t = await getTranslations('home.lookbook');
@@ -41,10 +44,8 @@ export async function Lookbook() {
         )}
       >
         {lookbookItems.map((item, index) => (
-          <Reveal
+          <figure
             key={item.slot}
-            as="figure"
-            delay={index % 3}
             className={cn(
               'relative w-[78vw] shrink-0 snap-start bg-surface-soft lg:w-auto',
               item.aspect,
@@ -59,7 +60,7 @@ export async function Lookbook() {
               placeholder="blur"
               className="object-cover"
             />
-          </Reveal>
+          </figure>
         ))}
       </div>
     </Container>

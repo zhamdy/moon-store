@@ -198,11 +198,16 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
                         className="block h-full w-full bg-text"
                       />
                     </span>
+                    {/* The label is always visible, so the current slide is shown by
+                        text weight and colour (and aria-selected), never only by the
+                        moving progress line. A responsive type pair: caption on phones. */}
                     <span
                       className={cn(
-                        'type-label sr-only md:not-sr-only',
+                        'type-caption md:type-label truncate',
                         'transition-colors duration-fast ease-ui',
-                        selected ? 'text-text' : 'text-text-secondary group-hover:text-text'
+                        selected
+                          ? 'font-medium text-text'
+                          : 'text-text-secondary group-hover:text-text'
                       )}
                     >
                       {slide.tabLabel}

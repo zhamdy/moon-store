@@ -34,7 +34,7 @@ export function CategoryTile({ category, label, sizes, className }: CategoryTile
       />
       <span
         aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[rgb(23_21_19_/_0.55)] to-transparent"
+        className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-scrim-strong to-transparent"
       />
       <span className="type-h4 absolute inset-x-0 bottom-0 p-5 text-white lg:p-6">{label}</span>
     </Link>

@@ -7,43 +7,52 @@ export interface HeroSlide {
   key: HeroSlideKey;
   /** Intended destination; 404s today (no placeholder pages). */
   href: string;
-  desktop: EditorialSlot;
-  mobile: EditorialSlot;
-  /** `object-position` per crop, tuned to where the figure stands in the photo. */
+  /** Wide crop (16:10), used when the viewport is at least 3:2. */
+  wide: EditorialSlot;
+  /** Portrait crop (4:5), used on phones, tablets and 4:3 screens. */
+  portrait: EditorialSlot;
+  /**
+   * `object-position` for the portrait crop, which on a landscape tablet is cut
+   * top and bottom: keep the figure's head in view.
+   */
   imageClassName: string;
 }
 
 /**
  * The hero's collections, in slide order. The first slide is the page's only
  * eager, high-priority image, so it should be the strongest photograph.
+ *
+ * Every hero photograph keeps its figure centred with empty floor below, because
+ * the copy sits bottom-left in English and bottom-right in Arabic and photographs
+ * are never mirrored (docs/design/editorial-image-brief.md).
  */
 export const heroSlides: readonly HeroSlide[] = [
   {
     key: 'evening',
     href: '/collections/evening',
-    desktop: 'hero-desktop',
-    mobile: 'hero-mobile',
-    imageClassName: 'object-[50%_25%] md:object-[70%_30%]',
+    wide: 'hero-desktop',
+    portrait: 'hero-mobile',
+    imageClassName: 'object-[50%_30%]',
   },
   {
     key: 'linen',
     href: '/collections/linen',
-    desktop: 'hero-linen-desktop',
-    mobile: 'hero-linen-mobile',
-    imageClassName: 'object-[50%_25%] md:object-[50%_30%]',
+    wide: 'hero-linen-desktop',
+    portrait: 'hero-linen-mobile',
+    imageClassName: 'object-[50%_30%]',
   },
   {
     key: 'abaya',
     href: '/collections/abayas',
-    desktop: 'hero-abaya-desktop',
-    mobile: 'hero-abaya-mobile',
-    imageClassName: 'object-[50%_25%] md:object-[50%_30%]',
+    wide: 'hero-abaya-desktop',
+    portrait: 'hero-abaya-mobile',
+    imageClassName: 'object-[50%_30%]',
   },
   {
     key: 'knitwear',
     href: '/collections/knitwear',
-    desktop: 'hero-knitwear-desktop',
-    mobile: 'hero-knitwear-mobile',
-    imageClassName: 'object-[50%_25%] md:object-[50%_30%]',
+    wide: 'hero-knitwear-desktop',
+    portrait: 'hero-knitwear-mobile',
+    imageClassName: 'object-[50%_30%]',
   },
 ];
