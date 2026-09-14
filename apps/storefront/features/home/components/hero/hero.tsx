@@ -37,16 +37,21 @@ export async function Hero() {
     key: slide.key,
     tabLabel: t(`slides.${slide.key}.tab`),
     slideLabel: t('slideOf', { index: index + 1, total }),
+    media: (
+      <HeroSlideMedia
+        slide={slide}
+        lead={index === 0}
+        imageAlt={t(`slides.${slide.key}.imageAlt`)}
+      />
+    ),
     content: (
       <HeroSlidePanel
         slide={slide}
-        lead={index === 0}
         eyebrow={t(`slides.${slide.key}.eyebrow`)}
         title1={t(`slides.${slide.key}.title1`)}
         title2={t(`slides.${slide.key}.title2`)}
         body={t(`slides.${slide.key}.body`)}
         cta={t(`slides.${slide.key}.cta`)}
-        imageAlt={t(`slides.${slide.key}.imageAlt`)}
       />
     ),
   }));
@@ -67,16 +72,20 @@ export async function Hero() {
   );
 }
 
-interface HeroSlidePanelProps {
+interface HeroSlideMediaProps {
   slide: HeroSlide;
   /** The first slide: the page's LCP image, the only eager one. */
   lead: boolean;
+  imageAlt: string;
+}
+
+interface HeroSlidePanelProps {
+  slide: HeroSlide;
   eyebrow: string;
   title1: string;
   title2: string;
   body: string;
   cta: string;
-  imageAlt: string;
 }
 
 /**
@@ -96,16 +105,7 @@ interface HeroSlidePanelProps {
  * `data-enter`), so they play on first paint from the server HTML and replay
  * whenever a slide becomes active.
  */
-function HeroSlidePanel({
-  slide,
-  lead,
-  eyebrow,
-  title1,
-  title2,
-  body,
-  cta,
-  imageAlt,
-}: HeroSlidePanelProps) {
+function HeroSlideMedia({ slide, lead, imageAlt }: HeroSlideMediaProps) {
   const common = {
     alt: imageAlt,
     sizes: '100vw',
@@ -118,19 +118,24 @@ function HeroSlidePanel({
   } = getImageProps({ ...common, src: editorialImages[slide.portrait].src });
 
   return (
-    <>
-      <picture className="absolute inset-0 block">
-        <source media={WIDE_CROP_MEDIA} srcSet={wide.srcSet} sizes={wide.sizes} />
-        {/* A raw <img> as the direct child of <picture> is the documented art-direction
+    <picture className="absolute inset-0 block">
+      <source media={WIDE_CROP_MEDIA} srcSet={wide.srcSet} sizes={wide.sizes} />
+      {/* A raw <img> as the direct child of <picture> is the documented art-direction
             form of getImageProps(); @next/next/no-img-element exempts exactly this nesting. */}
-        <img
-          {...portrait}
-          alt={alt}
-          data-hero-image=""
-          className={cn('h-full w-full object-cover', slide.imageClassName)}
-        />
-      </picture>
+      <img
+        {...portrait}
+        alt={alt}
+        data-hero-image=""
+        className={cn('h-full w-full object-cover', slide.imageClassName)}
+      />
+    </picture>
+  );
+}
 
+/** One slide's scrims and copy, always rendered so the carousel's text never waits on an image. */
+function HeroSlidePanel({ slide, eyebrow, title1, title2, body, cta }: HeroSlidePanelProps) {
+  return (
+    <>
       {/* Header band scrim, ≤ 35% at the top edge and gone by ~30% of the height. */}
       <div
         aria-hidden="true"

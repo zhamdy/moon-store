@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils/cn';
 import {
   carouselState,
   resolveKeyTarget,
+  slideMediaVisible,
   stepFromKey,
   stepFromSwipe,
   wrapIndex,
@@ -30,7 +31,12 @@ export interface HeroCarouselSlide {
   tabLabel: string;
   /** The slide's accessible label, e.g. "2 of 4". */
   slideLabel: string;
-  /** Server-rendered picture, scrims and copy. */
+  /**
+   * Server-rendered photograph, rendered only while `slideMediaVisible` says so, so
+   * hidden slides do not download theirs on first load.
+   */
+  media: ReactNode;
+  /** Server-rendered scrims and copy, always rendered. */
   content: ReactNode;
 }
 
@@ -78,6 +84,10 @@ function subscribeReducedMotion(onChange: () => void) {
  * progress fill freezes and resumes where it left off, and the slide never
  * changes while away. "Stopped by interaction" stays sticky across leaving and
  * re-entering the viewport — see `carouselState` in `hero-carousel-state.ts`.
+ *
+ * Photographs load on demand: the lead slide's is in the server HTML, the next
+ * slide's is added while rotating, and a slide that is hovered, focused or shown
+ * keeps its photograph from then on (`slideMediaVisible`).
  */
 export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
   const rtl = getDirection(useLocale()) === 'rtl';
@@ -95,6 +105,7 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
   const [stopped, setStopped] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [inView, setInView] = useState(true);
+  const [primed, setPrimed] = useState<readonly number[]>([]);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const swipeStartX = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -120,8 +131,20 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
     total,
   });
 
+  const prime = (...indices: number[]) => {
+    setPrimed((current) => {
+      const added = indices
+        .map((index) => wrapIndex(index, total))
+        .filter(
+          (index, position, all) => !current.includes(index) && all.indexOf(index) === position
+        );
+      return added.length > 0 ? [...current, ...added] : current;
+    });
+  };
+
   const goTo = (index: number) => {
     const next = wrapIndex(index, total);
+    prime(active, next);
     if (next !== active) {
       setSlides({ active: next, previous: active });
     }
@@ -200,6 +223,14 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
             inert={index !== active}
             className="absolute inset-0"
           >
+            {slideMediaVisible({
+              index,
+              active,
+              previous,
+              total,
+              rotating: state === 'running' || state === 'paused',
+              primed,
+            }) && slide.media}
             {slide.content}
           </div>
         ))}
@@ -234,6 +265,8 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
                       setStopped(true);
                     }}
                     onKeyDown={onTabKeyDown}
+                    onPointerEnter={() => prime(index)}
+                    onFocus={() => prime(index - 1, index, index + 1)}
                     className="group flex min-h-11 flex-col justify-end gap-3 text-start"
                   >
                     <span className="block h-px w-full overflow-hidden bg-text/30">

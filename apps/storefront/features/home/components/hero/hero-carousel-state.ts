@@ -79,6 +79,39 @@ export function carouselState({
   return hovered || !inView ? 'paused' : 'running';
 }
 
+export interface SlideMediaInput {
+  index: number;
+  active: number;
+  previous: number | null;
+  total: number;
+  /** Rotation is on (running or paused), so the next slide will be shown unasked. */
+  rotating: boolean;
+  /** Slides that have been shown, hovered or focused: once rendered, kept. */
+  primed: readonly number[];
+}
+
+/**
+ * Whether a slide renders its photograph. Every slide is laid out in the viewport
+ * (hidden slides only lose visibility, so they can cross-fade), so a lazy image
+ * there still downloads: the freeze capture measured all four hero photographs
+ * fetched before any interaction. Rendering the picture only for the slide shown,
+ * the one leaving, the next one while rotating and any slide the visitor has shown,
+ * hovered or focused keeps the first load to the lead image plus one.
+ */
+export function slideMediaVisible({
+  index,
+  active,
+  previous,
+  total,
+  rotating,
+  primed,
+}: SlideMediaInput): boolean {
+  if (index === active || index === previous || primed.includes(index)) {
+    return true;
+  }
+  return rotating && total > 1 && index === wrapIndex(active + 1, total);
+}
+
 export const SWIPE_THRESHOLD_PX = 50;
 
 /**

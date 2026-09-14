@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 
+/* The promo banner's wide layout (16:9 crop, copy on the physical left). By shape,
+   not only width: on a portrait tablet the 16:9 crop zooms onto the figure and the
+   copy lands on her, so those get the 4:5 crop with the copy at the bottom. */
+@custom-variant banner-wide (@media (min-width: 768px) and (min-aspect-ratio: 4/3));
+
 /* ============================================================
    Tokens — guideline §4 (color), §6 (grid/spacing), §7 (shape),
    §13/§19 (motion). Components read the semantic mapping below

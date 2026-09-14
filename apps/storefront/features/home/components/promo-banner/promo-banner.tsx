@@ -20,13 +20,16 @@ import { editorialImages } from '@/lib/editorial/images';
  * never a component change. Offer terms (amounts, dates, conditions) must come
  * from the business; never invent them here.
  *
- * Art-directed like the hero: a 16:9 `moment-wide` crop from 768 and the 4:5
- * `moment` below, through `getImageProps()` into one `<picture>` (lazy; no blur,
- * which `<picture>` cannot take). Contrast is code-guaranteed by a strong ink scrim
- * on the copy side: fading from the left edge from 768, rising from the bottom on
- * mobile (docs/design/editorial-image-brief.md).
+ * Art-directed like the hero, and chosen by shape like the hero: the 16:9
+ * `moment-wide` crop on landscape screens at least 768px wide and 4:3
+ * (`banner-wide`, app/globals.css), the 4:5 `moment` on phones and portrait
+ * tablets, where the wide crop would zoom onto the figure and put the copy on her.
+ * Through `getImageProps()` into one `<picture>` (lazy; no blur, which `<picture>`
+ * cannot take). Contrast is code-guaranteed by a strong ink scrim on the copy
+ * side: fading from the left edge in the wide layout, rising from the bottom in the
+ * portrait one (docs/design/editorial-image-brief.md).
  *
- * From 768 the copy stays on the **physical left in both languages** (user
+ * In the wide layout the copy stays on the **physical left in both languages** (user
  * feedback, 2026-09-14): the photograph is never mirrored and its figure stands on
  * the right, so following the reading direction put the Arabic copy across her
  * face. Arabic text keeps its natural right alignment inside the left-hand block.
@@ -54,7 +57,7 @@ export async function PromoBanner() {
       amount={0.3}
       aria-labelledby="promo-banner-title"
       data-surface="ink"
-      className="relative isolate flex h-[90svh] min-h-[34rem] items-end overflow-hidden bg-bg text-text md:h-[80svh] md:items-center"
+      className="relative isolate flex h-[90svh] min-h-[34rem] items-end overflow-hidden bg-bg text-text banner-wide:h-[80svh] banner-wide:items-center"
     >
       <Parallax travel={0.07} className="absolute inset-0 z-0">
         <div
@@ -62,7 +65,11 @@ export async function PromoBanner() {
           className="absolute inset-0 [--motion-duration:1800ms] [--motion-zoom:1.08]"
         >
           <picture className="absolute inset-0 block">
-            <source media="(min-width: 768px)" srcSet={desktop.srcSet} sizes={desktop.sizes} />
+            <source
+              media="(min-width: 768px) and (min-aspect-ratio: 4/3)"
+              srcSet={desktop.srcSet}
+              sizes={desktop.sizes}
+            />
             {/* A raw <img> as the direct child of <picture> is the documented art-direction
                 form of getImageProps(); @next/next/no-img-element exempts exactly this nesting. */}
             <img
@@ -74,21 +81,21 @@ export async function PromoBanner() {
         </div>
       </Parallax>
 
-      {/* Mobile: copy at the bottom, scrim rising from it. */}
+      {/* Portrait layout: copy at the bottom, scrim rising from it. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-10 bg-linear-to-t from-scrim-strong to-transparent to-60% md:hidden"
+        className="pointer-events-none absolute inset-0 z-10 bg-linear-to-t from-scrim-strong to-transparent to-60% banner-wide:hidden"
       />
-      {/* 768+: copy on the physical left in both languages, scrim fading from there.
+      {/* Wide layout: copy on the physical left in both languages, scrim fading from there.
           Deliberately not mirrored under RTL: the figure is on the right. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-10 hidden bg-linear-to-r from-scrim-strong from-0% via-scrim via-40% to-transparent to-75% md:block"
+        className="pointer-events-none absolute inset-0 z-10 hidden bg-linear-to-r from-scrim-strong from-0% via-scrim via-40% to-transparent to-75% banner-wide:block"
       />
 
       <Container as="div" className="relative z-20 w-full py-(--section-space)">
         {/* Under RTL, margin-inline-start: auto pushes the block to the physical left. */}
-        <div className="max-w-xl rtl:md:ms-auto">
+        <div className="max-w-xl rtl:banner-wide:ms-auto">
           <p
             data-motion="wipe"
             className="type-label w-fit text-text-secondary [--motion-offset:250ms]"

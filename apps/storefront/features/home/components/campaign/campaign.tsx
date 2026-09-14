@@ -13,9 +13,12 @@ import { editorialImages } from '@/lib/editorial/images';
  * that is the section's heading.
  *
  * The statement sits in the photograph's empty space, never across the model: the
- * figure stands in the right third, so from 768 the line is set on the **physical
- * left in both languages** (the photograph is never mirrored) and on mobile it sits
- * at the bottom over empty paving. Each position gets only a soft local scrim on
+ * figure stands in the right third, so the line is set on the **physical left in
+ * both languages at every width** (the photograph is never mirrored): vertically
+ * centred from 768, bottom-left over the paving on mobile. On phones the 4:5 window
+ * leaves the figure in the right half, so following the reading direction put the
+ * Arabic line across her (freeze capture, 2026-09-14), and the line is narrowed to
+ * 9ch there so English clears her arm at 320. Each position gets only a soft local scrim on
  * its own side. The cream band before and after is the page's second ivory->cream
  * transition.
  *
@@ -63,7 +66,7 @@ export async function Campaign() {
 
         <div className="pointer-events-none absolute inset-0 z-20 flex items-end md:items-center">
           <Container as="div" className="w-full pb-10 md:pb-0">
-            {/* Under RTL, margin-inline-start: auto keeps the line on the physical left. */}
+            {/* Under RTL, margin-inline-start: auto keeps the line on the physical left, at every width. */}
             <TextReveal
               as="h2"
               id="campaign-title"
@@ -71,7 +74,7 @@ export async function Campaign() {
               offset={300}
               step={120}
               duration={1100}
-              className="type-h1 md:type-display max-w-[11ch] text-balance text-text rtl:md:ms-auto"
+              className="type-h1 md:type-display max-w-[9ch] text-balance text-text md:max-w-[11ch] rtl:ms-auto"
             />
           </Container>
         </div>

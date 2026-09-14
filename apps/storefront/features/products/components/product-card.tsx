@@ -107,7 +107,7 @@ export function ProductCard({
 
         <div
           data-motion="fade"
-          className="mt-4 flex items-baseline justify-between gap-4 [--motion-offset:240ms]"
+          className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 [--motion-offset:240ms]"
         >
           <h3 className="type-body font-body">
             <span

@@ -292,16 +292,27 @@ Every homepage image is a static import behind one registry, swappable by file d
   copy, because the wide crop's empty sides are too narrow there. The first slide is the
   page's only eager image (`loading="eager"`, `fetchPriority="high"`); the other slides
   are lazy and `fetchPriority="low"`, so put the strongest photograph first in
-  `features/home/data/hero-slides.ts`. Everything else is a single lazy import with
+  `features/home/data/hero-slides.ts`. Lazy is not enough on its own: hidden slides stay
+  laid out in the viewport to cross-fade, so the carousel renders a slide's picture only
+  when `slideMediaVisible` (`hero-carousel-state.ts`, unit-tested) allows it — the active
+  and leaving slides, the next one while rotating, and any slide shown, hovered or
+  focused. The freeze capture measured all four photographs downloading before any
+  interaction without it. Everything else is a single lazy import with
   `placeholder="blur"` and an honest `sizes`.
 - Hero photographs keep the figure in the middle of the frame with empty floor below, and
   the hero copy column is `max-w-[26rem]`: the text sits bottom-left in English and
   bottom-right in Arabic and clears the figure in both without mirroring the photograph.
   The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
   other slides are `hero-<collection>-desktop` / `-mobile`.
-- The promo banner and the campaign put their copy on the photograph's empty side: the
-  physical left from 768 in both languages (`rtl:md:ms-auto`), the bottom on mobile, each
-  with a scrim on that side only. Neither photograph is ever mirrored.
+- The promo banner and the campaign put their copy on the photograph's empty side, on the
+  **physical** side in both languages, each with a scrim on that side only. Neither
+  photograph is ever mirrored. The banner chooses its layout by shape: the 16:9 crop with
+  the copy on the left only on landscape screens at least 768px wide and 4:3
+  (`banner-wide`, a custom variant in `app/globals.css`), otherwise the 4:5 crop with the
+  copy at the bottom, because on a portrait tablet the wide crop put the copy on the model.
+  The campaign line is physical-left at **every** width (`rtl:ms-auto`): on phones the
+  figure stands in the right half of the 4:5 window, so an Arabic line at the reading
+  start sat on her.
 - No dominant editorial image or garment repeats across the hero, promo banner,
   featured collection, campaign or lookbook (user requirement, 2026-09-14). Product-card
   photography may repeat a garment where the merchandising story calls for it.

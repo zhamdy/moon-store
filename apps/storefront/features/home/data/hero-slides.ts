@@ -53,6 +53,10 @@ export const heroSlides: readonly HeroSlide[] = [
     href: '/collections/knitwear',
     wide: 'hero-knitwear-desktop',
     portrait: 'hero-knitwear-mobile',
-    imageClassName: 'object-[50%_30%]',
+    // Higher than the others: on a 4:3 laptop the portrait crop is cut top and
+    // bottom, and at 30% the trousers reached the English body line (freeze
+    // capture, 2026-09-14). Phones and portrait tablets are cut at the sides, not
+    // vertically, so this changes nothing there.
+    imageClassName: 'object-[50%_44%]',
   },
 ];

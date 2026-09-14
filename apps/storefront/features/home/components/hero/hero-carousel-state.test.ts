@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   carouselState,
   resolveKeyTarget,
+  slideMediaVisible,
   stepFromKey,
   stepFromSwipe,
   SWIPE_THRESHOLD_PX,
@@ -132,5 +133,57 @@ describe('stepFromSwipe', () => {
 
   it('ignores a non-finite distance', () => {
     expect(stepFromSwipe(Number.NaN, false)).toBe(0);
+  });
+});
+
+describe('slideMediaVisible', () => {
+  const visible = (input: Partial<Parameters<typeof slideMediaVisible>[0]>) =>
+    [0, 1, 2, 3].filter((index) =>
+      slideMediaVisible({
+        index,
+        active: 0,
+        previous: null,
+        total: 4,
+        rotating: false,
+        primed: [],
+        ...input,
+      })
+    );
+
+  it('renders only the lead photograph before rotation starts (server HTML, no JS)', () => {
+    expect(visible({})).toEqual([0]);
+  });
+
+  it('adds the next slide while rotating, so the change never shows an empty frame', () => {
+    expect(visible({ rotating: true })).toEqual([0, 1]);
+  });
+
+  it('wraps the next slide from the last one back to the first', () => {
+    expect(visible({ active: 3, previous: 2, rotating: true })).toEqual([0, 2, 3]);
+  });
+
+  it('keeps the leaving slide so its exit can play', () => {
+    expect(visible({ active: 2, previous: 1 })).toEqual([1, 2]);
+  });
+
+  it('keeps primed slides once shown, hovered or focused', () => {
+    expect(visible({ active: 1, previous: 0, primed: [0, 3] })).toEqual([0, 1, 3]);
+  });
+
+  it('does not preload the next slide once rotation has stopped', () => {
+    expect(visible({ active: 1, rotating: false })).toEqual([1]);
+  });
+
+  it('never preloads with a single slide', () => {
+    expect(
+      slideMediaVisible({
+        index: 0,
+        active: 0,
+        previous: null,
+        total: 1,
+        rotating: true,
+        primed: [],
+      })
+    ).toBe(true);
   });
 });
