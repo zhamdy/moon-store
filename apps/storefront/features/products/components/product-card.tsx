@@ -20,6 +20,12 @@ export interface ProductCardProps {
   newLabel: string;
   /** Honest `sizes` for the grid this card sits in. */
   sizes: string;
+  /**
+   * Its entrance inside a `<Reveal>`, mirroring `CategoryTile`: `rise` (default)
+   * lifts the whole card, the quiet commerce entrance; `image` wipes the
+   * photograph open and settles it from 1.06, reserved for a feature card.
+   */
+  reveal?: 'image' | 'rise';
   className?: string;
 }
 
@@ -32,8 +38,10 @@ export interface ProductCardProps {
  * the reading direction. Keyboard focus draws the underline too.
  *
  * Reveal: the card declares its entrance with `data-motion` and plays it only
- * inside a `<Reveal>` (the card rises, the photograph wipes upward and settles
- * from 1.06, the text follows). Outside one the attributes are inert. Reveal
+ * inside a `<Reveal>`. By default the card rises and its text follows; with
+ * `reveal="image"` the photograph wipes upward and settles from 1.06 instead
+ * (AD-11: quiet commerce, one editorial beat per section). Outside a Reveal the
+ * attributes are inert. Reveal
  * motion and hover motion sit on separate elements because each owns its
  * element's transition.
  *
@@ -54,16 +62,23 @@ export function ProductCard({
   currencyLabel,
   newLabel,
   sizes,
+  reveal = 'rise',
   className,
 }: ProductCardProps) {
   const front = editorialImages[product.images.a].src;
   const alternate = editorialImages[product.images.b].src;
 
   return (
-    <article data-motion="rise" className={cn('group', className)}>
+    <article
+      data-motion={reveal === 'rise' ? 'rise' : undefined}
+      className={cn('group', className)}
+    >
       <Link href={`/shop/${product.slug}`} className="relative block">
-        <div data-motion="image" className="relative aspect-4/5 overflow-hidden bg-surface-soft">
-          <div data-motion-zoom="" className="absolute inset-0">
+        <div
+          data-motion={reveal === 'image' ? 'image' : undefined}
+          className="relative aspect-4/5 overflow-hidden bg-surface-soft"
+        >
+          <div data-motion-zoom={reveal === 'image' ? '' : undefined} className="absolute inset-0">
             <div className="absolute inset-0 transition-transform duration-base ease-ui group-hover:scale-[1.03]">
               <Image
                 src={front}

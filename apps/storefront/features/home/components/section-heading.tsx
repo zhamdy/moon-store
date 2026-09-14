@@ -1,6 +1,5 @@
 import type { CSSProperties } from 'react';
 import { Reveal } from '@/components/motion/reveal';
-import { TextReveal } from '@/components/motion/text-reveal';
 import { EditorialLink } from '@/components/ui/editorial-link';
 import { cn } from '@/lib/utils/cn';
 
@@ -21,10 +20,12 @@ const offsetStyle = (ms: number) => ({ '--motion-offset': `${ms}ms` }) as CSSPro
 
 /**
  * The commerce sections' shared heading row: eyebrow and `h2` at inline-start, an
- * optional editorial link at inline-end. Plays as a sequence: the eyebrow wipes
- * in, the title's words rise through their masks, the link fades in last. The
- * link sits in its own wrapper because its underline transition would otherwise
- * replace the reveal's.
+ * optional editorial link at inline-end. Deliberately quiet (AD-11, 2026-09-14):
+ * the eyebrow fades, the title rises once as a whole, the link fades in last. The
+ * word-masked rise belongs to the signature moments (promo banner, featured
+ * collection, campaign) so it stays distinct; Shop and Collections inherit this
+ * quieter heading. The link sits in its own wrapper because its underline
+ * transition would otherwise replace the reveal's.
  */
 export function SectionHeading({
   id,
@@ -40,13 +41,20 @@ export function SectionHeading({
     <>
       <div>
         <p
-          data-motion="wipe"
+          data-motion="fade"
           style={offsetStyle(offset)}
-          className="type-label w-fit text-text-secondary"
+          className="type-label text-text-secondary"
         >
           {eyebrow}
         </p>
-        <TextReveal as="h2" id={id} text={title} offset={offset + 120} className="type-h2 mt-3" />
+        <h2
+          id={id}
+          data-motion="rise"
+          style={offsetStyle(offset + 120)}
+          className="type-h2 mt-3 [--motion-rise:24px]"
+        >
+          {title}
+        </h2>
       </div>
       {link && (
         <div data-motion="fade" style={offsetStyle(offset + 450)} className="mb-1">

@@ -28,7 +28,8 @@ const SMALL_STAGGER = [
  * card spans both, then the four sit 2x2.
  *
  * Calmer than New Arrivals: shorter rise, longer step. One Reveal plays the
- * feature image first and the heading after it; each small card has its own
+ * feature image first (the section's one editorial beat, `reveal="image"`) and
+ * the heading after it; each small card has its own
  * nested Reveal, so on a phone the rows below play when they arrive.
  */
 export async function CuratedEdit({ locale }: { locale: AppLocale }) {
@@ -55,6 +56,7 @@ export async function CuratedEdit({ locale }: { locale: AppLocale }) {
                 currencyLabel={tp('currency')}
                 newLabel={tp('new')}
                 sizes={index === 0 ? LARGE_CARD_SIZES : CATALOG_CARD_SIZES}
+                reveal={index === 0 ? 'image' : 'rise'}
               />
             );
             return index === 0 ? (
