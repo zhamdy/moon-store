@@ -70,6 +70,49 @@ describe('Settings page - canonical loyalty units', () => {
     expect(saveCall?.body).not.toHaveProperty('loyalty_redeem_value');
   });
 
+  it('loads the storefront policies and sends them, edited, in the merged save', async () => {
+    const transport = createMemoryTransport(
+      {},
+      {
+        reads: {
+          settings: {
+            delivery_policy: 'توصيل مخزن',
+            delivery_policy_en: 'Stored delivery',
+            returns_policy: 'إرجاع مخزن',
+            returns_policy_en: 'Stored returns',
+          },
+        },
+      }
+    );
+    render(<Settings />, { wrapper: wrapperFor(transport) });
+
+    expect(await screen.findByText('Storefront policies')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('توصيل مخزن')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('إرجاع مخزن')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Stored returns')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByDisplayValue('Stored delivery'), {
+      target: { value: 'Edited delivery' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'PUT',
+          path: 'settings',
+          body: expect.objectContaining({
+            delivery_policy: 'توصيل مخزن',
+            delivery_policy_en: 'Edited delivery',
+            returns_policy: 'إرجاع مخزن',
+            returns_policy_en: 'Stored returns',
+            tax_rate: '15',
+          }),
+        })
+      )
+    );
+  });
+
   it('labels the earn/redeem inputs with unambiguous, non-reciprocal units in English', async () => {
     const transport = createMemoryTransport(
       {},

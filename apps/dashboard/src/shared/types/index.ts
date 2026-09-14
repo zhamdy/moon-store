@@ -145,4 +145,10 @@ export interface AppSettings {
   loyalty_earn_rate?: string;
   /** @deprecated legacy alias for `loyalty_egp_per_point`; read-only compatibility. */
   loyalty_redeem_value?: string;
+  /** Storefront product-page copy, read publicly via `GET /catalog/store-policies`. Arabic. */
+  delivery_policy?: string;
+  delivery_policy_en?: string;
+  /** Arabic; `returns_policy_en` is the English twin. */
+  returns_policy?: string;
+  returns_policy_en?: string;
 }
