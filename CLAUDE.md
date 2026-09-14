@@ -192,15 +192,9 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   `setValue` never reaches the DOM. Any programmatically-filled field needs `Controller`;
   the delivery customer picker had been silently failing to populate since it was written
   (2026-09-06)
-- All 86 request bodies in the published OpenAPI document were
-  `{ type: 'object', additionalProperties: true }` — the spec said nothing about what to
-  send, so deriving request schemas is additive and needs no consumer audit. That premise
-  does not carry to responses (2026-09-06)
 - `role="status"` on a `<td>` strips the cell of its table semantics, and a live region
   rendered alongside its own message has no content change to announce — it must be
   mounted beforehand (2026-09-06)
-- The a11y `jsx-a11y` rules are at `error` and *docs/ACCESSIBILITY.md* Known gaps is empty;
-  record the next gap there with an issue rather than only dropping a rule (2026-09-06)
 - A `route.fulfill` carrying `Access-Control-Allow-Origin: '*'` never reaches the client:
   the transport sets `withCredentials: true`, so the browser rejects the wildcard and the
   app takes its network-failure path instead of the status being faked. A test built on
@@ -217,11 +211,9 @@ prune stale ones; anything cross-project belongs in the global instructions inst
 - `refunds.items` is a `TEXT` column holding JSON and is the **only** record of how much
   of each sale line has been refunded — there is no `refund_items` table. It is parsed in
   `findRefundsBySaleId`, not by callers; handed on as a string it is still iterable, so a
-  consumer reads it character by character and silently sees no prior refunds (2026-09-09)
-- A refund and an exchange are two routes to the same recovery and draw on one sold
-  quantity, so each caps against the other's history. Capping one alone leaves the
-  opposite direction open, and it is easy to close only the direction the issue named
-  (2026-09-09)
+  consumer reads it character by character and silently sees no prior refunds. A refund
+  and an exchange draw on that one sold quantity, so each caps against the other's
+  history; capping one alone leaves the opposite direction open (2026-09-09)
 - Zod strips unknown keys, so a field missing from a request schema never reaches the
   service however carefully the service handles it. `bundle_id` was absent from
   `saleItemSchema`, so `resolveBundleGroup` had never executed — while service-level tests
@@ -251,19 +243,12 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   harness pointed it at the wrong root. Fixed (#170) by setting `MEDIA_LOCAL_ROOT` to a
   per-run `os.tmpdir()` scratch directory in `e2e/playwright.config.ts`'s `webServer.env`;
   no manual `git restore` needed going forward (2026-09-11, fixed 2026-09-13)
-- Under pnpm, library `.d.ts` files that import `react` without a `@types/react` peer
-  resolve the hidden hoist `node_modules/.pnpm/node_modules/@types/react` — the
-  storefront's React 19 — so the dashboard's 18 build failed with 457 JSX errors.
-  Dashboard `tsconfig.json` `paths` pin those declarations to its own `@types`
-  (2026-09-13)
-- The pnpm hoist collision above cuts both ways: `@tanstack/react-query`'s own `.d.ts`
-  has no local `@types/react` either, and inside the storefront it resolved the shared
-  hoist's dashboard-installed React 18 types instead of the storefront's own 19 —
-  `ReactNode` mismatched in `providers/query-provider.tsx` even though the storefront's
-  own files resolve 19 correctly on their own. Same fix, mirrored: `apps/storefront/
-  tsconfig.json` `paths` pins `react`/`react-dom` to its own `@types`. Any dependency
-  with no local `@types/react` of its own is exposed to this, in either direction
-  (2026-09-13)
+- Under pnpm, a library `.d.ts` that imports `react` without a local `@types/react`
+  resolves the hidden hoist `node_modules/.pnpm/node_modules/@types/react`, which holds
+  whichever app's React types landed there. It cut both ways: the dashboard's React 18
+  build failed with 457 JSX errors against the storefront's 19, and inside the storefront
+  `@tanstack/react-query` saw the dashboard's 18 (`ReactNode` mismatch). Each app's
+  `tsconfig.json` `paths` pins `react`/`react-dom` to its own `@types` (2026-09-13)
 - Tailwind's `content` glob `./node_modules/@heroui/theme/dist/**` matched nothing after the
   pnpm move: npm had hoisted `@heroui/theme`, pnpm links only direct dependencies. The build
   still passed and every unit test stayed green while HeroUI's component CSS was missing;
@@ -282,3 +267,19 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   switch already used. And the gold logo is never recoloured: the hero is dusk-toned so
   gold and ivory read on it, with code scrims guaranteeing contrast rather than the
   image (2026-09-13)
+- Every storefront page render calls the API from the Next server's one IP, so under the
+  global per-IP limiter all shoppers would share 200 requests per 15 minutes. The public
+  catalog therefore has its own limiter with a trusted `X-Catalog-Server-Token` bucket —
+  which is *not* a per-shopper limit: one client varying query values can spend it, so
+  per-client limiting is an edge requirement, not something the API can do (2026-09-14)
+- An `UPDATE` re-checks every CHECK constraint, including one added `NOT VALID`. 004 left
+  `products_stock_non_negative` unvalidated so legacy negative-stock rows could stay, so
+  014's slug backfill would have aborted on those rows; it lifts and restores the
+  unvalidated checks inside its block. Any later migration that updates `products` or
+  `categories` rows needs the same (2026-09-14)
+- Two more pg-mem traps, both silent: with a unique index on `slug` and mixed statuses,
+  `status = 'active' AND slug IS NOT NULL` returns no rows (the shim rewrites it to
+  `NOT (slug IS NULL)`); and `endpointHealth.test.ts` rewrote any SQL containing `OVER ()`,
+  which matched a *comment* in migration 006, so that suite never had
+  `collection_products.position`. A shim that matches SQL text must match statements, not
+  prose (2026-09-14)
