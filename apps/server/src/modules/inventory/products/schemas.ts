@@ -136,6 +136,9 @@ export const productsRequestContracts = {
     beyondSchema: [
       '`sku` and `barcode` are unique; a duplicate is a 409, not a 400.',
       '`cost_price` defaults to 0, `min_stock` to 5 and `status` to active when omitted.',
+      '`slug` is optional: omitted, it is generated from `name_en`, else the SKU (`base`, ' +
+        '`base-2` ... `base-10`). An explicit slug already in use, or ten taken candidates, is ' +
+        'a 409 with `details[].field` `slug`.',
     ],
   }),
 
@@ -156,7 +159,11 @@ export const productsRequestContracts = {
     operation: 'updateProduct',
     body: productSchema,
     params: pathIdParams(),
-    beyondSchema: ['A full replacement, not a merge: the required fields stay required.'],
+    beyondSchema: [
+      'A full replacement, not a merge: the required fields stay required.',
+      'Except `slug` and `name_en`: absent leaves the stored value, and `name_en: null` ' +
+        'clears it. A slug held by another product is a 409 with `details[].field` `slug`.',
+    ],
   }),
 
   updateProductStatus: defineRequestContract({
@@ -196,6 +203,9 @@ export const productsRequestContracts = {
         'individually and independently: a row that fails is reported in the response as ' +
         '`errors[{ row, error }]` while the rest import. The request is not rejected.',
       'An existing SKU is updated rather than duplicated, so an import is a re-import.',
+      'Rows may carry `slug` and `name_en`. A row without a slug gets a generated one; a ' +
+        're-imported SKU keeps its stored slug and `name_en` unless the row supplies them. ' +
+        'An explicit slug held by a different SKU fails that row only.',
     ],
   }),
 

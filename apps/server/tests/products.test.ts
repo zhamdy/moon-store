@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import path from 'path';
 import type { Pool as PgPool } from 'pg';
 import { createPgMemPool } from './support/pgMem';
@@ -12,6 +12,7 @@ import {
 import { productsRepository } from '../src/modules/inventory/products/repository';
 import { productsService } from '../src/modules/inventory/products/service';
 import productsRouter from '../src/modules/inventory/products/routes';
+import { startHttpApp, type HttpHarness } from './support/httpApp';
 
 /**
  * `discontinue` writes an audit row through the module pool. The write is
@@ -153,5 +154,225 @@ describe('product lookup contract', () => {
     expect(res.send).toHaveBeenCalledWith();
     expect(res.json).not.toHaveBeenCalled();
     update.mockRestore();
+  });
+});
+
+/**
+ * Slugs and English names through the real app (plan 2026-09-14-002, Unit 2).
+ *
+ * Over HTTP rather than the service, because Zod strips unknown keys: a `name_en` the
+ * schema never declared would pass every service-level test and still be dropped here.
+ */
+describe('storefront fields on the product write paths (HTTP boundary)', () => {
+  let http: HttpHarness;
+  const ARABIC_NAME = '\u0641\u0633\u062a\u0627\u0646 \u0633\u0647\u0631\u0629';
+
+  beforeAll(async () => {
+    http = await startHttpApp();
+  });
+
+  afterAll(async () => {
+    await http.close();
+  });
+
+  beforeEach(async () => {
+    await testPool.query('DELETE FROM price_history');
+    await testPool.query('DELETE FROM products');
+  });
+
+  const productBody = (over: Record<string, unknown> = {}) => ({
+    name: ARABIC_NAME,
+    sku: 'MN-DR-001',
+    price: 1250,
+    cost_price: 400,
+    stock: 3,
+    ...over,
+  });
+  const create = (over: Record<string, unknown> = {}) =>
+    http.request('POST', '/api/v1/products', productBody(over));
+
+  it('persists name_en and generates the slug from it, both visible on the admin GET', async () => {
+    const created = await create({ name_en: 'Silk Slip Dress' });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      slug: 'silk-slip-dress',
+      name_en: 'Silk Slip Dress',
+    });
+
+    const read = await http.request('GET', `/api/v1/products/${created.body.data.id}`);
+    expect(read.status).toBe(200);
+    expect(read.body.data).toMatchObject({ slug: 'silk-slip-dress', name_en: 'Silk Slip Dress' });
+  });
+
+  it('gives a second product with the same name_en the -2 slug', async () => {
+    await create({ name_en: 'Silk Slip Dress' });
+    const second = await create({ sku: 'MN-DR-002', name_en: 'Silk Slip Dress' });
+    expect(second.status).toBe(201);
+    expect(second.body.data.slug).toBe('silk-slip-dress-2');
+  });
+
+  it('falls back to the SKU when name_en is absent', async () => {
+    const created = await create({ sku: 'MN-DR-003' });
+    expect(created.status).toBe(201);
+    expect(created.body.data.slug).toBe('mn-dr-003');
+    expect(created.body.data.name_en).toBeNull();
+  });
+
+  it.each([
+    ['Arabic only', ARABIC_NAME],
+    ['punctuation only', '!!! ---'],
+  ])('falls back to the SKU when name_en is %s', async (_label, nameEn) => {
+    const created = await create({ sku: 'AB-77', name_en: nameEn });
+    expect(created.status).toBe(201);
+    expect(created.body.data.slug).toBe('ab-77');
+  });
+
+  it('uses an explicit slug as given', async () => {
+    const created = await create({ name_en: 'Silk Slip Dress', slug: 'evening-silk' });
+    expect(created.status).toBe(201);
+    expect(created.body.data.slug).toBe('evening-silk');
+  });
+
+  it('rejects a malformed slug with a 400 on the slug field', async () => {
+    const created = await create();
+    const res = await http.request(
+      'PUT',
+      `/api/v1/products/${created.body.data.id}`,
+      productBody({ slug: 'Silk Dress' })
+    );
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.details.map((d: { field: string }) => d.field)).toContain('slug');
+  });
+
+  it('refuses an explicit slug already in use with a 409 on the slug field, not a suffix', async () => {
+    const first = await create({ slug: 'silk-slip-dress' });
+    const other = await create({ sku: 'MN-DR-002' });
+
+    const onCreate = await create({ sku: 'MN-DR-009', slug: 'silk-slip-dress' });
+    expect(onCreate.status).toBe(409);
+    expect(onCreate.body.error.details[0]).toMatchObject({ field: 'slug', code: 'SLUG_TAKEN' });
+
+    const onUpdate = await http.request(
+      'PUT',
+      `/api/v1/products/${other.body.data.id}`,
+      productBody({ sku: 'MN-DR-002', slug: 'silk-slip-dress' })
+    );
+    expect(onUpdate.status).toBe(409);
+    expect(onUpdate.body.error.details[0].field).toBe('slug');
+
+    // Re-sending a product's own slug is not a collision.
+    const own = await http.request(
+      'PUT',
+      `/api/v1/products/${first.body.data.id}`,
+      productBody({ slug: 'silk-slip-dress' })
+    );
+    expect(own.status).toBe(200);
+  });
+
+  it('leaves slug and name_en alone when a PUT omits them, and clears name_en on null', async () => {
+    const created = await create({ name_en: 'Silk Slip Dress' });
+    const id = created.body.data.id;
+
+    // Stock, not price: a price change writes price_history, whose user FK this fixture has no row for.
+    const untouched = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ stock: 7 })
+    );
+    expect(untouched.status).toBe(200);
+    expect(untouched.body.data).toMatchObject({
+      slug: 'silk-slip-dress',
+      name_en: 'Silk Slip Dress',
+    });
+
+    const renamed = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ slug: 'slip-dress', name_en: null })
+    );
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.data).toMatchObject({ slug: 'slip-dress', name_en: null });
+  });
+
+  it('answers 409 when all ten candidates are taken', async () => {
+    for (let i = 1; i <= 10; i += 1) {
+      const slug = i === 1 ? 'wrap-dress' : `wrap-dress-${i}`;
+      expect((await create({ sku: `W-${i}`, slug })).status).toBe(201);
+    }
+
+    const res = await create({ sku: 'W-NEW', name_en: 'Wrap Dress' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.details[0]).toMatchObject({ field: 'slug', code: 'SLUG_UNAVAILABLE' });
+    // That the row rolls back with it is asserted on real PostgreSQL: pg-mem does not roll back.
+  });
+
+  it('persists slug and name_en columns from a CSV import, generating for rows without a slug', async () => {
+    const res = await http.request('POST', '/api/v1/products/import', {
+      products: [
+        productBody({ sku: 'I-1', name_en: 'Linen Shirt' }),
+        productBody({ sku: 'I-2', name_en: 'Linen Shirt' }),
+        productBody({ sku: 'I-3', name_en: 'Linen Trousers', slug: 'custom-linen' }),
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ imported: 3, errors: [] });
+
+    const { rows } = await testPool.query(
+      "SELECT sku, slug, name_en FROM products WHERE sku IN ('I-1', 'I-2', 'I-3') ORDER BY sku"
+    );
+    expect(rows).toEqual([
+      { sku: 'I-1', slug: 'linen-shirt', name_en: 'Linen Shirt' },
+      { sku: 'I-2', slug: 'linen-shirt-2', name_en: 'Linen Shirt' },
+      { sku: 'I-3', slug: 'custom-linen', name_en: 'Linen Trousers' },
+    ]);
+  });
+
+  it('fails only the import row whose explicit slug another SKU holds, and keeps a re-imported slug', async () => {
+    await create({ sku: 'HELD', slug: 'held-slug' });
+
+    const res = await http.request('POST', '/api/v1/products/import', {
+      products: [
+        productBody({ sku: 'I-1', slug: 'held-slug' }),
+        productBody({ sku: 'I-2' }),
+        // The same SKU re-imported with its own slug is an update, not a collision.
+        productBody({ sku: 'HELD', slug: 'held-slug', stock: 9 }),
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data.imported).toBe(2);
+    expect(res.body.data.errors).toEqual([{ row: 1, error: 'Slug is already in use' }]);
+
+    const again = await http.request('POST', '/api/v1/products/import', {
+      products: [productBody({ sku: 'I-2', name_en: 'Later Name' })],
+    });
+    expect(again.body.data).toEqual({ imported: 1, errors: [] });
+    const { rows } = await testPool.query(
+      "SELECT sku, slug, stock FROM products WHERE sku IN ('I-1', 'I-2', 'HELD') ORDER BY sku"
+    );
+    expect(rows).toEqual([
+      { sku: 'HELD', slug: 'held-slug', stock: 9 },
+      { sku: 'I-2', slug: 'i-2', stock: 3 },
+    ]);
+  });
+
+  it('keeps bulk update working on products that carry slugs', async () => {
+    const a = await create({ sku: 'B-1', name_en: 'Bulk One' });
+    const b = await create({ sku: 'B-2' });
+    const res = await http.request('PUT', '/api/v1/products/bulk-update', {
+      ids: [a.body.data.id, b.body.data.id],
+      // Status only: pg-mem has no round(float, int), so price_percent cannot run here.
+      updates: { status: 'inactive' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data.updated).toBe(2);
+
+    const { rows } = await testPool.query(
+      "SELECT sku, slug, status FROM products WHERE sku IN ('B-1', 'B-2') ORDER BY sku"
+    );
+    expect(rows).toEqual([
+      { sku: 'B-1', slug: 'bulk-one', status: 'inactive' },
+      { sku: 'B-2', slug: 'b-2', status: 'inactive' },
+    ]);
   });
 });

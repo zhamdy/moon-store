@@ -215,6 +215,30 @@ was answered with a 409. And `'UNIQUE'` is SQLite wording — PostgreSQL says
 those checks had been dead since the migration without anyone noticing. Which is the
 argument against the technique, not just against that string.
 
+### Catalog slugs (products, categories, collections)
+
+`src/modules/inventory/shared/slug.ts` owns the pattern (`^[a-z0-9]+(?:-[a-z0-9]+)*$`,
+1-80 characters, Zod only: 014 adds no CHECK because pg-mem has no regex) and generation.
+A create with no slug takes the first free candidate from `name_en`, else the SKU or code,
+else `<resource>-<id>`: `base`, `base-2` ... `base-10`, chosen in one
+`UPDATE ... SET slug = CASE WHEN NOT EXISTS ...` inside the create's transaction. A
+concurrent writer that wins the same candidate surfaces as a 23505 on `idx_<table>_slug`;
+the statement is retried under a SAVEPOINT, narrowed by constraint name. Ten taken
+candidates, or an explicit slug another row holds, is a 409 whose `details[].field` is
+`slug` (`SLUG_UNAVAILABLE` / `SLUG_TAKEN`) -- an operator who typed a slug is told, never
+silently suffixed. Updates never generate: absent `slug` / `name_en` / `description_en`
+leave the stored value, even on the full-replacement product and category PUTs.
+
+Two pg-mem gaps shape the tests. It cannot parse SAVEPOINT (`tests/support/pgMem.ts`
+no-ops those statements, faithful because it never reports `err.constraint`, so the retry
+cannot trigger), and it does not roll back, so "the refused row is gone" is asserted only
+in `tests/concurrency/catalogSlug.concurrency.test.ts`, which forces each race by holding
+the slug in an open transaction until the writer is seen waiting on the lock.
+
+`importProducts` writes each row in its own transaction (it used to be one autocommit
+statement per row, never one transaction for the file), so a row and its slug commit
+together and a failing row still fails alone.
+
 ## The API contract: one description, two gates
 
 Three descriptions of this API used to exist and only one was enforced — the Zod schemas

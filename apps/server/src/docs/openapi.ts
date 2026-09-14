@@ -3342,6 +3342,16 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -3899,6 +3909,16 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -3967,6 +3987,16 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -4795,6 +4825,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -4865,6 +4906,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -5979,6 +6031,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -6038,6 +6101,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -6106,6 +6180,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },

@@ -1,5 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
+import { buildPartialUpdate, orNull } from '../../../database/partialUpdate';
 import { CategoryRecord, CreateCategoryDTO, UpdateCategoryDTO } from './types';
 
 export interface ICategoriesRepository {
@@ -24,11 +25,11 @@ export class CategoriesRepository implements ICategoriesRepository {
 
   async findAll(queryable?: Queryable): Promise<CategoryRecord[]> {
     const res = await this.q(queryable).query<CategoryRecord>(
-      `SELECT c.id, c.name, c.code, c.created_at, c.updated_at,
+      `SELECT c.id, c.name, c.code, c.slug, c.name_en, c.description_en, c.created_at, c.updated_at,
               COUNT(CASE WHEN p.status = 'active' THEN p.id END)::int as product_count
        FROM categories c
        LEFT JOIN products p ON p.category_id = c.id
-       GROUP BY c.id, c.name, c.code, c.created_at, c.updated_at
+       GROUP BY c.id, c.name, c.code, c.slug, c.name_en, c.description_en, c.created_at, c.updated_at
        ORDER BY c.name`
     );
     return res.rows;
@@ -36,12 +37,12 @@ export class CategoriesRepository implements ICategoriesRepository {
 
   async findById(id: number | string, queryable?: Queryable): Promise<CategoryRecord | null> {
     const res = await this.q(queryable).query<CategoryRecord>(
-      `SELECT c.id, c.name, c.code, c.created_at, c.updated_at,
+      `SELECT c.id, c.name, c.code, c.slug, c.name_en, c.description_en, c.created_at, c.updated_at,
               COUNT(CASE WHEN p.status = 'active' THEN p.id END)::int as product_count
        FROM categories c
        LEFT JOIN products p ON p.category_id = c.id
        WHERE c.id = $1
-       GROUP BY c.id, c.name, c.code, c.created_at, c.updated_at`,
+       GROUP BY c.id, c.name, c.code, c.slug, c.name_en, c.description_en, c.created_at, c.updated_at`,
       [id]
     );
     return res.rows[0] || null;
@@ -49,8 +50,9 @@ export class CategoriesRepository implements ICategoriesRepository {
 
   async create(data: CreateCategoryDTO, queryable?: Queryable): Promise<CategoryRecord> {
     const res = await this.q(queryable).query<CategoryRecord>(
-      `INSERT INTO categories (name, code) VALUES ($1, $2) RETURNING *`,
-      [data.name, data.code]
+      `INSERT INTO categories (name, code, slug, name_en, description_en)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [data.name, data.code, data.slug ?? null, data.name_en || null, data.description_en || null]
     );
     return res.rows[0];
   }
@@ -60,9 +62,17 @@ export class CategoriesRepository implements ICategoriesRepository {
     data: UpdateCategoryDTO,
     queryable?: Queryable
   ): Promise<CategoryRecord | null> {
+    // name and code are replaced; the storefront fields only when the body names them.
+    const { setClause, params, nextIndex } = buildPartialUpdate({
+      name: data.name,
+      code: data.code,
+      slug: data.slug,
+      name_en: orNull(data.name_en),
+      description_en: orNull(data.description_en),
+    });
     const res = await this.q(queryable).query<CategoryRecord>(
-      `UPDATE categories SET name = $1, code = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
-      [data.name, data.code, id]
+      `UPDATE categories SET ${setClause} WHERE id = $${nextIndex} RETURNING *`,
+      [...params, id]
     );
     return res.rows[0] || null;
   }

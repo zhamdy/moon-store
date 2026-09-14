@@ -8,6 +8,7 @@ import {
   CollectionDetailRecord,
   CollectionConflictError,
 } from './types';
+import { assertSlugAvailable, assignGeneratedSlug, rethrowSlugViolation } from '../shared/slug';
 
 export class CollectionsService {
   constructor(private repo: ICollectionsRepository = defaultRepo) {}
@@ -33,7 +34,22 @@ export class CollectionsService {
 
   async create(data: CreateCollectionDTO): Promise<CollectionRecord> {
     return withTransaction(async (client) => {
-      const collection = await this.repo.create(data, client);
+      if (data.slug) await assertSlugAvailable(client, 'collections', data.slug);
+      let collection: CollectionRecord;
+      try {
+        collection = await this.repo.create(data, client);
+      } catch (error) {
+        rethrowSlugViolation(error, 'collections');
+      }
+      if (!collection.slug) {
+        // In the same transaction, so no committed collection is ever without its slug.
+        collection = await assignGeneratedSlug<CollectionRecord>(
+          client,
+          'collections',
+          collection.id,
+          [data.name_en]
+        );
+      }
       if (data.product_ids && data.product_ids.length > 0) {
         await this.repo.addProducts(collection.id, data.product_ids, client);
       }
@@ -71,7 +87,18 @@ export class CollectionsService {
         );
       }
 
-      const updated = await this.repo.update(id, data, client);
+      if (data.slug) {
+        await assertSlugAvailable(client, 'collections', data.slug, {
+          column: 'id',
+          value: Number(id),
+        });
+      }
+      let updated: CollectionRecord | null;
+      try {
+        updated = await this.repo.update(id, data, client);
+      } catch (error) {
+        rethrowSlugViolation(error, 'collections');
+      }
       if (data.product_ids !== undefined) {
         await this.repo.deleteProductsByCollectionId(id, client);
         if (data.product_ids.length > 0) {

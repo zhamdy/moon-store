@@ -22,10 +22,15 @@ export class CategoriesController {
 
   async createCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { name, code } = contracts.createCategory.parseBody<Category>(req.body);
-      const category = await categoriesService.create({ name, code });
+      // The whole parsed body: destructuring two keys here would drop the storefront
+      // fields as silently as a schema that never declared them.
+      const body = contracts.createCategory.parseBody<Category>(req.body);
+      const category = await categoriesService.create(body);
 
-      logAuditFromReq(req, 'create', 'category', category.id, { name, code });
+      logAuditFromReq(req, 'create', 'category', category.id, {
+        name: body.name,
+        code: body.code,
+      });
       res.status(201).json(success(category));
     } catch (err: any) {
       if (isUniqueViolation(err)) {
@@ -38,9 +43,9 @@ export class CategoriesController {
 
   async updateCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { name, code } = contracts.updateCategory.parseBody<Category>(req.body);
+      const body = contracts.updateCategory.parseBody<Category>(req.body);
       const { id } = contracts.updateCategory.parseParams<{ id: string }>(req.params);
-      const category = await categoriesService.update(id, { name, code });
+      const category = await categoriesService.update(id, body);
 
       if (!category) {
         throw new PublicError('NOT_FOUND', 'Category not found');

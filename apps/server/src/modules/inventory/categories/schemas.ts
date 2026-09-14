@@ -19,7 +19,12 @@ export const categoriesRequestContracts = {
     path: '/api/v1/categories',
     operation: 'createCategory',
     body: categorySchema,
-    beyondSchema: ['`code` is unique; a duplicate is a 409, not a 400.'],
+    beyondSchema: [
+      '`code` is unique; a duplicate is a 409, not a 400.',
+      '`slug` is optional: omitted, it is generated from `name_en`, else `code` (`base`, ' +
+        '`base-2` ... `base-10`). An explicit slug already in use, or ten taken candidates, is ' +
+        'a 409 with `details[].field` `slug`.',
+    ],
   }),
 
   updateCategory: defineRequestContract({
@@ -30,6 +35,9 @@ export const categoriesRequestContracts = {
     params: pathIdParams(),
     beyondSchema: [
       'A full replacement, not a merge: both `name` and `code` are required on an update.',
+      'Except `slug`, `name_en` and `description_en`: absent leaves the stored value, and ' +
+        'null clears `name_en` / `description_en`. A slug held by another category is a 409 ' +
+        'with `details[].field` `slug`.',
     ],
   }),
 

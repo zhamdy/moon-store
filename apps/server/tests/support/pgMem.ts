@@ -41,7 +41,18 @@ const BACKFILL_012 = /DO \$backfill_012\$[\s\S]*?\$backfill_012\$;/g;
  */
 const BACKFILL_014 = /DO \$backfill_014\$[\s\S]*?\$backfill_014\$;/g;
 
+/**
+ * A whole statement that is a SAVEPOINT, RELEASE or ROLLBACK TO. pg-mem's parser rejects
+ * all three. They guard a retry on a unique violation narrowed by constraint name, which
+ * pg-mem never reports (no `err.constraint`), so the rollback they enable can never be
+ * taken there and a no-op is faithful. Proven on real PostgreSQL instead
+ * (`tests/concurrency/catalogSlug.concurrency.test.ts`).
+ */
+const SAVEPOINT_STATEMENT =
+  /^\s*(?:SAVEPOINT|RELEASE\s+SAVEPOINT|ROLLBACK\s+TO\s+SAVEPOINT)\s+\w+\s*;?\s*$/i;
+
 export function toPgMemCompatibleSql(sql: string): string {
+  if (SAVEPOINT_STATEMENT.test(sql)) return 'SELECT 1;';
   // 009 upgrades legacy schemas only. pg-mem fixtures start from the corrected 001;
   // its catalog-driven PL/pgSQL repair is exercised on real PostgreSQL instead.
   if (sql.includes('DO $repair_009$')) return 'SELECT 1;';

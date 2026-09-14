@@ -16,6 +16,7 @@ import { parseBundleListQuery } from '../src/modules/inventory/bundles/types';
 import { parseCollectionListQuery } from '../src/modules/inventory/collections/types';
 import { parseStockCountListQuery } from '../src/modules/inventory/stockCounts/types';
 import { parseStockAdjustmentListQuery } from '../src/modules/inventory/stockAdjustments/types';
+import { startHttpApp, type HttpHarness } from './support/httpApp';
 
 function response() {
   const res = {} as Response;
@@ -188,5 +189,109 @@ describe('manual stock adjustment invariants', () => {
 
     expect(await stockOf()).toBe(10);
     expect(await adjustmentRows()).toEqual([]);
+  });
+});
+
+/**
+ * Slugs and English text on categories, through the real app (plan 2026-09-14-002,
+ * Unit 2). The controller used to destructure `{ name, code }` from the parsed body,
+ * which would have dropped any new field after the schema accepted it.
+ */
+describe('category storefront fields (HTTP boundary)', () => {
+  let http: HttpHarness;
+
+  beforeAll(async () => {
+    http = await startHttpApp();
+  });
+
+  afterAll(async () => {
+    await http.close();
+  });
+
+  beforeEach(async () => {
+    await testPool.query("DELETE FROM categories WHERE code LIKE 'SF-%'");
+  });
+
+  it('persists name_en and description_en, slugs from name_en, and lists them', async () => {
+    const created = await http.request('POST', '/api/v1/categories', {
+      name: 'Storefront dresses',
+      code: 'SF-DR',
+      name_en: 'Dresses',
+      description_en: 'Evening and day dresses.',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({ slug: 'dresses', name_en: 'Dresses' });
+
+    const list = await http.request('GET', '/api/v1/categories');
+    expect(list.status).toBe(200);
+    expect(list.body.data.find((c) => c.code === 'SF-DR')).toMatchObject({
+      slug: 'dresses',
+      name_en: 'Dresses',
+      description_en: 'Evening and day dresses.',
+    });
+  });
+
+  it('slugs from the code when name_en is absent', async () => {
+    const created = await http.request('POST', '/api/v1/categories', {
+      name: 'Storefront knitwear',
+      code: 'SF-KN',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data.slug).toBe('sf-kn');
+  });
+
+  it('keeps the storefront fields on a PUT that omits them, and clears on null', async () => {
+    const created = await http.request('POST', '/api/v1/categories', {
+      name: 'Storefront bags',
+      code: 'SF-BG',
+      name_en: 'Bags',
+      description_en: 'Leather.',
+    });
+    const id = created.body.data.id;
+
+    const kept = await http.request('PUT', `/api/v1/categories/${id}`, {
+      name: 'Storefront bags renamed',
+      code: 'SF-BG',
+    });
+    expect(kept.status).toBe(200);
+    expect(kept.body.data).toMatchObject({
+      slug: 'bags',
+      name_en: 'Bags',
+      description_en: 'Leather.',
+    });
+
+    const cleared = await http.request('PUT', `/api/v1/categories/${id}`, {
+      name: 'Storefront bags renamed',
+      code: 'SF-BG',
+      description_en: null,
+    });
+    expect(cleared.body.data).toMatchObject({ name_en: 'Bags', description_en: null });
+  });
+
+  it('answers 400 for a malformed slug and 409 on the slug field for a taken one', async () => {
+    await http.request('POST', '/api/v1/categories', {
+      name: 'SF one',
+      code: 'SF-1',
+      slug: 'abayas',
+    });
+    const other = await http.request('POST', '/api/v1/categories', {
+      name: 'SF two',
+      code: 'SF-2',
+    });
+
+    const malformed = await http.request('PUT', `/api/v1/categories/${other.body.data.id}`, {
+      name: 'SF two',
+      code: 'SF-2',
+      slug: 'Abayas!',
+    });
+    expect(malformed.status).toBe(400);
+
+    const taken = await http.request('POST', '/api/v1/categories', {
+      name: 'SF three',
+      code: 'SF-3',
+      slug: 'abayas',
+    });
+    expect(taken.status).toBe(409);
+    expect(taken.body.error.details[0]).toMatchObject({ field: 'slug', code: 'SLUG_TAKEN' });
   });
 });

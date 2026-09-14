@@ -4,6 +4,8 @@ export interface ProductRecord {
   id: number;
   name: string;
   sku: string;
+  slug?: string | null;
+  name_en?: string | null;
   barcode?: string | null;
   price: number;
   cost_price: number;
