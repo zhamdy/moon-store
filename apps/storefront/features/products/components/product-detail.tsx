@@ -77,7 +77,11 @@ export async function ProductDetail({
         {breadcrumb && <div className="mb-6 lg:mb-8">{breadcrumb}</div>}
 
         <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-16">
-          <div>{gallery ?? <div aria-hidden className="aspect-4/5 w-full bg-surface-soft" />}</div>
+          <div>
+            {gallery ?? (
+              <div aria-hidden className="aspect-4/5 w-full rounded-media bg-surface-soft" />
+            )}
+          </div>
 
           <Reveal className="mt-8 max-w-[30rem] lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:mt-0">
             <h1

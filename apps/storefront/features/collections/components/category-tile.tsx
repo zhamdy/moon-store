@@ -39,7 +39,10 @@ export function CategoryTile({
     <Link
       href={category.href}
       data-motion={reveal === 'rise' ? 'rise' : undefined}
-      className={cn('group relative block aspect-3/4 overflow-hidden bg-surface-soft', className)}
+      className={cn(
+        'group relative isolate block aspect-3/4 overflow-hidden rounded-media bg-surface-soft',
+        className
+      )}
     >
       <span data-motion={reveal === 'image' ? 'image' : undefined} className="absolute inset-0">
         <span data-motion-zoom="" className="absolute inset-0">

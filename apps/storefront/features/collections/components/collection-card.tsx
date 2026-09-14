@@ -121,7 +121,7 @@ export function CollectionCard({
       <div
         data-motion={feature ? 'image' : undefined}
         className={cn(
-          'relative overflow-hidden bg-surface-soft',
+          'relative isolate overflow-hidden rounded-media bg-surface-soft',
           feature ? 'aspect-4/5 md:aspect-3/2' : 'aspect-4/5'
         )}
       >

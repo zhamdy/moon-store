@@ -89,7 +89,7 @@ export function PageIntro({ locale, eyebrow, title, meta, description, image }: 
         <Reveal className="grid gap-y-8 md:gap-y-10 lg:grid-cols-12 lg:items-end lg:gap-x-8">
           <div
             data-motion="fade"
-            className="relative aspect-video max-h-[28rem] w-full overflow-hidden bg-surface-soft [--motion-duration:900ms] lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:aspect-4/5 lg:max-h-[560px] lg:max-w-[448px] lg:justify-self-end"
+            className="relative aspect-video max-h-[28rem] w-full overflow-hidden rounded-media bg-surface-soft [--motion-duration:900ms] lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:aspect-4/5 lg:max-h-[560px] lg:max-w-[448px] lg:justify-self-end"
           >
             {/* Decorative: the h1 beside it names the collection. Usually the
                 page's largest above-the-fold image, so it loads first. */}

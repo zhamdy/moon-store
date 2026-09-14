@@ -45,6 +45,26 @@ responsive variant on the same element (`type-display md:type-display-xl`, the h
 title), where Tailwind emits the variant after the base utility and the winner is
 deterministic.
 
+### Media radius (owner decision, 2026-09-14)
+
+One token pair in `app/globals.css`'s `@theme inline`: `--radius-media` (12px, the
+`rounded-media` utility) and `--radius-media-sm` (8px, `rounded-media-sm`). Never a raw
+`rounded-[12px]`. `rounded-media`: the product card image frame, category tiles, the
+collections index photographs, the collection intro image, the featured collection's
+two frames, lookbook images, the editorial strip photographs, the gallery frame and its
+no-image frame, the product page's gallery fallback, both skeleton frames and the
+purchase panel's size cells. `rounded-media-sm`: gallery thumbnails (the inner photograph
+is concentric, `radius - 4px`). Full-bleed photographs stay square: the hero, the promo
+banner and the campaign (edge to edge horizontally). Buttons, inputs, chips, the header
+and the footer stay square.
+
+The element carrying the radius is the one that clips (`overflow: hidden`, plus
+`isolate` where a transformed child scales inside it, so WebKit keeps the corners), so
+hover swaps, zoom and the `data-motion-zoom` settle never square the corners. The
+`data-motion="image"` wipe insets carry `round var(--radius-media)` in both states, since
+every element using it is a rounded frame; the gallery's inset focus ring inherits the
+radius. Shadows and boxed sections are still out.
+
 ### Surfaces: the `--surface-*` indirection
 
 The semantic colours are declared `@theme inline`, so `text-text` compiles to the

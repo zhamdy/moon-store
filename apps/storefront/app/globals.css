@@ -139,6 +139,14 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-pill: 999px;
+  /* Media radius (owner decision, 2026-09-14): every image frame and card, the
+     skeleton frames that stand in for them and the size cells take `rounded-media`;
+     thumbnails and images under ~96px take `rounded-media-sm`. Buttons, inputs,
+     chips, the header and the footer stay square. The frame carrying the radius is
+     the one that clips (`overflow: hidden`), so zoom, hover swaps and parallax
+     over-scale stay inside the shape. */
+  --radius-media: 12px;
+  --radius-media-sm: 8px;
 
   --ease-ui: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-editorial: cubic-bezier(0.16, 1, 0.3, 1);
@@ -529,9 +537,11 @@ header[data-surface][data-surface-ready] {
     --motion-duration: 700ms;
   }
 
+  /* Every image frame is rounded, so the wipe's inset carries the same radius and
+     the corners hold for the whole animation. */
   [data-motion='image'] {
     --motion-duration: 1100ms;
-    clip-path: inset(0);
+    clip-path: inset(0 round var(--radius-media));
   }
 
   [data-motion-zoom] {
@@ -572,7 +582,7 @@ header[data-surface][data-surface-ready] {
   }
 
   :is([data-reveal='pending'], [data-reveal='pending'] *):is([data-motion='image']) {
-    clip-path: inset(100% 0 0 0);
+    clip-path: inset(100% 0 0 0 round var(--radius-media));
   }
 
   [data-reveal='pending'] [data-motion-zoom] {
@@ -852,6 +862,7 @@ header[data-surface][data-surface-ready] {
     inline-size: 100%;
     padding: 3px;
     border: 1px solid transparent;
+    border-radius: var(--radius-media-sm);
     opacity: 0.6;
     cursor: pointer;
     transition:
@@ -884,6 +895,8 @@ header[data-surface][data-surface-ready] {
     display: block;
     block-size: 100%;
     overflow: hidden;
+    /* Concentric with the button: its radius minus the 3px padding and 1px border. */
+    border-radius: calc(var(--radius-media-sm) - 4px);
     background-color: var(--color-surface-soft);
   }
 
@@ -893,6 +906,9 @@ header[data-surface][data-surface-ready] {
     min-inline-size: 0;
     aspect-ratio: 4 / 5;
     overflow: hidden;
+    border-radius: var(--radius-media);
+    /* Keeps the scale(2) zoom layer inside the rounded clip in WebKit. */
+    isolation: isolate;
     background-color: var(--color-surface-soft);
   }
 
@@ -919,6 +935,7 @@ header[data-surface][data-surface-ready] {
     pointer-events: none;
     outline: 2px solid var(--focus-ring-color);
     outline-offset: -2px;
+    border-radius: inherit;
   }
 
   [data-gallery-frame][data-zoomable] {

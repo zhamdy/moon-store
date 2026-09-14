@@ -102,7 +102,7 @@ export function RelatedProductsSkeleton() {
       <ul role="list" className={`mt-8 md:mt-10 ${RELATED_GRID_CLASS}`}>
         {Array.from({ length: RELATED_LIMIT }, (_, index) => (
           <li key={index}>
-            <div className="aspect-4/5 bg-surface-soft" />
+            <div className="aspect-4/5 rounded-media bg-surface-soft" />
             <div className="mt-4 flex h-[1.6rem] items-center justify-between gap-4">
               <span className="block h-3.5 w-3/5 bg-surface-soft" />
               <span className="block h-3.5 w-12 bg-surface-soft" />

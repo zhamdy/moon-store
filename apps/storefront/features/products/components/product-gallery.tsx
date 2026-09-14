@@ -21,7 +21,7 @@ export async function ProductGallery({ locale, product }: ProductGalleryProps) {
   const model = galleryLayout(product.images);
   if (model.kind === 'empty') {
     return (
-      <div className="relative aspect-4/5 overflow-hidden bg-surface-soft">
+      <div className="relative aspect-4/5 overflow-hidden rounded-media bg-surface-soft">
         <ProductImagePlaceholder />
       </div>
     );

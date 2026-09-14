@@ -31,7 +31,7 @@ export async function FeaturedCollection() {
       <Reveal className="grid-editorial" amount={0.2}>
         <div
           data-motion="image"
-          className="relative col-span-4 aspect-3/2 overflow-hidden bg-surface-soft lg:col-span-8"
+          className="relative isolate col-span-4 aspect-3/2 overflow-hidden rounded-media bg-surface-soft lg:col-span-8"
         >
           <div data-motion-zoom="" className="absolute inset-0">
             <Image
@@ -82,7 +82,7 @@ export async function FeaturedCollection() {
             >
               <div
                 data-motion="image"
-                className="absolute inset-0 overflow-hidden bg-surface-soft [--motion-offset:750ms]"
+                className="absolute inset-0 isolate overflow-hidden rounded-media bg-surface-soft [--motion-offset:750ms]"
               >
                 <div data-motion-zoom="" className="absolute inset-0 [--motion-offset:750ms]">
                   <Image

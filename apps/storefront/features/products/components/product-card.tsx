@@ -106,7 +106,7 @@ export function ProductCard({
       <Link href={product.href} className="relative block">
         <div
           data-motion={reveal === 'image' ? 'image' : undefined}
-          className="relative aspect-4/5 overflow-hidden bg-surface-soft"
+          className="relative isolate aspect-4/5 overflow-hidden rounded-media bg-surface-soft"
         >
           <div data-motion-zoom={reveal === 'image' ? '' : undefined} className="absolute inset-0">
             <div className="absolute inset-0 transition-transform duration-base ease-ui group-hover:scale-[1.03]">
