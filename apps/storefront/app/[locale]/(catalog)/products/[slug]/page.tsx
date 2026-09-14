@@ -65,7 +65,7 @@ export default async function ProductPage(props: Props) {
         ),
       }}
       gallery={<ProductGallery locale={locale} product={product} />}
-      purchase={<PurchasePanelSlot locale={locale} product={product} />}
+      purchase={<PurchasePanelSlot key={product.slug} locale={locale} product={product} />}
       related={
         relatedScope(product) ? (
           <Suspense fallback={<RelatedProductsSkeleton />}>

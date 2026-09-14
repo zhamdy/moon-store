@@ -175,9 +175,6 @@ export function focusAfterRemoval(
   return remaining[index] ?? 'filter';
 }
 
-// Lives in lib/utils so the purchase panel can use it without pulling in nuqs.
-export { fillTemplate };
-
 export interface PriceSummaryTemplates {
   /** "{min}–{max} {currency}" */
   between: string;

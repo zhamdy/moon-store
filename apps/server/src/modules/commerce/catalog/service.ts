@@ -5,6 +5,7 @@ import logger from '../../../../lib/logger';
 import { CATALOG_NOT_FOUND_MESSAGE, CATALOG_PAGE_SIZE } from './constants';
 import {
   deriveVariantOptions,
+  rowHasVariants,
   toCatalogCategoryDto,
   toCatalogCollectionDto,
   toCatalogProductDetailDto,
@@ -107,7 +108,7 @@ export class CatalogService {
       return { row, gallery, variants, collections };
     });
 
-    const hasVariants = Number(read.row.has_variants) === 1 || read.row.has_variants === true;
+    const hasVariants = rowHasVariants(read.row);
     const derived = hasVariants
       ? deriveVariantOptions(read.variants, read.row.price)
       : { options: [], variants: [], droppedVariantIds: [] };

@@ -1107,6 +1107,36 @@ describe('public catalog', () => {
       expect(derived).toEqual({ options: [], variants: [], droppedVariantIds: [1, 2, 3, 4] });
     });
 
+    it('merges keys and values that differ only by Unicode normalization', () => {
+      const nfd = 'Café';
+      const nfc = 'Café';
+      const derived = deriveVariantOptions(
+        [
+          row(1, JSON.stringify({ [nfd]: 'S' })),
+          row(2, JSON.stringify({ [nfc]: 'M' })),
+          row(3, JSON.stringify({ [nfc]: 'إ' })),
+          row(4, JSON.stringify({ [nfd]: 'إ' })),
+        ],
+        100
+      );
+      expect(derived.options).toEqual([{ key: 'café', label: 'Café', values: ['S', 'M', 'إ'] }]);
+      expect(derived.variants.map((v) => v.options)).toEqual([
+        { café: 'S' },
+        { café: 'M' },
+        { café: 'إ' },
+      ]);
+      expect(derived.droppedVariantIds).toEqual([4]);
+    });
+
+    it('does not conflate combinations whose values contain control characters', () => {
+      const derived = deriveVariantOptions(
+        [row(1, '{"a":"x\\u0001b\\u0000y","b":"z"}'), row(2, '{"a":"x","b":"y\\u0001b\\u0000z"}')],
+        100
+      );
+      expect(derived.variants).toHaveLength(2);
+      expect(derived.droppedVariantIds).toEqual([]);
+    });
+
     it('productImages honours the cap it is given', () => {
       const gallery = ['/a.jpg', '/b.jpg', '/c.jpg'];
       expect(productImages('/p.jpg', gallery, ORIGIN, 2)).toHaveLength(2);

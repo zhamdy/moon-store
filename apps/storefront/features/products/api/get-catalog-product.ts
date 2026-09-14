@@ -79,7 +79,8 @@ function invalidReason(data: unknown): string | null {
 }
 
 /**
- * `null` only for NOT_FOUND, so the page can `notFound()`; every other failure rethrows.
+ * `null` for NOT_FOUND and for VALIDATION_ERROR (the slug is the only input, so a malformed
+ * one is a missing product), so the page can `notFound()`; every other failure rethrows.
  * `cache` shares one read between `generateMetadata` and the page, which is what lets it
  * carry a deadline: the signal opts the fetch out of Next's own memoization (PD-9).
  */
@@ -93,7 +94,9 @@ export const getCatalogProduct = cache(
         { timeoutMs: CATALOG_LIST_TIMEOUT_MS }
       ));
     } catch (error) {
-      if (isApiError(error) && error.code === 'NOT_FOUND') return null;
+      if (isApiError(error) && (error.code === 'NOT_FOUND' || error.code === 'VALIDATION_ERROR')) {
+        return null;
+      }
       throw error;
     }
 

@@ -376,6 +376,33 @@ describe('storefront fields on the product write paths (HTTP boundary)', () => {
     ]);
   });
 
+  it('persists descriptions from a CSV import and keeps them when a re-import omits them', async () => {
+    const first = await http.request('POST', '/api/v1/products/import', {
+      products: [
+        productBody({ sku: 'D-1', description: 'حرير طبيعي', description_en: 'Natural silk.' }),
+      ],
+    });
+    expect(first.body.data).toEqual({ imported: 1, errors: [] });
+
+    const again = await http.request('POST', '/api/v1/products/import', {
+      products: [productBody({ sku: 'D-1', stock: 7 })],
+    });
+    expect(again.body.data).toEqual({ imported: 1, errors: [] });
+
+    const { rows } = await testPool.query(
+      "SELECT stock, description, description_en FROM products WHERE sku = 'D-1'"
+    );
+    expect(rows).toEqual([
+      { stock: 7, description: 'حرير طبيعي', description_en: 'Natural silk.' },
+    ]);
+  });
+
+  it('rejects a description longer than 5000 characters on create', async () => {
+    const res = await create({ description: 'a'.repeat(5001) });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('fails only the import row whose explicit slug another SKU holds, and keeps a re-imported slug', async () => {
     await create({ sku: 'HELD', slug: 'held-slug' });
 

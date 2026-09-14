@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { fillTemplate } from '@/lib/utils/fill-template';
 import {
   DEFAULT_CATALOG_PARAMS,
   serializeCatalogParams,
@@ -11,7 +12,6 @@ import {
   applyStaged,
   clearAllFilters,
   controlsReducer,
-  fillTemplate,
   focusAfterRemoval,
   formatPriceSummary,
   removeSummaryPart,

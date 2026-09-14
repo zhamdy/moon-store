@@ -132,15 +132,16 @@ function parseAttributes(row: CatalogVariantRow): ParsedVariant | null {
   const seen = new Set<string>();
   for (const [originalKey, originalValue] of Object.entries(raw)) {
     if (typeof originalValue !== 'string') return null;
-    const label = originalKey.trim();
-    const value = originalValue.trim();
+    // NFC so a composed and a decomposed spelling of the same text compare equal.
+    const label = originalKey.trim().normalize('NFC');
+    const value = originalValue.trim().normalize('NFC');
     const key = label.toLowerCase();
     if (!key || !value || seen.has(key)) return null;
     seen.add(key);
     entries.push({ key, label, value });
   }
   if (entries.length === 0) return null;
-  return { row, entries, signature: [...seen].sort().join('\u0000') };
+  return { row, entries, signature: JSON.stringify([...seen].sort()) };
 }
 
 export interface DerivedVariants {
@@ -198,10 +199,11 @@ export function deriveVariantOptions(
       continue;
     }
     const normalized = variant.entries.map((entry) => entry.value.toLowerCase());
-    const combination = variant.entries
-      .map((entry, i) => `${entry.key}\u0000${normalized[i]}`)
-      .sort()
-      .join('\u0001');
+    const combination = JSON.stringify(
+      variant.entries
+        .map((entry, i) => [entry.key, normalized[i]])
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    );
     if (combinations.has(combination)) {
       droppedVariantIds.push(variant.row.id);
       continue;
@@ -239,6 +241,10 @@ export function deriveVariantOptions(
   };
 }
 
+export function rowHasVariants(row: Pick<CatalogProductDetailRow, 'has_variants'>): boolean {
+  return row.has_variants === true || Number(row.has_variants) === 1;
+}
+
 export function toCatalogProductDetailDto(
   row: CatalogProductDetailRow,
   galleryInOrder: readonly string[],
@@ -247,7 +253,7 @@ export function toCatalogProductDetailDto(
   origin: string
 ): CatalogProductDetailDto {
   // `has_variants` is the authority: variant rows can outlive a cleared flag briefly.
-  const hasVariants = row.has_variants === true || Number(row.has_variants) === 1;
+  const hasVariants = rowHasVariants(row);
   const options = hasVariants ? derived.options : [];
   const variants = hasVariants ? derived.variants : [];
   const category: CatalogContextDto | null =

@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import type { AppLocale } from '@/i18n/routing';
 import { formatAmount } from '@/features/products/utils/price';
 import { cn } from '@/lib/utils/cn';
+import { fillTemplate } from '@/lib/utils/fill-template';
 import {
   catalogParsers,
   defaultSortFor,
@@ -31,7 +32,6 @@ import {
   clearAllFilters,
   commitPatch,
   controlsReducer,
-  fillTemplate,
   focusAfterRemoval,
   formatPriceSummary,
   removeSummaryPart,

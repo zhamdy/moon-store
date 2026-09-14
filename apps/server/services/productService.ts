@@ -403,7 +403,7 @@ export async function bulkUpdateProducts(
  * one bad row still fails alone. The transaction exists so a row and its generated slug
  * commit together, and the slug retry runs under a SAVEPOINT inside it. An explicit slug
  * held by a different SKU fails that row only. A re-imported SKU keeps its stored slug and
- * `name_en` unless the row supplies new ones.
+ * `name_en`, `description` and `description_en` unless the row supplies new ones.
  */
 export async function importProducts(products: unknown[]): Promise<ImportResult> {
   let imported = 0;
@@ -421,6 +421,8 @@ export async function importProducts(products: unknown[]): Promise<ImportResult>
         sku,
         slug,
         name_en,
+        description,
+        description_en,
         barcode,
         price,
         cost_price,
@@ -437,10 +439,11 @@ export async function importProducts(products: unknown[]): Promise<ImportResult>
         let row: { id: number; slug: string | null };
         try {
           const result = await client.query<{ id: number; slug: string | null }>(
-            `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::text, $12::text)
+            `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en, description, description_en)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::text, $12::text, $13::text, $14::text)
              ON CONFLICT(sku) DO UPDATE SET name=$1, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10,
-               slug=COALESCE($11::text, products.slug), name_en=COALESCE($12::text, products.name_en), updated_at=NOW()
+               slug=COALESCE($11::text, products.slug), name_en=COALESCE($12::text, products.name_en),
+               description=COALESCE($13::text, products.description), description_en=COALESCE($14::text, products.description_en), updated_at=NOW()
              RETURNING id, slug`,
             [
               name,
@@ -455,6 +458,8 @@ export async function importProducts(products: unknown[]): Promise<ImportResult>
               min_stock,
               slug ?? null,
               name_en || null,
+              description || null,
+              description_en || null,
             ]
           );
           row = result.rows[0];

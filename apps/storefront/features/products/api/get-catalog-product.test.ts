@@ -96,6 +96,14 @@ describe('getCatalogProduct', () => {
     await expect(getCatalogProduct('missing')).resolves.toBeNull();
   });
 
+  it('returns null on a 400 VALIDATION_ERROR (a malformed slug)', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse(400, { error: { code: 'VALIDATION_ERROR', message: 'Invalid slug' } })
+    );
+
+    await expect(getCatalogProduct('Silk-Midi-Dress')).resolves.toBeNull();
+  });
+
   it('rethrows a 503', async () => {
     vi.mocked(fetch).mockResolvedValue(
       jsonResponse(503, { error: { code: 'SERVICE_UNAVAILABLE', message: 'Down' } })

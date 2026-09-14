@@ -558,8 +558,11 @@ error boundary and the KD-14 provider (PD-5). `resolve()` calls `await connectio
 (PD-8), then `getCatalogProduct(slug)` (`features/products/api/get-catalog-product.ts`,
 `GET /api/v1/catalog/products/:slug`), then `notFound()` on `null` — before any Suspense,
 so KD-10 holds and `catalog-routes.test.ts` pins it. Unknown, inactive, discontinued and
-slug-less products are one indistinguishable 404 (PD-2); any other `ApiError` rethrows to
-the error screen.
+slug-less products are one indistinguishable 404 (PD-2), and so is a malformed slug: the
+API rejects it with a 400 `VALIDATION_ERROR`, which `getCatalogProduct` also maps to `null`
+(the slug is the endpoint's only input; the server regex is deliberately not copied here).
+Any other `ApiError` rethrows to the error screen. `getCatalogCollection` still maps only
+`NOT_FOUND`, so `/collections/Evening` is a 500 today (pre-existing, from #196).
 
 `getCatalogProduct` is the one entity read that **does** pass `timeoutMs`: it is wrapped
 in `React.cache`, so `generateMetadata` and the page still share one API call per render
