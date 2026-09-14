@@ -814,6 +814,14 @@ header[data-surface][data-surface-ready] {
     }
   }
 
+  /* From the split the row packs to its inline end, which faces the info column in both
+     directions, so image and text read as one composition. */
+  @media (min-width: 1024px) {
+    [data-gallery] {
+      justify-content: flex-end;
+    }
+  }
+
   /* The column adds no height: its list is absolutely placed, so the 4:5 frame sets the
      row and any thumbnails past its height scroll inside it. */
   [data-gallery-thumbs] {
@@ -886,6 +894,15 @@ header[data-surface][data-surface-ready] {
     aspect-ratio: 4 / 5;
     overflow: hidden;
     background-color: var(--color-surface-soft);
+  }
+
+  /* From 1024 the product fits one screen under the sticky header: the frame takes the 4:5
+     width (0.8) of the viewport height left after header and breadcrumb, never under 22rem,
+     and shrinks to the space the thumbnail column leaves. */
+  @media (min-width: 1024px) {
+    [data-gallery-frame] {
+      flex: 0 1 max(22rem, calc((100svh - var(--header-h) - 11rem) * 0.8));
+    }
   }
 
   /* The frame clips an outside outline and its panes paint over an inset shadow, so the

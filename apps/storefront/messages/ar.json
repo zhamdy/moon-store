@@ -291,7 +291,7 @@
       "imageAlt": "{name}، الصورة {n} من {count}",
       "thumbLabel": "الصورة {n} من {count}"
     },
-    "partOf": "من مجموعة {collection}",
+    "partOf": "ضمن {collection}",
     "related": {
       "heading": "المزيد من {name}"
     },

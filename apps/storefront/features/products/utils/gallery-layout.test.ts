@@ -29,8 +29,8 @@ describe('gallery sizes', () => {
   it('takes the thumbnail column and its gap out of the large image', () => {
     expect(galleryImageSizes(true)).toBe(
       [
-        '(min-width: 1440px) 664px',
-        '(min-width: 1024px) calc(58.33vw - 157.33px)',
+        '(min-width: 1440px) 536px',
+        '(min-width: 1024px) calc(50vw - 168px)',
         '(min-width: 992px) calc(100vw - 152px)',
         '(min-width: 768px) calc(100vw - 168px)',
         'calc(100vw - 128px)',
@@ -41,8 +41,8 @@ describe('gallery sizes', () => {
   it('fills the gallery column when there is no thumbnail column', () => {
     expect(galleryImageSizes(false)).toBe(
       [
-        '(min-width: 1440px) 752px',
-        '(min-width: 1024px) calc(58.33vw - 69.33px)',
+        '(min-width: 1440px) 624px',
+        '(min-width: 1024px) calc(50vw - 80px)',
         '(min-width: 992px) calc(100vw - 64px)',
         '(min-width: 768px) calc(100vw - 64px)',
         'calc(100vw - 40px)',
@@ -53,8 +53,8 @@ describe('gallery sizes', () => {
   it('doubles every width for the zoom image', () => {
     expect(galleryImageSizes(true, 2)).toBe(
       [
-        '(min-width: 1440px) 1328px',
-        '(min-width: 1024px) calc(116.67vw - 314.67px)',
+        '(min-width: 1440px) 1072px',
+        '(min-width: 1024px) calc(100vw - 336px)',
         '(min-width: 992px) calc(200vw - 304px)',
         '(min-width: 768px) calc(200vw - 336px)',
         'calc(200vw - 256px)',

@@ -4,8 +4,8 @@ import { tabKeyTarget } from './tab-keys';
  * The product gallery's geometry and rules (PD-10, owner decision 2026-09-14: the Bella
  * template's gallery), in one table so the `[data-gallery*]` rules in `app/globals.css`
  * and each image's `sizes` read the same numbers. A thumbnail column beside one large
- * image: at its inline start from 992, at its inline end below. Gutters, the 32px page
- * column gap and the container cap mirror `--page-gutter`, `ProductDetail`'s `lg:gap-x-8`
+ * image: at its inline start from 992, at its inline end below. Gutters, the 64px page
+ * column gap and the container cap mirror `--page-gutter`, `ProductDetail`'s `lg:gap-x-16`
  * and `--container-max`; a change there must change this table.
  */
 export interface GalleryStep {
@@ -13,16 +13,14 @@ export interface GalleryStep {
   minWidth: number;
   /** `--page-gutter` at this width, in px. */
   gutter: number;
-  /** From 1024 the gallery is 7 of the Container's 12 columns; below, the content box. */
+  /** From 1024 the gallery is half the Container's content box; below, all of it. */
   columns: 'split' | 'full';
   /** The square thumbnail button, border and padding included, in px. */
   thumb: number;
 }
 
 export const GALLERY_CONTAINER_MAX = 1440;
-const PAGE_COLUMNS = 12;
-const GALLERY_COLUMNS = 7;
-const PAGE_COLUMN_GAP = 32;
+const PAGE_COLUMN_GAP = 64;
 /** Between the thumbnail column and the large image, in px. */
 export const GALLERY_THUMB_GAP = 16;
 /** A thumbnail's 1px border plus 3px padding, on each side, in px. */
@@ -52,15 +50,17 @@ function length(vw: number, px: number): string {
   return `calc(${round(vw)}vw ${px < 0 ? '-' : '+'} ${round(Math.abs(px))}px)`;
 }
 
-/** The gallery column: 7 of 12 columns of the (capped) content box, or all of it. */
+/**
+ * The gallery column: half of the (capped) content box less half the column gap, or all
+ * of it. From 1024 the frame is also capped by the viewport height (`app/globals.css`);
+ * this describes the uncapped column, a slight overestimate on short, wide screens.
+ */
 function columnWidth(step: GalleryStep): [vw: number, px: number] {
   if (step.columns === 'full') return [100, -2 * step.gutter];
-  const share = GALLERY_COLUMNS / PAGE_COLUMNS;
-  const fixed = -2 * step.gutter - (PAGE_COLUMNS - 1) * PAGE_COLUMN_GAP;
-  const inner = (GALLERY_COLUMNS - 1) * PAGE_COLUMN_GAP;
+  const fixed = -step.gutter - PAGE_COLUMN_GAP / 2;
   return step.minWidth >= GALLERY_CONTAINER_MAX
-    ? [0, (GALLERY_CONTAINER_MAX + fixed) * share + inner]
-    : [100 * share, fixed * share + inner];
+    ? [0, GALLERY_CONTAINER_MAX / 2 + fixed]
+    : [50, fixed];
 }
 
 function stepsToSizes(steps: readonly GalleryStep[], width: (step: GalleryStep) => string) {

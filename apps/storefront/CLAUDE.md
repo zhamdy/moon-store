@@ -591,8 +591,16 @@ indexable. No JSON-LD `Product` until Cart makes it purchasable (PD-7).
 
 `ProductDetail` is a slot layout: the page passes `breadcrumb`, `gallery`, `purchase`,
 `details`, `related` and the listing `hrefs` (it builds every href; `features/products`
-never imports `features/catalog`). Order: breadcrumb row, a 7/5 split from 1024 (one
+never imports `features/catalog`). Order: breadcrumb row, a 50/50 split from 1024 with a
+64px column gap (`lg:grid-cols-2 lg:gap-x-16`, mirrored by `utils/gallery-layout.ts`; one
 column below), the details tabs at full container width, the related row.
+
+- **One screen from 1024** (owner feedback 2026-09-14, the Bella product page): the large
+  frame is `flex: 0 1 max(22rem, calc((100svh - var(--header-h) - 11rem) * 0.8))`, so the
+  4:5 image fits under the sticky header with the breadcrumb and shrinks to the space the
+  thumbnails leave; the thumbnail column follows its height. The gallery row packs to
+  `flex-end`, its inline end, which faces the info column in both directions. `sizes`
+  still describe the uncapped half column, a slight overestimate.
 
 - **Breadcrumb** (`product-breadcrumb.tsx`): `nav` (`product.breadcrumb.label`) > `ol`,
   Home (`product.breadcrumb.home`) / Shop (its own noun key `product.breadcrumb.shop`,
@@ -602,11 +610,14 @@ column below), the details tabs at full container width, the related row.
   `aria-hidden`.
 - **Info column**, `position: sticky` from 1024 (PD-15), kept after the enhancement: with
   the description moved into the tabs the column is usually shorter than the 4:5 gallery,
-  so price and sizes stay in view beside it. Category eyebrow, h1, a short lead (the first
+  so price and sizes stay in view beside it. Content capped at `max-w-[30rem]`. Category
+  eyebrow, h1 at `type-h2` (it must not compete with the photograph), a short lead (the first
   paragraph of the localized description, `productLead`; omitted without one), the
   purchase slot, `[data-product-action]` (the reserved, empty Add to Bag place, PD-B: no
-  button and no copy until Cart, and no sticky mobile purchase bar, PD-14), "Part of"
-  links. The lead sits above the price because price and sizes are one island.
+  button and no copy until Cart, and no sticky mobile purchase bar, PD-14), quick facts (a
+  `type-small` `dl` of material and fit under a hairline, omitted when both are empty; the
+  Details tab keeps the full list), "Part of" links (Arabic `ضمن {collection}`, since
+  collection names already carry مجموعة). The lead sits above the price because price and sizes are one island.
 - **Details tabs** (ED-4, `product-details-tabs.tsx` + the `product-tabs.tsx` island):
   Description (every paragraph), Details (a `dl`: material, care, fit, category link,
   collection links, sizes from the `size` option) and Shipping & returns (delivery and

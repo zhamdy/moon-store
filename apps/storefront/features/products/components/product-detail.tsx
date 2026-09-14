@@ -5,7 +5,7 @@ import { Container } from '@/components/ui/container';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { CatalogProductDetail } from '../types/catalog-product-detail';
-import { langProps, localizedName } from '../utils/localized-name';
+import { langProps, localizedName, localizedText } from '../utils/localized-name';
 import { formatPrice } from '../utils/price';
 import { productLead } from '../utils/product-details-model';
 
@@ -30,13 +30,14 @@ const LINK_HOVER =
   'underline-offset-4 transition-colors duration-fast ease-ui hover:text-text hover:underline';
 
 /**
- * The product page layout: breadcrumb, then a 7/5 split from 1024 with a sticky info
+ * The product page layout: breadcrumb, then a 50/50 split from 1024 with a sticky info
  * column (PD-15), one column below, then the details tabs and the related row. The
  * gallery column carries no Reveal, since it holds the LCP image.
  *
  * The info column holds only what decides a purchase: category eyebrow, name, a short
  * lead (the description's first paragraph; the full text is the Description tab), the
- * purchase slot and "Part of" links. `[data-product-action]` is the reserved Add to Bag
+ * purchase slot, a glance at material and fit (the full list is the Details tab) and
+ * "Part of" links. `[data-product-action]` is the reserved Add to Bag
  * place (PD-B): empty, no copy, and outside the purchase slot, so the island that
  * replaces the static summary never owns it. Hover lives on the links, the entrance on
  * their parents.
@@ -58,6 +59,13 @@ export async function ProductDetail({
   const name = localizedName(product, locale);
   const lead = productLead(product, locale);
   const category = product.category ? localizedName(product.category, locale) : null;
+  const facts = [
+    {
+      key: 'material' as const,
+      value: localizedText(product.material, product.materialEn, locale),
+    },
+    { key: 'fit' as const, value: localizedText(product.fit, product.fitEn, locale) },
+  ].flatMap(({ key, value }) => (value ? [{ key, value }] : []));
   // Only the collection name is the link, so the template is split around its placeholder.
   const [partOfBefore = '', partOfAfter = ''] = (t.raw('partOf') as string).split('{collection}');
 
@@ -66,12 +74,10 @@ export async function ProductDetail({
       <Container className="pt-6 pb-16 md:pt-8 lg:pb-24">
         {breadcrumb && <div className="mb-6 lg:mb-8">{breadcrumb}</div>}
 
-        <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-8">
-          <div className="lg:col-span-7">
-            {gallery ?? <div aria-hidden className="aspect-4/5 w-full bg-surface-soft" />}
-          </div>
+        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-16">
+          <div>{gallery ?? <div aria-hidden className="aspect-4/5 w-full bg-surface-soft" />}</div>
 
-          <Reveal className="mt-8 lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:col-span-5 lg:mt-0">
+          <Reveal className="mt-8 max-w-[30rem] lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:mt-0">
             {hrefs.category && category && (
               <p data-motion="fade" className="type-label text-text-secondary">
                 <Link
@@ -86,7 +92,7 @@ export async function ProductDetail({
             <h1
               {...langProps(name, locale)}
               data-motion="rise"
-              className="type-h1 mt-4 text-balance [--motion-offset:120ms] [--motion-rise:24px]"
+              className="type-h2 mt-3 text-balance [--motion-offset:120ms] [--motion-rise:24px]"
             >
               {name.text}
             </h1>
@@ -115,6 +121,19 @@ export async function ProductDetail({
             </div>
 
             <div data-product-action className="mt-8" />
+
+            {facts.length > 0 && (
+              <dl className="type-small mt-8 space-y-2 border-t border-border pt-6">
+                {facts.map(({ key, value }) => (
+                  <div key={key} className="grid grid-cols-[7rem_1fr] gap-x-4">
+                    <dt className="text-text-secondary">{t(`details.${key}`)}</dt>
+                    <dd {...langProps(value, locale)} className="text-text">
+                      {value.text}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
 
             {product.collections.length > 0 && (
               <ul className="type-small mt-8 space-y-2 text-text-secondary">
