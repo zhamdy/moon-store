@@ -26,10 +26,9 @@ export interface MarqueeProps {
  * Only the first set in the first track is exposed to assistive tech; every other
  * copy is `aria-hidden`. Pauses on hover, on focus-within (nothing inside this
  * component is itself focusable — that rule catches focus moving through
- * `aria-hidden` copies in some browsers) and, for the editorial strip
- * specifically, on the sibling pause toggle its parent renders
- * (`editorial-strip.tsx`, `[data-strip]:has([data-strip-toggle]:checked)`,
- * WCAG 2.2.2). Travels the other way under `[dir="rtl"]`, and under reduced
+ * `aria-hidden` copies in some browsers). There is no visible pause control
+ * (removed 2026-09-14; the WCAG 2.2.2 gap is in docs/ACCESSIBILITY.md).
+ * Travels the other way under `[dir="rtl"]`, and under reduced
  * motion every copy is removed and the single set scrolls naturally. See
  * `.marquee` in app/globals.css.
  */

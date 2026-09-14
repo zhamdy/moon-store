@@ -21,6 +21,12 @@ sense. That is why both exist, and why the list below exists as well.
 
 ## Known gaps
 
+**Storefront editorial strip has no stop mechanism (WCAG 2.2.2, open).** The homepage
+marquee moves for more than five seconds. It pauses on hover and stops under reduced
+motion, but its visible pause toggle was removed by owner decision (2026-09-14), so a
+keyboard or touch user without the reduced-motion setting cannot stop it. Closing the gap
+means restoring the CSS-only toggle described in `apps/storefront/CLAUDE.md` → *Motion* §5.
+
 **#111 — HeroUI buttons wired with `onClick` were pointer-only.** Fixed, and recorded here
 because the way it hid is the useful part. HeroUI's `Button` is react-aria based: it
 intercepts key events and dispatches `onPress`, suppressing the native click, so a handler

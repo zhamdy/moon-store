@@ -735,24 +735,6 @@ header[data-surface][data-surface-ready] {
   animation-play-state: paused;
 }
 
-/* Strip pause toggle (WCAG 2.2.2) - features/home/components/editorial-strip/
-   editorial-strip.tsx. A native checkbox, `role="switch"`, scoped by
-   [data-strip]/[data-strip-toggle] rather than a bare `section:has(:checked)`
-   so it can never reach into an unrelated section. Focusing the unchecked
-   toggle must not pause the tracks, so this is separate from the
-   :hover/:focus-within rule above, which stays scoped to .marquee itself. */
-[data-strip]:has([data-strip-toggle]:checked) :is(.marquee-track, [data-strip-pan]) {
-  animation-play-state: paused;
-}
-
-/* Hidden where it would do nothing (reduced motion already stops everything) or
-   could not work (:has() unsupported), so the strip keeps no empty gap for it. */
-@supports not selector(:has(*)) {
-  [data-strip-toggle-control] {
-    display: none;
-  }
-}
-
 /* product-card.tsx: the alternate (hover) image only exists where hover exists.
    display:none unless hover is available at 768+, so the lazy <img> inside is
    never fetched on a touch device, which has no hover to reveal it. */
@@ -882,10 +864,6 @@ header[data-surface][data-surface-ready] {
 
   .marquee-track[aria-hidden='true'],
   [data-marquee-copy] {
-    display: none;
-  }
-
-  [data-strip-toggle-control] {
     display: none;
   }
 }
