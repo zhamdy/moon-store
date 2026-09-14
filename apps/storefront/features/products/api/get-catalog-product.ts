@@ -18,6 +18,19 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === 'string';
 }
 
+// Optional display text: a key an older API does not send yet reads as null instead of
+// failing the page (a pre-migration cache entry, or an API rolled back behind the storefront).
+const OPTIONAL_TEXT = [
+  'description',
+  'descriptionEn',
+  'material',
+  'materialEn',
+  'care',
+  'careEn',
+  'fit',
+  'fitEn',
+] as const;
+
 function isPrice(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -59,11 +72,10 @@ function invalidReason(data: unknown): string | null {
   if (!isRecord(data)) return 'was not an object';
   if (typeof data.slug !== 'string' || typeof data.name !== 'string') return 'had no slug or name';
   if (!isNullableString(data.nameEn)) return 'had an invalid nameEn';
-  if (!isNullableString(data.description) || !isNullableString(data.descriptionEn)) {
-    return 'had an invalid description';
-  }
-  for (const field of ['material', 'materialEn', 'care', 'careEn', 'fit', 'fitEn'] as const) {
-    if (!isNullableString(data[field])) return `had an invalid ${field}`;
+  for (const field of OPTIONAL_TEXT) {
+    if (data[field] !== undefined && !isNullableString(data[field])) {
+      return `had an invalid ${field}`;
+    }
   }
   if (!isPrice(data.price)) return 'had a non-numeric price';
   if (typeof data.isNew !== 'boolean' || typeof data.inStock !== 'boolean') {
@@ -111,6 +123,8 @@ export const getCatalogProduct = cache(
         message: `The catalog product ${reason}.`,
       });
     }
-    return data as CatalogProductDetail;
+    const product = data as Record<string, unknown>;
+    for (const field of OPTIONAL_TEXT) product[field] ??= null;
+    return product as unknown as CatalogProductDetail;
   }
 );

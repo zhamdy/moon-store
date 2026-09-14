@@ -75,6 +75,24 @@ describe('getCatalogProduct', () => {
     await expect(getCatalogProduct('silk-dress')).resolves.toEqual(plain);
   });
 
+  it('reads optional text an older API does not send as null', async () => {
+    const older: Record<string, unknown> = { ...product };
+    for (const field of ['material', 'materialEn', 'care', 'careEn', 'fit', 'fitEn']) {
+      delete older[field];
+    }
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(200, { data: older }));
+
+    await expect(getCatalogProduct('silk-dress')).resolves.toMatchObject({
+      material: null,
+      materialEn: null,
+      care: null,
+      careEn: null,
+      fit: null,
+      fitEn: null,
+      descriptionEn: 'Bias-cut silk.',
+    });
+  });
+
   it('sends the server token header when configured', async () => {
     vi.stubEnv('CATALOG_SERVER_TOKEN', 'b'.repeat(32));
     vi.mocked(fetch).mockResolvedValue(jsonResponse(200, { data: product }));
@@ -143,7 +161,6 @@ describe('getCatalogProduct', () => {
     ['variants is not an array', { ...product, variants: {} }],
     ['the price is not a number', { ...product, price: '1250.00' }],
     ['material is not a string', { ...product, material: 1 }],
-    ['careEn is missing', { ...product, careEn: undefined }],
     [
       'a variant price is not a number',
       { ...product, variants: [{ ...product.variants[0], price: null }] },
