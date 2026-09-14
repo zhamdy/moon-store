@@ -131,10 +131,14 @@ Server Components by default (R21/R22). `'use client'` is limited to seven entri
    header's single link to the other locale); one module, one boundary.
 4. `components/layout/header/header-shell.tsx` — owns the `IntersectionObserver` that
    narrows the header surface; takes children only.
-5. `components/motion/reveal.tsx` — an `IntersectionObserver` for the scroll reveal;
-   the transition itself is CSS. Takes children only.
+5. `components/motion/reveal.tsx` — one shared `IntersectionObserver` that flips a
+   `data-reveal` state; every transition it triggers is CSS declared on server markup.
+   Takes children only.
 6. `components/motion/parallax.tsx` — `scroll()` from `motion` driving a WAAPI
    animation from `motion/mini`. Takes children only.
+
+`components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
+heading into masked word spans on the server.
 7. `features/home/components/hero/hero-carousel.tsx` — which hero slide is active,
    autoplay, tabs, swipe. Slide content arrives server-rendered as `ReactNode`s and
    every string arrives resolved; it renders no image itself.
@@ -164,44 +168,66 @@ the seam a future page wires up; it does not need `usePathname`.
 
 ## Motion
 
-Four ideas, reused everywhere, three of them without the motion runtime (guideline
-§12/§13). Every effect has a reduced-motion fallback; nothing hijacks scroll, pins,
-bounces or blocks interaction.
+Three levels, set in the 2026-09-14 motion pass: **signature** (hero, editorial strip,
+featured collection, campaign, promo banner), **section** (headings, product grids,
+categories, The Edit, benefits) and **micro** (hover and link states, 180–400ms).
+Transform, opacity and clip-path only; nothing hijacks scroll, pins, bounces or blocks
+interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-ui`).
 
-1. **Entrance** — `@keyframes moon-fade-up` / `moon-line-reveal` / `moon-image-settle`,
-   staggered with `[--entrance-delay:…]`. The hero slides apply them through CSS keyed on
-   the slide's `data-active` (`data-hero-image`, `data-enter="fade" | "line"`), so the
-   first slide's entrance plays from the server HTML with no JS and each slide replays it
-   when it becomes active. The line reveal needs an overflow-hidden parent; each title
-   line has its own so a wrapped line is never clipped. The mobile menu's links use the
-   `entrance-fade-up` utility with a 70ms stagger.
-2. **Scroll reveal** — `<Reveal>`: the server HTML is the visible state. On mount,
-   `decideInitialRevealState` (`reveal-policy.ts`, unit-tested) marks *only* elements
-   entirely below the fold as pending, never under reduced motion; an
-   `IntersectionObserver` flips them once. `effect="mask"` is the line wipe for display
-   type. Used on section headings, the featured collection's title block and small
-   image, and the campaign line. Never on product cards, and never inside horizontal
-   rails (lookbook, categories): off-screen cards there never intersect until swiped, so
-   they arrived blank and faded in mid-swipe.
-3. **Parallax** — `<Parallax travel>`: 4–8% travel, transform only: a paused WAAPI
-   animation whose time is set from `scroll()`'s progress callback (one shared,
-   event-driven scroll listener per container — JS-driven, not a native ScrollTimeline;
-   see the component comment for why the animation form of `scroll()` is avoided). The
-   over-scale that hides the frame edge is CSS (`--parallax-scale`) and collapses under
-   reduced motion, so the server HTML, the no-JS state and the reduced-motion state are
-   one unanimated element; JS attaches the translate only when motion is allowed.
-4. **Marquee** — `<Marquee>` (a Server Component in the home slice, its only consumer):
-   pure CSS, two content-sized tracks (never stretched to full width: the spare space
-   would pile up at the loop seam as one oversized gap), each repeating the content
-   `repeat` times so a track outruns any viewport, every copy but the first
-   `aria-hidden`; paused on hover and
-   focus-within, direction reversed under `[dir="rtl"]`, and under reduced motion the
-   copy is removed and the single track scrolls naturally. Duration lives in
-   `.marquee` in `globals.css`.
+1. **Hero** — CSS keyed on the carousel's `data-active` / `data-leaving`, so the first
+   slide plays from the server HTML with no JS. Sequence on load and on every change:
+   image 1.08 → 1 from 120ms, label wipe (`data-enter="wipe"`) at 200ms, masked title
+   lines at 300/420ms, copy at 450ms, link at 600ms; the tab row settles at 750ms on
+   load. The outgoing slide fades over 1s while its image drifts to 1.04 and its title
+   exits upward through the same masks. Progress bars are empty before hydration
+   (`idle`), fill over 7s while rotating, and refill quickly on each manual change once
+   stopped.
+2. **Scroll reveal** — `<Reveal>` is a *trigger*, not an effect. The server HTML is the
+   visible state; on mount `decideInitialRevealState` (`reveal-policy.ts`, unit-tested)
+   marks only elements entirely below the fold as `pending`, never under reduced motion,
+   and a shared observer flips them to `in`. What moves is declared on server markup
+   with `data-motion="rise" | "fade" | "image" | "wipe" | "word"` (plus
+   `data-motion-zoom` inside an `image`), on the Reveal or any descendant. Timing is
+   `--motion-stagger` (inherited step count) × `--motion-step` + `--motion-offset`;
+   offset and duration are registered `@property`s that do **not** inherit, so set them
+   on the element that moves. Distances use `--motion-rise`, scaled by 0.6 below 768px.
+   The rules live in `@layer components` so utility classes override their defaults.
+   `amount` is a bottom root margin, not an intersection ratio, so a Reveal taller than
+   the viewport still fires. Nested Reveals are safe (an outer one always fires first).
+   Still never inside the horizontal rails' *items* on phones: off-screen rail cards do
+   not intersect until swiped, so the lookbook has no reveal and category tiles share
+   their grid's single trigger.
+3. **TextReveal** — masked headlines split **by word**, not by rendered line: the break
+   depends on locale, font and viewport, and measuring it would need client JS. The
+   heading carries `aria-label` and the word spans are `aria-hidden`, so it is headings
+   only (`h2`/`h3`).
+4. **Parallax** — `<Parallax travel mode>`; `travel` is signed and halved below 768px.
+   `layer` (default) moves an over-scaled image inside a clipped frame (banner 7%,
+   campaign 6%); `element` moves the whole element through the independent `translate`
+   property, so it composes with a Reveal transform (featured small image 8%, lookbook
+   +5/−4/+7/−3/+5% from 1024 via `media`). A paused WAAPI animation whose time is set
+   from `scroll()`'s progress callback (see the component comment for why the animation
+   form of `scroll()` is avoided). The layer over-scale is CSS and collapses under
+   reduced motion.
+5. **Marquee** — `<Marquee duration gap decorative>` (a Server Component in the home
+   slice): pure CSS, two content-sized tracks (never stretched: the spare space would
+   pile up at the seam), each repeating the content so a track outruns any viewport.
+   The strip layers two: words at 30s per set and the images, `decorative`, on top at
+   26s over a much wider gap, so they travel about twice as fast in the *same* direction
+   (opposite directions read as two unrelated tickers, not depth). Hovering the band
+   (`[data-marquee-group]`) pauses both; under reduced motion both stop and the images
+   drop below the words as a still row.
 
-`Reveal` and `Parallax` read `prefers-reduced-motion` once at mount; a preference change
-mid-session is honoured on reload. `HeroCarousel` subscribes to it, so turning the
-setting on mid-session stops autoplay immediately.
+**Reveal and hover never share an element.** A `transition-*` utility replaces the
+element's whole `transition-property`, so a hover transition on an element carrying
+`data-motion` would make its reveal snap. Hover lives on an inner wrapper (product
+card, category tile) or the reveal on an outer one (section links, banner button).
+Tailwind's hover utilities use the separate `scale` / `translate` properties, so they
+never collide with the reveal's `transform`.
+
+`Reveal` and `Parallax` read `prefers-reduced-motion` at mount (`Parallax` also
+re-attaches when it or the breakpoint changes); `HeroCarousel` subscribes to it, so
+turning the setting on mid-session stops autoplay immediately.
 
 The hero has **no pause button** (user decision, 2026-09-13). WCAG 2.2.2 still needs a
 way to stop content that moves for more than five seconds, and the carousel's is
