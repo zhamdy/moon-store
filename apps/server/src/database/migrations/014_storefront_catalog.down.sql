@@ -7,9 +7,6 @@
 -- objects stay in storage and become orphans for the media sweep. Take a dump of
 -- `product_images` and the slug/name_en/description_en columns before running it in
 -- production.
-DROP INDEX IF EXISTS idx_product_variants_in_stock;
-DROP INDEX IF EXISTS idx_products_category_status;
-DROP INDEX IF EXISTS idx_products_status_price;
 DROP INDEX IF EXISTS idx_products_status_created;
 
 DROP TABLE IF EXISTS product_images;

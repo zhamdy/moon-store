@@ -226,8 +226,10 @@ beforeAll(async () => {
     s = s.replace(/CURRENT_DATE - \(\$1 \|\| ' days'\)::interval/g, "NOW() - INTERVAL '30 days'");
     s = s.replace(/CURRENT_DATE/g, 'NOW()');
 
-    // Handle OVER() clause in refreshAbcClasses if run in pg-mem
-    if (s.includes('OVER ()') || s.includes('OVER (ORDER BY')) {
+    // Handle OVER() clause in refreshAbcClasses if run in pg-mem. Narrowed to abc_class:
+    // migration 006's header comment mentions `OVER ()`, and matching it replaced that
+    // whole migration, so `collection_products.position` silently never existed here.
+    if (/\babc_class\b/.test(s) && (s.includes('OVER ()') || s.includes('OVER (ORDER BY'))) {
       return "UPDATE products SET abc_class = 'A' WHERE status = 'active'";
     }
 

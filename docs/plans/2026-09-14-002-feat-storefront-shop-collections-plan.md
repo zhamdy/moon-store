@@ -350,7 +350,7 @@ where `ImageSource` is a static import (homepage) or a remote URL (catalog).
 - Headings fade the eyebrow and rise the title once (the AD-11 commerce entrance). No `TextReveal` word mask.
 
 **KD-17. Query hardening (UD-5).**
-- Migration 014 adds listing indexes: `products (status, created_at DESC, id)`, `products (status, price, id)`, `products (category_id, status)`, and `product_variants (product_id) WHERE stock > 0`.
+- Migration 014 adds listing indexes: `products (status, created_at DESC, id)`, `products (status, price, id)`, `products (category_id, status)`, and `product_variants (product_id) WHERE stock > 0`. Measured (U4 EXPLAIN, 8,000 products): only `(status, created_at DESC, id)` was used (for `new=true`), so the other three were dropped from 014.
 - Catalog repository queries run in a transaction with `SET LOCAL statement_timeout = '2s'`. A timeout maps to a 503, not a pinned connection.
 - `page` is capped at 500, and price bounds must be multiples of 50 EGP (the storefront snaps before sending). That bounds OFFSET cost and cache-key fragmentation.
 - A real-PG test runs the worst combination (`inStock` + price range + `price-desc` + a deep page) against a seeded volume and asserts it completes under the timeout.

@@ -169,10 +169,7 @@ CREATE TABLE IF NOT EXISTS product_images (
   CONSTRAINT product_images_position_unique UNIQUE (product_id, position)
 );
 
--- Listing indexes (KD-17): newest-first and price-ordered listings of active products,
--- keyset-stable on id; category filtering; and the in-stock filter, which is an EXISTS
--- over variants that still have stock.
+-- Listing index (KD-17): the "new in" window over active products. EXPLAIN on 8,000
+-- products used it for new=true; the planner never chose the price, category or in-stock
+-- candidates, so they were dropped rather than paid for on every write.
 CREATE INDEX IF NOT EXISTS idx_products_status_created ON products(status, created_at DESC, id);
-CREATE INDEX IF NOT EXISTS idx_products_status_price ON products(status, price, id);
-CREATE INDEX IF NOT EXISTS idx_products_category_status ON products(category_id, status);
-CREATE INDEX IF NOT EXISTS idx_product_variants_in_stock ON product_variants(product_id) WHERE stock > 0;

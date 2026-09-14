@@ -3,6 +3,9 @@ import { Pool } from 'pg';
 import { getPool, closePool } from './pool';
 import { withTransaction } from './transaction';
 import logger from '../../lib/logger';
+import { slugify } from '../modules/inventory/shared/slug';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function seedDatabase(pool?: Pool): Promise<void> {
   if (process.env.NODE_ENV === 'production' && !process.env.FORCE_SEED) {
@@ -115,22 +118,29 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
     }
 
     // ─── Categories (Arabic) ─────────────────────────────────────────
+    // `slug` is the storefront URL key. dresses, tops, knitwear, bags and abayas are the
+    // homepage's category keys (tests/database/seedCatalogKeys.test.ts). Kimonos holds only
+    // a discontinued product, so the storefront's empty-category state has a real target.
     const categories = [
-      { name: 'فساتين', code: 'DRS' },
-      { name: 'تريكو', code: 'KNT' },
-      { name: 'حقائب', code: 'BAG' },
-      { name: 'بناطيل', code: 'BTM' },
-      { name: 'مجوهرات', code: 'JWL' },
-      { name: 'بلوزات', code: 'TOP' },
-      { name: 'جاكيتات', code: 'JKT' },
-      { name: 'أحذية', code: 'SHO' },
-      { name: 'إكسسوارات', code: 'ACC' },
-      { name: 'عبايات', code: 'ABA' },
-      { name: 'حجاب', code: 'HJB' },
+      { name: 'فساتين', code: 'DRS', slug: 'dresses', name_en: 'Dresses' },
+      { name: 'تريكو', code: 'KNT', slug: 'knitwear', name_en: 'Knitwear' },
+      { name: 'حقائب', code: 'BAG', slug: 'bags', name_en: 'Bags' },
+      { name: 'بناطيل', code: 'BTM', slug: 'trousers-skirts', name_en: 'Trousers & Skirts' },
+      { name: 'مجوهرات', code: 'JWL', slug: 'jewellery', name_en: 'Jewellery' },
+      { name: 'بلوزات', code: 'TOP', slug: 'tops', name_en: 'Tops' },
+      { name: 'جاكيتات', code: 'JKT', slug: 'outerwear', name_en: 'Outerwear' },
+      { name: 'أحذية', code: 'SHO', slug: 'shoes', name_en: 'Shoes' },
+      { name: 'إكسسوارات', code: 'ACC', slug: 'accessories', name_en: 'Accessories' },
+      { name: 'عبايات', code: 'ABA', slug: 'abayas', name_en: 'Abayas' },
+      { name: 'حجاب', code: 'HJB', slug: 'scarves-hijabs', name_en: 'Scarves & Hijabs' },
+      { name: 'كيمونو', code: 'KIM', slug: 'kimonos', name_en: 'Kimonos' },
     ];
 
     for (const c of categories) {
-      await client.query('INSERT INTO categories (name, code) VALUES ($1, $2)', [c.name, c.code]);
+      await client.query(
+        'INSERT INTO categories (name, code, slug, name_en) VALUES ($1, $2, $3, $4)',
+        [c.name, c.code, c.slug, c.name_en]
+      );
     }
     logger.info(`✓ ${categories.length} categories inserted.`);
 
@@ -213,6 +223,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'فستان حرير ميدي',
         sku: 'MN-DRS-001',
+        name_en: 'Silk Midi Dress',
+        days_ago: 4,
         barcode: '6221001001',
         price: 2850,
         cost: 1400,
@@ -224,6 +236,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'فستان سهرة مطرز',
         sku: 'MN-DRS-002',
+        name_en: 'Embroidered Evening Gown',
+        days_ago: 12,
         barcode: '6221001002',
         price: 4500,
         cost: 2200,
@@ -235,6 +249,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'فستان كتان صيفي',
         sku: 'MN-DRS-003',
+        name_en: 'Linen Summer Dress',
+        days_ago: 21,
         barcode: '6221001003',
         price: 1950,
         cost: 950,
@@ -246,6 +262,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'بلوفر كشمير',
         sku: 'MN-KNT-001',
+        name_en: 'Cashmere Pullover',
+        days_ago: 27,
         barcode: '6221002001',
         price: 3200,
         cost: 1600,
@@ -257,6 +275,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'كارديجان صوف طويل',
         sku: 'MN-KNT-002',
+        name_en: 'Long Wool Cardigan',
+        days_ago: 33,
         barcode: '6221002002',
         price: 2400,
         cost: 1200,
@@ -268,6 +288,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'تيشيرت تريكو خفيف',
         sku: 'MN-KNT-003',
+        name_en: 'Fine Knit T-Shirt',
+        days_ago: 88,
         barcode: '6221002003',
         price: 1200,
         cost: 580,
@@ -279,6 +301,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'شنطة جلد طبيعي كروس',
         sku: 'MN-BAG-001',
+        name_en: 'Leather Crossbody Bag',
+        days_ago: 40,
         barcode: '6221003001',
         price: 3800,
         cost: 1900,
@@ -290,10 +314,12 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'حقيبة يد سهرة مخمل',
         sku: 'MN-BAG-002',
+        name_en: 'Velvet Evening Clutch',
+        days_ago: 9,
         barcode: '6221003002',
         price: 1800,
         cost: 850,
-        stock: 10,
+        stock: 0,
         category: 'حقائب',
         min_stock: 3,
         dist_id: 3,
@@ -301,6 +327,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'شنطة ظهر جلد',
         sku: 'MN-BAG-003',
+        name_en: 'Leather Backpack',
+        days_ago: 62,
         barcode: '6221003003',
         price: 2600,
         cost: 1300,
@@ -312,6 +340,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'بنطلون واسع قماش',
         sku: 'MN-BTM-001',
+        name_en: 'Wide-Leg Trousers',
+        days_ago: 18,
         barcode: '6221004001',
         price: 1650,
         cost: 800,
@@ -323,6 +353,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'جيبة بليسيه ماكسي',
         sku: 'MN-BTM-002',
+        name_en: 'Pleated Maxi Skirt',
+        days_ago: 47,
         barcode: '6221004002',
         price: 1900,
         cost: 920,
@@ -334,6 +366,9 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'جينز هاي ويست',
         sku: 'MN-BTM-003',
+        name_en: null,
+        slug: 'high-waist-jeans',
+        days_ago: 75,
         barcode: '6221004003',
         price: 1400,
         cost: 680,
@@ -345,10 +380,12 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'عقد ذهب ناعم',
         sku: 'MN-JWL-001',
+        name_en: 'Fine Gold Necklace',
+        days_ago: 6,
         barcode: '6221005001',
         price: 5500,
         cost: 3800,
-        stock: 8,
+        stock: 0,
         category: 'مجوهرات',
         min_stock: 2,
         dist_id: 4,
@@ -356,6 +393,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'حلق لؤلؤ طبيعي',
         sku: 'MN-JWL-002',
+        name_en: 'Natural Pearl Earrings',
+        days_ago: 15,
         barcode: '6221005002',
         price: 2200,
         cost: 1100,
@@ -367,6 +406,9 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'طقم خواتم استيت',
         sku: 'MN-JWL-003',
+        name_en: null,
+        slug: 'steel-ring-set',
+        days_ago: 83,
         barcode: '6221005003',
         price: 950,
         cost: 420,
@@ -378,6 +420,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'بلوزة ساتان أوف شولدر',
         sku: 'MN-TOP-001',
+        name_en: 'Satin Off-Shoulder Blouse',
+        days_ago: 2,
         barcode: '6221006001',
         price: 1550,
         cost: 750,
@@ -389,6 +433,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'قميص كتان أوفرسايز',
         sku: 'MN-TOP-002',
+        name_en: 'Oversized Linen Shirt',
+        days_ago: 24,
         barcode: '6221006002',
         price: 1350,
         cost: 650,
@@ -400,6 +446,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'توب كروشيه يدوي',
         sku: 'MN-TOP-003',
+        name_en: 'Hand-Crocheted Top',
+        days_ago: 55,
         barcode: '6221006003',
         price: 1800,
         cost: 900,
@@ -411,6 +459,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'بليزر صوف كلاسيك',
         sku: 'MN-JKT-001',
+        name_en: 'Classic Wool Blazer',
+        days_ago: 36,
         barcode: '6221007001',
         price: 3600,
         cost: 1800,
@@ -422,10 +472,12 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'ترنش كوت بيج',
         sku: 'MN-JKT-002',
+        name_en: 'Beige Trench Coat',
+        days_ago: 68,
         barcode: '6221007002',
         price: 4200,
         cost: 2100,
-        stock: 8,
+        stock: 0,
         category: 'جاكيتات',
         min_stock: 3,
         dist_id: 2,
@@ -433,6 +485,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'حذاء جلد بكعب عالي',
         sku: 'MN-SHO-001',
+        name_en: 'Leather High Heels',
+        days_ago: 11,
         barcode: '6221008001',
         price: 2400,
         cost: 1150,
@@ -444,6 +498,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'صندل فلات مزين',
         sku: 'MN-SHO-002',
+        name_en: 'Embellished Flat Sandals',
+        days_ago: 29,
         barcode: '6221008002',
         price: 1100,
         cost: 520,
@@ -455,6 +511,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'بوت شمواه أنكل',
         sku: 'MN-SHO-003',
+        name_en: 'Suede Ankle Boots',
+        days_ago: 80,
         barcode: '6221008003',
         price: 2800,
         cost: 1350,
@@ -466,6 +524,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'وشاح حرير مطبوع',
         sku: 'MN-ACC-001',
+        name_en: 'Printed Silk Scarf',
+        days_ago: 14,
         barcode: '6221009001',
         price: 850,
         cost: 380,
@@ -477,6 +537,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'نظارة شمس أوفرسايز',
         sku: 'MN-ACC-002',
+        name_en: 'Oversized Sunglasses',
+        days_ago: 58,
         barcode: '6221009002',
         price: 1450,
         cost: 680,
@@ -488,6 +550,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'حزام جلد عريض',
         sku: 'MN-ACC-003',
+        name_en: 'Wide Leather Belt',
+        days_ago: 71,
         barcode: '6221009003',
         price: 750,
         cost: 340,
@@ -499,6 +563,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'عباية كريب مطرزة',
         sku: 'MN-ABA-001',
+        name_en: 'Embroidered Crepe Abaya',
+        days_ago: 8,
         barcode: '6221010001',
         price: 3200,
         cost: 1550,
@@ -510,6 +576,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'عباية ملونة كاجوال',
         sku: 'MN-ABA-002',
+        name_en: 'Casual Colour Abaya',
+        days_ago: 44,
         barcode: '6221010002',
         price: 2100,
         cost: 1000,
@@ -521,6 +589,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'طرحة شيفون سادة',
         sku: 'MN-HJB-001',
+        name_en: 'Plain Chiffon Hijab',
+        days_ago: 52,
         barcode: '6221011001',
         price: 350,
         cost: 150,
@@ -532,6 +602,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'إيشارب حرير مطبوع',
         sku: 'MN-HJB-002',
+        name_en: 'Printed Silk Square',
+        days_ago: 19,
         barcode: '6221011002',
         price: 650,
         cost: 300,
@@ -543,6 +615,9 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       {
         name: 'بندانة قطن',
         sku: 'MN-HJB-003',
+        name_en: null,
+        slug: 'cotton-bandana',
+        days_ago: 90,
         barcode: '6221011003',
         price: 180,
         cost: 80,
@@ -551,13 +626,61 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
         min_stock: 25,
         dist_id: 5,
       },
+      {
+        name: 'فستان حرير سليب',
+        sku: 'MN-DRS-004',
+        name_en: 'Silk Slip Dress',
+        days_ago: 3,
+        barcode: '6221001004',
+        price: 6750,
+        cost: 3300,
+        stock: 0,
+        category: 'فساتين',
+        min_stock: 2,
+        dist_id: 1,
+      },
+      {
+        name: 'قميص حرير واسع',
+        sku: 'MN-TOP-004',
+        name_en: 'Relaxed Silk Shirt',
+        days_ago: 38,
+        barcode: '6221006004',
+        price: 2275,
+        cost: 1100,
+        stock: 9,
+        category: 'بلوزات',
+        min_stock: 3,
+        dist_id: 1,
+      },
+      {
+        name: 'كيمونو قطن مطبوع',
+        sku: 'MN-KIM-001',
+        name_en: 'Printed Cotton Kimono',
+        days_ago: 85,
+        barcode: '6221012001',
+        price: 1750,
+        cost: 820,
+        stock: 6,
+        category: 'كيمونو',
+        min_stock: 2,
+        dist_id: 5,
+        status: 'discontinued',
+      },
     ];
 
+    // The storefront reads `slug`, `name_en` and `created_at`: slugs come from the English
+    // name (or an explicit value where name_en is left null to exercise the Arabic
+    // fallback), and `days_ago` spreads arrivals over 90 days so "new in" (30 days) has
+    // both members and non-members.
+    const now = Date.now();
+    const productIds = new Map<string, number>();
     for (const p of products) {
       const realDistId = distMap.get(p.dist_id) || null;
-      await client.query(
-        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, min_stock, distributor_id, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT id FROM categories WHERE name = $8), $9, $10, 'active')`,
+      const slug = ('slug' in p ? p.slug : null) ?? slugify(p.name_en);
+      const res = await client.query<{ id: number }>(
+        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, min_stock, distributor_id, status, slug, name_en, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT id FROM categories WHERE name = $8), $9, $10, $11, $12, $13, $14)
+         RETURNING id`,
         [
           p.name,
           p.sku,
@@ -569,10 +692,144 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
           p.category,
           p.min_stock,
           realDistId,
+          ('status' in p ? p.status : null) ?? 'active',
+          slug,
+          p.name_en,
+          new Date(now - p.days_ago * DAY_MS).toISOString(),
         ]
       );
+      productIds.set(p.sku, res.rows[0].id);
     }
     logger.info(`✓ ${products.length} products inserted.`);
+
+    // ─── Variants ────────────────────────────────────────────────────
+    // Mixed stock (some sizes sold out) and one product whose every size is sold out, so
+    // the storefront's in-stock filter is decided by variants, not `products.stock`.
+    const variantSizes: Record<string, [string, number][]> = {
+      'MN-DRS-001': [
+        ['S', 0],
+        ['M', 3],
+        ['L', 0],
+      ],
+      'MN-KNT-001': [
+        ['S', 4],
+        ['M', 0],
+        ['L', 2],
+      ],
+      'MN-DRS-004': [
+        ['S', 0],
+        ['M', 0],
+      ],
+    };
+    let variantCount = 0;
+    for (const [sku, sizes] of Object.entries(variantSizes)) {
+      const productId = productIds.get(sku);
+      for (const [size, stock] of sizes) {
+        await client.query(
+          'INSERT INTO product_variants (product_id, sku, stock, attributes) VALUES ($1, $2, $3, $4)',
+          [productId, `${sku}-${size}`, stock, JSON.stringify({ size })]
+        );
+        variantCount += 1;
+      }
+      await client.query('UPDATE products SET has_variants = 1, stock = $1 WHERE id = $2', [
+        sizes.reduce((sum, [, stock]) => sum + stock, 0),
+        productId,
+      ]);
+    }
+    logger.info(`✓ ${variantCount} variants inserted.`);
+
+    // ─── Collections ─────────────────────────────────────────────────
+    // evening, linen and silk are the homepage's collection keys
+    // (tests/database/seedCatalogKeys.test.ts). The upcoming and archived ones are not
+    // public, which the storefront's not-found path needs. No images: operators upload them.
+    const collections = [
+      {
+        name: 'مجموعة السهرة',
+        slug: 'evening',
+        name_en: 'Evening',
+        description: 'قطع مطرزة ولمعة ناعمة لأمسيات لا تُنسى.',
+        description_en: 'Embroidery and quiet shine for evenings that stay with you.',
+        season: 'Autumn/Winter',
+        year: 2026,
+        is_featured: 1,
+        status: 'active',
+        skus: ['MN-DRS-002', 'MN-BAG-002', 'MN-JWL-001', 'MN-SHO-001', 'MN-JWL-002', 'MN-ABA-001'],
+      },
+      {
+        name: 'مجموعة الكتان',
+        slug: 'linen',
+        name_en: 'Linen',
+        description: 'كتان خفيف يتنفس لأيام الصيف الطويلة.',
+        description_en: 'Light, breathable linen for long summer days.',
+        season: 'Spring/Summer',
+        year: 2026,
+        is_featured: 0,
+        status: 'active',
+        skus: ['MN-DRS-003', 'MN-TOP-002', 'MN-BTM-001', 'MN-TOP-003', 'MN-SHO-002'],
+      },
+      {
+        name: 'مجموعة الحرير',
+        slug: 'silk',
+        name_en: 'Silk',
+        description: 'حرير ينساب مع الحركة، من النهار إلى المساء.',
+        description_en: 'Silk that moves with you, from day into evening.',
+        season: 'Resort',
+        year: 2026,
+        is_featured: 0,
+        status: 'active',
+        skus: ['MN-DRS-001', 'MN-DRS-004', 'MN-TOP-001', 'MN-ACC-001', 'MN-HJB-002', 'MN-TOP-004'],
+      },
+      {
+        name: 'تفصيل الشتاء',
+        slug: 'winter-tailoring',
+        name_en: 'Winter Tailoring',
+        description: 'قصات صوف كلاسيكية، قريباً.',
+        description_en: 'Classic wool tailoring, coming soon.',
+        season: 'Autumn/Winter',
+        year: 2027,
+        is_featured: 0,
+        status: 'upcoming',
+        skus: ['MN-JKT-001', 'MN-JKT-002'],
+      },
+      {
+        name: 'صيف 2025',
+        slug: 'summer-2025',
+        name_en: 'Summer 2025',
+        description: 'مجموعة الموسم الماضي.',
+        description_en: "Last season's collection.",
+        season: 'Spring/Summer',
+        year: 2025,
+        is_featured: 0,
+        status: 'archived',
+        skus: ['MN-KNT-003', 'MN-ACC-002'],
+      },
+    ];
+
+    for (const c of collections) {
+      const res = await client.query<{ id: number }>(
+        `INSERT INTO collections (name, slug, name_en, description, description_en, season, year, is_featured, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+        [
+          c.name,
+          c.slug,
+          c.name_en,
+          c.description,
+          c.description_en,
+          c.season,
+          c.year,
+          c.is_featured,
+          c.status,
+        ]
+      );
+      // Positions are dense from 0 (migration 006).
+      for (const [position, sku] of c.skus.entries()) {
+        await client.query(
+          'INSERT INTO collection_products (collection_id, product_id, position) VALUES ($1, $2, $3)',
+          [res.rows[0].id, productIds.get(sku), position]
+        );
+      }
+    }
+    logger.info(`✓ ${collections.length} collections inserted.`);
 
     // ─── Customers ───────────────────────────────────────────────────
     const customers = [

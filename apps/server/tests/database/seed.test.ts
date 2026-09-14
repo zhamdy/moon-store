@@ -25,10 +25,10 @@ describe('PostgreSQL Seed System', () => {
     expect(users.rows.length).toBe(3);
 
     const categories = await memPool.query('SELECT * FROM categories');
-    expect(categories.rows.length).toBe(11);
+    expect(categories.rows.length).toBe(12);
 
     const products = await memPool.query('SELECT * FROM products');
-    expect(products.rows.length).toBe(31);
+    expect(products.rows.length).toBe(34);
 
     const customers = await memPool.query('SELECT * FROM customers');
     expect(customers.rows.length).toBe(15);
