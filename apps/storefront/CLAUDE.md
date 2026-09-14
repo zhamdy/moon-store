@@ -2,9 +2,11 @@
 
 # Storefront Contract
 
-This is the foundation built by the `2026-09-13-001-feat-storefront-foundation` plan.
-It covers locale routing, design tokens, the API client and the global shell. No
-commerce surface exists yet — every nav target 404s through the catch-all.
+The foundation (`2026-09-13-001-feat-storefront-foundation` plan) covers locale routing,
+design tokens, the API client and the global shell. The homepage, header surface, mobile
+menu panel and footer come from `2026-09-13-002-feat-storefront-homepage-header-footer`.
+The homepage is the only commerce surface: every nav, card and tile target still 404s
+through the catch-all, by design — no placeholder pages.
 
 ## Design guideline
 
@@ -33,7 +35,61 @@ that needs a `--moon-stone-*` value gets its own semantic name instead — see
 never needs configuring: `type-h1 text-text` is two unrelated utilities, not a
 conflict. `lib/utils/cn.ts` stays plain `twMerge(clsx(...))` because of this — if a
 future addition needs merge groups configured, that decision belongs there, not
-worked around per-callsite.
+worked around per-callsite. Two `type-*` utilities on one element are never merged,
+so never pass a second one through `className`; the one sanctioned pairing is a
+responsive variant on the same element (`type-display md:type-display-xl`, the hero
+title), where Tailwind emits the variant after the base utility and the winner is
+deterministic.
+
+### Surfaces: the `--surface-*` indirection
+
+The semantic colours are declared `@theme inline`, so `text-text` compiles to the
+*value* (`var(--surface-text)`), not to `var(--color-text)` — a scoped `--color-text`
+override is inert (verified in the built CSS). Colours therefore get the same seam
+fonts already use (`--font-display: var(--font-display-active)`): `--surface-bg`,
+`--surface-text`, `--surface-text-secondary` and `--surface-border` on `:root`, mapped
+into `--color-bg` / `--color-text` / `--color-text-secondary` / `--color-border`, and a
+surface overrides the `--surface-*` variables:
+
+| `data-surface` | Where | Effect |
+| --- | --- | --- |
+| `ink` | the footer, the hero, the promo banner, the campaign, primary `Button` | ink bg, ivory text, stone-600 hairline, ivory focus ring |
+| `overlay` | resolved on the header (see below) | transparent bg and border, ivory text, ivory focus ring |
+| `auto` | what the header renders from the server | overlay when the page has a header boundary, solid otherwise |
+| `solid` | written by `HeaderShell` as soon as the page scrolls | the defaults |
+
+Components keep reading `text-text` / `bg-bg` / `border-border` and never set colours
+per surface. Never override raw `--moon-*` in scope (it would also recolour
+`--color-action`), and never move colours out of `@theme inline` for one feature.
+
+### The header boundary
+
+The header has no route awareness. The homepage hero's root carries the attribute
+exported from `components/layout/header/header-boundary.ts` (`HEADER_BOUNDARY_ATTR`);
+`header-shell.tsx` checks for that element and, where it exists, turns the header solid
+as soon as the page scrolls at all (`scrollY > 0`, one passive listener); it is
+transparent over the hero only at the very top (user decision, 2026-09-13).
+The server HTML is already correct with no JS: `body:has([data-header-boundary])
+header[data-surface='auto']` in `globals.css` applies the overlay surface, so there is
+never an ivory→transparent flip on load; the shell only narrows to `solid` and back to
+`auto`. The shell lives in the locale layout and survives client-side navigation while
+the page is swapped beneath it, so it looks the boundary up again on every pathname
+change (its one `usePathname` use) and resets to `auto` first — otherwise a 404 → home
+transition would leave the header stuck on whatever surface the last page ended on. The attribute string lives in three places — the constant (two TypeScript
+consumers, so a rename fails typecheck) and, by hand, that one CSS selector. Pages with
+no boundary element (the 404 page, every future page) are solid and need nothing.
+
+`--header-h` is `64px` below 1024 and `80px` from it; the header is `position: sticky`
+and keeps that flow slot. The hero pulls up beneath it with `-mt-(--header-h)` and pads
+its own content by the same amount — non-home pages are untouched. The accepted
+degraded case is no JS *and* scrolled: the header stays transparent, readable over the
+hero because of its scrim but not over the ivory sections below; no-JS is not a supported browsing
+mode here. Browsers without `:has()` get a solid header over the scrimmed hero.
+
+The gold logo is never recoloured for the overlay surface: the hero is dusk-toned so
+gold and ivory read on it, and contrast is code-guaranteed by scrims, not by the image
+(see *Image pipeline*). A stacked lockup at 52px is the known cost of "no new logo
+composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Locale and RTL rules
 
@@ -50,27 +106,48 @@ worked around per-callsite.
   in it (a file extension-shaped slug, for instance) would silently bypass locale
   handling — the root layout's `hasLocale` guard is defence in depth against that, but
   the matcher is the thing to fix if it happens.
-- "Noto Serif Arabic", named in the original design guideline, was not available
-  through any font source or tooling verified for this project — the installed
-  `next/font` catalog, Google's own font metadata API, Fontsource, and the notofonts
-  GitHub org all came back with no match (see `app/fonts.ts`). Moon Fashion uses
-  **Noto Naskh Arabic** as its Arabic display font instead (user decision,
-  2026-09-13); IBM Plex Sans Arabic remains the Arabic UI/body face. If the guideline
-  doc is ever revised, its Arabic display font section is stale against that
-  decision.
-- `app/fonts.ts` calls all four font loaders in one module, so `next/font` preloads
-  every face on every locale's render, not just the active pair — confirmed in the
-  built HTML. The Arabic pair opts out with `preload: false` since `en` is the default
-  locale; don't add a fifth family here without rechecking preload output.
+- Faces (user decision, 2026-09-13, superseding the guideline's Bodoni Moda / Manrope
+  and Noto Serif Arabic / IBM Plex Sans Arabic): English display **Lora**, English
+  body/UI **Inter**; Arabic **Tajawal** for both roles (`app/fonts.ts`). Tajawal is not
+  a variable font, so its weights are listed there. The guideline's typography chapter
+  is stale against this decision. The `type-*` line-heights under `:lang(ar)` were
+  tuned for a Naskh face; Tajawal's shorter ascenders may allow tightening them after
+  the screenshot review.
+- `app/fonts.ts` calls all three font loaders in one module, so `next/font` preloads
+  every face on every locale's render, not just the active family — confirmed in the
+  built HTML. The Arabic face opts out with `preload: false` since `en` is the default
+  locale; don't add a fourth family here without rechecking preload output.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `"use client"` is limited to three places:
+Server Components by default (R21/R22). `'use client'` is limited to seven entries
+(eight files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
 3. `components/layout/locale-switcher.tsx` — needs `usePathname` to preserve the
-   current path across a locale switch.
+   current path across a locale switch. Exports both `LocaleSwitcher` (the
+   both-locales list in the mobile menu) and `LocaleToggle` (the
+   header's single link to the other locale); one module, one boundary.
+4. `components/layout/header/header-shell.tsx` — owns the `IntersectionObserver` that
+   narrows the header surface; takes children only.
+5. `components/motion/reveal.tsx` — one shared `IntersectionObserver` that flips a
+   `data-reveal` state; every transition it triggers is CSS declared on server markup.
+   Takes children only.
+6. `components/motion/parallax.tsx` — `scroll()` from `motion` driving a WAAPI
+   animation from `motion/mini`. Takes children only.
+7. `features/home/components/hero/hero-carousel.tsx` — which hero slide is active,
+   autoplay, tabs, swipe. Slide content arrives server-rendered as `ReactNode`s and
+   every string arrives resolved; it renders no image itself.
+
+`components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
+heading into masked word spans on the server.
+
+**Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
+`useInView` import put the whole engine (~46 KB gz across two chunks) into the eager
+bundle, measured on the built `/en` page. The vanilla `motion` / `motion/mini` entries
+cost ~9 KB gz for the parallax. Measure the eager chunks of `.next/server/app/en.html`
+after touching anything under `components/motion/` before trusting a size claim.
 
 Client islands receive translated strings as props, never the message catalogue —
 `MobileMenu`'s props are `menuLabel`/`closeLabel`/`primaryLabel`/`accountLabel`, a
@@ -85,9 +162,162 @@ boundary, check whether the interactive part can be isolated into a small leaf i
 of converting an entire Server Component tree.
 
 `NavLink` looks like it should need the current pathname (for `aria-current`), but it
-doesn't — there's no real routing yet (see Scope Boundaries below), so it takes an
+doesn't — there's no real routing yet (only the homepage exists), so it takes an
 explicit `current?: boolean` prop that every caller currently passes as `false`. That's
 the seam a future page wires up; it does not need `usePathname`.
+
+## Motion
+
+Three levels, set in the 2026-09-14 motion pass: **signature** (hero, editorial strip,
+featured collection, campaign, promo banner), **section** (headings, product grids,
+categories, The Edit, benefits) and **micro** (hover and link states, 180–400ms).
+Transform, opacity and clip-path only; nothing hijacks scroll, pins, bounces or blocks
+interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-ui`).
+
+1. **Hero** — CSS keyed on the carousel's `data-active` / `data-leaving`, so the first
+   slide plays from the server HTML with no JS. Sequence on load and on every change:
+   image 1.08 → 1 from 120ms, label wipe (`data-enter="wipe"`) at 200ms, masked title
+   lines at 300/420ms, copy at 450ms, link at 600ms; the tab row settles at 750ms on
+   load. The outgoing slide fades over 1s while its image drifts to 1.04 and its title
+   exits upward through the same masks. Progress bars are empty before hydration
+   (`idle`), fill over 7s while rotating, and refill quickly on each manual change once
+   stopped.
+2. **Scroll reveal** — `<Reveal>` is a *trigger*, not an effect. The server HTML is the
+   visible state; on mount `decideInitialRevealState` (`reveal-policy.ts`, unit-tested)
+   marks only elements entirely below the fold as `pending`, never under reduced motion,
+   and a shared observer flips them to `in`. What moves is declared on server markup
+   with `data-motion="rise" | "fade" | "image" | "wipe" | "word"` (plus
+   `data-motion-zoom` inside an `image`), on the Reveal or any descendant. Timing is
+   `--motion-stagger` (inherited step count) × `--motion-step` + `--motion-offset`;
+   offset and duration are registered `@property`s that do **not** inherit, so set them
+   on the element that moves. Distances use `--motion-rise`, scaled by 0.6 below 768px.
+   The rules live in `@layer components` so utility classes override their defaults.
+   `amount` is a bottom root margin, not an intersection ratio, so a Reveal taller than
+   the viewport still fires. Nested Reveals are safe (an outer one always fires first).
+   Still never inside the horizontal rails' *items* on phones: off-screen rail cards do
+   not intersect until swiped, so the lookbook has no reveal and category tiles share
+   their grid's single trigger.
+3. **TextReveal** — masked headlines split **by word**, not by rendered line: the break
+   depends on locale, font and viewport, and measuring it would need client JS. The
+   heading carries `aria-label` and the word spans are `aria-hidden`, so it is headings
+   only (`h2`/`h3`).
+4. **Parallax** — `<Parallax travel mode>`; `travel` is signed and halved below 768px.
+   `layer` (default) moves an over-scaled image inside a clipped frame (banner 7%,
+   campaign 6%); `element` moves the whole element through the independent `translate`
+   property, so it composes with a Reveal transform (featured small image 8%, lookbook
+   +5/−4/+7/−3/+5% from 1024 via `media`). A paused WAAPI animation whose time is set
+   from `scroll()`'s progress callback (see the component comment for why the animation
+   form of `scroll()` is avoided). The layer over-scale is CSS and collapses under
+   reduced motion.
+5. **Marquee** — `<Marquee duration gap>` (a Server Component in the home
+   slice): pure CSS, two content-sized tracks (never stretched: the spare space would
+   pile up at the seam), each repeating the content so a track outruns any viewport.
+   The strip keeps words and details alternating in one track (34s per set). A
+   separate faster image layer floating over the words was tried and rejected by the
+   user (2026-09-14) as clutter; depth comes instead from each photograph drifting
+   inside its own over-scaled frame (`[data-strip-pan]`, pure CSS, out of step per
+   image). Hover pauses both; reduced motion stops both.
+
+**Reveal and hover never share an element.** A `transition-*` utility replaces the
+element's whole `transition-property`, so a hover transition on an element carrying
+`data-motion` would make its reveal snap. Hover lives on an inner wrapper (product
+card, category tile) or the reveal on an outer one (section links, banner button).
+Tailwind's hover utilities use the separate `scale` / `translate` properties, so they
+never collide with the reveal's `transform`.
+
+`Reveal` and `Parallax` read `prefers-reduced-motion` at mount (`Parallax` also
+re-attaches when it or the breakpoint changes); `HeroCarousel` subscribes to it, so
+turning the setting on mid-session stops autoplay immediately.
+
+The hero has **no pause button** (user decision, 2026-09-13). WCAG 2.2.2 still needs a
+way to stop content that moves for more than five seconds, and the carousel's is
+interaction: clicking a tab, an arrow key, a swipe or any keyboard focus inside the hero
+stops rotation for the rest of the visit, and hovering pauses it. That is less
+discoverable than a visible control; if an accessibility review asks for one, it goes
+back as the first control before the tablist, per the WAI-ARIA carousel pattern. The global reduced-motion rule zeroes animation and
+transition *delays* as well as durations — with `fill-mode: both`, a zero-duration
+animation would otherwise hold its `from` state for the whole stagger. Embla is
+installed but unused: CSS scroll-snap gives the category and lookbook rails swipe,
+keyboard and RTL for free.
+
+## Image pipeline
+
+Every homepage image is a static import behind one registry, swappable by file drop:
+
+- Files live in `assets/editorial/<slot>.jpg` (not `public/` — static imports give
+  `next/image` width, height and blur for free). Root `.gitignore` ignores `*.jpg`
+  except this directory.
+- `lib/editorial/slots.ts` is the plain list of slot names (no image imports, so data
+  tests can validate references under vitest); `lib/editorial/images.ts` is the only
+  module that imports the files and binds each slot to `{ src, role }`. No spec may
+  import `images.ts`.
+- Alt text is a message key resolved by the consuming section, so it localises.
+- `docs/design/editorial-image-brief.md` lists every slot's ratio, minimum pixels,
+  art direction and generation prompt, and the zones that must stay dark. Real
+  photography lands by replacing files at the same paths — no code change.
+- Each hero slide has two crops, a 16:10 `wide` and a 4:5 `portrait`, through
+  `getImageProps()` × 2 into one `<picture>` (no blur — incompatible with `<picture>`).
+  The crop is chosen by **shape**, `(min-aspect-ratio: 3/2)`, not by width: a 1024×768
+  laptop or a portrait tablet gets the portrait crop, whose empty floor sits under the
+  copy, because the wide crop's empty sides are too narrow there. The first slide is the
+  page's only eager image (`loading="eager"`, `fetchPriority="high"`); the other slides
+  are lazy and `fetchPriority="low"`, so put the strongest photograph first in
+  `features/home/data/hero-slides.ts`. Everything else is a single lazy import with
+  `placeholder="blur"` and an honest `sizes`.
+- Hero photographs keep the figure in the middle of the frame with empty floor below, and
+  the hero copy column is `max-w-md`: the text sits bottom-left in English and
+  bottom-right in Arabic and clears the figure in both without mirroring the photograph.
+  The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
+  other slides are `hero-<collection>-desktop` / `-mobile`.
+- The promo banner and the campaign put their copy on the photograph's empty side: the
+  physical left from 768 in both languages (`rtl:md:ms-auto`), the bottom on mobile, each
+  with a scrim on that side only. Neither photograph is ever mirrored.
+- No dominant editorial image or garment repeats across the hero, promo banner,
+  featured collection, campaign or lookbook (user requirement, 2026-09-14). Product-card
+  photography may repeat a garment where the merchandising story calls for it.
+- There is no image-shape test: under vitest a `.jpg` import has no dimensions, every
+  frame is CSS `aspect-ratio` + `object-cover` (a wrong shape crops, never distorts), and
+  the screenshot review is the guard. A missing file fails `next build`, not typecheck.
+- **After swapping the hero or campaign**, re-check nav and copy contrast at 1440 and
+  375 in both locales: the scrims are tuned to be near-invisible on a correctly dark
+  image and only *visible* when the asset is too light. No `images` block exists in
+  `next.config.ts`; add `qualities` only if the default 75 shows artefacts on real assets.
+
+## Guideline overrides and copy decisions
+
+- §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the
+  brief; §12·04's editorial brand moment is replaced by a promo banner for a new collection or
+  an offer (user decision, 2026-09-14; copy in `home.banner`, link in `BANNER_HREF`, and offer
+  terms only ever from the business), and its "Explore the story →" is dropped (an
+  About-shaped destination); §12·12's
+  Customer Care column is omitted until Shipping/Returns/Contact pages are planned. No
+  FAQ, Blog, About, Newsletter or policy text anywhere.
+- The footer carries social links and contact details (user decision, 2026-09-14), and
+  no language switcher. They come only from `lib/brand/contact.ts` and render only when
+  real values are filled in there; `contact.test.ts` fails the build on a malformed
+  number, a one-locale address or a non-https link. Never copy the server seed's demo
+  `phone` / `address` settings into it. **It currently holds placeholder values** (user
+  request, 2026-09-14; `CONTACT_IS_PLACEHOLDER = true`): the all-zeros test number, a
+  district-only address and platform home pages instead of handles. Replace them with the
+  real details before launch. TikTok and WhatsApp use the inline `components/brand/tiktok-icon.tsx`
+  and `whatsapp-icon.tsx` glyphs because lucide ships neither (its generic message bubble
+  did not read as WhatsApp).
+- Prices format on the server in `features/products/utils/price.ts`: Western digits in
+  both locales (`ar-EG-u-nu-latn`), no decimals, the localised currency label from
+  `products.currency` trailing (`1,250 EGP` / `1,250 ج.م`). Eastern Arabic digits are a
+  one-line change there.
+- The mock products carry `{ en, ar }` names purely so the English homepage reads; the
+  real `products.name` is one Arabic string. The type is `HomeProductMock`, not `Product`.
+- Shopping benefits copy (`home.benefits.*`) is generic on purpose. `delivery` and
+  `returns` must be confirmed against the real operating policy before launch, and no
+  coverage area, speed, return period, fee or "no questions asked" claim may be added
+  until then (`features/home/data/benefits.ts`). Visually the section is a cream band
+  with fine rules and small line icons: no boxes, rounded cards or shadows.
+- Arabic homepage copy was reworked for natural, concise phrasing rather than
+  word-for-word translation (2026-09-14); a native-speaker review by the business is
+  still pending.
+- No wishlist icon on cards until wishlist behaviour exists; when it arrives it is a
+  sibling of the card link, never nested inside the `<a>`.
 
 ## Known technical debt: the React 19 `tsconfig` paths pin
 
@@ -110,10 +340,12 @@ not a permanent architectural requirement:
   for a specific collision this app hit, not a template — a future package should
   only add it if it actually reproduces the same symptom.
 
-## Feature slice shape (documented, not scaffolded)
+## Feature slice shape
 
-No `features/`, `hooks/` or `types/` directories exist yet — none is needed until a
-real unit of commerce work lands. When one does, it follows this shape:
+Three slices exist — `features/home`, `features/products`, `features/collections` —
+with static, typed mock data only and nothing under `features/*/api/`. `home` composes
+the sections and imports from the other two; `products` and `collections` do not import
+each other. A slice follows this shape:
 
 ```
 features/<slice>/
@@ -126,7 +358,8 @@ features/<slice>/
 
 `app/` composes routes and layout; `features/` implements. A component used by two or
 more slices moves to `components/` (or a new `shared/`, if that need actually arrives)
-rather than being imported cross-slice.
+rather than being imported cross-slice. `Marquee` lives in the home slice because the
+editorial strip is its only consumer; it moves to `components/` if the Shop task reuses it.
 
 ## API client and the DTO rule
 
@@ -177,21 +410,22 @@ for a same-shape asset swap.
 
 ## Rendering strategy
 
-`/en` and `/ar` prerender as static HTML today (confirmed in the build output: both
-list as `●` SSG, not `ƒ` dynamic) — that is this foundation's *current state*, not an
-architectural rule. `generateStaticParams` + `setRequestLocale` make that possible
-because nothing here reads request-specific data. The first feature that needs
+`/en` and `/ar` prerender as static HTML (confirmed in the build output: both list as
+`●` SSG, not `ƒ` dynamic) — the *current state*, not an architectural rule.
+`generateStaticParams` + `setRequestLocale` make that possible because nothing here
+reads request-specific data; the homepage's client islands do not change that (a
+`'use client'` file never makes a route dynamic). The first feature that needs
 per-request data (a cart, a session) chooses its own caching/revalidation/dynamic
 strategy on its own merits; nothing about this file requires staying static.
 
 ## Mobile menu typography exception
 
-The mobile menu's primary links render at `type-h3`, not the `type-label` every other
+The mobile menu's primary links render at `type-h2`, not the `type-label` every other
 nav link uses — a deliberate editorial choice (guideline §5 exception), passed through
-`NavLink`'s `typography` prop rather than via `className`. See that prop's doc comment
-for why: `tailwind-merge` doesn't know about the custom `type-*` utilities, so two of
-them on one element would both apply and the CSS source order — not the component
-prop — would decide which wins.
+`NavLink`'s `typography` prop rather than via `className`. The footer's shop links use
+the same prop for `type-body`. See that prop's doc comment for why: `tailwind-merge`
+doesn't know about the custom `type-*` utilities, so two of them on one element would
+both apply and the CSS source order — not the component prop — would decide which wins.
 
 ## Nothing is shared with the dashboard
 

@@ -8,13 +8,13 @@ import { AppProviders } from '@/providers/app-providers';
 import { SkipLink } from '@/components/layout/skip-link';
 import { Header } from '@/components/layout/header/header';
 import { Footer } from '@/components/layout/footer/footer';
-import { bodoniModa, manrope, notoNaskhArabic, ibmPlexSansArabic } from '../fonts';
+import { lora, inter, tajawal } from '../fonts';
 import '../globals.css';
 
 // Keyed by locale so a locale added to i18n/routing.ts fails to compile until mapped.
 const fontVariables: Record<AppLocale, string> = {
-  en: `${bodoniModa.variable} ${manrope.variable}`,
-  ar: `${notoNaskhArabic.variable} ${ibmPlexSansArabic.variable}`,
+  en: `${lora.variable} ${inter.variable}`,
+  ar: tajawal.variable,
 };
 
 export function generateStaticParams() {
