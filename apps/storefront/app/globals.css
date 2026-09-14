@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 
+/* The promo banner's wide layout (16:9 crop, copy on the physical left). By shape,
+   not only width: on a portrait tablet the 16:9 crop zooms onto the figure and the
+   copy lands on her, so those get the 4:5 crop with the copy at the bottom. */
+@custom-variant banner-wide (@media (min-width: 768px) and (min-aspect-ratio: 4/3));
+
 /* ============================================================
    Tokens — guideline §4 (color), §6 (grid/spacing), §7 (shape),
    §13/§19 (motion). Components read the semantic mapping below
@@ -30,6 +35,20 @@
   --page-gutter: 20px;
   --section-space: 80px;
 
+  /* Header flow slot (guideline §8: 72–84px desktop). The header is sticky and
+     keeps this slot; the homepage hero pulls up beneath it by the same amount. */
+  --header-h: 64px;
+
+  /* Surface indirection. The semantic colours are declared `@theme inline`, so
+     `text-text` compiles to the *value* below and a scoped `--color-text`
+     override would be inert. Mirroring --font-display-active: components keep
+     reading text-text / bg-bg / border-border, and a surface ([data-surface=
+     'overlay' | 'ink']) overrides these --surface-* variables instead. */
+  --surface-bg: var(--moon-ivory);
+  --surface-text: var(--moon-ink);
+  --surface-text-secondary: var(--moon-stone-600);
+  --surface-border: var(--moon-stone-200);
+
   /* Motion (guideline §13/§19). Mapped to Tailwind's --duration- and --ease-
      theme keys below, under distinct names so that mapping isn't a
      self-reference. */
@@ -53,13 +72,14 @@
   /* Locale font switch goes through this indirection, never through
      --font-display/--font-body directly — see app/[locale]/layout.tsx and
      apps/storefront/CLAUDE.md. */
-  --font-display-active: var(--font-bodoni);
-  --font-body-active: var(--font-manrope);
+  --font-display-active: var(--font-lora);
+  --font-body-active: var(--font-inter);
 }
 
+/* Tajawal carries both roles in Arabic (app/fonts.ts). */
 :lang(ar) {
-  --font-display-active: var(--font-noto-naskh-arabic);
-  --font-body-active: var(--font-plex-arabic);
+  --font-display-active: var(--font-tajawal);
+  --font-body-active: var(--font-tajawal);
 }
 
 @media (min-width: 768px) {
@@ -73,6 +93,7 @@
   :root {
     --page-gutter: 48px;
     --section-space: 144px;
+    --header-h: 80px;
   }
 }
 
@@ -83,24 +104,26 @@
 }
 
 @theme inline {
-  --color-bg: var(--moon-ivory);
+  --color-bg: var(--surface-bg);
   --color-surface: var(--moon-white);
   --color-surface-soft: var(--moon-cream);
 
-  --color-text: var(--moon-ink);
-  --color-text-secondary: var(--moon-stone-600);
+  --color-text: var(--surface-text);
+  --color-text-secondary: var(--surface-text-secondary);
 
   --color-brand: var(--moon-gold);
   --color-brand-dark: var(--moon-gold-dark);
   --color-brand-soft: var(--moon-gold-soft);
 
-  --color-border: var(--moon-stone-200);
+  --color-border: var(--surface-border);
 
   --color-action: var(--moon-ink);
   --color-action-hover: var(--moon-charcoal);
   --color-on-action: var(--moon-white);
 
   --color-scrim: rgb(23 21 19 / 0.4);
+  /* Behind display text set directly on photography (the promo banner). */
+  --color-scrim-strong: rgb(23 21 19 / 0.72);
 
   /* Named apart from Tailwind's own built-in `stone-*` palette, which these
      utility names would otherwise silently shadow with a different, coincidentally
@@ -294,9 +317,45 @@
   }
 
   [data-surface='ink'],
-  [data-variant='overlay'] {
+  [data-surface='overlay'],
+  body:has([data-header-boundary]) header[data-surface='auto'] {
     --focus-ring-color: var(--moon-ivory);
   }
+}
+
+/* ============================================================
+   Surfaces. One attribute drives colours and the focus ring.
+   `overlay`: the header over a hero — transparent, ivory text.
+   `ink`: the footer and primary buttons — ink ground, ivory text.
+   The header renders data-surface='auto' from the server; the :has()
+   rule resolves it to overlay whenever the page has a hero carrying
+   data-header-boundary (components/layout/header/header-boundary.ts —
+   the one place that string is repeated by hand), so the server HTML is
+   already correct and there is no first-paint flip. HeaderShell narrows
+   it to 'solid' as soon as the page scrolls.
+   ============================================================ */
+[data-surface='overlay'],
+body:has([data-header-boundary]) header[data-surface='auto'] {
+  --surface-bg: transparent;
+  --surface-text: var(--moon-ivory);
+  --surface-text-secondary: rgb(250 248 244 / 0.72);
+  --surface-border: transparent;
+}
+
+[data-surface='ink'] {
+  --surface-bg: var(--moon-ink);
+  --surface-text: var(--moon-ivory);
+  --surface-text-secondary: var(--moon-stone-400);
+  --surface-border: var(--moon-stone-600);
+}
+
+/* The surface change is a cut until HeaderShell's first observation, then a
+   fast colour transition — no shadow, blur or pill (guideline §8). */
+header[data-surface][data-surface-ready] {
+  transition:
+    background-color var(--motion-fast) var(--ease-ui),
+    color var(--motion-fast) var(--ease-ui),
+    border-color var(--motion-fast) var(--ease-ui);
 }
 
 .skip-link {
@@ -317,7 +376,438 @@
 }
 
 /* ============================================================
-   Reduced motion — guideline §15.
+   Motion — guideline §12 (hero sequence), §13 (reveal, parallax,
+   marquee). Four ideas, reused everywhere; three of them need no JS.
+   ============================================================ */
+
+/* Motion distances shrink on phones: one multiplier, so a per-element
+   --motion-rise stays proportional instead of being overridden at a breakpoint. */
+:root {
+  --motion-step: 80ms;
+  --motion-rise: 56px;
+  --motion-distance-scale: 0.6;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --motion-distance-scale: 1;
+  }
+}
+
+/* (1) Entrance. Keyframes for the hero (played from the server HTML, keyed on the
+   active slide) and the mobile menu. Nothing here waits on hydration. */
+@keyframes moon-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--enter-rise, 24px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes moon-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Line masks need an overflow-hidden parent. */
+@keyframes moon-line-reveal {
+  from {
+    transform: translateY(110%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes moon-line-exit {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateY(-110%);
+  }
+}
+
+/* A wipe along the reading direction. The end inset is negative so glyphs that
+   overhang the box (Arabic marks, italic tails) are never cut. */
+@keyframes moon-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(-0.25em);
+  }
+}
+
+@keyframes moon-wipe-rtl {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(-0.25em);
+  }
+}
+
+@keyframes moon-image-in {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes moon-image-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: scale(1.04);
+  }
+}
+
+@utility entrance-fade-up {
+  animation: moon-fade-up var(--motion-slow) var(--ease-editorial) both;
+  animation-delay: var(--entrance-delay, 0ms);
+}
+
+/* (2) Scroll reveal, driven by components/motion/reveal.tsx.
+
+   A <Reveal> is a trigger: server HTML carries no state, so everything is
+   visible without JS. After mount, a Reveal entirely below the fold is marked
+   data-reveal="pending", and "in" once it enters the viewport. What moves is
+   declared on the server with data-motion on the Reveal itself or on any
+   descendant, so one small client leaf choreographs a whole Server Component
+   subtree:
+
+     rise   opacity + translateY(--motion-rise)
+     fade   opacity
+     image  clip wipe upward; a [data-motion-zoom] inside settles from 1.06
+     wipe   clip wipe along the reading direction (labels)
+     word   a word rising inside its mask (components/motion/text-reveal.tsx)
+
+   Timing: delay = --motion-stagger (inherited, a step count) x --motion-step
+   + --motion-offset (this element only). Offset and duration are registered as
+   non-inheriting, so a child never picks up its parent's value by accident.
+
+   In a cascade layer so utility classes such as [--motion-rise:72px] or
+   [--motion-offset:300ms] override the per-effect defaults below. Reveal only
+   ever sets transform, opacity and clip-path; Tailwind's hover utilities use the
+   separate translate and scale properties, so the two never fight. */
+@property --motion-offset {
+  syntax: '<time>';
+  inherits: false;
+  initial-value: 0ms;
+}
+
+@property --motion-duration {
+  syntax: '<time>';
+  inherits: false;
+  initial-value: 800ms;
+}
+
+@property --motion-i {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@layer components {
+  [data-motion],
+  [data-motion-zoom] {
+    transition-property: opacity, transform, clip-path;
+    transition-duration: var(--motion-duration);
+    transition-timing-function: var(--ease-editorial);
+    transition-delay: calc(var(--motion-stagger, 0) * var(--motion-step) + var(--motion-offset));
+  }
+
+  [data-motion='fade'] {
+    --motion-duration: 700ms;
+  }
+
+  [data-motion='image'] {
+    --motion-duration: 1100ms;
+    clip-path: inset(0);
+  }
+
+  [data-motion-zoom] {
+    --motion-duration: 1600ms;
+  }
+
+  [data-motion='wipe'] {
+    --motion-duration: 900ms;
+    clip-path: inset(-0.25em);
+  }
+
+  [data-motion-mask] {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: top;
+    /* Room for ascenders, descenders and Arabic marks inside the mask, given back
+       to the line box so the heading's line height is unchanged. */
+    padding-block: 0.16em;
+    margin-block: -0.16em;
+  }
+
+  [data-motion='word'] {
+    --motion-duration: 900ms;
+    display: inline-block;
+    transition-delay: calc(
+      var(--motion-stagger, 0) * var(--motion-step) + var(--motion-offset) + var(--motion-i) *
+        var(--word-step, 70ms)
+    );
+  }
+
+  :is([data-reveal='pending'], [data-reveal='pending'] *):is([data-motion='rise']) {
+    opacity: 0;
+    transform: translate3d(0, calc(var(--motion-rise) * var(--motion-distance-scale)), 0);
+  }
+
+  :is([data-reveal='pending'], [data-reveal='pending'] *):is([data-motion='fade']) {
+    opacity: 0;
+  }
+
+  :is([data-reveal='pending'], [data-reveal='pending'] *):is([data-motion='image']) {
+    clip-path: inset(100% 0 0 0);
+  }
+
+  [data-reveal='pending'] [data-motion-zoom] {
+    transform: scale(var(--motion-zoom, 1.06));
+  }
+
+  :is([data-reveal='pending'], [data-reveal='pending'] *):is([data-motion='wipe']) {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  [dir='rtl'] :is([data-reveal='pending'], [data-reveal='pending'] *):is([data-motion='wipe']) {
+    clip-path: inset(0 0 0 100%);
+  }
+
+  [data-reveal='pending'] [data-motion='word'] {
+    transform: translate3d(0, 110%, 0);
+  }
+}
+
+/* Hero slides - features/home/components/hero/. Keyed on the carousel's
+   data-active / data-leaving, so the first slide's entrance plays on first paint
+   from the server HTML and every change replays it.
+
+   Load and change share one sequence: the image settles 1.08 -> 1 from 120ms,
+   the label wipes in at 200ms, the title lines rise through their masks at
+   300/420ms, the copy at 450ms, the link at 600ms. The outgoing slide fades over
+   1s while its image drifts 1 -> 1.04 and its title leaves upward through the
+   same masks, so old and new titles cross in place. Visibility is delayed on the
+   way out so the fade can run. */
+[data-hero-slide] {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 1000ms var(--ease-editorial),
+    visibility 0s linear 1000ms;
+}
+
+[data-hero-slide][data-active] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 1000ms var(--ease-editorial);
+}
+
+[data-hero-slide][data-active] [data-hero-image] {
+  animation: moon-image-in 1500ms var(--ease-editorial) 120ms both;
+}
+
+[data-hero-slide][data-leaving] [data-hero-image] {
+  animation: moon-image-out 1000ms var(--ease-editorial) both;
+}
+
+[data-hero-slide][data-active] [data-enter='fade'] {
+  --enter-rise: 32px;
+  animation: moon-fade-up 800ms var(--ease-editorial) both;
+  animation-delay: var(--entrance-delay, 0ms);
+}
+
+[data-hero-slide][data-active] [data-enter='wipe'] {
+  animation: moon-wipe 900ms var(--ease-editorial) both;
+  animation-delay: var(--entrance-delay, 0ms);
+}
+
+[dir='rtl'] [data-hero-slide][data-active] [data-enter='wipe'] {
+  animation-name: moon-wipe-rtl;
+}
+
+[data-hero-slide][data-active] [data-enter='line'] {
+  animation: moon-line-reveal 1000ms var(--ease-editorial) both;
+  animation-delay: var(--entrance-delay, 0ms);
+}
+
+[data-hero-slide][data-leaving] [data-enter='line'] {
+  /* Deliberately its own curve, not --ease-editorial/--ease-ui: an accelerating
+     ease-in exit (the title picks up speed on its way out) reads as the outgoing
+     slide being overtaken by the incoming one. Moving it onto the shared
+     entrance easing would slow that hand-off, not just make the tokens
+     consistent. */
+  animation: moon-line-exit 650ms cubic-bezier(0.7, 0, 0.84, 0) both;
+}
+
+[data-hero-slide][data-leaving] :is([data-enter='fade'], [data-enter='wipe']) {
+  animation: moon-fade-out 400ms var(--ease-ui) both;
+}
+
+/* The tab row settles last on load. */
+[data-hero-tabs] {
+  --enter-rise: 16px;
+  animation: moon-fade-up 900ms var(--ease-editorial) 750ms both;
+}
+
+/* Tab progress. While rotating, the selected tab fills 0 -> 100% over
+   --hero-interval and its animationend advances the slide, so pausing the
+   animation pauses the timer. Once stopped, the selected tab refills quickly on
+   every change. Before hydration (idle) every bar is empty. */
+[data-hero-progress] {
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+[dir='rtl'] [data-hero-progress] {
+  transform-origin: right;
+}
+
+[data-carousel-state='stopped'] [data-hero-tab][aria-selected='true'] [data-hero-progress] {
+  transform: scaleX(1);
+  animation: moon-hero-progress 700ms var(--ease-editorial) both;
+}
+
+[data-carousel-state='running'] [data-hero-tab][aria-selected='true'] [data-hero-progress],
+[data-carousel-state='paused'] [data-hero-tab][aria-selected='true'] [data-hero-progress] {
+  animation: moon-hero-progress var(--hero-interval) linear both;
+}
+
+[data-carousel-state='paused'] [data-hero-progress] {
+  animation-play-state: paused;
+}
+
+@keyframes moon-hero-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* (3) Parallax - components/motion/parallax.tsx. In layer mode the image inside
+   the frame is over-scaled by the travel so the frame edge is never exposed, and
+   JS moves it. Element mode needs no CSS: JS moves the whole element through the
+   independent translate property. */
+[data-parallax='layer'] > * {
+  transform: scale(var(--parallax-scale, 1));
+  will-change: transform;
+}
+
+/* (4) Marquee - features/home/components/editorial-strip/marquee.tsx. The track
+   renders twice; translating by one track plus the gap puts the copy exactly
+   where the original was, so the loop is seamless. RTL travels the other way.
+   Tracks are content-sized, never stretched (a stretched track leaves its spare
+   width at the seam as one oversized gap); the component repeats the content
+   inside each track instead, and duration scales with that repeat so speed is
+   --marquee-set per set. */
+.marquee {
+  --marquee-duration: calc(var(--marquee-set, 48s) * var(--marquee-repeat, 1));
+  display: flex;
+  gap: var(--marquee-gap, 40px);
+  overflow: hidden;
+}
+
+.marquee-track {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--marquee-gap, 40px);
+  animation: moon-marquee var(--marquee-duration) linear infinite;
+}
+
+.marquee:hover :is(.marquee-track, [data-strip-pan]),
+.marquee:focus-within :is(.marquee-track, [data-strip-pan]) {
+  animation-play-state: paused;
+}
+
+/* Strip pause toggle (WCAG 2.2.2) - features/home/components/editorial-strip/
+   editorial-strip.tsx. A native checkbox, `role="switch"`, scoped by
+   [data-strip]/[data-strip-toggle] rather than a bare `section:has(:checked)`
+   so it can never reach into an unrelated section. Focusing the unchecked
+   toggle must not pause the tracks, so this is separate from the
+   :hover/:focus-within rule above, which stays scoped to .marquee itself. */
+[data-strip]:has([data-strip-toggle]:checked) :is(.marquee-track, [data-strip-pan]) {
+  animation-play-state: paused;
+}
+
+/* Hidden where it would do nothing (reduced motion already stops everything) or
+   could not work (:has() unsupported), so the strip keeps no empty gap for it. */
+@supports not selector(:has(*)) {
+  [data-strip-toggle-control] {
+    display: none;
+  }
+}
+
+/* product-card.tsx: the alternate (hover) image only exists where hover exists.
+   display:none unless hover is available at 768+, so the lazy <img> inside is
+   never fetched on a touch device, which has no hover to reveal it. */
+.hover-alt-image {
+  display: none;
+}
+
+@media (hover: hover) and (min-width: 768px) {
+  .hover-alt-image {
+    display: block;
+  }
+}
+
+/* Editorial strip depth: each detail photograph drifts sideways inside its frame
+   on its own slow cycle, over-scaled so no edge shows, so the images move at a
+   different speed from the words without leaving the line. `ease-in-out` is
+   deliberate, not --ease-editorial/--ease-ui: it alternates infinitely (`alternate`),
+   so it needs to decelerate into and accelerate out of both endpoints
+   symmetrically, which is what makes the drift read as a pendulum rather than a
+   one-way entrance. */
+[data-strip-pan] {
+  transform: scale(1.18);
+  animation: moon-strip-pan 9s ease-in-out infinite alternate;
+  animation-delay: var(--pan-delay, 0s);
+}
+
+@keyframes moon-strip-pan {
+  from {
+    transform: translateX(-7%) scale(1.18);
+  }
+  to {
+    transform: translateX(7%) scale(1.18);
+  }
+}
+
+[dir='rtl'] .marquee-track {
+  animation-name: moon-marquee-rtl;
+}
+
+@keyframes moon-marquee {
+  to {
+    transform: translateX(calc(-100% - var(--marquee-gap, 40px)));
+  }
+}
+
+@keyframes moon-marquee-rtl {
+  to {
+    transform: translateX(calc(100% + var(--marquee-gap, 40px)));
+  }
+}
+
+/* ============================================================
+   Reduced motion - guideline section 15. Reveal never marks anything pending,
+   Parallax never attaches, the carousel never rotates; this block removes the
+   rest: every duration and delay, the parallax over-scale and the marquee loop.
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -325,7 +815,40 @@
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Delays too: with fill-mode both, a zero-duration animation still holds its
+       `from` state for the whole delay, which would replay the hero and menu
+       staggers as content popping in one by one. */
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
+  }
+
+  [data-parallax='layer'] > * {
+    transform: none;
+    will-change: auto;
+  }
+
+  /* Static strip: the content once, scrolling naturally. */
+  .marquee {
+    overflow-x: auto;
+  }
+
+  .marquee-track,
+  [data-strip-pan] {
+    animation: none;
+  }
+
+  [data-strip-pan] {
+    transform: none;
+  }
+
+  .marquee-track[aria-hidden='true'],
+  [data-marquee-copy] {
+    display: none;
+  }
+
+  [data-strip-toggle-control] {
+    display: none;
   }
 }

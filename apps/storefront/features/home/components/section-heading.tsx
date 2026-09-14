@@ -1,0 +1,74 @@
+import type { CSSProperties } from 'react';
+import { Reveal } from '@/components/motion/reveal';
+import { EditorialLink } from '@/components/ui/editorial-link';
+import { cn } from '@/lib/utils/cn';
+
+export interface SectionHeadingProps {
+  /** The `h2`'s id, referenced by the section's `aria-labelledby`. */
+  id: string;
+  eyebrow: string;
+  title: string;
+  link?: { href: string; label: string };
+  /** Milliseconds before the heading starts, for a section that shows something else first. */
+  offset?: number;
+  /** Render without its own Reveal, when an enclosing Reveal already triggers the section. */
+  grouped?: boolean;
+  className?: string;
+}
+
+const offsetStyle = (ms: number) => ({ '--motion-offset': `${ms}ms` }) as CSSProperties;
+
+/**
+ * The commerce sections' shared heading row: eyebrow and `h2` at inline-start, an
+ * optional editorial link at inline-end. Deliberately quiet (AD-11, 2026-09-14):
+ * the eyebrow fades, the title rises once as a whole, the link fades in last. The
+ * word-masked rise belongs to the signature moments (promo banner, featured
+ * collection, campaign) so it stays distinct; Shop and Collections inherit this
+ * quieter heading. The link sits in its own wrapper because its underline
+ * transition would otherwise replace the reveal's.
+ */
+export function SectionHeading({
+  id,
+  eyebrow,
+  title,
+  link,
+  offset = 0,
+  grouped = false,
+  className,
+}: SectionHeadingProps) {
+  const layout = cn('flex flex-wrap items-end justify-between gap-x-8 gap-y-4', className);
+  const content = (
+    <>
+      <div>
+        <p
+          data-motion="fade"
+          style={offsetStyle(offset)}
+          className="type-label text-text-secondary"
+        >
+          {eyebrow}
+        </p>
+        <h2
+          id={id}
+          data-motion="rise"
+          style={offsetStyle(offset + 120)}
+          className="type-h2 mt-3 [--motion-rise:24px]"
+        >
+          {title}
+        </h2>
+      </div>
+      {link && (
+        <div data-motion="fade" style={offsetStyle(offset + 450)} className="mb-1">
+          <EditorialLink href={link.href}>{link.label}</EditorialLink>
+        </div>
+      )}
+    </>
+  );
+
+  return grouped ? (
+    <header className={layout}>{content}</header>
+  ) : (
+    <Reveal as="header" className={layout}>
+      {content}
+    </Reveal>
+  );
+}

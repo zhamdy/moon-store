@@ -15,7 +15,7 @@ export interface NavLinkProps extends ComponentProps<typeof Link> {
    * custom `type-*` utilities (see apps/storefront/CLAUDE.md), so passing a second
    * one via `className` would leave both applied — whichever compiles later in
    * globals.css would silently win. The mobile menu's primary links need
-   * `type-h3` (a deliberate editorial exception, guideline §5); this prop is the
+   * `type-h2` (a deliberate editorial exception, guideline §5); this prop is the
    * one place that's chosen, so only one `type-*` class is ever present.
    */
   typography?: string;
@@ -41,9 +41,13 @@ export function NavLink({
       className={cn(
         typography,
         'relative inline-block pb-1 text-text transition-colors duration-fast ease-ui',
-        'after:absolute after:bottom-0 after:start-0 after:h-px after:bg-brand',
-        'after:transition-[width] after:duration-fast after:ease-ui',
-        current ? 'after:w-full' : 'after:w-0 hover:after:w-full focus-visible:after:w-full',
+        'after:absolute after:bottom-0 after:start-0 after:h-px after:w-full after:bg-brand',
+        // Scale, not width: the underline grows on the compositor.
+        'after:origin-left rtl:after:origin-right',
+        'after:transition-transform after:duration-fast after:ease-ui',
+        current
+          ? 'after:scale-x-100'
+          : 'after:scale-x-0 hover:after:scale-x-100 focus-visible:after:scale-x-100',
         className
       )}
     >

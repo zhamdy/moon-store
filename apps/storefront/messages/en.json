@@ -16,19 +16,155 @@
     "footerLabel": "Footer"
   },
   "common": {
+    "brandName": "Moon Fashion",
     "skipToContent": "Skip to content",
     "languageLabel": "Language",
     "localeNames": {
       "en": "English",
       "ar": "العربية"
+    },
+    "localeShort": {
+      "en": "EN",
+      "ar": "ع"
+    }
+  },
+  "products": {
+    "new": "New",
+    "currency": "EGP"
+  },
+  "categories": {
+    "dresses": "Dresses",
+    "tops": "Tops",
+    "knitwear": "Knitwear",
+    "bags": "Bags",
+    "abayas": "Abayas"
+  },
+  "home": {
+    "hero": {
+      "heading": "New collections at Moon Fashion",
+      "tabList": "Collections",
+      "slideOf": "{index} of {total}",
+      "slides": {
+        "evening": {
+          "tab": "Evening",
+          "eyebrow": "New collection",
+          "title1": "Moonlight,",
+          "title2": "redefined.",
+          "body": "A refined wardrobe for modern femininity.",
+          "cta": "Explore Evening",
+          "imageAlt": "A woman in a long-sleeved black velvet column gown, standing in a dark marble hall"
+        },
+        "linen": {
+          "tab": "Linen",
+          "eyebrow": "Summer collection",
+          "title1": "Light that",
+          "title2": "moves with you.",
+          "body": "Washed linen and open weaves for long, warm days.",
+          "cta": "Explore Linen",
+          "imageAlt": "A woman in an ivory linen dress with wide straps walking across a shaded stone courtyard"
+        },
+        "abaya": {
+          "tab": "Abaya",
+          "eyebrow": "Signature collection",
+          "title1": "Quiet",
+          "title2": "presence.",
+          "body": "Fluid abayas in silk crepe and soft chiffon.",
+          "cta": "Explore Abayas",
+          "imageAlt": "A woman in a flowing black abaya over a brown dress, standing by a lattice window"
+        },
+        "knitwear": {
+          "tab": "Knitwear",
+          "eyebrow": "Autumn collection",
+          "title1": "Soft,",
+          "title2": "by design.",
+          "body": "Cashmere and wool in the warm tones of the season.",
+          "cta": "Explore Knitwear",
+          "imageAlt": "A woman in a cream cashmere sweater and brown wide trousers, standing in a dark wood-panelled room"
+        }
+      }
+    },
+    "strip": {
+      "heading": "Collections",
+      "pause": "Pause motion",
+      "words": {
+        "evening": "Evening",
+        "linen": "Linen",
+        "knit": "Knit",
+        "abaya": "Abaya"
+      }
+    },
+    "newArrivals": {
+      "eyebrow": "Just in",
+      "title": "New Arrivals",
+      "link": "View all"
+    },
+    "banner": {
+      "eyebrow": "New collection",
+      "title": "The Silk Edit",
+      "body": "Fluid blouses and soft tailoring in ivory and warm brown.",
+      "cta": "Shop the collection",
+      "imageAlt": "A woman in an ivory silk blouse with full sleeves and a long brown linen skirt, seated on a stone ledge in warm light"
+    },
+    "featured": {
+      "eyebrow": "Featured collection",
+      "title": "The Evening Edit",
+      "body": "Silk, velvet and hand embroidery for the hours after dark.",
+      "link": "Discover",
+      "largeAlt": "A woman in a champagne satin evening gown seated on lamplit limestone steps",
+      "smallAlt": "Hands holding a black velvet clutch with a gold clasp against champagne satin"
+    },
+    "categories": {
+      "eyebrow": "Shop by category",
+      "title": "Find your piece"
+    },
+    "campaign": {
+      "line": "Dressed for the night.",
+      "imageAlt": "A woman in a flowing umber silk dress walking through a limestone colonnade at dusk"
+    },
+    "curated": {
+      "eyebrow": "Curated by Moon",
+      "title": "The Edit",
+      "link": "Shop the edit"
+    },
+    "benefits": {
+      "heading": "Shopping with Moon",
+      "delivery": {
+        "title": "Delivery",
+        "body": "Every order is carefully packed and delivered to your address."
+      },
+      "returns": {
+        "title": "Considered fabrics",
+        "body": "Silk, linen, cashmere and wool, chosen for how they feel and wear."
+      },
+      "payment": {
+        "title": "Secure payment",
+        "body": "Your payment details are kept protected."
+      }
+    },
+    "lookbook": {
+      "heading": "Lookbook",
+      "alt1": "A woman in a sleeveless linen waistcoat, black top and black trousers, leaning against a sunlit terracotta wall beside a green door",
+      "alt2": "Close-up of black leather slingback kitten heels on a sandstone step",
+      "alt3": "Half-length portrait of a woman in a camel coat draped over a dark satin cowl-neck dress, leaning in a carved doorway",
+      "alt4": "A woman walking along a curved stone corridor in a black blazer, brown ribbed knit and wide black trousers",
+      "alt5": "Close-up of a brown wool jacket collar resting on folds of ivory silk"
     }
   },
   "footer": {
+    "tagline": "Luxury fashion, edited for the modern wardrobe.",
+    "shopLabel": "Shop",
+    "contactLabel": "Contact",
+    "socialLabel": "Follow Moon Fashion",
+    "newTab": "opens in a new tab",
+    "networks": {
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "tiktok": "TikTok",
+      "whatsapp": "WhatsApp",
+      "x": "X",
+      "youtube": "YouTube"
+    },
     "rights": "© {year} Moon Fashion. All rights reserved."
-  },
-  "foundation": {
-    "title": "Moon Fashion",
-    "subtitle": "Storefront foundation ready."
   },
   "notFound": {
     "title": "Page not found",

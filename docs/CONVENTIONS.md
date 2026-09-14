@@ -110,6 +110,10 @@ Treat all four of the above as a deliberate, currently-flat global namespace. If
 them, follow its existing shape; if you're tempted to namespace or split one of them "while you're in
 there," raise it as its own change instead.
 
+The storefront has one coupling of its own — the header boundary attribute, a constant with two
+TypeScript consumers and one hand-written CSS selector — documented in `apps/storefront/CLAUDE.md`
+under *The header boundary*.
+
 ---
 
 ## Checkout ownership contract
