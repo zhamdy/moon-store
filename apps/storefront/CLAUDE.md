@@ -179,7 +179,10 @@ bounces or blocks interaction.
    `decideInitialRevealState` (`reveal-policy.ts`, unit-tested) marks *only* elements
    entirely below the fold as pending, never under reduced motion; an
    `IntersectionObserver` flips them once. `effect="mask"` is the line wipe for display
-   type. Used on section headings and editorial images, never on product cards.
+   type. Used on section headings, the featured collection's title block and small
+   image, and the campaign line. Never on product cards, and never inside horizontal
+   rails (lookbook, categories): off-screen cards there never intersect until swiped, so
+   they arrived blank and faded in mid-swipe.
 3. **Parallax** — `<Parallax travel>`: 4–8% travel, transform only: a paused WAAPI
    animation whose time is set from `scroll()`'s progress callback (one shared,
    event-driven scroll listener per container — JS-driven, not a native ScrollTimeline;
@@ -226,16 +229,26 @@ Every homepage image is a static import behind one registry, swappable by file d
 - `docs/design/editorial-image-brief.md` lists every slot's ratio, minimum pixels,
   art direction and generation prompt, and the zones that must stay dark. Real
   photography lands by replacing files at the same paths — no code change.
-- The hero slides are the only art-directed images (16:10 desktop, 4:5 mobile via
-  `getImageProps()` × 2 into one `<picture>` each, no blur — incompatible with
-  `<picture>`). The first slide is the page's only eager image (`loading="eager"`,
-  `fetchPriority="high"`); the other slides are lazy and `fetchPriority="low"`, so put the
-  strongest photograph first in `features/home/data/hero-slides.ts`. Everything else is a
-  single lazy import with `placeholder="blur"` and an honest `sizes`.
-- The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
-  other slides are `hero-<collection>-desktop` / `-mobile`. Their photos must leave the
-  bottom 45% dark across the full width, because the copy sits bottom-left in English and
-  bottom-right in Arabic and photos are never mirrored (see the brief).
+- Each hero slide has two crops, a 16:10 `wide` and a 4:5 `portrait`, through
+  `getImageProps()` × 2 into one `<picture>` (no blur — incompatible with `<picture>`).
+  The crop is chosen by **shape**, `(min-aspect-ratio: 3/2)`, not by width: a 1024×768
+  laptop or a portrait tablet gets the portrait crop, whose empty floor sits under the
+  copy, because the wide crop's empty sides are too narrow there. The first slide is the
+  page's only eager image (`loading="eager"`, `fetchPriority="high"`); the other slides
+  are lazy and `fetchPriority="low"`, so put the strongest photograph first in
+  `features/home/data/hero-slides.ts`. Everything else is a single lazy import with
+  `placeholder="blur"` and an honest `sizes`.
+- Hero photographs keep the figure in the middle of the frame with empty floor below, and
+  the hero copy column is `max-w-md`: the text sits bottom-left in English and
+  bottom-right in Arabic and clears the figure in both without mirroring the photograph.
+  The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
+  other slides are `hero-<collection>-desktop` / `-mobile`.
+- The promo banner and the campaign put their copy on the photograph's empty side: the
+  physical left from 768 in both languages (`rtl:md:ms-auto`), the bottom on mobile, each
+  with a scrim on that side only. Neither photograph is ever mirrored.
+- No dominant editorial image or garment repeats across the hero, promo banner,
+  featured collection, campaign or lookbook (user requirement, 2026-09-14). Product-card
+  photography may repeat a garment where the merchandising story calls for it.
 - There is no image-shape test: under vitest a `.jpg` import has no dimensions, every
   frame is CSS `aspect-ratio` + `object-cover` (a wrong shape crops, never distorts), and
   the screenshot review is the guard. A missing file fails `next build`, not typecheck.
@@ -259,9 +272,14 @@ Every homepage image is a static import behind one registry, swappable by file d
   one-line change there.
 - The mock products carry `{ en, ar }` names purely so the English homepage reads; the
   real `products.name` is one Arabic string. The type is `HomeProductMock`, not `Product`.
-- Shopping benefits copy (`home.benefits.*`) is generic on purpose and marked
-  unconfirmed in `features/home/data/benefits.ts` — no policy exists yet.
-- Arabic copy for `home.*` was drafted by the implementer and awaits review.
+- Shopping benefits copy (`home.benefits.*`) is generic on purpose. `delivery` and
+  `returns` must be confirmed against the real operating policy before launch, and no
+  coverage area, speed, return period, fee or "no questions asked" claim may be added
+  until then (`features/home/data/benefits.ts`). Visually the section is a cream band
+  with fine rules and small line icons: no boxes, rounded cards or shadows.
+- Arabic homepage copy was reworked for natural, concise phrasing rather than
+  word-for-word translation (2026-09-14); a native-speaker review by the business is
+  still pending.
 - No wishlist icon on cards until wishlist behaviour exists; when it arrives it is a
   sibling of the card link, never nested inside the `<a>`.
 
