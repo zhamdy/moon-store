@@ -720,10 +720,27 @@ header[data-surface][data-surface-ready] {
   animation: moon-marquee var(--marquee-duration) linear infinite;
 }
 
-.marquee:hover .marquee-track,
-.marquee:focus-within .marquee-track,
-[data-marquee-group]:hover .marquee-track {
+.marquee:hover :is(.marquee-track, [data-strip-pan]),
+.marquee:focus-within :is(.marquee-track, [data-strip-pan]) {
   animation-play-state: paused;
+}
+
+/* Editorial strip depth: each detail photograph drifts sideways inside its frame
+   on its own slow cycle, over-scaled so no edge shows, so the images move at a
+   different speed from the words without leaving the line. */
+[data-strip-pan] {
+  transform: scale(1.18);
+  animation: moon-strip-pan 9s ease-in-out infinite alternate;
+  animation-delay: var(--pan-delay, 0s);
+}
+
+@keyframes moon-strip-pan {
+  from {
+    transform: translateX(-7%) scale(1.18);
+  }
+  to {
+    transform: translateX(7%) scale(1.18);
+  }
 }
 
 [dir='rtl'] .marquee-track {
@@ -772,8 +789,13 @@ header[data-surface][data-surface-ready] {
     overflow-x: auto;
   }
 
-  .marquee-track {
+  .marquee-track,
+  [data-strip-pan] {
     animation: none;
+  }
+
+  [data-strip-pan] {
+    transform: none;
   }
 
   .marquee-track[aria-hidden='true'],

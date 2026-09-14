@@ -12,8 +12,6 @@ export interface MarqueeProps {
   duration?: number;
   /** Space between items and between sets, any CSS length. */
   gap?: string;
-  /** Hides the whole marquee from assistive tech, for purely decorative content. */
-  decorative?: boolean;
   className?: string;
   children: ReactNode;
 }
@@ -26,19 +24,11 @@ export interface MarqueeProps {
  * the seam, which reads as one gap much wider than the rest.
  *
  * Only the first set in the first track is exposed to assistive tech; every other
- * copy is `aria-hidden`. Pauses on hover (its own, or an enclosing
- * `[data-marquee-group]`) and focus-within, travels the other way under
+ * copy is `aria-hidden`. Pauses on hover and focus-within, travels the other way under
  * `[dir="rtl"]`, and under reduced motion every copy is removed and the single set
  * scrolls naturally. See `.marquee` in app/globals.css.
  */
-export function Marquee({
-  repeat = 3,
-  duration = 48,
-  gap,
-  decorative = false,
-  className,
-  children,
-}: MarqueeProps) {
+export function Marquee({ repeat = 3, duration = 48, gap, className, children }: MarqueeProps) {
   const copies = Math.max(1, Math.floor(repeat));
   const extraCopies = Array.from({ length: copies - 1 }, (_, index) => (
     <div key={index} className="contents" aria-hidden="true" data-marquee-copy="">
@@ -52,11 +42,7 @@ export function Marquee({
   } as CSSProperties;
 
   return (
-    <div
-      className={cn('marquee', className)}
-      style={style}
-      aria-hidden={decorative ? 'true' : undefined}
-    >
+    <div className={cn('marquee', className)} style={style}>
       <div className="marquee-track">
         {children}
         {extraCopies}

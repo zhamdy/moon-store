@@ -209,14 +209,14 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    from `scroll()`'s progress callback (see the component comment for why the animation
    form of `scroll()` is avoided). The layer over-scale is CSS and collapses under
    reduced motion.
-5. **Marquee** — `<Marquee duration gap decorative>` (a Server Component in the home
+5. **Marquee** — `<Marquee duration gap>` (a Server Component in the home
    slice): pure CSS, two content-sized tracks (never stretched: the spare space would
    pile up at the seam), each repeating the content so a track outruns any viewport.
-   The strip layers two: words at 30s per set and the images, `decorative`, on top at
-   26s over a much wider gap, so they travel about twice as fast in the *same* direction
-   (opposite directions read as two unrelated tickers, not depth). Hovering the band
-   (`[data-marquee-group]`) pauses both; under reduced motion both stop and the images
-   drop below the words as a still row.
+   The strip keeps words and details alternating in one track (34s per set). A
+   separate faster image layer floating over the words was tried and rejected by the
+   user (2026-09-14) as clutter; depth comes instead from each photograph drifting
+   inside its own over-scaled frame (`[data-strip-pan]`, pure CSS, out of step per
+   image). Hover pauses both; reduced motion stops both.
 
 **Reveal and hover never share an element.** A `transition-*` utility replaces the
 element's whole `transition-property`, so a hover transition on an element carrying
