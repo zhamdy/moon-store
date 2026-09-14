@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { createApp } from './src/app';
+import { assertProductionEnv } from './src/config/env';
 import { beginShutdown } from './src/observability/health';
 import { resolveMetricsInterval, startMetricsReporter } from './src/observability/metrics';
 import logger from './lib/logger';
@@ -13,6 +14,19 @@ for (const envVar of requiredEnvVars) {
     logger.error(`FATAL: Missing required environment variable: ${envVar}`);
     process.exit(1);
   }
+}
+
+/**
+ * Production-only configuration that would otherwise fail a request much later -- today the
+ * absolute MEDIA_PUBLIC_BASE_URL the public catalog builds image URLs from, and a
+ * CATALOG_SERVER_TOKEN unless CATALOG_PUBLIC_ONLY=true. See
+ * `assertProductionEnv` in src/config/env.ts.
+ */
+try {
+  assertProductionEnv();
+} catch (err) {
+  logger.error(`FATAL: ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
 }
 
 const app = createApp();

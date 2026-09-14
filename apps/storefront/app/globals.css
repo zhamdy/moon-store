@@ -735,24 +735,6 @@ header[data-surface][data-surface-ready] {
   animation-play-state: paused;
 }
 
-/* Strip pause toggle (WCAG 2.2.2) - features/home/components/editorial-strip/
-   editorial-strip.tsx. A native checkbox, `role="switch"`, scoped by
-   [data-strip]/[data-strip-toggle] rather than a bare `section:has(:checked)`
-   so it can never reach into an unrelated section. Focusing the unchecked
-   toggle must not pause the tracks, so this is separate from the
-   :hover/:focus-within rule above, which stays scoped to .marquee itself. */
-[data-strip]:has([data-strip-toggle]:checked) :is(.marquee-track, [data-strip-pan]) {
-  animation-play-state: paused;
-}
-
-/* Hidden where it would do nothing (reduced motion already stops everything) or
-   could not work (:has() unsupported), so the strip keeps no empty gap for it. */
-@supports not selector(:has(*)) {
-  [data-strip-toggle-control] {
-    display: none;
-  }
-}
-
 /* product-card.tsx: the alternate (hover) image only exists where hover exists.
    display:none unless hover is available at 768+, so the lazy <img> inside is
    never fetched on a touch device, which has no hover to reveal it. */
@@ -764,6 +746,43 @@ header[data-surface][data-surface-ready] {
   .hover-alt-image {
     display: block;
   }
+}
+
+/* ============================================================
+   Catalog listing - features/catalog/components/.
+   ============================================================ */
+
+/* Pagination links end in #catalog-results (the grid's visually hidden h2), so
+   the jump lands the first row below the sticky header, not under it. */
+#catalog-results {
+  scroll-margin-top: calc(var(--header-h) + 24px);
+}
+
+/* Pending: while the controls island's transition runs, the current grid stays
+   and dims until the new one streams in. CSS only, keyed on the island root.
+   Reduced motion keeps the dimming; the global rule removes its transition. */
+[data-catalog-grid] {
+  transition: opacity var(--motion-base) var(--ease-ui);
+}
+
+[data-catalog]:has([data-catalog-controls][data-pending]) [data-catalog-grid] {
+  opacity: 0.55;
+}
+
+/* Category row: scrolls at every width (11 categories never fit at 1024), with a
+   fade on the inline end that says so. The row's inline-end padding exceeds the
+   fade, so the last link scrolls fully clear of it. */
+[data-category-row] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+  scrollbar-width: none;
+}
+
+[dir='rtl'] [data-category-row] {
+  mask-image: linear-gradient(to left, #000 calc(100% - 48px), transparent);
+}
+
+[data-category-row]::-webkit-scrollbar {
+  display: none;
 }
 
 /* Editorial strip depth: each detail photograph drifts sideways inside its frame
@@ -845,10 +864,6 @@ header[data-surface][data-surface-ready] {
 
   .marquee-track[aria-hidden='true'],
   [data-marquee-copy] {
-    display: none;
-  }
-
-  [data-strip-toggle-control] {
     display: none;
   }
 }

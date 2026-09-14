@@ -7,3 +7,4 @@ export * from './segments';
 export * from './storefront';
 export * from './onlineOrders';
 export * from './warranty';
+export * from './catalog';

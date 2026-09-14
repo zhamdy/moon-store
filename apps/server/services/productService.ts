@@ -4,12 +4,21 @@ import { withTransaction, Queryable } from '../src/database/transaction';
 import { productSchema } from '../validators/productSchema';
 import { notifyLowStock } from './notifications';
 import { stockAdjustmentsService } from '../src/modules/inventory/stockAdjustments/service';
+import {
+  assertSlugAvailable,
+  assignGeneratedSlug,
+  rethrowSlugViolation,
+} from '../src/modules/inventory/shared/slug';
 
 // --- Types ---
 
 export interface CreateProductInput {
   name: string;
   sku: string;
+  /** Absent on create: generated. Absent on update: left alone (KD-6). */
+  slug?: string;
+  /** Absent on update: left alone; null clears it. */
+  name_en?: string | null;
   barcode?: string | null;
   price: number;
   cost_price: number;
@@ -142,11 +151,16 @@ export async function generateBarcode(): Promise<{ barcode: string }> {
 
 /**
  * Create a new product. Resolves category text from category_id if not provided.
+ *
+ * One transaction, so the row and its generated slug commit together: a product is never
+ * visible without the slug the storefront addresses it by.
  */
 export async function createProduct(data: CreateProductInput): Promise<Record<string, any>> {
   const {
     name,
     sku,
+    slug,
+    name_en,
     barcode,
     price,
     cost_price,
@@ -157,29 +171,42 @@ export async function createProduct(data: CreateProductInput): Promise<Record<st
     min_stock,
   } = data;
 
-  let categoryText = category || null;
-  if (category_id && !categoryText) {
-    categoryText = await resolveCategoryText(db, category_id);
-  }
+  return withTransaction(async (client) => {
+    let categoryText = category || null;
+    if (category_id && !categoryText) {
+      categoryText = await resolveCategoryText(client, category_id);
+    }
 
-  const result = await db.query(
-    `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-    [
-      name,
-      sku,
-      barcode || null,
-      price,
-      cost_price,
-      stock,
-      categoryText,
-      category_id || null,
-      distributor_id || null,
-      min_stock,
-    ]
-  );
+    if (slug) await assertSlugAvailable(client, 'products', slug);
 
-  return result.rows[0];
+    let created: Record<string, unknown>;
+    try {
+      const result = await client.query(
+        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+        [
+          name,
+          sku,
+          barcode || null,
+          price,
+          cost_price,
+          stock,
+          categoryText,
+          category_id || null,
+          distributor_id || null,
+          min_stock,
+          slug ?? null,
+          name_en || null,
+        ]
+      );
+      created = result.rows[0];
+    } catch (error) {
+      rethrowSlugViolation(error, 'products');
+    }
+
+    if (created.slug) return created;
+    return assignGeneratedSlug(client, 'products', Number(created.id), [name_en, sku]);
+  });
 }
 
 /**
@@ -202,6 +229,8 @@ export async function updateProduct(
   const {
     name,
     sku,
+    slug,
+    name_en,
     barcode,
     price,
     cost_price,
@@ -217,28 +246,41 @@ export async function updateProduct(
     categoryText = await resolveCategoryText(db, category_id);
   }
 
+  if (slug) await assertSlugAvailable(db, 'products', slug, { column: 'id', value: Number(id) });
+
   const oldProduct = await db.query<{ price: number; cost_price: number }>(
     'SELECT price, cost_price FROM products WHERE id = $1',
     [id]
   );
 
-  const result = await db.query(
-    `UPDATE products SET name=$1, sku=$2, barcode=$3, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10, updated_at=NOW()
-     WHERE id=$11 RETURNING *`,
-    [
-      name,
-      sku,
-      barcode || null,
-      price,
-      cost_price,
-      stock,
-      categoryText,
-      category_id || null,
-      distributor_id || null,
-      min_stock,
-      id,
-    ]
-  );
+  // A full replacement, except the storefront fields: a client that predates them must
+  // not wipe them. `slug` absent keeps the stored one; `name_en` absent keeps, null clears.
+  let result;
+  try {
+    result = await db.query(
+      `UPDATE products SET name=$1, sku=$2, barcode=$3, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10,
+         slug=COALESCE($12::text, slug), name_en=CASE WHEN $13::boolean THEN $14::text ELSE name_en END, updated_at=NOW()
+       WHERE id=$11 RETURNING *`,
+      [
+        name,
+        sku,
+        barcode || null,
+        price,
+        cost_price,
+        stock,
+        categoryText,
+        category_id || null,
+        distributor_id || null,
+        min_stock,
+        id,
+        slug ?? null,
+        name_en !== undefined,
+        name_en || null,
+      ]
+    );
+  } catch (error) {
+    rethrowSlugViolation(error, 'products');
+  }
 
   if (result.rows.length === 0) {
     return null;
@@ -340,6 +382,12 @@ export async function bulkUpdateProducts(
 
 /**
  * Import products via CSV upsert (insert or update on SKU conflict).
+ *
+ * Each row is its own transaction, as each row was its own autocommit statement before:
+ * one bad row still fails alone. The transaction exists so a row and its generated slug
+ * commit together, and the slug retry runs under a SAVEPOINT inside it. An explicit slug
+ * held by a different SKU fails that row only. A re-imported SKU keeps its stored slug and
+ * `name_en` unless the row supplies new ones.
  */
 export async function importProducts(products: unknown[]): Promise<ImportResult> {
   let imported = 0;
@@ -355,6 +403,8 @@ export async function importProducts(products: unknown[]): Promise<ImportResult>
       const {
         name,
         sku,
+        slug,
+        name_en,
         barcode,
         price,
         cost_price,
@@ -364,23 +414,40 @@ export async function importProducts(products: unknown[]): Promise<ImportResult>
         distributor_id,
         min_stock,
       } = parsed.data;
-      await db.query(
-        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT(sku) DO UPDATE SET name=$1, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10, updated_at=NOW()`,
-        [
-          name,
-          sku,
-          barcode || null,
-          price,
-          cost_price,
-          stock,
-          category || null,
-          category_id || null,
-          distributor_id || null,
-          min_stock,
-        ]
-      );
+      await withTransaction(async (client) => {
+        if (slug)
+          await assertSlugAvailable(client, 'products', slug, { column: 'sku', value: sku });
+
+        let row: { id: number; slug: string | null };
+        try {
+          const result = await client.query<{ id: number; slug: string | null }>(
+            `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::text, $12::text)
+             ON CONFLICT(sku) DO UPDATE SET name=$1, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10,
+               slug=COALESCE($11::text, products.slug), name_en=COALESCE($12::text, products.name_en), updated_at=NOW()
+             RETURNING id, slug`,
+            [
+              name,
+              sku,
+              barcode || null,
+              price,
+              cost_price,
+              stock,
+              category || null,
+              category_id || null,
+              distributor_id || null,
+              min_stock,
+              slug ?? null,
+              name_en || null,
+            ]
+          );
+          row = result.rows[0];
+        } catch (error) {
+          rethrowSlugViolation(error, 'products');
+        }
+
+        if (!row.slug) await assignGeneratedSlug(client, 'products', row.id, [name_en, sku]);
+      });
       imported++;
     } catch (err: any) {
       errors.push({ row: i + 1, error: err.message });

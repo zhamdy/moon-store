@@ -5,7 +5,10 @@ export type HeroSlideKey = keyof Messages['home']['hero']['slides'];
 
 export interface HeroSlide {
   key: HeroSlideKey;
-  /** Intended destination; 404s today (no placeholder pages). */
+  /**
+   * `/shop/<category>` or `/collections/<slug>`, naming a `REQUIRED_CATALOG_KEYS` key
+   * (enforced by `commerce-hrefs.test.ts`).
+   */
   href: string;
   /** Wide crop (16:10), used when the viewport is at least 3:2. */
   wide: EditorialSlot;
@@ -43,14 +46,14 @@ export const heroSlides: readonly HeroSlide[] = [
   },
   {
     key: 'abaya',
-    href: '/collections/abayas',
+    href: '/shop/abayas',
     wide: 'hero-abaya-desktop',
     portrait: 'hero-abaya-mobile',
     imageClassName: 'object-[50%_30%]',
   },
   {
     key: 'knitwear',
-    href: '/collections/knitwear',
+    href: '/shop/knitwear',
     wide: 'hero-knitwear-desktop',
     portrait: 'hero-knitwear-mobile',
     // Higher than the others: on a 4:3 laptop the portrait crop is cut top and

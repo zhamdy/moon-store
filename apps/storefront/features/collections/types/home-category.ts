@@ -3,7 +3,7 @@ import type { EditorialSlot } from '@/lib/editorial/slots';
 
 export interface HomeCategory {
   key: string;
-  /** Intended destination; 404s today (no placeholder pages — Scope Boundaries). */
+  /** `/shop/<key>`, a `REQUIRED_CATALOG_KEYS` category (`commerce-hrefs.test.ts`). */
   href: string;
   image: EditorialSlot;
   messageKey: keyof Messages['categories'];

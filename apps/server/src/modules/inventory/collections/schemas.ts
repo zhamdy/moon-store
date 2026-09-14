@@ -10,13 +10,17 @@
 import { z } from 'zod';
 import { defineRequestContract, pathIdParams } from '../../../http/requestContracts';
 import { collectionListQuerySchema } from './types';
+import { slugSchema } from '../shared/slug';
 
 // Kept in sync with the client's `statuses` enum in Collections.tsx.
 const collectionStatusSchema = z.enum(['upcoming', 'active', 'on_sale', 'archived']);
 
 export const collectionSchema = z.object({
   name: z.string().min(1).max(100),
+  slug: slugSchema.optional(),
+  name_en: z.string().max(100).nullable().optional(),
   description: z.string().max(500).optional(),
+  description_en: z.string().max(500).nullable().optional(),
   season: z.string().max(50).optional(),
   year: z.number().int().min(1900).max(2100).nullable().optional(),
   status: collectionStatusSchema.optional(),
@@ -53,7 +57,11 @@ export const collectionSchema = z.object({
 export const collectionUpdateSchema = z
   .object({
     name: z.string().min(1).max(100).optional(),
+    // Not nullable: a published slug is renamed, never removed.
+    slug: slugSchema.optional(),
+    name_en: z.string().max(100).nullable().optional(),
     description: z.string().max(500).nullable().optional(),
+    description_en: z.string().max(500).nullable().optional(),
     season: z.string().max(50).nullable().optional(),
     year: z.number().int().min(1900).max(2100).nullable().optional(),
     status: collectionStatusSchema.optional(),
@@ -94,6 +102,9 @@ export const collectionsRequestContracts = {
     beyondSchema: [
       '`product_ids` sets the collection membership outright; omitting it creates an ' +
         'empty collection.',
+      '`slug` is optional: omitted, it is generated from `name_en`, else `collection-<id>`. ' +
+        'An explicit slug already in use, or ten taken candidates, is a 409 with ' +
+        '`details[].field` `slug`.',
     ],
   }),
 
@@ -114,7 +125,31 @@ export const collectionsRequestContracts = {
         'Re-reading the token at submit time always matches and turns the check off.',
       'The response deliberately withholds the current token, so recovering from a 409 ' +
         'means re-reading and reviewing rather than resubmitting blind.',
+      'An explicit `slug` held by another collection is a 409 with `details[].field` `slug`.',
     ],
+  }),
+
+  uploadCollectionImage: defineRequestContract({
+    method: 'POST',
+    path: '/api/v1/collections/{id}/image',
+    operation: 'uploadCollectionImage',
+    params: pathIdParams(),
+    contentType: 'multipart/form-data',
+    beyondSchema: [
+      'A single file field named `image`. Not JSON.',
+      'At most 2 MB, JPEG, PNG or WebP, and the magic bytes must agree with the ' +
+        'extension: a renamed file is rejected before anything is written.',
+      'Replaces any existing image; the previous object is released after the row points ' +
+        'at the new one. Does not change `updated_at`, the collection version token.',
+    ],
+  }),
+
+  deleteCollectionImage: defineRequestContract({
+    method: 'DELETE',
+    path: '/api/v1/collections/{id}/image',
+    operation: 'deleteCollectionImage',
+    params: pathIdParams(),
+    beyondSchema: ['The stored object is released only after the row stops pointing at it.'],
   }),
 
   deleteCollection: defineRequestContract({

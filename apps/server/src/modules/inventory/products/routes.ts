@@ -69,6 +69,27 @@ router.delete('/:id/image', verifyToken, requireRole('Admin'), (req, res, next) 
   productsController.deleteImage(req, res, next)
 );
 
+// Gallery images (plan KD-8). The read mirrors GET /:id; the writes mirror the primary
+// image route's middleware order.
+router.get('/:id/images', verifyToken, (req, res, next) =>
+  productsController.listGalleryImages(req, res, next)
+);
+router.post(
+  '/:id/images',
+  verifyToken,
+  requireRole('Admin'),
+  uploadRateLimit,
+  upload.single('image'),
+  validateImageBytes,
+  (req, res, next) => productsController.addGalleryImage(req, res, next)
+);
+router.put('/:id/images/order', verifyToken, requireRole('Admin'), (req, res, next) =>
+  productsController.reorderGalleryImages(req, res, next)
+);
+router.delete('/:id/images/:imageId', verifyToken, requireRole('Admin'), (req, res, next) =>
+  productsController.deleteGalleryImage(req, res, next)
+);
+
 router.get('/:id/variants', verifyToken, (req, res, next) =>
   productsController.getVariants(req, res, next)
 );

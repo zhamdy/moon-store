@@ -1,6 +1,6 @@
 import { Queryable } from '../../../database/transaction';
 import pool from '../../../database/pool';
-import { ProductFilters } from './types';
+import { ProductFilters, ProductImageRecord } from './types';
 
 export interface IProductsRepository {
   findById(id: number | string, queryable?: Queryable): Promise<Record<string, any> | null>;
@@ -49,6 +49,26 @@ export interface IProductsRepository {
     productId: number | string,
     queryable?: Queryable
   ): Promise<Record<string, any>[]>;
+  lockForGallery(
+    productId: number | string,
+    queryable: Queryable
+  ): Promise<{ id: number; status: string } | null>;
+  listImages(productId: number | string, queryable?: Queryable): Promise<ProductImageRecord[]>;
+  appendImage(
+    productId: number | string,
+    imageUrl: string,
+    queryable: Queryable
+  ): Promise<ProductImageRecord>;
+  deleteImageRow(
+    productId: number | string,
+    imageId: number | string,
+    queryable?: Queryable
+  ): Promise<ProductImageRecord | null>;
+  rewriteImagePositions(
+    productId: number | string,
+    orderedIds: number[],
+    queryable: Queryable
+  ): Promise<void>;
 }
 
 export class ProductsRepository implements IProductsRepository {
@@ -331,6 +351,89 @@ export class ProductsRepository implements IProductsRepository {
       [productId]
     );
     return res.rows;
+  }
+
+  /**
+   * Locks the product row for a gallery write. Every gallery writer takes this lock first,
+   * so `MAX(position) + 1`, the cap count and the reorder's id set are all read after any
+   * earlier writer has committed -- the `collection_products` pattern (#68).
+   */
+  async lockForGallery(
+    productId: number | string,
+    queryable: Queryable
+  ): Promise<{ id: number; status: string } | null> {
+    const res = await queryable.query<{ id: number; status: string }>(
+      'SELECT id, status FROM products WHERE id = $1 FOR UPDATE',
+      [productId]
+    );
+    return res.rows[0] || null;
+  }
+
+  async listImages(
+    productId: number | string,
+    queryable?: Queryable
+  ): Promise<ProductImageRecord[]> {
+    const res = await this.q(queryable).query<ProductImageRecord>(
+      `SELECT id, product_id, image_url, position, created_at
+       FROM product_images
+       WHERE product_id = $1
+       ORDER BY position ASC, id ASC`,
+      [productId]
+    );
+    return res.rows;
+  }
+
+  /** Callers must hold `lockForGallery` in the same transaction; the UNIQUE is the backstop. */
+  async appendImage(
+    productId: number | string,
+    imageUrl: string,
+    queryable: Queryable
+  ): Promise<ProductImageRecord> {
+    const res = await queryable.query<ProductImageRecord>(
+      `INSERT INTO product_images (product_id, image_url, position)
+       SELECT $1::int, $2::text, COALESCE(MAX(pi.position) + 1, 0)
+         FROM product_images pi
+        WHERE pi.product_id = $1::int
+       RETURNING id, product_id, image_url, position, created_at`,
+      [productId, imageUrl]
+    );
+    return res.rows[0];
+  }
+
+  async deleteImageRow(
+    productId: number | string,
+    imageId: number | string,
+    queryable?: Queryable
+  ): Promise<ProductImageRecord | null> {
+    const res = await this.q(queryable).query<ProductImageRecord>(
+      `DELETE FROM product_images WHERE id = $1 AND product_id = $2
+       RETURNING id, product_id, image_url, position, created_at`,
+      [imageId, productId]
+    );
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Two passes because PostgreSQL checks a non-deferrable UNIQUE per row, not per
+   * statement: writing final positions directly can collide with a row not yet moved
+   * (a swap is exactly that). The first pass maps every position to a distinct negative,
+   * which no final position can equal; the second writes the finals.
+   */
+  async rewriteImagePositions(
+    productId: number | string,
+    orderedIds: number[],
+    queryable: Queryable
+  ): Promise<void> {
+    await queryable.query(
+      'UPDATE product_images SET position = -1 - position WHERE product_id = $1',
+      [productId]
+    );
+    for (const [index, imageId] of orderedIds.entries()) {
+      await queryable.query(
+        'UPDATE product_images SET position = $1 WHERE id = $2 AND product_id = $3',
+        [index, imageId, productId]
+      );
+    }
   }
 }
 

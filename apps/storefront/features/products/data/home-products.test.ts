@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { catalogSlots } from '@/lib/editorial/slots';
+import { fromHomeMock } from '../utils/product-card-model';
 import { curatedEdit, newArrivals } from './home-products';
 
 const all = [...newArrivals, ...curatedEdit];
@@ -25,6 +26,16 @@ describe('homepage product mocks', () => {
       expect(product.price).toBeGreaterThan(0);
       expect(product.name.en.trim()).not.toBe('');
       expect(product.name.ar.trim()).not.toBe('');
+    }
+  });
+
+  it('map to product pages with their static slots and new badges intact', () => {
+    for (const product of all) {
+      const model = fromHomeMock(product, 'en');
+      expect(model.href).toBe(`/products/${product.slug}`);
+      expect(model.primary).toEqual({ kind: 'static', slot: product.images.a });
+      expect(model.secondary).toEqual({ kind: 'static', slot: product.images.b });
+      expect(model.badge).toBe(product.isNew ? 'new' : null);
     }
   });
 

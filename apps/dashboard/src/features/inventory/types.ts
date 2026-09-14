@@ -46,6 +46,19 @@ export interface ProductFormData {
   category_id?: number | null;
   distributor_id?: number | null;
   min_stock: number;
+  /** Blank in the form; omitted on the wire so the server generates or keeps one. */
+  slug?: string;
+  /** Blank in the form; sent as null, which clears it. Arabic `name` stays primary. */
+  name_en?: string | null;
+}
+
+/** One additional image from GET products/:id/images, ordered by `position`. */
+export interface ProductImage {
+  id: number;
+  product_id: number;
+  image_url: string;
+  position: number;
+  created_at: string;
 }
 
 /**
@@ -57,6 +70,9 @@ export interface CategoryRecord {
   id: number;
   name: string;
   code: string;
+  slug?: string | null;
+  name_en?: string | null;
+  description_en?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +85,11 @@ export interface Collection {
   year: number | null;
   status: string;
   description: string | null;
+  slug?: string | null;
+  name_en?: string | null;
+  description_en?: string | null;
+  /** Set only through POST/DELETE collections/:id/image, which leave `updated_at` alone. */
+  image_url?: string | null;
   product_count: number;
   /**
    * Doubles as the optimistic-concurrency token (#81). Echoed back as

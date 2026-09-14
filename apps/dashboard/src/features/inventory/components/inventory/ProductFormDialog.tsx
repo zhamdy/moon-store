@@ -1,7 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Upload, Trash2, ImagePlus } from 'lucide-react';
 import {
   Button,
   Input,
@@ -18,9 +17,9 @@ import { useTranslation } from '../../../../shared/i18n/index';
 import type { Product, Category, Distributor } from '../../../../shared/types/index';
 import type { ProductFormData } from '../../types';
 import type { z } from 'zod';
-import { assetUrl } from '../../../../shared/lib/apiBase';
-
-/** Where the server serves uploaded product images from. */
+import { slugify } from '../../lib/slug';
+import SingleImageControl from './SingleImageControl';
+import ProductGalleryManager from './ProductGalleryManager';
 
 interface ProductFormDialogProps {
   open: boolean;
@@ -33,6 +32,8 @@ interface ProductFormDialogProps {
   getProductSchema: () => z.ZodSchema;
   onImageUpload: (productId: number, file: File) => void;
   onImageRemove: (productId: number) => void;
+  /** The server's refusal of the slug (409 or 400), shown on the field itself. */
+  slugError?: string | null;
 }
 
 export default function ProductFormDialog({
@@ -46,10 +47,15 @@ export default function ProductFormDialog({
   getProductSchema,
   onImageUpload,
   onImageRemove,
+  slugError = null,
 }: ProductFormDialogProps) {
   const { t } = useTranslation();
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const transport = useTransport();
+  /**
+   * Whether the operator owns the slug. Until they do, it follows the English name. An
+   * existing slug counts as owned: it is already in links, and a rename must be deliberate.
+   */
+  const slugTouched = useRef(false);
 
   const {
     register,
@@ -58,6 +64,8 @@ export default function ProductFormDialog({
     control,
     watch,
     setValue,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<ProductFormData>({
     resolver: zodResolver(getProductSchema()),
@@ -67,51 +75,51 @@ export default function ProductFormDialog({
 
   // Populate form when dialog opens
   useEffect(() => {
+    // A barcode that lands after the dialog closed or reopened on another product is stale.
+    let ignore = false;
     if (open) {
       if (editingProduct) {
-        reset({
-          name: editingProduct.name,
-          sku: editingProduct.sku,
-          barcode: editingProduct.barcode || '',
-          price: Number(editingProduct.price),
-          cost_price: editingProduct.cost_price || 0,
-          stock: editingProduct.stock,
-          category_id: editingProduct.category_id,
-          distributor_id: editingProduct.distributor_id,
-          min_stock: editingProduct.min_stock,
-        });
+        slugTouched.current = Boolean(editingProduct.slug);
+        reset(getEditFormValues(editingProduct));
       } else {
-        reset({
-          name: '',
-          sku: '',
-          barcode: '',
-          price: 0,
-          cost_price: 0,
-          stock: 0,
-          category_id: null,
-          distributor_id: null,
-          min_stock: 5,
-        });
+        slugTouched.current = false;
+        reset(getCreateFormValues());
         // Auto-generate barcode for new products
         transport
           .request<{ barcode: string }>({ method: 'GET', path: 'products/generate-barcode' })
-          .then(({ data }) => setValue('barcode', data.barcode))
+          .then(({ data }) => {
+            if (!ignore) setValue('barcode', data.barcode);
+          })
           .catch(() => {});
       }
     }
+    return () => {
+      ignore = true;
+    };
   }, [open, editingProduct, reset, setValue, transport]);
+
+  useEffect(() => {
+    if (slugError) setError('slug', { type: 'server', message: slugError });
+  }, [slugError, setError]);
 
   // Auto-generate SKU when category changes (only for new products)
   useEffect(() => {
+    // Only the SKU for the category still selected may land; an earlier pick's answer is dropped.
+    let ignore = false;
     if (!editingProduct && watchCategoryId && open) {
       transport
         .request<{ sku: string }>({
           method: 'GET',
           path: `products/generate-sku/${watchCategoryId}`,
         })
-        .then(({ data }) => setValue('sku', data.sku))
+        .then(({ data }) => {
+          if (!ignore) setValue('sku', data.sku);
+        })
         .catch(() => {});
     }
+    return () => {
+      ignore = true;
+    };
   }, [watchCategoryId, editingProduct, open, setValue, transport]);
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -180,6 +188,52 @@ export default function ProductFormDialog({
                         </SelectItem>
                       )) || []}
                     </Select>
+                  )}
+                />
+
+                {/* Controller, not register: the slug is written by code as well as typed. */}
+                <Controller
+                  name="name_en"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      label={t('catalog.nameEn')}
+                      size="sm"
+                      variant="bordered"
+                      dir="ltr"
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (!slugTouched.current) setValue('slug', slugify(value));
+                      }}
+                      isInvalid={!!errors.name_en}
+                      errorMessage={errors.name_en?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="slug"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      label={t('catalog.slug')}
+                      size="sm"
+                      variant="bordered"
+                      dir="ltr"
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onValueChange={(value) => {
+                        // Clearing it hands the slug back to the suggestion.
+                        slugTouched.current = value !== '';
+                        field.onChange(value);
+                        // A server refusal describes the old value; editing answers it.
+                        clearErrors('slug');
+                      }}
+                      description={t('catalog.slugHelp')}
+                      isInvalid={!!errors.slug}
+                      errorMessage={errors.slug?.message}
+                    />
                   )}
                 />
 
@@ -270,62 +324,21 @@ export default function ProductFormDialog({
                 />
               </div>
 
-              {/* Image upload (only for existing products) */}
+              {/* Images address the product by id, so they appear once it exists. */}
               {editingProduct && (
-                <div className="space-y-2 border-t border-border pt-4">
-                  <p className="text-xs font-medium text-foreground">
-                    {t('inventory.productImage')}
-                  </p>
-                  <div className="flex items-center gap-3">
-                    {editingProduct.image_url ? (
-                      <img
-                        src={assetUrl(editingProduct.image_url)}
-                        alt={editingProduct.name}
-                        className="h-16 w-16 rounded-lg object-cover border border-border"
-                      />
-                    ) : (
-                      <div className="h-16 w-16 rounded-lg bg-muted/30 flex items-center justify-center border border-dashed border-border">
-                        <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <input
-                        type="file"
-                        accept=".jpg,.jpeg,.png,.webp"
-                        ref={imageInputRef}
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file && editingProduct) {
-                            onImageUpload(editingProduct.id, file);
-                          }
-                          e.target.value = '';
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="bordered"
-                        size="sm"
-                        startContent={<Upload className="h-3.5 w-3.5" />}
-                        onPress={() => imageInputRef.current?.click()}
-                      >
-                        {t('inventory.uploadImage')}
-                      </Button>
-                      {editingProduct.image_url && (
-                        <Button
-                          type="button"
-                          variant="light"
-                          color="danger"
-                          size="sm"
-                          startContent={<Trash2 className="h-3.5 w-3.5" />}
-                          onPress={() => onImageRemove(editingProduct.id)}
-                        >
-                          {t('inventory.removeImage')}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <>
+                  <SingleImageControl
+                    label={t('inventory.productImage')}
+                    imageUrl={editingProduct.image_url}
+                    alt={editingProduct.name}
+                    onUpload={(file) => onImageUpload(editingProduct.id, file)}
+                    onRemove={() => onImageRemove(editingProduct.id)}
+                  />
+                  <ProductGalleryManager
+                    productId={editingProduct.id}
+                    productName={editingProduct.name}
+                  />
+                </>
               )}
             </ModalBody>
             <ModalFooter className="border-t border-border/50">
@@ -347,6 +360,8 @@ export default function ProductFormDialog({
 export function getEditFormValues(product: Product) {
   return {
     name: product.name,
+    name_en: product.name_en ?? '',
+    slug: product.slug ?? '',
     sku: product.sku,
     barcode: product.barcode || '',
     price: Number(product.price),
@@ -361,6 +376,8 @@ export function getEditFormValues(product: Product) {
 export function getCreateFormValues() {
   return {
     name: '',
+    name_en: '',
+    slug: '',
     sku: '',
     barcode: '',
     price: 0,

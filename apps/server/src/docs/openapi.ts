@@ -109,6 +109,10 @@ export const openApiSpec = {
       description: 'Public catalog & storefront settings',
     },
     {
+      name: 'Catalog',
+      description: 'Public, whitelisted catalog reads for the storefront',
+    },
+    {
       name: 'Online Orders',
       description: 'E-commerce orders & status tracking',
     },
@@ -3342,6 +3346,16 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -3899,6 +3913,16 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -3967,6 +3991,16 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -4383,6 +4417,214 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/products/{id}/images': {
+      get: {
+        tags: ['Products'],
+        summary: 'List product gallery images (Admin, Cashier, Delivery)',
+        description: 'Endpoint classification: B. Allowed Roles: Admin, Cashier, Delivery.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Gallery images in display order',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'integer' },
+                          product_id: { type: 'integer' },
+                          image_url: { type: 'string' },
+                          position: {
+                            type: 'integer',
+                            description: 'Display order, ascending. Gaps are allowed.',
+                          },
+                          created_at: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+        },
+      },
+      post: {
+        tags: ['Products'],
+        summary: 'Add a product gallery image (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  image: {
+                    type: 'string',
+                    format: 'binary',
+                    description:
+                      'JPEG, PNG or WebP, at most 2 MB. The magic bytes must agree with ' +
+                      'the extension: a renamed file is rejected before anything is written.',
+                  },
+                },
+                required: ['image'],
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'The appended image',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'integer' },
+                        product_id: { type: 'integer' },
+                        image_url: { type: 'string' },
+                        position: {
+                          type: 'integer',
+                          description: 'Display order, ascending. Gaps are allowed.',
+                        },
+                        created_at: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+          '409': { description: 'The gallery already holds 8 images (`GALLERY_FULL`)' },
+          '429': { description: 'Upload rate limit exceeded' },
+        },
+      },
+    },
+    '/api/v1/products/{id}/images/order': {
+      put: {
+        tags: ['Products'],
+        summary: 'Reorder product gallery images (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Gallery images in their new order',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'integer' },
+                          product_id: { type: 'integer' },
+                          image_url: { type: 'string' },
+                          position: {
+                            type: 'integer',
+                            description: 'Display order, ascending. Gaps are allowed.',
+                          },
+                          created_at: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+        },
+      },
+    },
+    '/api/v1/products/{id}/images/{imageId}': {
+      delete: {
+        tags: ['Products'],
+        summary: 'Delete a product gallery image (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+          {
+            name: 'imageId',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target imageId',
+          },
+        ],
+        responses: {
+          '204': { description: 'Image removed' },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+        },
+      },
+    },
     '/api/v1/products/{id}/variants': {
       get: {
         tags: ['Products'],
@@ -4795,6 +5037,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -4865,6 +5118,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -5979,6 +6243,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -6038,6 +6313,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -6106,6 +6392,17 @@ export const openApiSpec = {
                     },
                     data: {
                       type: 'object',
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          nullable: true,
+                          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                          maxLength: 80,
+                          description: 'Storefront address. Generated on create when omitted.',
+                        },
+                        name_en: { type: 'string', nullable: true },
+                        description_en: { type: 'string', nullable: true },
+                      },
                     },
                   },
                 },
@@ -6184,6 +6481,88 @@ export const openApiSpec = {
           '500': {
             description: 'Internal server error',
           },
+        },
+      },
+    },
+    '/api/v1/collections/{id}/image': {
+      post: {
+        tags: ['Collections'],
+        summary: 'Upload or replace the collection image (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  image: {
+                    type: 'string',
+                    format: 'binary',
+                    description:
+                      'JPEG, PNG or WebP, at most 2 MB. The magic bytes must agree with ' +
+                      'the extension: a renamed file is rejected before anything is written.',
+                  },
+                },
+                required: ['image'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'The stored image URL',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'object', properties: { image_url: { type: 'string' } } },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+          '429': { description: 'Upload rate limit exceeded' },
+        },
+      },
+      delete: {
+        tags: ['Collections'],
+        summary: 'Remove the collection image (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        responses: {
+          '204': { description: 'Image removed' },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
         },
       },
     },
@@ -8181,6 +8560,1083 @@ export const openApiSpec = {
           },
           '500': {
             description: 'Internal server error',
+          },
+        },
+      },
+    },
+    '/api/v1/catalog/products': {
+      get: {
+        tags: ['Catalog'],
+        summary: 'List catalog products (Public)',
+        description: 'Endpoint classification: P. Allowed Roles: Public.',
+        security: [],
+        responses: {
+          '200': {
+            description: 'One page of active products',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'public, max-age=60',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['data', 'meta'],
+                  properties: {
+                    data: {
+                      type: 'array',
+                      maxItems: 24,
+                      items: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: ['slug', 'name', 'nameEn', 'price', 'images', 'isNew', 'inStock'],
+                        properties: {
+                          slug: {
+                            type: 'string',
+                            example: 'silk-slip-dress',
+                          },
+                          name: {
+                            type: 'string',
+                            description: 'Primary (Arabic) name.',
+                          },
+                          nameEn: {
+                            type: ['string', 'null'],
+                          },
+                          price: {
+                            type: 'number',
+                            example: 1250,
+                          },
+                          images: {
+                            type: 'array',
+                            maxItems: 2,
+                            description: 'Primary image then gallery by position; absolute URLs.',
+                            items: {
+                              type: 'object',
+                              additionalProperties: false,
+                              required: ['url'],
+                              properties: {
+                                url: {
+                                  type: 'string',
+                                  format: 'uri',
+                                },
+                              },
+                            },
+                          },
+                          isNew: {
+                            type: 'boolean',
+                          },
+                          inStock: {
+                            type: 'boolean',
+                          },
+                        },
+                      },
+                    },
+                    meta: {
+                      type: 'object',
+                      required: ['pagination', 'priceRange'],
+                      properties: {
+                        pagination: {
+                          type: 'object',
+                          required: [
+                            'page',
+                            'pageSize',
+                            'totalItems',
+                            'totalPages',
+                            'hasNextPage',
+                            'hasPreviousPage',
+                          ],
+                          properties: {
+                            page: {
+                              type: 'integer',
+                            },
+                            pageSize: {
+                              type: 'integer',
+                              example: 24,
+                            },
+                            totalItems: {
+                              type: 'integer',
+                            },
+                            totalPages: {
+                              type: 'integer',
+                            },
+                            hasNextPage: {
+                              type: 'boolean',
+                            },
+                            hasPreviousPage: {
+                              type: 'boolean',
+                            },
+                          },
+                        },
+                        priceRange: {
+                          type: 'object',
+                          required: ['min', 'max'],
+                          properties: {
+                            min: {
+                              type: ['number', 'null'],
+                            },
+                            max: {
+                              type: ['number', 'null'],
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'VALIDATION_ERROR: unknown or invalid query parameter',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description:
+              'NOT_FOUND: unknown category or collection, or a collection that is not live',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '429': {
+            description: 'RATE_LIMITED: catalog limiter ceiling reached',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '500': {
+            description: 'INTERNAL_ERROR',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description: 'SERVICE_UNAVAILABLE: the read exceeded its statement timeout',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/catalog/categories': {
+      get: {
+        tags: ['Catalog'],
+        summary: 'List catalog categories (Public)',
+        description: 'Endpoint classification: B. Allowed Roles: Public.',
+        security: [],
+        responses: {
+          '200': {
+            description: 'Every category with a slug',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'public, max-age=60',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['data'],
+                  properties: {
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: [
+                          'slug',
+                          'name',
+                          'nameEn',
+                          'description',
+                          'descriptionEn',
+                          'productCount',
+                        ],
+                        properties: {
+                          slug: {
+                            type: 'string',
+                            example: 'dresses',
+                          },
+                          name: {
+                            type: 'string',
+                          },
+                          nameEn: {
+                            type: ['string', 'null'],
+                          },
+                          description: {
+                            type: ['string', 'null'],
+                          },
+                          descriptionEn: {
+                            type: ['string', 'null'],
+                          },
+                          productCount: {
+                            type: 'integer',
+                            minimum: 0,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'VALIDATION_ERROR: unknown or invalid query parameter',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '429': {
+            description: 'RATE_LIMITED: catalog limiter ceiling reached',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '500': {
+            description: 'INTERNAL_ERROR',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description: 'SERVICE_UNAVAILABLE: the read exceeded its statement timeout',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/catalog/collections': {
+      get: {
+        tags: ['Catalog'],
+        summary: 'List live collections (Public)',
+        description: 'Endpoint classification: B. Allowed Roles: Public.',
+        security: [],
+        responses: {
+          '200': {
+            description: 'Active and on_sale collections',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'public, max-age=60',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['data'],
+                  properties: {
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        additionalProperties: false,
+                        required: [
+                          'slug',
+                          'name',
+                          'nameEn',
+                          'description',
+                          'descriptionEn',
+                          'season',
+                          'year',
+                          'imageUrl',
+                          'isFeatured',
+                          'productCount',
+                        ],
+                        properties: {
+                          slug: {
+                            type: 'string',
+                            example: 'evening',
+                          },
+                          name: {
+                            type: 'string',
+                          },
+                          nameEn: {
+                            type: ['string', 'null'],
+                          },
+                          description: {
+                            type: ['string', 'null'],
+                          },
+                          descriptionEn: {
+                            type: ['string', 'null'],
+                          },
+                          season: {
+                            type: ['string', 'null'],
+                          },
+                          year: {
+                            type: ['integer', 'null'],
+                          },
+                          imageUrl: {
+                            type: ['string', 'null'],
+                            format: 'uri',
+                          },
+                          isFeatured: {
+                            type: 'boolean',
+                          },
+                          productCount: {
+                            type: 'integer',
+                            minimum: 0,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'VALIDATION_ERROR: unknown or invalid query parameter',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '429': {
+            description: 'RATE_LIMITED: catalog limiter ceiling reached',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '500': {
+            description: 'INTERNAL_ERROR',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description: 'SERVICE_UNAVAILABLE: the read exceeded its statement timeout',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/catalog/collections/{slug}': {
+      get: {
+        tags: ['Catalog'],
+        summary: 'Get a live collection (Public)',
+        description: 'Endpoint classification: B. Allowed Roles: Public.',
+        security: [],
+        parameters: [
+          {
+            name: 'slug',
+            in: 'path',
+            required: true,
+            schema: {
+              type: 'string',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'One collection',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'public, max-age=60',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['data'],
+                  properties: {
+                    data: {
+                      type: 'object',
+                      additionalProperties: false,
+                      required: [
+                        'slug',
+                        'name',
+                        'nameEn',
+                        'description',
+                        'descriptionEn',
+                        'season',
+                        'year',
+                        'imageUrl',
+                        'isFeatured',
+                        'productCount',
+                      ],
+                      properties: {
+                        slug: {
+                          type: 'string',
+                          example: 'evening',
+                        },
+                        name: {
+                          type: 'string',
+                        },
+                        nameEn: {
+                          type: ['string', 'null'],
+                        },
+                        description: {
+                          type: ['string', 'null'],
+                        },
+                        descriptionEn: {
+                          type: ['string', 'null'],
+                        },
+                        season: {
+                          type: ['string', 'null'],
+                        },
+                        year: {
+                          type: ['integer', 'null'],
+                        },
+                        imageUrl: {
+                          type: ['string', 'null'],
+                          format: 'uri',
+                        },
+                        isFeatured: {
+                          type: 'boolean',
+                        },
+                        productCount: {
+                          type: 'integer',
+                          minimum: 0,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'VALIDATION_ERROR: unknown or invalid query parameter',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'NOT_FOUND: unknown, upcoming or archived collection',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '429': {
+            description: 'RATE_LIMITED: catalog limiter ceiling reached',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '500': {
+            description: 'INTERNAL_ERROR',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description: 'SERVICE_UNAVAILABLE: the read exceeded its statement timeout',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },

@@ -30,6 +30,7 @@
   },
   "products": {
     "new": "New",
+    "soldOut": "Sold out",
     "currency": "EGP"
   },
   "categories": {
@@ -85,7 +86,6 @@
     },
     "strip": {
       "heading": "Collections",
-      "pause": "Pause motion",
       "words": {
         "evening": "Evening",
         "linen": "Linen",
@@ -170,5 +170,107 @@
     "title": "Page not found",
     "body": "The page you're looking for doesn't exist yet.",
     "backHome": "Back to home"
+  },
+  "catalog": {
+    "resultCount": "{count, plural, =0 {No pieces} one {# piece} other {# pieces}}",
+    "resultsHeadingFirst": "Products",
+    "resultsHeading": "Products, page {page} of {total}",
+    "loading": "Loading products",
+    "filters": {
+      "open": "Filter",
+      "activeCount": "{count} active",
+      "title": "Filters",
+      "close": "Close filters",
+      "availability": "Availability",
+      "inStockOnly": "In stock only",
+      "inStock": "In stock",
+      "price": "Price",
+      "min": "Minimum",
+      "max": "Maximum",
+      "priceHint": "Pieces from {min} to {max} {currency}",
+      "priceNumberError": "Enter a whole number",
+      "priceOrderError": "The minimum can't be higher than the maximum",
+      "priceMaxError": "Enter a smaller amount",
+      "clearAll": "Clear all",
+      "apply": "Show results",
+      "summaryLabel": "Active filters",
+      "remove": "Remove: {filter}",
+      "clear": "Clear",
+      "priceBetween": "{min}–{max} {currency}",
+      "priceFrom": "From {min} {currency}",
+      "priceUpTo": "Up to {max} {currency}"
+    },
+    "sort": {
+      "label": "Sort",
+      "newest": "Newest",
+      "priceAsc": "Price: low to high",
+      "priceDesc": "Price: high to low",
+      "curated": "Curated"
+    },
+    "intro": {
+      "shop": "Shop",
+      "collections": "Collections",
+      "shopTitle": "All pieces",
+      "newInTitle": "New In",
+      "collectionsTitle": "Collections"
+    },
+    "categoryNav": {
+      "label": "Categories",
+      "all": "All"
+    },
+    "pagination": {
+      "label": "Pages",
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {page} of {total}",
+      "page": "Page {page}"
+    },
+    "wayfinding": {
+      "exploreCollections": "Explore all collections",
+      "shopByCategory": "Shop by category"
+    },
+    "collections": {
+      "explore": "Explore"
+    },
+    "empty": {
+      "catalog": {
+        "title": "New pieces are on their way",
+        "body": "Check back soon for the latest arrivals.",
+        "action": "Back to home"
+      },
+      "filtered": {
+        "title": "No pieces match these filters",
+        "body": "Try removing a filter to see more.",
+        "action": "Clear filters"
+      },
+      "outOfRange": {
+        "title": "This page is empty",
+        "body": "This listing has fewer pages than the link expected.",
+        "action": "Go to page 1"
+      },
+      "collection": {
+        "title": "This collection is being prepared",
+        "body": "Its pieces will appear here as they arrive.",
+        "action": "Shop all pieces"
+      },
+      "category": {
+        "title": "This edit is being restocked",
+        "body": "In the meantime, browse everything in the shop.",
+        "action": "Shop all pieces"
+      }
+    },
+    "meta": {
+      "shopDescription": "Every piece in the Moon Fashion edit, newest first.",
+      "newInDescription": "The latest arrivals at Moon Fashion.",
+      "collectionsDescription": "Editorial collections from Moon Fashion.",
+      "categoryDescription": "Shop {name} at Moon Fashion.",
+      "collectionDescription": "Discover the {name} collection at Moon Fashion."
+    },
+    "error": {
+      "title": "We couldn't load these pieces",
+      "body": "Something went wrong on our side. Please try again in a moment.",
+      "retry": "Try again",
+      "home": "Back to home"
+    }
   }
 }

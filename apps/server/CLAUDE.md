@@ -35,6 +35,19 @@ constraint *validated*: the backfill immediately above guarantees every row conf
 the `NOT VALID` that `009` needed does not apply. Its `.down.sql` does the same in
 reverse, for the same reason.
 
+**A backfill UPDATE re-checks every CHECK, including one added `NOT VALID`.** `004` added
+`products_stock_non_negative` `NOT VALID` so legacy negative-stock rows could survive; `014`
+setting a slug on such a row would abort the migration. So `014`'s backfill lifts every
+unvalidated CHECK on `products` and `categories`, backfills, and re-adds each from its own
+`pg_get_constraintdef` (which carries the `NOT VALID`) in the same transaction: the
+constraint ends exactly as it was. Proven on real PostgreSQL in
+`tests/concurrency/storefrontCatalogMigration.realpg.test.ts`.
+
+**Deploy `014` in a maintenance window.** It builds its unique indexes and restores those
+CHECKs inside the migration transaction (`migrate.ts` wraps each file), so on a
+production-sized `products` table it holds ACCESS EXCLUSIVE locks for the whole build and
+POS writes block meanwhile.
+
 Note that replaying an *older* migration's raw SQL after a newer one has narrowed the
 same object undoes the narrowing — `009` re-adds its own wider list. That is inherent to
 what "replay migration N" means, not a bug in either file, and it is why
@@ -182,8 +195,9 @@ page that re-reads it at submit time always matches and has quietly turned the c
 ## Error contracts: typed at the throw site
 
 A service says what kind of refusal something is; a controller does not work it out from
-the wording. Services throw `PublicError` with one of the seven public codes, and the
-controller's `catch` passes it to `next` unchanged.
+the wording. Services throw `PublicError` with one of the eight public codes, and the
+controller's `catch` passes it to `next` unchanged. (`SERVICE_UNAVAILABLE`, 503, is the newest:
+the public catalog's statement timeout.)
 
 Before #47 this was inverted: services threw bare `Error`s and controllers recovered the
 status by testing the message. `layaway` (since removed) chose 404 on
@@ -214,6 +228,30 @@ was answered with a 409. And `'UNIQUE'` is SQLite wording — PostgreSQL says
 `duplicate key value violates unique constraint`, lowercase — so half of every one of
 those checks had been dead since the migration without anyone noticing. Which is the
 argument against the technique, not just against that string.
+
+### Catalog slugs (products, categories, collections)
+
+`src/modules/inventory/shared/slug.ts` owns the pattern (`^[a-z0-9]+(?:-[a-z0-9]+)*$`,
+1-80 characters, Zod only: 014 adds no CHECK because pg-mem has no regex) and generation.
+A create with no slug takes the first free candidate from `name_en`, else the SKU or code,
+else `<resource>-<id>`: `base`, `base-2` ... `base-10`, chosen in one
+`UPDATE ... SET slug = CASE WHEN NOT EXISTS ...` inside the create's transaction. A
+concurrent writer that wins the same candidate surfaces as a 23505 on `idx_<table>_slug`;
+the statement is retried under a SAVEPOINT, narrowed by constraint name. Ten taken
+candidates, or an explicit slug another row holds, is a 409 whose `details[].field` is
+`slug` (`SLUG_UNAVAILABLE` / `SLUG_TAKEN`) -- an operator who typed a slug is told, never
+silently suffixed. Updates never generate: absent `slug` / `name_en` / `description_en`
+leave the stored value, even on the full-replacement product and category PUTs.
+
+Two pg-mem gaps shape the tests. It cannot parse SAVEPOINT (`tests/support/pgMem.ts`
+no-ops those statements, faithful because it never reports `err.constraint`, so the retry
+cannot trigger), and it does not roll back, so "the refused row is gone" is asserted only
+in `tests/concurrency/catalogSlug.concurrency.test.ts`, which forces each race by holding
+the slug in an open transaction until the writer is seen waiting on the lock.
+
+`importProducts` writes each row in its own transaction (it used to be one autocommit
+statement per row, never one transaction for the file), so a row and its slug commit
+together and a failing row still fails alone.
 
 ## The API contract: one description, two gates
 
@@ -361,6 +399,91 @@ route the page meant.
 Negative tests for both gates live in `tests/gates/`, and each gate fails on implausible
 input (no manifest entries, no client calls, no postponed list) rather than passing empty.
 
+## Public catalog (`/api/v1/catalog`)
+
+Four anonymous GETs the storefront renders from (plan 2026-09-14-002, Unit 4):
+`/products` (the one listing), `/categories`, `/collections`, `/collections/:slug`. A
+separate module and prefix (`src/modules/commerce/catalog`, manifest
+`publicEntry(['B', 'P'])`) rather than public routes in the postponed Admin-gated
+storefront module, so "nothing under this prefix writes" stays structurally checkable.
+
+**Whitelist rule.** No `SELECT *` / `p.*` in the module: every repository query names its
+columns and a mapper builds each DTO. `products` carries `cost_price`, supplier and reorder
+columns, no gate inspects responses, and these responses are publicly cached, so
+`tests/catalog.test.ts` pins each DTO's exact key set and that no `id`, `sku`, `barcode`,
+`stock` or `cost_price` appears anywhere in a body. A new field is a mapper change plus a
+test change, deliberately.
+
+- Only `status = 'active'` products with a slug; `inStock` follows `has_variants` (summed
+  variant stock, else own stock); `isNew` is `NEW_IN_DAYS` (30, `constants.ts`), in SQL.
+- Strict query grammar: unknown parameter, `category`/`collection`/`new` together,
+  `sort=curated` without `collection`, `priceMin > priceMax`, a price not a multiple of 50,
+  or `page` outside 1-500 is a 400. Page size is fixed at 24.
+- An unknown category, or a collection that is missing, `upcoming` or `archived`, is a 404
+  with **one shared body** (`CATALOG_NOT_FOUND_MESSAGE`), so slugs cannot be probed for
+  unreleased collections. A known category with no products is an empty 200.
+- Image URLs are absolute on the **origin** of `MEDIA_PUBLIC_BASE_URL`, never on the request
+  Host / X-Forwarded-Host (a forged host would poison shared caches); absolute stored URLs
+  pass through. Production refuses to boot without an absolute http(s) base
+  (`assertProductionEnv`, called from `index.ts`, not from `getEnv()` -- tests read the
+  environment under `NODE_ENV=production` for unrelated rules). Elsewhere it falls back to
+  `http://localhost:$PORT`.
+- Every read runs in a transaction under `SET LOCAL statement_timeout = '2000ms'`; a
+  cancelled query (57014) is `503 SERVICE_UNAVAILABLE`, the eighth public code.
+- 2xx (and 304) send `Cache-Control: public, max-age=60`; every other status `no-store`
+  (`publicCacheOnSuccess`, decided at `writeHead`).
+
+pg-mem cannot resolve correlated subqueries or LATERAL, so variant stock is a grouped LEFT
+JOIN and gallery images are one follow-up query for the page's ids. It also returns **no
+rows** for `status = 'active' AND slug IS NOT NULL` while the UNIQUE slug index exists and
+statuses are mixed; `tests/support/pgMem.ts` rewrites `slug IS NOT NULL` to the equivalent
+`NOT (slug IS NULL)` rather than the production SQL changing. A fixture whose rows all share
+one status hides the bug. NUMERIC-as-string,
+the timeout and plans are proven in `tests/concurrency/catalog.realpg.test.ts`.
+
+**Indexes were measured, not assumed.** KD-17 planned four listing indexes; EXPLAIN on
+8,000 products used only `idx_products_status_created (status, created_at DESC, id)`, for
+`new=true`. The price, category and in-stock candidates were never chosen, so `014` does
+not create them rather than pay for them on every write. Re-measure before adding one.
+
+**Known cost:** a listing runs its scoped join+aggregate twice and pins one pooled connection
+across 3-4 queries; deferred to the B-9 launch load review (plan 2026-09-14-002, *Deferred to
+Separate Tasks*).
+
+**Smoke-testing the storefront against a dev database:** run `npm run migrate` (014) and
+`npm run seed` first — the seed carries the slugs, English names, the `evening` / `linen`
+/ `silk` collections, the non-public `winter-tailoring` (upcoming) and `summer-2025`
+(archived), and the empty `kimonos` category. Point `MEDIA_LOCAL_ROOT` at a scratch
+directory for that API: a re-seed leaves no `image_url` references, and the
+`orphaned-media-cleanup` run at boot would otherwise delete every tracked image older than
+24h from `apps/server/uploads` (the same trap the e2e harness hit, root *Learnings*).
+
+### The catalog limiter
+
+Every storefront page is server-rendered, so every shopper's catalog read reaches the API
+from the Next server's IP -- the tills' shared-IP problem pointed the other way. Catalog
+GET/HEAD are therefore **exempt from the global limiter** (`isCatalogRead` beside the
+health exemption, matched case-insensitively on `^/api/v1/catalog(/|$)` built from the
+same `CATALOG_API_PREFIX` the router mounts, so `/API/V1/Catalog` cannot spend both budgets
+and `/api/v1/catalogue` is not exempt) and budgeted by `createCatalogLimiter`, mounted by
+the catalog router ahead of its cache middleware:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CATALOG_RATE_LIMIT_MAX` | `300` | Per IP, per 15 min. |
+| `CATALOG_SERVER_RATE_LIMIT_MAX` | `20000` | The one `catalog-server` bucket, per 15 min. |
+| `CATALOG_SERVER_TOKEN` | unset | Comma list (current,next). Each entry >= 32 bytes or env validation fails. **Required in production** unless `CATALOG_PUBLIC_ONLY=true`. |
+| `CATALOG_PUBLIC_ONLY` | `false` | `true`\|`false`. Production opt-out from the token: no trusted bucket, every catalog read is per IP. |
+
+A request with exactly one `X-Catalog-Server-Token` matching a configured token (SHA-256
+both sides, `timingSafeEqual` over every token) uses the trusted bucket; missing, wrong,
+wrong-length or repeated headers are simply per-IP. Production refuses to boot with no
+token (`assertProductionEnv`; the message names both variables, never a value) unless
+`CATALOG_PUBLIC_ONLY=true`, which means no trusted bucket, every SSR read shares the
+Next server's per-IP budget, and boot warns. **The trusted bucket is not a per-shopper limit** -- every SSR
+request shares it, so per-client limiting belongs at the edge in front of Next (UD-5, B-9).
+Ceilings fall back and warn exactly like `RATE_LIMIT_MAX`.
+
 ## Postponed modules: served, behind Admin
 
 Branches, bundles, feedback, online orders, storefront and warranty are hidden in the
@@ -373,6 +496,10 @@ Each gated route carries the lift rule in a comment: the gate lifts only when St
 ships, and only together with a named abuse control — a rate limit, or a hold cap where
 stock is reserved. It must never go back to anonymous stock holds. `GET /storefront/banners`
 stays public because it is a read with no side effects.
+
+The **live** public surface is the separate `/api/v1/catalog` module (above), not these
+routes: whitelisted reads with the catalog limiter as their named abuse control. Reads have
+no side effects, so no hold cap applies. Nothing about it lifts a gate here.
 
 ## Scheduled jobs
 
@@ -447,7 +574,7 @@ provider and per path-style setting, and a wrong guess writes unreachable URLs i
 | --- | --- | --- |
 | `MEDIA_STORAGE_DRIVER` | `local` | `local` or `s3`. |
 | `MEDIA_LOCAL_ROOT` | `apps/server/uploads` | Root directory for the `local` driver. |
-| `MEDIA_PUBLIC_BASE_URL` | `/uploads` | Prefix `publicUrl` puts in front of a key. **Required for `s3`.** |
+| `MEDIA_PUBLIC_BASE_URL` | `/uploads` | Prefix `publicUrl` puts in front of a key. **Required for `s3`, and absolute http(s) required in production** (the public catalog builds image URLs from its origin). |
 | `MEDIA_ORPHAN_MIN_AGE_HOURS` | `24` | Grace period before the sweep may delete an unreferenced object. |
 | `MEDIA_S3_BUCKET` | — | **Required for `s3`.** |
 | `MEDIA_S3_REGION` | — | AWS infers the endpoint from it. |
@@ -476,7 +603,18 @@ to a key** — an unresolvable reference is missing information, and a deletion 
 never read missing information as "unreferenced" — and it never touches an object younger
 than `MEDIA_ORPHAN_MIN_AGE_HOURS`. **A new table with an image URL column must be added to
 the reference query in `src/scheduler/mediaSweep.ts`** — the sweep deletes what that query
-does not return.
+does not return. `product_images.image_url` (014) is in it.
+
+**Gallery and collection images** (plan 2026-09-14-002, Unit 3) use the same intake (Admin,
+2 MB, magic bytes). `GET /api/v1/products/:id/images` (any token), `POST .../:id/images`,
+`PUT .../:id/images/order` (one transaction) and `DELETE .../:id/images/:imageId`; a
+product holds at most `PRODUCT_GALLERY_MAX` (8) gallery images besides its primary
+`image_url`, and the ninth upload is a 409 with `details[].code` `GALLERY_FULL` and nothing
+left stored. `products.image_url` stays the primary image POS and lookup read. Collections
+gain `POST` / `DELETE /api/v1/collections/:id/image`, which deliberately **does not touch
+`updated_at`**: that column is the optimistic-concurrency token for `PUT /collections/:id`,
+whose body cannot carry `image_url`, so bumping it would turn every edit composed before
+an upload into a spurious 409.
 
 **A new driver's `ownsUrl` is the load-bearing half of that.** `keyFromUrl` returning
 `null` conflates "somebody else's image" with "mine, and I could not read it"; the sweep

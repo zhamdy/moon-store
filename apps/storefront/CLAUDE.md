@@ -5,8 +5,10 @@
 The foundation (`2026-09-13-001-feat-storefront-foundation` plan) covers locale routing,
 design tokens, the API client and the global shell. The homepage, header surface, mobile
 menu panel and footer come from `2026-09-13-002-feat-storefront-homepage-header-footer`.
-The homepage is the only commerce surface: every nav, card and tile target still 404s
-through the catch-all, by design — no placeholder pages.
+Shop + Collections (`2026-09-14-002-feat-storefront-shop-collections`) added the first
+API-backed surfaces: Shop All, category pages, New In, the collections index and
+collection pages (see *Catalog*). Product detail (`/products/<slug>`, where every card
+links) still 404s through the catch-all, by design — no placeholder pages.
 
 ## Design guideline
 
@@ -120,8 +122,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to seven entries
-(eight files):
+Server Components by default (R21/R22). `'use client'` is limited to nine entries
+(ten files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -139,6 +141,16 @@ Server Components by default (R21/R22). `'use client'` is limited to seven entri
 7. `features/home/components/hero/hero-carousel.tsx` — which hero slide is active,
    autoplay, tabs, swipe. Slide content arrives server-rendered as `ReactNode`s and
    every string arrives resolved; it renders no image itself.
+8. `features/catalog/components/catalog-controls.tsx` — the catalog utility row's
+   filter summary, Filter button and Headless UI filter sheet, and sort select, written
+   to the URL with nuqs (`shallow: false`, `history: 'push'`). Strings arrive resolved
+   from `catalog-controls-slot.tsx` (`catalogControlsRenderer`); the few values it
+   formats itself use `{name}` templates through `fillTemplate`, not ICU. Its root is
+   `display: contents` so its controls wrap as items of the utility row. Pure rules
+   live in `catalog-controls-state.ts`, unit-tested.
+9. `app/[locale]/(catalog)/error.tsx` — every catalog route's error boundary. Next
+   requires an error boundary to be a client component, so it cannot take resolved
+   strings as props; see the one namespace exception below.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -156,15 +168,21 @@ resolved `items` array and `localeSwitcher`; `LocaleSwitcher`'s are `groupLabel`
 `components/layout/locale-labels.ts` — not a namespace object. The layout's
 `NextIntlClientProvider` passes `messages={null}` on purpose: it stays for the locale
 (next-intl's client `usePathname`/`Link` read it from context), but left undefined it
-would inherit and ship the whole catalogue. No client file calls `useTranslations`; one
-that needs to would bring the catalogue back. Before adding an eighth `"use client"`
-boundary, check whether the interactive part can be isolated into a small leaf instead
-of converting an entire Server Component tree.
+would inherit and ship the whole catalogue.
 
-`NavLink` looks like it should need the current pathname (for `aria-current`), but it
-doesn't — there's no real routing yet (only the homepage exists), so it takes an
-explicit `current?: boolean` prop that every caller currently passes as `false`. That's
-the seam a future page wires up; it does not need `usePathname`.
+**The one exception** (KD-14, 2026-09-14): `app/[locale]/(catalog)/layout.tsx` nests a
+second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing else, and
+`useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
+`useTranslations` in the app. The layout fetches nothing from the API, so it cannot
+throw past the boundary it serves. Widening that object, or a second client
+`useTranslations`, is a new decision, not a precedent. Before adding a tenth
+`"use client"` boundary, check whether the interactive part can be isolated into a
+small leaf instead of converting an entire Server Component tree.
+
+`NavLink` takes an explicit `current?: boolean` rather than reading the pathname, so it
+needs no client boundary. The catalog's `CategoryNav` is the first caller that passes
+`true` (the page it is rendered on knows its own slug). The header and footer still pass
+`false`: `aria-current` there needs the segment passed down, deferred.
 
 ## Motion
 
@@ -216,23 +234,19 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    separate faster image layer floating over the words was tried and rejected by the
    user (2026-09-14) as clutter; depth comes instead from each photograph drifting
    inside its own over-scaled frame (`[data-strip-pan]`, pure CSS, out of step per
-   image). Hover pauses both; reduced motion stops both; and — unlike the hero (see
-   below) — the strip closes WCAG 2.2.2 with a visible **pause toggle**
-   (`editorial-strip.tsx`): a native checkbox, `role="switch"`, icon-only with an
-   `aria-label` from `home.strip.pause`, sitting below the tracks at the inline end,
-   outside both `.marquee-track`s so it is never duplicated or animated. Checked
-   state pauses both via `[data-strip]:has([data-strip-toggle]:checked)` in
-   `app/globals.css`, scoped to the strip rather than a bare `section:has(:checked)`.
-   No client boundary: the checkbox's native checked state does the work. Hidden
-   under reduced motion (nothing moves) and where `:has()` is unsupported (it would
-   do nothing). Session-only, no storage — a reload restarting motion is acceptable
-   since the page is static.
+   image). Hover pauses both; reduced motion stops both. The strip has **no pause
+   control** (user decision, 2026-09-14): the CSS-only pause toggle added in the
+   freeze plan was removed, so keyboard and touch users cannot stop the motion. That
+   is an open WCAG 2.2.2 gap recorded in `docs/ACCESSIBILITY.md` → *Known gaps*; if an
+   accessibility review asks for it back, restore it from commit history (a native
+   checkbox, `role="switch"`, outside the tracks, pausing via
+   `[data-strip]:has([data-strip-toggle]:checked)`, no client boundary).
 
 **Signature vs commerce entrances** (AD-11, 2026-09-14). The label wipe and the
 word-masked `TextReveal` belong to the signature moments only: the promo banner, the
 featured collection and the campaign. `SectionHeading` (New Arrivals, Categories, The
-Edit, and every Shop/Collections heading after them) fades its label and raises its
-title once. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
+Edit) fades its label and raises its title once, and the catalog's `PageIntro` (an `h1`,
+not a `SectionHeading`) uses the same entrance. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
 settle) is for one feature card per section, like The Edit's first card and the first
 `CategoryTile`. Adding the word mask back to a commerce heading repeats the same entrance
 down the page.
@@ -321,8 +335,207 @@ Every homepage image is a static import behind one registry, swappable by file d
   the screenshot review is the guard. A missing file fails `next build`, not typecheck.
 - **After swapping the hero or campaign**, re-check nav and copy contrast at 1440 and
   375 in both locales: the scrims are tuned to be near-invisible on a correctly dark
-  image and only *visible* when the asset is too light. No `images` block exists in
-  `next.config.ts`; add `qualities` only if the default 75 shows artefacts on real assets.
+  image and only *visible* when the asset is too light. `next.config.ts`'s `images` block
+  exists for catalog remote images (see *Catalog*) and pins `qualities: [75]`; add a
+  quality only if 75 shows artefacts on real assets.
+
+## Catalog (Shop + Collections)
+
+The first API-backed pages (plan `2026-09-14-002`). Every read is a Server Component
+fetch; nothing in a browser calls the catalog API, so there is no CORS change and no
+TanStack Query for the catalog (KD-9: a client cache would be a second source of truth
+beside the server render, plus hydration payload).
+
+### URL model and routes
+
+| URL | Route file | Lists |
+| --- | --- | --- |
+| `/shop` | `app/[locale]/(catalog)/shop/page.tsx` | every active product, newest first |
+| `/shop/[category]` | `.../shop/[category]/page.tsx` | one category |
+| `/new-in` | `.../new-in/page.tsx` | products created in the server's `NEW_IN_DAYS` window |
+| `/collections` | `.../collections/page.tsx` | live collections (no product grid) |
+| `/collections/[slug]` | `.../collections/[slug]/page.tsx` | one collection, merchandised order |
+| `/products/[slug]` | none yet | the card href; 404s through the catch-all |
+
+Categories and collections stay distinct in URLs, API and UI (UD-3). A category is
+**path-only**: there is no `?category=`, so the query form can never compete with the
+indexable path. One routing system: every listing is one `CatalogPage` over one API
+listing, and `catalogPath()` (`features/catalog/utils/catalog-path.ts`) is the only
+place a catalog URL is spelled. `(catalog)` is a route group (URLs unchanged) whose
+layout exists only for the error strings (see *Client boundary rule*).
+
+`features/catalog/utils/catalog-route.ts` → `catalogRouteConfig` is the single source
+of what each listing route is: API scope, default sort, allowed sorts in display order
+(`curated` only on a collection, and its default there), whether the category row shows
+(Shop All and category pages), the eyebrow (the only breadcrumb: plain text on the page
+it names, a link elsewhere) and the end-of-listing link (New In → "Shop by category",
+collection → "Explore collections"). A per-route difference goes in that table, never in
+a page branch.
+
+### URL grammar (`features/catalog/search-params.ts`)
+
+`sort` (`newest | price-asc | price-desc | curated`), `stock=in`, `min`, `max`, `page`.
+One nuqs parser map serves the server loader, the serializer and the controls island.
+Malformed values never throw or 500 (R13), they fall back:
+
+- Digits are normalised first: Eastern Arabic and Persian digits become ASCII, grouping
+  separators (`,` `٬` `،` spaces) are stripped, and anything but 1-9 plain digits is
+  invalid.
+- `page` outside 1-500 (the API's bound) is page 1, and page 1 is never written.
+- `min` floors and `max` ceils to the 50 EGP step, because the API rejects any other
+  value with a 400. `min=0` is dropped; `min > max` is swapped.
+- `curated` outside a collection, and a spelled-out route default, normalise to `null`,
+  so equivalent URLs serialize identically.
+- A repeated key resolves to its **first valid** value (`?sort=best&sort=price-asc`
+  sorts), not nuqs's first occurrence.
+- Any change other than a page-only change resets to page 1 (KD-11).
+
+`toProductQuery` resolves the route default before `buildCatalogProductsPath` maps it to
+the API grammar, omitting values that filter nothing, so equivalent listings share one
+data-cache entry.
+
+### Rendering and caching
+
+The five catalog routes are dynamic (`ƒ`); nothing calls the API at `next build`. The
+four listings read `searchParams`. `/collections` reads none, so it calls
+`await connection()`; without that it would prerender and call the API at build.
+Catalog fetches go through the Next data cache with `revalidate` 60s for product lists
+and 300s for categories and collections (`CATALOG_REVALIDATE`), so a deactivated
+product can linger up to 60s — fine for browsing, never for checkout.
+
+**KD-10 invariant — a 404 must be a real 404.** A slug route resolves its entity (the
+category from the cached categories list; the collection by slug) and calls `notFound()`
+**before** rendering anything inside `<Suspense>`; `generateMetadata` shares the same
+memoized fetch. And **no `loading.tsx` may exist at or above a catalog segment**: it
+wraps the page in Suspense, the 200 status and shell stream first, and every `notFound()`
+becomes a streamed 200 with a not-found body. Only the product grid streams, inside
+`CatalogPage`'s one unkeyed `<Suspense>` (unkeyed so a filter transition keeps the old
+grid, dimmed, rather than flashing the skeleton). A known category with no active
+products is found and shows its empty state, not a 404. Unknown, upcoming and archived
+collections are indistinguishable 404s (the API shares one body).
+
+**Failure behaviour** (Unit 12 smoke against a stopped API, 2026-09-14):
+
+- A URL already in the data cache keeps rendering through a short outage.
+- An uncached list that fails inside Suspense has already sent 200: the client error
+  screen (`(catalog)/error.tsx`, "Try again" calls `retry()`) replaces the grid.
+- A failed entity lookup before Suspense (categories list, collection) is a 500 with the
+  same error screen. `getCatalogCollection` returns `null` only for `NOT_FOUND`; every
+  other error rethrows, so an outage never masquerades as a 404.
+- The error screen never renders `error.message` or a code; Next logs the digest.
+
+### Metadata (`features/catalog/utils/catalog-metadata.ts`)
+
+Title and description per route (entity localized name/description, else a
+`catalog.meta.*` message). Canonical is the locale path plus `?page=N` past page 1 —
+paginated pages stay indexable with a self canonical; sort and filters never enter it.
+`alternates.languages` points at the same page in each locale. Any sort or filter makes
+the page `noindex, follow`. URLs are relative and resolve against the locale layout's
+`metadataBase` from `SITE_URL` (read in `generateMetadata`, not at module load, so the
+homepage stays SSG; unset in production logs an error and falls back to
+`http://localhost:3000`).
+
+### Data layer
+
+`page → features/*/api/* → lib/api/catalog.ts (catalogFetch) → apiFetch`. UI components
+never call either fetch. `catalogFetch` sends `X-Catalog-Server-Token` from
+`CATALOG_SERVER_TOKEN` so SSR traffic uses the API's trusted rate-limit bucket (every
+shopper's read arrives from the Next server's one IP; see `apps/server/CLAUDE.md` →
+*The catalog limiter*). It passes no credentials. Entity reads (category, collection)
+pass no `timeoutMs`: they are shared by `generateMetadata` and the page, and a signal
+would break per-render memoization, so each would hit the API. The product list is the
+one exception, `timeoutMs: 15_000` (`CATALOG_LIST_TIMEOUT_MS`): only ProductGrid fetches
+it, once per render, so the deadline costs no memoization, and its `TIMEOUT` ApiError
+reaches the `(catalog)` error boundary.
+
+- `lib/api/catalog.ts` and **every** `features/*/api/*` file import `server-only`, so a
+  client import of the token path fails the build. Tests alias `server-only` to
+  `test/stubs/server-only.ts` in `vitest.config.ts` (the real package throws outside the
+  `react-server` condition).
+- DTOs (`features/products/types/catalog-product.ts`,
+  `features/collections/types/catalog-{category,collection}.ts`) model the API response,
+  never server types. `listCatalogProducts` validates `meta.pagination` and
+  `meta.priceRange` and throws `INVALID_RESPONSE` rather than render wrong page links.
+- `localizedName` / `localizedDescription`: English falls back to the Arabic `name` and
+  says so through `lang`; an Arabic page never shows English copy.
+
+| Variable | Read | Meaning |
+| --- | --- | --- |
+| `CATALOG_SERVER_TOKEN` | runtime, server only | Must match one entry of the API's list. Unset: per-IP limits (fine in dev, throttles production). Never `NEXT_PUBLIC_`. |
+| `MEDIA_ORIGIN` | `next build` | The origin catalog images come from; becomes the only `remotePatterns` entry. |
+| `SITE_URL` | runtime | Public origin for `metadataBase`. |
+
+### Images
+
+The server returns absolute image URLs (on its `MEDIA_PUBLIC_BASE_URL` origin), never
+relative ones. `next.config.ts` turns `MEDIA_ORIGIN` into `remotePatterns` **at build
+time** — the optimizer's allowlist is fixed then, so a build for another media host is a
+rebuild. It defaults to `http://localhost:3001` outside production; unset in a
+production build means no remote image loads (visibly, rather than an open allowlist); a
+non-http(s) value fails the build. `dangerouslyAllowLocalIP` is on outside production
+only, because Next 16 refuses localhost upstreams as an SSRF guard. Remote images get no
+blur placeholder (no `blurDataURL`); they load over the frame's `bg-surface-soft`. Only
+the first row is eager (the widest, 4; high priority for the first 2), with `sizes`
+derived from `grid-layout.ts`, the same table as the grid classes. Collections and
+products are seeded without images, so a fresh dev database shows the no-image states.
+
+### Product card model
+
+`ProductCard` never sees a data source: it renders a `ProductCardModel` built by
+`fromHomeMock` (static registry slots, blur kept) or `fromCatalogDto` (remote URLs).
+One badge at most, and sold out wins over new (it changes what the shopper can do);
+sold out never greys the photograph and the price stays. No photograph shows the frame
+with a small, faint brand mark, deliberately unlike the flat `ProductGridSkeleton`, so
+a missing image never reads as loading. A name in another language than the page
+carries `lang` and `dir="auto"`. The hover image is `display: none` on touch and below
+768 (`.hover-alt-image`), so it is never downloaded there.
+
+### Motion level
+
+Low-to-medium (R21). The grid is one `Reveal` on the `ul`; cards rise, staggered for
+the first eight only (`catalogStagger`). The intro fades its eyebrow and rises the `h1`
+once; a collection's image band only fades. No parallax, marquee or `TextReveal` on
+catalog routes. Filters never replay entrances: `decideInitialRevealState` only holds
+back a grid entirely below the fold, and the Suspense boundary is unkeyed, so a filter
+transition re-renders the same grid in place.
+
+### Filter UX
+
+Quiet, not a SaaS panel (KD-15). Under the intro: the category row (horizontal scroll
+with an inline-end fade at every width; empty categories hidden unless current), then
+one utility row — result count at the start; filter summary, Filter button and Sort at
+the end — which wraps rather than overflows and is **not sticky** in v1. Filter opens a
+Headless UI sheet (bottom sheet below 768, side sheet from the inline end at 768+):
+availability and a price range with `inputMode="numeric"` text inputs, staged and
+applied together. Active filters show as a text summary with per-filter remove buttons,
+not chips. Sort is a native `<select>` that commits on change. While a transition runs,
+the old grid dims (`[data-catalog]:has([data-catalog-controls][data-pending])` in
+`globals.css`) and the new count is announced through a polite live region.
+
+### Pagination and empty states
+
+Numbered, server-rendered links (R14); previous/next omitted at the ends; below 768
+"Page 3 of 12" between arrows. Every page link ends in `#catalog-results`, the grid's
+visually hidden `h2` (`tabIndex=-1`, `scroll-margin-top` clears the sticky header), so
+the jump lands on the first row. Empty states (`catalogEmptyVariant`), one action each:
+nothing live, filters match nothing (clear filters, sort kept), past the last page (page
+1, filters kept), an empty category or collection (to `/shop`).
+
+### Collections index
+
+Composed by count, not a uniform grid (`collectionIndexLayout`): the first featured
+collection with an image (else the first with one) becomes a 7/5 feature split; the rest
+keep server order, image collections in 2-up rows and image-less ones as ruled
+typographic rows. A text row closes a pair in progress, so order is never shuffled to
+fill a row. No live collection: the catalog empty state.
+
+### Open for the screenshot review (AD-12)
+
+- Phones: the grid shifts down by one line when filters are active (the summary wraps
+  onto its own line in the utility row).
+- Sort may wrap to its own line at 320.
+- Whether phones below 1024 need a compact sticky Filter/Sort row.
+- The client error screen (API stopped, uncached URL) has not been seen after hydration.
 
 ## Guideline overrides and copy decisions
 
@@ -389,10 +602,14 @@ not a permanent architectural requirement:
 
 ## Feature slice shape
 
-Three slices exist — `features/home`, `features/products`, `features/collections` —
-with static, typed mock data only and nothing under `features/*/api/`. `home` composes
-the sections and imports from the other two; `products` and `collections` do not import
-each other. A slice follows this shape:
+Four slices exist. `features/home` composes the homepage from static, typed mock data
+and imports from `products` and `collections`. `features/catalog` is the listing
+composition slice (URL state, route table, intro, category row, grid, controls,
+pagination, empty states) and imports from both. `products` and `collections` own their
+catalog API functions and DTOs and still do not import each other; the one reverse edge
+is `products/api/list-catalog-products.ts` taking `CatalogProductQuery` from
+`features/catalog/search-params.ts` (a dependency-free module). A slice follows this
+shape:
 
 ```
 features/<slice>/
@@ -438,9 +655,11 @@ the storefront has no visibility into `apps/server`'s internals and must not gai
   `apps/dashboard/src/shared/lib/apiBase.ts` — a page that can't reach its API should
   fail visibly, not take the whole app down).
 - Both fall back to `http://localhost:3001` outside production.
-- Nothing calls the API yet, so neither path has run during a real `next build`. The
-  first statically rendered page that fetches data must have `API_URL` set in the
-  build environment — this is the thing that will silently break if forgotten.
+- Only the catalog calls the API, always at request time from the server (see
+  *Catalog*), so `next build` still makes no API call and `NEXT_PUBLIC_API_URL` is still
+  unused. The first **statically rendered** page that fetches data must have `API_URL`
+  set in the build environment — this is the thing that will silently break if
+  forgotten.
 
 ## Logo rule
 
@@ -461,9 +680,11 @@ for a same-shape asset swap.
 `●` SSG, not `ƒ` dynamic) — the *current state*, not an architectural rule.
 `generateStaticParams` + `setRequestLocale` make that possible because nothing here
 reads request-specific data; the homepage's client islands do not change that (a
-`'use client'` file never makes a route dynamic). The first feature that needs
-per-request data (a cart, a session) chooses its own caching/revalidation/dynamic
-strategy on its own merits; nothing about this file requires staying static.
+`'use client'` file never makes a route dynamic). The five catalog routes are the first
+dynamic (`ƒ`) routes: request-time rendering over the Next data cache (see *Catalog* →
+*Rendering and caching*), chosen on their own merits. The catch-all and 404 are
+unchanged. Each future feature (a cart, a session) chooses its own
+caching/revalidation/dynamic strategy; nothing here requires any route to stay static.
 
 ## Mobile menu typography exception
 

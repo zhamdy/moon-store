@@ -4,7 +4,11 @@ import { createListQuerySchema } from '../../../http/pagination';
 export interface CollectionRecord {
   id: number;
   name: string;
+  slug?: string | null;
+  name_en?: string | null;
   description?: string | null;
+  description_en?: string | null;
+  image_url?: string | null;
   season?: string | null;
   year?: number | null;
   status: string;
@@ -38,7 +42,11 @@ export interface CollectionDetailRecord extends CollectionRecord {
 
 export interface CreateCollectionDTO {
   name: string;
+  /** Absent means generate one from `name_en`, else `collection-<id>` (KD-6). */
+  slug?: string;
+  name_en?: string | null;
   description?: string | null;
+  description_en?: string | null;
   season?: string | null;
   year?: number | null;
   status?: string;
@@ -56,7 +64,11 @@ export interface CreateCollectionDTO {
  */
 export interface UpdateCollectionDTO {
   name?: string;
+  /** Absent leaves the stored slug; it cannot be cleared. */
+  slug?: string;
+  name_en?: string | null;
   description?: string | null;
+  description_en?: string | null;
   season?: string | null;
   year?: number | null;
   status?: string;

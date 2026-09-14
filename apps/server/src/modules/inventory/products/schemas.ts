@@ -63,6 +63,22 @@ export const variantPathParamsSchema = z
   })
   .strict();
 
+export const productImagePathParamsSchema = z
+  .object({
+    id: z.string().regex(/^\d+$/, 'id must be a positive integer'),
+    imageId: z.string().regex(/^\d+$/, 'imageId must be a positive integer'),
+  })
+  .strict();
+
+export const reorderProductImagesSchema = z
+  .object({
+    // Bounded well above the gallery cap only so a body cannot be arbitrarily large;
+    // whether the list is the product's actual set is decided under the row lock.
+    imageIds: z.array(z.number().int().positive()).max(100),
+  })
+  .strict();
+
+export type ReorderProductImagesBody = z.infer<typeof reorderProductImagesSchema>;
 export type BulkUpdateBody = z.infer<typeof bulkUpdateSchema>;
 export type BulkDeleteBody = z.infer<typeof bulkDeleteSchema>;
 export type AdjustStockBody = z.infer<typeof adjustStockSchema>;
@@ -136,6 +152,9 @@ export const productsRequestContracts = {
     beyondSchema: [
       '`sku` and `barcode` are unique; a duplicate is a 409, not a 400.',
       '`cost_price` defaults to 0, `min_stock` to 5 and `status` to active when omitted.',
+      '`slug` is optional: omitted, it is generated from `name_en`, else the SKU (`base`, ' +
+        '`base-2` ... `base-10`). An explicit slug already in use, or ten taken candidates, is ' +
+        'a 409 with `details[].field` `slug`.',
     ],
   }),
 
@@ -156,7 +175,11 @@ export const productsRequestContracts = {
     operation: 'updateProduct',
     body: productSchema,
     params: pathIdParams(),
-    beyondSchema: ['A full replacement, not a merge: the required fields stay required.'],
+    beyondSchema: [
+      'A full replacement, not a merge: the required fields stay required.',
+      'Except `slug` and `name_en`: absent leaves the stored value, and `name_en: null` ' +
+        'clears it. A slug held by another product is a 409 with `details[].field` `slug`.',
+    ],
   }),
 
   updateProductStatus: defineRequestContract({
@@ -196,6 +219,9 @@ export const productsRequestContracts = {
         'individually and independently: a row that fails is reported in the response as ' +
         '`errors[{ row, error }]` while the rest import. The request is not rejected.',
       'An existing SKU is updated rather than duplicated, so an import is a re-import.',
+      'Rows may carry `slug` and `name_en`. A row without a slug gets a generated one; a ' +
+        're-imported SKU keeps its stored slug and `name_en` unless the row supplies them. ' +
+        'An explicit slug held by a different SKU fails that row only.',
     ],
   }),
 
@@ -239,6 +265,56 @@ export const productsRequestContracts = {
     operation: 'deleteProductImage',
     params: pathIdParams(),
     beyondSchema: ['The stored object is released only after the row stops pointing at it.'],
+  }),
+
+  listProductImages: defineRequestContract({
+    method: 'GET',
+    path: '/api/v1/products/{id}/images',
+    operation: 'listProductImages',
+    params: pathIdParams(),
+    beyondSchema: [
+      'Gallery images in display order. `products.image_url` stays the primary image and ' +
+        'is not part of this list.',
+    ],
+  }),
+
+  addProductGalleryImage: defineRequestContract({
+    method: 'POST',
+    path: '/api/v1/products/{id}/images',
+    operation: 'addProductGalleryImage',
+    params: pathIdParams(),
+    contentType: 'multipart/form-data',
+    beyondSchema: [
+      'A single file field named `image`. Not JSON.',
+      'At most 2 MB, JPEG, PNG or WebP, and the magic bytes must agree with the ' +
+        'extension: a renamed file is rejected before anything is written.',
+      'Appended after the last position. A product holds at most 8 gallery images; a ' +
+        'ninth is a 409 with `details[].code` `GALLERY_FULL`, and nothing stays stored.',
+    ],
+  }),
+
+  deleteProductGalleryImage: defineRequestContract({
+    method: 'DELETE',
+    path: '/api/v1/products/{id}/images/{imageId}',
+    operation: 'deleteProductGalleryImage',
+    params: productImagePathParamsSchema,
+    beyondSchema: [
+      'The row is removed first and the stored object after it, best-effort. The remaining ' +
+        'positions are not renumbered; only their order is meaningful.',
+    ],
+  }),
+
+  reorderProductImages: defineRequestContract({
+    method: 'PUT',
+    path: '/api/v1/products/{id}/images/order',
+    operation: 'reorderProductImages',
+    body: reorderProductImagesSchema,
+    params: pathIdParams(),
+    beyondSchema: [
+      '`imageIds` must be exactly the current gallery ids of the product, each once, in the ' +
+        'new order. A missing, foreign or repeated id is a 400 with `details[].code` ' +
+        '`IMAGE_SET_MISMATCH`, and no position changes.',
+    ],
   }),
 
   listVariants: defineRequestContract({

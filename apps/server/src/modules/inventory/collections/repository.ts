@@ -37,6 +37,11 @@ export interface ICollectionsRepository {
     queryable?: Queryable
   ): Promise<void>;
   delete(id: number | string, queryable?: Queryable): Promise<boolean>;
+  updateImage(
+    id: number | string,
+    imageUrl: string | null,
+    queryable?: Queryable
+  ): Promise<boolean>;
 }
 
 export class CollectionsRepository implements ICollectionsRepository {
@@ -73,12 +78,12 @@ export class CollectionsRepository implements ICollectionsRepository {
     const offsetIdx = params.length + 2;
 
     const collections = await this.q(queryable).query<CollectionRecord>(
-      `SELECT c.id, c.name, c.description, c.image_url, c.is_featured, c.season, c.year, c.status, c.created_at, c.updated_at,
+      `SELECT c.id, c.name, c.slug, c.name_en, c.description, c.description_en, c.image_url, c.is_featured, c.season, c.year, c.status, c.created_at, c.updated_at,
               COUNT(cp.product_id)::int as product_count
        FROM collections c
        LEFT JOIN collection_products cp ON cp.collection_id = c.id
        ${where}
-       GROUP BY c.id, c.name, c.description, c.image_url, c.is_featured, c.season, c.year, c.status, c.created_at, c.updated_at
+       GROUP BY c.id, c.name, c.slug, c.name_en, c.description, c.description_en, c.image_url, c.is_featured, c.season, c.year, c.status, c.created_at, c.updated_at
        ORDER BY ${sortColumn} ${direction}, c.id ${direction}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...params, pageSize, (page - 1) * pageSize]
@@ -139,8 +144,8 @@ export class CollectionsRepository implements ICollectionsRepository {
 
   async create(data: CreateCollectionDTO, queryable?: Queryable): Promise<CollectionRecord> {
     const res = await this.q(queryable).query<CollectionRecord>(
-      `INSERT INTO collections (name, description, season, year, status, is_featured)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      `INSERT INTO collections (name, description, season, year, status, is_featured, slug, name_en, description_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [
         data.name,
         data.description || null,
@@ -148,6 +153,9 @@ export class CollectionsRepository implements ICollectionsRepository {
         data.year ?? null,
         data.status || 'active',
         data.is_featured ? 1 : 0,
+        data.slug ?? null,
+        data.name_en || null,
+        data.description_en || null,
       ]
     );
     return res.rows[0];
@@ -174,7 +182,10 @@ export class CollectionsRepository implements ICollectionsRepository {
   ): Promise<CollectionRecord | null> {
     const { setClause, params, nextIndex } = buildPartialUpdate({
       name: data.name,
+      slug: data.slug,
+      name_en: orNull(data.name_en),
       description: orNull(data.description),
+      description_en: orNull(data.description_en),
       season: orNull(data.season),
       year: data.year,
       status: data.status,
@@ -247,6 +258,24 @@ export class CollectionsRepository implements ICollectionsRepository {
     const res = await this.q(queryable).query(
       'DELETE FROM collections WHERE id = $1 RETURNING id',
       [id]
+    );
+    return res.rows.length > 0;
+  }
+
+  /**
+   * Sets or clears the collection image. Deliberately leaves `updated_at` alone: that
+   * column is the optimistic-concurrency token for `PUT /collections/:id` (#81), whose body
+   * cannot carry `image_url`, so a stale PUT after an upload loses nothing -- while bumping
+   * the token would turn every edit composed before the upload into a spurious 409.
+   */
+  async updateImage(
+    id: number | string,
+    imageUrl: string | null,
+    queryable?: Queryable
+  ): Promise<boolean> {
+    const res = await this.q(queryable).query(
+      'UPDATE collections SET image_url = $1 WHERE id = $2 RETURNING id',
+      [imageUrl, id]
     );
     return res.rows.length > 0;
   }

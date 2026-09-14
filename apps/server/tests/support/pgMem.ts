@@ -35,7 +35,36 @@ const TRAILING_NOT_VALID = /\s+NOT\s+VALID(?=\s*;|\s*$)/gi;
  */
 const BACKFILL_012 = /DO \$backfill_012\$[\s\S]*?\$backfill_012\$;/g;
 
+/**
+ * Matches 014's tagged slug backfill, and only it. Stripped for the same reason as 012's:
+ * the same file adds the columns, indexes and `product_images` the suites need.
+ */
+const BACKFILL_014 = /DO \$backfill_014\$[\s\S]*?\$backfill_014\$;/g;
+
+/**
+ * A whole statement that is a SAVEPOINT, RELEASE or ROLLBACK TO. pg-mem's parser rejects
+ * all three. They guard a retry on a unique violation narrowed by constraint name, which
+ * pg-mem never reports (no `err.constraint`), so the rollback they enable can never be
+ * taken there and a no-op is faithful. Proven on real PostgreSQL instead
+ * (`tests/concurrency/catalogSlug.concurrency.test.ts`).
+ */
+const SAVEPOINT_STATEMENT =
+  /^\s*(?:SAVEPOINT|RELEASE\s+SAVEPOINT|ROLLBACK\s+TO\s+SAVEPOINT)\s+\w+\s*;?\s*$/i;
+
+/**
+ * `slug IS NOT NULL`, optionally table-qualified.
+ *
+ * pg-mem answers `status = 'active' AND slug IS NOT NULL` with NO rows once the table has
+ * the UNIQUE `idx_<table>_slug` index (014) and more than one status value -- measured: the
+ * same query returns the right rows after `DROP INDEX idx_products_slug`, and `slug IS NOT
+ * NULL` alone is correct. The public catalog filters on exactly that conjunction. Rewritten
+ * to `NOT (slug IS NULL)`, which PostgreSQL treats identically and pg-mem evaluates without
+ * the broken index path, rather than weakening the production SQL.
+ */
+const SLUG_IS_NOT_NULL = /\b((?:\w+\.)?slug)\s+IS\s+NOT\s+NULL\b/gi;
+
 export function toPgMemCompatibleSql(sql: string): string {
+  if (SAVEPOINT_STATEMENT.test(sql)) return 'SELECT 1;';
   // 009 upgrades legacy schemas only. pg-mem fixtures start from the corrected 001;
   // its catalog-driven PL/pgSQL repair is exercised on real PostgreSQL instead.
   if (sql.includes('DO $repair_009$')) return 'SELECT 1;';
@@ -43,7 +72,14 @@ export function toPgMemCompatibleSql(sql: string): string {
   // and `jsonb_array_elements`, which pg-mem's parser rejects. A pg-mem database is always
   // freshly created and so has no refunds to backfill, and the CREATE TABLE around it is
   // kept. The backfill is proven on real PostgreSQL in `tests/database/migration012.test.ts`.
-  return sql.replace(BACKFILL_012, 'SELECT 1;').replace(TRAILING_NOT_VALID, '');
+  // 014 backfills slugs with `regexp_replace`, window functions and a PL/pgSQL loop,
+  // none of which pg-mem runs; a fresh pg-mem database has no rows to slug. Proven on
+  // real PostgreSQL in `tests/concurrency/storefrontCatalogMigration.realpg.test.ts`.
+  return sql
+    .replace(BACKFILL_012, 'SELECT 1;')
+    .replace(BACKFILL_014, 'SELECT 1;')
+    .replace(TRAILING_NOT_VALID, '')
+    .replace(SLUG_IS_NOT_NULL, 'NOT ($1 IS NULL)');
 }
 
 type QueryArgs = [string | { text: string }, unknown[]?];

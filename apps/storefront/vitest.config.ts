@@ -11,6 +11,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      // The real package throws outside the react-server condition; see the stub.
+      'server-only': path.resolve(__dirname, 'test/stubs/server-only.ts'),
     },
   },
 });

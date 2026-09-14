@@ -30,6 +30,7 @@
   },
   "products": {
     "new": "جديد",
+    "soldOut": "نفدت الكمية",
     "currency": "ج.م"
   },
   "categories": {
@@ -85,7 +86,6 @@
     },
     "strip": {
       "heading": "المجموعات",
-      "pause": "إيقاف الحركة",
       "words": {
         "evening": "سهرة",
         "linen": "كتان",
@@ -170,5 +170,107 @@
     "title": "الصفحة غير موجودة",
     "body": "الصفحة التي تبحثين عنها غير موجودة بعد.",
     "backHome": "العودة إلى الصفحة الرئيسية"
+  },
+  "catalog": {
+    "resultCount": "{count, plural, zero {لا توجد قطع} one {قطعة واحدة} two {قطعتان} few {# قطع} many {# قطعة} other {# قطعة}}",
+    "resultsHeadingFirst": "المنتجات",
+    "resultsHeading": "المنتجات، الصفحة {page} من {total}",
+    "loading": "جارٍ تحميل المنتجات",
+    "filters": {
+      "open": "تصفية",
+      "activeCount": "الفلاتر المفعّلة: {count}",
+      "title": "الفلاتر",
+      "close": "إغلاق الفلاتر",
+      "availability": "التوفّر",
+      "inStockOnly": "المتوفّر فقط",
+      "inStock": "متوفّر",
+      "price": "السعر",
+      "min": "الحد الأدنى",
+      "max": "الحد الأقصى",
+      "priceHint": "القطع من {min} إلى {max} {currency}",
+      "priceNumberError": "أدخلي رقمًا صحيحًا",
+      "priceOrderError": "لا يمكن أن يتجاوز الحد الأدنى الحد الأقصى",
+      "priceMaxError": "أدخلي مبلغًا أصغر",
+      "clearAll": "مسح الكل",
+      "apply": "عرض النتائج",
+      "summaryLabel": "الفلاتر المفعّلة",
+      "remove": "إزالة: {filter}",
+      "clear": "مسح",
+      "priceBetween": "{min}–{max} {currency}",
+      "priceFrom": "من {min} {currency}",
+      "priceUpTo": "حتى {max} {currency}"
+    },
+    "sort": {
+      "label": "الترتيب",
+      "newest": "الأحدث",
+      "priceAsc": "السعر: من الأقل إلى الأعلى",
+      "priceDesc": "السعر: من الأعلى إلى الأقل",
+      "curated": "ترتيب المجموعة"
+    },
+    "intro": {
+      "shop": "تسوّقي",
+      "collections": "المجموعات",
+      "shopTitle": "كل القطع",
+      "newInTitle": "وصل حديثًا",
+      "collectionsTitle": "المجموعات"
+    },
+    "categoryNav": {
+      "label": "الفئات",
+      "all": "الكل"
+    },
+    "pagination": {
+      "label": "الصفحات",
+      "previous": "السابقة",
+      "next": "التالية",
+      "pageOf": "الصفحة {page} من {total}",
+      "page": "الصفحة {page}"
+    },
+    "wayfinding": {
+      "exploreCollections": "اكتشفي كل المجموعات",
+      "shopByCategory": "تسوّقي حسب الفئة"
+    },
+    "collections": {
+      "explore": "اكتشفي"
+    },
+    "empty": {
+      "catalog": {
+        "title": "قطع جديدة في طريقها إليكِ",
+        "body": "عودي قريبًا لاكتشاف أحدث القطع.",
+        "action": "العودة إلى الصفحة الرئيسية"
+      },
+      "filtered": {
+        "title": "لا توجد قطع تطابق هذه الفلاتر",
+        "body": "جرّبي إزالة أحد الفلاتر لرؤية المزيد.",
+        "action": "مسح الفلاتر"
+      },
+      "outOfRange": {
+        "title": "هذه الصفحة فارغة",
+        "body": "عدد صفحات هذه القائمة أقل مما يشير إليه الرابط.",
+        "action": "الانتقال إلى الصفحة الأولى"
+      },
+      "collection": {
+        "title": "نُحضّر هذه المجموعة الآن",
+        "body": "ستظهر قطعها هنا فور وصولها.",
+        "action": "تسوّقي كل القطع"
+      },
+      "category": {
+        "title": "نُجدّد قطع هذه الفئة",
+        "body": "في هذه الأثناء، تصفّحي كل القطع في المتجر.",
+        "action": "تسوّقي كل القطع"
+      }
+    },
+    "meta": {
+      "shopDescription": "كل قطع مون فاشون، الأحدث أولًا.",
+      "newInDescription": "أحدث ما وصل إلى مون فاشون.",
+      "collectionsDescription": "مجموعات مون فاشون المختارة.",
+      "categoryDescription": "تسوّقي {name} من مون فاشون.",
+      "collectionDescription": "اكتشفي مجموعة {name} من مون فاشون."
+    },
+    "error": {
+      "title": "تعذّر تحميل هذه القطع",
+      "body": "حدث خطأ من جهتنا. حاولي مرة أخرى بعد قليل.",
+      "retry": "حاولي مرة أخرى",
+      "home": "العودة إلى الصفحة الرئيسية"
+    }
   }
 }

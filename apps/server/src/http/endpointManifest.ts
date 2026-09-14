@@ -65,6 +65,7 @@ export const endpointManifest: Record<string, EndpointManifestEntry> = {
   '/api/v1/feedback': authenticated(['P', 'M']),
   '/api/v1/segments': authenticated(['B', 'M']),
   '/api/v1/storefront': publicEntry(['B', 'P', 'M']),
+  '/api/v1/catalog': publicEntry(['B', 'P']),
   '/api/v1/online-orders': authenticated(['P', 'S', 'M']),
   '/api/v1/warranty': authenticated(['P', 'M']),
   '/api/v1/delivery': authenticated(['P', 'S', 'M']),
@@ -411,6 +412,30 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
   {
     method: 'GET',
+    path: '/api/v1/products/:id/images',
+    classification: 'B',
+    authorization: allAuthenticated,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/products/:id/images',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'PUT',
+    path: '/api/v1/products/:id/images/order',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'DELETE',
+    path: '/api/v1/products/:id/images/:imageId',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'GET',
     path: '/api/v1/products/:id/variants',
     classification: 'B',
     authorization: allAuthenticated,
@@ -543,6 +568,18 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   {
     method: 'DELETE',
     path: '/api/v1/collections/:id',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/collections/:id/image',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'DELETE',
+    path: '/api/v1/collections/:id/image',
     classification: 'M',
     authorization: adminOnly,
   },
@@ -695,6 +732,32 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   { method: 'POST', path: '/api/v1/segments', classification: 'M', authorization: adminOnly },
   { method: 'PUT', path: '/api/v1/segments/:id', classification: 'M', authorization: adminOnly },
   { method: 'DELETE', path: '/api/v1/segments/:id', classification: 'M', authorization: adminOnly },
+
+  // Commerce / Public catalog (plan 2026-09-14-002, KD-1): anonymous reads only.
+  {
+    method: 'GET',
+    path: '/api/v1/catalog/products',
+    classification: 'P',
+    authorization: publicAuth,
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/catalog/categories',
+    classification: 'B',
+    authorization: publicAuth,
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/catalog/collections',
+    classification: 'B',
+    authorization: publicAuth,
+  },
+  {
+    method: 'GET',
+    path: '/api/v1/catalog/collections/:slug',
+    classification: 'B',
+    authorization: publicAuth,
+  },
 
   // Commerce / Storefront
   {

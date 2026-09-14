@@ -19,6 +19,8 @@ const REFERENCED_URLS_SQL = `
   SELECT image_url FROM storefront_banners WHERE image_url IS NOT NULL
   UNION
   SELECT image_url FROM collections WHERE image_url IS NOT NULL
+  UNION
+  SELECT image_url FROM product_images WHERE image_url IS NOT NULL
 `;
 
 export interface SweepOutcome {

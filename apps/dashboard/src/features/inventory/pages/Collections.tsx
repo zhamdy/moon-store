@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { Palette, Plus, Pencil, Trash2, Package, ArrowRight, X } from 'lucide-react';
 import {
   Button,
@@ -23,6 +25,16 @@ import { useDebouncedValue } from '../../../shared/hooks/useDebouncedValue';
 import { useProductCatalog } from '../../../shared/hooks/useProductCatalog';
 import type { Collection, CollectionDetail } from '../types';
 import type { PaginationMeta } from '../../../shared/lib/transport/types';
+import { useTransport } from '../../../shared/lib/transport/index';
+import SingleImageControl from '../components/inventory/SingleImageControl';
+import {
+  englishForWrite,
+  slugFailureMessage,
+  slugForWrite,
+  slugify,
+  SLUG_MAX_LENGTH,
+  SLUG_PATTERN,
+} from '../lib/slug';
 
 const collections = resource<Collection>('collections');
 const collectionDetail = resource<CollectionDetail>('collections');
@@ -36,6 +48,9 @@ const emptyCollection = () => ({
   year: String(new Date().getFullYear()),
   status: 'upcoming',
   description: '',
+  nameEn: '',
+  descriptionEn: '',
+  slug: '',
   // A collection being created has no prior version to stake a claim on.
   updatedAt: '',
 });
@@ -52,6 +67,9 @@ const collectionToForm = (col: Collection) => ({
   year: String(col.year || ''),
   status: col.status,
   description: col.description || '',
+  nameEn: col.name_en || '',
+  descriptionEn: col.description_en || '',
+  slug: col.slug || '',
   updatedAt: col.updated_at,
 });
 
@@ -85,6 +103,11 @@ export default function CollectionsPage() {
   const [productSearch, setProductSearch] = useState('');
   const [page, setPage] = useState(1);
   const debouncedProductSearch = useDebouncedValue(productSearch, 300);
+  /** The slug follows the English name until the operator owns it; a stored slug is owned. */
+  const slugTouched = useRef(false);
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const transport = useTransport();
+  const queryClient = useQueryClient();
 
   const { data: rows, meta } = collections.useList({ page, pageSize: 25 });
   const pagination = meta?.pagination as PaginationMeta | undefined;
@@ -101,7 +124,65 @@ export default function CollectionsPage() {
     message: t('collections.created'),
     fallbackMessage: 'Error',
     onDone: editor.close,
+    onFailure: (failure) => {
+      const message = slugFailureMessage(failure);
+      if (!message) return;
+      setSlugError(message);
+      return true;
+    },
   });
+
+  const openNewCollection = () => {
+    slugTouched.current = false;
+    setSlugError(null);
+    editor.openNew();
+  };
+
+  const openEditCollection = (col: Collection) => {
+    slugTouched.current = Boolean(col.slug);
+    setSlugError(null);
+    editor.openEdit(col);
+  };
+
+  const setNameEn = (value: string) => {
+    editor.set('nameEn', value);
+    if (!slugTouched.current) editor.set('slug', slugify(value));
+  };
+
+  const setSlug = (value: string) => {
+    // Clearing it hands the slug back to the suggestion.
+    slugTouched.current = value !== '';
+    setSlugError(null);
+    editor.set('slug', value);
+  };
+
+  const slugInvalid =
+    form.slug.trim() !== '' &&
+    (form.slug.trim().length > SLUG_MAX_LENGTH || !SLUG_PATTERN.test(form.slug.trim()));
+
+  /**
+   * The image routes leave `updated_at` alone, so an upload mid-edit does not stale the
+   * token this dialog will save with.
+   */
+  const uploadImage = async (id: number, file: File) => {
+    try {
+      const body = new FormData();
+      body.append('image', file);
+      await transport.request({ method: 'POST', path: `collections/${id}/image`, body });
+      toast.success(t('collections.imageUploaded'));
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+    } catch {
+      toast.error(t('collections.imageUploadFailed'));
+    }
+  };
+
+  const imageRemover = collections.useAction('image', {
+    method: 'DELETE',
+    message: t('collections.imageRemoved'),
+    fallbackMessage: t('collections.imageRemoveFailed'),
+  });
+
+  const editingRow = rows?.find((row) => row.id === editor.editingId);
 
   const remover = collections.useRemove({
     message: t('common.delete'),
@@ -299,7 +380,7 @@ export default function CollectionsPage() {
             color="primary"
             size="sm"
             startContent={<Plus className="h-4 w-4" />}
-            onPress={editor.openNew}
+            onPress={openNewCollection}
           >
             {t('collections.create')}
           </Button>
@@ -380,7 +461,7 @@ export default function CollectionsPage() {
                   variant="light"
                   size="sm"
                   className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onPress={() => editor.openEdit(col)}
+                  onPress={() => openEditCollection(col)}
                   aria-label={`${col.name}: ${t('common.edit')}`}
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -423,6 +504,8 @@ export default function CollectionsPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (slugInvalid) return;
+                setSlugError(null);
                 saver.save({
                   id: editor.editingId,
                   name: form.name,
@@ -430,6 +513,9 @@ export default function CollectionsPage() {
                   year: Number(form.year) || undefined,
                   status: form.status,
                   description: form.description || undefined,
+                  name_en: englishForWrite(form.nameEn),
+                  description_en: englishForWrite(form.descriptionEn),
+                  slug: slugForWrite(form.slug),
                   expected_updated_at: form.updatedAt || undefined,
                 });
               }}
@@ -459,6 +545,35 @@ export default function CollectionsPage() {
                   variant="bordered"
                   value={form.description}
                   onValueChange={(val) => editor.set('description', val)}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input
+                    label={t('catalog.nameEn')}
+                    size="sm"
+                    variant="bordered"
+                    dir="ltr"
+                    value={form.nameEn}
+                    onValueChange={setNameEn}
+                  />
+                  <Input
+                    label={t('catalog.slug')}
+                    size="sm"
+                    variant="bordered"
+                    dir="ltr"
+                    value={form.slug}
+                    onValueChange={setSlug}
+                    description={t('catalog.slugHelp')}
+                    isInvalid={slugInvalid || !!slugError}
+                    errorMessage={slugError ?? (slugInvalid ? t('catalog.slugInvalid') : undefined)}
+                  />
+                </div>
+                <Input
+                  label={t('catalog.descriptionEn')}
+                  size="sm"
+                  variant="bordered"
+                  dir="ltr"
+                  value={form.descriptionEn}
+                  onValueChange={(val) => editor.set('descriptionEn', val)}
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Select
@@ -498,6 +613,15 @@ export default function CollectionsPage() {
                     ))}
                   </Select>
                 </div>
+                {editor.editingId !== null && (
+                  <SingleImageControl
+                    label={t('collections.image')}
+                    imageUrl={editingRow?.image_url}
+                    alt={form.name}
+                    onUpload={(file) => void uploadImage(editor.editingId as number, file)}
+                    onRemove={() => imageRemover.run({ id: editor.editingId as number })}
+                  />
+                )}
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
                 <Button variant="flat" size="sm" onPress={editor.close}>

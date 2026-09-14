@@ -4,6 +4,7 @@ import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
 import { CATALOG_CARD_SIZES, ProductCard } from '@/features/products/components/product-card';
 import { newArrivals } from '@/features/products/data/home-products';
+import { fromHomeMock } from '@/features/products/utils/product-card-model';
 import { SectionHeading } from '../section-heading';
 
 /**
@@ -38,10 +39,10 @@ export async function NewArrivals({ locale }: { locale: AppLocale }) {
         {newArrivals.map((product, index) => (
           <Reveal key={product.slug} className={CARD_STAGGER[index % CARD_STAGGER.length]}>
             <ProductCard
-              product={product}
+              product={fromHomeMock(product, locale)}
               locale={locale}
               currencyLabel={tp('currency')}
-              newLabel={tp('new')}
+              badgeLabels={{ new: tp('new'), soldOut: tp('soldOut') }}
               sizes={CATALOG_CARD_SIZES}
             />
           </Reveal>
