@@ -1,10 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import {
+  GALLERY_EAGER_THUMBS,
   galleryImageSizes,
   galleryKeyTarget,
   galleryLayout,
+  galleryThumbLoading,
   galleryThumbSizes,
 } from './gallery-layout';
+
+describe('galleryThumbLoading', () => {
+  it('loads only the first three thumbnails eagerly', () => {
+    expect(GALLERY_EAGER_THUMBS).toBe(3);
+    expect([0, 1, 2, 3, 4, 8].map(galleryThumbLoading)).toEqual([
+      'eager',
+      'eager',
+      'eager',
+      'lazy',
+      'lazy',
+      'lazy',
+    ]);
+  });
+});
 
 const images = (count: number) =>
   Array.from({ length: count }, (_, index) => ({ url: `https://media.test/${index + 1}.jpg` }));

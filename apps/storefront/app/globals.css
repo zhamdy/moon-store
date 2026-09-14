@@ -888,6 +888,22 @@ header[data-surface][data-surface-ready] {
     background-color: var(--color-surface-soft);
   }
 
+  /* The frame clips an outside outline and its panes paint over an inset shadow, so the
+     ring is an inset outline on a layer above them that never takes the pointer. */
+  [data-gallery-frame]:focus-visible {
+    outline: none;
+  }
+
+  [data-gallery-frame]:focus-visible::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: -2px;
+  }
+
   [data-gallery-frame][data-zoomable] {
     cursor: zoom-in;
   }

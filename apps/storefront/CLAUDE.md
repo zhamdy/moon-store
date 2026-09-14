@@ -595,9 +595,11 @@ never imports `features/catalog`). Order: breadcrumb row, a 7/5 split from 1024 
 column below), the details tabs at full container width, the related row.
 
 - **Breadcrumb** (`product-breadcrumb.tsx`): `nav` (`product.breadcrumb.label`) > `ol`,
-  Home (`product.breadcrumb.home`) / Shop (reuses `navigation.shop`) / Category when
-  present, then the product as a non-link `span aria-current="page"` — the only item that
-  truncates. Separators are `aria-hidden`.
+  Home (`product.breadcrumb.home`) / Shop (its own noun key `product.breadcrumb.shop`,
+  "Shop" / "كل القطع", not the `navigation.shop` verb) / Category when present, then the
+  product as a non-link `span aria-current="page"`. The product and the category (capped
+  width) truncate; Home and Shop never shrink, so 320px never overflows. Separators are
+  `aria-hidden`.
 - **Info column**, `position: sticky` from 1024 (PD-15), kept after the enhancement: with
   the description moved into the tabs the column is usually shorter than the 4:5 gallery,
   so price and sizes stay in view beside it. Category eyebrow, h1, a short lead (the first
@@ -657,15 +659,18 @@ the step table every `sizes` string is derived from.
 
 - **Semantics.** A vertical WAI-ARIA tablist (`product.gallery.label`) of buttons named
   `product.gallery.thumbLabel`, roving `tabIndex`, automatic activation; the frame is the
-  one `tabpanel`, labelled by the active tab and not itself a tab stop (it holds only an
-  image). Arrow Down/Up and the reading-direction Left/Right move and wrap (the APG
+  one `tabpanel`, labelled by the active tab and itself a tab stop (`tabIndex=0`: it holds
+  only an image), with an inset focus ring drawn on a `::after` above the panes because the
+  frame clips an outside outline. Arrow Down/Up and the reading-direction Left/Right move and wrap (the APG
   tabs rule), Home/End jump (`galleryKeyTarget`, unit-tested). One image: no tablist.
-- **Downloads.** The first large image is the page's only `loading="eager"` +
-  `fetchPriority="high"` image (React also emits its head preload). A large pane mounts
+- **Downloads.** The first large image is the page's only eager *high-priority* image
+  (`loading="eager"` + `fetchPriority="high"`; React also emits its head preload). A large pane mounts
   only once shown and stays mounted but `hidden`: lazy alone would not stop hidden panes
   laid out in the frame from downloading (the hero's `slideMediaVisible` lesson). A new
-  pane fades in over the previous one (300ms, `--ease-ui`). Thumbnails are eager at
-  `fetchPriority="low"`, `sizes` 64/80px.
+  pane fades in over the previous one (300ms, `--ease-ui`). Thumbnails are
+  `fetchPriority="low"`, `sizes` 64/80px; the first `GALLERY_EAGER_THUMBS` (3) are eager
+  and the rest lazy (`galleryThumbLoading`, unit-tested). Switching thumbnails while zoomed
+  also mounts that pane's zoom image, so a keyboard change never magnifies the 1x source.
 - **Zoom in place.** Only under `GALLERY_ZOOM_QUERY` (hover, fine pointer, 1024+),
   tracked with `matchMedia`. A mouse entering the frame scales the pane layer 2x with
   `transform-origin` from `--zoom-x`/`--zoom-y`, written in a rAF-throttled

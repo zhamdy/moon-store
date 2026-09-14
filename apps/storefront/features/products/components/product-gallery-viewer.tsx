@@ -10,7 +10,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
-import { GALLERY_ZOOM_QUERY, galleryKeyTarget } from '../utils/gallery-layout';
+import { GALLERY_ZOOM_QUERY, galleryKeyTarget, galleryThumbLoading } from '../utils/gallery-layout';
 
 /** One photograph, with every string resolved on the server. */
 export interface GalleryViewerImage {
@@ -89,6 +89,8 @@ export function ProductGalleryViewer({
     setPrevious(active);
     setActive(index);
     setShown((set) => withIndex(set, index));
+    // A keyboard change under a resting, zoomed pointer must not magnify the 1x source.
+    if (zoomed) setZoomMounted((set) => withIndex(set, index));
   }
 
   function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -160,7 +162,7 @@ export function ProductGalleryViewer({
                     alt=""
                     fill
                     sizes={thumbSizes}
-                    loading="eager"
+                    loading={galleryThumbLoading(index)}
                     fetchPriority="low"
                     className="object-cover"
                   />
@@ -179,7 +181,10 @@ export function ProductGalleryViewer({
         onPointerEnter={onPointerEnter}
         onPointerMove={zoomed ? (event) => trackPointer(event, false) : undefined}
         onPointerLeave={() => setHovering(false)}
-        {...(withThumbs ? { id: panelId, role: 'tabpanel', 'aria-labelledby': tabId(active) } : {})}
+        // The panel holds only an image, so it is itself a tab stop (APG), as in product-tabs.
+        {...(withThumbs
+          ? { id: panelId, role: 'tabpanel', 'aria-labelledby': tabId(active), tabIndex: 0 }
+          : {})}
       >
         <div data-gallery-zoom>
           {images.map((image, index) => {

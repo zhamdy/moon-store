@@ -11,13 +11,14 @@ export interface ProductBreadcrumbProps {
   hrefs: { home: string; shop: string; category: string | null };
 }
 
-const CRUMB_LINK =
-  '-my-3 inline-block py-3 underline-offset-4 transition-colors duration-fast ease-ui hover:text-text hover:underline';
+const CRUMB_LINK_BASE =
+  '-my-3 py-3 underline-offset-4 transition-colors duration-fast ease-ui hover:text-text hover:underline';
 
 /**
  * Home / Shop / Category / product. The product is the last, non-link item carrying
- * `aria-current="page"`, and the only one that truncates: the h1 below always shows the
- * full name. Separators are hidden from assistive technology; the row mirrors in RTL.
+ * `aria-current="page"`. The product and a long category truncate (the h1 below always
+ * shows the full name); Home and Shop never shrink. Separators are hidden from assistive
+ * technology; the row mirrors in RTL.
  */
 export async function ProductBreadcrumb({ locale, product, hrefs }: ProductBreadcrumbProps) {
   const t = await getTranslations({ locale, namespace: 'product.breadcrumb' });
@@ -43,14 +44,31 @@ export async function ProductBreadcrumb({ locale, product, hrefs }: ProductBread
   return (
     <nav aria-label={t('label')} className="type-caption text-text-secondary">
       <ol className="flex min-w-0 items-center gap-x-2">
-        {trail.map((crumb) => (
-          <li key={crumb.key} className="flex shrink-0 items-center gap-x-2">
-            <Link href={crumb.href} {...crumb.attrs} className={CRUMB_LINK}>
-              {crumb.text}
-            </Link>
-            <span aria-hidden="true">/</span>
-          </li>
-        ))}
+        {trail.map((crumb) => {
+          // Home and Shop never shrink; a long category truncates so 320px never overflows.
+          const shrinks = crumb.key === 'category';
+          return (
+            <li
+              key={crumb.key}
+              className={
+                shrinks ? 'flex min-w-0 items-center gap-x-2' : 'flex shrink-0 items-center gap-x-2'
+              }
+            >
+              <Link
+                href={crumb.href}
+                {...crumb.attrs}
+                className={
+                  shrinks
+                    ? `${CRUMB_LINK_BASE} block max-w-40 truncate`
+                    : `${CRUMB_LINK_BASE} inline-block`
+                }
+              >
+                {crumb.text}
+              </Link>
+              <span aria-hidden="true">/</span>
+            </li>
+          );
+        })}
         <li className="min-w-0">
           <span
             aria-current="page"

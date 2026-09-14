@@ -87,6 +87,16 @@ export function galleryImageSizes(
   });
 }
 
+/**
+ * Thumbnails that load eagerly (at low priority): the ones in view beside the large image
+ * on first paint at the smallest frame. The rest of the column loads lazily.
+ */
+export const GALLERY_EAGER_THUMBS = 3;
+
+export function galleryThumbLoading(index: number): 'eager' | 'lazy' {
+  return index < GALLERY_EAGER_THUMBS ? 'eager' : 'lazy';
+}
+
 /** The photograph inside a thumbnail button, less its border and padding. */
 export function galleryThumbSizes(steps: readonly GalleryStep[] = GALLERY_STEPS): string {
   // Adjacent steps with the same thumbnail collapse, so the string stays short.
@@ -110,7 +120,10 @@ export type GalleryModel =
   | { kind: 'single'; images: [GalleryImageModel] }
   | { kind: 'thumbs'; count: number; thumbSizes: string; images: GalleryImageModel[] };
 
-/** The first image is the page's only eager, high-priority image (the LCP). */
+/**
+ * The first large image is the page's only eager *high-priority* image (the LCP); the
+ * first `GALLERY_EAGER_THUMBS` small thumbnails also load eagerly, at low priority.
+ */
 export function galleryLayout(images: readonly { url: string }[]): GalleryModel {
   const count = images.length;
   if (count === 0) return { kind: 'empty' };
