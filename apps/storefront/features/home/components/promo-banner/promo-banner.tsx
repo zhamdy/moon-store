@@ -6,19 +6,19 @@ import { Parallax } from '@/components/motion/parallax';
 import { Reveal } from '@/components/motion/reveal';
 import { TextReveal } from '@/components/motion/text-reveal';
 import { Container } from '@/components/ui/container';
+import { promoBanner } from '@/features/home/data/promo-banner';
 import { editorialImages } from '@/lib/editorial/images';
-
-/** Where the banner's button goes: a new collection today, an offer page when one exists. */
-const BANNER_HREF = '/collections/silk';
 
 /**
  * 04 - Promo banner (user decision, 2026-09-14), in place of the guideline's
  * editorial brand moment. A full-bleed photograph announcing a new collection or
  * an offer: a label, a headline, one line and a button.
  *
- * Everything it says lives in `home.banner` in both message catalogues, so turning
- * it into an offer is a copy change plus `BANNER_HREF`. Offer terms (amounts,
- * dates, conditions) must come from the business; never invent them here.
+ * Everything it says lives in `home.banner` in both message catalogues, and the
+ * href, slots and per-crop `object-position` live in
+ * `features/home/data/promo-banner.ts`, so repurposing it is a data + copy change,
+ * never a component change. Offer terms (amounts, dates, conditions) must come
+ * from the business; never invent them here.
  *
  * Art-directed like the hero: a 16:9 `moment-wide` crop from 768 and the 4:5
  * `moment` below, through `getImageProps()` into one `<picture>` (lazy; no blur,
@@ -40,10 +40,13 @@ export async function PromoBanner() {
   const t = await getTranslations('home.banner');
 
   const common = { alt: t('imageAlt'), sizes: '100vw' } as const;
-  const { props: desktop } = getImageProps({ ...common, src: editorialImages['moment-wide'].src });
+  const { props: desktop } = getImageProps({
+    ...common,
+    src: editorialImages[promoBanner.wide].src,
+  });
   const {
     props: { alt, ...mobile },
-  } = getImageProps({ ...common, src: editorialImages.moment.src });
+  } = getImageProps({ ...common, src: editorialImages[promoBanner.portrait].src });
 
   return (
     <Reveal
@@ -65,7 +68,7 @@ export async function PromoBanner() {
             <img
               {...mobile}
               alt={alt}
-              className="absolute inset-0 h-full w-full object-cover object-[60%_30%] md:object-[70%_30%]"
+              className={`absolute inset-0 h-full w-full object-cover ${promoBanner.portraitImageClassName} ${promoBanner.wideImageClassName}`}
             />
           </picture>
         </div>
@@ -111,7 +114,7 @@ export async function PromoBanner() {
           <div data-motion="rise" className="mt-8 [--motion-offset:900ms] [--motion-rise:24px]">
             {/* Ivory on the ink surface: bg-text / text-bg invert with the surface. */}
             <Link
-              href={BANNER_HREF}
+              href={promoBanner.href}
               className="group inline-flex min-h-12 items-center gap-3 bg-text px-7 text-bg transition-colors duration-fast ease-ui hover:bg-text/85"
             >
               <span className="type-label">{t('cta')}</span>

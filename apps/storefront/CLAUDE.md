@@ -291,7 +291,8 @@ Every homepage image is a static import behind one registry, swappable by file d
 
 - §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the
   brief; §12·04's editorial brand moment is replaced by a promo banner for a new collection or
-  an offer (user decision, 2026-09-14; copy in `home.banner`, link in `BANNER_HREF`, and offer
+  an offer (user decision, 2026-09-14; copy in `home.banner`, href/slots/crop in
+  `features/home/data/promo-banner.ts`, and offer
   terms only ever from the business), and its "Explore the story →" is dropped (an
   About-shaped destination); §12·12's
   Customer Care column is omitted until Shipping/Returns/Contact pages are planned. No
