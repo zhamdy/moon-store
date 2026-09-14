@@ -33,6 +33,12 @@ export interface HeroCarouselProps {
 }
 
 const INTERVAL_MS = 7000;
+
+/** The shown slide and the one leaving it, which plays its exit. */
+interface SlideState {
+  active: number;
+  previous: number | null;
+}
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 const subscribeNever = () => () => {};
@@ -72,7 +78,7 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
     () => window.matchMedia(REDUCED_MOTION_QUERY).matches,
     () => false
   );
-  const [active, setActive] = useState(0);
+  const [{ active, previous }, setSlides] = useState<SlideState>({ active: 0, previous: null });
   const [stopped, setStopped] = useState(false);
   const [hovering, setHovering] = useState(false);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -80,9 +86,16 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
 
   const total = slides.length;
   const autoplay = hydrated && !reducedMotion && total > 1 && !stopped;
-  const state = autoplay ? (hovering ? 'paused' : 'running') : 'stopped';
+  // Idle until hydration: every progress bar empty rather than a full bar that
+  // empties the moment rotation starts.
+  const state = !hydrated ? 'idle' : autoplay ? (hovering ? 'paused' : 'running') : 'stopped';
 
-  const goTo = (index: number) => setActive(wrapIndex(index, total));
+  const goTo = (index: number) => {
+    const next = wrapIndex(index, total);
+    if (next !== active) {
+      setSlides({ active: next, previous: active });
+    }
+  };
 
   const onProgressEnd = (event: AnimationEvent<HTMLSpanElement>) => {
     if (event.target === event.currentTarget && state === 'running') {
@@ -152,6 +165,7 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
             aria-label={slide.slideLabel}
             data-hero-slide=""
             data-active={index === active ? '' : undefined}
+            data-leaving={index === previous ? '' : undefined}
             inert={index !== active}
             className="absolute inset-0"
           >
@@ -161,7 +175,7 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
       </div>
 
       {total > 1 && (
-        <div className="absolute inset-x-0 bottom-0">
+        <div data-hero-tabs="" className="absolute inset-x-0 bottom-0">
           <Container as="div" className="pb-6 lg:pb-10">
             <div
               role="tablist"

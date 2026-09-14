@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { getTranslations } from 'next-intl/server';
+import { Parallax } from '@/components/motion/parallax';
 import { Container } from '@/components/ui/container';
 import { editorialImages } from '@/lib/editorial/images';
 import { cn } from '@/lib/utils/cn';
@@ -14,17 +15,22 @@ const MOSAIC = [
   'lg:col-start-8 lg:col-end-11 lg:mt-12',
 ];
 
+/** Desktop scroll travel per item. Signed, so neighbours drift apart and the mosaic reads as layered. */
+const TRAVEL = [0.05, -0.04, 0.07, -0.03, 0.05];
+
 /**
- * 10 — Lookbook (guideline §12·10). Five images with varied ratios on the
- * 12-column grid from 1024, staggered so the mosaic reads as a spread rather than
- * a row; below that a scroll-snap rail at ~78vw so the next image peeks. The rail
- * is a focusable labelled region because it contains no focusable children —
- * Safari and Firefox do not make scrollers keyboard-reachable on their own. No
- * handles, captions or social chrome.
+ * 10 - Lookbook. Five images with varied ratios on the 12-column grid from 1024,
+ * staggered so the mosaic reads as a spread rather than a row; below that a
+ * scroll-snap rail at ~78vw so the next image peeks. The rail is a focusable
+ * labelled region because it contains no focusable children: Safari and Firefox do
+ * not make scrollers keyboard-reachable on their own. No handles, captions or
+ * social chrome.
+ *
+ * From 1024 each image travels with the scroll at its own rate, some with it and
+ * some against it. The rail has no scroll motion: the swipe is the motion there.
  *
  * No scroll reveal on the images: inside the horizontal rail, cards off to the
  * side never intersect until swiped, so they arrived blank and faded in mid-swipe.
- * The photographs carry the section on their own.
  */
 export async function Lookbook() {
   const t = await getTranslations('home.lookbook');
@@ -44,23 +50,24 @@ export async function Lookbook() {
         )}
       >
         {lookbookItems.map((item, index) => (
-          <figure
+          <Parallax
             key={item.slot}
-            className={cn(
-              'relative w-[78vw] shrink-0 snap-start bg-surface-soft lg:w-auto',
-              item.aspect,
-              MOSAIC[index]
-            )}
+            mode="element"
+            media="(min-width: 1024px)"
+            travel={TRAVEL[index % TRAVEL.length]}
+            className={cn('w-[78vw] shrink-0 snap-start lg:w-auto', MOSAIC[index])}
           >
-            <Image
-              src={editorialImages[item.slot].src}
-              alt={t(item.altKey)}
-              fill
-              sizes="(min-width: 1440px) 460px, (min-width: 1024px) 34vw, 78vw"
-              placeholder="blur"
-              className="object-cover"
-            />
-          </figure>
+            <figure className={cn('relative bg-surface-soft', item.aspect)}>
+              <Image
+                src={editorialImages[item.slot].src}
+                alt={t(item.altKey)}
+                fill
+                sizes="(min-width: 1440px) 460px, (min-width: 1024px) 34vw, 78vw"
+                placeholder="blur"
+                className="object-cover"
+              />
+            </figure>
+          </Parallax>
         ))}
       </div>
     </Container>

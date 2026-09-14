@@ -6,9 +6,9 @@ import { cn } from '@/lib/utils/cn';
 import type { HomeProductMock } from '../types/home-product';
 import { formatPrice } from '../utils/price';
 
-/** Card width in the homepage's 4-up desktop grid / 2-up below (guideline §12·03, §16). */
+/** Card width in the homepage's 4-up desktop grid / 2-up below. */
 export const CATALOG_CARD_SIZES = '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, 46vw';
-/** The Curated Edit's 2×2 feature card. */
+/** The Curated Edit's 2x2 feature card. */
 export const LARGE_CARD_SIZES = '(min-width: 1440px) 672px, (min-width: 1024px) 48vw, 92vw';
 
 export interface ProductCardProps {
@@ -24,14 +24,22 @@ export interface ProductCardProps {
 }
 
 /**
- * The first reusable commerce unit — guideline §13 "Product hover". A Server
- * Component: the hover crossfade is CSS (`group-hover`, which Tailwind wraps in
- * `@media (hover: hover)`, so touch devices never get a stuck alternate view),
- * two stacked lazy `<Image>`s inside a 4:5 frame that scales 1 → 1.02.
+ * The first reusable commerce unit. A Server Component.
+ *
+ * Hover (CSS `group-hover`, which Tailwind wraps in `@media (hover: hover)`, so
+ * touch devices never get a stuck alternate view): the second photograph
+ * crossfades in, the frame scales 1 -> 1.03 and the name's underline draws along
+ * the reading direction. Keyboard focus draws the underline too.
+ *
+ * Reveal: the card declares its entrance with `data-motion` and plays it only
+ * inside a `<Reveal>` (the card rises, the photograph wipes upward and settles
+ * from 1.06, the text follows). Outside one the attributes are inert. Reveal
+ * motion and hover motion sit on separate elements because each owns its
+ * element's transition.
  *
  * The whole card is one link whose accessible name is the product name (images
  * are decorative here: `alt=""`). No wishlist control until wishlist behaviour
- * exists — it would be a dead control for keyboard and screen-reader users.
+ * exists: it would be a dead control for keyboard and screen-reader users.
  */
 export function ProductCard({
   product,
@@ -45,26 +53,28 @@ export function ProductCard({
   const alternate = editorialImages[product.images.b].src;
 
   return (
-    <article className={cn('group', className)}>
+    <article data-motion="rise" className={cn('group', className)}>
       <Link href={`/shop/${product.slug}`} className="block">
-        <div className="relative aspect-4/5 overflow-hidden bg-surface-soft">
-          <div className="absolute inset-0 transition-transform duration-[260ms] ease-ui group-hover:scale-[1.02]">
-            <Image
-              src={front}
-              alt=""
-              fill
-              sizes={sizes}
-              placeholder="blur"
-              className="object-cover"
-            />
-            <Image
-              src={alternate}
-              alt=""
-              fill
-              sizes={sizes}
-              placeholder="blur"
-              className="object-cover opacity-0 transition-opacity duration-[260ms] ease-ui group-hover:opacity-100"
-            />
+        <div data-motion="image" className="relative aspect-4/5 overflow-hidden bg-surface-soft">
+          <div data-motion-zoom="" className="absolute inset-0">
+            <div className="absolute inset-0 transition-transform duration-[400ms] ease-ui group-hover:scale-[1.03]">
+              <Image
+                src={front}
+                alt=""
+                fill
+                sizes={sizes}
+                placeholder="blur"
+                className="object-cover"
+              />
+              <Image
+                src={alternate}
+                alt=""
+                fill
+                sizes={sizes}
+                placeholder="blur"
+                className="object-cover opacity-0 transition-opacity duration-[350ms] ease-ui group-hover:opacity-100"
+              />
+            </div>
           </div>
           {product.isNew && (
             <span className="type-caption absolute start-3 top-3 bg-bg px-2 py-1 font-medium tracking-[0.08em] uppercase">
@@ -73,8 +83,22 @@ export function ProductCard({
           )}
         </div>
 
-        <div className="mt-4 flex items-baseline justify-between gap-4">
-          <h3 className="type-body font-body">{product.name[locale]}</h3>
+        <div
+          data-motion="fade"
+          className="mt-4 flex items-baseline justify-between gap-4 [--motion-offset:240ms]"
+        >
+          <h3 className="type-body font-body">
+            <span
+              className={cn(
+                'bg-left-bottom bg-no-repeat rtl:bg-right-bottom',
+                '[background-image:linear-gradient(currentColor,currentColor)] bg-[length:0%_1px]',
+                'transition-[background-size] duration-[350ms] ease-ui',
+                'group-hover:bg-[length:100%_1px] group-has-[:focus-visible]:bg-[length:100%_1px]'
+              )}
+            >
+              {product.name[locale]}
+            </span>
+          </h3>
           <p className="type-small text-text-secondary shrink-0 tabular-nums">
             {formatPrice(product.price, locale, currencyLabel)}
           </p>

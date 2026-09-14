@@ -147,8 +147,8 @@ function HeroSlidePanel({
         <Container as="div" className="w-full pt-(--header-h) pb-32 md:pb-36 lg:pb-40">
           <div className="max-w-[26rem]">
             <p
-              data-enter="fade"
-              className="type-label text-text-secondary [--entrance-delay:200ms]"
+              data-enter="wipe"
+              className="type-label w-fit text-text-secondary [--entrance-delay:200ms]"
             >
               {eyebrow}
             </p>
@@ -163,7 +163,7 @@ function HeroSlidePanel({
                 </span>
               </span>
               <span className="-mb-[0.12em] block overflow-hidden pb-[0.12em]">
-                <span data-enter="line" className="block [--entrance-delay:380ms]">
+                <span data-enter="line" className="block [--entrance-delay:420ms]">
                   {title2}
                 </span>
               </span>
@@ -177,7 +177,7 @@ function HeroSlidePanel({
             <EditorialLink
               href={slide.href}
               data-enter="fade"
-              className="mt-7 [--entrance-delay:550ms]"
+              className="mt-7 [--entrance-delay:600ms]"
             >
               {cta}
             </EditorialLink>
