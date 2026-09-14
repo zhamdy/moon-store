@@ -619,6 +619,12 @@ column below), the details tabs at full container width, the related row.
   `type-small` `dl` of material and fit under a hairline, omitted when both are empty; the
   Details tab keeps the full list), "Part of" links (Arabic `ضمن {collection}`, since
   collection names already carry مجموعة). The lead sits above the price because price and sizes are one island.
+- **Share row** (`product-share.tsx`, the `share` slot, last in the info column): "Share
+  it:" and server-rendered links to Facebook, X, Pinterest, WhatsApp and email, built by
+  the pure `utils/share-links.ts`; no client JS and no SDK. The shared URL is absolute,
+  from `SITE_URL` through `lib/site-url.ts` (the same origin as `metadataBase`). Pinterest
+  appears only when the product has an image. A hairline above it unless the facts `dl`
+  is directly above. No copy-link button: it would need a client boundary.
 - **Details tabs** (ED-4, `product-details-tabs.tsx` + the `product-tabs.tsx` island):
   Description (every paragraph), Details (a `dl`: material, care, fit, category link,
   collection links, sizes from the `size` option) and Shipping & returns (delivery and

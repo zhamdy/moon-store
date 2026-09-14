@@ -20,6 +20,8 @@ export interface ProductDetailProps {
   gallery?: ReactNode;
   /** Price, availability and options (Unit 6). Omitted: the static price and status. */
   purchase?: ReactNode;
+  /** The share row, last in the info column. */
+  share?: ReactNode;
   /** The details tabs, full container width under the split. */
   details?: ReactNode;
   /** The related row under the product (Unit 7), in its own Suspense. */
@@ -49,6 +51,7 @@ export async function ProductDetail({
   breadcrumb,
   gallery,
   purchase,
+  share,
   details,
   related,
 }: ProductDetailProps) {
@@ -142,6 +145,20 @@ export async function ProductDetail({
                   );
                 })}
               </ul>
+            )}
+
+            {share && (
+              <div
+                className={
+                  // The facts list opens with its own hairline; a second one straight after
+                  // it would read as a double rule, so the row takes one only otherwise.
+                  facts.length > 0 && product.collections.length === 0
+                    ? 'mt-8'
+                    : 'mt-8 border-t border-border pt-6'
+                }
+              >
+                {share}
+              </div>
             )}
           </Reveal>
         </div>

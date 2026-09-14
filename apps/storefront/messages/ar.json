@@ -314,6 +314,19 @@
       "sizes": "المقاسات",
       "delivery": "التوصيل",
       "returns": "الإرجاع"
+    },
+    "share": {
+      "label": "شاركيها:",
+      "listLabel": "مشاركة",
+      "on": "مشاركة عبر {network} ({newTab})",
+      "email": "مشاركة عبر البريد الإلكتروني",
+      "networks": {
+        "facebook": "فيسبوك",
+        "x": "إكس",
+        "pinterest": "بنترست",
+        "whatsapp": "واتساب",
+        "email": "البريد الإلكتروني"
+      }
     }
   }
 }

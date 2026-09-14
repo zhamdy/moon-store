@@ -17,6 +17,7 @@ import { ProductBreadcrumb } from '@/features/products/components/product-breadc
 import { ProductDetail } from '@/features/products/components/product-detail';
 import { ProductDetailsTabs } from '@/features/products/components/product-details-tabs';
 import { ProductGallery } from '@/features/products/components/product-gallery';
+import { ProductShare } from '@/features/products/components/product-share';
 import { PurchasePanelSlot } from '@/features/products/components/purchase-panel-slot';
 import { buildProductMetadata } from '@/features/products/utils/product-metadata';
 
@@ -78,6 +79,7 @@ export default async function ProductPage(props: Props) {
       }
       gallery={<ProductGallery locale={locale} product={product} />}
       purchase={<PurchasePanelSlot key={product.slug} locale={locale} product={product} />}
+      share={<ProductShare locale={locale} product={product} />}
       details={
         <ProductDetailsTabs locale={locale} product={product} policies={policies} hrefs={hrefs} />
       }

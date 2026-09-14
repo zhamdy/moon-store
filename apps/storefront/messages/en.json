@@ -314,6 +314,19 @@
       "sizes": "Sizes",
       "delivery": "Delivery",
       "returns": "Returns"
+    },
+    "share": {
+      "label": "Share it:",
+      "listLabel": "Share",
+      "on": "Share on {network} ({newTab})",
+      "email": "Share by email",
+      "networks": {
+        "facebook": "Facebook",
+        "x": "X",
+        "pinterest": "Pinterest",
+        "whatsapp": "WhatsApp",
+        "email": "Email"
+      }
     }
   }
 }
