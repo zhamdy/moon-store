@@ -35,6 +35,12 @@ const TRAILING_NOT_VALID = /\s+NOT\s+VALID(?=\s*;|\s*$)/gi;
  */
 const BACKFILL_012 = /DO \$backfill_012\$[\s\S]*?\$backfill_012\$;/g;
 
+/**
+ * Matches 014's tagged slug backfill, and only it. Stripped for the same reason as 012's:
+ * the same file adds the columns, indexes and `product_images` the suites need.
+ */
+const BACKFILL_014 = /DO \$backfill_014\$[\s\S]*?\$backfill_014\$;/g;
+
 export function toPgMemCompatibleSql(sql: string): string {
   // 009 upgrades legacy schemas only. pg-mem fixtures start from the corrected 001;
   // its catalog-driven PL/pgSQL repair is exercised on real PostgreSQL instead.
@@ -43,7 +49,13 @@ export function toPgMemCompatibleSql(sql: string): string {
   // and `jsonb_array_elements`, which pg-mem's parser rejects. A pg-mem database is always
   // freshly created and so has no refunds to backfill, and the CREATE TABLE around it is
   // kept. The backfill is proven on real PostgreSQL in `tests/database/migration012.test.ts`.
-  return sql.replace(BACKFILL_012, 'SELECT 1;').replace(TRAILING_NOT_VALID, '');
+  // 014 backfills slugs with `regexp_replace`, window functions and a PL/pgSQL loop,
+  // none of which pg-mem runs; a fresh pg-mem database has no rows to slug. Proven on
+  // real PostgreSQL in `tests/concurrency/storefrontCatalogMigration.realpg.test.ts`.
+  return sql
+    .replace(BACKFILL_012, 'SELECT 1;')
+    .replace(BACKFILL_014, 'SELECT 1;')
+    .replace(TRAILING_NOT_VALID, '');
 }
 
 type QueryArgs = [string | { text: string }, unknown[]?];
