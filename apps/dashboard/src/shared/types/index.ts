@@ -39,6 +39,12 @@ export interface Product {
   name_en?: string | null;
   description?: string | null;
   description_en?: string | null;
+  material?: string | null;
+  material_en?: string | null;
+  care?: string | null;
+  care_en?: string | null;
+  fit?: string | null;
+  fit_en?: string | null;
   has_variants: number;
   variant_count: number;
   variant_stock: number;
