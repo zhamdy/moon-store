@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
 import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
-import { catalogPath } from '@/features/catalog/utils/catalog-path';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { CatalogProductDetail } from '../types/catalog-product-detail';
@@ -12,6 +11,8 @@ import { formatPrice } from '../utils/price';
 export interface ProductDetailProps {
   locale: AppLocale;
   product: CatalogProductDetail;
+  /** Listing hrefs built by the page, so this slice never imports `features/catalog`. */
+  hrefs: { category: string | null; collections: Record<string, string> };
   /** The image column (Unit 5). Omitted: an empty 4:5 frame holds its place. */
   gallery?: ReactNode;
   /** Price, availability and options (Unit 6). Omitted: the static price and status. */
@@ -39,6 +40,7 @@ const LINK_HOVER =
 export async function ProductDetail({
   locale,
   product,
+  hrefs,
   gallery,
   purchase,
   related,
@@ -61,10 +63,10 @@ export async function ProductDetail({
         </div>
 
         <Reveal className="mt-8 lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:col-span-5 lg:mt-0">
-          {product.category && category && (
+          {hrefs.category && category && (
             <p data-motion="fade" className="type-label text-text-secondary">
               <Link
-                href={catalogPath({ kind: 'category', slug: product.category.slug })}
+                href={hrefs.category}
                 {...langProps(category, locale)}
                 className={`-my-3 inline-block py-3 ${LINK_HOVER}`}
               >
@@ -103,7 +105,7 @@ export async function ProductDetail({
                   <li key={collection.slug}>
                     {partOfBefore}
                     <Link
-                      href={catalogPath({ kind: 'collection', slug: collection.slug })}
+                      href={hrefs.collections[collection.slug]}
                       {...langProps(collectionName, locale)}
                       className={`underline ${LINK_HOVER}`}
                     >

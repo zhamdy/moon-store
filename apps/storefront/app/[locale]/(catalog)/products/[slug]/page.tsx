@@ -9,6 +9,7 @@ import {
   RelatedProducts,
   RelatedProductsSkeleton,
 } from '@/features/catalog/components/related-products';
+import { catalogPath } from '@/features/catalog/utils/catalog-path';
 import { relatedScope } from '@/features/catalog/utils/related-scope';
 import { getCatalogProduct } from '@/features/products/api/get-catalog-product';
 import { ProductDetail } from '@/features/products/components/product-detail';
@@ -52,6 +53,17 @@ export default async function ProductPage(props: Props) {
     <ProductDetail
       locale={locale}
       product={product}
+      hrefs={{
+        category: product.category
+          ? catalogPath({ kind: 'category', slug: product.category.slug })
+          : null,
+        collections: Object.fromEntries(
+          product.collections.map((c) => [
+            c.slug,
+            catalogPath({ kind: 'collection', slug: c.slug }),
+          ])
+        ),
+      }}
       gallery={<ProductGallery locale={locale} product={product} />}
       purchase={<PurchasePanelSlot locale={locale} product={product} />}
       related={
