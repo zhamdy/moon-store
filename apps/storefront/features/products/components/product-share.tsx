@@ -24,6 +24,9 @@ const shareIcons: Record<ShareNetwork, ShareIcon> = {
   email: Mail,
 };
 
+// One share row per page, so a fixed id is unique; the list is named by the visible label.
+const LABEL_ID = 'product-share-label';
+
 export interface ProductShareProps {
   locale: AppLocale;
   product: CatalogProductDetail;
@@ -49,8 +52,10 @@ export async function ProductShare({ locale, product }: ProductShareProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-2">
-      <p className="type-small text-text-secondary">{t('product.share.label')}</p>
-      <ul aria-label={t('product.share.listLabel')} className="flex flex-wrap">
+      <p id={LABEL_ID} className="type-small text-text-secondary">
+        {t('product.share.label')}
+      </p>
+      <ul aria-labelledby={LABEL_ID} className="flex flex-wrap">
         {links.map(({ network, href }) => {
           const Icon = shareIcons[network];
           const isEmail = network === 'email';
