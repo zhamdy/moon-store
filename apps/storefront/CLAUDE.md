@@ -216,7 +216,17 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    separate faster image layer floating over the words was tried and rejected by the
    user (2026-09-14) as clutter; depth comes instead from each photograph drifting
    inside its own over-scaled frame (`[data-strip-pan]`, pure CSS, out of step per
-   image). Hover pauses both; reduced motion stops both.
+   image). Hover pauses both; reduced motion stops both; and — unlike the hero (see
+   below) — the strip closes WCAG 2.2.2 with a visible **pause toggle**
+   (`editorial-strip.tsx`): a native checkbox, `role="switch"`, icon-only with an
+   `aria-label` from `home.strip.pause`, sitting below the tracks at the inline end,
+   outside both `.marquee-track`s so it is never duplicated or animated. Checked
+   state pauses both via `[data-strip]:has([data-strip-toggle]:checked)` in
+   `app/globals.css`, scoped to the strip rather than a bare `section:has(:checked)`.
+   No client boundary: the checkbox's native checked state does the work. Hidden
+   under reduced motion (nothing moves) and where `:has()` is unsupported (it would
+   do nothing). Session-only, no storage — a reload restarting motion is acceptable
+   since the page is static.
 
 **Reveal and hover never share an element.** A `transition-*` utility replaces the
 element's whole `transition-property`, so a hover transition on an element carrying

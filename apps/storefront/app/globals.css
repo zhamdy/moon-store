@@ -725,6 +725,24 @@ header[data-surface][data-surface-ready] {
   animation-play-state: paused;
 }
 
+/* Strip pause toggle (WCAG 2.2.2) - features/home/components/editorial-strip/
+   editorial-strip.tsx. A native checkbox, `role="switch"`, scoped by
+   [data-strip]/[data-strip-toggle] rather than a bare `section:has(:checked)`
+   so it can never reach into an unrelated section. Focusing the unchecked
+   toggle must not pause the tracks, so this is separate from the
+   :hover/:focus-within rule above, which stays scoped to .marquee itself. */
+[data-strip]:has([data-strip-toggle]:checked) :is(.marquee-track, [data-strip-pan]) {
+  animation-play-state: paused;
+}
+
+/* Hidden where it would do nothing (reduced motion already stops everything) or
+   could not work (:has() unsupported), so the strip keeps no empty gap for it. */
+@supports not selector(:has(*)) {
+  [data-strip-toggle-control] {
+    display: none;
+  }
+}
+
 /* Editorial strip depth: each detail photograph drifts sideways inside its frame
    on its own slow cycle, over-scaled so no edge shows, so the images move at a
    different speed from the words without leaving the line. */
@@ -800,6 +818,10 @@ header[data-surface][data-surface-ready] {
 
   .marquee-track[aria-hidden='true'],
   [data-marquee-copy] {
+    display: none;
+  }
+
+  [data-strip-toggle-control] {
     display: none;
   }
 }
