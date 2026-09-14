@@ -1,5 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { localizedDescription, localizedName } from './localized-name';
+import { localizedDescription, localizedName, localizedText } from './localized-name';
+
+describe('localizedText', () => {
+  it('uses English in en and Arabic in ar', () => {
+    expect(localizedText('حرير', 'Silk', 'en')).toEqual({ text: 'Silk', lang: 'en' });
+    expect(localizedText('حرير', 'Silk', 'ar')).toEqual({ text: 'حرير', lang: 'ar' });
+  });
+
+  it('falls back to Arabic, marked ar, when English is null, empty or whitespace-only', () => {
+    for (const en of [null, '', '  ']) {
+      expect(localizedText('حرير', en, 'en')).toEqual({ text: 'حرير', lang: 'ar' });
+    }
+  });
+
+  it('never shows English on an Arabic page', () => {
+    expect(localizedText(null, 'Silk', 'ar')).toBeNull();
+  });
+
+  it('is null when both are absent, empty or whitespace-only', () => {
+    expect(localizedText(null, null, 'en')).toBeNull();
+    expect(localizedText('', ' ', 'en')).toBeNull();
+    expect(localizedText(' ', null, 'ar')).toBeNull();
+  });
+});
 
 describe('localizedName', () => {
   it('uses the English name in en', () => {

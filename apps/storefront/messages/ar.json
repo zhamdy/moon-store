@@ -294,6 +294,20 @@
     "partOf": "من مجموعة {collection}",
     "related": {
       "heading": "المزيد من {name}"
+    },
+    "details": {
+      "label": "معلومات المنتج",
+      "description": "الوصف",
+      "details": "التفاصيل",
+      "shipping": "الشحن والإرجاع",
+      "material": "الخامة",
+      "care": "العناية",
+      "fit": "القَصّة",
+      "category": "الفئة",
+      "collection": "المجموعة",
+      "sizes": "المقاسات",
+      "delivery": "التوصيل",
+      "returns": "الإرجاع"
     }
   }
 }

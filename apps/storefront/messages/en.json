@@ -294,6 +294,20 @@
     "partOf": "Part of {collection}",
     "related": {
       "heading": "More from {name}"
+    },
+    "details": {
+      "label": "Product information",
+      "description": "Description",
+      "details": "Details",
+      "shipping": "Shipping & returns",
+      "material": "Material",
+      "care": "Care",
+      "fit": "Fit",
+      "category": "Category",
+      "collection": "Collection",
+      "sizes": "Sizes",
+      "delivery": "Delivery",
+      "returns": "Returns"
     }
   }
 }

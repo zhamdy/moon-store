@@ -22,16 +22,23 @@ export function localizedName(
 }
 
 /**
- * The description to show in `locale`, or `null`. English falls back to the Arabic
- * description (marked by `lang`), as names do; an Arabic page never shows English copy.
+ * An optional Arabic-primary text pair in `locale`, or `null`. English falls back to the
+ * Arabic (marked by `lang`), as names do; an Arabic page never shows English copy.
+ * Empty and whitespace-only strings count as absent.
  */
+export function localizedText(
+  ar: string | null,
+  en: string | null,
+  locale: AppLocale
+): LocalizedText | null {
+  if (locale === 'en' && en?.trim()) return { text: en, lang: 'en' };
+  return ar?.trim() ? { text: ar, lang: 'ar' } : null;
+}
+
+/** The description to show in `locale`, or `null` (see `localizedText`). */
 export function localizedDescription(
   dto: { description: string | null; descriptionEn: string | null },
   locale: AppLocale
 ): LocalizedText | null {
-  const primary = dto.description?.trim() ? dto.description : null;
-  if (locale === 'en' && dto.descriptionEn?.trim()) {
-    return { text: dto.descriptionEn, lang: 'en' };
-  }
-  return primary === null ? null : { text: primary, lang: 'ar' };
+  return localizedText(dto.description, dto.descriptionEn, locale);
 }

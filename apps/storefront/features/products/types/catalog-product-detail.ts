@@ -6,6 +6,13 @@ export interface CatalogProductDetail {
   nameEn: string | null;
   description: string | null;
   descriptionEn: string | null;
+  /** Arabic primary, English optional, like `description`/`descriptionEn`. */
+  material: string | null;
+  materialEn: string | null;
+  care: string | null;
+  careEn: string | null;
+  fit: string | null;
+  fitEn: string | null;
   /** Whole EGP; the base price when a variant carries none of its own. */
   price: number;
   isNew: boolean;

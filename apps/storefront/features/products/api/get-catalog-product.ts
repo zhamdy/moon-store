@@ -62,6 +62,9 @@ function invalidReason(data: unknown): string | null {
   if (!isNullableString(data.description) || !isNullableString(data.descriptionEn)) {
     return 'had an invalid description';
   }
+  for (const field of ['material', 'materialEn', 'care', 'careEn', 'fit', 'fitEn'] as const) {
+    if (!isNullableString(data[field])) return `had an invalid ${field}`;
+  }
   if (!isPrice(data.price)) return 'had a non-numeric price';
   if (typeof data.isNew !== 'boolean' || typeof data.inStock !== 'boolean') {
     return 'had non-boolean isNew or inStock';
