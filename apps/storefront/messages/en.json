@@ -61,7 +61,7 @@
           "title2": "moves with you.",
           "body": "Washed linen and open weaves for long, warm days.",
           "cta": "Explore Linen",
-          "imageAlt": "A woman in an ivory linen dress walking through a shaded stone courtyard"
+          "imageAlt": "A woman in an ivory linen dress with wide straps walking across a shaded stone courtyard"
         },
         "abaya": {
           "tab": "Abaya",
@@ -79,7 +79,7 @@
           "title2": "by design.",
           "body": "Cashmere and wool in the warm tones of the season.",
           "cta": "Explore Knitwear",
-          "imageAlt": "A woman in a cream cashmere sweater and brown wide trousers, standing in low window light"
+          "imageAlt": "A woman in a cream cashmere sweater and brown wide trousers, standing in a dark wood-panelled room"
         }
       }
     },
@@ -103,7 +103,7 @@
       "title": "The Silk Edit",
       "body": "Fluid blouses and soft tailoring in ivory and warm brown.",
       "cta": "Shop the collection",
-      "imageAlt": "A woman in an ivory silk blouse and a long brown linen skirt, seated on a stone bench in warm light"
+      "imageAlt": "A woman in an ivory silk blouse with full sleeves and a long brown linen skirt, seated on a stone ledge in warm light"
     },
     "featured": {
       "eyebrow": "Featured collection",
@@ -143,10 +143,10 @@
     },
     "lookbook": {
       "heading": "Lookbook",
-      "alt1": "A woman in a brown tailored blazer and ivory wide trousers, standing in a lattice-lit hall",
-      "alt2": "Hands holding a black leather cross-body bag against a brown wool coat",
+      "alt1": "A woman in a sleeveless linen waistcoat, black top and black trousers, leaning against a sunlit terracotta wall beside a green door",
+      "alt2": "Close-up of black leather slingback kitten heels on a sandstone step",
       "alt3": "Half-length portrait of a woman in a camel coat draped over a dark satin cowl-neck dress, leaning in a carved doorway",
-      "alt4": "A woman climbing limestone stairs in wide black silk trousers and an ivory shirt",
+      "alt4": "A woman walking along a curved stone corridor in a black blazer, brown ribbed knit and wide black trousers",
       "alt5": "Close-up of a brown wool jacket collar resting on folds of ivory silk"
     }
   },
