@@ -288,7 +288,8 @@
     },
     "gallery": {
       "label": "صور المنتج",
-      "count": "{count, plural, zero {لا توجد صور} one {صورة واحدة} two {صورتان} few {# صور} many {# صورة} other {# صورة}}"
+      "count": "{count, plural, zero {لا توجد صور} one {صورة واحدة} two {صورتان} few {# صور} many {# صورة} other {# صورة}}",
+      "imageAlt": "{name}، الصورة {n} من {count}"
     },
     "partOf": "من مجموعة {collection}",
     "related": {

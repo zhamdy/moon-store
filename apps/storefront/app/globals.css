@@ -785,6 +785,120 @@ header[data-surface][data-surface-ready] {
   display: none;
 }
 
+/* ============================================================
+   Product gallery - features/products/components/product-gallery.tsx.
+   Geometry mirrors features/products/utils/gallery-layout.ts (slide widths,
+   the 8px gap); a change here must change that table.
+   ============================================================ */
+@layer components {
+  [data-gallery] {
+    timeline-scope: --gallery;
+  }
+
+  /* Below 1024: a rail bleeding to the viewport edges, each slide snapping to the
+     page gutter. The focus ring is inset, since the rail's own edges are off screen. */
+  [data-gallery-rail] {
+    margin-inline: calc(-1 * var(--page-gutter));
+    padding-inline: var(--page-gutter);
+    scroll-padding-inline: var(--page-gutter);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-timeline: --gallery inline;
+    scrollbar-width: none;
+  }
+
+  [data-gallery-rail]::-webkit-scrollbar {
+    display: none;
+  }
+
+  [data-gallery-rail]:focus-visible {
+    outline-offset: -2px;
+  }
+
+  [data-gallery-list] {
+    display: flex;
+    gap: 8px;
+  }
+
+  [data-gallery-slide] {
+    flex: none;
+    inline-size: 86vw;
+    scroll-snap-align: start;
+  }
+
+  @media (min-width: 768px) {
+    [data-gallery-slide] {
+      inline-size: 58vw;
+    }
+  }
+
+  /* From 1024: the lead spans the column, the rest pair up, an odd last one spans. */
+  @media (min-width: 1024px) {
+    [data-gallery-rail] {
+      margin-inline: 0;
+      padding-inline: 0;
+      overflow: visible;
+      scroll-snap-type: none;
+    }
+
+    [data-gallery-list] {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    [data-gallery-slide] {
+      inline-size: auto;
+    }
+
+    [data-gallery-slide][data-span='full'] {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* The progress hairline exists only where a scroll timeline drives it, never as a
+     static bar. It moves only with the shopper's own scrolling, so reduced motion keeps
+     it: on a scroll timeline the global 0.01ms duration is converted to a proportion. */
+  [data-gallery-progress] {
+    display: none;
+  }
+
+  @supports (animation-timeline: scroll()) {
+    @media (max-width: 1023.98px) {
+      [data-gallery-progress] {
+        display: block;
+        position: relative;
+        margin-block-start: 16px;
+        block-size: 1px;
+        overflow: hidden;
+        background: var(--surface-border);
+      }
+
+      [data-gallery-progress] > span {
+        position: absolute;
+        inset: 0;
+        background: var(--surface-text);
+        transform-origin: left;
+        animation: moon-gallery-progress linear both;
+        animation-timeline: --gallery;
+      }
+
+      [dir='rtl'] [data-gallery-progress] > span {
+        transform-origin: right;
+      }
+    }
+  }
+}
+
+@keyframes moon-gallery-progress {
+  from {
+    transform: scaleX(calc(1 / var(--gallery-count, 1)));
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 /* Editorial strip depth: each detail photograph drifts sideways inside its frame
    on its own slow cycle, over-scaled so no edge shows, so the images move at a
    different speed from the words without leaving the line. `ease-in-out` is

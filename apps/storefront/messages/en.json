@@ -288,7 +288,8 @@
     },
     "gallery": {
       "label": "Product images",
-      "count": "{count, plural, one {# image} other {# images}}"
+      "count": "{count, plural, one {# image} other {# images}}",
+      "imageAlt": "{name}, image {n} of {count}"
     },
     "partOf": "Part of {collection}",
     "related": {
