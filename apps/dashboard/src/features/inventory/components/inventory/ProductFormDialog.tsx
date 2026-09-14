@@ -336,6 +336,7 @@ export default function ProductFormDialog({
                       label={t('inventory.description')}
                       size="sm"
                       variant="bordered"
+                      dir="rtl"
                       minRows={2}
                       value={field.value ?? ''}
                       onBlur={field.onBlur}
@@ -379,6 +380,7 @@ export default function ProductFormDialog({
                         label={t('inventory.material')}
                         size="sm"
                         variant="bordered"
+                        dir="rtl"
                         minRows={2}
                         value={field.value ?? ''}
                         onBlur={field.onBlur}
@@ -414,6 +416,7 @@ export default function ProductFormDialog({
                         label={t('inventory.care')}
                         size="sm"
                         variant="bordered"
+                        dir="rtl"
                         minRows={2}
                         value={field.value ?? ''}
                         onBlur={field.onBlur}
@@ -449,6 +452,7 @@ export default function ProductFormDialog({
                         label={t('inventory.fit')}
                         size="sm"
                         variant="bordered"
+                        dir="rtl"
                         minRows={2}
                         value={field.value ?? ''}
                         onBlur={field.onBlur}
