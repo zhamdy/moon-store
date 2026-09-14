@@ -1,7 +1,9 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 import rateLimit, { type RateLimitRequestHandler } from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
-import { getEnv } from '../config/env';
+import { getEnv, splitCatalogServerTokens } from '../config/env';
+import { CATALOG_API_PREFIX } from '../modules/commerce/catalog/constants';
 import { errorResponse } from './errors';
 import logger from '../../lib/logger';
 import { isHealthPath } from '../observability/probePaths';
@@ -56,7 +58,31 @@ export function authRateLimitMax(): number {
  * real, DB-touching endpoints out of abuse protection for no remaining benefit.
  */
 export function isRateLimitExempt(req: Pick<Request, 'method' | 'path'>): boolean {
-  return req.method === 'GET' && isHealthPath(req.path);
+  return (req.method === 'GET' && isHealthPath(req.path)) || isCatalogRead(req);
+}
+
+/** `^/api/v1/catalog(/|$)`, case-insensitive, built from the constant the router mounts. */
+const CATALOG_PATH = new RegExp(
+  `^${CATALOG_API_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/|$)`,
+  'i'
+);
+
+/**
+ * Public catalog reads leave the global budget for the catalog limiter.
+ *
+ * The same shared-IP problem as the tills, pointed the other way: every storefront page is
+ * rendered on the Next server, so every shopper's catalog read reaches this API from one
+ * address. Under the global 200/15min per-IP limit the whole site would start answering
+ * 429 at modest traffic. Those reads are budgeted by `createCatalogLimiter` instead, which
+ * the catalog router mounts itself.
+ *
+ * Case-insensitive because Express routing is: `/API/V1/Catalog/products` reaches the
+ * catalog router, and a case-sensitive exemption would let it spend both budgets. Anchored
+ * on `/` or end so a lookalike sibling (`/api/v1/catalogue`) is not exempt. GET and HEAD
+ * only: nothing under the prefix writes, and anything else stays on the global budget.
+ */
+export function isCatalogRead(req: Pick<Request, 'method' | 'path'>): boolean {
+  return (req.method === 'GET' || req.method === 'HEAD') && CATALOG_PATH.test(req.path);
 }
 
 /**
@@ -139,6 +165,139 @@ export function createAuthLimiter(): RateLimitRequestHandler {
     legacyHeaders: false,
     message: errorResponse('RATE_LIMITED', 'Too many login attempts, please try again later'),
   });
+}
+
+/** Per-IP ceiling on public catalog reads, per 15 min. Browsers are not expected to call the API. */
+export const DEFAULT_CATALOG_RATE_LIMIT_MAX = 300;
+
+/**
+ * Ceiling for the one trusted storefront-server bucket, per 15 min (~22 requests/second).
+ * Every shopper's server-rendered page draws on it, softened by Next's 60s data cache.
+ */
+export const DEFAULT_CATALOG_SERVER_RATE_LIMIT_MAX = 20000;
+
+export const CATALOG_SERVER_TOKEN_HEADER = 'x-catalog-server-token';
+
+/** The key every validly-tokened request shares. Not a per-shopper limit (UD-5). */
+export const CATALOG_SERVER_BUCKET = 'catalog-server';
+
+export function catalogRateLimitMax(): number {
+  return resolveCeiling(getEnv().CATALOG_RATE_LIMIT_MAX, DEFAULT_CATALOG_RATE_LIMIT_MAX);
+}
+
+export function catalogServerRateLimitMax(): number {
+  return resolveCeiling(
+    getEnv().CATALOG_SERVER_RATE_LIMIT_MAX,
+    DEFAULT_CATALOG_SERVER_RATE_LIMIT_MAX
+  );
+}
+
+let tokenDigestCache: { raw: string | undefined; digests: Buffer[] } | null = null;
+
+function sha256(value: string): Buffer {
+  return createHash('sha256').update(value, 'utf8').digest();
+}
+
+function configuredTokenDigests(): Buffer[] {
+  const raw = getEnv().CATALOG_SERVER_TOKEN;
+  if (!tokenDigestCache || tokenDigestCache.raw !== raw) {
+    tokenDigestCache = { raw, digests: splitCatalogServerTokens(raw).map(sha256) };
+  }
+  return tokenDigestCache.digests;
+}
+
+/**
+ * Whether the request carries a configured storefront-server token.
+ *
+ * Both sides are hashed first, so `timingSafeEqual` always compares 32 bytes: no length
+ * leak, and no throw on a wrong-length header. Every configured token is compared (no early
+ * exit). A missing header, a repeated one (Node would otherwise join the copies with ", ")
+ * or anything that is not exactly one string counts as no token.
+ */
+export function hasValidCatalogServerToken(
+  req: Pick<Request, 'headers'> & { headersDistinct?: Record<string, string[] | undefined> }
+): boolean {
+  const digests = configuredTokenDigests();
+  if (digests.length === 0) return false;
+
+  let value: unknown;
+  if (req.headersDistinct) {
+    const values = req.headersDistinct[CATALOG_SERVER_TOKEN_HEADER];
+    if (!Array.isArray(values) || values.length !== 1) return false;
+    value = values[0];
+  } else {
+    value = req.headers[CATALOG_SERVER_TOKEN_HEADER];
+  }
+  if (typeof value !== 'string' || value.length === 0) return false;
+
+  const presented = sha256(value);
+  let matched = false;
+  for (const digest of digests) {
+    if (timingSafeEqual(presented, digest)) matched = true;
+  }
+  return matched;
+}
+
+export function catalogRateLimitKey(
+  req: Pick<Request, 'headers' | 'ip'> & { headersDistinct?: Record<string, string[] | undefined> }
+): string {
+  if (hasValidCatalogServerToken(req)) return CATALOG_SERVER_BUCKET;
+  return `ip:${req.ip ?? 'unknown'}`;
+}
+
+/**
+ * The public catalog's limiter (KD-5), mounted by the catalog router itself.
+ *
+ * Its own store, so its `ip:` keys never meet the global limiter's. The ceiling follows
+ * the key: the trusted bucket gets `CATALOG_SERVER_RATE_LIMIT_MAX`, everything else
+ * `CATALOG_RATE_LIMIT_MAX` per IP. With no token configured the trusted bucket does not
+ * exist and every request is per-IP -- safe for development, closed in production.
+ *
+ * A 429 here sets `no-store` itself: it is answered before the router's cache middleware.
+ */
+export function createCatalogLimiter(): RateLimitRequestHandler {
+  return rateLimit({
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: (req) =>
+      hasValidCatalogServerToken(req) ? catalogServerRateLimitMax() : catalogRateLimitMax(),
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: catalogRateLimitKey,
+    handler: (_req, res, _next, options) => {
+      res.set('Cache-Control', 'no-store');
+      res.status(options.statusCode).json(options.message);
+    },
+    message: errorResponse('RATE_LIMITED'),
+  });
+}
+
+/**
+ * Boot visibility for the catalog limiter: an ignored ceiling, and -- in production -- an
+ * unset `CATALOG_SERVER_TOKEN`, which puts every shopper's server-rendered page into one
+ * per-IP bucket of `CATALOG_RATE_LIMIT_MAX`.
+ */
+export function logCatalogRateLimitConfig(): void {
+  const env = getEnv();
+  warnIfIgnored(
+    'CATALOG_RATE_LIMIT_MAX',
+    env.CATALOG_RATE_LIMIT_MAX,
+    DEFAULT_CATALOG_RATE_LIMIT_MAX
+  );
+  warnIfIgnored(
+    'CATALOG_SERVER_RATE_LIMIT_MAX',
+    env.CATALOG_SERVER_RATE_LIMIT_MAX,
+    DEFAULT_CATALOG_SERVER_RATE_LIMIT_MAX
+  );
+
+  if (
+    env.NODE_ENV === 'production' &&
+    splitCatalogServerTokens(env.CATALOG_SERVER_TOKEN).length === 0
+  ) {
+    logger.warn(
+      'CATALOG_SERVER_TOKEN is unset: the storefront server has no trusted catalog bucket, so ' +
+        `all of its catalog reads share one per-IP budget of ${catalogRateLimitMax()}/15min.`
+    );
+  }
 }
 
 /**

@@ -51,6 +51,18 @@ const BACKFILL_014 = /DO \$backfill_014\$[\s\S]*?\$backfill_014\$;/g;
 const SAVEPOINT_STATEMENT =
   /^\s*(?:SAVEPOINT|RELEASE\s+SAVEPOINT|ROLLBACK\s+TO\s+SAVEPOINT)\s+\w+\s*;?\s*$/i;
 
+/**
+ * `slug IS NOT NULL`, optionally table-qualified.
+ *
+ * pg-mem answers `status = 'active' AND slug IS NOT NULL` with NO rows once the table has
+ * the UNIQUE `idx_<table>_slug` index (014) and more than one status value -- measured: the
+ * same query returns the right rows after `DROP INDEX idx_products_slug`, and `slug IS NOT
+ * NULL` alone is correct. The public catalog filters on exactly that conjunction. Rewritten
+ * to `NOT (slug IS NULL)`, which PostgreSQL treats identically and pg-mem evaluates without
+ * the broken index path, rather than weakening the production SQL.
+ */
+const SLUG_IS_NOT_NULL = /\b((?:\w+\.)?slug)\s+IS\s+NOT\s+NULL\b/gi;
+
 export function toPgMemCompatibleSql(sql: string): string {
   if (SAVEPOINT_STATEMENT.test(sql)) return 'SELECT 1;';
   // 009 upgrades legacy schemas only. pg-mem fixtures start from the corrected 001;
@@ -66,7 +78,8 @@ export function toPgMemCompatibleSql(sql: string): string {
   return sql
     .replace(BACKFILL_012, 'SELECT 1;')
     .replace(BACKFILL_014, 'SELECT 1;')
-    .replace(TRAILING_NOT_VALID, '');
+    .replace(TRAILING_NOT_VALID, '')
+    .replace(SLUG_IS_NOT_NULL, 'NOT ($1 IS NULL)');
 }
 
 type QueryArgs = [string | { text: string }, unknown[]?];

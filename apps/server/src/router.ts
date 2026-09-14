@@ -35,6 +35,8 @@ import {
   reportsRouter,
   exportsRouter,
   notificationsRouter,
+  catalogRouter,
+  CATALOG_API_PREFIX,
 } from './modules';
 
 // Route table: [apiPath, router]
@@ -73,6 +75,9 @@ export const routeTable: [string, Router][] = [
   ['/api/v1/storefront', storefrontRouter],
   ['/api/v1/online-orders', onlineOrdersRouter],
   ['/api/v1/warranty', warrantyRouter],
+  // Public catalog: anonymous reads for the storefront (plan 2026-09-14-002, KD-1). The
+  // prefix constant is shared with the global limiter's exemption in http/rateLimits.ts.
+  [CATALOG_API_PREFIX, catalogRouter],
 
   // Fulfillment Domain
   ['/api/v1/delivery', deliveryRouter],

@@ -14,6 +14,7 @@ import { routeTable } from './router';
 import { getStorage, LocalStorageDriver } from './storage';
 import {
   createGlobalLimiter,
+  logCatalogRateLimitConfig,
   logRateLimitOverrides,
   logTrustProxyOverride,
   trustProxySetting,
@@ -90,6 +91,7 @@ export function createApp(): express.Express {
 
   // Rate limiting
   logRateLimitOverrides();
+  logCatalogRateLimitConfig();
   app.use(createGlobalLimiter());
 
   // Parsing

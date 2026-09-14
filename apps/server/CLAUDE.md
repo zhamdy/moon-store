@@ -182,8 +182,9 @@ page that re-reads it at submit time always matches and has quietly turned the c
 ## Error contracts: typed at the throw site
 
 A service says what kind of refusal something is; a controller does not work it out from
-the wording. Services throw `PublicError` with one of the seven public codes, and the
-controller's `catch` passes it to `next` unchanged.
+the wording. Services throw `PublicError` with one of the eight public codes, and the
+controller's `catch` passes it to `next` unchanged. (`SERVICE_UNAVAILABLE`, 503, is the newest:
+the public catalog's statement timeout.)
 
 Before #47 this was inverted: services threw bare `Error`s and controllers recovered the
 status by testing the message. `layaway` (since removed) chose 404 on
@@ -385,6 +386,71 @@ route the page meant.
 Negative tests for both gates live in `tests/gates/`, and each gate fails on implausible
 input (no manifest entries, no client calls, no postponed list) rather than passing empty.
 
+## Public catalog (`/api/v1/catalog`)
+
+Four anonymous GETs the storefront renders from (plan 2026-09-14-002, Unit 4):
+`/products` (the one listing), `/categories`, `/collections`, `/collections/:slug`. A
+separate module and prefix (`src/modules/commerce/catalog`, manifest
+`publicEntry(['B', 'P'])`) rather than public routes in the postponed Admin-gated
+storefront module, so "nothing under this prefix writes" stays structurally checkable.
+
+**Whitelist rule.** No `SELECT *` / `p.*` in the module: every repository query names its
+columns and a mapper builds each DTO. `products` carries `cost_price`, supplier and reorder
+columns, no gate inspects responses, and these responses are publicly cached, so
+`tests/catalog.test.ts` pins each DTO's exact key set and that no `id`, `sku`, `barcode`,
+`stock` or `cost_price` appears anywhere in a body. A new field is a mapper change plus a
+test change, deliberately.
+
+- Only `status = 'active'` products with a slug; `inStock` follows `has_variants` (summed
+  variant stock, else own stock); `isNew` is `NEW_IN_DAYS` (30, `constants.ts`), in SQL.
+- Strict query grammar: unknown parameter, `category`/`collection`/`new` together,
+  `sort=curated` without `collection`, `priceMin > priceMax`, a price not a multiple of 50,
+  or `page` outside 1-500 is a 400. Page size is fixed at 24.
+- An unknown category, or a collection that is missing, `upcoming` or `archived`, is a 404
+  with **one shared body** (`CATALOG_NOT_FOUND_MESSAGE`), so slugs cannot be probed for
+  unreleased collections. A known category with no products is an empty 200.
+- Image URLs are absolute on the **origin** of `MEDIA_PUBLIC_BASE_URL`, never on the request
+  Host / X-Forwarded-Host (a forged host would poison shared caches); absolute stored URLs
+  pass through. Production refuses to boot without an absolute http(s) base
+  (`assertProductionEnv`, called from `index.ts`, not from `getEnv()` -- tests read the
+  environment under `NODE_ENV=production` for unrelated rules). Elsewhere it falls back to
+  `http://localhost:$PORT`.
+- Every read runs in a transaction under `SET LOCAL statement_timeout = '2000ms'`; a
+  cancelled query (57014) is `503 SERVICE_UNAVAILABLE`, the eighth public code.
+- 2xx (and 304) send `Cache-Control: public, max-age=60`; every other status `no-store`
+  (`publicCacheOnSuccess`, decided at `writeHead`).
+
+pg-mem cannot resolve correlated subqueries or LATERAL, so variant stock is a grouped LEFT
+JOIN and gallery images are one follow-up query for the page's ids. It also returns **no
+rows** for `status = 'active' AND slug IS NOT NULL` while the UNIQUE slug index exists and
+statuses are mixed; `tests/support/pgMem.ts` rewrites `slug IS NOT NULL` to the equivalent
+`NOT (slug IS NULL)` rather than the production SQL changing. A fixture whose rows all share
+one status hides the bug. NUMERIC-as-string,
+the timeout and plans are proven in `tests/concurrency/catalog.realpg.test.ts`.
+
+### The catalog limiter
+
+Every storefront page is server-rendered, so every shopper's catalog read reaches the API
+from the Next server's IP -- the tills' shared-IP problem pointed the other way. Catalog
+GET/HEAD are therefore **exempt from the global limiter** (`isCatalogRead` beside the
+health exemption, matched case-insensitively on `^/api/v1/catalog(/|$)` built from the
+same `CATALOG_API_PREFIX` the router mounts, so `/API/V1/Catalog` cannot spend both budgets
+and `/api/v1/catalogue` is not exempt) and budgeted by `createCatalogLimiter`, mounted by
+the catalog router ahead of its cache middleware:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CATALOG_RATE_LIMIT_MAX` | `300` | Per IP, per 15 min. |
+| `CATALOG_SERVER_RATE_LIMIT_MAX` | `20000` | The one `catalog-server` bucket, per 15 min. |
+| `CATALOG_SERVER_TOKEN` | unset | Comma list (current,next). Each entry >= 32 bytes or env validation fails. |
+
+A request with exactly one `X-Catalog-Server-Token` matching a configured token (SHA-256
+both sides, `timingSafeEqual` over every token) uses the trusted bucket; missing, wrong,
+wrong-length or repeated headers are simply per-IP. Unset token: no trusted bucket, and
+production warns at boot. **The trusted bucket is not a per-shopper limit** -- every SSR
+request shares it, so per-client limiting belongs at the edge in front of Next (UD-5, B-9).
+Ceilings fall back and warn exactly like `RATE_LIMIT_MAX`.
+
 ## Postponed modules: served, behind Admin
 
 Branches, bundles, feedback, online orders, storefront and warranty are hidden in the
@@ -397,6 +463,10 @@ Each gated route carries the lift rule in a comment: the gate lifts only when St
 ships, and only together with a named abuse control — a rate limit, or a hold cap where
 stock is reserved. It must never go back to anonymous stock holds. `GET /storefront/banners`
 stays public because it is a read with no side effects.
+
+The **live** public surface is the separate `/api/v1/catalog` module (above), not these
+routes: whitelisted reads with the catalog limiter as their named abuse control. Reads have
+no side effects, so no hold cap applies. Nothing about it lifts a gate here.
 
 ## Scheduled jobs
 
@@ -471,7 +541,7 @@ provider and per path-style setting, and a wrong guess writes unreachable URLs i
 | --- | --- | --- |
 | `MEDIA_STORAGE_DRIVER` | `local` | `local` or `s3`. |
 | `MEDIA_LOCAL_ROOT` | `apps/server/uploads` | Root directory for the `local` driver. |
-| `MEDIA_PUBLIC_BASE_URL` | `/uploads` | Prefix `publicUrl` puts in front of a key. **Required for `s3`.** |
+| `MEDIA_PUBLIC_BASE_URL` | `/uploads` | Prefix `publicUrl` puts in front of a key. **Required for `s3`, and absolute http(s) required in production** (the public catalog builds image URLs from its origin). |
 | `MEDIA_ORPHAN_MIN_AGE_HOURS` | `24` | Grace period before the sweep may delete an unreferenced object. |
 | `MEDIA_S3_BUCKET` | — | **Required for `s3`.** |
 | `MEDIA_S3_REGION` | — | AWS infers the endpoint from it. |

@@ -7,7 +7,8 @@ export type PublicErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'RATE_LIMITED'
-  | 'INTERNAL_ERROR';
+  | 'INTERNAL_ERROR'
+  | 'SERVICE_UNAVAILABLE';
 
 export interface ValidationDetail {
   field: string;
@@ -36,6 +37,8 @@ const defaults: Record<PublicErrorCode, { status: number; message: string }> = {
   CONFLICT: { status: 409, message: 'Request conflicts with current state' },
   RATE_LIMITED: { status: 429, message: 'Too many requests' },
   INTERNAL_ERROR: { status: 500, message: 'Internal server error' },
+  /** Load, not a fault in the request: a catalog read cancelled by its statement timeout. */
+  SERVICE_UNAVAILABLE: { status: 503, message: 'Service temporarily unavailable' },
 };
 
 export class PublicError extends Error {
@@ -131,7 +134,9 @@ export function mapPublicError(error: unknown): {
             ? 'CONFLICT'
             : statusCode === 429
               ? 'RATE_LIMITED'
-              : 'INTERNAL_ERROR';
+              : statusCode === 503
+                ? 'SERVICE_UNAVAILABLE'
+                : 'INTERNAL_ERROR';
   const definition = defaults[code];
   return {
     status: definition.status,

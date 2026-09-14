@@ -3,6 +3,18 @@ import { z } from 'zod';
 
 dotenv.config();
 
+/** Minimum length of each `CATALOG_SERVER_TOKEN` entry (32 bytes, e.g. `openssl rand -hex 32`). */
+export const CATALOG_SERVER_TOKEN_MIN_BYTES = 32;
+
+/** The configured entries of a comma-list token variable, trimmed, empties dropped. */
+export function splitCatalogServerTokens(raw: string | undefined): string[] {
+  if (raw === undefined) return [];
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
 const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -79,6 +91,34 @@ const envSchema = z.object({
    * deliberately-discouraged `true`.
    */
   TRUST_PROXY: z.string().optional(),
+  /**
+   * Public catalog limiter ceilings, resolved by `src/http/rateLimits.ts` like the two
+   * above (raw strings; a typo falls back and is warned about). `CATALOG_RATE_LIMIT_MAX` is
+   * per IP; `CATALOG_SERVER_RATE_LIMIT_MAX` is the one shared bucket for requests carrying a
+   * valid `X-Catalog-Server-Token` (the storefront's server-side fetches).
+   */
+  CATALOG_RATE_LIMIT_MAX: z.string().optional(),
+  CATALOG_SERVER_RATE_LIMIT_MAX: z.string().optional(),
+  /**
+   * Comma list of storefront-server tokens (current and next, for rotation). Unlike the
+   * ceilings this one fails the parse: a short token is a guessable key to a high-ceiling
+   * bucket, not a typo with a safe fallback. The message never echoes the value.
+   */
+  CATALOG_SERVER_TOKEN: z
+    .string()
+    .optional()
+    .superRefine((raw, ctx) => {
+      if (raw === undefined) return;
+      const short = splitCatalogServerTokens(raw).filter(
+        (entry) => Buffer.byteLength(entry, 'utf8') < CATALOG_SERVER_TOKEN_MIN_BYTES
+      );
+      if (short.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `every CATALOG_SERVER_TOKEN entry must be at least ${CATALOG_SERVER_TOKEN_MIN_BYTES} bytes (${short.length} too short)`,
+        });
+      }
+    }),
   /**
    * How often the `service_metrics` snapshot line is emitted, in milliseconds, resolved
    * by `src/observability/metrics.ts`. `0` disables it. Values under a second are raised
@@ -165,6 +205,51 @@ export function getEnv(): Env {
     parsedEnv = result.data;
   }
   return parsedEnv;
+}
+
+/** The origin of an absolute http(s) URL, or null for anything else (relative, junk). */
+function absoluteHttpOrigin(raw: string | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The origin the public catalog makes relative image URLs absolute on (KD-3).
+ *
+ * Derived from `MEDIA_PUBLIC_BASE_URL` only -- never from a request's Host or
+ * X-Forwarded-Host, because catalog responses are publicly cached and a forged host would
+ * poison them. Stored relative URLs already carry the `/uploads/...` path, so only the
+ * origin is used. Outside production an unset or relative base falls back to this
+ * process's own `http://localhost:<PORT>`, which serves `/uploads`. In production that
+ * fallback would be a lie, so it throws; `assertProductionEnv` makes boot refuse first.
+ */
+export function resolveMediaPublicOrigin(env: Env = getEnv()): string {
+  const origin = absoluteHttpOrigin(env.MEDIA_PUBLIC_BASE_URL);
+  if (origin) return origin;
+  if (env.NODE_ENV === 'production') {
+    throw new Error(
+      'MEDIA_PUBLIC_BASE_URL must be an absolute http(s) URL in production: the public ' +
+        'catalog builds image URLs from it and will not guess from the request host.'
+    );
+  }
+  return `http://localhost:${env.PORT}`;
+}
+
+/**
+ * Production-only boot checks that would otherwise surface as a failed request much later.
+ * Called by `index.ts` before the app is built, not inside `getEnv()`: several tests read
+ * the environment under `NODE_ENV=production` to exercise cookie and seed rules, and a
+ * parse-level rule would fail every one of them for an unrelated variable.
+ */
+export function assertProductionEnv(env: Env = getEnv()): void {
+  if (env.NODE_ENV !== 'production') return;
+  resolveMediaPublicOrigin(env);
 }
 
 export function resetEnvCache(): void {
