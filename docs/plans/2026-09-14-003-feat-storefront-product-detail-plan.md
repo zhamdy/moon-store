@@ -473,7 +473,7 @@ No React import.
 
 **Verification:** All rules covered by tests.
 
-- [ ] **Unit 4: Storefront: route, 404, metadata, messages**
+- [x] **Unit 4: Storefront: route, 404, metadata, messages**
 
 **Goal:** The page shell: resolve then `notFound()`, the information hierarchy, metadata
 and strings.
