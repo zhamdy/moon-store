@@ -17,8 +17,9 @@ import { editorialImages } from '@/lib/editorial/images';
  * both languages at every width** (the photograph is never mirrored): vertically
  * centred from 768, bottom-left over the paving on mobile. On phones the 4:5 window
  * leaves the figure in the right half, so following the reading direction put the
- * Arabic line across her (freeze capture, 2026-09-14), and the line is narrowed to
- * 9ch there so English clears her arm at 320. Each position gets only a soft local scrim on
+ * Arabic line across her (freeze capture, 2026-09-14), and the line is capped at
+ * 10rem there (not a ch width: in Lora 9ch still held "Dressed for" on one line)
+ * so both languages clear her arm at 320. Each position gets only a soft local scrim on
  * its own side. The cream band before and after is the page's second ivory->cream
  * transition.
  *
@@ -74,7 +75,7 @@ export async function Campaign() {
               offset={300}
               step={120}
               duration={1100}
-              className="type-h1 md:type-display max-w-[9ch] text-balance text-text md:max-w-[11ch] rtl:ms-auto"
+              className="type-h1 md:type-display max-w-[10rem] text-balance text-text md:max-w-[11ch] rtl:ms-auto"
             />
           </Container>
         </div>
