@@ -488,7 +488,7 @@ flowchart LR
 
 ### Phase A — Server
 
-- [ ] **Unit 1: Migration 014 — slugs, English fields, product gallery**
+- [x] **Unit 1: Migration 014 — slugs, English fields, product gallery**
 
 **Goal:** Add the columns and table the catalog needs, reversibly.
 
@@ -524,7 +524,7 @@ flowchart LR
 
 ---
 
-- [ ] **Unit 2: Slug generation and English fields on the admin write paths**
+- [x] **Unit 2: Slug generation and English fields on the admin write paths**
 
 **Goal:** Admins can set or receive slugs and English text for products, categories and collections through the existing Admin routes.
 
@@ -567,7 +567,7 @@ flowchart LR
 
 ---
 
-- [ ] **Unit 3: Product gallery routes, collection image upload, media sweep**
+- [x] **Unit 3: Product gallery routes, collection image upload, media sweep**
 
 **Goal:** Additional product images and a collection image can be uploaded, reordered and removed; the sweep never deletes them.
 
@@ -605,7 +605,7 @@ flowchart LR
 
 ---
 
-- [ ] **Unit 4: Public catalog module `/api/v1/catalog`**
+- [x] **Unit 4: Public catalog module `/api/v1/catalog`**
 
 **Goal:** Four public, whitelisted, rate-limited read routes serving every storefront listing.
 
@@ -674,7 +674,7 @@ listProducts(query):
 
 ---
 
-- [ ] **Unit 5: Seed data for browsing**
+- [x] **Unit 5: Seed data for browsing**
 
 **Goal:** A dev database exercises every storefront route and state.
 
@@ -699,7 +699,7 @@ listProducts(query):
 
 ### Phase B — Dashboard
 
-- [ ] **Unit 6: Dashboard authoring — slugs, English fields, gallery, collection image**
+- [x] **Unit 6: Dashboard authoring — slugs, English fields, gallery, collection image**
 
 **Goal:** Operators can fill in everything the storefront reads.
 
@@ -735,7 +735,7 @@ listProducts(query):
 
 ### Phase C — Storefront
 
-- [ ] **Unit 7: Storefront catalog data layer**
+- [x] **Unit 7: Storefront catalog data layer**
 
 **Goal:** Typed, tested functions every catalog page uses; images configured.
 
@@ -771,7 +771,7 @@ listProducts(query):
 
 ---
 
-- [ ] **Unit 8: URL state and metadata builders**
+- [x] **Unit 8: URL state and metadata builders**
 
 **Goal:** One parser map for server and client; a canonical/noindex rule every catalog route uses.
 
@@ -808,7 +808,7 @@ listProducts(query):
 
 ---
 
-- [ ] **Unit 9: Product card view model and homepage href alignment (shared integration)**
+- [x] **Unit 9: Product card view model and homepage href alignment (shared integration)**
 
 **Goal:** One card serves homepage mocks and real catalog DTOs; homepage links resolve to the new URL model with no visual change.
 
@@ -847,7 +847,7 @@ listProducts(query):
 
 ---
 
-- [ ] **Unit 10: Catalog UI — intro, category nav, grid, skeleton, pagination, empty states**
+- [x] **Unit 10: Catalog UI — intro, category nav, grid, skeleton, pagination, empty states**
 
 **Goal:** The server-rendered browsing surface and every non-error state.
 
@@ -907,7 +907,7 @@ listProducts(query):
 
 ---
 
-- [ ] **Unit 11: Catalog controls island — filter sheet, sort, filter summary, pending**
+- [x] **Unit 11: Catalog controls island — filter sheet, sort, filter summary, pending**
 
 **Goal:** The only interactive catalog island, URL-driven.
 
@@ -954,7 +954,7 @@ listProducts(query):
 
 ---
 
-- [ ] **Unit 12: Routes, errors and metadata**
+- [x] **Unit 12: Routes, errors and metadata**
 
 **Goal:** Wire the five routes with real 404s, error boundaries and metadata.
 

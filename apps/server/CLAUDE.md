@@ -35,6 +35,14 @@ constraint *validated*: the backfill immediately above guarantees every row conf
 the `NOT VALID` that `009` needed does not apply. Its `.down.sql` does the same in
 reverse, for the same reason.
 
+**A backfill UPDATE re-checks every CHECK, including one added `NOT VALID`.** `004` added
+`products_stock_non_negative` `NOT VALID` so legacy negative-stock rows could survive; `014`
+setting a slug on such a row would abort the migration. So `014`'s backfill lifts every
+unvalidated CHECK on `products` and `categories`, backfills, and re-adds each from its own
+`pg_get_constraintdef` (which carries the `NOT VALID`) in the same transaction: the
+constraint ends exactly as it was. Proven on real PostgreSQL in
+`tests/concurrency/storefrontCatalogMigration.realpg.test.ts`.
+
 Note that replaying an *older* migration's raw SQL after a newer one has narrowed the
 same object undoes the narrowing — `009` re-adds its own wider list. That is inherent to
 what "replay migration N" means, not a bug in either file, and it is why
@@ -428,6 +436,19 @@ statuses are mixed; `tests/support/pgMem.ts` rewrites `slug IS NOT NULL` to the 
 one status hides the bug. NUMERIC-as-string,
 the timeout and plans are proven in `tests/concurrency/catalog.realpg.test.ts`.
 
+**Indexes were measured, not assumed.** KD-17 planned four listing indexes; EXPLAIN on
+8,000 products used only `idx_products_status_created (status, created_at DESC, id)`, for
+`new=true`. The price, category and in-stock candidates were never chosen, so `014` does
+not create them rather than pay for them on every write. Re-measure before adding one.
+
+**Smoke-testing the storefront against a dev database:** run `npm run migrate` (014) and
+`npm run seed` first — the seed carries the slugs, English names, the `evening` / `linen`
+/ `silk` collections, the non-public `winter-tailoring` (upcoming) and `summer-2025`
+(archived), and the empty `kimonos` category. Point `MEDIA_LOCAL_ROOT` at a scratch
+directory for that API: a re-seed leaves no `image_url` references, and the
+`orphaned-media-cleanup` run at boot would otherwise delete every tracked image older than
+24h from `apps/server/uploads` (the same trap the e2e harness hit, root *Learnings*).
+
 ### The catalog limiter
 
 Every storefront page is server-rendered, so every shopper's catalog read reaches the API
@@ -570,7 +591,18 @@ to a key** — an unresolvable reference is missing information, and a deletion 
 never read missing information as "unreferenced" — and it never touches an object younger
 than `MEDIA_ORPHAN_MIN_AGE_HOURS`. **A new table with an image URL column must be added to
 the reference query in `src/scheduler/mediaSweep.ts`** — the sweep deletes what that query
-does not return.
+does not return. `product_images.image_url` (014) is in it.
+
+**Gallery and collection images** (plan 2026-09-14-002, Unit 3) use the same intake (Admin,
+2 MB, magic bytes). `GET /api/v1/products/:id/images` (any token), `POST .../:id/images`,
+`PUT .../:id/images/order` (one transaction) and `DELETE .../:id/images/:imageId`; a
+product holds at most `PRODUCT_GALLERY_MAX` (8) gallery images besides its primary
+`image_url`, and the ninth upload is a 409 with `details[].code` `GALLERY_FULL` and nothing
+left stored. `products.image_url` stays the primary image POS and lookup read. Collections
+gain `POST` / `DELETE /api/v1/collections/:id/image`, which deliberately **does not touch
+`updated_at`**: that column is the optimistic-concurrency token for `PUT /collections/:id`,
+whose body cannot carry `image_url`, so bumping it would turn every edit composed before
+an upload into a spurious 409.
 
 **A new driver's `ownsUrl` is the load-bearing half of that.** `keyFromUrl` returning
 `null` conflates "somebody else's image" with "mine, and I could not read it"; the sweep
