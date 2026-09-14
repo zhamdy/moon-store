@@ -264,13 +264,35 @@
       "newInDescription": "أحدث ما وصل إلى مون فاشون.",
       "collectionsDescription": "مجموعات مون فاشون المختارة.",
       "categoryDescription": "تسوّقي {name} من مون فاشون.",
-      "collectionDescription": "اكتشفي مجموعة {name} من مون فاشون."
+      "collectionDescription": "اكتشفي مجموعة {name} من مون فاشون.",
+      "productDescription": "اكتشفي {name} من مون فاشون."
     },
     "error": {
-      "title": "تعذّر تحميل هذه القطع",
+      "title": "تعذّر تحميل هذه الصفحة",
       "body": "حدث خطأ من جهتنا. حاولي مرة أخرى بعد قليل.",
       "retry": "حاولي مرة أخرى",
       "home": "العودة إلى الصفحة الرئيسية"
+    }
+  },
+  "product": {
+    "availability": {
+      "inStock": "متوفّر",
+      "soldOut": "نفدت الكمية"
+    },
+    "priceFrom": "ابتداءً من {price}",
+    "options": {
+      "size": "المقاس",
+      "color": "اللون",
+      "selected": "{option}: {value}",
+      "valueSoldOut": "{value}، نفدت الكمية"
+    },
+    "gallery": {
+      "label": "صور المنتج",
+      "count": "{count, plural, zero {لا توجد صور} one {صورة واحدة} two {صورتان} few {# صور} many {# صورة} other {# صورة}}"
+    },
+    "partOf": "من مجموعة {collection}",
+    "related": {
+      "heading": "المزيد من {name}"
     }
   }
 }

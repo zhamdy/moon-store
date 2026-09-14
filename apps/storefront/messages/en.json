@@ -264,13 +264,35 @@
       "newInDescription": "The latest arrivals at Moon Fashion.",
       "collectionsDescription": "Editorial collections from Moon Fashion.",
       "categoryDescription": "Shop {name} at Moon Fashion.",
-      "collectionDescription": "Discover the {name} collection at Moon Fashion."
+      "collectionDescription": "Discover the {name} collection at Moon Fashion.",
+      "productDescription": "Discover {name} at Moon Fashion."
     },
     "error": {
-      "title": "We couldn't load these pieces",
+      "title": "We couldn't load this page",
       "body": "Something went wrong on our side. Please try again in a moment.",
       "retry": "Try again",
       "home": "Back to home"
+    }
+  },
+  "product": {
+    "availability": {
+      "inStock": "In stock",
+      "soldOut": "Sold out"
+    },
+    "priceFrom": "From {price}",
+    "options": {
+      "size": "Size",
+      "color": "Colour",
+      "selected": "{option}: {value}",
+      "valueSoldOut": "{value}, sold out"
+    },
+    "gallery": {
+      "label": "Product images",
+      "count": "{count, plural, one {# image} other {# images}}"
+    },
+    "partOf": "Part of {collection}",
+    "related": {
+      "heading": "More from {name}"
     }
   }
 }
