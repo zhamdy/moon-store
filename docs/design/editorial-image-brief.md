@@ -14,6 +14,30 @@ After swapping the hero or campaign, re-check that the ivory copy and the header
 (see *Contrast zones* below). The code scrims are the guarantee; this brief is the first line
 of defence.
 
+## Asset classes
+
+Three classes, never mixed:
+
+- **Production** — `apps/storefront/assets/editorial/*.jpg`. Exactly the 45 files named by
+  `editorialSlots` + `catalogSlots` in `apps/storefront/lib/editorial/slots.ts`, nothing more,
+  nothing less. Guarded mechanically by `apps/storefront/lib/editorial/assets.test.ts`
+  (`checkEditorialAssets`), which fails the storefront test gate on an orphan file, a missing
+  slot or a non-`.jpg` extension.
+- **Original/reference** — `docs/design/brand/`. The original logo artwork only; never
+  editorial photography.
+- **Source generations** — native-resolution outputs before the crop/upscale described above.
+  **Pending (AD-10):** where these live is not yet decided. They do not belong in
+  `apps/storefront/assets/editorial/` (that directory is production only) and are not
+  currently tracked anywhere in the repository.
+
+## Category tile direction
+
+**Pending (AD-8):** the five `category-*.jpg` files are editorial (a model or styled still
+life), not the studio/neutral look this section originally specified. Until decided, this
+brief's *Slots* table below still states the original studio direction; treat it as aspirational
+until AD-8 resolves, either by regenerating the tiles or by rewriting this section to describe
+the editorial direction actually shipped.
+
 ## Shared art direction (guideline §10)
 
 Warm, editorial, feminine, confident, tactile, natural light. Palette inside the frame:
@@ -92,7 +116,10 @@ hero copy pass 4.5:1 against what is actually behind them.
 ## Repetition rule
 
 No dominant editorial image, outfit or near-identical pose repeats across the hero, promo
-banner, featured collection, campaign or lookbook. Product-card photography may show a
+banner, featured collection, campaign or lookbook. This extends to **sets and props, not just
+garments**: the same room, backdrop, lattice, vase, bench or other recognisable prop must not
+recur across two of those sections, even in different outfits — a repeated set reads as the
+same shoot reused, the same way a repeated garment does. Product-card photography may show a
 garment that also appears in an editorial image, and category tiles must read clearly
 differently from each other and from the hero slide of the same collection.
 

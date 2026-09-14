@@ -251,6 +251,10 @@ Every homepage image is a static import behind one registry, swappable by file d
   tests can validate references under vitest); `lib/editorial/images.ts` is the only
   module that imports the files and binds each slot to `{ src, role }`. No spec may
   import `images.ts`.
+- `lib/editorial/asset-guard.ts` (`checkEditorialAssets`) is a pure comparison of a file
+  list against `editorialSlots` + `catalogSlots`; `lib/editorial/assets.test.ts` runs it
+  against the real `assets/editorial/` directory and fails the storefront test gate on an
+  orphan file, a missing slot or a non-`.jpg` extension. It never imports `images.ts`.
 - Alt text is a message key resolved by the consuming section, so it localises.
 - `docs/design/editorial-image-brief.md` lists every slot's ratio, minimum pixels,
   art direction and generation prompt, and the zones that must stay dark. Real
