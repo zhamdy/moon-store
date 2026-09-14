@@ -34,6 +34,9 @@ export interface Product {
   distributor_id: number | null;
   distributor_name: string | null;
   image_url: string | null;
+  /** Storefront URL segment; admin reads carry it, other projections may not. */
+  slug?: string | null;
+  name_en?: string | null;
   has_variants: number;
   variant_count: number;
   variant_stock: number;

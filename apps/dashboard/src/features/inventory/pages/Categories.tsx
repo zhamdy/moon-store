@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useRef, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import {
   Button,
   Input,
+  Textarea,
   Modal,
   ModalContent,
   ModalHeader,
@@ -17,6 +18,13 @@ import { resource } from '../../../shared/lib/resource';
 import { useTranslation, t as tStandalone } from '../../../shared/i18n/index';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { CategoryRecord } from '../types';
+import {
+  englishForWrite,
+  slugFailureMessage,
+  slugForWrite,
+  slugFormSchema,
+  slugify,
+} from '../lib/slug';
 
 const categoriesResource = resource<CategoryRecord>('categories');
 
@@ -24,6 +32,9 @@ const getCategoryFormSchema = () =>
   z.object({
     name: z.string().min(1, tStandalone('validation.nameRequired')),
     code: z.string().min(1, tStandalone('validation.codeRequired')),
+    name_en: z.string().max(255).optional(),
+    description_en: z.string().max(1000).optional(),
+    slug: slugFormSchema(),
   });
 
 type CategoryFormData = z.infer<ReturnType<typeof getCategoryFormSchema>>;
@@ -33,6 +44,8 @@ export default function CategoriesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editingCategory, setEditingCategory] = useState<CategoryRecord | null>(null);
+  /** The slug follows the English name until the operator owns it; a stored slug is owned. */
+  const slugTouched = useRef(false);
 
   const { data: categories, isLoading } = categoriesResource.useList();
 
@@ -40,6 +53,9 @@ export default function CategoriesPage() {
     register,
     handleSubmit,
     reset,
+    control,
+    setValue,
+    setError,
     formState: { errors },
   } = useForm<CategoryFormData>({
     resolver: zodResolver(getCategoryFormSchema()),
@@ -53,6 +69,12 @@ export default function CategoriesPage() {
       setEditingCategory(null);
       reset();
     },
+    onFailure: (failure) => {
+      const message = slugFailureMessage(failure);
+      if (!message) return;
+      setError('slug', { type: 'server', message });
+      return true;
+    },
   });
 
   const remover = categoriesResource.useRemove({
@@ -61,20 +83,33 @@ export default function CategoriesPage() {
     onDone: () => setDeleteId(null),
   });
 
-  const onSubmit = (data: CategoryFormData) => saver.save({ id: editingCategory?.id, ...data });
+  const onSubmit = (data: CategoryFormData) =>
+    saver.save({
+      id: editingCategory?.id,
+      name: data.name,
+      code: data.code,
+      name_en: englishForWrite(data.name_en),
+      description_en: englishForWrite(data.description_en),
+      slug: slugForWrite(data.slug),
+    });
 
   const openEditDialog = (category: CategoryRecord) => {
     setEditingCategory(category);
+    slugTouched.current = Boolean(category.slug);
     reset({
       name: category.name,
       code: category.code,
+      name_en: category.name_en ?? '',
+      description_en: category.description_en ?? '',
+      slug: category.slug ?? '',
     });
     setDialogOpen(true);
   };
 
   const openCreateDialog = () => {
     setEditingCategory(null);
-    reset({ name: '', code: '' });
+    slugTouched.current = false;
+    reset({ name: '', code: '', name_en: '', description_en: '', slug: '' });
     setDialogOpen(true);
   };
 
@@ -147,7 +182,8 @@ export default function CategoriesPage() {
         onOpenChange={setDialogOpen}
         backdrop="blur"
         placement="center"
-        size="md"
+        size="lg"
+        scrollBehavior="inside"
         classNames={{
           base: 'bg-card text-card-foreground border border-border shadow-xl',
         }}
@@ -185,7 +221,59 @@ export default function CategoriesPage() {
                     isInvalid={!!errors.code}
                     errorMessage={errors.code?.message}
                   />
+                  {/* Controller, not register: the slug is written by code as well as typed. */}
+                  <Controller
+                    name="name_en"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        label={t('catalog.nameEn')}
+                        size="sm"
+                        variant="bordered"
+                        dir="ltr"
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          if (!slugTouched.current) setValue('slug', slugify(value));
+                        }}
+                        isInvalid={!!errors.name_en}
+                        errorMessage={errors.name_en?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    name="slug"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        label={t('catalog.slug')}
+                        size="sm"
+                        variant="bordered"
+                        dir="ltr"
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onValueChange={(value) => {
+                          slugTouched.current = value !== '';
+                          field.onChange(value);
+                        }}
+                        description={t('catalog.slugHelp')}
+                        isInvalid={!!errors.slug}
+                        errorMessage={errors.slug?.message}
+                      />
+                    )}
+                  />
                 </div>
+                <Textarea
+                  label={t('catalog.descriptionEn')}
+                  size="sm"
+                  variant="bordered"
+                  dir="ltr"
+                  minRows={2}
+                  {...register('description_en')}
+                  isInvalid={!!errors.description_en}
+                  errorMessage={errors.description_en?.message}
+                />
               </ModalBody>
               <ModalFooter className="border-t border-border/50">
                 <Button variant="flat" size="sm" onPress={() => setDialogOpen(false)}>

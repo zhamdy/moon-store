@@ -226,3 +226,73 @@ describe('Collections card actions', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
+
+describe('Collections storefront fields', () => {
+  beforeEach(() => useSettingsStore.setState({ locale: 'en' }));
+
+  it('sends name_en, description_en and slug from the form', async () => {
+    const transport = createMemoryTransport({ collections: [], products: [] });
+    render(<CollectionsPage />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Create Collection' }));
+    fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Spring window' } });
+    fireEvent.change(screen.getByLabelText('English name'), {
+      target: { value: 'Spring Window' },
+    });
+    await waitFor(() =>
+      expect((screen.getByLabelText('URL slug') as HTMLInputElement).value).toBe('spring-window')
+    );
+    fireEvent.change(screen.getByLabelText('English description'), {
+      target: { value: 'Light layers' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      const write = transport.calls().find((call) => call.method === 'POST');
+      expect(write?.body).toEqual(
+        expect.objectContaining({
+          name: 'Spring window',
+          name_en: 'Spring Window',
+          description_en: 'Light layers',
+          slug: 'spring-window',
+        })
+      );
+    });
+  });
+
+  it('shows a 409 slug refusal on the slug field', async () => {
+    const transport = createMemoryTransport({
+      collections: [featuredCollection()],
+      products: [],
+    });
+    render(<CollectionsPage />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Autumn window: Edit' }));
+    fireEvent.change(await screen.findByLabelText('URL slug'), { target: { value: 'autumn' } });
+    transport.failNext(
+      'Slug already in use',
+      409,
+      'CONFLICT',
+      [{ field: 'slug', code: 'SLUG_TAKEN', message: 'Slug already in use' }],
+      'collections/1'
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(
+      await screen.findByText('This slug is already in use. Choose another.')
+    ).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('offers the collection image control only when editing an existing collection', async () => {
+    const transport = createMemoryTransport({
+      collections: [featuredCollection()],
+      products: [],
+    });
+    render(<CollectionsPage />, { wrapper: wrapperFor(transport) });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Autumn window: Edit' }));
+    expect(await screen.findByText('Collection Image')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload' })).toBeInTheDocument();
+  });
+});

@@ -57,6 +57,7 @@ import type {
   ProductImportResult,
 } from '../types';
 import { assetUrl } from '../../../shared/lib/apiBase';
+import { englishForWrite, slugFailureMessage, slugForWrite, slugFormSchema } from '../lib/slug';
 
 const products = resource<Product>('products');
 const distributors = resource<Distributor>('distributors');
@@ -101,6 +102,8 @@ const getProductSchema = () =>
     category_id: z.coerce.number().int().positive().optional().nullable(),
     distributor_id: z.coerce.number().int().positive().optional().nullable(),
     min_stock: z.coerce.number().int().min(0).default(5),
+    name_en: z.string().max(255).optional().nullable(),
+    slug: slugFormSchema(),
   });
 
 export default function Inventory() {
@@ -126,6 +129,7 @@ export default function Inventory() {
   // UI state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [slugError, setSlugError] = useState<string | null>(null);
   const [discontinueId, setDiscontinueId] = useState<number | null>(null);
   const [reactivateId, setReactivateId] = useState<number | null>(null);
   const [adjustStockOpen, setAdjustStockOpen] = useState(false);
@@ -213,6 +217,13 @@ export default function Inventory() {
     onDone: () => {
       setDialogOpen(false);
       setEditingProduct(null);
+    },
+    // A refused slug belongs on its field, with the dialog and every value left in place.
+    onFailure: (failure) => {
+      const message = slugFailureMessage(failure);
+      if (!message) return;
+      setSlugError(message);
+      return true;
     },
   });
 
@@ -324,15 +335,24 @@ export default function Inventory() {
 
   const handleRemoveImage = (productId: number) => imageRemover.run({ id: productId });
 
-  const onSubmit = (data: ProductFormData) =>
-    saver.save({ id: editingProduct?.id ?? null, ...data });
+  const onSubmit = (data: ProductFormData) => {
+    setSlugError(null);
+    saver.save({
+      id: editingProduct?.id ?? null,
+      ...data,
+      name_en: englishForWrite(data.name_en),
+      slug: slugForWrite(data.slug),
+    });
+  };
 
   const openEditDialog = (product: Product) => {
+    setSlugError(null);
     setEditingProduct(product);
     setDialogOpen(true);
   };
 
   const openCreateDialog = () => {
+    setSlugError(null);
     setEditingProduct(null);
     setDialogOpen(true);
   };
@@ -895,6 +915,7 @@ export default function Inventory() {
         getProductSchema={getProductSchema}
         onImageUpload={handleImageUpload}
         onImageRemove={handleRemoveImage}
+        slugError={slugError}
       />
 
       {/* Discontinue confirmation */}
