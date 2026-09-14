@@ -36,6 +36,7 @@ const ENV_KEYS = [
   'CATALOG_RATE_LIMIT_MAX',
   'CATALOG_SERVER_RATE_LIMIT_MAX',
   'CATALOG_SERVER_TOKEN',
+  'CATALOG_PUBLIC_ONLY',
   'NODE_ENV',
   'MEDIA_PUBLIC_BASE_URL',
 ] as const;
@@ -119,9 +120,10 @@ describe('catalog server token', () => {
     expect(catalogRateLimitKey(req('short'))).toBe('ip:10.0.0.9');
   });
 
-  it('warns at production boot when no token is configured, and not otherwise', () => {
+  it('warns at production boot only for the CATALOG_PUBLIC_ONLY opt-out without a token', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     process.env.NODE_ENV = 'test';
+    process.env.CATALOG_PUBLIC_ONLY = 'true';
     resetEnvCache();
     logCatalogRateLimitConfig();
     expect(warn).not.toHaveBeenCalled();
@@ -131,6 +133,7 @@ describe('catalog server token', () => {
     logCatalogRateLimitConfig();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain('CATALOG_SERVER_TOKEN');
+    expect(String(warn.mock.calls[0]?.[0])).toContain('CATALOG_PUBLIC_ONLY=true');
 
     warn.mockClear();
     process.env.CATALOG_SERVER_TOKEN = TOKEN_A;

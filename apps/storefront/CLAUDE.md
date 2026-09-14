@@ -445,8 +445,12 @@ homepage stays SSG; unset in production logs an error and falls back to
 never call either fetch. `catalogFetch` sends `X-Catalog-Server-Token` from
 `CATALOG_SERVER_TOKEN` so SSR traffic uses the API's trusted rate-limit bucket (every
 shopper's read arrives from the Next server's one IP; see `apps/server/CLAUDE.md` →
-*The catalog limiter*). It passes no `timeoutMs` (a signal would break per-render
-memoization, so metadata and page would each hit the API) and no credentials.
+*The catalog limiter*). It passes no credentials. Entity reads (category, collection)
+pass no `timeoutMs`: they are shared by `generateMetadata` and the page, and a signal
+would break per-render memoization, so each would hit the API. The product list is the
+one exception, `timeoutMs: 15_000` (`CATALOG_LIST_TIMEOUT_MS`): only ProductGrid fetches
+it, once per render, so the deadline costs no memoization, and its `TIMEOUT` ApiError
+reaches the `(catalog)` error boundary.
 
 - `lib/api/catalog.ts` and **every** `features/*/api/*` file import `server-only`, so a
   client import of the token path fails the build. Tests alias `server-only` to

@@ -551,6 +551,7 @@ describe('public catalog', () => {
 
   describe('boot validation', () => {
     const envWith = (overrides: Partial<Env>): Env => ({ ...getEnv(), ...overrides });
+    const TOKEN = 'c3'.repeat(32);
 
     it('refuses production with a missing or relative MEDIA_PUBLIC_BASE_URL', () => {
       expect(() =>
@@ -567,9 +568,84 @@ describe('public catalog', () => {
     });
 
     it('accepts production with an absolute base and uses only its origin', () => {
-      const env = envWith({ NODE_ENV: 'production', MEDIA_PUBLIC_BASE_URL: MEDIA_BASE });
+      const env = envWith({
+        NODE_ENV: 'production',
+        MEDIA_PUBLIC_BASE_URL: MEDIA_BASE,
+        CATALOG_SERVER_TOKEN: TOKEN,
+      });
       expect(() => assertProductionEnv(env)).not.toThrow();
       expect(resolveMediaPublicOrigin(env)).toBe(ORIGIN);
+    });
+
+    it('refuses production without a CATALOG_SERVER_TOKEN, naming both variables', () => {
+      for (const CATALOG_SERVER_TOKEN of [undefined, '', ' , ']) {
+        let message = '';
+        try {
+          assertProductionEnv(
+            envWith({
+              NODE_ENV: 'production',
+              MEDIA_PUBLIC_BASE_URL: MEDIA_BASE,
+              CATALOG_SERVER_TOKEN,
+              CATALOG_PUBLIC_ONLY: false,
+            })
+          );
+        } catch (err) {
+          message = (err as Error).message;
+        }
+        expect(message, String(CATALOG_SERVER_TOKEN)).toMatch(/CATALOG_SERVER_TOKEN/);
+        expect(message).toMatch(/CATALOG_PUBLIC_ONLY=true/);
+      }
+    });
+
+    it('never prints a configured token in a boot error', () => {
+      let message = '';
+      try {
+        assertProductionEnv(
+          envWith({
+            NODE_ENV: 'production',
+            MEDIA_PUBLIC_BASE_URL: undefined,
+            CATALOG_SERVER_TOKEN: TOKEN,
+          })
+        );
+      } catch (err) {
+        message = (err as Error).message;
+      }
+      expect(message).toMatch(/MEDIA_PUBLIC_BASE_URL/);
+      expect(message).not.toContain(TOKEN);
+    });
+
+    it('accepts production without a token when CATALOG_PUBLIC_ONLY=true', () => {
+      expect(() =>
+        assertProductionEnv(
+          envWith({
+            NODE_ENV: 'production',
+            MEDIA_PUBLIC_BASE_URL: MEDIA_BASE,
+            CATALOG_SERVER_TOKEN: undefined,
+            CATALOG_PUBLIC_ONLY: true,
+          })
+        )
+      ).not.toThrow();
+    });
+
+    it('parses CATALOG_PUBLIC_ONLY as true/false only', () => {
+      const previous = process.env.CATALOG_PUBLIC_ONLY;
+      try {
+        process.env.CATALOG_PUBLIC_ONLY = 'true';
+        resetEnvCache();
+        expect(getEnv().CATALOG_PUBLIC_ONLY).toBe(true);
+
+        delete process.env.CATALOG_PUBLIC_ONLY;
+        resetEnvCache();
+        expect(getEnv().CATALOG_PUBLIC_ONLY).toBe(false);
+
+        process.env.CATALOG_PUBLIC_ONLY = 'yes';
+        resetEnvCache();
+        expect(() => getEnv()).toThrow(/CATALOG_PUBLIC_ONLY/);
+      } finally {
+        if (previous === undefined) delete process.env.CATALOG_PUBLIC_ONLY;
+        else process.env.CATALOG_PUBLIC_ONLY = previous;
+        resetEnvCache();
+      }
     });
 
     it('falls back to this process on localhost outside production', () => {

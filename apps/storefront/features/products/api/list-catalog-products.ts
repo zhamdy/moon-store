@@ -1,6 +1,6 @@
 import 'server-only';
 import type { CatalogProductQuery } from '@/features/catalog/search-params';
-import { CATALOG_REVALIDATE, catalogFetch } from '@/lib/api/catalog';
+import { CATALOG_LIST_TIMEOUT_MS, CATALOG_REVALIDATE, catalogFetch } from '@/lib/api/catalog';
 import { CATALOG_ENDPOINTS } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/api/errors';
 import type {
@@ -64,7 +64,8 @@ function invalid(message: string): ApiError {
 export async function listCatalogProducts(query: CatalogProductQuery): Promise<CatalogProductPage> {
   const { data, meta } = await catalogFetch<CatalogProduct[]>(
     buildCatalogProductsPath(query),
-    CATALOG_REVALIDATE.list
+    CATALOG_REVALIDATE.list,
+    { timeoutMs: CATALOG_LIST_TIMEOUT_MS }
   );
 
   if (!Array.isArray(data)) throw invalid('The catalog product list was not an array.');

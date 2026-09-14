@@ -446,6 +446,10 @@ the timeout and plans are proven in `tests/concurrency/catalog.realpg.test.ts`.
 `new=true`. The price, category and in-stock candidates were never chosen, so `014` does
 not create them rather than pay for them on every write. Re-measure before adding one.
 
+**Known cost:** a listing runs its scoped join+aggregate twice and pins one pooled connection
+across 3-4 queries; deferred to the B-9 launch load review (plan 2026-09-14-002, *Deferred to
+Separate Tasks*).
+
 **Smoke-testing the storefront against a dev database:** run `npm run migrate` (014) and
 `npm run seed` first — the seed carries the slugs, English names, the `evening` / `linen`
 / `silk` collections, the non-public `winter-tailoring` (upcoming) and `summer-2025`
@@ -468,12 +472,15 @@ the catalog router ahead of its cache middleware:
 | --- | --- | --- |
 | `CATALOG_RATE_LIMIT_MAX` | `300` | Per IP, per 15 min. |
 | `CATALOG_SERVER_RATE_LIMIT_MAX` | `20000` | The one `catalog-server` bucket, per 15 min. |
-| `CATALOG_SERVER_TOKEN` | unset | Comma list (current,next). Each entry >= 32 bytes or env validation fails. |
+| `CATALOG_SERVER_TOKEN` | unset | Comma list (current,next). Each entry >= 32 bytes or env validation fails. **Required in production** unless `CATALOG_PUBLIC_ONLY=true`. |
+| `CATALOG_PUBLIC_ONLY` | `false` | `true`\|`false`. Production opt-out from the token: no trusted bucket, every catalog read is per IP. |
 
 A request with exactly one `X-Catalog-Server-Token` matching a configured token (SHA-256
 both sides, `timingSafeEqual` over every token) uses the trusted bucket; missing, wrong,
-wrong-length or repeated headers are simply per-IP. Unset token: no trusted bucket, and
-production warns at boot. **The trusted bucket is not a per-shopper limit** -- every SSR
+wrong-length or repeated headers are simply per-IP. Production refuses to boot with no
+token (`assertProductionEnv`; the message names both variables, never a value) unless
+`CATALOG_PUBLIC_ONLY=true`, which means no trusted bucket, every SSR read shares the
+Next server's per-IP budget, and boot warns. **The trusted bucket is not a per-shopper limit** -- every SSR
 request shares it, so per-client limiting belongs at the edge in front of Next (UD-5, B-9).
 Ceilings fall back and warn exactly like `RATE_LIMIT_MAX`.
 

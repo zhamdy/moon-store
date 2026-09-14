@@ -128,7 +128,18 @@ describe('listCatalogProducts', () => {
     );
     expect(requestInit().next).toEqual({ revalidate: 60 });
     expect(requestInit().credentials).toBe('omit');
-    expect(requestInit().signal).toBeUndefined();
+  });
+
+  // Only ProductGrid fetches the list, once per render, so a signal costs no memoization.
+  it('carries a timeout signal, unlike the shared entity reads', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse(200, { data: [], meta: { pagination, priceRange: { min: null, max: null } } })
+    );
+
+    await listCatalogProducts(baseQuery);
+
+    expect(requestInit().signal).toBeInstanceOf(AbortSignal);
+    expect(requestInit().signal?.aborted).toBe(false);
   });
 
   it('sends the server token header when CATALOG_SERVER_TOKEN is set', async () => {

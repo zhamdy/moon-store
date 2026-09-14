@@ -18,7 +18,8 @@ for (const envVar of requiredEnvVars) {
 
 /**
  * Production-only configuration that would otherwise fail a request much later -- today the
- * absolute MEDIA_PUBLIC_BASE_URL the public catalog builds image URLs from. See
+ * absolute MEDIA_PUBLIC_BASE_URL the public catalog builds image URLs from, and a
+ * CATALOG_SERVER_TOKEN unless CATALOG_PUBLIC_ONLY=true. See
  * `assertProductionEnv` in src/config/env.ts.
  */
 try {

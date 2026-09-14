@@ -272,9 +272,10 @@ export function createCatalogLimiter(): RateLimitRequestHandler {
 }
 
 /**
- * Boot visibility for the catalog limiter: an ignored ceiling, and -- in production -- an
- * unset `CATALOG_SERVER_TOKEN`, which puts every shopper's server-rendered page into one
- * per-IP bucket of `CATALOG_RATE_LIMIT_MAX`.
+ * Boot visibility for the catalog limiter: an ignored ceiling, and -- in production -- the
+ * `CATALOG_PUBLIC_ONLY` opt-out, which puts every shopper's server-rendered page into one
+ * per-IP bucket of `CATALOG_RATE_LIMIT_MAX`. A production boot with no token and no opt-out
+ * never gets here: `assertProductionEnv` refuses it.
  */
 export function logCatalogRateLimitConfig(): void {
   const env = getEnv();
@@ -291,11 +292,13 @@ export function logCatalogRateLimitConfig(): void {
 
   if (
     env.NODE_ENV === 'production' &&
+    env.CATALOG_PUBLIC_ONLY &&
     splitCatalogServerTokens(env.CATALOG_SERVER_TOKEN).length === 0
   ) {
     logger.warn(
-      'CATALOG_SERVER_TOKEN is unset: the storefront server has no trusted catalog bucket, so ' +
-        `all of its catalog reads share one per-IP budget of ${catalogRateLimitMax()}/15min.`
+      'CATALOG_PUBLIC_ONLY=true and CATALOG_SERVER_TOKEN is unset: the storefront server has ' +
+        'no trusted catalog bucket, so all of its catalog reads share one per-IP budget of ' +
+        `${catalogRateLimitMax()}/15min.`
     );
   }
 }

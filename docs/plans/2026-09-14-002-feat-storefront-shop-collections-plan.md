@@ -113,6 +113,7 @@ message-parity tests.
 - `aria-current` on header nav items: the header has no pathname today, and adding one means a client boundary (or passing the segment down).
 - A sitemap covering categories, collections and products.
 - Variant price ranges ("from 1,250 EGP") if variants start overriding price.
+- Catalog listing cost (review decision, 2026-09-14): each request runs its scoped join+aggregate twice (count/priceRange, then the page) and pins one pooled connection (production pool 20, shared with POS) across 3-4 queries. Revisit with the B-9 launch load review: fold both into one window-aggregate CTE, and move the gallery lookup off the pinned connection.
 
 ## Context & Research
 
@@ -249,7 +250,7 @@ all shoppers would share 200 requests per 15 minutes and the site would start re
 at modest traffic. So:
 - `/api/v1/catalog/*` GETs and HEADs are exempt from the global limiter (added beside the health exemption, sharing its "predicate in one place" rationale) and use `catalogRateLimit`. The predicate matches `^/api/v1/catalog(/|$)` case-insensitively, built from the same exported prefix constant the router mount uses, so a lookalike sibling prefix isn't exempt and an uppercase path can't spend both budgets.
 - `catalogRateLimit` keys a request carrying a valid `X-Catalog-Server-Token` to one `catalog-server` bucket with a high ceiling (`CATALOG_SERVER_RATE_LIMIT_MAX`). Everything else keys per IP with `CATALOG_RATE_LIMIT_MAX`.
-- Token check: compare the SHA-256 of the header with the SHA-256 of each configured token using `timingSafeEqual` (equal lengths by construction, so no length leak and no throw). A missing, repeated or non-string header counts as no token. `CATALOG_SERVER_TOKEN` accepts a comma list (current and next) for rotation, and `env.ts` rejects any entry shorter than 32 bytes. A production boot logs a warning when it is unset, in the style of `logRateLimitOverrides`.
+- Token check: compare the SHA-256 of the header with the SHA-256 of each configured token using `timingSafeEqual` (equal lengths by construction, so no length leak and no throw). A missing, repeated or non-string header counts as no token. `CATALOG_SERVER_TOKEN` accepts a comma list (current and next) for rotation, and `env.ts` rejects any entry shorter than 32 bytes. A production boot refuses to start when it is unset unless `CATALOG_PUBLIC_ONLY=true`, and that opt-out logs a warning in the style of `logRateLimitOverrides` (review decision, 2026-09-14).
 - **This bucket is not a per-shopper limit.** Every shopper's SSR request lands in it, so one client varying query values could spend it. Per-client limiting is an edge responsibility (UD-5, B-9), and KD-17 keeps each uncached request cheap.
 - Unset token: the trusted bucket doesn't exist, and every request is per-IP. That's safe for dev and fails closed in production (B-9).
 - The storefront sends the token from `API_URL` server fetches only. It is server-only env and never `NEXT_PUBLIC_`.
@@ -755,7 +756,7 @@ listProducts(query):
 - `server-only` becomes a direct storefront dependency, imported unconditionally in `lib/api/catalog.ts` and every `features/*/api` file. `vitest.config.ts` aliases it to an empty stub so node tests resolve it.
 - `listCatalogProducts(query)` takes a storefront query object (`{ scope, sort, inStock, priceMin, priceMax, page }`), serializes it to the API grammar, and returns `{ items, pagination }`, validating `meta.pagination` shape (throw `INVALID_RESPONSE` otherwise).
 - `getCatalogCollection(slug)` returns `null` on `NOT_FOUND` and rethrows everything else, so pages can call `notFound()` for null and let real failures reach the error boundary. The same applies to category lookup from the list.
-- No `timeoutMs` on entity reads (keep memoization between `generateMetadata` and the page). The product list passes no timeout either; the API's own latency is bounded by the pageSize cap, and Next's data cache absorbs repeats.
+- No `timeoutMs` on entity reads (keep memoization between `generateMetadata` and the page). The product list passes `timeoutMs: 15_000` (review decision, 2026-09-14): it is fetched once per render (ProductGrid only), so the signal costs no memoization, and a `TIMEOUT` reaches the `(catalog)` error boundary.
 
 **Patterns to follow:** `lib/api/client.test.ts` fetch-mocking style; the DTO rule in `apps/storefront/CLAUDE.md`.
 

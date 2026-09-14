@@ -70,6 +70,8 @@ describe('catalog collections and categories', () => {
         'http://localhost:3001/api/v1/catalog/collections/silk'
       );
       expect(requestInit().next).toEqual({ revalidate: 300 });
+      // Shared by generateMetadata and the page: a signal would break memoization.
+      expect(requestInit().signal).toBeUndefined();
     });
 
     it('encodes the slug into one path segment', async () => {
@@ -125,6 +127,7 @@ describe('catalog collections and categories', () => {
         'http://localhost:3001/api/v1/catalog/collections'
       );
       expect(requestInit().next).toEqual({ revalidate: 300 });
+      expect(requestInit().signal).toBeUndefined();
     });
   });
 
@@ -134,6 +137,7 @@ describe('catalog collections and categories', () => {
 
       await expect(listCatalogCategories()).resolves.toEqual(categories);
       expect(requestInit().next).toEqual({ revalidate: 300 });
+      expect(requestInit().signal).toBeUndefined();
     });
 
     it('finds a category by slug, including an empty one', async () => {

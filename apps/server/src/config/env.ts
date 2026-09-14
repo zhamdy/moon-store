@@ -120,6 +120,15 @@ const envSchema = z.object({
       }
     }),
   /**
+   * Explicit production opt-out from `CATALOG_SERVER_TOKEN`: `true` means the storefront
+   * server has no trusted bucket and every catalog read is budgeted per IP. Without it,
+   * production refuses to boot with no token (`assertProductionEnv`).
+   */
+  CATALOG_PUBLIC_ONLY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /**
    * How often the `service_metrics` snapshot line is emitted, in milliseconds, resolved
    * by `src/observability/metrics.ts`. `0` disables it. Values under a second are raised
    * to a second — a sub-second snapshot is a log flood, not a metric.
@@ -250,6 +259,16 @@ export function resolveMediaPublicOrigin(env: Env = getEnv()): string {
 export function assertProductionEnv(env: Env = getEnv()): void {
   if (env.NODE_ENV !== 'production') return;
   resolveMediaPublicOrigin(env);
+  // Without a token every SSR catalog read shares one per-IP budget, which a busy
+  // storefront exhausts; running that way must be a stated choice, not a missed variable.
+  // Short entries already fail the parse, so only absence is checked here.
+  if (splitCatalogServerTokens(env.CATALOG_SERVER_TOKEN).length === 0 && !env.CATALOG_PUBLIC_ONLY) {
+    throw new Error(
+      'CATALOG_SERVER_TOKEN must be set in production so the storefront server gets its ' +
+        'trusted catalog rate-limit bucket. Set CATALOG_PUBLIC_ONLY=true to run without one ' +
+        'and budget every catalog read per IP.'
+    );
+  }
 }
 
 export function resetEnvCache(): void {
