@@ -295,6 +295,54 @@ describe('storefront fields on the product write paths (HTTP boundary)', () => {
     expect(renamed.body.data).toMatchObject({ slug: 'slip-dress', name_en: null });
   });
 
+  it('persists description and description_en on create and update, both visible on the admin GET', async () => {
+    const created = await create({
+      description: 'فستان حريري',
+      description_en: 'A silk slip dress.',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      description: 'فستان حريري',
+      description_en: 'A silk slip dress.',
+    });
+
+    const read = await http.request('GET', `/api/v1/products/${created.body.data.id}`);
+    expect(read.status).toBe(200);
+    expect(read.body.data).toMatchObject({ description_en: 'A silk slip dress.' });
+
+    const updated = await http.request(
+      'PUT',
+      `/api/v1/products/${created.body.data.id}`,
+      productBody({ description_en: 'An updated description.' })
+    );
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.description_en).toBe('An updated description.');
+  });
+
+  it('leaves description and description_en alone when a PUT omits them, and clears them on null', async () => {
+    const created = await create({ description: 'Arabic copy', description_en: 'English copy' });
+    const id = created.body.data.id;
+
+    const untouched = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ stock: 7 })
+    );
+    expect(untouched.status).toBe(200);
+    expect(untouched.body.data).toMatchObject({
+      description: 'Arabic copy',
+      description_en: 'English copy',
+    });
+
+    const cleared = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ description: null, description_en: null })
+    );
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.data).toMatchObject({ description: null, description_en: null });
+  });
+
   it('answers 409 when all ten candidates are taken', async () => {
     for (let i = 1; i <= 10; i += 1) {
       const slug = i === 1 ? 'wrap-dress' : `wrap-dress-${i}`;

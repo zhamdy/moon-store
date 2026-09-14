@@ -19,6 +19,9 @@ export interface CreateProductInput {
   slug?: string;
   /** Absent on update: left alone; null clears it. */
   name_en?: string | null;
+  /** Same absent/null convention as `name_en`. */
+  description?: string | null;
+  description_en?: string | null;
   barcode?: string | null;
   price: number;
   cost_price: number;
@@ -161,6 +164,8 @@ export async function createProduct(data: CreateProductInput): Promise<Record<st
     sku,
     slug,
     name_en,
+    description,
+    description_en,
     barcode,
     price,
     cost_price,
@@ -182,8 +187,8 @@ export async function createProduct(data: CreateProductInput): Promise<Record<st
     let created: Record<string, unknown>;
     try {
       const result = await client.query(
-        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en, description, description_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
         [
           name,
           sku,
@@ -197,6 +202,8 @@ export async function createProduct(data: CreateProductInput): Promise<Record<st
           min_stock,
           slug ?? null,
           name_en || null,
+          description || null,
+          description_en || null,
         ]
       );
       created = result.rows[0];
@@ -231,6 +238,8 @@ export async function updateProduct(
     sku,
     slug,
     name_en,
+    description,
+    description_en,
     barcode,
     price,
     cost_price,
@@ -254,12 +263,15 @@ export async function updateProduct(
   );
 
   // A full replacement, except the storefront fields: a client that predates them must
-  // not wipe them. `slug` absent keeps the stored one; `name_en` absent keeps, null clears.
+  // not wipe them. `slug` absent keeps the stored one; `name_en`/`description`/
+  // `description_en` absent keep the stored value, null clears it.
   let result;
   try {
     result = await db.query(
       `UPDATE products SET name=$1, sku=$2, barcode=$3, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10,
-         slug=COALESCE($12::text, slug), name_en=CASE WHEN $13::boolean THEN $14::text ELSE name_en END, updated_at=NOW()
+         slug=COALESCE($12::text, slug), name_en=CASE WHEN $13::boolean THEN $14::text ELSE name_en END,
+         description=CASE WHEN $15::boolean THEN $16::text ELSE description END,
+         description_en=CASE WHEN $17::boolean THEN $18::text ELSE description_en END, updated_at=NOW()
        WHERE id=$11 RETURNING *`,
       [
         name,
@@ -276,6 +288,10 @@ export async function updateProduct(
         slug ?? null,
         name_en !== undefined,
         name_en || null,
+        description !== undefined,
+        description || null,
+        description_en !== undefined,
+        description_en || null,
       ]
     );
   } catch (error) {

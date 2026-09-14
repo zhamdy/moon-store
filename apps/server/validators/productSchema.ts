@@ -7,6 +7,9 @@ export const productSchema = z.object({
   // Absent on update leaves the stored value; null clears it. Arabic `name` stays primary.
   name_en: z.string().max(255).nullable().optional(),
   name: z.string().min(1, 'Product name is required').max(255),
+  // Same absent/null convention as `name_en`. Arabic `description` stays primary.
+  description: z.string().max(5000).nullable().optional(),
+  description_en: z.string().max(5000).nullable().optional(),
   sku: z.string().min(1, 'SKU is required').max(100),
   barcode: z.string().max(100).optional().nullable(),
   price: z.number().positive('Price must be positive'),
