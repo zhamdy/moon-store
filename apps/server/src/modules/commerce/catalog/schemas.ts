@@ -196,6 +196,22 @@ export const catalogRequestContracts = {
     ],
   }),
 
+  getCatalogStorePolicies: defineRequestContract({
+    method: 'GET',
+    path: '/api/v1/catalog/store-policies',
+    operation: 'getCatalogStorePolicies',
+    query: catalogEmptyQuerySchema,
+    noBody: true,
+    beyondSchema: [
+      PUBLIC_READ,
+      'Store-wide delivery and returns copy for the product page, maintained in the dashboard ' +
+        'settings. Only the settings delivery_policy, delivery_policy_en, returns_policy and ' +
+        'returns_policy_en are read; no other setting is ever exposed.',
+      'Each field is the trimmed stored text, or null when the setting is unset, empty or ' +
+        'whitespace-only. Always 200.',
+    ],
+  }),
+
   getCatalogCollection: defineRequestContract({
     method: 'GET',
     path: '/api/v1/catalog/collections/{slug}',

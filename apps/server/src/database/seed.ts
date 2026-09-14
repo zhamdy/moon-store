@@ -967,6 +967,23 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       ['receipt_footer', 'شكراً لتسوقكم في مون! 🌙'],
       ['receipt_show_logo', 'true'],
       ['low_stock_threshold', '5'],
+      // Placeholder copy: replace with the real policy before launch (storefront product page).
+      [
+        'delivery_policy',
+        'نوصّل الطلبات داخل مصر، ونؤكد لكِ خيارات التوصيل ومواعيده عند إتمام طلبك.',
+      ],
+      [
+        'delivery_policy_en',
+        'We deliver orders within Egypt. Delivery options and timing are confirmed when you place your order.',
+      ],
+      [
+        'returns_policy',
+        'إذا لم تكن القطعة مناسبة، تواصلي معنا وسيساعدك فريقنا في الاستبدال أو الإرجاع وفق سياسة المتجر.',
+      ],
+      [
+        'returns_policy_en',
+        "If something isn't right, contact us and our team will help with an exchange or return according to our store policy.",
+      ],
     ];
 
     for (const [key, value] of settings) {

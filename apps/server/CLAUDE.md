@@ -401,9 +401,13 @@ input (no manifest entries, no client calls, no postponed list) rather than pass
 
 ## Public catalog (`/api/v1/catalog`)
 
-Five anonymous GETs the storefront renders from (plan 2026-09-14-002, Unit 4; the product
+Six anonymous GETs the storefront renders from (plan 2026-09-14-002, Unit 4; the product
 detail from plan 2026-09-14-003, Unit 1): `/products` (the one listing), `/products/:slug`,
-`/categories`, `/collections`, `/collections/:slug`. A
+`/categories`, `/collections`, `/collections/:slug`, `/store-policies`. The last reads only
+the `delivery_policy`, `delivery_policy_en`, `returns_policy` and `returns_policy_en`
+settings, by name (`WHERE key IN (...)`; the table also holds tax and loyalty), as
+`{ delivery, deliveryEn, returns, returnsEn }`, trimmed, blank as `null`; staff edit them on
+the dashboard Settings page, and the seeded text is placeholder copy, a launch blocker. A
 separate module and prefix (`src/modules/commerce/catalog`, manifest
 `publicEntry(['B', 'P'])`) rather than public routes in the postponed Admin-gated
 storefront module, so "nothing under this prefix writes" stays structurally checkable.

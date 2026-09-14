@@ -17,6 +17,7 @@ import {
   CATALOG_STATEMENT_TIMEOUT_MS,
   NEW_IN_DAYS,
   PUBLIC_COLLECTION_STATUSES,
+  STORE_POLICY_SETTING_KEYS,
 } from './constants';
 import type {
   CatalogCategoryRow,
@@ -277,6 +278,18 @@ export class CatalogRepository {
                      GROUP BY p.category_id) pc ON pc.category_id = c.id
         WHERE c.slug IS NOT NULL
         ORDER BY c.name ASC, c.id ASC`
+    );
+    return rows;
+  }
+
+  /** The store policy settings only; every other key in `settings` stays private. */
+  async listStorePolicySettings(
+    db: Queryable
+  ): Promise<Array<{ key: string; value: string | null }>> {
+    const keys = Object.values(STORE_POLICY_SETTING_KEYS);
+    const { rows } = await db.query<{ key: string; value: string | null }>(
+      `SELECT s.key, s.value FROM settings s WHERE s.key IN ($1, $2, $3, $4)`,
+      keys
     );
     return rows;
   }

@@ -53,6 +53,26 @@ describeWithPostgres('public catalog on real PostgreSQL', () => {
     resetEnvCache();
   });
 
+  it('store policies: reads only the four named settings, trimmed, blank as null', async () => {
+    await harness.truncate();
+    await harness.pool.query(
+      `INSERT INTO settings (key, value) VALUES
+         ('tax_rate', '14'),
+         ('delivery_policy', ' نوصّل داخل مصر '),
+         ('delivery_policy_en', 'We deliver within Egypt.'),
+         ('returns_policy', '  ')
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`
+    );
+    await harness.pool.query(`DELETE FROM settings WHERE key = 'returns_policy_en'`);
+
+    expect(await catalogService.getStorePolicies()).toEqual({
+      delivery: 'نوصّل داخل مصر',
+      deliveryEn: 'We deliver within Egypt.',
+      returns: null,
+      returnsEn: null,
+    });
+  });
+
   it('returns price as a JS number and orders by price numerically, not lexically', async () => {
     await harness.truncate();
     await harness.pool.query(

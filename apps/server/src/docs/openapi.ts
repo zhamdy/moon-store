@@ -10048,6 +10048,212 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/catalog/store-policies': {
+      get: {
+        tags: ['Catalog'],
+        summary: 'Get store delivery and returns policies (Public)',
+        description: 'Endpoint classification: B. Allowed Roles: Public.',
+        security: [],
+        responses: {
+          '200': {
+            description: 'The store policy texts, each null when unset or blank',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'public, max-age=60',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['data'],
+                  properties: {
+                    data: {
+                      type: 'object',
+                      additionalProperties: false,
+                      required: ['delivery', 'deliveryEn', 'returns', 'returnsEn'],
+                      properties: {
+                        delivery: {
+                          type: ['string', 'null'],
+                        },
+                        deliveryEn: {
+                          type: ['string', 'null'],
+                        },
+                        returns: {
+                          type: ['string', 'null'],
+                        },
+                        returnsEn: {
+                          type: ['string', 'null'],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'VALIDATION_ERROR: unknown or invalid query parameter',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '429': {
+            description: 'RATE_LIMITED: catalog limiter ceiling reached',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '500': {
+            description: 'INTERNAL_ERROR',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description: 'SERVICE_UNAVAILABLE: the read exceeded its statement timeout',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     '/api/v1/storefront/banners': {
       get: {
         tags: ['Storefront'],

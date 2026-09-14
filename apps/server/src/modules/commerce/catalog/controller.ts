@@ -46,6 +46,15 @@ export class CatalogController {
     }
   }
 
+  async getStorePolicies(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      contracts.getCatalogStorePolicies.parseQuery(req.query);
+      res.json(success(await catalogService.getStorePolicies()));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async getCollection(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       contracts.getCatalogCollection.parseQuery(req.query);

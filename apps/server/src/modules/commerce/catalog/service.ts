@@ -2,7 +2,11 @@ import { PublicError } from '../../../http/errors';
 import { paginationMeta } from '../../../http/pagination';
 import { resolveMediaPublicOrigin } from '../../../config/env';
 import logger from '../../../../lib/logger';
-import { CATALOG_NOT_FOUND_MESSAGE, CATALOG_PAGE_SIZE } from './constants';
+import {
+  CATALOG_NOT_FOUND_MESSAGE,
+  CATALOG_PAGE_SIZE,
+  STORE_POLICY_SETTING_KEYS,
+} from './constants';
 import {
   deriveVariantOptions,
   rowHasVariants,
@@ -23,6 +27,7 @@ import type {
   CatalogProductDetailDto,
   CatalogProductFilters,
   CatalogProductList,
+  CatalogStorePoliciesDto,
 } from './types';
 
 /** SQLSTATE `query_canceled`, which is what `statement_timeout` raises. */
@@ -137,6 +142,21 @@ export class CatalogService {
     const origin = resolveMediaPublicOrigin();
     const rows = await runCatalogRead((client) => this.repo.listCollections(client));
     return rows.map((row) => toCatalogCollectionDto(row, origin));
+  }
+
+  async getStorePolicies(): Promise<CatalogStorePoliciesDto> {
+    const rows = await runCatalogRead((client) => this.repo.listStorePolicySettings(client));
+    const byKey = new Map(rows.map((row) => [row.key, row.value]));
+    const text = (key: string): string | null => {
+      const value = byKey.get(key);
+      return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+    };
+    return {
+      delivery: text(STORE_POLICY_SETTING_KEYS.delivery),
+      deliveryEn: text(STORE_POLICY_SETTING_KEYS.deliveryEn),
+      returns: text(STORE_POLICY_SETTING_KEYS.returns),
+      returnsEn: text(STORE_POLICY_SETTING_KEYS.returnsEn),
+    };
   }
 
   async getCollection(slug: string): Promise<CatalogCollectionDto> {

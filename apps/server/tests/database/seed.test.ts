@@ -34,7 +34,8 @@ describe('PostgreSQL Seed System', () => {
     expect(customers.rows.length).toBe(15);
 
     const settings = await memPool.query('SELECT * FROM settings');
-    expect(settings.rows.length).toBe(14);
+    // 14 store settings plus the four storefront policy placeholders.
+    expect(settings.rows.length).toBe(18);
   });
 
   it('should be idempotent and clear previous rows when re-seeded', async () => {

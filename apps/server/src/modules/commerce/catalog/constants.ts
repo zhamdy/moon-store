@@ -48,6 +48,18 @@ export const CATALOG_STATEMENT_TIMEOUT_MS = 2000;
 /** Collection statuses the public may see. `upcoming` and `archived` are invisible. */
 export const PUBLIC_COLLECTION_STATUSES = ['active', 'on_sale'] as const;
 
+/**
+ * The only `settings` keys the public may read: store-wide delivery and returns copy for
+ * the product page (Arabic primary, `_en` English). Named in SQL, never the whole table,
+ * because `settings` also holds tax, loyalty and receipt configuration.
+ */
+export const STORE_POLICY_SETTING_KEYS = {
+  delivery: 'delivery_policy',
+  deliveryEn: 'delivery_policy_en',
+  returns: 'returns_policy',
+  returnsEn: 'returns_policy_en',
+} as const;
+
 /** Successful catalog responses may be shared-cached for this long (KD-5). */
 export const CATALOG_CACHE_SECONDS = 60;
 

@@ -178,6 +178,14 @@ export interface CatalogCollectionDto {
   productCount: number;
 }
 
+/** Store-wide product-page copy. Each field is null when unset, empty or whitespace-only. */
+export interface CatalogStorePoliciesDto {
+  delivery: string | null;
+  deliveryEn: string | null;
+  returns: string | null;
+  returnsEn: string | null;
+}
+
 export interface CatalogPriceRange {
   min: number | null;
   max: number | null;

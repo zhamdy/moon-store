@@ -460,6 +460,64 @@ describe('public catalog', () => {
     });
   });
 
+  describe('GET /catalog/store-policies', () => {
+    const POLICY_KEYS = ['delivery', 'deliveryEn', 'returns', 'returnsEn'];
+    const setSetting = (key: string, value: string) =>
+      pool.query(
+        `INSERT INTO settings (key, value) VALUES ($1, $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+        [key, value]
+      );
+    const clearPolicies = () =>
+      pool.query(
+        `DELETE FROM settings WHERE key IN ('delivery_policy', 'delivery_policy_en', 'returns_policy', 'returns_policy_en')`
+      );
+
+    it('answers anonymously with four nulls when no policy is set, publicly cached', async () => {
+      await clearPolicies();
+      const r = await get('/api/v1/catalog/store-policies');
+      expect(r.status).toBe(200);
+      expect(r.cache).toBe('public, max-age=60');
+      expect(r.body.data).toEqual({
+        delivery: null,
+        deliveryEn: null,
+        returns: null,
+        returnsEn: null,
+      });
+    });
+
+    it('returns only the four policy texts, trimmed, blank as null, never another setting', async () => {
+      await setSetting('tax_rate', '14');
+      await setSetting('store_name', 'SECRET-STORE-NAME');
+      await setSetting('delivery_policy', '  توصيل داخل مصر  ');
+      await setSetting('delivery_policy_en', 'Delivery within Egypt.');
+      await setSetting('returns_policy', '   ');
+      await setSetting('returns_policy_en', '');
+
+      const r = await get('/api/v1/catalog/store-policies');
+      expect(r.status).toBe(200);
+      expect(r.body.data).toEqual({
+        delivery: 'توصيل داخل مصر',
+        deliveryEn: 'Delivery within Egypt.',
+        returns: null,
+        returnsEn: null,
+      });
+      expect(Object.keys(r.body.data).sort()).toEqual(POLICY_KEYS);
+      const keys = allKeys(r.body);
+      for (const leaked of ['tax_rate', 'store_name', 'key', 'value', 'delivery_policy'])
+        expect(keys.has(leaked)).toBe(false);
+      expect(r.text).not.toContain('SECRET-STORE-NAME');
+      expect(r.text).not.toContain('"14"');
+      await clearPolicies();
+    });
+
+    it('rejects query parameters it does not take, no-store', async () => {
+      const r = await get('/api/v1/catalog/store-policies?x=1');
+      expect(r.status).toBe(400);
+      expect(r.cache).toBe('no-store');
+    });
+  });
+
   describe('GET /catalog/collections', () => {
     it('lists live slugged collections featured first, then year with unknown last', async () => {
       const r = await get('/api/v1/catalog/collections');

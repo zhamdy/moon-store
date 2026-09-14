@@ -764,6 +764,12 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     classification: 'B',
     authorization: publicAuth,
   },
+  {
+    method: 'GET',
+    path: '/api/v1/catalog/store-policies',
+    classification: 'B',
+    authorization: publicAuth,
+  },
 
   // Commerce / Storefront
   {

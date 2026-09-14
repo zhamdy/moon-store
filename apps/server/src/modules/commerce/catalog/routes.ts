@@ -1,5 +1,5 @@
 /**
- * The public catalog: five anonymous GETs, nothing that writes (KD-1).
+ * The public catalog: six anonymous GETs, nothing that writes (KD-1).
  *
  * Deliberately no `verifyToken` anywhere in this router; the manifest classifies every
  * route `publicAuth` and `check:route-auth` holds the two in agreement.
@@ -30,6 +30,12 @@ router.get('/categories', (req, res, next) => catalogController.listCategories(r
 
 // GET /api/v1/catalog/collections (Public)
 router.get('/collections', (req, res, next) => catalogController.listCollections(req, res, next));
+
+// GET /api/v1/catalog/store-policies (Public). Its own top-level segment, so it can never
+// collide with /products/:slug or /collections/:slug.
+router.get('/store-policies', (req, res, next) =>
+  catalogController.getStorePolicies(req, res, next)
+);
 
 // GET /api/v1/catalog/collections/:slug (Public)
 router.get('/collections/:slug', (req, res, next) =>
