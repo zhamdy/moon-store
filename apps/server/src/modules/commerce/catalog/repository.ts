@@ -212,6 +212,7 @@ export class CatalogRepository {
   ): Promise<CatalogProductDetailRow | null> {
     const { rows } = await db.query<CatalogProductDetailRow>(
       `SELECT p.id, p.slug, p.name, p.name_en, p.description, p.description_en, p.price,
+              p.material, p.material_en, p.care, p.care_en, p.fit, p.fit_en,
               p.image_url, p.stock, p.has_variants,
               (${NEW_WINDOW_SQL}) AS is_new,
               c.slug AS category_slug, c.name AS category_name, c.name_en AS category_name_en

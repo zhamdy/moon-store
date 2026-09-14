@@ -695,13 +695,19 @@ describe('public catalog', () => {
   });
   describe('GET /catalog/products/:slug', () => {
     const DETAIL_KEYS = [
+      'care',
+      'careEn',
       'category',
       'collections',
       'description',
       'descriptionEn',
+      'fit',
+      'fitEn',
       'images',
       'inStock',
       'isNew',
+      'material',
+      'materialEn',
       'name',
       'nameEn',
       'options',
@@ -790,6 +796,11 @@ describe('public catalog', () => {
         description: 'وصف عربي',
         descriptionEn: 'An English description',
       });
+      await pool.query(
+        `UPDATE products SET material = 'حرير', material_en = 'Silk', care = 'تنظيف جاف',
+                             care_en = 'Dry clean', fit = 'قصة واسعة', fit_en = 'Relaxed'
+          WHERE id = 101`
+      );
       await pool.query(
         `INSERT INTO product_images (product_id, image_url, position) VALUES
            (101, '/uploads/products/g-2.jpg', 2),
@@ -888,6 +899,12 @@ describe('public catalog', () => {
         nameEn: 'English 101',
         description: 'وصف عربي',
         descriptionEn: 'An English description',
+        material: 'حرير',
+        materialEn: 'Silk',
+        care: 'تنظيف جاف',
+        careEn: 'Dry clean',
+        fit: 'قصة واسعة',
+        fitEn: 'Relaxed',
         price: 1800,
         isNew: true,
         inStock: true,
@@ -908,7 +925,20 @@ describe('public catalog', () => {
       });
     });
 
-    it('keeps the listing DTO key set unchanged: descriptions are detail-only', async () => {
+    it('returns material, care and fit as null when a product has none', async () => {
+      const data = await detail('plain-in-stock');
+      expect(Object.keys(data).sort()).toEqual(DETAIL_KEYS);
+      expect(data).toMatchObject({
+        material: null,
+        materialEn: null,
+        care: null,
+        careEn: null,
+        fit: null,
+        fitEn: null,
+      });
+    });
+
+    it('keeps the listing DTO key set unchanged: descriptions and details are detail-only', async () => {
       const r = await get('/api/v1/catalog/products?category=dresses');
       const item = (r.body.data as Json[]).find((p) => p.slug === 'gallery-dress');
       expect(item).toBeDefined();

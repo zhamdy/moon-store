@@ -22,6 +22,13 @@ export interface CreateProductInput {
   /** Same absent/null convention as `name_en`. */
   description?: string | null;
   description_en?: string | null;
+  /** The storefront Details tab; same absent/null convention. */
+  material?: string | null;
+  material_en?: string | null;
+  care?: string | null;
+  care_en?: string | null;
+  fit?: string | null;
+  fit_en?: string | null;
   barcode?: string | null;
   price: number;
   cost_price: number;
@@ -166,6 +173,12 @@ export async function createProduct(data: CreateProductInput): Promise<Record<st
     name_en,
     description,
     description_en,
+    material,
+    material_en,
+    care,
+    care_en,
+    fit,
+    fit_en,
     barcode,
     price,
     cost_price,
@@ -187,8 +200,9 @@ export async function createProduct(data: CreateProductInput): Promise<Record<st
     let created: Record<string, unknown>;
     try {
       const result = await client.query(
-        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en, description, description_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
+        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en, description, description_en,
+                               material, material_en, care, care_en, fit, fit_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING *`,
         [
           name,
           sku,
@@ -204,6 +218,12 @@ export async function createProduct(data: CreateProductInput): Promise<Record<st
           name_en || null,
           description || null,
           description_en || null,
+          material || null,
+          material_en || null,
+          care || null,
+          care_en || null,
+          fit || null,
+          fit_en || null,
         ]
       );
       created = result.rows[0];
@@ -240,6 +260,12 @@ export async function updateProduct(
     name_en,
     description,
     description_en,
+    material,
+    material_en,
+    care,
+    care_en,
+    fit,
+    fit_en,
     barcode,
     price,
     cost_price,
@@ -263,15 +289,23 @@ export async function updateProduct(
   );
 
   // A full replacement, except the storefront fields: a client that predates them must
-  // not wipe them. `slug` absent keeps the stored one; `name_en`/`description`/
-  // `description_en` absent keep the stored value, null clears it.
+  // not wipe them. `slug` absent keeps the stored one; `name_en`, `description`,
+  // `material`, `care`, `fit` and their `_en` twins absent keep the stored value, null
+  // clears it.
   let result;
   try {
     result = await db.query(
       `UPDATE products SET name=$1, sku=$2, barcode=$3, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10,
          slug=COALESCE($12::text, slug), name_en=CASE WHEN $13::boolean THEN $14::text ELSE name_en END,
          description=CASE WHEN $15::boolean THEN $16::text ELSE description END,
-         description_en=CASE WHEN $17::boolean THEN $18::text ELSE description_en END, updated_at=NOW()
+         description_en=CASE WHEN $17::boolean THEN $18::text ELSE description_en END,
+         material=CASE WHEN $19::boolean THEN $20::text ELSE material END,
+         material_en=CASE WHEN $21::boolean THEN $22::text ELSE material_en END,
+         care=CASE WHEN $23::boolean THEN $24::text ELSE care END,
+         care_en=CASE WHEN $25::boolean THEN $26::text ELSE care_en END,
+         fit=CASE WHEN $27::boolean THEN $28::text ELSE fit END,
+         fit_en=CASE WHEN $29::boolean THEN $30::text ELSE fit_en END,
+         updated_at=NOW()
        WHERE id=$11 RETURNING *`,
       [
         name,
@@ -292,6 +326,18 @@ export async function updateProduct(
         description || null,
         description_en !== undefined,
         description_en || null,
+        material !== undefined,
+        material || null,
+        material_en !== undefined,
+        material_en || null,
+        care !== undefined,
+        care || null,
+        care_en !== undefined,
+        care_en || null,
+        fit !== undefined,
+        fit || null,
+        fit_en !== undefined,
+        fit_en || null,
       ]
     );
   } catch (error) {
@@ -403,7 +449,8 @@ export async function bulkUpdateProducts(
  * one bad row still fails alone. The transaction exists so a row and its generated slug
  * commit together, and the slug retry runs under a SAVEPOINT inside it. An explicit slug
  * held by a different SKU fails that row only. A re-imported SKU keeps its stored slug and
- * `name_en`, `description` and `description_en` unless the row supplies new ones.
+ * `name_en`, `description`, `material`, `care`, `fit` (and each `_en` twin) unless the row
+ * supplies new ones.
  */
 export async function importProducts(products: unknown[]): Promise<ImportResult> {
   let imported = 0;
@@ -423,6 +470,12 @@ export async function importProducts(products: unknown[]): Promise<ImportResult>
         name_en,
         description,
         description_en,
+        material,
+        material_en,
+        care,
+        care_en,
+        fit,
+        fit_en,
         barcode,
         price,
         cost_price,
@@ -439,11 +492,16 @@ export async function importProducts(products: unknown[]): Promise<ImportResult>
         let row: { id: number; slug: string | null };
         try {
           const result = await client.query<{ id: number; slug: string | null }>(
-            `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en, description, description_en)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::text, $12::text, $13::text, $14::text)
+            `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, distributor_id, min_stock, slug, name_en, description, description_en,
+                                   material, material_en, care, care_en, fit, fit_en)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::text, $12::text, $13::text, $14::text,
+                     $15::text, $16::text, $17::text, $18::text, $19::text, $20::text)
              ON CONFLICT(sku) DO UPDATE SET name=$1, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10,
                slug=COALESCE($11::text, products.slug), name_en=COALESCE($12::text, products.name_en),
-               description=COALESCE($13::text, products.description), description_en=COALESCE($14::text, products.description_en), updated_at=NOW()
+               description=COALESCE($13::text, products.description), description_en=COALESCE($14::text, products.description_en),
+               material=COALESCE($15::text, products.material), material_en=COALESCE($16::text, products.material_en),
+               care=COALESCE($17::text, products.care), care_en=COALESCE($18::text, products.care_en),
+               fit=COALESCE($19::text, products.fit), fit_en=COALESCE($20::text, products.fit_en), updated_at=NOW()
              RETURNING id, slug`,
             [
               name,
@@ -460,6 +518,12 @@ export async function importProducts(products: unknown[]): Promise<ImportResult>
               name_en || null,
               description || null,
               description_en || null,
+              material || null,
+              material_en || null,
+              care || null,
+              care_en || null,
+              fit || null,
+              fit_en || null,
             ]
           );
           row = result.rows[0];

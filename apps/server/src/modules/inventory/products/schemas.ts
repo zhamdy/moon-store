@@ -177,9 +177,10 @@ export const productsRequestContracts = {
     params: pathIdParams(),
     beyondSchema: [
       'A full replacement, not a merge: the required fields stay required.',
-      'Except `slug`, `name_en`, `description` and `description_en`: absent leaves the ' +
-        'stored value, and `null` clears `name_en`/`description`/`description_en`. A slug ' +
-        'held by another product is a 409 with `details[].field` `slug`.',
+      'Except `slug`, `name_en`, `description`, `description_en`, `material`, ' +
+        '`material_en`, `care`, `care_en`, `fit` and `fit_en`: absent leaves the stored ' +
+        'value, and `null` clears any of them but `slug`. A slug held by another product is ' +
+        'a 409 with `details[].field` `slug`.',
     ],
   }),
 

@@ -397,6 +397,78 @@ describe('storefront fields on the product write paths (HTTP boundary)', () => {
     ]);
   });
 
+  const DETAILS = {
+    material: 'حرير طبيعي ١٠٠٪',
+    material_en: '100% silk',
+    care: 'تنظيف جاف فقط',
+    care_en: 'Dry clean only',
+    fit: 'قصة واسعة',
+    fit_en: 'Relaxed fit',
+  };
+  const NO_DETAILS = {
+    material: null,
+    material_en: null,
+    care: null,
+    care_en: null,
+    fit: null,
+    fit_en: null,
+  };
+
+  it('persists material, care and fit on create, keeps them when a PUT omits them, clears them on null', async () => {
+    const created = await create(DETAILS);
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject(DETAILS);
+    const id = created.body.data.id;
+
+    const read = await http.request('GET', `/api/v1/products/${id}`);
+    expect(read.status).toBe(200);
+    expect(read.body.data).toMatchObject(DETAILS);
+
+    const untouched = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ stock: 7 })
+    );
+    expect(untouched.status).toBe(200);
+    expect(untouched.body.data).toMatchObject(DETAILS);
+
+    const cleared = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ ...NO_DETAILS, care_en: 'Hand wash' })
+    );
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.data).toMatchObject({ ...NO_DETAILS, care_en: 'Hand wash' });
+  });
+
+  it.each(Object.keys(DETAILS))('rejects a %s longer than 2000 characters', async (field) => {
+    const res = await create({ [field]: 'a'.repeat(2001) });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('accepts material, care and fit at exactly 2000 characters', async () => {
+    const res = await create({ material: 'a'.repeat(2000) });
+    expect(res.status).toBe(201);
+  });
+
+  it('persists material, care and fit from a CSV import and keeps them when a re-import omits them', async () => {
+    const first = await http.request('POST', '/api/v1/products/import', {
+      products: [productBody({ sku: 'M-1', ...DETAILS })],
+    });
+    expect(first.body.data).toEqual({ imported: 1, errors: [] });
+
+    const again = await http.request('POST', '/api/v1/products/import', {
+      products: [productBody({ sku: 'M-1', stock: 7 })],
+    });
+    expect(again.body.data).toEqual({ imported: 1, errors: [] });
+
+    const { rows } = await testPool.query(
+      "SELECT stock, material, material_en, care, care_en, fit, fit_en FROM products WHERE sku = 'M-1'"
+    );
+    expect(rows).toEqual([{ stock: 7, ...DETAILS }]);
+  });
+
   it('rejects a description longer than 5000 characters on create', async () => {
     const res = await create({ description: 'a'.repeat(5001) });
     expect(res.status).toBe(400);

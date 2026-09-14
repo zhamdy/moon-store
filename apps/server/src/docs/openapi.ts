@@ -8931,6 +8931,12 @@ export const openApiSpec = {
                         'nameEn',
                         'description',
                         'descriptionEn',
+                        'material',
+                        'materialEn',
+                        'care',
+                        'careEn',
+                        'fit',
+                        'fitEn',
                         'price',
                         'isNew',
                         'inStock',
@@ -8955,6 +8961,24 @@ export const openApiSpec = {
                           type: ['string', 'null'],
                         },
                         descriptionEn: {
+                          type: ['string', 'null'],
+                        },
+                        material: {
+                          type: ['string', 'null'],
+                        },
+                        materialEn: {
+                          type: ['string', 'null'],
+                        },
+                        care: {
+                          type: ['string', 'null'],
+                        },
+                        careEn: {
+                          type: ['string', 'null'],
+                        },
+                        fit: {
+                          type: ['string', 'null'],
+                        },
+                        fitEn: {
                           type: ['string', 'null'],
                         },
                         price: {

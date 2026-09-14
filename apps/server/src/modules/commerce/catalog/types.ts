@@ -44,6 +44,12 @@ export interface CatalogProductDetailRow {
   name_en: string | null;
   description: string | null;
   description_en: string | null;
+  material: string | null;
+  material_en: string | null;
+  care: string | null;
+  care_en: string | null;
+  fit: string | null;
+  fit_en: string | null;
   price: string | number;
   image_url: string | null;
   stock: string | number | null;
@@ -134,6 +140,12 @@ export interface CatalogProductDetailDto {
   nameEn: string | null;
   description: string | null;
   descriptionEn: string | null;
+  material: string | null;
+  materialEn: string | null;
+  care: string | null;
+  careEn: string | null;
+  fit: string | null;
+  fitEn: string | null;
   price: number;
   isNew: boolean;
   inStock: boolean;

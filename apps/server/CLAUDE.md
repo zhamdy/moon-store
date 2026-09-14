@@ -444,6 +444,8 @@ collections) run in one `runCatalogRead`. The rules, pinned in `tests/catalog.te
 - **Images:** primary, then gallery by position, capped at `CATALOG_DETAIL_IMAGE_COUNT` (9)
   in the mapper, because `product_images` has no database limit (only the dashboard caps
   the gallery at 8). `productImages` takes the cap as an argument; the listing passes 2.
+- **Details:** `material`, `care`, `fit` and their `En` twins (016) are detail-only, like the
+  descriptions; the listing DTO key set does not change.
 - **Context:** `category` via a LEFT JOIN, `null` when there is none or it has no slug;
   `collections` are the public statuses only, in `listCollections` order.
 - **Options** are derived by the pure `deriveVariantOptions` (`mappers.ts`), and only when
