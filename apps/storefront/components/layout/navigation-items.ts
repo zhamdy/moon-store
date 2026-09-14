@@ -1,4 +1,4 @@
-import { Search, ShoppingBag, type LucideIcon } from 'lucide-react';
+import { Search, ShoppingBag, UserRound, type LucideIcon } from 'lucide-react';
 import type { Messages } from 'next-intl';
 
 export interface NavItem {
@@ -9,6 +9,8 @@ export interface NavItem {
 
 export interface ActionNavItem extends NavItem {
   icon: LucideIcon;
+  /** Hidden below 1024px, where the item lives in the mobile menu instead. */
+  desktopOnly?: boolean;
 }
 
 export const primaryNavItems: NavItem[] = [
@@ -17,17 +19,15 @@ export const primaryNavItems: NavItem[] = [
   { key: 'collections', href: '/collections', messageKey: 'collections' },
 ];
 
-/** Mobile header actions: search and bag only — account lives in the mobile menu. */
-export const mobileActionItems: ActionNavItem[] = [
+/**
+ * Header actions, icon-only at every breakpoint (user decision, 2026-09-13). The
+ * translated label is the link's accessible name. Account is desktop-only: on
+ * mobile it lives in the mobile menu's lower band.
+ */
+export const headerActionItems: ActionNavItem[] = [
   { key: 'search', href: '/search', messageKey: 'search', icon: Search },
+  { key: 'account', href: '/account', messageKey: 'account', icon: UserRound, desktopOnly: true },
   { key: 'bag', href: '/bag', messageKey: 'bag', icon: ShoppingBag },
-];
-
-/** Desktop header actions: text links, search/account/bag together. */
-export const desktopActionItems: NavItem[] = [
-  { key: 'search', href: '/search', messageKey: 'search' },
-  { key: 'account', href: '/account', messageKey: 'account' },
-  { key: 'bag', href: '/bag', messageKey: 'bag' },
 ];
 
 export const accountItem: NavItem = { key: 'account', href: '/account', messageKey: 'account' };

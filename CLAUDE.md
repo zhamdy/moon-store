@@ -8,7 +8,7 @@ contracts load on demand, when you work in the tree they govern.
 
 Run `pnpm install` at the repository root first. The workspace contains
 `apps/dashboard`, `apps/server`, and `apps/storefront` (a Next.js storefront with its
-foundation built — locale routing, design tokens, shell — but no commerce pages yet).
+foundation and a static homepage built; every other commerce page still 404s by design).
 Use `pnpm dev:storefront` for it on port 3000; copy `apps/storefront/.env.example` to
 `apps/storefront/.env.local` first (see `apps/storefront/CLAUDE.md` for what each
 variable does).
@@ -36,9 +36,11 @@ cd apps/dashboard && npm run dev
   storage, refresh-token rotation, migration verification.
 - **`apps/dashboard/CLAUDE.md`** — the offline queue replay contract, PWA install/update policy,
   react-hook-form on HeroUI inputs, the accessibility rules and patterns.
-- **`apps/storefront/CLAUDE.md`** — the token/utility vocabulary, locale/RTL rules, the
-  client boundary rule, the API client's DTO rule and `API_URL` vs `NEXT_PUBLIC_API_URL`,
-  the logo swap procedure. Nothing is shared with the dashboard.
+- **`apps/storefront/CLAUDE.md`** — the token/utility vocabulary and the `--surface-*`
+  indirection, locale/RTL rules, the client boundary rule, the header boundary contract,
+  the motion primitives, the image pipeline and swap procedure, the API client's DTO
+  rule and `API_URL` vs `NEXT_PUBLIC_API_URL`, the logo swap procedure. Nothing is
+  shared with the dashboard.
 - **`e2e/README.md`** — ownership, the flake policy, and what the suite has already found.
 - **`docs/CONVENTIONS.md`** — placement detail, the string-coupling contract, E2E
   conventions. **`docs/ACCESSIBILITY.md`** — what is scanned, what is manual, what is not
@@ -264,3 +266,9 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   e2e smoke caught it as a radio whose dot intercepted the click. The dashboard now declares
   `@heroui/theme` itself — a path a config reaches into must belong to a direct dependency
   (2026-09-13)
+- The storefront's semantic colours are `@theme inline`, so `text-text` compiles to the
+  value and a scoped `--color-text` override does nothing — the header overlay and ink
+  footer route through `--surface-*` variables instead, the same seam the locale font
+  switch already used. And the gold logo is never recoloured: the hero is dusk-toned so
+  gold and ivory read on it, with code scrims guaranteeing contrast rather than the
+  image (2026-09-13)

@@ -41,9 +41,13 @@ export function NavLink({
       className={cn(
         typography,
         'relative inline-block pb-1 text-text transition-colors duration-fast ease-ui',
-        'after:absolute after:bottom-0 after:start-0 after:h-px after:bg-brand',
-        'after:transition-[width] after:duration-fast after:ease-ui',
-        current ? 'after:w-full' : 'after:w-0 hover:after:w-full focus-visible:after:w-full',
+        'after:absolute after:bottom-0 after:start-0 after:h-px after:w-full after:bg-brand',
+        // Scale, not width: the underline grows on the compositor.
+        'after:origin-left rtl:after:origin-right',
+        'after:transition-transform after:duration-[260ms] after:ease-ui',
+        current
+          ? 'after:scale-x-100'
+          : 'after:scale-x-0 hover:after:scale-x-100 focus-visible:after:scale-x-100',
         className
       )}
     >
