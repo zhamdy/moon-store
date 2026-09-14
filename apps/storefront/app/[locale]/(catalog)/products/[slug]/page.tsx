@@ -7,6 +7,7 @@ import { routing, type AppLocale } from '@/i18n/routing';
 import { getCatalogProduct } from '@/features/products/api/get-catalog-product';
 import { ProductDetail } from '@/features/products/components/product-detail';
 import { ProductGallery } from '@/features/products/components/product-gallery';
+import { PurchasePanelSlot } from '@/features/products/components/purchase-panel-slot';
 import { buildProductMetadata } from '@/features/products/utils/product-metadata';
 
 type Props = PageProps<'/[locale]/products/[slug]'>;
@@ -46,6 +47,7 @@ export default async function ProductPage(props: Props) {
       locale={locale}
       product={product}
       gallery={<ProductGallery locale={locale} product={product} />}
+      purchase={<PurchasePanelSlot locale={locale} product={product} />}
     />
   );
 }

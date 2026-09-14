@@ -122,8 +122,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to nine entries
-(ten files):
+Server Components by default (R21/R22). `'use client'` is limited to ten entries
+(eleven files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -145,12 +145,19 @@ Server Components by default (R21/R22). `'use client'` is limited to nine entrie
    filter summary, Filter button and Headless UI filter sheet, and sort select, written
    to the URL with nuqs (`shallow: false`, `history: 'push'`). Strings arrive resolved
    from `catalog-controls-slot.tsx` (`catalogControlsRenderer`); the few values it
-   formats itself use `{name}` templates through `fillTemplate`, not ICU. Its root is
+   formats itself use `{name}` templates through `fillTemplate` (`lib/utils/fill-template.ts`), not ICU. Its root is
    `display: contents` so its controls wrap as items of the utility row. Pure rules
    live in `catalog-controls-state.ts`, unit-tested.
 9. `app/[locale]/(catalog)/error.tsx` — every catalog route's error boundary. Next
    requires an error boundary to be a client component, so it cannot take resolved
    strings as props; see the one namespace exception below.
+10. `features/products/components/purchase-panel.tsx` — the product page's option
+   radios, live price and availability (PD-11, owner decision PD-E): the selection
+   drives price and per-value availability, which CSS cannot compute, and Cart needs an
+   island here anyway. Takes the DTO's `price`/`inStock`/`options`/`variants`, resolved
+   strings and a pre-formatted price map from `purchase-panel-slot.tsx`; the rules are
+   `utils/variant-selection.ts`, unit-tested. No button (PD-B): `data-readiness` exposes
+   `purchaseReadiness` for Cart.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -175,7 +182,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding a tenth
+`useTranslations`, is a new decision, not a precedent. Before adding an eleventh
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 

@@ -1,3 +1,4 @@
+import { fillTemplate } from '@/lib/utils/fill-template';
 import {
   catalogParsers,
   nextCatalogParams,
@@ -174,16 +175,8 @@ export function focusAfterRemoval(
   return remaining[index] ?? 'filter';
 }
 
-/**
- * `{name}` substitution for the few templates the island formats with client-side
- * values (the island never receives the message catalogue or an ICU formatter).
- * An unknown placeholder is left as written.
- */
-export function fillTemplate(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
-    key in values ? String(values[key]) : match
-  );
-}
+// Lives in lib/utils so the purchase panel can use it without pulling in nuqs.
+export { fillTemplate };
 
 export interface PriceSummaryTemplates {
   /** "{min}–{max} {currency}" */
