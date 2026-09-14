@@ -52,9 +52,9 @@ One token pair in `app/globals.css`'s `@theme inline`: `--radius-media` (12px, t
 `rounded-[12px]`. `rounded-media`: the product card image frame, category tiles, the
 collections index photographs, the collection intro image, the featured collection's
 two frames, lookbook images, the editorial strip photographs, the gallery frame and its
-no-image frame, the product page's gallery fallback, both skeleton frames and the
-purchase panel's size cells. `rounded-media-sm`: gallery thumbnails (the inner photograph
-is concentric, `radius - 4px`). Full-bleed photographs stay square: the hero, the promo
+no-image frame, the product page's gallery fallback and both skeleton frames.
+`rounded-media-sm`: gallery thumbnails (the inner photograph is concentric,
+`radius - 4px`) and the purchase panel's 44px size cells, where 12px read as pills. Full-bleed photographs stay square: the hero, the promo
 banner and the campaign (edge to edge horizontally). Buttons, inputs, chips, the header
 and the footer stay square.
 

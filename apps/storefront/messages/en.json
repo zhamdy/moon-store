@@ -317,7 +317,6 @@
     },
     "share": {
       "label": "Share it:",
-      "listLabel": "Share",
       "on": "Share on {network} ({newTab})",
       "email": "Share by email",
       "networks": {

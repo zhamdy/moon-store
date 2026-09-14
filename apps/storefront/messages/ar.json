@@ -317,7 +317,6 @@
     },
     "share": {
       "label": "شاركيها:",
-      "listLabel": "مشاركة",
       "on": "مشاركة عبر {network} ({newTab})",
       "email": "مشاركة عبر البريد الإلكتروني",
       "networks": {

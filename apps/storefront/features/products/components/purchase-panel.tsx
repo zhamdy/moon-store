@@ -36,7 +36,7 @@ export interface PurchasePanelProps {
 // The radio is visually hidden, so the cell draws its focus ring; the scroll margin keeps a
 // focused cell clear of the sticky header (WCAG 2.2 focus not obscured).
 const CELL = [
-  'relative flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-media border border-border px-3',
+  'relative flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-media-sm border border-border px-3',
   'scroll-mt-[calc(var(--header-h)+1.5rem)] transition-colors duration-fast ease-ui',
   'hover:border-text has-checked:border-text has-checked:shadow-[inset_0_0_0_1px_var(--color-text)]',
   'has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-solid has-focus-visible:outline-(--focus-ring-color)',
