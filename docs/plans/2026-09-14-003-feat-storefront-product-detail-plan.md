@@ -611,7 +611,7 @@ size announces sold out and keeps the price".
 - The product route's eager JS grows only by the island. Measure the eager chunks, as the
   motion rule requires.
 
-- [ ] **Unit 7: Storefront: related pieces**
+- [x] **Unit 7: Storefront: related pieces**
 
 **Goal:** A short related row whose failure stays contained.
 
