@@ -401,8 +401,9 @@ input (no manifest entries, no client calls, no postponed list) rather than pass
 
 ## Public catalog (`/api/v1/catalog`)
 
-Four anonymous GETs the storefront renders from (plan 2026-09-14-002, Unit 4):
-`/products` (the one listing), `/categories`, `/collections`, `/collections/:slug`. A
+Five anonymous GETs the storefront renders from (plan 2026-09-14-002, Unit 4; the product
+detail from plan 2026-09-14-003, Unit 1): `/products` (the one listing), `/products/:slug`,
+`/categories`, `/collections`, `/collections/:slug`. A
 separate module and prefix (`src/modules/commerce/catalog`, manifest
 `publicEntry(['B', 'P'])`) rather than public routes in the postponed Admin-gated
 storefront module, so "nothing under this prefix writes" stays structurally checkable.
@@ -411,7 +412,8 @@ storefront module, so "nothing under this prefix writes" stays structurally chec
 columns and a mapper builds each DTO. `products` carries `cost_price`, supplier and reorder
 columns, no gate inspects responses, and these responses are publicly cached, so
 `tests/catalog.test.ts` pins each DTO's exact key set and that no `id`, `sku`, `barcode`,
-`stock` or `cost_price` appears anywhere in a body. A new field is a mapper change plus a
+`stock` or `cost_price` appears anywhere in a body (the detail test also scans for
+`product_id` and `min_stock`). A new field is a mapper change plus a
 test change, deliberately.
 
 - Only `status = 'active'` products with a slug; `inStock` follows `has_variants` (summed
@@ -432,6 +434,35 @@ test change, deliberately.
   cancelled query (57014) is `503 SERVICE_UNAVAILABLE`, the eighth public code.
 - 2xx (and 304) send `Cache-Control: public, max-age=60`; every other status `no-store`
   (`publicCacheOnSuccess`, decided at `writeHead`).
+
+**Product detail (`/products/:slug`).** All four reads (product, gallery, variants,
+collections) run in one `runCatalogRead`. The rules, pinned in `tests/catalog.test.ts`:
+
+- **404:** anything but `status = 'active'` with that exact slug, with the shared body. The
+  query is `p.slug = $1 AND p.status = 'active'` -- equality excludes a null slug and stays
+  clear of the pg-mem `slug IS NOT NULL` shim.
+- **Images:** primary, then gallery by position, capped at `CATALOG_DETAIL_IMAGE_COUNT` (9)
+  in the mapper, because `product_images` has no database limit (only the dashboard caps
+  the gallery at 8). `productImages` takes the cap as an argument; the listing passes 2.
+- **Context:** `category` via a LEFT JOIN, `null` when there is none or it has no slug;
+  `collections` are the public statuses only, in `listCollections` order.
+- **Options** are derived by the pure `deriveVariantOptions` (`mappers.ts`), and only when
+  `has_variants = 1` -- the flag is the authority even while stale variant rows exist.
+  `attributes` must parse to a non-empty object of non-empty strings; keys are trimmed and
+  lower-cased (`Size` and `size` merge, the first spelling is the label), values match
+  case-insensitively (first spelling shown). Only variants carrying the **canonical key set**
+  (the set most variants share; a tie goes to the lowest id's) are listed, so `size` and
+  `المقاس` on different variants never make two options no variant can satisfy. A variant
+  repeating an earlier one's combination is dropped too: a public variant is identified by
+  its option values alone. Dropped variants are logged (`product_slug`, `variant_ids`),
+  never an error. Variants are `ORDER BY id`: creation order is display order.
+- **Effective price** is `variant.price ?? product.price`, always a JS number. POS still
+  sells a NULL-priced variant at 0 (plan PD-C) -- fix that before Cart.
+- **inStock:** a variant is `stock > 0`; the product is any *listed* variant in stock, else
+  its own stock. It differs from the listing's `IN_STOCK_SQL` only for malformed or mixed
+  variant data (a card may say in stock while the page says sold out); a test pins that the
+  two agree on well-formed data.
+- No `id`, `sku`, `barcode`, stock quantity or cost anywhere, variants included (PD-3).
 
 pg-mem cannot resolve correlated subqueries or LATERAL, so variant stock is a grouped LEFT
 JOIN and gallery images are one follow-up query for the page's ids. It also returns **no

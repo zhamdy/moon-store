@@ -309,7 +309,7 @@ Units 5, 6 and 7 each render into `product-detail.tsx`, so they run in sequence 
 editor per file). Unit A runs first. The
 storefront `CLAUDE.md` *Product detail* section is written once, in Unit 8.
 
-- [ ] **Unit 1: Server: `GET /api/v1/catalog/products/:slug`**
+- [x] **Unit 1: Server: `GET /api/v1/catalog/products/:slug`**
 
 **Goal:** One public, whitelisted product read carrying the gallery, category, public
 collections, options and variant availability.

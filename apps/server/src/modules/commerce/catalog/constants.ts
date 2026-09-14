@@ -36,6 +36,12 @@ export const CATALOG_PRICE_MAX = 10_000_000;
 /** At most this many images per product in a listing: the primary and the hover image. */
 export const CATALOG_LIST_IMAGE_COUNT = 2;
 
+/**
+ * At most this many images on a product detail: the primary plus the dashboard's gallery cap
+ * of 8. Enforced here because `product_images` has no database limit.
+ */
+export const CATALOG_DETAIL_IMAGE_COUNT = 9;
+
 /** `SET LOCAL statement_timeout` for every catalog read transaction (KD-17). */
 export const CATALOG_STATEMENT_TIMEOUT_MS = 2000;
 

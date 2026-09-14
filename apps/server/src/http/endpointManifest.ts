@@ -742,6 +742,12 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
   {
     method: 'GET',
+    path: '/api/v1/catalog/products/:slug',
+    classification: 'B',
+    authorization: publicAuth,
+  },
+  {
+    method: 'GET',
     path: '/api/v1/catalog/categories',
     classification: 'B',
     authorization: publicAuth,

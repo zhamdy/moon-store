@@ -1,8 +1,15 @@
 import { PublicError } from '../../../http/errors';
 import { paginationMeta } from '../../../http/pagination';
 import { resolveMediaPublicOrigin } from '../../../config/env';
+import logger from '../../../../lib/logger';
 import { CATALOG_NOT_FOUND_MESSAGE, CATALOG_PAGE_SIZE } from './constants';
-import { toCatalogCategoryDto, toCatalogCollectionDto, toCatalogProductDto } from './mappers';
+import {
+  deriveVariantOptions,
+  toCatalogCategoryDto,
+  toCatalogCollectionDto,
+  toCatalogProductDetailDto,
+  toCatalogProductDto,
+} from './mappers';
 import {
   CatalogRepository,
   catalogRepository,
@@ -12,6 +19,7 @@ import {
 import type {
   CatalogCategoryDto,
   CatalogCollectionDto,
+  CatalogProductDetailDto,
   CatalogProductFilters,
   CatalogProductList,
 } from './types';
@@ -85,6 +93,38 @@ export class CatalogService {
         },
       };
     });
+  }
+
+  async getProduct(slug: string): Promise<CatalogProductDetailDto> {
+    const origin = resolveMediaPublicOrigin();
+
+    const read = await runCatalogRead(async (client) => {
+      const row = await this.repo.findPublicProductBySlug(slug, client);
+      if (row === null) throw catalogNotFound();
+      const gallery = await this.repo.listGallery([row.id], client);
+      const variants = await this.repo.listVariants(row.id, client);
+      const collections = await this.repo.listProductCollections(row.id, client);
+      return { row, gallery, variants, collections };
+    });
+
+    const hasVariants = Number(read.row.has_variants) === 1 || read.row.has_variants === true;
+    const derived = hasVariants
+      ? deriveVariantOptions(read.variants, read.row.price)
+      : { options: [], variants: [], droppedVariantIds: [] };
+    if (derived.droppedVariantIds.length > 0) {
+      logger.warn('Catalog product detail dropped unusable variants', {
+        product_slug: slug,
+        variant_ids: derived.droppedVariantIds,
+      });
+    }
+
+    return toCatalogProductDetailDto(
+      read.row,
+      read.gallery.map((image) => image.image_url),
+      derived,
+      read.collections,
+      origin
+    );
   }
 
   async listCategories(): Promise<CatalogCategoryDto[]> {

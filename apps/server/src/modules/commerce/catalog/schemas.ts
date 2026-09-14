@@ -114,6 +114,9 @@ export const catalogEmptyQuerySchema = z.object({}).strict();
 
 export const catalogCollectionParamsSchema = z.object({ slug: slugParam('slug') }).strict();
 
+/** Products and collections share one slug grammar. */
+export const catalogProductParamsSchema = catalogCollectionParamsSchema;
+
 const PUBLIC_READ =
   'Public and unauthenticated. Rate limited by the catalog limiter, not the global one: ' +
   'per IP, or one shared bucket for a request carrying a valid X-Catalog-Server-Token. ' +
@@ -141,6 +144,29 @@ export const catalogRequestContracts = {
         'on_sale, is a 404 with one shared body.',
       `isNew is created within the last ${NEW_IN_DAYS} days. meta.priceRange is the scope's ` +
         'price bounds with every filter except priceMin/priceMax applied.',
+    ],
+  }),
+
+  getCatalogProduct: defineRequestContract({
+    method: 'GET',
+    path: '/api/v1/catalog/products/{slug}',
+    operation: 'getCatalogProduct',
+    query: catalogEmptyQuerySchema,
+    params: catalogProductParamsSchema,
+    noBody: true,
+    beyondSchema: [
+      PUBLIC_READ,
+      'Only an active product with this slug is found. An unknown, inactive or discontinued ' +
+        'product is a 404 with a body identical to any other catalog 404.',
+      'images: the primary image, then the gallery by position, at most 9.',
+      'options and variants come from variant attributes: keys are trimmed and lower-cased, ' +
+        'values match case-insensitively (first spelling shown). Only variants carrying the ' +
+        'most common key set are listed; malformed or duplicate variants are omitted.',
+      'A variant price is its own price, else the product price. inStock is stock > 0; the ' +
+        'product is in stock when any listed variant is (own stock for a product without ' +
+        'variants). No stock quantity is exposed.',
+      `isNew is created within the last ${NEW_IN_DAYS} days. collections lists active and ` +
+        'on_sale collections only, featured first.',
     ],
   }),
 

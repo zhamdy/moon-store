@@ -25,7 +25,12 @@ import {
   resolveMediaPublicOrigin,
   type Env,
 } from '../src/config/env';
-import { absoluteMediaUrl } from '../src/modules/commerce/catalog/mappers';
+import {
+  absoluteMediaUrl,
+  deriveVariantOptions,
+  productImages,
+} from '../src/modules/commerce/catalog/mappers';
+import type { CatalogVariantRow } from '../src/modules/commerce/catalog/types';
 import { runCatalogRead } from '../src/modules/commerce/catalog/service';
 import { PublicError } from '../src/http/errors';
 
@@ -686,6 +691,426 @@ describe('public catalog', () => {
         else process.env.CATALOG_SERVER_TOKEN = previous;
         resetEnvCache();
       }
+    });
+  });
+  describe('GET /catalog/products/:slug', () => {
+    const DETAIL_KEYS = [
+      'category',
+      'collections',
+      'description',
+      'descriptionEn',
+      'images',
+      'inStock',
+      'isNew',
+      'name',
+      'nameEn',
+      'options',
+      'price',
+      'slug',
+      'variants',
+    ];
+    const DETAIL_FORBIDDEN = [
+      ...FORBIDDEN_KEYS,
+      'product_id',
+      'productId',
+      'min_stock',
+      'minStock',
+    ];
+
+    const insertProduct = (
+      id: number,
+      slug: string,
+      fields: {
+        price?: number;
+        stock?: number;
+        hasVariants?: 0 | 1;
+        status?: string;
+        categoryId?: number | null;
+        imageUrl?: string | null;
+        createdDaysAgo?: number;
+        description?: string | null;
+        descriptionEn?: string | null;
+      } = {}
+    ) =>
+      pool.query(
+        `INSERT INTO products (id, name, name_en, sku, barcode, slug, price, cost_price, stock,
+                               min_stock, has_variants, status, category_id, created_at,
+                               image_url, description, description_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8, 5, $9, $10, $11, $12, $13, $14, $15)`,
+        [
+          id,
+          `name-${id}`,
+          `English ${id}`,
+          `SKU-SECRET-${id}`,
+          `BARCODE-${id}`,
+          slug,
+          fields.price ?? 1000,
+          fields.stock ?? 0,
+          fields.hasVariants ?? 0,
+          fields.status ?? 'active',
+          fields.categoryId === undefined ? 5 : fields.categoryId,
+          daysAgo(fields.createdDaysAgo ?? 60),
+          fields.imageUrl ?? null,
+          fields.description ?? null,
+          fields.descriptionEn ?? null,
+        ]
+      );
+
+    // Sequential: ids must follow array order, since creation order is display order.
+    const variants = async (productId: number, rows: [string, number, number | null][]) => {
+      for (const [i, [attributes, stock, price]] of rows.entries()) {
+        await pool.query(
+          `INSERT INTO product_variants (product_id, sku, barcode, stock, price, cost_price, attributes)
+           VALUES ($1, $2, $3, $4, $5, 7, $6)`,
+          [
+            productId,
+            `V-SECRET-${productId}-${i}`,
+            `VB-${productId}-${i}`,
+            stock,
+            price,
+            attributes,
+          ]
+        );
+      }
+    };
+
+    const size = (value: string) => JSON.stringify({ size: value });
+
+    beforeAll(async () => {
+      await pool.query(
+        `INSERT INTO categories (id, name, code, slug, name_en) VALUES (5, 'Seedlike', 'SDL', 'seedlike', 'Seedlike')`
+      );
+
+      await insertProduct(101, 'gallery-dress', {
+        price: 1800,
+        stock: 3,
+        categoryId: 1,
+        createdDaysAgo: 2,
+        imageUrl: '/uploads/products/g-primary.jpg',
+        description: 'وصف عربي',
+        descriptionEn: 'An English description',
+      });
+      await pool.query(
+        `INSERT INTO product_images (product_id, image_url, position) VALUES
+           (101, '/uploads/products/g-2.jpg', 2),
+           (101, '/uploads/products/g-0.jpg', 0),
+           (101, 'https://cdn.example.com/g-1.jpg', 1)`
+      );
+      await pool.query(
+        `INSERT INTO collection_products (collection_id, product_id, position) VALUES
+           (1, 101, 4), (4, 101, 1), (2, 101, 1), (5, 101, 0)`
+      );
+
+      await insertProduct(102, 'ten-images', { stock: 1, imageUrl: '/uploads/products/t-p.jpg' });
+      for (let position = 0; position < 9; position += 1) {
+        await pool.query(
+          'INSERT INTO product_images (product_id, image_url, position) VALUES ($1, $2, $3)',
+          [102, `/uploads/products/t-${position}.jpg`, position]
+        );
+      }
+
+      await insertProduct(103, 'unsafe-image', { stock: 1, categoryId: null });
+      await pool.query(
+        `INSERT INTO product_images (product_id, image_url, position) VALUES
+           (103, '/uploads/products/u-0.jpg', 0),
+           (103, 'javascript:alert(1)', 1),
+           (103, '/uploads/products/u-2.jpg', 2)`
+      );
+      await insertProduct(104, 'unslugged-category', { stock: 1, categoryId: 4 });
+
+      // Shaped like the seed: `{ size }` attributes, has_variants set, NULL variant prices.
+      await insertProduct(110, 'knit-mixed', { hasVariants: 1, stock: 6, price: 1250 });
+      await variants(110, [
+        [size('S'), 4, null],
+        [size('M'), 0, null],
+        [size('L'), 2, null],
+      ]);
+      await insertProduct(111, 'dress-sold-out', { hasVariants: 1, price: 2100 });
+      await variants(111, [
+        [size('S'), 0, null],
+        [size('M'), 0, null],
+      ]);
+      await insertProduct(112, 'plain-sold-out', { stock: 0 });
+      await insertProduct(113, 'flag-without-rows', { hasVariants: 1, stock: 9 });
+      await insertProduct(114, 'plain-in-stock', { stock: 2 });
+
+      await insertProduct(120, 'priced-variants', { hasVariants: 1, price: 1000, categoryId: 1 });
+      await variants(120, [
+        [size('S'), 1, null],
+        [size('M'), 1, 1200.5],
+      ]);
+      await insertProduct(121, 'merged-keys', { hasVariants: 1, categoryId: 1 });
+      await variants(121, [
+        ['{"Size":"S"}', 1, null],
+        ['{" size ":" M "}', 0, null],
+        ['{"size":"m"}', 3, null],
+        ['{"size":""}', 3, null],
+      ]);
+      await insertProduct(122, 'malformed-variants', { hasVariants: 1, categoryId: 1 });
+      await variants(122, [
+        ['not json', 5, null],
+        ['{"size":1}', 5, null],
+        ['{}', 5, null],
+        [size('L'), 0, null],
+      ]);
+      await insertProduct(123, 'all-malformed', { hasVariants: 1, stock: 4, categoryId: 1 });
+      await variants(123, [
+        ['nope', 3, null],
+        ['[]', 1, null],
+      ]);
+      await insertProduct(124, 'stale-variant-rows', { hasVariants: 0, stock: 4, categoryId: 1 });
+      await variants(124, [[size('S'), 0, null]]);
+      await insertProduct(125, 'mixed-key-sets', { hasVariants: 1, categoryId: 1 });
+      await variants(125, [
+        [size('S'), 0, null],
+        [size('M'), 0, null],
+        ['{"المقاس":"L"}', 5, null],
+      ]);
+
+      await insertProduct(126, 'inactive-piece', { stock: 1, status: 'inactive' });
+      await insertProduct(127, 'discontinued-piece', { stock: 1, status: 'discontinued' });
+    });
+
+    const detail = async (slug: string) => {
+      const r = await get(`/api/v1/catalog/products/${slug}`);
+      expect(r.status, slug).toBe(200);
+      return r.body.data as unknown as Json;
+    };
+
+    it('returns the exact DTO: gallery order, descriptions, context, public cache', async () => {
+      const r = await get('/api/v1/catalog/products/gallery-dress');
+      expect(r.status).toBe(200);
+      expect(r.cache).toBe('public, max-age=60');
+      expect(Object.keys(r.body.data).sort()).toEqual(DETAIL_KEYS);
+      expect(r.body.data).toEqual({
+        slug: 'gallery-dress',
+        name: 'name-101',
+        nameEn: 'English 101',
+        description: 'وصف عربي',
+        descriptionEn: 'An English description',
+        price: 1800,
+        isNew: true,
+        inStock: true,
+        images: [
+          { url: `${ORIGIN}/uploads/products/g-primary.jpg` },
+          { url: `${ORIGIN}/uploads/products/g-0.jpg` },
+          { url: 'https://cdn.example.com/g-1.jpg' },
+          { url: `${ORIGIN}/uploads/products/g-2.jpg` },
+        ],
+        category: { slug: 'dresses', name: 'Dresses', nameEn: 'Dresses' },
+        // linen is featured; soon (upcoming) and old (archived) are never listed.
+        collections: [
+          { slug: 'linen', name: 'Linen', nameEn: null },
+          { slug: 'evening', name: 'Evening', nameEn: 'Evening' },
+        ],
+        options: [],
+        variants: [],
+      });
+    });
+
+    it('keeps the listing DTO key set unchanged: descriptions are detail-only', async () => {
+      const r = await get('/api/v1/catalog/products?category=dresses');
+      const item = (r.body.data as Json[]).find((p) => p.slug === 'gallery-dress');
+      expect(item).toBeDefined();
+      expect(Object.keys(item as Json).sort()).toEqual(PRODUCT_KEYS);
+    });
+
+    it('never exposes internal fields anywhere in the body, variants included', async () => {
+      for (const slug of ['gallery-dress', 'knit-mixed', 'priced-variants', 'merged-keys']) {
+        const r = await get(`/api/v1/catalog/products/${slug}`);
+        const keys = allKeys(r.body);
+        for (const forbidden of DETAIL_FORBIDDEN)
+          expect(keys.has(forbidden), forbidden).toBe(false);
+        expect(r.text).not.toContain('SECRET');
+        expect(r.text).not.toContain('BARCODE-');
+        expect(r.text).not.toContain('VB-');
+      }
+    });
+
+    it('derives one size option in creation order with per-variant availability', async () => {
+      const knit = await detail('knit-mixed');
+      expect(knit.inStock).toBe(true);
+      expect(knit.options).toEqual([{ key: 'size', label: 'size', values: ['S', 'M', 'L'] }]);
+      expect(knit.variants).toEqual([
+        { options: { size: 'S' }, price: 1250, inStock: true },
+        { options: { size: 'M' }, price: 1250, inStock: false },
+        { options: { size: 'L' }, price: 1250, inStock: true },
+      ]);
+    });
+
+    it('marks the product and every variant sold out when every size is', async () => {
+      const dress = await detail('dress-sold-out');
+      expect(dress.inStock).toBe(false);
+      expect((dress.variants as Json[]).every((v) => v.inStock === false)).toBe(true);
+    });
+
+    it('handles no variants, and a variant flag with no rows, as the flag says', async () => {
+      expect(await detail('plain-sold-out')).toMatchObject({
+        options: [],
+        variants: [],
+        inStock: false,
+      });
+      expect(await detail('flag-without-rows')).toMatchObject({
+        options: [],
+        variants: [],
+        inStock: false,
+      });
+      expect(await detail('stale-variant-rows')).toMatchObject({
+        options: [],
+        variants: [],
+        inStock: true,
+      });
+    });
+
+    it('falls back to the product price for a NULL variant price, as a number', async () => {
+      const priced = await detail('priced-variants');
+      expect(priced.variants).toEqual([
+        { options: { size: 'S' }, price: 1000, inStock: true },
+        { options: { size: 'M' }, price: 1200.5, inStock: true },
+      ]);
+    });
+
+    it('merges key spellings and value case, and drops empty values and repeats', async () => {
+      const merged = await detail('merged-keys');
+      expect(merged.options).toEqual([{ key: 'size', label: 'Size', values: ['S', 'M'] }]);
+      // `m` repeats `M` and `""` is empty: both dropped, so the in-stock `m` does not count.
+      expect(merged.variants).toEqual([
+        { options: { size: 'S' }, price: 1000, inStock: true },
+        { options: { size: 'M' }, price: 1000, inStock: false },
+      ]);
+    });
+
+    it('drops malformed variants and still answers 200', async () => {
+      const malformed = await detail('malformed-variants');
+      expect(malformed.options).toEqual([{ key: 'size', label: 'size', values: ['L'] }]);
+      expect(malformed.variants).toEqual([{ options: { size: 'L' }, price: 1000, inStock: false }]);
+      expect(malformed.inStock).toBe(false);
+
+      expect(await detail('all-malformed')).toMatchObject({
+        options: [],
+        variants: [],
+        inStock: false,
+      });
+    });
+
+    it('lists only the canonical key set, so an odd in-stock variant does not count', async () => {
+      const mixed = await detail('mixed-key-sets');
+      expect(mixed.options).toEqual([{ key: 'size', label: 'size', values: ['S', 'M'] }]);
+      expect((mixed.variants as Json[]).length).toBe(2);
+      expect(mixed.inStock).toBe(false);
+    });
+
+    it('caps images at nine and drops unsafe URLs', async () => {
+      const ten = await detail('ten-images');
+      expect((ten.images as Json[]).map((i) => i.url)).toEqual([
+        `${ORIGIN}/uploads/products/t-p.jpg`,
+        ...Array.from({ length: 8 }, (_, n) => `${ORIGIN}/uploads/products/t-${n}.jpg`),
+      ]);
+      const unsafe = await detail('unsafe-image');
+      expect(unsafe.images).toEqual([
+        { url: `${ORIGIN}/uploads/products/u-0.jpg` },
+        { url: `${ORIGIN}/uploads/products/u-2.jpg` },
+      ]);
+    });
+
+    it('returns category null with no category or an unslugged one', async () => {
+      expect((await detail('unsafe-image')).category).toBeNull();
+      expect((await detail('unslugged-category')).category).toBeNull();
+    });
+
+    it('agrees with the listing on inStock for well-formed products', async () => {
+      const listing = await get('/api/v1/catalog/products?category=seedlike');
+      const listed = Object.fromEntries(
+        (listing.body.data as Json[]).map((p) => [p.slug, p.inStock])
+      );
+      expect(Object.keys(listed).sort()).toEqual([
+        'dress-sold-out',
+        'flag-without-rows',
+        'knit-mixed',
+        'plain-in-stock',
+        'plain-sold-out',
+        'ten-images',
+      ]);
+      for (const [slug, inStock] of Object.entries(listed)) {
+        expect((await detail(slug)).inStock, slug).toBe(inStock);
+      }
+      expect(listed['knit-mixed']).toBe(true);
+      expect(listed['dress-sold-out']).toBe(false);
+    });
+
+    it('answers unknown, inactive and discontinued products with the shared 404 body', async () => {
+      const collectionMiss = await get('/api/v1/catalog/collections/nope');
+      for (const slug of ['nope', 'inactive-piece', 'discontinued-piece']) {
+        const r = await get(`/api/v1/catalog/products/${slug}`);
+        expect(r.status, slug).toBe(404);
+        expect(r.cache).toBe('no-store');
+        expect(r.text).toBe(collectionMiss.text);
+      }
+    });
+
+    it.each([
+      ['an uppercase slug', '/api/v1/catalog/products/Gallery-Dress'],
+      ['an over-length slug', `/api/v1/catalog/products/${'a'.repeat(81)}`],
+      ['an unknown query parameter', '/api/v1/catalog/products/gallery-dress?x=1'],
+    ])('rejects %s with 400 and no-store', async (_label, url) => {
+      const r = await get(url);
+      expect(r.status).toBe(400);
+      expect(r.body.error.code).toBe('VALIDATION_ERROR');
+      expect(r.cache).toBe('no-store');
+    });
+  });
+
+  describe('deriveVariantOptions', () => {
+    const row = (id: number, attributes: string, stock = 1, price: number | null = null) =>
+      ({ id, attributes, stock, price }) as CatalogVariantRow;
+
+    it('breaks a key-set tie toward the lowest id and reports what it dropped', () => {
+      const derived = deriveVariantOptions(
+        [row(3, '{"color":"Red"}'), row(1, '{"size":"S"}')].sort((a, b) => a.id - b.id),
+        500
+      );
+      expect(derived.options).toEqual([{ key: 'size', label: 'size', values: ['S'] }]);
+      expect(derived.droppedVariantIds).toEqual([3]);
+    });
+
+    it('keeps key order by first appearance and fills every canonical key per variant', () => {
+      const derived = deriveVariantOptions(
+        [
+          row(1, '{"Size":"S","Color":"Ivory"}', 0),
+          row(2, '{"color":"ink","size":"M"}', 2, 900),
+          row(3, '{"size":"S","color":"Ink"}', 1),
+        ],
+        '750'
+      );
+      expect(derived.options).toEqual([
+        { key: 'size', label: 'Size', values: ['S', 'M'] },
+        { key: 'color', label: 'Color', values: ['Ivory', 'ink'] },
+      ]);
+      expect(derived.variants).toEqual([
+        { options: { size: 'S', color: 'Ivory' }, price: 750, inStock: false },
+        { options: { size: 'M', color: 'ink' }, price: 900, inStock: true },
+        { options: { size: 'S', color: 'ink' }, price: 750, inStock: true },
+      ]);
+      expect(derived.droppedVariantIds).toEqual([]);
+    });
+
+    it('rejects null attributes, arrays, duplicate keys after normalization and blank keys', () => {
+      const derived = deriveVariantOptions(
+        [
+          { id: 1, attributes: null, stock: 1, price: null },
+          row(2, '["S"]'),
+          row(3, '{"size":"S","Size":"M"}'),
+          row(4, '{" ":"S"}'),
+        ],
+        100
+      );
+      expect(derived).toEqual({ options: [], variants: [], droppedVariantIds: [1, 2, 3, 4] });
+    });
+
+    it('productImages honours the cap it is given', () => {
+      const gallery = ['/a.jpg', '/b.jpg', '/c.jpg'];
+      expect(productImages('/p.jpg', gallery, ORIGIN, 2)).toHaveLength(2);
+      expect(productImages('/p.jpg', gallery, ORIGIN, 9)).toHaveLength(4);
     });
   });
 });

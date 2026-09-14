@@ -22,8 +22,11 @@ import type {
   CatalogCategoryRow,
   CatalogCollectionRow,
   CatalogGalleryRow,
+  CatalogProductCollectionRow,
+  CatalogProductDetailRow,
   CatalogProductFilters,
   CatalogProductRow,
+  CatalogVariantRow,
 } from './types';
 
 /**
@@ -195,6 +198,56 @@ export class CatalogRepository {
         ORDER BY ${orderBy(resolved.filters)}
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
+    );
+    return rows;
+  }
+
+  /**
+   * One public product by slug. Equality on `slug` already excludes a null slug, and keeps
+   * this query clear of the pg-mem `slug IS NOT NULL` shim.
+   */
+  async findPublicProductBySlug(
+    slug: string,
+    db: Queryable
+  ): Promise<CatalogProductDetailRow | null> {
+    const { rows } = await db.query<CatalogProductDetailRow>(
+      `SELECT p.id, p.slug, p.name, p.name_en, p.description, p.description_en, p.price,
+              p.image_url, p.stock, p.has_variants,
+              (${NEW_WINDOW_SQL}) AS is_new,
+              c.slug AS category_slug, c.name AS category_name, c.name_en AS category_name_en
+         FROM products p
+         LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.slug = $1 AND p.status = 'active'`,
+      [slug]
+    );
+    return rows[0] ?? null;
+  }
+
+  /** Creation order is display order. */
+  async listVariants(productId: number, db: Queryable): Promise<CatalogVariantRow[]> {
+    const { rows } = await db.query<CatalogVariantRow>(
+      `SELECT v.id, v.price, v.stock, v.attributes
+         FROM product_variants v
+        WHERE v.product_id = $1
+        ORDER BY v.id ASC`,
+      [productId]
+    );
+    return rows;
+  }
+
+  /** The product's public collections, in `listCollections` order. */
+  async listProductCollections(
+    productId: number,
+    db: Queryable
+  ): Promise<CatalogProductCollectionRow[]> {
+    const { rows } = await db.query<CatalogProductCollectionRow>(
+      `SELECT c.slug, c.name, c.name_en
+         FROM collection_products cp
+         JOIN collections c ON c.id = cp.collection_id
+        WHERE cp.product_id = $1 AND c.slug IS NOT NULL AND c.status IN (${statusList()})
+        ORDER BY COALESCE(c.is_featured, 0) DESC, c.year DESC NULLS LAST,
+                 c.created_at DESC NULLS LAST, c.id ASC`,
+      [productId]
     );
     return rows;
   }
