@@ -151,6 +151,16 @@
   "footer": {
     "tagline": "Luxury fashion, edited for the modern wardrobe.",
     "shopLabel": "Shop",
+    "contactLabel": "Contact",
+    "socialLabel": "Follow Moon Fashion",
+    "newTab": "opens in a new tab",
+    "networks": {
+      "instagram": "Instagram",
+      "facebook": "Facebook",
+      "whatsapp": "WhatsApp",
+      "x": "X",
+      "youtube": "YouTube"
+    },
     "rights": "© {year} Moon Fashion. All rights reserved."
   },
   "notFound": {

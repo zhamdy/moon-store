@@ -127,7 +127,7 @@ Server Components by default (R21/R22). `'use client'` is limited to seven entri
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
 3. `components/layout/locale-switcher.tsx` — needs `usePathname` to preserve the
    current path across a locale switch. Exports both `LocaleSwitcher` (the
-   both-locales list in the mobile menu and footer) and `LocaleToggle` (the
+   both-locales list in the mobile menu) and `LocaleToggle` (the
    header's single link to the other locale); one module, one boundary.
 4. `components/layout/header/header-shell.tsx` — owns the `IntersectionObserver` that
    narrows the header surface; takes children only.
@@ -265,7 +265,12 @@ Every homepage image is a static import behind one registry, swappable by file d
   terms only ever from the business), and its "Explore the story →" is dropped (an
   About-shaped destination); §12·12's
   Customer Care column is omitted until Shipping/Returns/Contact pages are planned. No
-  FAQ, Blog, About, Newsletter, social links, contact details or policy text anywhere.
+  FAQ, Blog, About, Newsletter or policy text anywhere.
+- The footer carries social links and contact details (user decision, 2026-09-14), and
+  no language switcher. They come only from `lib/brand/contact.ts` and render only when
+  real values are filled in there; `contact.test.ts` fails the build on a malformed
+  number, a one-locale address or a non-https link. Never copy the server seed's demo
+  `phone` / `address` settings into it.
 - Prices format on the server in `features/products/utils/price.ts`: Western digits in
   both locales (`ar-EG-u-nu-latn`), no decimals, the localised currency label from
   `products.currency` trailing (`1,250 EGP` / `1,250 ج.م`). Eastern Arabic digits are a

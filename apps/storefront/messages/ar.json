@@ -151,6 +151,16 @@
   "footer": {
     "tagline": "أزياء فاخرة، مختارة لخزانة الملابس العصرية.",
     "shopLabel": "تسوّق",
+    "contactLabel": "تواصل معنا",
+    "socialLabel": "تابعوا مون فاشون",
+    "newTab": "يفتح في علامة تبويب جديدة",
+    "networks": {
+      "instagram": "إنستغرام",
+      "facebook": "فيسبوك",
+      "whatsapp": "واتساب",
+      "x": "إكس",
+      "youtube": "يوتيوب"
+    },
     "rights": "© {year} مون فاشون. جميع الحقوق محفوظة."
   },
   "notFound": {
