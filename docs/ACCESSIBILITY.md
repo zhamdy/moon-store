@@ -121,6 +121,20 @@ autofocus; the rule is an opinion about general web pages.
 to a single frame rather than removing animations — `animation: none` can strand an
 element on its opening keyframe, invisible.
 
+**Storefront sold-out sizes stay selectable.** On the product page each option is a
+`<fieldset>` of native radios (`features/products/components/purchase-panel.tsx`), and a
+sold-out or unavailable value is never `disabled`: disabled radios are skipped by arrow keys
+and hidden by many screen readers, so a shopper could not find out that M is sold out. The
+value is struck through in `text-disabled` and its label carries visually hidden
+"{value}, sold out" text, so the state is never colour alone. Price and availability share
+one polite live region rendered with the first paint, because a region mounted alongside its
+message announces nothing.
+
+**The storefront gallery rail is a focusable, labelled region.** Below 1024 the product
+images scroll in a scroll-snap rail with `role="region"`, an `aria-label` and a visually
+hidden image count, so keyboard users can reach it and scroll with the arrow keys. It has no
+JS and no custom key handling.
+
 **Colour tokens are measured, not eyeballed.** `success` and `warning` are defined per
 theme in `tailwind.config.js` with their contrast ratios in the comment. HeroUI's default
 success (`#17C964`) measures **2.19:1** on a light surface and was in use in table cells.
@@ -144,6 +158,14 @@ navigation shell.
    missing or stuck invisible as a result.
 6. **Offline banner and queue states.** Pull the network: the state change should be
    announced, not only shown.
+7. **Storefront product page, keyboard and screen reader.** The storefront is not
+   axe-scanned by `e2e/`, so this is the only check it gets. On a product with mixed stock
+   (`cashmere-pullover` in a seeded catalog), in EN and AR: Tab enters each size fieldset
+   once, arrow keys move and select, and the focus ring is visible and never under the
+   sticky header. VoiceOver/NVDA announce something like "M, sold out, 2 of 3, selected",
+   and the price/status change is spoken. Below 1024 the image rail takes focus once and
+   scrolls with arrow keys; at 1024 and above, confirm whether its tab stop (it no longer
+   scrolls there) is a nuisance worth removing.
 
 ## Running the checks
 

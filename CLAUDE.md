@@ -8,8 +8,8 @@ contracts load on demand, when you work in the tree they govern.
 
 Run `pnpm install` at the repository root first. The workspace contains
 `apps/dashboard`, `apps/server`, and `apps/storefront` (a Next.js storefront: a static
-homepage plus Shop, category, New In and Collections pages rendered from the server's
-public catalog API; product detail, cart and checkout still 404 by design).
+homepage plus Shop, category, New In, Collections and product detail pages rendered from
+the server's public catalog API; cart and checkout still 404 by design).
 Use `pnpm dev:storefront` for it on port 3000; copy `apps/storefront/.env.example` to
 `apps/storefront/.env.local` first (see `apps/storefront/CLAUDE.md` for what each
 variable does). The catalog pages need the API running on a database with migration 014

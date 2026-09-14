@@ -7,8 +7,10 @@ design tokens, the API client and the global shell. The homepage, header surface
 menu panel and footer come from `2026-09-13-002-feat-storefront-homepage-header-footer`.
 Shop + Collections (`2026-09-14-002-feat-storefront-shop-collections`) added the first
 API-backed surfaces: Shop All, category pages, New In, the collections index and
-collection pages (see *Catalog*). Product detail (`/products/<slug>`, where every card
-links) still 404s through the catch-all, by design — no placeholder pages.
+collection pages (see *Catalog*). Product detail
+(`2026-09-14-003-feat-storefront-product-detail`) added `/products/<slug>`, where every
+card links (see *Product detail*). Cart and checkout still 404 through the catch-all, by
+design — no placeholder pages.
 
 ## Design guideline
 
@@ -362,7 +364,7 @@ beside the server render, plus hydration payload).
 | `/new-in` | `.../new-in/page.tsx` | products created in the server's `NEW_IN_DAYS` window |
 | `/collections` | `.../collections/page.tsx` | live collections (no product grid) |
 | `/collections/[slug]` | `.../collections/[slug]/page.tsx` | one collection, merchandised order |
-| `/products/[slug]` | none yet | the card href; 404s through the catch-all |
+| `/products/[slug]` | `.../products/[slug]/page.tsx` | one product (see *Product detail*) |
 
 Categories and collections stay distinct in URLs, API and UI (UD-3). A category is
 **path-only**: there is no `?category=`, so the query form can never compete with the
@@ -403,9 +405,10 @@ data-cache entry.
 
 ### Rendering and caching
 
-The five catalog routes are dynamic (`ƒ`); nothing calls the API at `next build`. The
-four listings read `searchParams`. `/collections` reads none, so it calls
-`await connection()`; without that it would prerender and call the API at build.
+The six catalog routes are dynamic (`ƒ`); nothing calls the API at `next build`. The
+four listings read `searchParams`. `/collections` and `/products/[slug]` read none, so
+they call `await connection()`; without that they would prerender (at build, or at
+runtime into the full-route cache).
 Catalog fetches go through the Next data cache with `revalidate` 60s for product lists
 and 300s for categories and collections (`CATALOG_REVALIDATE`), so a deactivated
 product can linger up to 60s — fine for browsing, never for checkout.
@@ -544,6 +547,102 @@ fill a row. No live collection: the catalog empty state.
 - Whether phones below 1024 need a compact sticky Filter/Sort row.
 - The client error screen (API stopped, uncached URL) has not been seen after hydration.
 
+## Product detail
+
+Plan `2026-09-14-003`; decisions are cited by their PD numbers there.
+
+### Route, data and 404s
+
+`app/[locale]/(catalog)/products/[slug]/page.tsx`, inside `(catalog)` so it inherits the
+error boundary and the KD-14 provider (PD-5). `resolve()` calls `await connection()`
+(PD-8), then `getCatalogProduct(slug)` (`features/products/api/get-catalog-product.ts`,
+`GET /api/v1/catalog/products/:slug`), then `notFound()` on `null` — before any Suspense,
+so KD-10 holds and `catalog-routes.test.ts` pins it. Unknown, inactive, discontinued and
+slug-less products are one indistinguishable 404 (PD-2); any other `ApiError` rethrows to
+the error screen.
+
+`getCatalogProduct` is the one entity read that **does** pass `timeoutMs`: it is wrapped
+in `React.cache`, so `generateMetadata` and the page still share one API call per render
+(PD-9, measured in dev with a hit counter: 1 per render with the wrapper, 2 without).
+Copy that pairing, not the timeout alone. It reads with the list lifetime (60s), and the
+listing card, the detail read and the related row are separate cache entries that can
+briefly disagree — fine for browsing, never for Cart, which must re-price on the server.
+
+Metadata (`utils/product-metadata.ts`): localized name as title; the localized
+description when it exists in the page's locale, else `catalog.meta.productDescription`;
+self canonical and both-locale alternates; the first image as `openGraph.images`; always
+indexable. No JSON-LD `Product` until Cart makes it purchasable (PD-7).
+
+### Composition
+
+`ProductDetail` is a slot layout: the page passes `gallery`, `purchase`, `related` and the
+listing `hrefs`. A 7/5 split from 1024 with a `position: sticky` info column (PD-15), one
+column below. The eyebrow is the category link (the only breadcrumb), collections are
+quiet "Part of" text links, and the description renders as plain paragraphs under the
+purchase area. `[data-product-action]` is the reserved, empty Add to Bag place (PD-B): no
+button and no copy until Cart, and no sticky mobile purchase bar (PD-14).
+
+### Variants
+
+The server derives the options (normalized keys, a canonical key set, unusable variants
+dropped and logged, effective price `variant.price ?? product.price`; see
+`apps/server/CLAUDE.md` → *Public catalog*). The client never re-derives them:
+`features/products/utils/variant-selection.ts` holds every selection, availability, price
+and readiness rule, unit-tested, and `purchaseReadiness` is the **Cart contract**. The
+variant price rule disagrees with POS today, where a NULL variant price sells at 0 (PD-C);
+that must be fixed before Cart. Selection is component state, not URL state (PD-12).
+
+### Gallery
+
+`product-gallery.tsx` is a Server Component with no JS (PD-10): one list of images serves
+a CSS grid from 1024 (lead spanning, then pairs, an odd last image spanning) and a
+scroll-snap rail below, so nothing downloads twice. Spans and `sizes` come from one table,
+`utils/gallery-layout.ts`. The lead is the page's only eager, high-priority image and has
+no Reveal (it is the LCP element). The rail is a focusable labelled region with a visually
+hidden count; its progress hairline uses `scroll-timeline` / `timeline-scope` and exists
+only under `@supports (animation-timeline: scroll())`, below 1024. No image: the
+`ProductImagePlaceholder` brand-mark frame `ProductCard` also uses.
+
+### Purchase panel
+
+The tenth client boundary (see *Client boundary rule*). Native radios in a `fieldset` per
+option; sold-out and unavailable values stay enabled, struck through, with visually hidden
+"sold out" text — never `disabled`, never colour alone. Price and status share one polite
+live region rendered with the first paint. `purchase-panel-slot.tsx` resolves strings and
+a map of pre-formatted prices on the server, so the island never formats a number.
+`fillTemplate` lives in `lib/utils/fill-template.ts`: importing it from
+`catalog-controls-state.ts` pulled nuqs into this route. The island measured +1.2 KB gz
+of eager JS.
+
+### Related row
+
+`features/catalog/components/related-products.tsx` (PD-13): scope is the first public
+collection (sort `curated`), else the category (sort `newest`), page 1, current product
+excluded, 4 kept, section hidden when empty. It reads through
+`listCatalogProducts(toProductQuery(...))`, and a test pins that its API path equals the
+listing's page-1 path, so they share one data-cache entry. It streams in its own
+Suspense; `loadRelatedProducts` calls `unstable_rethrow` first, returns `null` on an
+`ApiError` (logged) and rethrows anything else, so a related failure never replaces a
+rendered product with the error screen (unit-tested only; never observed against a
+stopped API).
+
+### Open for the screenshot review
+
+Fixtures (dev DB `moon_store_sf_smoke`, 2026-09-14): `silk-midi-dress` (6 images, mixed
+sizes), `embroidered-evening-gown` (1 image), `linen-summer-dress` (long EN/AR names,
+descriptions), `cashmere-pullover` (mixed stock), `silk-slip-dress` (all sold out).
+
+- Whether lazy rail images download before a swipe at 375 (network capture; the worst
+  case is a bounded 9 images at rail width).
+- The rail stays a tab stop at 1024+, where it no longer scrolls.
+- A single image fills the full width below 1024 (~704px on a portrait tablet).
+- An in-stock product with no options shows no status line, per the plan's model;
+  "In stock" there is the alternative.
+- The sticky info column beside a short gallery at 1024; long Arabic titles; option
+  wrapping at 320.
+- The related skeleton is hidden from screen readers and announces no loading state.
+- Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 7.
+
 ## Guideline overrides and copy decisions
 
 - §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the
@@ -612,11 +711,13 @@ not a permanent architectural requirement:
 Four slices exist. `features/home` composes the homepage from static, typed mock data
 and imports from `products` and `collections`. `features/catalog` is the listing
 composition slice (URL state, route table, intro, category row, grid, controls,
-pagination, empty states) and imports from both. `products` and `collections` own their
-catalog API functions and DTOs and still do not import each other; the one reverse edge
-is `products/api/list-catalog-products.ts` taking `CatalogProductQuery` from
-`features/catalog/search-params.ts` (a dependency-free module). A slice follows this
-shape:
+pagination, empty states, and the product page's related row) and imports from both.
+`products` and `collections` own their catalog API functions and DTOs and still do not
+import each other; the one reverse edge is `products/api/list-catalog-products.ts` taking
+`CatalogProductQuery` from `features/catalog/search-params.ts` (a dependency-free
+module). Keep it the only one: `ProductDetail` takes its category and collection hrefs
+from the page (which may call `catalogPath`) rather than importing it, and the related
+row lives in `catalog`, not `products`. A slice follows this shape:
 
 ```
 features/<slice>/
@@ -687,7 +788,7 @@ for a same-shape asset swap.
 `●` SSG, not `ƒ` dynamic) — the *current state*, not an architectural rule.
 `generateStaticParams` + `setRequestLocale` make that possible because nothing here
 reads request-specific data; the homepage's client islands do not change that (a
-`'use client'` file never makes a route dynamic). The five catalog routes are the first
+`'use client'` file never makes a route dynamic). The six catalog routes are the first
 dynamic (`ƒ`) routes: request-time rendering over the Next data cache (see *Catalog* →
 *Rendering and caching*), chosen on their own merits. The catch-all and 404 are
 unchanged. Each future feature (a cart, a session) chooses its own
