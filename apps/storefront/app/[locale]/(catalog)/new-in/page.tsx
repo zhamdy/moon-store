@@ -41,7 +41,7 @@ export default async function NewInPage({ params, searchParams }: PageProps<'/[l
       route={ROUTE}
       params={catalogParams}
       locale={locale}
-      intro={{ title: { text: t('intro.newInTitle'), lang: locale } }}
+      intro={{ lead: { text: t('intro.newInTitle'), lang: locale } }}
     />
   );
 }

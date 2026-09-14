@@ -6,7 +6,7 @@ import { decideInitialRevealState } from './reveal-policy';
 type RevealElement = 'div' | 'section' | 'header' | 'figure' | 'ul' | 'li' | 'article';
 
 /** What a `data-motion` element does while its Reveal is pending (see app/globals.css). */
-export type MotionEffect = 'rise' | 'fade' | 'image' | 'wipe';
+export type MotionEffect = 'rise' | 'fade' | 'image';
 
 export interface RevealProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   as?: RevealElement;

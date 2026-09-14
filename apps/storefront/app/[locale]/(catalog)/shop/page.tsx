@@ -44,7 +44,7 @@ export default async function ShopPage({ params, searchParams }: PageProps<'/[lo
       route={ROUTE}
       params={catalogParams}
       locale={locale}
-      intro={{ title: { text: t('intro.shopTitle'), lang: locale } }}
+      intro={{ lead: { text: t('intro.shopTitle'), lang: locale } }}
       categories={categories}
     />
   );

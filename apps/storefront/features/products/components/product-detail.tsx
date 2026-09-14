@@ -36,7 +36,7 @@ const LINK_HOVER =
  * column (PD-15), one column below, then the details tabs and the related row. The
  * gallery column carries no Reveal, since it holds the LCP image.
  *
- * The info column holds only what decides a purchase: category eyebrow, name, a short
+ * The info column holds only what decides a purchase: name (no eyebrow), a short
  * lead (the description's first paragraph; the full text is the Description tab), the
  * purchase slot, a glance at material and fit (the full list is the Details tab) and
  * "Part of" links. `[data-product-action]` is the reserved Add to Bag

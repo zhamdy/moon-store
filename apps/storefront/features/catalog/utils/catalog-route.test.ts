@@ -55,11 +55,11 @@ describe('catalogRouteConfig', () => {
     }
   });
 
-  it('links the eyebrow everywhere but the page it names (KD-16)', () => {
-    expect(catalogRouteConfig(SHOP).eyebrow).toEqual({ labelKey: 'shop', href: null });
-    expect(catalogRouteConfig(DRESSES).eyebrow).toEqual({ labelKey: 'shop', href: '/shop' });
-    expect(catalogRouteConfig(NEW_IN).eyebrow).toEqual({ labelKey: 'shop', href: '/shop' });
-    expect(catalogRouteConfig(SILK).eyebrow).toEqual({
+  it('links the heading everywhere but the page it names (KD-16)', () => {
+    expect(catalogRouteConfig(SHOP).heading).toEqual({ labelKey: 'shop', href: null });
+    expect(catalogRouteConfig(DRESSES).heading).toEqual({ labelKey: 'shop', href: '/shop' });
+    expect(catalogRouteConfig(NEW_IN).heading).toEqual({ labelKey: 'shop', href: '/shop' });
+    expect(catalogRouteConfig(SILK).heading).toEqual({
       labelKey: 'collections',
       href: '/collections',
     });

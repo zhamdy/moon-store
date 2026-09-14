@@ -4,16 +4,21 @@ import { Container } from '@/components/ui/container';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { LocalizedText } from '@/features/products/utils/localized-name';
+import { introDescription } from '../utils/intro-heading';
 
 export interface PageIntroProps {
   locale: AppLocale;
   /**
-   * The only breadcrumb (KD-16): a quiet link on category, New In and collection
-   * pages ("Shop" -> `/shop`, "Collections" -> `/collections`), plain text on
-   * `/shop` and `/collections` themselves (omit `href`).
+   * The `h1`, and the only breadcrumb (KD-16): a link on category, New In and
+   * collection pages ("Shop" -> `/shop`, "Collections" -> `/collections`), plain text
+   * on `/shop` and `/collections` themselves (omit `href`).
    */
-  eyebrow: { label: string; href?: string };
-  title: LocalizedText;
+  heading: { label: string; href?: string };
+  /**
+   * The line under the `h1`: the page's own name (the category, the collection,
+   * "All pieces"). Dropped when it only repeats the heading (`introDescription`).
+   */
+  lead: LocalizedText;
   /** Season · year on a collection page. Uppercased by `type-label` in English only. */
   meta?: string | null;
   /** One restrained line on categories; a readable measure on collections. */
@@ -28,45 +33,52 @@ function langProps(text: LocalizedText, locale: AppLocale) {
 }
 
 /**
- * The catalog page intro (KD-16): calm and typographic, no hero. Eyebrow, `h1` in
- * the display face, optional metadata and description, then 64-96px of air before
- * the category/utility rows.
+ * The catalog page intro (KD-16): calm and typographic, no hero. No eyebrow (owner
+ * decision, 2026-09-14): the former eyebrow is the `h1` in the display face, the
+ * former title the line under it, then optional metadata and description and 64-96px
+ * of air before the category/utility rows.
  *
- * Motion is the commerce entrance (AD-11): the eyebrow fades and the title rises
- * once; no word mask. The optional image band only fades, with no parallax, scrim
+ * Motion is the commerce entrance (AD-11): the title rises once and the lines under
+ * it fade; no word mask. The optional image band only fades, with no parallax, scrim
  * or copy on it, so an unknown upload never carries a contrast dependency. As an
  * intro it is normally in view at mount, where Reveal leaves it visible.
  *
- * The eyebrow link's hover lives on the link, the fade on its parent `p`, so the
+ * The heading link's hover lives on the link, the rise on its parent `h1`, so the
  * two transitions never share an element.
  */
-export function PageIntro({ locale, eyebrow, title, meta, description, image }: PageIntroProps) {
+export function PageIntro({ locale, heading, lead, meta, description, image }: PageIntroProps) {
+  const subtitle = introDescription(heading.label, lead);
   const text = (
     <div className={image ? 'lg:col-span-5 lg:row-start-1' : 'max-w-3xl'}>
-      <p data-motion="fade" className="type-label text-text-secondary">
-        {eyebrow.href ? (
+      <h1
+        data-motion="rise"
+        className="type-h1 text-balance [--motion-offset:120ms] [--motion-rise:24px]"
+      >
+        {heading.href ? (
           <Link
-            href={eyebrow.href}
-            className="-my-3 inline-block py-3 underline-offset-4 transition-colors duration-fast ease-ui hover:text-text hover:underline"
+            href={heading.href}
+            className="decoration-1 underline-offset-[0.18em] hover:underline"
           >
-            {eyebrow.label}
+            {heading.label}
           </Link>
         ) : (
-          eyebrow.label
+          heading.label
         )}
-      </p>
-      <h1
-        {...langProps(title, locale)}
-        data-motion="rise"
-        className="type-h1 mt-4 text-balance [--motion-offset:120ms] [--motion-rise:24px]"
-      >
-        {title.text}
       </h1>
+      {subtitle && (
+        <p
+          {...langProps(subtitle, locale)}
+          data-motion="fade"
+          className="type-body-lg mt-4 text-text-secondary [--motion-offset:240ms]"
+        >
+          {subtitle.text}
+        </p>
+      )}
       {meta && (
         <p
           data-motion="fade"
           dir="auto"
-          className="type-label mt-5 text-text-secondary [--motion-offset:240ms]"
+          className="type-label mt-5 text-text-secondary [--motion-offset:300ms]"
         >
           {meta}
         </p>
@@ -75,7 +87,7 @@ export function PageIntro({ locale, eyebrow, title, meta, description, image }: 
         <p
           {...langProps(description, locale)}
           data-motion="fade"
-          className="type-body-lg mt-5 max-w-[38rem] text-text-secondary [--motion-offset:300ms]"
+          className="type-body-lg mt-5 max-w-[38rem] text-text-secondary [--motion-offset:360ms]"
         >
           {description.text}
         </p>

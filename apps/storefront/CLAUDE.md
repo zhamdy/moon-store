@@ -234,17 +234,17 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
 
 1. **Hero** — CSS keyed on the carousel's `data-active` / `data-leaving`, so the first
    slide plays from the server HTML with no JS. Sequence on load and on every change:
-   image 1.08 → 1 from 120ms, label wipe (`data-enter="wipe"`) at 200ms, masked title
-   lines at 300/420ms, copy at 450ms, link at 600ms; the tab row settles at 750ms on
-   load. The outgoing slide fades over 1s while its image drifts to 1.04 and its title
-   exits upward through the same masks. Progress bars are empty before hydration
+   image 1.08 → 1 from 120ms, the masked title (one mask) at 300ms, the description
+   fade-up at 420ms, copy at 540ms, link at 660ms; the tab row settles at 750ms on
+   load. The outgoing slide fades over 1s while its image drifts to 1.04, its title
+   exits upward through the same mask and the description, copy and link fade out. Progress bars are empty before hydration
    (`idle`), fill over 7s while rotating, and refill quickly on each manual change once
    stopped.
 2. **Scroll reveal** — `<Reveal>` is a *trigger*, not an effect. The server HTML is the
    visible state; on mount `decideInitialRevealState` (`reveal-policy.ts`, unit-tested)
    marks only elements entirely below the fold as `pending`, never under reduced motion,
    and a shared observer flips them to `in`. What moves is declared on server markup
-   with `data-motion="rise" | "fade" | "image" | "wipe" | "word"` (plus
+   with `data-motion="rise" | "fade" | "image" | "word"` (plus
    `data-motion-zoom` inside an `image`), on the Reveal or any descendant. Timing is
    `--motion-stagger` (inherited step count) × `--motion-step` + `--motion-offset`;
    offset and duration are registered `@property`s that do **not** inherit, so set them
@@ -282,11 +282,30 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    checkbox, `role="switch"`, outside the tracks, pausing via
    `[data-strip]:has([data-strip-toggle]:checked)`, no client boundary).
 
-**Signature vs commerce entrances** (AD-11, 2026-09-14). The label wipe and the
-word-masked `TextReveal` belong to the signature moments only: the promo banner, the
-featured collection and the campaign. `SectionHeading` (New Arrivals, Categories, The
-Edit) fades its label and raises its title once, and the catalog's `PageIntro` (an `h1`,
-not a `SectionHeading`) uses the same entrance. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
+**No eyebrows: the eyebrow is the title, the title is the description** (owner
+decision, 2026-09-14). No section renders a label above its heading. The `eyebrow`
+message keys keep their names and copy but render as the heading element the old title
+used, at the old title's `type-*` size and with its entrance; the old `title` copy
+renders as a `<p>` under it:
+
+| Where | Heading | Description |
+| --- | --- | --- |
+| Hero slides | `h2` in one line mask, 300ms | `title1` + `title2` space-joined, one `type-h4 text-text-secondary` line, fade-up 420ms |
+| New Arrivals, Categories, The Edit (`SectionHeading`) | `h2` `type-h2`, rise at offset +120 | `type-body-lg text-text-secondary`, fade at +240 |
+| Promo banner | `TextReveal` `h2` `type-h1`, 350ms | `type-h4 text-text-secondary`, rise 600ms (body 750, button 950) |
+| Featured collection | `TextReveal` `h2` `type-h2 lg:type-h1`, 400ms | `type-h4 text-text-secondary`, rise 600ms (body 750) |
+| Catalog `PageIntro` | `h1` `type-h1` = the route table's `heading` ("Shop" / "Collections", linked except on the page it names), rise 120ms | the page's own name (`lead`: category, collection, "All pieces", "New In") `type-body-lg text-text-secondary`, fade 240ms; dropped by `introDescription` when it repeats the heading (`/collections`) |
+
+Signature descriptions are `type-h4` so they stay distinct from the body line under
+them; commerce ones are `type-body-lg`. A collection card's season · year now sits under
+its name, not above it. The label wipe (`data-motion="wipe"`, `data-enter="wipe"`) is
+gone with the eyebrows; don't reintroduce it as a heading device.
+
+**Signature vs commerce entrances** (AD-11, 2026-09-14). The word-masked `TextReveal`
+belongs to the signature moments only: the promo banner, the featured collection and
+the campaign. `SectionHeading` (New Arrivals, Categories, The Edit) raises its title
+once and fades its description, and the catalog's `PageIntro` (an `h1`, not a
+`SectionHeading`) uses the same entrance. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
 settle) is for one feature card per section, like The Edit's first card and the first
 `CategoryTile`. Adding the word mask back to a commerce heading repeats the same entrance
 down the page.
@@ -407,8 +426,8 @@ layout exists only for the error strings (see *Client boundary rule*).
 `features/catalog/utils/catalog-route.ts` → `catalogRouteConfig` is the single source
 of what each listing route is: API scope, default sort, allowed sorts in display order
 (`curated` only on a collection, and its default there), whether the category row shows
-(Shop All and category pages), the eyebrow (the only breadcrumb: plain text on the page
-it names, a link elsewhere) and the end-of-listing link (New In → "Shop by category",
+(Shop All and category pages), the `heading` (the intro's `h1` and the only
+breadcrumb: plain text on the page it names, a link elsewhere) and the end-of-listing link (New In → "Shop by category",
 collection → "Explore collections"). A per-route difference goes in that table, never in
 a page branch.
 
@@ -534,8 +553,8 @@ carries `lang` and `dir="auto"`. The hover image is `display: none` on touch and
 ### Motion level
 
 Low-to-medium (R21). The grid is one `Reveal` on the `ul`; cards rise, staggered for
-the first eight only (`catalogStagger`). The intro fades its eyebrow and rises the `h1`
-once; a collection's image band only fades. No parallax, marquee or `TextReveal` on
+the first eight only (`catalogStagger`). The intro rises the `h1` once and fades the
+lines under it; a collection's image band only fades. No parallax, marquee or `TextReveal` on
 catalog routes. Filters never replay entrances: `decideInitialRevealState` only holds
 back a grid entirely below the fold, and the Suspense boundary is unkeyed, so a filter
 transition re-renders the same grid in place.

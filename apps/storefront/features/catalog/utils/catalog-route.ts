@@ -14,10 +14,11 @@ export interface CatalogRouteConfig {
   /** Row 1 under the intro (KD-15): Shop All and category pages only. */
   categoryNav: boolean;
   /**
-   * The eyebrow, the only breadcrumb (KD-16): a `catalog.intro.*` key, linked to
-   * `href` everywhere but on the page it names.
+   * The intro's `h1` and the only breadcrumb (KD-16; the former eyebrow, owner decision
+   * 2026-09-14): a `catalog.intro.*` key, linked to `href` everywhere but on the page it
+   * names.
    */
-  eyebrow: { labelKey: 'shop' | 'collections'; href: string | null };
+  heading: { labelKey: 'shop' | 'collections'; href: string | null };
   /** The end-of-listing editorial link (KD-16): a `catalog.wayfinding.*` key. */
   endLink: { labelKey: 'exploreCollections' | 'shopByCategory'; href: string } | null;
 }
@@ -30,7 +31,7 @@ const CATALOG_ROUTES: Record<CatalogRoute['kind'], CatalogRouteConfig> = {
     defaultSort: 'newest',
     sorts: LISTING_SORTS,
     categoryNav: true,
-    eyebrow: { labelKey: 'shop', href: null },
+    heading: { labelKey: 'shop', href: null },
     endLink: null,
   },
   category: {
@@ -38,7 +39,7 @@ const CATALOG_ROUTES: Record<CatalogRoute['kind'], CatalogRouteConfig> = {
     defaultSort: 'newest',
     sorts: LISTING_SORTS,
     categoryNav: true,
-    eyebrow: { labelKey: 'shop', href: '/shop' },
+    heading: { labelKey: 'shop', href: '/shop' },
     endLink: null,
   },
   new: {
@@ -46,7 +47,7 @@ const CATALOG_ROUTES: Record<CatalogRoute['kind'], CatalogRouteConfig> = {
     defaultSort: 'newest',
     sorts: LISTING_SORTS,
     categoryNav: false,
-    eyebrow: { labelKey: 'shop', href: '/shop' },
+    heading: { labelKey: 'shop', href: '/shop' },
     // `/shop` carries the category row, so it is where browsing by category starts.
     endLink: { labelKey: 'shopByCategory', href: '/shop' },
   },
@@ -55,7 +56,7 @@ const CATALOG_ROUTES: Record<CatalogRoute['kind'], CatalogRouteConfig> = {
     defaultSort: 'curated',
     sorts: ['curated', ...LISTING_SORTS],
     categoryNav: false,
-    eyebrow: { labelKey: 'collections', href: '/collections' },
+    heading: { labelKey: 'collections', href: '/collections' },
     endLink: { labelKey: 'exploreCollections', href: '/collections' },
   },
 };

@@ -46,8 +46,8 @@ export default async function CollectionsPage({ params }: PageProps<'/[locale]/c
     <>
       <PageIntro
         locale={locale}
-        eyebrow={{ label: t('intro.collections') }}
-        title={{ text: t('intro.collectionsTitle'), lang: locale }}
+        heading={{ label: t('intro.collections') }}
+        lead={{ text: t('intro.collectionsTitle'), lang: locale }}
       />
       {collections.length > 0 ? (
         <CollectionIndex

@@ -15,8 +15,8 @@ export interface CatalogPageProps {
   /** `loadCatalogParams(searchParams, route)`. */
   params: CatalogParams;
   locale: AppLocale;
-  /** The intro minus its eyebrow, which comes from the route table. */
-  intro: Omit<PageIntroProps, 'locale' | 'eyebrow'>;
+  /** The intro minus its heading, which comes from the route table. */
+  intro: Omit<PageIntroProps, 'locale' | 'heading'>;
   /** Needed where the route table turns category nav on. */
   categories?: CatalogCategory[];
 }
@@ -42,9 +42,9 @@ export async function CatalogPage({ route, params, locale, intro, categories }: 
     <>
       <PageIntro
         locale={locale}
-        eyebrow={{
-          label: t(`intro.${config.eyebrow.labelKey}`),
-          href: config.eyebrow.href ?? undefined,
+        heading={{
+          label: t(`intro.${config.heading.labelKey}`),
+          href: config.heading.href ?? undefined,
         }}
         {...intro}
       />

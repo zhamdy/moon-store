@@ -47,9 +47,9 @@ export async function Hero() {
     content: (
       <HeroSlidePanel
         slide={slide}
-        eyebrow={t(`slides.${slide.key}.eyebrow`)}
-        title1={t(`slides.${slide.key}.title1`)}
-        title2={t(`slides.${slide.key}.title2`)}
+        title={t(`slides.${slide.key}.eyebrow`)}
+        // The two authored title lines read as one sentence, so they join into one line.
+        description={`${t(`slides.${slide.key}.title1`)} ${t(`slides.${slide.key}.title2`)}`}
         body={t(`slides.${slide.key}.body`)}
         cta={t(`slides.${slide.key}.cta`)}
       />
@@ -81,9 +81,10 @@ interface HeroSlideMediaProps {
 
 interface HeroSlidePanelProps {
   slide: HeroSlide;
-  eyebrow: string;
-  title1: string;
-  title2: string;
+  /** The slide's `h2` (the `eyebrow` message, owner decision 2026-09-14). */
+  title: string;
+  /** `title1` and `title2`, space-joined. */
+  description: string;
   body: string;
   cta: string;
 }
@@ -133,7 +134,7 @@ function HeroSlideMedia({ slide, lead, imageAlt }: HeroSlideMediaProps) {
 }
 
 /** One slide's scrims and copy, always rendered so the carousel's text never waits on an image. */
-function HeroSlidePanel({ slide, eyebrow, title1, title2, body, cta }: HeroSlidePanelProps) {
+function HeroSlidePanel({ slide, title, description, body, cta }: HeroSlidePanelProps) {
   return (
     <>
       {/* Header band scrim, ≤ 35% at the top edge and gone by ~30% of the height. */}
@@ -151,38 +152,33 @@ function HeroSlidePanel({ slide, eyebrow, title1, title2, body, cta }: HeroSlide
         {/* Bottom padding clears the tab row. */}
         <Container as="div" className="w-full pt-(--header-h) pb-32 md:pb-36 lg:pb-40">
           <div className="max-w-[26rem]">
-            <p
-              data-enter="wipe"
-              className="type-label w-fit text-text-secondary [--entrance-delay:200ms]"
-            >
-              {eyebrow}
-            </p>
-            {/* Two authored lines, each in its own overflow mask so a wrapped line at
-                320px is never clipped by its neighbour. type-h1 below md, type-display
-                at md+: a responsive pair, where Tailwind emits the md: variant after
-                the base utility, so the winner is deterministic. */}
-            <h2 className="type-h1 md:type-display mt-4 text-balance">
+            {/* One overflow mask around the whole title, so a title that wraps at
+                320px rises as one block. type-h1 below md, type-display at md+: a
+                responsive pair, where Tailwind emits the md: variant after the base
+                utility, so the winner is deterministic. */}
+            <h2 className="type-h1 md:type-display text-balance">
               <span className="-mb-[0.12em] block overflow-hidden pb-[0.12em]">
                 <span data-enter="line" className="block [--entrance-delay:300ms]">
-                  {title1}
-                </span>
-              </span>
-              <span className="-mb-[0.12em] block overflow-hidden pb-[0.12em]">
-                <span data-enter="line" className="block [--entrance-delay:420ms]">
-                  {title2}
+                  {title}
                 </span>
               </span>
             </h2>
             <p
               data-enter="fade"
-              className="type-body-lg mt-5 text-text/85 [--entrance-delay:450ms]"
+              className="type-h4 mt-4 text-text-secondary [--entrance-delay:420ms]"
+            >
+              {description}
+            </p>
+            <p
+              data-enter="fade"
+              className="type-body-lg mt-4 text-text/85 [--entrance-delay:540ms]"
             >
               {body}
             </p>
             <EditorialLink
               href={slide.href}
               data-enter="fade"
-              className="mt-7 [--entrance-delay:600ms]"
+              className="mt-7 [--entrance-delay:660ms]"
             >
               {cta}
             </EditorialLink>

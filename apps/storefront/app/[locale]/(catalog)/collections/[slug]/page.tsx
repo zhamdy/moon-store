@@ -59,7 +59,7 @@ export default async function CollectionPage(props: Props) {
       params={catalogParams}
       locale={locale}
       intro={{
-        title: localizedName(collection, locale),
+        lead: localizedName(collection, locale),
         meta: collectionMeta(collection),
         description: localizedDescription(collection, locale),
         image: collection.imageUrl ? { url: collection.imageUrl } : null,

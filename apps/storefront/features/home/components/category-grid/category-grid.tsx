@@ -31,7 +31,7 @@ export async function CategoryGrid() {
 
   return (
     <Container as="section" aria-labelledby="categories-title" className="section-y">
-      <SectionHeading id="categories-title" eyebrow={t('eyebrow')} title={t('title')} />
+      <SectionHeading id="categories-title" title={t('eyebrow')} description={t('title')} />
       <Reveal
         className={cn(
           /* py-1.5: overflow-x-auto forces the y-axis to a matching computed
