@@ -5,7 +5,6 @@ import {
   normalizeDigits,
   type CatalogParams,
   type CatalogRoute,
-  type CatalogSort,
 } from '../search-params';
 
 /**
@@ -166,13 +165,6 @@ export function focusAfterRemoval(
   const index = parts.indexOf(removed);
   const remaining = parts.filter((part) => part !== removed);
   return remaining[index] ?? 'filter';
-}
-
-/** The sorts a route offers; `curated` exists only on a collection (R12). */
-export function catalogSortsFor(route: CatalogRoute): CatalogSort[] {
-  return route.kind === 'collection'
-    ? ['curated', 'newest', 'price-asc', 'price-desc']
-    : ['newest', 'price-asc', 'price-desc'];
 }
 
 /**

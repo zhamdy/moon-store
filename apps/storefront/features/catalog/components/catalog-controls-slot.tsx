@@ -3,8 +3,8 @@ import { getTranslations } from 'next-intl/server';
 import type { AppLocale } from '@/i18n/routing';
 import { formatAmount } from '@/features/products/utils/price';
 import type { CatalogRoute, CatalogSort } from '../search-params';
+import { catalogRouteConfig } from '../utils/catalog-route';
 import { formatResultCount } from '../utils/result-count';
-import { catalogSortsFor } from './catalog-controls-state';
 import { CatalogControls, type CatalogControlsStrings } from './catalog-controls';
 import type { CatalogControlsData } from './product-grid';
 
@@ -18,7 +18,7 @@ const SORT_LABEL_KEYS = {
 export interface CatalogControlsRendererOptions {
   route: CatalogRoute;
   locale: AppLocale;
-  /** Defaults to `catalogSortsFor(route)`; a route config table may pass its own. */
+  /** Defaults to the route table's sorts (`catalogRouteConfig`). */
   sorts?: readonly CatalogSort[];
 }
 
@@ -37,7 +37,7 @@ export interface CatalogControlsRendererOptions {
 export async function catalogControlsRenderer({
   route,
   locale,
-  sorts = catalogSortsFor(route),
+  sorts = catalogRouteConfig(route).sorts,
 }: CatalogControlsRendererOptions): Promise<(data: CatalogControlsData) => ReactNode> {
   const t = await getTranslations('catalog');
   const tp = await getTranslations('products');

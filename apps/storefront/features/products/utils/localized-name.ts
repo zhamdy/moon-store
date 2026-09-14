@@ -20,3 +20,18 @@ export function localizedName(
   }
   return { text: dto.name, lang: 'ar' };
 }
+
+/**
+ * The description to show in `locale`, or `null`. English falls back to the Arabic
+ * description (marked by `lang`), as names do; an Arabic page never shows English copy.
+ */
+export function localizedDescription(
+  dto: { description: string | null; descriptionEn: string | null },
+  locale: AppLocale
+): LocalizedText | null {
+  const primary = dto.description?.trim() ? dto.description : null;
+  if (locale === 'en' && dto.descriptionEn?.trim()) {
+    return { text: dto.descriptionEn, lang: 'en' };
+  }
+  return primary === null ? null : { text: primary, lang: 'ar' };
+}

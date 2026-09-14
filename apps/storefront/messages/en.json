@@ -258,6 +258,19 @@
         "body": "In the meantime, browse everything in the shop.",
         "action": "Shop all pieces"
       }
+    },
+    "meta": {
+      "shopDescription": "Every piece in the Moon Fashion edit, newest first.",
+      "newInDescription": "The latest arrivals at Moon Fashion.",
+      "collectionsDescription": "Editorial collections from Moon Fashion.",
+      "categoryDescription": "Shop {name} at Moon Fashion.",
+      "collectionDescription": "Discover the {name} collection at Moon Fashion."
+    },
+    "error": {
+      "title": "We couldn't load these pieces",
+      "body": "Something went wrong on our side. Please try again in a moment.",
+      "retry": "Try again",
+      "home": "Back to home"
     }
   }
 }

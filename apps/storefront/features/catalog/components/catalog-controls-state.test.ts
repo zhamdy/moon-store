@@ -9,7 +9,6 @@ import {
   INITIAL_CONTROLS_STATE,
   activeFilterCount,
   applyStaged,
-  catalogSortsFor,
   clearAllFilters,
   controlsReducer,
   fillTemplate,
@@ -142,11 +141,6 @@ describe('derived values', () => {
     expect(activeFilterCount(params({ max: 3000 }))).toBe(1);
     expect(activeFilterCount(params({ sort: 'price-asc', page: 3 }))).toBe(0);
     expect(summaryParts(params({ stock: 'in', min: 500 }))).toEqual(['stock', 'price']);
-  });
-
-  it('offers curated only on a collection', () => {
-    expect(catalogSortsFor(SHOP)).toEqual(['newest', 'price-asc', 'price-desc']);
-    expect(catalogSortsFor(EVENING)).toEqual(['curated', 'newest', 'price-asc', 'price-desc']);
   });
 
   it('fills templates and leaves unknown placeholders', () => {
