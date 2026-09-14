@@ -14,8 +14,10 @@ const numberLocale: Record<AppLocale, string> = {
  * server component that owns the translations, so this needs no catalogue.
  */
 export function formatPrice(amount: number, locale: AppLocale, currencyLabel: string): string {
-  const number = new Intl.NumberFormat(numberLocale[locale], {
-    maximumFractionDigits: 0,
-  }).format(amount);
-  return `${number} ${currencyLabel}`;
+  return `${formatAmount(amount, locale)} ${currencyLabel}`;
+}
+
+/** The number alone (`1,250`), for templates that place the currency label themselves. */
+export function formatAmount(amount: number, locale: AppLocale): string {
+  return new Intl.NumberFormat(numberLocale[locale], { maximumFractionDigits: 0 }).format(amount);
 }

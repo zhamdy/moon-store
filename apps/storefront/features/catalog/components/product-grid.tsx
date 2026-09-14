@@ -36,7 +36,8 @@ export interface ProductGridProps {
   params: CatalogParams;
   locale: AppLocale;
   /**
-   * Renders the controls island into the utility row's end slot. Called only when
+   * Renders the controls island as direct items of the utility row (no wrapper; see
+   * `catalogControlsRenderer` in `catalog-controls-slot.tsx`). Called only when
    * controls make sense: a listing with products, filters matching nothing, or a
    * page out of range. The island's root carries `data-catalog-controls` (and
    * `data-pending` during a transition) to drive the pending rule in globals.css.
@@ -98,11 +99,9 @@ export async function ProductGrid({
             {formatResultCount(t, pagination.totalItems)}
           </p>
         )}
-        {showControls && renderControls && (
-          <div className="flex items-center gap-x-6 ms-auto">
-            {renderControls({ totalItems: pagination.totalItems, priceRange })}
-          </div>
-        )}
+        {/* No wrapper: the island's root is `display: contents`, so its summary,
+            Filter and Sort are items of this row and can wrap independently. */}
+        {showControls && renderControls?.({ totalItems: pagination.totalItems, priceRange })}
       </div>
 
       <h2 id={CATALOG_RESULTS_ID} tabIndex={-1} className="sr-only">

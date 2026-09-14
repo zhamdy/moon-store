@@ -120,8 +120,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to seven entries
-(eight files):
+Server Components by default (R21/R22). `'use client'` is limited to eight entries
+(nine files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -139,6 +139,14 @@ Server Components by default (R21/R22). `'use client'` is limited to seven entri
 7. `features/home/components/hero/hero-carousel.tsx` — which hero slide is active,
    autoplay, tabs, swipe. Slide content arrives server-rendered as `ReactNode`s and
    every string arrives resolved; it renders no image itself.
+
+8. `features/catalog/components/catalog-controls.tsx` — the catalog utility row's
+   filter summary, Filter button and Headless UI filter sheet, and sort select, written
+   to the URL with nuqs (`shallow: false`, `history: 'push'`). Strings arrive resolved
+   from `catalog-controls-slot.tsx` (`catalogControlsRenderer`); the few values it
+   formats itself use `{name}` templates through `fillTemplate`, not ICU. Its root is
+   `display: contents` so its controls wrap as items of the utility row. Pure rules
+   live in `catalog-controls-state.ts`, unit-tested.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.

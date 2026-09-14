@@ -67,12 +67,14 @@ function Meta({ meta, className }: { meta: string | null; className?: string }) 
 /** "Explore" with the collection's name for assistive tech, so every link is distinct. */
 function ExploreLink({
   collection,
+  locale,
   exploreLabel,
-}: Pick<CollectionCardProps, 'collection' | 'exploreLabel'>) {
+}: Pick<CollectionCardProps, 'collection' | 'locale' | 'exploreLabel'>) {
+  const foreign = collection.name.lang !== locale;
   return (
     <EditorialLink href={collection.href}>
       {exploreLabel}
-      <span className="sr-only" lang={collection.name.lang}>
+      <span className="sr-only" lang={foreign ? collection.name.lang : undefined}>
         {` ${collection.name.text}`}
       </span>
     </EditorialLink>
@@ -108,7 +110,7 @@ export function CollectionCard({
           <Name collection={collection} locale={locale} className="type-h2 mt-3" />
         </div>
         <div className="mb-1">
-          <ExploreLink collection={collection} exploreLabel={exploreLabel} />
+          <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
         </div>
       </Reveal>
     );
@@ -148,7 +150,7 @@ export function CollectionCard({
             <Name collection={collection} locale={locale} className="type-h2 lg:type-h1" />
           </div>
           <div data-motion="fade" className="mt-8 [--motion-offset:600ms]">
-            <ExploreLink collection={collection} exploreLabel={exploreLabel} />
+            <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
           </div>
         </div>
       </Reveal>
@@ -162,7 +164,7 @@ export function CollectionCard({
         <Meta meta={collection.meta} />
         <Name collection={collection} locale={locale} className="type-h3 mt-2" />
         <div className="mt-4">
-          <ExploreLink collection={collection} exploreLabel={exploreLabel} />
+          <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
         </div>
       </div>
     </article>
