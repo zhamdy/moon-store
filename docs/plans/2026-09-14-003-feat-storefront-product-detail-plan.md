@@ -791,3 +791,40 @@ the server, and settles the public variant key question (PD-3) and the mobile st
 - Prior plan: `docs/plans/2026-09-14-002-feat-storefront-shop-collections-plan.md` (KD-1…KD-17)
 - Design guideline: `docs/design/moon-fashion-website-design-guideline.md` §10, §11, §14, §17, §18
 - PR #196 (catalog API + Shop/Collections)
+
+## Enhancement after first review (owner feedback, 2026-09-14)
+
+The owner found the page too sparse ("not like a product detail, there is no detail") and
+pointed at three references: modevo-fashion, astral-threads and bella-template (Webflow
+product pages), preferring Bella's gallery. Decisions, superseding the matching scope
+boundaries above (no thumbnail strip, no accordion/tabs, descriptions only):
+
+- **ED-1 Gallery: Bella-style.** A vertical thumbnail column beside one large image, click
+  or arrow keys to swap (WAI-ARIA tabs), at every width (thumbnails stay beside the image on
+  phones, owner choice over a swipe carousel). Replaces the CSS grid and scroll-snap rail
+  (PD-10). A client island, the eleventh boundary.
+- **ED-2 Zoom in place.** Hover magnifies the large image inside its own frame on
+  fine-pointer desktops; a higher-resolution source loads only on first zoom. No lightbox.
+- **ED-3 Product details fields.** Migration `016_product_details`: nullable bilingual
+  `material`, `care`, `fit`, edited in the dashboard, returned by the detail DTO only.
+  Supersedes "one migration only".
+- **ED-4 Details tabs.** Description / Details / Shipping under the purchase area, from real
+  data only: Details shows material, care, fit plus category, collection and sizes. A tab
+  with no content is not rendered.
+- **ED-5 Shipping tab** renders only once the business supplies real delivery and returns
+  text; no placeholder or invented policy (storefront contract, benefits B-1/B-2).
+- **ED-6 No Add to Bag** until Cart (PD-B unchanged).
+
+Units: B1 server + dashboard fields (016) -> B2 storefront DTO + messages; B3 gallery (in
+parallel with B1); B4 details tabs; B5 docs, contracts and review.
+
+### ED-5 revised (owner, 2026-09-14)
+
+- Delivery and returns text lives in the **dashboard store settings** (bilingual), exposed to
+  the storefront through a public catalog read, so staff edit it without a deploy.
+- The owner asked for **placeholder wording** for now. It follows the footer precedent
+  (`lib/brand/contact.ts`, `CONTACT_IS_PLACEHOLDER`): seeded as clearly generic text, flagged
+  as placeholder in code and docs, and a **launch blocker** until the business replaces it.
+  No specific fees, delivery times, coverage areas or return periods in the placeholder.
+- Migration 016 is approved for the dev databases `moon_store_sf_smoke` and `moon_store` once
+  B1 lands.
