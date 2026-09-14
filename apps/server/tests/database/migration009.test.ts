@@ -106,7 +106,7 @@ describeWithPostgres('009 legacy production schema repair', () => {
     // Only 001-008 were pre-marked applied, so this call also runs every migration after
     // 009 that exists today (010 narrows purchase_orders_status_check; 011 drops the two
     // duplicate value columns; 012 adds refund_items; 013 the credit ledger; 014 the
-    // storefront catalog columns and product_images). This list is deliberately exact
+    // storefront catalog columns and product_images; 015 the product descriptions). This list is deliberately exact
     // rather than a length check -- a migration landing without anyone considering its
     // effect on the legacy upgrade path is the thing worth failing on.
     expect(await runMigrationsUp(pool, dir)).toEqual([
@@ -116,6 +116,7 @@ describeWithPostgres('009 legacy production schema repair', () => {
       '012_refund_items.sql',
       '013_customer_credit_ledger.sql',
       '014_storefront_catalog.sql',
+      '015_product_descriptions.sql',
     ]);
     expect(await runMigrationsUp(pool, dir)).toEqual([]);
 
@@ -125,7 +126,8 @@ describeWithPostgres('009 legacy production schema repair', () => {
     // 009 on top of 011 fails on a column the schema no longer has. That is inherent to
     // replaying an older migration after a newer one removes what it referenced -- the same shape as 009 re-adding its own wider CHECK
     // over 010's narrowed one -- and not a fault in either file.
-    expect(await runMigrationsDown(4, pool, dir)).toEqual([
+    expect(await runMigrationsDown(5, pool, dir)).toEqual([
+      '015_product_descriptions.sql',
       '014_storefront_catalog.sql',
       '013_customer_credit_ledger.sql',
       '012_refund_items.sql',
@@ -138,6 +140,7 @@ describeWithPostgres('009 legacy production schema repair', () => {
       '012_refund_items.sql',
       '013_customer_credit_ledger.sql',
       '014_storefront_catalog.sql',
+      '015_product_descriptions.sql',
     ]);
     expect((await pool.query('SELECT favorites FROM users')).rows[0].favorites).toBe('[]');
     expect(
