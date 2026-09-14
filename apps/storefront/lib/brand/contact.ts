@@ -1,6 +1,6 @@
 import type { AppLocale } from '@/i18n/routing';
 
-export type SocialNetwork = 'instagram' | 'facebook' | 'whatsapp' | 'x' | 'youtube';
+export type SocialNetwork = 'instagram' | 'facebook' | 'tiktok' | 'whatsapp' | 'x' | 'youtube';
 
 export interface SocialLink {
   network: SocialNetwork;
@@ -21,20 +21,39 @@ export interface StoreContact {
 }
 
 /**
+ * Whether `storeContact` below holds placeholder values. **Set to `false` only once
+ * every value has been replaced with Moon Fashion's real, confirmed details.**
+ */
+export const CONTACT_IS_PLACEHOLDER = true;
+
+/**
  * Moon Fashion's public contact details, shown in the storefront footer.
  *
  * This is business data, not translation, so it lives here rather than in the
- * message catalogues. **Fill in only real, confirmed values.** Every field is
- * optional: the footer renders exactly what is filled in and nothing else, so an
- * empty phone, address or social list simply does not appear.
+ * message catalogues. Every field is optional: the footer renders exactly what is
+ * filled in, so an empty phone, address or social list simply does not appear.
+ *
+ * PLACEHOLDER DATA (user request, 2026-09-14), chosen so a click can never reach a
+ * stranger: the phone is the repo's all-zeros test number and is not linked to
+ * WhatsApp, the address names a district with no street, and every social link
+ * points at the platform's home page rather than a guessed handle. Replace all of it
+ * before launch, then flip `CONTACT_IS_PLACEHOLDER`.
  *
  * Never copy the server seed's `phone` / `address` settings here: they are demo
  * values (`apps/server/src/database/seed.ts`), not the business's details.
  */
 export const storeContact: StoreContact = {
-  phone: { e164: '', display: '' },
-  address: { en: '', ar: '' },
-  social: [],
+  phone: { e164: '+201000000000', display: '+20 100 000 0000' },
+  address: {
+    en: 'Zamalek, Cairo, Egypt',
+    ar: 'الزمالك، القاهرة، مصر',
+  },
+  social: [
+    { network: 'instagram', url: 'https://www.instagram.com/' },
+    { network: 'facebook', url: 'https://www.facebook.com/' },
+    { network: 'tiktok', url: 'https://www.tiktok.com/' },
+    { network: 'whatsapp', url: 'https://www.whatsapp.com/' },
+  ],
 };
 
 /** A `tel:` href from any printed or E.164 number: keeps the leading `+` and digits only. */

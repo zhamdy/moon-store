@@ -270,7 +270,11 @@ Every homepage image is a static import behind one registry, swappable by file d
   no language switcher. They come only from `lib/brand/contact.ts` and render only when
   real values are filled in there; `contact.test.ts` fails the build on a malformed
   number, a one-locale address or a non-https link. Never copy the server seed's demo
-  `phone` / `address` settings into it.
+  `phone` / `address` settings into it. **It currently holds placeholder values** (user
+  request, 2026-09-14; `CONTACT_IS_PLACEHOLDER = true`): the all-zeros test number, a
+  district-only address and platform home pages instead of handles. Replace them with the
+  real details before launch. TikTok uses the inline `components/brand/tiktok-icon.tsx`
+  glyph because lucide ships none.
 - Prices format on the server in `features/products/utils/price.ts`: Western digits in
   both locales (`ar-EG-u-nu-latn`), no decimals, the localised currency label from
   `products.currency` trailing (`1,250 EGP` / `1,250 ج.م`). Eastern Arabic digits are a

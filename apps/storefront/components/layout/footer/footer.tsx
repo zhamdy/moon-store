@@ -1,26 +1,26 @@
 import { getLocale, getTranslations } from 'next-intl/server';
-import {
-  Facebook,
-  Instagram,
-  MapPin,
-  MessageCircle,
-  Phone,
-  Twitter,
-  Youtube,
-  type LucideIcon,
-} from 'lucide-react';
+import type { ComponentType } from 'react';
+import { Facebook, Instagram, MapPin, MessageCircle, Phone, Twitter, Youtube } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import { Container } from '@/components/ui/container';
 import { BrandLogo } from '@/components/brand/brand-logo';
+import { TikTokIcon } from '@/components/brand/tiktok-icon';
 import { hasContactDetails, storeContact, telHref, type SocialNetwork } from '@/lib/brand/contact';
 import { NavLink } from '../nav-link';
 import { primaryNavItems } from '../navigation-items';
 
+type SocialIcon = ComponentType<{
+  size?: number;
+  strokeWidth?: number;
+  'aria-hidden'?: boolean | 'true' | 'false';
+}>;
+
 /** One icon per network, keyed so a network added to the type fails to compile until it has one. */
-const socialIcons: Record<SocialNetwork, LucideIcon> = {
+const socialIcons: Record<SocialNetwork, SocialIcon> = {
   instagram: Instagram,
   facebook: Facebook,
+  tiktok: TikTokIcon,
   whatsapp: MessageCircle,
   x: Twitter,
   youtube: Youtube,
