@@ -161,6 +161,7 @@
   "inventory.searchPlaceholder": "Search products...",
   "inventory.productName": "Product Name",
   "inventory.sku": "SKU",
+  "inventory.description": "Description",
   "inventory.price": "Price",
   "inventory.stock": "Stock",
   "inventory.categoryCol": "Category",

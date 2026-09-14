@@ -11,6 +11,7 @@ import {
   ModalFooter,
   Select,
   SelectItem,
+  Textarea,
 } from '@heroui/react';
 import { useTransport } from '../../../../shared/lib/transport/index';
 import { useTranslation } from '../../../../shared/i18n/index';
@@ -324,6 +325,46 @@ export default function ProductFormDialog({
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Controller: HeroUI's Textarea holds its own controlled value, so
+                    react-hook-form's `reset` on dialog open never reaches it otherwise. */}
+                <Controller
+                  name="description"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      label={t('inventory.description')}
+                      size="sm"
+                      variant="bordered"
+                      minRows={2}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onValueChange={field.onChange}
+                      isInvalid={!!errors.description}
+                      errorMessage={errors.description?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="description_en"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      label={t('catalog.descriptionEn')}
+                      size="sm"
+                      variant="bordered"
+                      dir="ltr"
+                      minRows={2}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onValueChange={field.onChange}
+                      isInvalid={!!errors.description_en}
+                      errorMessage={errors.description_en?.message}
+                    />
+                  )}
+                />
+              </div>
+
               {/* Images address the product by id, so they appear once it exists. */}
               {editingProduct && (
                 <>
@@ -361,6 +402,8 @@ export function getEditFormValues(product: Product) {
   return {
     name: product.name,
     name_en: product.name_en ?? '',
+    description: product.description ?? '',
+    description_en: product.description_en ?? '',
     slug: product.slug ?? '',
     sku: product.sku,
     barcode: product.barcode || '',
@@ -377,6 +420,8 @@ export function getCreateFormValues() {
   return {
     name: '',
     name_en: '',
+    description: '',
+    description_en: '',
     slug: '',
     sku: '',
     barcode: '',

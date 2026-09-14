@@ -161,6 +161,7 @@
   "inventory.searchPlaceholder": "البحث عن منتجات...",
   "inventory.productName": "اسم المنتج",
   "inventory.sku": "الرمز",
+  "inventory.description": "الوصف",
   "inventory.price": "السعر",
   "inventory.stock": "المخزون",
   "inventory.categoryCol": "الفئة",

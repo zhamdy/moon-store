@@ -103,6 +103,8 @@ const getProductSchema = () =>
     distributor_id: z.coerce.number().int().positive().optional().nullable(),
     min_stock: z.coerce.number().int().min(0).default(5),
     name_en: z.string().max(255).optional().nullable(),
+    description: z.string().max(5000).optional().nullable(),
+    description_en: z.string().max(5000).optional().nullable(),
     slug: slugFormSchema(),
   });
 
@@ -341,6 +343,8 @@ export default function Inventory() {
       id: editingProduct?.id ?? null,
       ...data,
       name_en: englishForWrite(data.name_en),
+      description: englishForWrite(data.description),
+      description_en: englishForWrite(data.description_en),
       slug: slugForWrite(data.slug),
     });
   };
