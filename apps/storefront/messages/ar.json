@@ -30,6 +30,7 @@
   },
   "products": {
     "new": "جديد",
+    "soldOut": "نفدت الكمية",
     "currency": "ج.م"
   },
   "categories": {
@@ -170,5 +171,63 @@
     "title": "الصفحة غير موجودة",
     "body": "الصفحة التي تبحثين عنها غير موجودة بعد.",
     "backHome": "العودة إلى الصفحة الرئيسية"
+  },
+  "catalog": {
+    "resultCount": "{count, plural, zero {لا توجد قطع} one {قطعة واحدة} two {قطعتان} few {# قطع} many {# قطعة} other {# قطعة}}",
+    "resultsHeadingFirst": "المنتجات",
+    "resultsHeading": "المنتجات، الصفحة {page} من {total}",
+    "loading": "جارٍ تحميل المنتجات",
+    "intro": {
+      "shop": "تسوّقي",
+      "collections": "المجموعات",
+      "shopTitle": "كل القطع",
+      "newInTitle": "وصل حديثًا",
+      "collectionsTitle": "المجموعات"
+    },
+    "categoryNav": {
+      "label": "الفئات",
+      "all": "الكل"
+    },
+    "pagination": {
+      "label": "الصفحات",
+      "previous": "السابقة",
+      "next": "التالية",
+      "pageOf": "الصفحة {page} من {total}",
+      "page": "الصفحة {page}"
+    },
+    "wayfinding": {
+      "exploreCollections": "اكتشفي كل المجموعات",
+      "shopByCategory": "تسوّقي حسب الفئة"
+    },
+    "collections": {
+      "explore": "اكتشفي"
+    },
+    "empty": {
+      "catalog": {
+        "title": "قطع جديدة في طريقها إليكِ",
+        "body": "عودي قريبًا لاكتشاف أحدث القطع.",
+        "action": "العودة إلى الصفحة الرئيسية"
+      },
+      "filtered": {
+        "title": "لا توجد قطع تطابق هذه الفلاتر",
+        "body": "جرّبي إزالة أحد الفلاتر لرؤية المزيد.",
+        "action": "مسح الفلاتر"
+      },
+      "outOfRange": {
+        "title": "هذه الصفحة فارغة",
+        "body": "عدد صفحات هذه القائمة أقل مما يشير إليه الرابط.",
+        "action": "الانتقال إلى الصفحة الأولى"
+      },
+      "collection": {
+        "title": "نُحضّر هذه المجموعة الآن",
+        "body": "ستظهر قطعها هنا فور وصولها.",
+        "action": "تسوّقي كل القطع"
+      },
+      "category": {
+        "title": "نُجدّد قطع هذه الفئة",
+        "body": "في هذه الأثناء، تصفّحي كل القطع في المتجر.",
+        "action": "تسوّقي كل القطع"
+      }
+    }
   }
 }

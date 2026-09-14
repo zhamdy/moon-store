@@ -8,6 +8,7 @@ import {
   ProductCard,
 } from '@/features/products/components/product-card';
 import { curatedEdit } from '@/features/products/data/home-products';
+import { fromHomeMock } from '@/features/products/utils/product-card-model';
 import { SectionHeading } from '../section-heading';
 
 /**
@@ -51,10 +52,10 @@ export async function CuratedEdit({ locale }: { locale: AppLocale }) {
           {curatedEdit.map((product, index) => {
             const card = (
               <ProductCard
-                product={product}
+                product={fromHomeMock(product, locale)}
                 locale={locale}
                 currencyLabel={tp('currency')}
-                newLabel={tp('new')}
+                badgeLabels={{ new: tp('new'), soldOut: tp('soldOut') }}
                 sizes={index === 0 ? LARGE_CARD_SIZES : CATALOG_CARD_SIZES}
                 reveal={index === 0 ? 'image' : 'rise'}
               />

@@ -8,17 +8,17 @@ import type { HomeCategory } from '../types/home-category';
 export const homeCategories: readonly HomeCategory[] = [
   {
     key: 'dresses',
-    href: '/collections/dresses',
+    href: '/shop/dresses',
     image: 'category-dresses',
     messageKey: 'dresses',
   },
-  { key: 'tops', href: '/collections/tops', image: 'category-tops', messageKey: 'tops' },
+  { key: 'tops', href: '/shop/tops', image: 'category-tops', messageKey: 'tops' },
   {
     key: 'knitwear',
-    href: '/collections/knitwear',
+    href: '/shop/knitwear',
     image: 'category-knitwear',
     messageKey: 'knitwear',
   },
-  { key: 'bags', href: '/collections/bags', image: 'category-bags', messageKey: 'bags' },
-  { key: 'abayas', href: '/collections/abayas', image: 'category-abayas', messageKey: 'abayas' },
+  { key: 'bags', href: '/shop/bags', image: 'category-bags', messageKey: 'bags' },
+  { key: 'abayas', href: '/shop/abayas', image: 'category-abayas', messageKey: 'abayas' },
 ];

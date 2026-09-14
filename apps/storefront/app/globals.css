@@ -766,6 +766,43 @@ header[data-surface][data-surface-ready] {
   }
 }
 
+/* ============================================================
+   Catalog listing - features/catalog/components/.
+   ============================================================ */
+
+/* Pagination links end in #catalog-results (the grid's visually hidden h2), so
+   the jump lands the first row below the sticky header, not under it. */
+#catalog-results {
+  scroll-margin-top: calc(var(--header-h) + 24px);
+}
+
+/* Pending: while the controls island's transition runs, the current grid stays
+   and dims until the new one streams in. CSS only, keyed on the island root.
+   Reduced motion keeps the dimming; the global rule removes its transition. */
+[data-catalog-grid] {
+  transition: opacity var(--motion-base) var(--ease-ui);
+}
+
+[data-catalog]:has([data-catalog-controls][data-pending]) [data-catalog-grid] {
+  opacity: 0.55;
+}
+
+/* Category row: scrolls at every width (11 categories never fit at 1024), with a
+   fade on the inline end that says so. The row's inline-end padding exceeds the
+   fade, so the last link scrolls fully clear of it. */
+[data-category-row] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+  scrollbar-width: none;
+}
+
+[dir='rtl'] [data-category-row] {
+  mask-image: linear-gradient(to left, #000 calc(100% - 48px), transparent);
+}
+
+[data-category-row]::-webkit-scrollbar {
+  display: none;
+}
+
 /* Editorial strip depth: each detail photograph drifts sideways inside its frame
    on its own slow cycle, over-scaled so no edge shows, so the images move at a
    different speed from the words without leaving the line. `ease-in-out` is
