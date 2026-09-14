@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CATALOG_EAGER_COUNT,
   CATALOG_GRID_SIZES,
+  RELATED_GRID_SIZES,
   catalogImageLoading,
   catalogStagger,
 } from './grid-layout';
@@ -32,5 +33,18 @@ describe('catalog grid layout', () => {
     expect(catalogStagger(0)).toBe(0);
     expect(catalogStagger(7)).toBe(7);
     expect(catalogStagger(8)).toBeNull();
+  });
+});
+
+describe('related grid layout', () => {
+  it('derives sizes for 4 up from 1024 and 2 up below', () => {
+    expect(RELATED_GRID_SIZES).toBe(
+      [
+        '(min-width: 1440px) 310px',
+        '(min-width: 1024px) calc(25vw - 42px)',
+        '(min-width: 768px) calc(50vw - 42px)',
+        'calc(50vw - 26px)',
+      ].join(', ')
+    );
   });
 });

@@ -1,9 +1,15 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { connection } from 'next/server';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing, type AppLocale } from '@/i18n/routing';
+import {
+  RelatedProducts,
+  RelatedProductsSkeleton,
+} from '@/features/catalog/components/related-products';
+import { relatedScope } from '@/features/catalog/utils/related-scope';
 import { getCatalogProduct } from '@/features/products/api/get-catalog-product';
 import { ProductDetail } from '@/features/products/components/product-detail';
 import { ProductGallery } from '@/features/products/components/product-gallery';
@@ -48,6 +54,13 @@ export default async function ProductPage(props: Props) {
       product={product}
       gallery={<ProductGallery locale={locale} product={product} />}
       purchase={<PurchasePanelSlot locale={locale} product={product} />}
+      related={
+        relatedScope(product) ? (
+          <Suspense fallback={<RelatedProductsSkeleton />}>
+            <RelatedProducts locale={locale} product={product} />
+          </Suspense>
+        ) : undefined
+      }
     />
   );
 }
