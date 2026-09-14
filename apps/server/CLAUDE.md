@@ -43,6 +43,11 @@ unvalidated CHECK on `products` and `categories`, backfills, and re-adds each fr
 constraint ends exactly as it was. Proven on real PostgreSQL in
 `tests/concurrency/storefrontCatalogMigration.realpg.test.ts`.
 
+**Deploy `014` in a maintenance window.** It builds its unique indexes and restores those
+CHECKs inside the migration transaction (`migrate.ts` wraps each file), so on a
+production-sized `products` table it holds ACCESS EXCLUSIVE locks for the whole build and
+POS writes block meanwhile.
+
 Note that replaying an *older* migration's raw SQL after a newer one has narrowed the
 same object undoes the narrowing — `009` re-adds its own wider list. That is inherent to
 what "replay migration N" means, not a bug in either file, and it is why

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CATALOG_PRICE_MAX,
   DEFAULT_CATALOG_PARAMS,
   loadCatalogParams,
   nextCatalogParams,
@@ -52,6 +53,14 @@ describe('loadCatalogParams', () => {
   it('drops invalid min, max and stock', () => {
     expect(loadCatalogParams('min=-5&max=abc&stock=yes', SHOP)).toEqual(DEFAULT_CATALOG_PARAMS);
     expect(loadCatalogParams('min=12.5', SHOP).min).toBeNull();
+  });
+
+  it('drops a price bound above the API ceiling, as typed or once snapped', () => {
+    expect(loadCatalogParams('min=10000001', SHOP).min).toBeNull();
+    expect(loadCatalogParams('max=99999999', SHOP).max).toBeNull();
+    expect(loadCatalogParams('max=10000001', SHOP).max).toBeNull();
+    expect(loadCatalogParams('max=10000000', SHOP).max).toBe(CATALOG_PRICE_MAX);
+    expect(loadCatalogParams('max=9999990', SHOP).max).toBe(CATALOG_PRICE_MAX);
   });
 
   it('swaps min > max', () => {

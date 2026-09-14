@@ -191,6 +191,7 @@
       "priceHint": "Pieces from {min} to {max} {currency}",
       "priceNumberError": "Enter a whole number",
       "priceOrderError": "The minimum can't be higher than the maximum",
+      "priceMaxError": "Enter a smaller amount",
       "clearAll": "Clear all",
       "apply": "Show results",
       "summaryLabel": "Active filters",

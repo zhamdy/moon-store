@@ -336,5 +336,120 @@ describe('Inventory product authoring fields', () => {
     );
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(toast.error).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('URL slug'), { target: { value: 'evening-dress-2' } });
+    await waitFor(() =>
+      expect(
+        screen.queryByText('This slug is already in use. Choose another.')
+      ).not.toBeInTheDocument()
+    );
+  }, 20000);
+});
+
+describe('Inventory product dialog: stale generated codes', () => {
+  beforeEach(() => {
+    useSettingsStore.setState({ locale: 'en' });
+    useAuthStore.setState({
+      user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+      accessToken: 'test-token',
+      isAuthenticated: true,
+    });
+  });
+
+  type Pending = { path: string; resolve: (data: unknown) => void };
+
+  /** Holds every generate-sku/-barcode request open until the test answers it. */
+  function deferredCodesTransport() {
+    const base = createMemoryTransport(
+      { products: [SILK_DRESS, CASHMERE_COAT], distributors: [] },
+      {
+        reads: {
+          'products/categories': [
+            { id: 3, name: 'Dresses', code: 'DRS' },
+            { id: 4, name: 'Coats', code: 'COT' },
+          ],
+          'products/1/images': [],
+        },
+      }
+    );
+    const pending: Pending[] = [];
+    const transport: MemoryTransport = {
+      ...base,
+      request: <T,>(req: Parameters<MemoryTransport['request']>[0]) =>
+        req.path.startsWith('products/generate-')
+          ? new Promise<{ data: T }>((resolve) =>
+              pending.push({ path: req.path, resolve: (data) => resolve({ data: data as T }) })
+            )
+          : base.request<T>(req),
+    };
+    const answer = async (path: string, data: unknown) => {
+      const request = pending.find((entry) => entry.path === path);
+      if (!request) throw new Error(`no pending request for ${path}`);
+      request.resolve(data);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    };
+    return { transport, pending, answer };
+  }
+
+  function chooseCategory(id: number) {
+    const select = screen.getByRole('dialog').querySelector('select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: String(id) } });
+  }
+
+  it('ignores a SKU generated for a category that is no longer selected', async () => {
+    const { transport, pending, answer } = deferredCodesTransport();
+    renderInventory(transport);
+    await screen.findByText('Silk Dress');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Add Product$/ }));
+    await screen.findByLabelText('English name');
+    chooseCategory(3);
+    await waitFor(() => expect(pending.map((p) => p.path)).toContain('products/generate-sku/3'));
+    chooseCategory(4);
+    await waitFor(() => expect(pending.map((p) => p.path)).toContain('products/generate-sku/4'));
+
+    await answer('products/generate-sku/4', { sku: 'COT-010' });
+    await answer('products/generate-sku/3', { sku: 'DRS-010' });
+
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Wool Coat' } });
+    fireEvent.change(screen.getByLabelText('Price'), { target: { value: '900' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Create$/ }));
+
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'POST',
+          path: 'products',
+          body: expect.objectContaining({ sku: 'COT-010', category_id: 4 }),
+        })
+      )
+    );
+  }, 20000);
+
+  it('ignores a barcode that arrives after the dialog closed and reopened in edit', async () => {
+    const { transport, pending, answer } = deferredCodesTransport();
+    renderInventory(transport);
+    await screen.findByText('Silk Dress');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Add Product$/ }));
+    await waitFor(() => expect(pending.map((p) => p.path)).toContain('products/generate-barcode'));
+    fireEvent.click(screen.getByRole('button', { name: /^Cancel$/ }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Actions' })[0]);
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Edit/ }));
+    await screen.findByLabelText('URL slug');
+    await answer('products/generate-barcode', { barcode: '999999999999' });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Update$/ }));
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'PUT',
+          path: 'products/1',
+          body: expect.objectContaining({ barcode: SILK_DRESS.barcode }),
+        })
+      )
+    );
   }, 20000);
 });

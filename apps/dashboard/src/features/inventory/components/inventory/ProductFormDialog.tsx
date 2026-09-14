@@ -65,6 +65,7 @@ export default function ProductFormDialog({
     watch,
     setValue,
     setError,
+    clearErrors,
     formState: { errors },
   } = useForm<ProductFormData>({
     resolver: zodResolver(getProductSchema()),
@@ -74,6 +75,8 @@ export default function ProductFormDialog({
 
   // Populate form when dialog opens
   useEffect(() => {
+    // A barcode that lands after the dialog closed or reopened on another product is stale.
+    let ignore = false;
     if (open) {
       if (editingProduct) {
         slugTouched.current = Boolean(editingProduct.slug);
@@ -84,10 +87,15 @@ export default function ProductFormDialog({
         // Auto-generate barcode for new products
         transport
           .request<{ barcode: string }>({ method: 'GET', path: 'products/generate-barcode' })
-          .then(({ data }) => setValue('barcode', data.barcode))
+          .then(({ data }) => {
+            if (!ignore) setValue('barcode', data.barcode);
+          })
           .catch(() => {});
       }
     }
+    return () => {
+      ignore = true;
+    };
   }, [open, editingProduct, reset, setValue, transport]);
 
   useEffect(() => {
@@ -96,15 +104,22 @@ export default function ProductFormDialog({
 
   // Auto-generate SKU when category changes (only for new products)
   useEffect(() => {
+    // Only the SKU for the category still selected may land; an earlier pick's answer is dropped.
+    let ignore = false;
     if (!editingProduct && watchCategoryId && open) {
       transport
         .request<{ sku: string }>({
           method: 'GET',
           path: `products/generate-sku/${watchCategoryId}`,
         })
-        .then(({ data }) => setValue('sku', data.sku))
+        .then(({ data }) => {
+          if (!ignore) setValue('sku', data.sku);
+        })
         .catch(() => {});
     }
+    return () => {
+      ignore = true;
+    };
   }, [watchCategoryId, editingProduct, open, setValue, transport]);
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -212,6 +227,8 @@ export default function ProductFormDialog({
                         // Clearing it hands the slug back to the suggestion.
                         slugTouched.current = value !== '';
                         field.onChange(value);
+                        // A server refusal describes the old value; editing answers it.
+                        clearErrors('slug');
                       }}
                       description={t('catalog.slugHelp')}
                       isInvalid={!!errors.slug}

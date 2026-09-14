@@ -57,6 +57,7 @@ export async function catalogControlsRenderer({
     max: t('filters.max'),
     priceNumberError: t('filters.priceNumberError'),
     priceOrderError: t('filters.priceOrderError'),
+    priceMaxError: t('filters.priceMaxError'),
     clearAll: t('filters.clearAll'),
     apply: t('filters.apply'),
     summaryLabel: t('filters.summaryLabel'),

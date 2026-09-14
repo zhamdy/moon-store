@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CatalogProductQuery } from '@/features/catalog/search-params';
+import {
+  loadCatalogParams,
+  toProductQuery,
+  type CatalogProductQuery,
+} from '@/features/catalog/search-params';
 import { ApiError } from '@/lib/api/errors';
 import { buildCatalogProductsPath, listCatalogProducts } from './list-catalog-products';
 
@@ -78,6 +82,14 @@ describe('buildCatalogProductsPath', () => {
     expect(buildCatalogProductsPath({ ...baseQuery, scope: { kind: 'new' } })).toBe(
       '/catalog/products?new=true&sort=newest'
     );
+  });
+
+  it('never sends a price bound above the API ceiling taken from the URL', () => {
+    const route = { kind: 'all' } as const;
+    const path = buildCatalogProductsPath(
+      toProductQuery(loadCatalogParams('min=10000001&max=99999999', route), route)
+    );
+    expect(path).toBe('/catalog/products?sort=newest');
   });
 
   it('keeps a zero price bound, which is a real value once normalised', () => {

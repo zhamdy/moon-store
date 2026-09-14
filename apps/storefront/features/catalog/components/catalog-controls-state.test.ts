@@ -77,6 +77,22 @@ describe('filter sheet staging', () => {
     });
   });
 
+  it('marks a bound above the API price ceiling invalid, so apply is not allowed', () => {
+    const staged = { inStock: false, min: '10000001', max: '99999999' };
+    expect(validateStaged(staged)).toMatchObject({
+      minTooHigh: true,
+      maxTooHigh: true,
+      minInvalid: false,
+      valid: false,
+    });
+    expect(applyStaged(params({}), staged, SHOP)).toBeNull();
+    expect(validateStaged({ inStock: false, min: '', max: '10000000' })).toMatchObject({
+      max: 10_000_000,
+      maxTooHigh: false,
+      valid: true,
+    });
+  });
+
   it('an emptied price input removes that bound; min alone is valid', () => {
     const current = params({ min: 500, max: 3000 });
     const staged = { ...stagedFromParams(current), max: '  ' };

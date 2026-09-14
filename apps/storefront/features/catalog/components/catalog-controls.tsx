@@ -58,6 +58,7 @@ export interface CatalogControlsStrings {
   priceHint: string | null;
   priceNumberError: string;
   priceOrderError: string;
+  priceMaxError: string;
   clearAll: string;
   apply: string;
   summaryLabel: string;
@@ -127,6 +128,9 @@ export function CatalogControls({
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const removeRefs = useRef<Partial<Record<SummaryPart, HTMLButtonElement | null>>>({});
   const pendingFocus = useRef<SummaryPart | 'filter' | null>(null);
+  const revealTimeout = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(revealTimeout.current), []);
 
   // Runs after every render: a removal re-renders the summary, then focus lands.
   useEffect(() => {
@@ -190,7 +194,9 @@ export function CatalogControls({
   const revealField = (event: FocusEvent<HTMLInputElement>) => {
     const field = event.currentTarget;
     if (!window.matchMedia(BOTTOM_SHEET_QUERY).matches) return;
-    window.setTimeout(() => field.scrollIntoView({ block: 'center' }), 300);
+    // One pending reveal at a time: moving between the fields restarts the wait.
+    window.clearTimeout(revealTimeout.current);
+    revealTimeout.current = window.setTimeout(() => field.scrollIntoView({ block: 'center' }), 300);
   };
 
   const priceText = formatPriceSummary(committed, strings.priceSummary, currencyLabel, (amount) =>
@@ -200,6 +206,8 @@ export function CatalogControls({
 
   const showMinError = sheet.touched.min && validation.minInvalid;
   const showMaxError = sheet.touched.max && validation.maxInvalid;
+  const showTooHighError =
+    (sheet.touched.min && validation.minTooHigh) || (sheet.touched.max && validation.maxTooHigh);
   const showOrderError =
     (sheet.touched.min || sheet.touched.max) && !validation.minInvalid && !validation.maxInvalid
       ? validation.orderInvalid
@@ -207,9 +215,11 @@ export function CatalogControls({
   const errorText =
     showMinError || showMaxError
       ? strings.priceNumberError
-      : showOrderError
-        ? strings.priceOrderError
-        : '';
+      : showTooHighError
+        ? strings.priceMaxError
+        : showOrderError
+          ? strings.priceOrderError
+          : '';
 
   const sortId = `${ids}-sort`;
   const hintId = `${ids}-price-hint`;
@@ -408,7 +418,10 @@ export function CatalogControls({
                           value={sheet.staged[field]}
                           placeholder={pricePlaceholders[field]}
                           aria-invalid={
-                            (field === 'min' ? showMinError : showMaxError) || showOrderError
+                            (field === 'min'
+                              ? showMinError || (sheet.touched.min && validation.minTooHigh)
+                              : showMaxError || (sheet.touched.max && validation.maxTooHigh)) ||
+                            showOrderError
                           }
                           aria-describedby={describedBy || undefined}
                           onChange={(event) =>

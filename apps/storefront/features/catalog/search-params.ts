@@ -17,6 +17,15 @@ export type CatalogSort = (typeof CATALOG_SORTS)[number];
 export const CATALOG_MAX_PAGE = 500;
 /** Price bounds are whole EGP in steps of 50 (KD-4, KD-11). */
 export const CATALOG_PRICE_STEP = 50;
+/**
+ * The API's price ceiling, twin of `CATALOG_PRICE_MAX` in
+ * `apps/server/src/modules/commerce/catalog/schemas.ts`. A bound above it is a 400 there,
+ * which would loop the error boundary's retry while the value stays in the URL, so the
+ * parser drops it (KD-11). Checked both as typed and after snapping: `min=10000001` is
+ * dropped even though it would snap down to the ceiling, and a max that snaps up past it
+ * is dropped too.
+ */
+export const CATALOG_PRICE_MAX = 10_000_000;
 
 export type CatalogRoute =
   | { kind: 'all' }
@@ -57,7 +66,10 @@ function createPriceParser(snap: (value: number) => number) {
   return createParser<number>({
     parse: (raw) => {
       const digits = normalizeDigits(raw);
-      return digits === null ? null : snap(Number(digits));
+      if (digits === null) return null;
+      const typed = Number(digits);
+      const snapped = snap(typed);
+      return Math.max(typed, snapped) <= CATALOG_PRICE_MAX ? snapped : null;
     },
     serialize: String,
   });

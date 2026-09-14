@@ -76,6 +76,9 @@ export interface StagedValidation {
   /** Not a whole number once digits are normalised. */
   minInvalid: boolean;
   maxInvalid: boolean;
+  /** A whole number, but above `CATALOG_PRICE_MAX` as typed or snapped: the API would refuse it. */
+  minTooHigh: boolean;
+  maxTooHigh: boolean;
   /** Both bounds given and the typed minimum exceeds the typed maximum. */
   orderInvalid: boolean;
   valid: boolean;
@@ -83,11 +86,13 @@ export interface StagedValidation {
 
 function readBound(raw: string, key: 'min' | 'max') {
   const trimmed = raw.trim();
-  if (trimmed === '') return { typed: null, snapped: null, invalid: false };
+  if (trimmed === '') return { typed: null, snapped: null, invalid: false, tooHigh: false };
   const digits = normalizeDigits(trimmed);
-  if (digits === null) return { typed: null, snapped: null, invalid: true };
-  // The URL parsers own digit normalisation and the 50 EGP snap (KD-11): min down, max up.
-  return { typed: Number(digits), snapped: catalogParsers[key].parse(digits), invalid: false };
+  if (digits === null) return { typed: null, snapped: null, invalid: true, tooHigh: false };
+  // The URL parsers own digit normalisation, the 50 EGP snap (KD-11): min down, max up,
+  // and the price ceiling; for normalised digits a `null` parse means only the ceiling.
+  const snapped = catalogParsers[key].parse(digits);
+  return { typed: Number(digits), snapped, invalid: false, tooHigh: snapped === null };
 }
 
 export function validateStaged(staged: StagedFilters): StagedValidation {
@@ -101,8 +106,10 @@ export function validateStaged(staged: StagedFilters): StagedValidation {
     max: max.snapped,
     minInvalid: min.invalid,
     maxInvalid: max.invalid,
+    minTooHigh: min.tooHigh,
+    maxTooHigh: max.tooHigh,
     orderInvalid,
-    valid: !min.invalid && !max.invalid && !orderInvalid,
+    valid: !min.invalid && !max.invalid && !min.tooHigh && !max.tooHigh && !orderInvalid,
   };
 }
 

@@ -191,6 +191,7 @@
       "priceHint": "القطع من {min} إلى {max} {currency}",
       "priceNumberError": "أدخلي رقمًا صحيحًا",
       "priceOrderError": "لا يمكن أن يتجاوز الحد الأدنى الحد الأقصى",
+      "priceMaxError": "أدخلي مبلغًا أصغر",
       "clearAll": "مسح الكل",
       "apply": "عرض النتائج",
       "summaryLabel": "الفلاتر المفعّلة",
