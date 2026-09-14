@@ -49,7 +49,7 @@ export function CategoryTile({
             fill
             sizes={sizes}
             placeholder="blur"
-            className="object-cover transition-transform duration-[400ms] ease-ui group-hover:scale-[1.04]"
+            className="object-cover transition-transform duration-base ease-ui group-hover:scale-[1.04]"
           />
         </span>
         <span
@@ -61,7 +61,7 @@ export function CategoryTile({
         data-motion="rise"
         className="absolute inset-x-0 bottom-0 p-5 [--motion-offset:380ms] [--motion-rise:20px] lg:p-6"
       >
-        <span className="type-h4 block text-white transition-transform duration-300 ease-ui group-hover:translate-x-1.5 rtl:group-hover:-translate-x-1.5">
+        <span className="type-h4 block text-white transition-transform duration-base ease-ui group-hover:translate-x-1.5 rtl:group-hover:-translate-x-1.5">
           {label}
         </span>
       </span>

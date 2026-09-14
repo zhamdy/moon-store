@@ -64,7 +64,7 @@ export function ProductCard({
       <Link href={`/shop/${product.slug}`} className="relative block">
         <div data-motion="image" className="relative aspect-4/5 overflow-hidden bg-surface-soft">
           <div data-motion-zoom="" className="absolute inset-0">
-            <div className="absolute inset-0 transition-transform duration-[400ms] ease-ui group-hover:scale-[1.03]">
+            <div className="absolute inset-0 transition-transform duration-base ease-ui group-hover:scale-[1.03]">
               <Image
                 src={front}
                 alt=""
@@ -83,7 +83,7 @@ export function ProductCard({
                   fill
                   sizes={sizes}
                   placeholder="blur"
-                  className="object-cover opacity-0 transition-opacity duration-[350ms] ease-ui group-hover:opacity-100"
+                  className="object-cover opacity-0 transition-opacity duration-base ease-ui group-hover:opacity-100"
                 />
               </div>
             </div>
@@ -99,7 +99,7 @@ export function ProductCard({
               className={cn(
                 'bg-left-bottom bg-no-repeat rtl:bg-right-bottom',
                 '[background-image:linear-gradient(currentColor,currentColor)] bg-[length:0%_1px]',
-                'transition-[background-size] duration-[350ms] ease-ui',
+                'transition-[background-size] duration-base ease-ui',
                 'group-hover:bg-[length:100%_1px] group-has-[:focus-visible]:bg-[length:100%_1px]'
               )}
             >

@@ -41,6 +41,44 @@ export function resolveKeyTarget(step: KeyStep, active: number, total: number): 
   return wrapIndex(active + step, total);
 }
 
+export type CarouselState = 'idle' | 'running' | 'paused' | 'stopped';
+
+export interface CarouselStateInput {
+  hydrated: boolean;
+  reducedMotion: boolean;
+  stopped: boolean;
+  hovered: boolean;
+  inView: boolean;
+  total: number;
+}
+
+/**
+ * The carousel's rotation state, pure so it is unit-testable without a DOM.
+ * Idle until hydration, so every progress bar renders empty rather than full
+ * before emptying the instant rotation starts. Reduced motion and a single
+ * slide never autoplay. Once stopped by interaction, hovering or leaving the
+ * viewport never resumes it — `stopped` is sticky for the rest of the visit.
+ * Hovering and being scrolled out of view both pause a running carousel the
+ * same way: the progress fill freezes and resumes from where it left off.
+ */
+export function carouselState({
+  hydrated,
+  reducedMotion,
+  stopped,
+  hovered,
+  inView,
+  total,
+}: CarouselStateInput): CarouselState {
+  if (!hydrated) {
+    return 'idle';
+  }
+  const autoplay = !reducedMotion && total > 1 && !stopped;
+  if (!autoplay) {
+    return 'stopped';
+  }
+  return hovered || !inView ? 'paused' : 'running';
+}
+
 export const SWIPE_THRESHOLD_PX = 50;
 
 /**

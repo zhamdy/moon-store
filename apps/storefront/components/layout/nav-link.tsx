@@ -44,7 +44,7 @@ export function NavLink({
         'after:absolute after:bottom-0 after:start-0 after:h-px after:w-full after:bg-brand',
         // Scale, not width: the underline grows on the compositor.
         'after:origin-left rtl:after:origin-right',
-        'after:transition-transform after:duration-[260ms] after:ease-ui',
+        'after:transition-transform after:duration-fast after:ease-ui',
         current
           ? 'after:scale-x-100'
           : 'after:scale-x-0 hover:after:scale-x-100 focus-visible:after:scale-x-100',

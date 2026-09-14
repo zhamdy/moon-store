@@ -1,11 +1,57 @@
 import { describe, expect, it } from 'vitest';
 import {
+  carouselState,
   resolveKeyTarget,
   stepFromKey,
   stepFromSwipe,
   SWIPE_THRESHOLD_PX,
   wrapIndex,
 } from './hero-carousel-state';
+
+const BASE = {
+  hydrated: true,
+  reducedMotion: false,
+  stopped: false,
+  hovered: false,
+  inView: true,
+  total: 4,
+};
+
+describe('carouselState', () => {
+  it('runs when hydrated, in view, not stopped, no reduced motion, not hovered, total > 1', () => {
+    expect(carouselState(BASE)).toBe('running');
+  });
+
+  it('pauses when out of view, and resumes running when back in view', () => {
+    expect(carouselState({ ...BASE, inView: false })).toBe('paused');
+    expect(carouselState({ ...BASE, inView: true })).toBe('running');
+  });
+
+  it('stays stopped throughout, whether in view or not', () => {
+    expect(carouselState({ ...BASE, stopped: true, inView: true })).toBe('stopped');
+    expect(carouselState({ ...BASE, stopped: true, inView: false })).toBe('stopped');
+  });
+
+  it('never runs under reduced motion, regardless of other inputs', () => {
+    expect(carouselState({ ...BASE, reducedMotion: true })).toBe('stopped');
+    expect(carouselState({ ...BASE, reducedMotion: true, inView: false, hovered: true })).toBe(
+      'stopped'
+    );
+  });
+
+  it('pauses while hovered in view, and resumes when hover ends', () => {
+    expect(carouselState({ ...BASE, hovered: true })).toBe('paused');
+    expect(carouselState({ ...BASE, hovered: false })).toBe('running');
+  });
+
+  it('is idle before hydration', () => {
+    expect(carouselState({ ...BASE, hydrated: false })).toBe('idle');
+  });
+
+  it('never runs with a single slide', () => {
+    expect(carouselState({ ...BASE, total: 1 })).toBe('stopped');
+  });
+});
 
 describe('wrapIndex', () => {
   it('keeps an in-range index', () => {

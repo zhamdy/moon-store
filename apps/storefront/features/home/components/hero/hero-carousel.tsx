@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -15,7 +16,13 @@ import { useLocale } from 'next-intl';
 import { getDirection } from '@/i18n/routing';
 import { Container } from '@/components/ui/container';
 import { cn } from '@/lib/utils/cn';
-import { resolveKeyTarget, stepFromKey, stepFromSwipe, wrapIndex } from './hero-carousel-state';
+import {
+  carouselState,
+  resolveKeyTarget,
+  stepFromKey,
+  stepFromSwipe,
+  wrapIndex,
+} from './hero-carousel-state';
 
 export interface HeroCarouselSlide {
   key: string;
@@ -65,6 +72,12 @@ function subscribeReducedMotion(onChange: () => void) {
  * A client leaf: slide content arrives server-rendered as children, and every
  * string arrives resolved. Transitions and entrances are CSS keyed on
  * `data-active` — see "Hero slides" in app/globals.css.
+ *
+ * Rotation also pauses whenever the hero scrolls out of view (one
+ * `IntersectionObserver` on the root element), the same way hovering does: the
+ * progress fill freezes and resumes where it left off, and the slide never
+ * changes while away. "Stopped by interaction" stays sticky across leaving and
+ * re-entering the viewport — see `carouselState` in `hero-carousel-state.ts`.
  */
 export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
   const rtl = getDirection(useLocale()) === 'rtl';
@@ -81,14 +94,31 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
   const [{ active, previous }, setSlides] = useState<SlideState>({ active: 0, previous: null });
   const [stopped, setStopped] = useState(false);
   const [hovering, setHovering] = useState(false);
+  const [inView, setInView] = useState(true);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const swipeStartX = useRef<number | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting));
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
 
   const total = slides.length;
   const autoplay = hydrated && !reducedMotion && total > 1 && !stopped;
-  // Idle until hydration: every progress bar empty rather than a full bar that
-  // empties the moment rotation starts.
-  const state = !hydrated ? 'idle' : autoplay ? (hovering ? 'paused' : 'running') : 'stopped';
+  const state = carouselState({
+    hydrated,
+    reducedMotion,
+    stopped,
+    hovered: hovering,
+    inView,
+    total,
+  });
 
   const goTo = (index: number) => {
     const next = wrapIndex(index, total);
@@ -140,6 +170,7 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
 
   return (
     <div
+      ref={rootRef}
       className="absolute inset-0"
       data-carousel-state={state}
       style={{ '--hero-interval': `${INTERVAL_MS}ms` } as CSSProperties}

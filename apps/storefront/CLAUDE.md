@@ -244,7 +244,14 @@ way to stop content that moves for more than five seconds, and the carousel's is
 interaction: clicking a tab, an arrow key, a swipe or any keyboard focus inside the hero
 stops rotation for the rest of the visit, and hovering pauses it. That is less
 discoverable than a visible control; if an accessibility review asks for one, it goes
-back as the first control before the tablist, per the WAI-ARIA carousel pattern. The global reduced-motion rule zeroes animation and
+back as the first control before the tablist, per the WAI-ARIA carousel pattern.
+Rotation also pauses whenever the hero scrolls out of view, the same way hovering
+does (one `IntersectionObserver` inside the existing `hero-carousel.tsx` island,
+no new client boundary): the progress fill freezes and resumes from where it
+left off, the slide never changes while away, and "stopped by interaction"
+survives leaving and re-entering the viewport. The state union (`idle | running
+| paused | stopped`) is a pure `carouselState()` in `hero-carousel-state.ts`,
+unit-tested. The global reduced-motion rule zeroes animation and
 transition *delays* as well as durations — with `fill-mode: both`, a zero-duration
 animation would otherwise hold its `from` state for the whole stagger. Embla is
 installed but unused: CSS scroll-snap gives the category and lookbook rails swipe,

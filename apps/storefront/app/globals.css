@@ -640,6 +640,11 @@ header[data-surface][data-surface-ready] {
 }
 
 [data-hero-slide][data-leaving] [data-enter='line'] {
+  /* Deliberately its own curve, not --ease-editorial/--ease-ui: an accelerating
+     ease-in exit (the title picks up speed on its way out) reads as the outgoing
+     slide being overtaken by the incoming one. Moving it onto the shared
+     entrance easing would slow that hand-off, not just make the tokens
+     consistent. */
   animation: moon-line-exit 650ms cubic-bezier(0.7, 0, 0.84, 0) both;
 }
 
@@ -758,7 +763,11 @@ header[data-surface][data-surface-ready] {
 
 /* Editorial strip depth: each detail photograph drifts sideways inside its frame
    on its own slow cycle, over-scaled so no edge shows, so the images move at a
-   different speed from the words without leaving the line. */
+   different speed from the words without leaving the line. `ease-in-out` is
+   deliberate, not --ease-editorial/--ease-ui: it alternates infinitely (`alternate`),
+   so it needs to decelerate into and accelerate out of both endpoints
+   symmetrically, which is what makes the drift read as a pendulum rather than a
+   one-way entrance. */
 [data-strip-pan] {
   transform: scale(1.18);
   animation: moon-strip-pan 9s ease-in-out infinite alternate;
