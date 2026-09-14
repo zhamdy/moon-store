@@ -20,17 +20,14 @@ const CRUMB_LINK =
  * full name. Separators are hidden from assistive technology; the row mirrors in RTL.
  */
 export async function ProductBreadcrumb({ locale, product, hrefs }: ProductBreadcrumbProps) {
-  const [t, tn] = await Promise.all([
-    getTranslations({ locale, namespace: 'product.breadcrumb' }),
-    getTranslations({ locale, namespace: 'navigation' }),
-  ]);
+  const t = await getTranslations({ locale, namespace: 'product.breadcrumb' });
   const name = localizedName(product, locale);
   const category =
     product.category && hrefs.category ? localizedName(product.category, locale) : null;
 
   const trail = [
     { key: 'home', href: hrefs.home, text: t('home'), attrs: {} },
-    { key: 'shop', href: hrefs.shop, text: tn('shop'), attrs: {} },
+    { key: 'shop', href: hrefs.shop, text: t('shop'), attrs: {} },
     ...(category && hrefs.category
       ? [
           {

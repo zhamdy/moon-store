@@ -297,7 +297,8 @@
     },
     "breadcrumb": {
       "label": "Breadcrumb",
-      "home": "Home"
+      "home": "Home",
+      "shop": "Shop"
     },
     "details": {
       "label": "Product information",
