@@ -532,7 +532,7 @@ and strings.
 - With the API stopped, an uncached slug returns 500 with the catalog error screen.
 - `next build` lists the route as `ƒ`.
 
-- [ ] **Unit 5: Storefront: gallery (Server Component, no JS)**
+- [x] **Unit 5: Storefront: gallery (Server Component, no JS)**
 
 **Goal:** The editorial desktop grid and the mobile rail, built from one list of images.
 
