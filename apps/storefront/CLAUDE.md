@@ -273,8 +273,9 @@ Every homepage image is a static import behind one registry, swappable by file d
   `phone` / `address` settings into it. **It currently holds placeholder values** (user
   request, 2026-09-14; `CONTACT_IS_PLACEHOLDER = true`): the all-zeros test number, a
   district-only address and platform home pages instead of handles. Replace them with the
-  real details before launch. TikTok uses the inline `components/brand/tiktok-icon.tsx`
-  glyph because lucide ships none.
+  real details before launch. TikTok and WhatsApp use the inline `components/brand/tiktok-icon.tsx`
+  and `whatsapp-icon.tsx` glyphs because lucide ships neither (its generic message bubble
+  did not read as WhatsApp).
 - Prices format on the server in `features/products/utils/price.ts`: Western digits in
   both locales (`ar-EG-u-nu-latn`), no decimals, the localised currency label from
   `products.currency` trailing (`1,250 EGP` / `1,250 ج.م`). Eastern Arabic digits are a

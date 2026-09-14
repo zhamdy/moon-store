@@ -1,11 +1,12 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import type { ComponentType } from 'react';
-import { Facebook, Instagram, MapPin, MessageCircle, Phone, Twitter, Youtube } from 'lucide-react';
+import { Facebook, Instagram, MapPin, Phone, Twitter, Youtube } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import { Container } from '@/components/ui/container';
 import { BrandLogo } from '@/components/brand/brand-logo';
 import { TikTokIcon } from '@/components/brand/tiktok-icon';
+import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
 import { hasContactDetails, storeContact, telHref, type SocialNetwork } from '@/lib/brand/contact';
 import { NavLink } from '../nav-link';
 import { primaryNavItems } from '../navigation-items';
@@ -21,7 +22,7 @@ const socialIcons: Record<SocialNetwork, SocialIcon> = {
   instagram: Instagram,
   facebook: Facebook,
   tiktok: TikTokIcon,
-  whatsapp: MessageCircle,
+  whatsapp: WhatsAppIcon,
   x: Twitter,
   youtube: Youtube,
 };
