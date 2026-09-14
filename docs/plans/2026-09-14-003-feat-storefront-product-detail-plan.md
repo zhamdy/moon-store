@@ -395,7 +395,7 @@ the key-set pinning in `tests/catalog.test.ts`.
 authorization and the request-contract ratchets (`EXPECTED_UNCONVERTED` stays at 3,
 `EXPECTED_UNCLASSIFIED` stays at 0).
 
-- [ ] **Unit 2: Storefront: detail DTO and `getCatalogProduct`**
+- [x] **Unit 2: Storefront: detail DTO and `getCatalogProduct`**
 
 **Goal:** A typed, validated server read, memoized per request, with honest 404 and error
 semantics.
