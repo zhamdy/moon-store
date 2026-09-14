@@ -1,7 +1,14 @@
 export const API_PREFIX = '/api/v1';
 
 /**
- * Future endpoint paths and response DTO types belong here. Those types model the
- * API's response DTOs — never a server repository or database type, which the
- * storefront has no visibility into and must not depend on.
+ * Endpoint paths, relative to API_PREFIX. Response DTO types live with the feature that
+ * owns them (`features/<slice>/types`) and model the API's response DTOs — never a
+ * server repository or database type, which the storefront has no visibility into and
+ * must not depend on.
  */
+export const CATALOG_ENDPOINTS = {
+  products: '/catalog/products',
+  categories: '/catalog/categories',
+  collections: '/catalog/collections',
+  collection: (slug: string) => `/catalog/collections/${encodeURIComponent(slug)}`,
+} as const;
