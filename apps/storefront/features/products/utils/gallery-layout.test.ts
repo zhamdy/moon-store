@@ -1,88 +1,70 @@
 import { describe, expect, it } from 'vitest';
 import {
-  GALLERY_LEAD_SIZES,
-  GALLERY_SINGLE_SIZES,
-  GALLERY_SUPPORTING_SIZES,
+  galleryImageSizes,
+  galleryKeyTarget,
   galleryLayout,
+  galleryThumbSizes,
 } from './gallery-layout';
 
 const images = (count: number) =>
   Array.from({ length: count }, (_, index) => ({ url: `https://media.test/${index + 1}.jpg` }));
 
 describe('gallery sizes', () => {
-  it('derives the lead from 7 of 12 columns and the rail from slide widths', () => {
-    expect(GALLERY_LEAD_SIZES).toBe(
+  it('takes the thumbnail column and its gap out of the large image', () => {
+    expect(galleryImageSizes(true)).toBe(
       [
-        '(min-width: 1440px) 752px',
-        '(min-width: 1024px) calc(58.33vw - 69.33px)',
-        '(min-width: 768px) 58vw',
-        '86vw',
+        '(min-width: 1440px) 664px',
+        '(min-width: 1024px) calc(58.33vw - 157.33px)',
+        '(min-width: 992px) calc(100vw - 152px)',
+        '(min-width: 768px) calc(100vw - 168px)',
+        'calc(100vw - 128px)',
       ].join(', ')
     );
   });
 
-  it('halves the column, less the gap, for a paired image', () => {
-    expect(GALLERY_SUPPORTING_SIZES).toBe(
-      [
-        '(min-width: 1440px) 372px',
-        '(min-width: 1024px) calc(29.17vw - 38.67px)',
-        '(min-width: 768px) 58vw',
-        '86vw',
-      ].join(', ')
-    );
-  });
-
-  it('fills the content box below 1024 when there is no rail', () => {
-    expect(GALLERY_SINGLE_SIZES).toBe(
+  it('fills the gallery column when there is no thumbnail column', () => {
+    expect(galleryImageSizes(false)).toBe(
       [
         '(min-width: 1440px) 752px',
         '(min-width: 1024px) calc(58.33vw - 69.33px)',
+        '(min-width: 992px) calc(100vw - 64px)',
         '(min-width: 768px) calc(100vw - 64px)',
         'calc(100vw - 40px)',
       ].join(', ')
     );
   });
+
+  it('doubles every width for the zoom image', () => {
+    expect(galleryImageSizes(true, 2)).toBe(
+      [
+        '(min-width: 1440px) 1328px',
+        '(min-width: 1024px) calc(116.67vw - 314.67px)',
+        '(min-width: 992px) calc(200vw - 304px)',
+        '(min-width: 768px) calc(200vw - 336px)',
+        'calc(200vw - 256px)',
+      ].join(', ')
+    );
+  });
+
+  it('sizes the photograph inside the 72 / 88 / 72 thumbnail, less border and padding', () => {
+    expect(galleryThumbSizes()).toBe('(min-width: 992px) 64px, (min-width: 768px) 80px, 64px');
+  });
 });
 
 describe('galleryLayout', () => {
-  it('spans the lead and pairs four supporting images, with separate sizes', () => {
-    const model = galleryLayout(images(5));
-    if (model.kind !== 'rail') throw new Error('expected a rail');
-    expect(model.count).toBe(5);
-    const [lead, ...rest] = model.slides;
-    expect(lead).toEqual({
-      url: 'https://media.test/1.jpg',
-      position: 1,
-      span: 'full',
-      sizes: GALLERY_LEAD_SIZES,
-      loading: 'eager',
-      fetchPriority: 'high',
-    });
-    expect(rest.map((slide) => slide.span)).toEqual(['half', 'half', 'half', 'half']);
-    expect(rest.map((slide) => slide.position)).toEqual([2, 3, 4, 5]);
-    expect(new Set(rest.map((slide) => slide.sizes))).toEqual(new Set([GALLERY_SUPPORTING_SIZES]));
-    expect(GALLERY_SUPPORTING_SIZES).not.toBe(GALLERY_LEAD_SIZES);
+  it('returns the placeholder model for no images', () => {
+    expect(galleryLayout([])).toEqual({ kind: 'empty' });
   });
 
-  it('keeps every image after the lead lazy at default priority', () => {
-    const model = galleryLayout(images(9));
-    if (model.kind !== 'rail') throw new Error('expected a rail');
-    for (const slide of model.slides.slice(1)) {
-      expect(slide.loading).toBeUndefined();
-      expect(slide.fetchPriority).toBeUndefined();
-    }
-  });
-
-  it('renders one image as the lead only, with no rail chrome', () => {
-    const model = galleryLayout(images(1));
-    expect(model).toEqual({
+  it('renders one image with no thumbnail column, eager and high priority', () => {
+    expect(galleryLayout(images(1))).toEqual({
       kind: 'single',
-      slides: [
+      images: [
         {
           url: 'https://media.test/1.jpg',
           position: 1,
-          span: 'full',
-          sizes: GALLERY_SINGLE_SIZES,
+          sizes: galleryImageSizes(false),
+          zoomSizes: galleryImageSizes(false, 2),
           loading: 'eager',
           fetchPriority: 'high',
         },
@@ -90,20 +72,47 @@ describe('galleryLayout', () => {
     });
   });
 
-  it('spans the last of an odd number of supporting images', () => {
-    const model = galleryLayout(images(4));
-    if (model.kind !== 'rail') throw new Error('expected a rail');
-    expect(model.slides.map((slide) => slide.span)).toEqual(['full', 'half', 'half', 'full']);
-    expect(model.slides[3].sizes).toBe(GALLERY_LEAD_SIZES);
+  it('keeps only the first of many images eager, all sized beside the thumbnails', () => {
+    const model = galleryLayout(images(6));
+    if (model.kind !== 'thumbs') throw new Error('expected thumbs');
+    expect(model.count).toBe(6);
+    expect(model.thumbSizes).toBe(galleryThumbSizes());
+    expect(model.images.map((image) => image.position)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(model.images.filter((image) => image.fetchPriority === 'high')).toHaveLength(1);
+    expect(model.images[0]).toMatchObject({ loading: 'eager', fetchPriority: 'high' });
+    for (const image of model.images.slice(1)) {
+      expect(image.loading).toBeUndefined();
+      expect(image.fetchPriority).toBeUndefined();
+    }
+    expect(new Set(model.images.map((image) => image.sizes))).toEqual(
+      new Set([galleryImageSizes(true)])
+    );
+  });
+});
+
+describe('galleryKeyTarget', () => {
+  it('moves down and up, wrapping at both ends', () => {
+    expect(galleryKeyTarget('ArrowDown', 0, 4, 'ltr')).toBe(1);
+    expect(galleryKeyTarget('ArrowDown', 3, 4, 'ltr')).toBe(0);
+    expect(galleryKeyTarget('ArrowUp', 2, 4, 'ltr')).toBe(1);
+    expect(galleryKeyTarget('ArrowUp', 0, 4, 'ltr')).toBe(3);
   });
 
-  it('gives two images a lead and one spanning supporting image', () => {
-    const model = galleryLayout(images(2));
-    if (model.kind !== 'rail') throw new Error('expected a rail');
-    expect(model.slides.map((slide) => slide.span)).toEqual(['full', 'full']);
+  it('reads Right as next in LTR and Left as next in RTL', () => {
+    expect(galleryKeyTarget('ArrowRight', 1, 4, 'ltr')).toBe(2);
+    expect(galleryKeyTarget('ArrowLeft', 1, 4, 'ltr')).toBe(0);
+    expect(galleryKeyTarget('ArrowLeft', 1, 4, 'rtl')).toBe(2);
+    expect(galleryKeyTarget('ArrowRight', 1, 4, 'rtl')).toBe(0);
   });
 
-  it('returns the placeholder model for no images', () => {
-    expect(galleryLayout([])).toEqual({ kind: 'empty' });
+  it('jumps with Home and End', () => {
+    expect(galleryKeyTarget('Home', 2, 4, 'rtl')).toBe(0);
+    expect(galleryKeyTarget('End', 0, 4, 'ltr')).toBe(3);
+  });
+
+  it('ignores other keys and an empty list', () => {
+    expect(galleryKeyTarget('Enter', 1, 4, 'ltr')).toBeNull();
+    expect(galleryKeyTarget('Tab', 1, 4, 'ltr')).toBeNull();
+    expect(galleryKeyTarget('ArrowDown', 0, 0, 'ltr')).toBeNull();
   });
 });

@@ -1,43 +1,43 @@
 /**
- * The product gallery's geometry (PD-10, Page composition), in one table so the rules in
- * `app/globals.css` (`[data-gallery]`) and each image's `sizes` read the same numbers.
- * From 1024 the gallery is 7 of the Container's 12 columns and the images after the lead
- * sit in pairs; below it is a scroll-snap rail. Gutters, the 32px column gap and the
- * container cap mirror `--page-gutter`, `ProductDetail`'s `lg:gap-x-8` and
- * `--container-max`; a change there must change this table.
+ * The product gallery's geometry and rules (PD-10, owner decision 2026-09-14: the Bella
+ * template's gallery), in one table so the `[data-gallery*]` rules in `app/globals.css`
+ * and each image's `sizes` read the same numbers. A thumbnail column beside one large
+ * image: at its inline start from 992, at its inline end below. Gutters, the 32px page
+ * column gap and the container cap mirror `--page-gutter`, `ProductDetail`'s `lg:gap-x-8`
+ * and `--container-max`; a change there must change this table.
  */
-export type GalleryStep =
-  | {
-      kind: 'grid';
-      /** Viewport width the step starts at, in px. */
-      minWidth: number;
-      /** `--page-gutter` at this width, in px. */
-      gutter: number;
-    }
-  | {
-      kind: 'rail';
-      minWidth: number;
-      gutter: number;
-      /** One rail slide's width in vw; the rest of the viewport is the peek. */
-      slideVw: number;
-    };
+export interface GalleryStep {
+  /** Viewport width the step starts at, in px. */
+  minWidth: number;
+  /** `--page-gutter` at this width, in px. */
+  gutter: number;
+  /** From 1024 the gallery is 7 of the Container's 12 columns; below, the content box. */
+  columns: 'split' | 'full';
+  /** The square thumbnail button, border and padding included, in px. */
+  thumb: number;
+}
 
 export const GALLERY_CONTAINER_MAX = 1440;
 const PAGE_COLUMNS = 12;
 const GALLERY_COLUMNS = 7;
 const PAGE_COLUMN_GAP = 32;
-/** Between paired images and between rail slides, in px. */
-export const GALLERY_GAP = 8;
+/** Between the thumbnail column and the large image, in px. */
+export const GALLERY_THUMB_GAP = 16;
+/** A thumbnail's 1px border plus 3px padding, on each side, in px. */
+export const GALLERY_THUMB_INSET = 4;
+/** Zoom in place magnifies the large image this many times. */
+export const GALLERY_ZOOM_SCALE = 2;
+/** Zoom exists only for a precise hovering pointer, and only where the page splits. */
+export const GALLERY_ZOOM_QUERY = '(hover: hover) and (pointer: fine) and (min-width: 1024px)';
 
 /** Ordered widest first, as `sizes` media conditions are matched. */
 export const GALLERY_STEPS: readonly GalleryStep[] = [
-  { kind: 'grid', minWidth: 1440, gutter: 64 },
-  { kind: 'grid', minWidth: 1024, gutter: 48 },
-  { kind: 'rail', minWidth: 768, gutter: 32, slideVw: 58 },
-  { kind: 'rail', minWidth: 0, gutter: 20, slideVw: 86 },
+  { minWidth: 1440, gutter: 64, columns: 'split', thumb: 72 },
+  { minWidth: 1024, gutter: 48, columns: 'split', thumb: 72 },
+  { minWidth: 992, gutter: 32, columns: 'full', thumb: 72 },
+  { minWidth: 768, gutter: 32, columns: 'full', thumb: 88 },
+  { minWidth: 0, gutter: 20, columns: 'full', thumb: 72 },
 ];
-
-export type GalleryRole = 'lead' | 'supporting' | 'single';
 
 function round(value: number): number {
   return Math.round(value * 100) / 100;
@@ -50,85 +50,113 @@ function length(vw: number, px: number): string {
   return `calc(${round(vw)}vw ${px < 0 ? '-' : '+'} ${round(Math.abs(px))}px)`;
 }
 
-/** 7 of 12 columns of the content box (viewport or capped container, less both gutters). */
-function columnWidth(minWidth: number, gutter: number): [vw: number, px: number] {
+/** The gallery column: 7 of 12 columns of the (capped) content box, or all of it. */
+function columnWidth(step: GalleryStep): [vw: number, px: number] {
+  if (step.columns === 'full') return [100, -2 * step.gutter];
   const share = GALLERY_COLUMNS / PAGE_COLUMNS;
-  const fixed = -2 * gutter - (PAGE_COLUMNS - 1) * PAGE_COLUMN_GAP;
+  const fixed = -2 * step.gutter - (PAGE_COLUMNS - 1) * PAGE_COLUMN_GAP;
   const inner = (GALLERY_COLUMNS - 1) * PAGE_COLUMN_GAP;
-  return minWidth >= GALLERY_CONTAINER_MAX
+  return step.minWidth >= GALLERY_CONTAINER_MAX
     ? [0, (GALLERY_CONTAINER_MAX + fixed) * share + inner]
     : [100 * share, fixed * share + inner];
 }
 
-function widthFor(role: GalleryRole, step: GalleryStep): string {
-  if (step.kind === 'grid') {
-    const [vw, px] = columnWidth(step.minWidth, step.gutter);
-    return role === 'supporting' ? length(vw / 2, (px - GALLERY_GAP) / 2) : length(vw, px);
-  }
-  // A lone image has no rail, so it fills the content box.
-  return role === 'single' ? length(100, -2 * step.gutter) : length(step.slideVw, 0);
-}
-
-export function gallerySizes(
-  role: GalleryRole,
-  steps: readonly GalleryStep[] = GALLERY_STEPS
-): string {
+function stepsToSizes(steps: readonly GalleryStep[], width: (step: GalleryStep) => string) {
   return steps
-    .map((step) => {
-      const width = widthFor(role, step);
-      return step.minWidth > 0 ? `(min-width: ${step.minWidth}px) ${width}` : width;
-    })
+    .map((step) =>
+      step.minWidth > 0 ? `(min-width: ${step.minWidth}px) ${width(step)}` : width(step)
+    )
     .join(', ');
 }
 
-export const GALLERY_LEAD_SIZES = gallerySizes('lead');
-export const GALLERY_SUPPORTING_SIZES = gallerySizes('supporting');
-export const GALLERY_SINGLE_SIZES = gallerySizes('single');
+/**
+ * The large image's rendered width: the gallery column, less the thumbnail column and
+ * its gap when there are thumbnails, times `scale` for the zoom image.
+ */
+export function galleryImageSizes(
+  withThumbs: boolean,
+  scale = 1,
+  steps: readonly GalleryStep[] = GALLERY_STEPS
+): string {
+  return stepsToSizes(steps, (step) => {
+    const [vw, px] = columnWidth(step);
+    const thumbs = withThumbs ? step.thumb + GALLERY_THUMB_GAP : 0;
+    return length(vw * scale, (px - thumbs) * scale);
+  });
+}
 
-export interface GallerySlide {
+/** The photograph inside a thumbnail button, less its border and padding. */
+export function galleryThumbSizes(steps: readonly GalleryStep[] = GALLERY_STEPS): string {
+  // Adjacent steps with the same thumbnail collapse, so the string stays short.
+  const distinct = steps.filter((step, index) => steps[index + 1]?.thumb !== step.thumb);
+  return stepsToSizes(distinct, (step) => `${step.thumb - 2 * GALLERY_THUMB_INSET}px`);
+}
+
+export interface GalleryImageModel {
   url: string;
-  /** 1-based, for the "image n of count" alt text. */
+  /** 1-based, for the "image n of count" alt text and thumbnail name. */
   position: number;
-  /** From 1024: `full` spans both columns, `half` is one of a pair. */
-  span: 'full' | 'half';
   sizes: string;
+  zoomSizes: string;
   loading?: 'eager';
   fetchPriority?: 'high';
 }
 
 export type GalleryModel =
   | { kind: 'empty' }
-  | { kind: 'single'; slides: [GallerySlide] }
-  /** Two or more images: the rail below 1024, with its progress and count description. */
-  | { kind: 'rail'; count: number; slides: GallerySlide[] };
+  /** One image: no thumbnail column, zoom still applies. */
+  | { kind: 'single'; images: [GalleryImageModel] }
+  | { kind: 'thumbs'; count: number; thumbSizes: string; images: GalleryImageModel[] };
 
-/**
- * The lead spans the column and is the page's only eager, high-priority image (the LCP).
- * The rest pair up; when their count is odd the last one spans both columns.
- */
+/** The first image is the page's only eager, high-priority image (the LCP). */
 export function galleryLayout(images: readonly { url: string }[]): GalleryModel {
   const count = images.length;
   if (count === 0) return { kind: 'empty' };
 
-  const lead: GallerySlide = {
-    url: images[0].url,
-    position: 1,
-    span: 'full',
-    sizes: count === 1 ? GALLERY_SINGLE_SIZES : GALLERY_LEAD_SIZES,
-    loading: 'eager',
-    fetchPriority: 'high',
-  };
-  if (count === 1) return { kind: 'single', slides: [lead] };
-
-  const supporting = count - 1;
-  const slides = images.slice(1).map((image, index): GallerySlide => {
-    const spans = supporting % 2 === 1 && index === supporting - 1;
-    return {
+  const withThumbs = count > 1;
+  const sizes = galleryImageSizes(withThumbs);
+  const zoomSizes = galleryImageSizes(withThumbs, GALLERY_ZOOM_SCALE);
+  const models = images.map(
+    (image, index): GalleryImageModel => ({
       url: image.url,
-      position: index + 2,
-      span: spans ? 'full' : 'half',
-      sizes: spans ? GALLERY_LEAD_SIZES : GALLERY_SUPPORTING_SIZES,
-    };
-  });
-  return { kind: 'rail', count, slides: [lead, ...slides] };
+      position: index + 1,
+      sizes,
+      zoomSizes,
+      ...(index === 0 ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {}),
+    })
+  );
+
+  if (!withThumbs) return { kind: 'single', images: [models[0]] };
+  return { kind: 'thumbs', count, thumbSizes: galleryThumbSizes(), images: models };
+}
+
+/**
+ * The WAI-ARIA tabs keyboard model on a vertical tablist, with automatic activation:
+ * Down and the reading-forward arrow go to the next thumbnail, Up and the reading-back
+ * arrow to the previous, both wrapping at the ends as the APG tabs pattern specifies;
+ * Home and End jump. Returns `null` for any other key, so the caller leaves it alone.
+ */
+export function galleryKeyTarget(
+  key: string,
+  index: number,
+  count: number,
+  dir: 'ltr' | 'rtl'
+): number | null {
+  if (count < 1) return null;
+  const forward = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+  const back = dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
+  switch (key) {
+    case 'ArrowDown':
+    case forward:
+      return (index + 1) % count;
+    case 'ArrowUp':
+    case back:
+      return (index - 1 + count) % count;
+    case 'Home':
+      return 0;
+    case 'End':
+      return count - 1;
+    default:
+      return null;
+  }
 }

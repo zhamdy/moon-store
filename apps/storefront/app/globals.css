@@ -786,116 +786,155 @@ header[data-surface][data-surface-ready] {
 }
 
 /* ============================================================
-   Product gallery - features/products/components/product-gallery.tsx.
-   Geometry mirrors features/products/utils/gallery-layout.ts (slide widths,
-   the 8px gap); a change here must change that table.
+   Product gallery - features/products/components/product-gallery-viewer.tsx.
+   The 72 / 88 / 72 thumbnails, their 4px inset and the 16px gap mirror
+   features/products/utils/gallery-layout.ts (GALLERY_STEPS); a change here must
+   change that table.
    ============================================================ */
 @layer components {
+  /* Thumbnails at the inline end below 992 and at the inline start from it; `dir`
+     decides which physical side that is. Photographs are never mirrored. */
   [data-gallery] {
-    timeline-scope: --gallery;
-  }
-
-  /* Below 1024: a rail bleeding to the viewport edges, each slide snapping to the
-     page gutter. The focus ring is inset, since the rail's own edges are off screen. */
-  [data-gallery-rail] {
-    margin-inline: calc(-1 * var(--page-gutter));
-    padding-inline: var(--page-gutter);
-    scroll-padding-inline: var(--page-gutter);
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x mandatory;
-    scroll-timeline: --gallery inline;
-    scrollbar-width: none;
-  }
-
-  [data-gallery-rail]::-webkit-scrollbar {
-    display: none;
-  }
-
-  [data-gallery-rail]:focus-visible {
-    outline-offset: -2px;
-  }
-
-  [data-gallery-list] {
+    --gallery-thumb: 72px;
     display: flex;
-    gap: 8px;
-  }
-
-  [data-gallery-slide] {
-    flex: none;
-    inline-size: 86vw;
-    scroll-snap-align: start;
+    flex-direction: row-reverse;
+    gap: 16px;
   }
 
   @media (min-width: 768px) {
-    [data-gallery-slide] {
-      inline-size: 58vw;
+    [data-gallery] {
+      --gallery-thumb: 88px;
     }
   }
 
-  /* From 1024: the lead spans the column, the rest pair up, an odd last one spans. */
-  @media (min-width: 1024px) {
-    [data-gallery-rail] {
-      margin-inline: 0;
-      padding-inline: 0;
-      overflow: visible;
-      scroll-snap-type: none;
-    }
-
-    [data-gallery-list] {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    [data-gallery-slide] {
-      inline-size: auto;
-    }
-
-    [data-gallery-slide][data-span='full'] {
-      grid-column: 1 / -1;
+  @media (min-width: 992px) {
+    [data-gallery] {
+      --gallery-thumb: 72px;
+      flex-direction: row;
     }
   }
 
-  /* The progress hairline exists only where a scroll timeline drives it, never as a
-     static bar. It moves only with the shopper's own scrolling, so reduced motion keeps
-     it: on a scroll timeline the global 0.01ms duration is converted to a proportion. */
-  [data-gallery-progress] {
+  /* The column adds no height: its list is absolutely placed, so the 4:5 frame sets the
+     row and any thumbnails past its height scroll inside it. */
+  [data-gallery-thumbs] {
+    position: relative;
+    flex: none;
+    inline-size: var(--gallery-thumb);
+  }
+
+  [data-gallery-thumbs] > [role='tablist'] {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+  }
+
+  [data-gallery-thumbs] > [role='tablist']::-webkit-scrollbar {
     display: none;
   }
 
-  @supports (animation-timeline: scroll()) {
-    @media (max-width: 1023.98px) {
-      [data-gallery-progress] {
-        display: block;
-        position: relative;
-        margin-block-start: 16px;
-        block-size: 1px;
-        overflow: hidden;
-        background: var(--surface-border);
-      }
+  [data-gallery-thumb] {
+    display: block;
+    flex: none;
+    block-size: var(--gallery-thumb);
+    inline-size: 100%;
+    padding: 3px;
+    border: 1px solid transparent;
+    opacity: 0.6;
+    cursor: pointer;
+    transition:
+      border-color 400ms var(--ease-ui),
+      opacity 400ms var(--ease-ui);
+    /* Keyboard focus clears the sticky header. */
+    scroll-margin-block-start: calc(var(--header-h) + 16px);
+  }
 
-      [data-gallery-progress] > span {
-        position: absolute;
-        inset: 0;
-        background: var(--surface-text);
-        transform-origin: left;
-        animation: moon-gallery-progress linear both;
-        animation-timeline: --gallery;
-      }
-
-      [dir='rtl'] [data-gallery-progress] > span {
-        transform-origin: right;
-      }
+  @media (hover: hover) {
+    [data-gallery-thumb]:hover {
+      opacity: 1;
     }
+  }
+
+  /* Ink, not gold: gold on ivory is 2.64:1, under the 3:1 a state indicator needs. */
+  [data-gallery-thumb][aria-selected='true'] {
+    border-color: var(--color-text);
+    opacity: 1;
+  }
+
+  /* Inset over the border and padding, since the scrolling column clips an outset ring. */
+  [data-gallery-thumb]:focus-visible {
+    opacity: 1;
+    outline-offset: -2px;
+  }
+
+  [data-gallery-thumb] > span {
+    position: relative;
+    display: block;
+    block-size: 100%;
+    overflow: hidden;
+    background-color: var(--color-surface-soft);
+  }
+
+  [data-gallery-frame] {
+    position: relative;
+    flex: 1 1 0%;
+    min-inline-size: 0;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    background-color: var(--color-surface-soft);
+  }
+
+  [data-gallery-frame][data-zoomable] {
+    cursor: zoom-in;
+  }
+
+  /* Zoom in place: the origin follows the pointer (written by the island), the scale is
+     here. Reduced motion keeps the zoom and loses the transition (global rule). */
+  [data-gallery-zoom] {
+    position: absolute;
+    inset: 0;
+    transform-origin: var(--zoom-x, 50%) var(--zoom-y, 50%);
+    transition: transform 300ms var(--ease-ui);
+  }
+
+  [data-gallery-frame][data-zoomed] [data-gallery-zoom] {
+    transform: scale(2);
+  }
+
+  /* The outgoing pane stays painted beneath while the new one fades in over it. */
+  [data-gallery-pane] {
+    position: absolute;
+    inset: 0;
+  }
+
+  [data-gallery-pane][data-state='active'] {
+    z-index: 1;
+  }
+
+  [data-gallery-pane][data-fade] {
+    animation: moon-gallery-fade 300ms var(--ease-ui) both;
+  }
+
+  [data-gallery-hires] {
+    opacity: 0;
+    transition: opacity 300ms var(--ease-ui);
+  }
+
+  [data-gallery-hires][data-loaded] {
+    opacity: 1;
   }
 }
 
-@keyframes moon-gallery-progress {
+@keyframes moon-gallery-fade {
   from {
-    transform: scaleX(calc(1 / var(--gallery-count, 1)));
+    opacity: 0;
   }
   to {
-    transform: scaleX(1);
+    opacity: 1;
   }
 }
 

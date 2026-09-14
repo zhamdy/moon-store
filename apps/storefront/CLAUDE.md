@@ -124,8 +124,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to ten entries
-(eleven files):
+Server Components by default (R21/R22). `'use client'` is limited to eleven entries
+(twelve files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -160,6 +160,12 @@ Server Components by default (R21/R22). `'use client'` is limited to ten entries
    strings and a pre-formatted price map from `purchase-panel-slot.tsx`; the rules are
    `utils/variant-selection.ts`, unit-tested. No button (PD-B): `data-readiness` exposes
    `purchaseReadiness` for Cart.
+11. `features/products/components/product-gallery-viewer.tsx` — the product gallery's
+   thumbnail tabs and zoom in place (owner decision 2026-09-14): which image is active
+   and the pointer-following zoom origin cannot be CSS. Takes resolved `label`/`alt`/
+   `thumbLabel` strings, `dir`, and plain `{ url, sizes, zoomSizes, loading,
+   fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
+   rule are `utils/gallery-layout.ts`, unit-tested.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -184,7 +190,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding an eleventh
+`useTranslations`, is a new decision, not a precedent. Before adding a twelfth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
@@ -597,14 +603,37 @@ that must be fixed before Cart. Selection is component state, not URL state (PD-
 
 ### Gallery
 
-`product-gallery.tsx` is a Server Component with no JS (PD-10): one list of images serves
-a CSS grid from 1024 (lead spanning, then pairs, an odd last image spanning) and a
-scroll-snap rail below, so nothing downloads twice. Spans and `sizes` come from one table,
-`utils/gallery-layout.ts`. The lead is the page's only eager, high-priority image and has
-no Reveal (it is the LCP element). The rail is a focusable labelled region with a visually
-hidden count; its progress hairline uses `scroll-timeline` / `timeline-scope` and exists
-only under `@supports (animation-timeline: scroll())`, below 1024. No image: the
-`ProductImagePlaceholder` brand-mark frame `ProductCard` also uses.
+The Bella template's gallery (owner decision 2026-09-14, replacing the PD-10 rail/grid).
+`product-gallery.tsx` (Server Component) resolves strings and the model; the island
+`product-gallery-viewer.tsx` (the eleventh boundary) renders a thumbnail column beside
+one 4:5 large image. Thumbnails sit at the large image's inline start from 992 and its
+inline end below (`row-reverse`), so in Arabic they are on the right from 992 and the
+left below; photographs are never mirrored. Thumbs are 72px from 992, 88px at 768-991
+and 72px below, with 4px between them, 3px padding and a 1px border; inactive at 0.6
+opacity, the active one at 1 with a `--color-text` hairline (gold on ivory is 2.64:1,
+under 3:1). A column taller than the frame scrolls inside the frame height.
+`[data-gallery*]` in `app/globals.css` holds the layout; `utils/gallery-layout.ts` holds
+the step table every `sizes` string is derived from.
+
+- **Semantics.** A vertical WAI-ARIA tablist (`product.gallery.label`) of buttons named
+  `product.gallery.thumbLabel`, roving `tabIndex`, automatic activation; the frame is the
+  one `tabpanel`, labelled by the active tab and not itself a tab stop (it holds only an
+  image). Arrow Down/Up and the reading-direction Left/Right move and wrap (the APG
+  tabs rule), Home/End jump (`galleryKeyTarget`, unit-tested). One image: no tablist.
+- **Downloads.** The first large image is the page's only `loading="eager"` +
+  `fetchPriority="high"` image (React also emits its head preload). A large pane mounts
+  only once shown and stays mounted but `hidden`: lazy alone would not stop hidden panes
+  laid out in the frame from downloading (the hero's `slideMediaVisible` lesson). A new
+  pane fades in over the previous one (300ms, `--ease-ui`). Thumbnails are eager at
+  `fetchPriority="low"`, `sizes` 64/80px.
+- **Zoom in place.** Only under `GALLERY_ZOOM_QUERY` (hover, fine pointer, 1024+),
+  tracked with `matchMedia`. A mouse entering the frame scales the pane layer 2x with
+  `transform-origin` from `--zoom-x`/`--zoom-y`, written in a rAF-throttled
+  `pointermove`; leaving resets. A second image at `zoomSizes` (2x) mounts for that pane
+  on its first zoom and fades in once loaded, so the LCP never pays for it. No zoom on
+  touch or keyboard; clicking does nothing; reduced motion keeps zoom without transitions.
+- No image: the `ProductImagePlaceholder` brand-mark frame `ProductCard` also uses. No
+  component harness exists, so the island itself is covered only by the screenshot review.
 
 ### Purchase panel
 
@@ -635,9 +664,10 @@ Fixtures (dev DB `moon_store_sf_smoke`, 2026-09-14): `silk-midi-dress` (6 images
 sizes), `embroidered-evening-gown` (1 image), `linen-summer-dress` (long EN/AR names,
 descriptions), `cashmere-pullover` (mixed stock), `silk-slip-dress` (all sold out).
 
-- Whether lazy rail images download before a swipe at 375 (network capture; the worst
-  case is a bounded 9 images at rail width).
-- The rail stays a tab stop at 1024+, where it no longer scrolls.
+- Gallery: thumbnail column scrolling at 320-375 (6 thumbs overflow the frame), the
+  crossfade and zoom feel at 1440, the 992-1023 band (thumbs at the start, no split), and
+  whether keyboard focus on a thumb clears the sticky header (`scroll-margin-block-start`
+  also offsets the column's own scroll).
 - A single image fills the full width below 1024 (~704px on a portrait tablet).
 - An in-stock product with no options shows no status line, per the plan's model;
   "In stock" there is the alternative.
