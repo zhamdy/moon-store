@@ -568,7 +568,7 @@ and strings.
 the first two are not fetched before interaction; if the browser prefetches them anyway,
 record it and make a decision. Image loads cause no layout shift.
 
-- [ ] **Unit 6: Storefront: purchase panel island (tenth client boundary)**
+- [x] **Unit 6: Storefront: purchase panel island (tenth client boundary)**
 
 **Goal:** Accessible option selection, a live price and status, and the Add to Bag seam.
 
