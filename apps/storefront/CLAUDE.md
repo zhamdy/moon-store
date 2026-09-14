@@ -136,12 +136,12 @@ Server Components by default (R21/R22). `'use client'` is limited to seven entri
    Takes children only.
 6. `components/motion/parallax.tsx` — `scroll()` from `motion` driving a WAAPI
    animation from `motion/mini`. Takes children only.
-
-`components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
-heading into masked word spans on the server.
 7. `features/home/components/hero/hero-carousel.tsx` — which hero slide is active,
    autoplay, tabs, swipe. Slide content arrives server-rendered as `ReactNode`s and
    every string arrives resolved; it renders no image itself.
+
+`components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
+heading into masked word spans on the server.
 
 **Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
 `useInView` import put the whole engine (~46 KB gz across two chunks) into the eager
