@@ -63,6 +63,22 @@ export const variantPathParamsSchema = z
   })
   .strict();
 
+export const productImagePathParamsSchema = z
+  .object({
+    id: z.string().regex(/^\d+$/, 'id must be a positive integer'),
+    imageId: z.string().regex(/^\d+$/, 'imageId must be a positive integer'),
+  })
+  .strict();
+
+export const reorderProductImagesSchema = z
+  .object({
+    // Bounded well above the gallery cap only so a body cannot be arbitrarily large;
+    // whether the list is the product's actual set is decided under the row lock.
+    imageIds: z.array(z.number().int().positive()).max(100),
+  })
+  .strict();
+
+export type ReorderProductImagesBody = z.infer<typeof reorderProductImagesSchema>;
 export type BulkUpdateBody = z.infer<typeof bulkUpdateSchema>;
 export type BulkDeleteBody = z.infer<typeof bulkDeleteSchema>;
 export type AdjustStockBody = z.infer<typeof adjustStockSchema>;
@@ -249,6 +265,56 @@ export const productsRequestContracts = {
     operation: 'deleteProductImage',
     params: pathIdParams(),
     beyondSchema: ['The stored object is released only after the row stops pointing at it.'],
+  }),
+
+  listProductImages: defineRequestContract({
+    method: 'GET',
+    path: '/api/v1/products/{id}/images',
+    operation: 'listProductImages',
+    params: pathIdParams(),
+    beyondSchema: [
+      'Gallery images in display order. `products.image_url` stays the primary image and ' +
+        'is not part of this list.',
+    ],
+  }),
+
+  addProductGalleryImage: defineRequestContract({
+    method: 'POST',
+    path: '/api/v1/products/{id}/images',
+    operation: 'addProductGalleryImage',
+    params: pathIdParams(),
+    contentType: 'multipart/form-data',
+    beyondSchema: [
+      'A single file field named `image`. Not JSON.',
+      'At most 2 MB, JPEG, PNG or WebP, and the magic bytes must agree with the ' +
+        'extension: a renamed file is rejected before anything is written.',
+      'Appended after the last position. A product holds at most 8 gallery images; a ' +
+        'ninth is a 409 with `details[].code` `GALLERY_FULL`, and nothing stays stored.',
+    ],
+  }),
+
+  deleteProductGalleryImage: defineRequestContract({
+    method: 'DELETE',
+    path: '/api/v1/products/{id}/images/{imageId}',
+    operation: 'deleteProductGalleryImage',
+    params: productImagePathParamsSchema,
+    beyondSchema: [
+      'The row is removed first and the stored object after it, best-effort. The remaining ' +
+        'positions are not renumbered; only their order is meaningful.',
+    ],
+  }),
+
+  reorderProductImages: defineRequestContract({
+    method: 'PUT',
+    path: '/api/v1/products/{id}/images/order',
+    operation: 'reorderProductImages',
+    body: reorderProductImagesSchema,
+    params: pathIdParams(),
+    beyondSchema: [
+      '`imageIds` must be exactly the current gallery ids of the product, each once, in the ' +
+        'new order. A missing, foreign or repeated id is a 400 with `details[].code` ' +
+        '`IMAGE_SET_MISMATCH`, and no position changes.',
+    ],
   }),
 
   listVariants: defineRequestContract({

@@ -19,6 +19,7 @@ import {
   type BulkDeleteBody,
   type BulkUpdateBody,
   type ProductStatusBody,
+  type ReorderProductImagesBody,
 } from './schemas';
 
 /** Parsed through the contracts, so the document and the validators cannot differ (#102). */
@@ -371,6 +372,51 @@ export class ProductsController {
       }
 
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async listGalleryImages(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = contracts.listProductImages.parseParams<{ id: string }>(req.params);
+      res.json(success(await productsService.listImages(Number(id))));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async addGalleryImage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = contracts.addProductGalleryImage.parseParams<{ id: string }>(req.params);
+      if (!req.file) {
+        throw new PublicError('VALIDATION_ERROR', 'No image file provided');
+      }
+      const image = await productsService.addImage(Number(id), req.file);
+      res.status(201).json(success(image));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async deleteGalleryImage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id, imageId } = contracts.deleteProductGalleryImage.parseParams<{
+        id: string;
+        imageId: string;
+      }>(req.params);
+      await productsService.removeImage(Number(id), Number(imageId));
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async reorderGalleryImages(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = contracts.reorderProductImages.parseParams<{ id: string }>(req.params);
+      const body = contracts.reorderProductImages.parseBody<ReorderProductImagesBody>(req.body);
+      res.json(success(await productsService.reorderImages(Number(id), body.imageIds)));
     } catch (err) {
       next(err);
     }

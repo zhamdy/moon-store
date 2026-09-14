@@ -11,6 +11,8 @@
  * same collection at once — lives in `tests/concurrency/collections.concurrency.test.ts`.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import type { Pool as PgPool } from 'pg';
 import { createPgMemPool } from './support/pgMem';
@@ -20,6 +22,8 @@ import { CollectionsRepository } from '../src/modules/inventory/collections/repo
 import { CollectionsService } from '../src/modules/inventory/collections/service';
 import { collectionUpdateSchema } from '../src/modules/inventory/collections/schemas';
 import { startHttpApp, type HttpHarness } from './support/httpApp';
+import { LocalStorageDriver } from '../src/storage/localDriver';
+import { setStorage, resetStorage } from '../src/storage';
 
 const MIGRATIONS_DIR = path.join(__dirname, '../src/database/migrations');
 
@@ -446,5 +450,64 @@ describe('collection storefront fields (HTTP boundary)', () => {
     });
     expect(free.status).toBe(200);
     expect(free.body.data.slug).toBe('resort-edit');
+  });
+});
+
+describe('collection image (HTTP boundary)', () => {
+  const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.alloc(20)]);
+  let testPool: PgPool;
+  let root: string;
+  let driver: LocalStorageDriver;
+  let http: HttpHarness;
+
+  beforeAll(async () => {
+    testPool = createPgMemPool();
+    setPool(testPool);
+    await runMigrationsUp(testPool, MIGRATIONS_DIR);
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'moon-collection-image-'));
+    driver = new LocalStorageDriver({ root });
+    setStorage(driver);
+    http = await startHttpApp();
+  });
+
+  afterAll(async () => {
+    await http.close();
+    resetStorage();
+    await fs.rm(root, { recursive: true, force: true });
+    await closePool();
+  });
+
+  const storedKeys = async () => (await driver.list('products')).map((o) => o.key).sort();
+
+  it('sets image_url on upload, releases the replaced object, and clears both on delete', async () => {
+    const created = await http.request('POST', '/api/v1/collections', { name: 'Evening' });
+    const id = created.body.data.id;
+    const tokenBefore = (await http.request('GET', `/api/v1/collections/${id}`)).body.data
+      .updated_at;
+
+    const first = await http.upload(`/api/v1/collections/${id}/image`, 'image', 'a.png', PNG);
+    expect(first.status).toBe(200);
+    const firstUrl = (first.body.data as unknown as { image_url: string }).image_url;
+    expect(firstUrl).toMatch(/^\/uploads\/products\//);
+
+    const second = await http.upload(`/api/v1/collections/${id}/image`, 'image', 'b.png', PNG);
+    const secondUrl = (second.body.data as unknown as { image_url: string }).image_url;
+    expect(await storedKeys()).toEqual([driver.keyFromUrl(secondUrl)]);
+
+    const read = await http.request('GET', `/api/v1/collections/${id}`);
+    expect(read.body.data.image_url).toBe(secondUrl);
+    // The image is not part of the PUT body, so it does not move the version token.
+    expect(read.body.data.updated_at).toBe(tokenBefore);
+
+    const removed = await http.request('DELETE', `/api/v1/collections/${id}/image`);
+    expect(removed.status).toBe(204);
+    expect((await http.request('GET', `/api/v1/collections/${id}`)).body.data.image_url).toBeNull();
+    expect(await storedKeys()).toEqual([]);
+  });
+
+  it('answers 404 for an unknown collection and stores nothing', async () => {
+    const res = await http.upload('/api/v1/collections/999999/image', 'image', 'a.png', PNG);
+    expect(res.status).toBe(404);
+    expect(await storedKeys()).toEqual([]);
   });
 });

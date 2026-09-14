@@ -163,3 +163,18 @@ export function toProductIds(raw: string): number[] {
 export function parseProductLookupQuery(input: unknown): { ids: number[] } {
   return { ids: toProductIds(productLookupQuerySchema.parse(input).ids) };
 }
+
+/**
+ * Gallery images per product, beyond the primary `products.image_url` (plan KD-8).
+ * Enforced in the service under the product row lock, not by the schema or a CHECK.
+ */
+export const PRODUCT_GALLERY_MAX = 8;
+
+/** One `product_images` row, as the gallery routes return it. */
+export interface ProductImageRecord {
+  id: number;
+  product_id: number;
+  image_url: string;
+  position: number;
+  created_at: string;
+}

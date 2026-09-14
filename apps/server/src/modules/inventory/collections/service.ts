@@ -1,4 +1,7 @@
+import logger from '../../../../lib/logger';
 import { withTransaction } from '../../../database/transaction';
+import { PublicError } from '../../../http/errors';
+import { getStorage, productImageKey } from '../../../storage';
 import { ICollectionsRepository, collectionsRepository as defaultRepo } from './repository';
 import {
   CollectionFilters,
@@ -15,6 +18,61 @@ export class CollectionsService {
 
   getRepository(): ICollectionsRepository {
     return this.repo;
+  }
+
+  /**
+   * Replaces the collection image, in the order the product image route uses: validate,
+   * write the object, point the row at it, then release the previous object best-effort.
+   * The key reuses the `products/` prefix because that is the prefix the sweep lists.
+   */
+  async setImage(
+    id: number | string,
+    file: { buffer: Buffer; mimetype: string }
+  ): Promise<{ image_url: string }> {
+    const existing = await this.repo.findById(id);
+    if (!existing) throw new PublicError('NOT_FOUND', 'Collection not found');
+
+    const storage = getStorage();
+    const key = productImageKey(file.mimetype);
+    await storage.put(key, file.buffer, { contentType: file.mimetype });
+    const imageUrl = storage.publicUrl(key);
+
+    let updated: boolean;
+    try {
+      updated = await this.repo.updateImage(id, imageUrl);
+    } catch (err) {
+      await this.releaseObject(key, 'Could not remove image after a failed collection update');
+      throw err;
+    }
+    if (!updated) {
+      // Deleted between the read and the write: nothing references the new object.
+      await this.releaseObject(key, 'Could not remove image of a vanished collection');
+      throw new PublicError('NOT_FOUND', 'Collection not found');
+    }
+
+    const previousKey = existing.image_url ? storage.keyFromUrl(existing.image_url) : null;
+    if (previousKey && previousKey !== key) {
+      await this.releaseObject(previousKey, 'Replaced collection image could not be removed');
+    }
+    return { image_url: imageUrl };
+  }
+
+  /** Clears the row first, then the object best-effort. */
+  async clearImage(id: number | string): Promise<void> {
+    const existing = await this.repo.findById(id);
+    if (!existing) throw new PublicError('NOT_FOUND', 'Collection not found');
+    await this.repo.updateImage(id, null);
+
+    const key = existing.image_url ? getStorage().keyFromUrl(existing.image_url) : null;
+    if (key) await this.releaseObject(key, 'Deleted collection image could not be removed');
+  }
+
+  private async releaseObject(key: string, message: string): Promise<void> {
+    await getStorage()
+      .delete(key)
+      .catch((err: Error) =>
+        logger.warn(`${message}; left for the sweep`, { key, error: err.message })
+      );
   }
 
   list(filters: CollectionFilters): Promise<{ rows: CollectionRecord[]; total: number }> {

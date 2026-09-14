@@ -411,6 +411,30 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   },
   {
     method: 'GET',
+    path: '/api/v1/products/:id/images',
+    classification: 'B',
+    authorization: allAuthenticated,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/products/:id/images',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'PUT',
+    path: '/api/v1/products/:id/images/order',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'DELETE',
+    path: '/api/v1/products/:id/images/:imageId',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'GET',
     path: '/api/v1/products/:id/variants',
     classification: 'B',
     authorization: allAuthenticated,
@@ -543,6 +567,18 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
   {
     method: 'DELETE',
     path: '/api/v1/collections/:id',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'POST',
+    path: '/api/v1/collections/:id/image',
+    classification: 'M',
+    authorization: adminOnly,
+  },
+  {
+    method: 'DELETE',
+    path: '/api/v1/collections/:id/image',
     classification: 'M',
     authorization: adminOnly,
   },

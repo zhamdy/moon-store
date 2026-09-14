@@ -129,6 +129,29 @@ export const collectionsRequestContracts = {
     ],
   }),
 
+  uploadCollectionImage: defineRequestContract({
+    method: 'POST',
+    path: '/api/v1/collections/{id}/image',
+    operation: 'uploadCollectionImage',
+    params: pathIdParams(),
+    contentType: 'multipart/form-data',
+    beyondSchema: [
+      'A single file field named `image`. Not JSON.',
+      'At most 2 MB, JPEG, PNG or WebP, and the magic bytes must agree with the ' +
+        'extension: a renamed file is rejected before anything is written.',
+      'Replaces any existing image; the previous object is released after the row points ' +
+        'at the new one. Does not change `updated_at`, the collection version token.',
+    ],
+  }),
+
+  deleteCollectionImage: defineRequestContract({
+    method: 'DELETE',
+    path: '/api/v1/collections/{id}/image',
+    operation: 'deleteCollectionImage',
+    params: pathIdParams(),
+    beyondSchema: ['The stored object is released only after the row stops pointing at it.'],
+  }),
+
   deleteCollection: defineRequestContract({
     method: 'DELETE',
     path: '/api/v1/collections/{id}',

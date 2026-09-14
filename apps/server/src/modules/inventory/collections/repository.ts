@@ -37,6 +37,11 @@ export interface ICollectionsRepository {
     queryable?: Queryable
   ): Promise<void>;
   delete(id: number | string, queryable?: Queryable): Promise<boolean>;
+  updateImage(
+    id: number | string,
+    imageUrl: string | null,
+    queryable?: Queryable
+  ): Promise<boolean>;
 }
 
 export class CollectionsRepository implements ICollectionsRepository {
@@ -253,6 +258,24 @@ export class CollectionsRepository implements ICollectionsRepository {
     const res = await this.q(queryable).query(
       'DELETE FROM collections WHERE id = $1 RETURNING id',
       [id]
+    );
+    return res.rows.length > 0;
+  }
+
+  /**
+   * Sets or clears the collection image. Deliberately leaves `updated_at` alone: that
+   * column is the optimistic-concurrency token for `PUT /collections/:id` (#81), whose body
+   * cannot carry `image_url`, so a stale PUT after an upload loses nothing -- while bumping
+   * the token would turn every edit composed before the upload into a spurious 409.
+   */
+  async updateImage(
+    id: number | string,
+    imageUrl: string | null,
+    queryable?: Queryable
+  ): Promise<boolean> {
+    const res = await this.q(queryable).query(
+      'UPDATE collections SET image_url = $1 WHERE id = $2 RETURNING id',
+      [imageUrl, id]
     );
     return res.rows.length > 0;
   }

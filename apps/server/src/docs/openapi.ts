@@ -4413,6 +4413,214 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/products/{id}/images': {
+      get: {
+        tags: ['Products'],
+        summary: 'List product gallery images (Admin, Cashier, Delivery)',
+        description: 'Endpoint classification: B. Allowed Roles: Admin, Cashier, Delivery.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Gallery images in display order',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'integer' },
+                          product_id: { type: 'integer' },
+                          image_url: { type: 'string' },
+                          position: {
+                            type: 'integer',
+                            description: 'Display order, ascending. Gaps are allowed.',
+                          },
+                          created_at: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+        },
+      },
+      post: {
+        tags: ['Products'],
+        summary: 'Add a product gallery image (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  image: {
+                    type: 'string',
+                    format: 'binary',
+                    description:
+                      'JPEG, PNG or WebP, at most 2 MB. The magic bytes must agree with ' +
+                      'the extension: a renamed file is rejected before anything is written.',
+                  },
+                },
+                required: ['image'],
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'The appended image',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'integer' },
+                        product_id: { type: 'integer' },
+                        image_url: { type: 'string' },
+                        position: {
+                          type: 'integer',
+                          description: 'Display order, ascending. Gaps are allowed.',
+                        },
+                        created_at: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+          '409': { description: 'The gallery already holds 8 images (`GALLERY_FULL`)' },
+          '429': { description: 'Upload rate limit exceeded' },
+        },
+      },
+    },
+    '/api/v1/products/{id}/images/order': {
+      put: {
+        tags: ['Products'],
+        summary: 'Reorder product gallery images (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Gallery images in their new order',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'integer' },
+                          product_id: { type: 'integer' },
+                          image_url: { type: 'string' },
+                          position: {
+                            type: 'integer',
+                            description: 'Display order, ascending. Gaps are allowed.',
+                          },
+                          created_at: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+        },
+      },
+    },
+    '/api/v1/products/{id}/images/{imageId}': {
+      delete: {
+        tags: ['Products'],
+        summary: 'Delete a product gallery image (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+          {
+            name: 'imageId',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target imageId',
+          },
+        ],
+        responses: {
+          '204': { description: 'Image removed' },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+        },
+      },
+    },
     '/api/v1/products/{id}/variants': {
       get: {
         tags: ['Products'],
@@ -6269,6 +6477,88 @@ export const openApiSpec = {
           '500': {
             description: 'Internal server error',
           },
+        },
+      },
+    },
+    '/api/v1/collections/{id}/image': {
+      post: {
+        tags: ['Collections'],
+        summary: 'Upload or replace the collection image (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  image: {
+                    type: 'string',
+                    format: 'binary',
+                    description:
+                      'JPEG, PNG or WebP, at most 2 MB. The magic bytes must agree with ' +
+                      'the extension: a renamed file is rejected before anything is written.',
+                  },
+                },
+                required: ['image'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'The stored image URL',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'object', properties: { image_url: { type: 'string' } } },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
+          '429': { description: 'Upload rate limit exceeded' },
+        },
+      },
+      delete: {
+        tags: ['Collections'],
+        summary: 'Remove the collection image (Admin)',
+        description: 'Endpoint classification: M. Allowed Roles: Admin.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'integer' },
+            description: 'Target id',
+          },
+        ],
+        responses: {
+          '204': { description: 'Image removed' },
+          '400': { description: 'Validation error / Bad request' },
+          '401': { description: 'Unauthorized / Missing or invalid token' },
+          '403': { description: 'Forbidden / Insufficient role privileges' },
+          '404': { description: 'Resource not found' },
+          '500': { description: 'Internal server error' },
         },
       },
     },

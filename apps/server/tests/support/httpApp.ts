@@ -40,6 +40,8 @@ export interface HttpHarness {
     path: string,
     body?: unknown
   ): Promise<HttpResult>;
+  /** A multipart upload of one file, the way the dashboard sends images. */
+  upload(path: string, field: string, filename: string, bytes: Buffer): Promise<HttpResult>;
   close(): Promise<void>;
 }
 
@@ -63,6 +65,17 @@ export async function startHttpApp(role: 'Admin' | 'Cashier' = 'Admin'): Promise
           ...(body === undefined ? {} : { 'content-type': 'application/json' }),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      const text = await res.text();
+      return { status: res.status, body: (text ? JSON.parse(text) : null) as HttpBody };
+    },
+    async upload(path, field, filename, bytes) {
+      const form = new FormData();
+      form.append(field, new Blob([new Uint8Array(bytes)]), filename);
+      const res = await fetch(`http://127.0.0.1:${port}${path}`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: form,
       });
       const text = await res.text();
       return { status: res.status, body: (text ? JSON.parse(text) : null) as HttpBody };

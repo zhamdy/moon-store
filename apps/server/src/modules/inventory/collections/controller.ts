@@ -84,6 +84,28 @@ export class CollectionsController {
     }
   }
 
+  async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = contracts.uploadCollectionImage.parseParams<{ id: string }>(req.params);
+      if (!req.file) {
+        throw new PublicError('VALIDATION_ERROR', 'No image file provided');
+      }
+      res.json(success(await collectionsService.setImage(id, req.file)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = contracts.deleteCollectionImage.parseParams<{ id: string }>(req.params);
+      await collectionsService.clearImage(id);
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async deleteCollection(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = contracts.deleteCollection.parseParams<{ id: string }>(req.params);

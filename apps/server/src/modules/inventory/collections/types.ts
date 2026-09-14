@@ -8,6 +8,7 @@ export interface CollectionRecord {
   name_en?: string | null;
   description?: string | null;
   description_en?: string | null;
+  image_url?: string | null;
   season?: string | null;
   year?: number | null;
   status: string;
