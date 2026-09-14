@@ -295,6 +295,10 @@
     "related": {
       "heading": "المزيد من {name}"
     },
+    "breadcrumb": {
+      "label": "مسار التنقل",
+      "home": "الرئيسية"
+    },
     "details": {
       "label": "معلومات المنتج",
       "description": "الوصف",

@@ -42,3 +42,8 @@ export function localizedDescription(
 ): LocalizedText | null {
   return localizedText(dto.description, dto.descriptionEn, locale);
 }
+
+/** `lang`/`dir` for an element, set only when the text is not in the page's language (KD-13). */
+export function langProps(text: Pick<LocalizedText, 'lang'>, locale: AppLocale) {
+  return text.lang === locale ? {} : { lang: text.lang, dir: 'auto' as const };
+}

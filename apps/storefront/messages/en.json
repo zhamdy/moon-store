@@ -295,6 +295,10 @@
     "related": {
       "heading": "More from {name}"
     },
+    "breadcrumb": {
+      "label": "Breadcrumb",
+      "home": "Home"
+    },
     "details": {
       "label": "Product information",
       "description": "Description",

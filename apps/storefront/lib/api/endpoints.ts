@@ -12,4 +12,5 @@ export const CATALOG_ENDPOINTS = {
   categories: '/catalog/categories',
   collections: '/catalog/collections',
   collection: (slug: string) => `/catalog/collections/${encodeURIComponent(slug)}`,
+  storePolicies: '/catalog/store-policies',
 } as const;

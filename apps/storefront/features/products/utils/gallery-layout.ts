@@ -1,3 +1,5 @@
+import { tabKeyTarget } from './tab-keys';
+
 /**
  * The product gallery's geometry and rules (PD-10, owner decision 2026-09-14: the Bella
  * template's gallery), in one table so the `[data-gallery*]` rules in `app/globals.css`
@@ -130,33 +132,12 @@ export function galleryLayout(images: readonly { url: string }[]): GalleryModel 
   return { kind: 'thumbs', count, thumbSizes: galleryThumbSizes(), images: models };
 }
 
-/**
- * The WAI-ARIA tabs keyboard model on a vertical tablist, with automatic activation:
- * Down and the reading-forward arrow go to the next thumbnail, Up and the reading-back
- * arrow to the previous, both wrapping at the ends as the APG tabs pattern specifies;
- * Home and End jump. Returns `null` for any other key, so the caller leaves it alone.
- */
+/** The gallery tablist is vertical; the rule itself is `tabKeyTarget`. */
 export function galleryKeyTarget(
   key: string,
   index: number,
   count: number,
   dir: 'ltr' | 'rtl'
 ): number | null {
-  if (count < 1) return null;
-  const forward = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
-  const back = dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
-  switch (key) {
-    case 'ArrowDown':
-    case forward:
-      return (index + 1) % count;
-    case 'ArrowUp':
-    case back:
-      return (index - 1 + count) % count;
-    case 'Home':
-      return 0;
-    case 'End':
-      return count - 1;
-    default:
-      return null;
-  }
+  return tabKeyTarget(key, index, count, dir, 'vertical');
 }

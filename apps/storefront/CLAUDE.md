@@ -124,8 +124,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to eleven entries
-(twelve files):
+Server Components by default (R21/R22). `'use client'` is limited to twelve entries
+(thirteen files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -166,6 +166,11 @@ Server Components by default (R21/R22). `'use client'` is limited to eleven entr
    `thumbLabel` strings, `dir`, and plain `{ url, sizes, zoomSizes, loading,
    fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
    rule are `utils/gallery-layout.ts`, unit-tested.
+12. `features/products/components/product-tabs.tsx` — the product details tabs (ED-4):
+   owns only which tab is active. Takes `tabs: { id, label, panelHasFocusable }[]`, the
+   tablist `label`, `dir` and `panels: Record<id, ReactNode>` rendered on the server by
+   `product-details-tabs.tsx`; the keyboard rule is `utils/tab-keys.ts` (`tabKeyTarget`,
+   shared with the gallery), unit-tested.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -190,7 +195,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding a twelfth
+`useTranslations`, is a new decision, not a precedent. Before adding a thirteenth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
@@ -584,12 +589,47 @@ indexable. No JSON-LD `Product` until Cart makes it purchasable (PD-7).
 
 ### Composition
 
-`ProductDetail` is a slot layout: the page passes `gallery`, `purchase`, `related` and the
-listing `hrefs`. A 7/5 split from 1024 with a `position: sticky` info column (PD-15), one
-column below. The eyebrow is the category link (the only breadcrumb), collections are
-quiet "Part of" text links, and the description renders as plain paragraphs under the
-purchase area. `[data-product-action]` is the reserved, empty Add to Bag place (PD-B): no
-button and no copy until Cart, and no sticky mobile purchase bar (PD-14).
+`ProductDetail` is a slot layout: the page passes `breadcrumb`, `gallery`, `purchase`,
+`details`, `related` and the listing `hrefs` (it builds every href; `features/products`
+never imports `features/catalog`). Order: breadcrumb row, a 7/5 split from 1024 (one
+column below), the details tabs at full container width, the related row.
+
+- **Breadcrumb** (`product-breadcrumb.tsx`): `nav` (`product.breadcrumb.label`) > `ol`,
+  Home (`product.breadcrumb.home`) / Shop (reuses `navigation.shop`) / Category when
+  present, then the product as a non-link `span aria-current="page"` — the only item that
+  truncates. Separators are `aria-hidden`.
+- **Info column**, `position: sticky` from 1024 (PD-15), kept after the enhancement: with
+  the description moved into the tabs the column is usually shorter than the 4:5 gallery,
+  so price and sizes stay in view beside it. Category eyebrow, h1, a short lead (the first
+  paragraph of the localized description, `productLead`; omitted without one), the
+  purchase slot, `[data-product-action]` (the reserved, empty Add to Bag place, PD-B: no
+  button and no copy until Cart, and no sticky mobile purchase bar, PD-14), "Part of"
+  links. The lead sits above the price because price and sizes are one island.
+- **Details tabs** (ED-4, `product-details-tabs.tsx` + the `product-tabs.tsx` island):
+  Description (every paragraph), Details (a `dl`: material, care, fit, category link,
+  collection links, sizes from the `size` option) and Shipping & returns (delivery and
+  returns). Built by `productDetailsTabs` (`utils/product-details-model.ts`, unit-tested)
+  from real data only: **a tab or row with no content is not rendered**; one tab renders
+  as a headed section without a tablist; none renders nothing. Horizontal WAI-ARIA tabs,
+  automatic activation, Left/Right (mirrored in RTL) and Home/End wrap; inactive panels
+  `hidden`; a panel with no focusable content is itself a tab stop. The bar
+  (`[data-product-tabs*]` in `app/globals.css`) is sticky under the header (z-30, below
+  its z-40), scrolls sideways if the labels overflow, and marks the active tab with a 2px
+  inset ink underline. Changing tabs while the bar is stuck scrolls the section top back
+  under the header; a changed panel fades in over 180ms. One Reveal (a fade) on the
+  section. The island measured +0.4 KB gz of eager JS (194.8 → 195.2).
+
+### Store policies
+
+`features/products/api/get-store-policies.ts` reads `GET /api/v1/catalog/store-policies`
+(`{ delivery, deliveryEn, returns, returnsEn }`, each string or null) with the entity
+lifetime (300s) and no `timeoutMs`; a missing field reads as `null`, any other type throws
+`INVALID_RESPONSE`. The page calls it through `load-store-policies.ts` only after the
+product resolved (so it never touches a 404): `unstable_rethrow` first, any `ApiError`
+logged and mapped to `null`, anything else rethrown — a failed read only drops the
+Shipping tab. The text is edited in the dashboard's store settings. **The delivery and
+returns copy seeded in dev is placeholder text and a launch blocker** until the business
+replaces it (ED-5 revised); no fees, times, areas or return periods may be invented here.
 
 ### Variants
 
@@ -673,6 +713,9 @@ descriptions), `cashmere-pullover` (mixed stock), `silk-slip-dress` (all sold ou
   "In stock" there is the alternative.
 - The sticky info column beside a short gallery at 1024; long Arabic titles; option
   wrapping at 320.
+- Details tabs: the lead above the price (the reference shows it below); the sticky tab
+  bar's scroll-back on tab change; tab labels scrolling at 320; the `dl` two-column rows
+  from 768; the breadcrumb truncating a long Arabic name.
 - The related skeleton is hidden from screen readers and announces no loading state.
 - Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 7.
 
