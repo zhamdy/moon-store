@@ -38,6 +38,18 @@ describe('PostgreSQL Seed System', () => {
     expect(settings.rows.length).toBe(18);
   });
 
+  it('seeds placeholder policies that promise no area, return or exchange', async () => {
+    await seedDatabase(memPool);
+
+    const { rows } = await memPool.query<{ key: string; value: string }>(
+      `SELECT key, value FROM settings WHERE key IN ('delivery_policy', 'delivery_policy_en', 'returns_policy', 'returns_policy_en')`
+    );
+    expect(rows).toHaveLength(4);
+    for (const { value } of rows) {
+      expect(value).not.toMatch(/egypt|return|exchange|مصر|إرجاع|استبدال/i);
+    }
+  });
+
   it('should be idempotent and clear previous rows when re-seeded', async () => {
     await seedDatabase(memPool);
     await seedDatabase(memPool);

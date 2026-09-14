@@ -967,28 +967,29 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       ['receipt_footer', 'شكراً لتسوقكم في مون! 🌙'],
       ['receipt_show_logo', 'true'],
       ['low_stock_threshold', '5'],
-      // Placeholder copy: replace with the real policy before launch (storefront product page).
-      [
-        'delivery_policy',
-        'نوصّل الطلبات داخل مصر، ونؤكد لكِ خيارات التوصيل ومواعيده عند إتمام طلبك.',
-      ],
-      [
-        'delivery_policy_en',
-        'We deliver orders within Egypt. Delivery options and timing are confirmed when you place your order.',
-      ],
-      [
-        'returns_policy',
-        'إذا لم تكن القطعة مناسبة، تواصلي معنا وسيساعدك فريقنا في الاستبدال أو الإرجاع وفق سياسة المتجر.',
-      ],
-      [
-        'returns_policy_en',
-        "If something isn't right, contact us and our team will help with an exchange or return according to our store policy.",
-      ],
     ];
 
     for (const [key, value] of settings) {
       await client.query(
         `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+        [key, value]
+      );
+    }
+
+    // Placeholder copy: replace with the real policy before launch (storefront product page).
+    // Deliberately promises nothing (no area, fee, time, return or exchange; ED-5 revised).
+    const storePolicies = [
+      ['delivery_policy', 'نؤكد لكِ تفاصيل التوصيل عند إتمام طلبك.'],
+      ['delivery_policy_en', 'Delivery details are confirmed when you place your order.'],
+      ['returns_policy', 'لديكِ سؤال عن طلبك؟ تواصلي معنا وسيساعدك فريقنا.'],
+      ['returns_policy_en', 'Questions about your order? Contact us and our team will help.'],
+    ];
+
+    // Only when absent. Note the settings table is cleared above, so this protects a
+    // policy only if that clear is ever narrowed; it never overwrites an existing row.
+    for (const [key, value] of storePolicies) {
+      await client.query(
+        `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`,
         [key, value]
       );
     }

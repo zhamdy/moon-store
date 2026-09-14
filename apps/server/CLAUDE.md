@@ -407,7 +407,10 @@ detail from plan 2026-09-14-003, Unit 1): `/products` (the one listing), `/produ
 the `delivery_policy`, `delivery_policy_en`, `returns_policy` and `returns_policy_en`
 settings, by name (`WHERE key IN (...)`; the table also holds tax and loyalty), as
 `{ delivery, deliveryEn, returns, returnsEn }`, trimmed, blank as `null`; staff edit them on
-the dashboard Settings page, and the seeded text is placeholder copy, a launch blocker. A
+the dashboard Settings page, and the seeded text is placeholder copy, a launch blocker,
+worded to promise no area, fee, time, return or exchange (inserted `ON CONFLICT DO NOTHING`).
+`PUT /api/v1/settings` caps these four keys at 5000 characters (400 `VALIDATION_ERROR`);
+other keys stay uncapped. A
 separate module and prefix (`src/modules/commerce/catalog`, manifest
 `publicEntry(['B', 'P'])`) rather than public routes in the postponed Admin-gated
 storefront module, so "nothing under this prefix writes" stays structurally checkable.

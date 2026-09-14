@@ -288,7 +288,7 @@ export class CatalogRepository {
   ): Promise<Array<{ key: string; value: string | null }>> {
     const keys = Object.values(STORE_POLICY_SETTING_KEYS);
     const { rows } = await db.query<{ key: string; value: string | null }>(
-      `SELECT s.key, s.value FROM settings s WHERE s.key IN ($1, $2, $3, $4)`,
+      `SELECT s.key, s.value FROM settings s WHERE s.key IN (${keys.map((_, i) => `$${i + 1}`).join(', ')})`,
       keys
     );
     return rows;
