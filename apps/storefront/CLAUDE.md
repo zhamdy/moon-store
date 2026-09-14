@@ -129,7 +129,7 @@ Server Components by default (R21/R22). `'use client'` is limited to seven entri
    current path across a locale switch. Exports both `LocaleSwitcher` (the
    both-locales list in the mobile menu) and `LocaleToggle` (the
    header's single link to the other locale); one module, one boundary.
-4. `components/layout/header/header-shell.tsx` — owns the `IntersectionObserver` that
+4. `components/layout/header/header-shell.tsx` — owns the passive scroll listener that
    narrows the header surface; takes children only.
 5. `components/motion/reveal.tsx` — one shared `IntersectionObserver` that flips a
    `data-reveal` state; every transition it triggers is CSS declared on server markup.
@@ -157,7 +157,7 @@ resolved `items` array and `localeSwitcher`; `LocaleSwitcher`'s are `groupLabel`
 `NextIntlClientProvider` passes `messages={null}` on purpose: it stays for the locale
 (next-intl's client `usePathname`/`Link` read it from context), but left undefined it
 would inherit and ship the whole catalogue. No client file calls `useTranslations`; one
-that needs to would bring the catalogue back. Before adding a fourth `"use client"`
+that needs to would bring the catalogue back. Before adding an eighth `"use client"`
 boundary, check whether the interactive part can be isolated into a small leaf instead
 of converting an entire Server Component tree.
 
@@ -228,6 +228,15 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    do nothing). Session-only, no storage — a reload restarting motion is acceptable
    since the page is static.
 
+**Signature vs commerce entrances** (AD-11, 2026-09-14). The label wipe and the
+word-masked `TextReveal` belong to the signature moments only: the promo banner, the
+featured collection and the campaign. `SectionHeading` (New Arrivals, Categories, The
+Edit, and every Shop/Collections heading after them) fades its label and raises its
+title once. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
+settle) is for one feature card per section, like The Edit's first card and the first
+`CategoryTile`. Adding the word mask back to a commerce heading repeats the same entrance
+down the page.
+
 **Reveal and hover never share an element.** A `transition-*` utility replaces the
 element's whole `transition-property`, so a hover transition on an element carrying
 `data-motion` would make its reveal snap. Hover lives on an inner wrapper (product
@@ -286,7 +295,7 @@ Every homepage image is a static import behind one registry, swappable by file d
   `features/home/data/hero-slides.ts`. Everything else is a single lazy import with
   `placeholder="blur"` and an honest `sizes`.
 - Hero photographs keep the figure in the middle of the frame with empty floor below, and
-  the hero copy column is `max-w-md`: the text sits bottom-left in English and
+  the hero copy column is `max-w-[26rem]`: the text sits bottom-left in English and
   bottom-right in Arabic and clears the figure in both without mirroring the photograph.
   The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
   other slides are `hero-<collection>-desktop` / `-mobile`.
@@ -330,14 +339,19 @@ Every homepage image is a static import behind one registry, swappable by file d
   one-line change there.
 - The mock products carry `{ en, ar }` names purely so the English homepage reads; the
   real `products.name` is one Arabic string. The type is `HomeProductMock`, not `Product`.
-- Shopping benefits copy (`home.benefits.*`) is generic on purpose. `delivery` and
-  `returns` must be confirmed against the real operating policy before launch, and no
-  coverage area, speed, return period, fee or "no questions asked" claim may be added
-  until then (`features/home/data/benefits.ts`). Visually the section is a cream band
+- Shopping benefits copy (`home.benefits.*`) is generic on purpose, and all three are
+  launch blockers (`features/home/data/benefits.ts`). `delivery` (B-1) and `payment`
+  (B-3) await the real policy and provider assurances. `returns` (B-2) is
+  **neutralised**: until the business confirms whether returns or exchanges exist, the key
+  keeps its name but its copy is about fabric quality and its icon is a neutral gem, so
+  the tile promises no service. No coverage area, speed, return period, fee or "no
+  questions asked" claim may be added until a policy exists. Visually the section is a cream band
   with fine rules and small line icons: no boxes, rounded cards or shadows.
 - Arabic homepage copy was reworked for natural, concise phrasing rather than
-  word-for-word translation (2026-09-14); a native-speaker review by the business is
-  still pending.
+  word-for-word translation (2026-09-14). The storefront addresses the reader in **one
+  register, feminine singular** (`اكتشفي`, `تسوّقي`, `تابعي`, `تبحثين`), including the
+  navigation, footer, skip link and 404 (B-4). Keep new strings in that register. A
+  native-speaker review by the business is still a launch item.
 - No wishlist icon on cards until wishlist behaviour exists; when it arrives it is a
   sibling of the card link, never nested inside the `<a>`.
 

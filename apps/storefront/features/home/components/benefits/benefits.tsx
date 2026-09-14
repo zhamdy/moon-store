@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server';
-import { ShieldCheck, Truck, Undo2, type LucideIcon } from 'lucide-react';
+import { Gem, ShieldCheck, Truck, type LucideIcon } from 'lucide-react';
 import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
 import { cn } from '@/lib/utils/cn';
@@ -7,9 +7,11 @@ import { benefits, type BenefitKey } from '../../data/benefits';
 
 /** One icon per benefit, keyed so a new benefit fails to compile until it has one. */
 const benefitIcons: Record<BenefitKey, { icon: LucideIcon; mirrorInRtl?: boolean }> = {
-  // The truck and the return arrow point along the reading direction, so they turn with it.
+  // The truck points along the reading direction, so it turns with it.
   delivery: { icon: Truck, mirrorInRtl: true },
-  returns: { icon: Undo2, mirrorInRtl: true },
+  // Neutral while B-2 is open: the key stays `returns` so a confirmed policy can
+  // restore its copy, but a return arrow would imply a service nobody has promised.
+  returns: { icon: Gem },
   payment: { icon: ShieldCheck },
 };
 
@@ -28,8 +30,8 @@ const ITEM_STAGGER = ['', '[--motion-stagger:1]', '[--motion-stagger:2]'];
  * Nothing is interactive, so there is no hover state. The list is a `<ul>`, each
  * title an `h3` under the screen-reader-only `h2`, and the icons are decorative
  * (`aria-hidden`) because the titles say the same thing. The wording is generic on
- * purpose and still awaits confirmation against the real delivery and returns
- * policy (see `features/home/data/benefits.ts`).
+ * purpose and still awaits confirmation against the real delivery, returns and
+ * payment policy (see `features/home/data/benefits.ts`).
  */
 export async function Benefits() {
   const t = await getTranslations('home.benefits');

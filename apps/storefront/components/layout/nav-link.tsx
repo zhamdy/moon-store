@@ -15,7 +15,7 @@ export interface NavLinkProps extends ComponentProps<typeof Link> {
    * custom `type-*` utilities (see apps/storefront/CLAUDE.md), so passing a second
    * one via `className` would leave both applied — whichever compiles later in
    * globals.css would silently win. The mobile menu's primary links need
-   * `type-h3` (a deliberate editorial exception, guideline §5); this prop is the
+   * `type-h2` (a deliberate editorial exception, guideline §5); this prop is the
    * one place that's chosen, so only one `type-*` class is ever present.
    */
   typography?: string;

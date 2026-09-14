@@ -12,9 +12,10 @@ export interface LocaleSwitcherProps {
 }
 
 /**
- * Needs the current pathname (to preserve it across the locale switch) — the one
- * allowed client exception beyond AppProviders and MobileMenu (R21/R22). Receives
- * translated strings as props rather than the message catalogue.
+ * Needs the current pathname (to preserve it across the locale switch), so it is
+ * one of the storefront's seven client boundaries (R21/R22; the list lives in
+ * apps/storefront/CLAUDE.md). Receives translated strings as props rather than the
+ * message catalogue.
  */
 export function LocaleSwitcher({ labels, groupLabel }: LocaleSwitcherProps) {
   const pathname = usePathname();

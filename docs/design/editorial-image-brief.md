@@ -25,18 +25,46 @@ Three classes, never mixed:
   slot or a non-`.jpg` extension.
 - **Original/reference** — `docs/design/brand/`. The original logo artwork only; never
   editorial photography.
-- **Source generations** — native-resolution outputs before the crop/upscale described above.
-  **Pending (AD-10):** where these live is not yet decided. They do not belong in
-  `apps/storefront/assets/editorial/` (that directory is production only) and are not
-  currently tracked anywhere in the repository.
+- **Source generations** — native-resolution outputs and rejected variants. They live in the
+  user's art-direction archive **outside the repository** (AD-10, 2026-09-14): never in git,
+  never in `apps/storefront/assets/editorial/`. Native masters would add tens of MB to history
+  for no build value; only the final crop at the path below is committed.
 
 ## Category tile direction
 
-**Pending (AD-8):** the five `category-*.jpg` files are editorial (a model or styled still
-life), not the studio/neutral look this section originally specified. Until decided, this
-brief's *Slots* table below still states the original studio direction; treat it as aspirational
-until AD-8 resolves, either by regenerating the tiles or by rewriting this section to describe
-the editorial direction actually shipped.
+Category tiles are **editorial**, not studio (AD-8, 2026-09-14): a model shot or a styled
+still life that names its category at a glance, each tile in **its own setting** — never the
+lattice room used by the Abaya hero — and each reading clearly differently from its
+neighbours and from the hero slide of the same collection. The lower third stays calm enough
+for the ivory label on its scrim.
+
+## Regeneration round, 2026-09-14
+
+Approved in `docs/plans/2026-09-14-001-feat-storefront-homepage-polish-freeze-plan.md`
+(*Decision Outcomes*). Replace each file at its existing path, same ratio. Every file below is
+delivered at or above its minimum **natively**, with no upscaling (AD-7).
+
+Rules for every regenerated image with a model (AD-5): same model for continuity; vary the
+pose (toward camera, looking down, in motion, seated or leaning) rather than the head turned
+to the viewer's left; **no gold cuff** (other fine jewellery or none). No regenerated image
+uses the lattice room (window screen, dark bronze vase, bench on steps), which now belongs
+to the Abaya hero alone.
+
+| File(s) | Decision | Direction |
+| --- | --- | --- |
+| `category-dresses.jpg`, `product-01-a.jpg`, `product-01-b.jpg` | AD-1, AD-2 | One garment across all three: an **ivory silk midi dress** (keeps the name "Silk midi dress"), feminine, premium, evening; refined neckline, no spaghetti straps, no deep V; a light sleeve (short, cap or draped). Category tile in its own setting; product views on the standard ivory studio setup |
+| `hero-linen-desktop.jpg`, `hero-linen-mobile.jpg` | AD-2 | The **same ivory linen dress** as `product-03` (wide straps, square neck). Deep-shadowed stone courtyard, walking with natural movement, warm architecture, softer summer mood; clearly unlike the Evening hall, Abaya lattice room and Knitwear room |
+| `hero-knitwear-desktop.jpg`, `hero-knitwear-mobile.jpg` | AD-2 | The **same cream sweater and brown wide trousers**. A darker room, low directional window light, deeper shadow, intimate autumn/winter mood |
+| `lookbook-01.jpg` | AD-2 | Full-length look in warm daylight: street, terrace or a clearly different interior; natural editorial pose, not hand-in-pocket |
+| `lookbook-04.jpg`, `category-tops.jpg` | AD-3 | `lookbook-04`: movement shot with a **different top** (not the ivory balloon-sleeve shirt), in a setting that is not sunlit limestone. `category-tops`: an ivory blouse is fine, in its own setting |
+| `lookbook-02.jpg`, `category-bags.jpg` | AD-4 | `lookbook-02`: a **footwear detail on stone**, no bag, no cuff. `category-bags`: a **different leather bag** from `product-06` (e.g. structured top-handle, tan or brown), in its own setting |
+| `moment.jpg`, `moment-wide.jpg` | AD-6 | The Silk Edit outfit stays (ivory balloon-sleeve silk shirt, long brown linen skirt). Wide: left 45% calm, shadowed, not bright. Portrait: bottom 40% calm and not patterned (the skirt must not sit behind the copy) |
+| `product-05-b.jpg`, `product-09-b.jpg` | AD-9 | Clean back/alternate views: no pocket showing through the cardigan back (05), correct pocket placement on the jacket (09) |
+
+Hero regenerations keep the hero rules below: figure centred with empty floor, clear of the
+copy column in English (bottom-left) and Arabic (bottom-right), dark header band and lower
+zone, both crops composed on their own rather than rescued by scrims. After they land, U4
+re-checks composition and contrast at 1024 and 1440 in both locales.
 
 ## Shared art direction (guideline §10)
 
