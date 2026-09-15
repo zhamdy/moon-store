@@ -605,8 +605,14 @@ export class SalesRepository implements ISalesRepository {
     productId: number,
     queryable?: Queryable
   ): Promise<Record<string, any> | null> {
+    // `product_variants.price` is an optional override: NULL sells at the product price
+    // (#202), the same rule as exchanges, online orders and the storefront catalog.
     const res = await this.q(queryable).query(
-      'SELECT * FROM product_variants WHERE id = $1 AND product_id = $2',
+      `SELECT pv.id, pv.product_id, pv.sku, pv.stock, pv.cost_price, pv.attributes,
+              COALESCE(pv.price, p.price) AS price
+       FROM product_variants pv
+       JOIN products p ON p.id = pv.product_id
+       WHERE pv.id = $1 AND pv.product_id = $2`,
       [variantId, productId]
     );
     return res.rows[0] || null;

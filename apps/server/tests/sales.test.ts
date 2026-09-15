@@ -27,6 +27,7 @@ import { salesService, calculateSaleBreakdown } from '../src/modules/pos/sales/s
 import { PublicError } from '../src/http/errors';
 import { paymentEntrySchema, saleSchema, MAX_PAYMENT_AMOUNT_MAJOR } from '../validators/saleSchema';
 import { openApiSpec } from '../src/docs/openapi';
+import { startHttpApp, type HttpHarness, type HttpResult } from './support/httpApp';
 import {
   parseLoyaltySettings,
   LOYALTY_SETTINGS_DEFAULTS,
@@ -726,14 +727,116 @@ describe('Sales - PostgreSQL Service & Transaction', () => {
     });
 
     describe('variant lines (#121)', () => {
-      async function createVariant(stock: number, price = 500): Promise<number> {
+      async function createVariant(
+        stock: number,
+        price: number | null = 500,
+        barcode: string | null = null
+      ): Promise<number> {
         const { rows } = await testPool.query<{ id: number }>(
-          `INSERT INTO product_variants (product_id, sku, price, stock, attributes)
-           VALUES (1, $1, $2, $3, '{"color":"Red"}') RETURNING id`,
-          [`SKU-VAR-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, price, stock]
+          `INSERT INTO product_variants (product_id, sku, barcode, price, stock, attributes)
+           VALUES (1, $1, $2, $3, $4, '{"color":"Red"}') RETURNING id`,
+          [`SKU-VAR-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, barcode, price, stock]
         );
         return rows[0].id;
       }
+
+      /**
+       * #202: a variant whose own price is NULL sold at 0. Over HTTP, because the
+       * price the till is charged is decided behind the contract parse.
+       */
+      describe('effective variant price (#202, HTTP boundary)', () => {
+        let http: HttpHarness;
+
+        beforeAll(async () => {
+          http = await startHttpApp();
+        });
+
+        afterAll(async () => {
+          await http.close();
+        });
+
+        // The client's unit_price is deliberately wrong: the server must re-price every line.
+        const postSale = (items: Array<Record<string, unknown>>) =>
+          http.request('POST', '/api/v1/sales', {
+            items: items.map((item) => ({ unit_price: 1, ...item })),
+            payment_method: 'Cash',
+          });
+
+        // The sales row has no subtotal column; the confirmed response carries it here.
+        const subtotalOf = (res: HttpResult) =>
+          Number((res.body.data.calculation as { subtotal: number }).subtotal);
+
+        async function lineUnitPrices(saleId: number): Promise<Record<string, number>> {
+          const { rows } = await testPool.query<{ variant_id: number | null; unit_price: string }>(
+            'SELECT variant_id, unit_price FROM sale_items WHERE sale_id = $1',
+            [saleId]
+          );
+          return Object.fromEntries(rows.map((r) => [String(r.variant_id), Number(r.unit_price)]));
+        }
+
+        it('charges the product price for a variant with no price of its own', async () => {
+          const variantId = await createVariant(4, null);
+          // The plain product line is the control: same price, so the same totals.
+          const control = await postSale([{ product_id: 1, quantity: 1 }]);
+          expect(control.status).toBe(201);
+
+          const sold = await postSale([{ product_id: 1, variant_id: variantId, quantity: 1 }]);
+          expect(sold.status).toBe(201);
+          expect(subtotalOf(sold)).toBe(500);
+          expect(Number(sold.body.data.total)).toBe(Number(control.body.data.total));
+          expect(await lineUnitPrices(sold.body.data.id)).toEqual({ [variantId]: 500 });
+        });
+
+        it("charges a priced variant its own price, not the product's", async () => {
+          const variantId = await createVariant(4, 650);
+
+          const sold = await postSale([{ product_id: 1, variant_id: variantId, quantity: 1 }]);
+          expect(sold.status).toBe(201);
+          expect(subtotalOf(sold)).toBe(650);
+          expect(await lineUnitPrices(sold.body.data.id)).toEqual({ [variantId]: 650 });
+        });
+
+        it('prices a mixed cart of NULL-price and priced variants line by line', async () => {
+          const unpriced = await createVariant(4, null);
+          const priced = await createVariant(4, 650);
+          const control = await postSale([
+            { product_id: 1, quantity: 2 },
+            { product_id: 2, quantity: 1 },
+          ]);
+          expect(control.status).toBe(201);
+          expect(subtotalOf(control)).toBe(1200);
+
+          const sold = await postSale([
+            { product_id: 1, variant_id: unpriced, quantity: 2 },
+            { product_id: 1, variant_id: priced, quantity: 1 },
+          ]);
+          expect(sold.status).toBe(201);
+          // 2 x 500 + 1 x 650; the control cart shares no subtotal, so compare its ratio.
+          expect(subtotalOf(sold)).toBe(1650);
+          expect(Number(sold.body.data.total) / 1650).toBeCloseTo(
+            Number(control.body.data.total) / 1200,
+            6
+          );
+          expect(await lineUnitPrices(sold.body.data.id)).toEqual({
+            [unpriced]: 500,
+            [priced]: 650,
+          });
+        });
+
+        it('returns the effective price from the variant barcode lookup', async () => {
+          await createVariant(4, null, 'VAR-BC-NULL');
+          await createVariant(4, 650, 'VAR-BC-PRICED');
+
+          const unpriced = await http.request('GET', '/api/v1/products/barcode/VAR-BC-NULL');
+          expect(unpriced.status).toBe(200);
+          expect(Number(unpriced.body.data.price)).toBe(500);
+          expect(unpriced.body.data.price).not.toBeNull();
+
+          const priced = await http.request('GET', '/api/v1/products/barcode/VAR-BC-PRICED');
+          expect(priced.status).toBe(200);
+          expect(Number(priced.body.data.price)).toBe(650);
+        });
+      });
 
       async function readVariantStock(variantId: number): Promise<number> {
         const { rows } = await testPool.query<{ stock: number }>(

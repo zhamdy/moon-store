@@ -103,7 +103,10 @@ export class ProductsRepository implements IProductsRepository {
     queryable?: Queryable
   ): Promise<Record<string, any> | null> {
     const res = await this.q(queryable).query(
-      `SELECT v.*, p.name as product_name, p.category, p.category_id, p.image_url, p.has_variants
+      // A NULL variant price is an absent override, so the till shows the product price (#202).
+      `SELECT v.id, v.product_id, v.sku, v.barcode, v.stock, v.cost_price, v.attributes,
+              COALESCE(v.price, p.price) AS price,
+              p.name as product_name, p.category, p.category_id, p.image_url, p.has_variants
        FROM product_variants v
        JOIN products p ON v.product_id = p.id
        WHERE v.barcode = $1 AND p.status = 'active'`,
