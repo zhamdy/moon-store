@@ -59,7 +59,7 @@ export default async function CategoryPage(props: Props) {
       params={catalogParams}
       locale={locale}
       intro={{
-        lead: localizedName(category, locale),
+        name: localizedName(category, locale),
         description: localizedDescription(category, locale),
       }}
       categories={categories}

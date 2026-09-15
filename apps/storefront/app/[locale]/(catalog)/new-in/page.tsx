@@ -34,14 +34,6 @@ export default async function NewInPage({ params, searchParams }: PageProps<'/[l
   setRequestLocale(locale);
 
   const catalogParams = await loadCatalogParams(searchParams, ROUTE);
-  const t = await getTranslations('catalog');
 
-  return (
-    <CatalogPage
-      route={ROUTE}
-      params={catalogParams}
-      locale={locale}
-      intro={{ lead: { text: t('intro.newInTitle'), lang: locale } }}
-    />
-  );
+  return <CatalogPage route={ROUTE} params={catalogParams} locale={locale} intro={{}} />;
 }

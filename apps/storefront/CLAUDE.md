@@ -300,7 +300,7 @@ renders as a `<p>` under it:
 | New Arrivals, Categories, The Edit (`SectionHeading`) | `h2` `type-h2`, rise at offset +120 | `type-body-lg text-text-secondary`, fade at +240 |
 | Promo banner | `TextReveal` `h2` `type-h1`, 350ms | `type-h4 text-text-secondary`, rise 600ms (body 750, button 950) |
 | Featured collection | `TextReveal` `h2` `type-h2 lg:type-h1`, 400ms | `type-h4 text-text-secondary`, rise 600ms (body 750) |
-| Catalog `PageIntro` | `h1` `type-h1` = the route table's `heading` ("Shop" / "Collections", linked except on the page it names), rise 120ms | the page's own name (`lead`: category, collection, "All pieces", "New In") `type-body-lg text-text-secondary`, fade 240ms; dropped by `introDescription` when it repeats the heading (`/collections`) |
+| Catalog `PageIntro` | `h1` `type-h1` = the page's own name (category, collection, "New In"; "Shop" on `/shop`, "Collections" on `/collections`), rise 120ms | the context line `type-body-lg text-text-secondary`, fade 240ms: "Shop" linked to `/shop` (category, New In), "Collections" linked to `/collections` (collection), plain "All pieces" (`/shop`), omitted on `/collections`. One pure rule, `catalogIntroHeadings` (`utils/intro-heading.ts`), unit-tested with a guard that two categories or collections never share an `h1` (#200 correction, owner, 2026-09-15; the eyebrow swap had made every category `h1` "Shop") |
 
 Signature descriptions are `type-h4` so they stay distinct from the body line under
 them; commerce ones are `type-body-lg`. A collection card's season · year now sits under
@@ -432,10 +432,11 @@ layout exists only for the error strings (see *Client boundary rule*).
 `features/catalog/utils/catalog-route.ts` → `catalogRouteConfig` is the single source
 of what each listing route is: API scope, default sort, allowed sorts in display order
 (`curated` only on a collection, and its default there), whether the category row shows
-(Shop All and category pages), the `heading` (the intro's `h1` and the only
-breadcrumb: plain text on the page it names, a link elsewhere) and the end-of-listing link (New In → "Shop by category",
+(Shop All and category pages) and the end-of-listing link (New In → "Shop by category",
 collection → "Explore collections"). A per-route difference goes in that table, never in
-a page branch.
+a page branch. The intro's `h1` and its linked context line (the only breadcrumb) are
+not in the table: `catalogIntroHeadings` decides them, since a category or collection
+`h1` is the entity's name (#200, owner, 2026-09-15).
 
 ### URL grammar (`features/catalog/search-params.ts`)
 

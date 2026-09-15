@@ -6,7 +6,9 @@ import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { Container } from '@/components/ui/container';
 import { CatalogEmpty } from '@/features/catalog/components/catalog-empty';
+import { introLabels } from '@/features/catalog/components/catalog-page';
 import { PageIntro } from '@/features/catalog/components/page-intro';
+import { catalogIntroHeadings } from '@/features/catalog/utils/intro-heading';
 import { DEFAULT_CATALOG_PARAMS } from '@/features/catalog/search-params';
 import { buildCatalogMetadata } from '@/features/catalog/utils/catalog-metadata';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
@@ -46,8 +48,7 @@ export default async function CollectionsPage({ params }: PageProps<'/[locale]/c
     <>
       <PageIntro
         locale={locale}
-        heading={{ label: t('intro.collections') }}
-        lead={{ text: t('intro.collectionsTitle'), lang: locale }}
+        headings={catalogIntroHeadings({ kind: 'collections' }, await introLabels(), locale)}
       />
       {collections.length > 0 ? (
         <CollectionIndex

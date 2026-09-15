@@ -4,21 +4,16 @@ import { Container } from '@/components/ui/container';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { LocalizedText } from '@/features/products/utils/localized-name';
-import { introDescription } from '../utils/intro-heading';
+import type { CatalogIntroHeadings } from '../utils/intro-heading';
 
 export interface PageIntroProps {
   locale: AppLocale;
   /**
-   * The `h1`, and the only breadcrumb (KD-16): a link on category, New In and
-   * collection pages ("Shop" -> `/shop`, "Collections" -> `/collections`), plain text
-   * on `/shop` and `/collections` themselves (omit `href`).
+   * From `catalogIntroHeadings` (#200): the page's own name as the `h1`, and the
+   * smaller context line under it, linked where it names a parent page ("Shop" ->
+   * `/shop`, "Collections" -> `/collections`); that link is the only breadcrumb.
    */
-  heading: { label: string; href?: string };
-  /**
-   * The line under the `h1`: the page's own name (the category, the collection,
-   * "All pieces"). Dropped when it only repeats the heading (`introDescription`).
-   */
-  lead: LocalizedText;
+  headings: CatalogIntroHeadings;
   /** Season · year on a collection page. Uppercased by `type-label` in English only. */
   meta?: string | null;
   /** One restrained line on categories; a readable measure on collections. */
@@ -34,44 +29,45 @@ function langProps(text: LocalizedText, locale: AppLocale) {
 
 /**
  * The catalog page intro (KD-16): calm and typographic, no hero. No eyebrow (owner
- * decision, 2026-09-14): the former eyebrow is the `h1` in the display face, the
- * former title the line under it, then optional metadata and description and 64-96px
- * of air before the category/utility rows.
+ * decision, 2026-09-14): the page's own name is the `h1` in the display face (#200,
+ * 2026-09-15), the context line under it, then optional metadata and description and
+ * 64-96px of air before the category/utility rows.
  *
  * Motion is the commerce entrance (AD-11): the title rises once and the lines under
  * it fade; no word mask. The optional image band only fades, with no parallax, scrim
  * or copy on it, so an unknown upload never carries a contrast dependency. As an
  * intro it is normally in view at mount, where Reveal leaves it visible.
  *
- * The heading link's hover lives on the link, the rise on its parent `h1`, so the
- * two transitions never share an element.
+ * The context link's hover lives on the link, the fade on its parent `p`, so the two
+ * transitions never share an element.
  */
-export function PageIntro({ locale, heading, lead, meta, description, image }: PageIntroProps) {
-  const subtitle = introDescription(heading.label, lead);
+export function PageIntro({ locale, headings, meta, description, image }: PageIntroProps) {
+  const { h1, context } = headings;
   const text = (
     <div className={image ? 'lg:col-span-5 lg:row-start-1' : 'max-w-3xl'}>
       <h1
+        {...langProps(h1, locale)}
         data-motion="rise"
         className="type-h1 text-balance [--motion-offset:120ms] [--motion-rise:24px]"
       >
-        {heading.href ? (
-          <Link
-            href={heading.href}
-            className="decoration-1 underline-offset-[0.18em] hover:underline"
-          >
-            {heading.label}
-          </Link>
-        ) : (
-          heading.label
-        )}
+        {h1.text}
       </h1>
-      {subtitle && (
+      {context && (
         <p
-          {...langProps(subtitle, locale)}
+          {...langProps(context.text, locale)}
           data-motion="fade"
           className="type-body-lg mt-4 text-text-secondary [--motion-offset:240ms]"
         >
-          {subtitle.text}
+          {context.href ? (
+            <Link
+              href={context.href}
+              className="decoration-1 underline-offset-[0.18em] hover:underline"
+            >
+              {context.text.text}
+            </Link>
+          ) : (
+            context.text.text
+          )}
         </p>
       )}
       {meta && (
