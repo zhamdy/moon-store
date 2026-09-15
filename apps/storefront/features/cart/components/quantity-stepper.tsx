@@ -16,21 +16,30 @@ export interface QuantityStepperProps {
   control: Pick<QuantityControlState, 'decrementDisabled' | 'incrementDisabled'>;
   labels: QuantityStepperLabels;
   onStep(delta: 1 | -1): void;
+  /**
+   * `line` (default): the bag's 44px cells. `action`: 48px cells, matching `Button`'s
+   * `min-h-12` beside Add to Bag on the product page.
+   */
+  size?: 'line' | 'action';
 }
 
 const STEP_BUTTON =
-  'flex h-11 w-11 cursor-pointer items-center justify-center text-text transition-colors duration-fast ease-ui hover:bg-surface-soft aria-disabled:cursor-not-allowed aria-disabled:text-disabled aria-disabled:hover:bg-transparent';
+  'flex cursor-pointer items-center justify-center text-text transition-colors duration-fast ease-ui hover:bg-surface-soft aria-disabled:cursor-not-allowed aria-disabled:text-disabled aria-disabled:hover:bg-transparent';
+
+const STEP_SIZE = { line: 'h-11 w-11', action: 'h-12 w-12' } as const;
 
 function StepButton({
   label,
   disabled,
   describedBy,
+  size,
   onPress,
   children,
 }: {
   label: string;
   disabled: boolean;
   describedBy?: string;
+  size: 'line' | 'action';
   onPress(): void;
   children: ReactNode;
 }) {
@@ -44,7 +53,7 @@ function StepButton({
       onClick={() => {
         if (!disabled) onPress();
       }}
-      className={STEP_BUTTON}
+      className={`${STEP_BUTTON} ${STEP_SIZE[size]}`}
     >
       {children}
     </button>
@@ -56,7 +65,13 @@ function StepButton({
  * the value as text. Rules come from `lineStepper`; this renders them. Client-bundled
  * without a directive: only boundary islands import it.
  */
-export function QuantityStepper({ value, control, labels, onStep }: QuantityStepperProps) {
+export function QuantityStepper({
+  value,
+  control,
+  labels,
+  onStep,
+  size = 'line',
+}: QuantityStepperProps) {
   const limitId = `${useId()}-limit`;
 
   return (
@@ -68,6 +83,7 @@ export function QuantityStepper({ value, control, labels, onStep }: QuantityStep
       <StepButton
         label={labels.decrease}
         disabled={control.decrementDisabled}
+        size={size}
         onPress={() => onStep(-1)}
       >
         <Minus size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -76,6 +92,7 @@ export function QuantityStepper({ value, control, labels, onStep }: QuantityStep
       <StepButton
         label={labels.increase}
         disabled={control.incrementDisabled}
+        size={size}
         describedBy={labels.limit ? limitId : undefined}
         onPress={() => onStep(1)}
       >

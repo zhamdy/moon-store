@@ -105,6 +105,56 @@ describe('addLine', () => {
     expect(addLine(lines, { slug: 'piece-0', options: {} }).outcome).toBe('merged');
   });
 
+  it('adds a requested quantity to an empty bag as one line', () => {
+    const result = addLine([], dressM, 3);
+    expect(result.outcome).toBe('added');
+    expect(result.addedQuantity).toBe(3);
+    expect(result.lines).toEqual([{ ...dressM, quantity: 3 }]);
+  });
+
+  it('caps a merge at 10 and reports the pieces that actually landed', () => {
+    const result = addLine([{ ...dressM, quantity: 8 }], dressM, 5);
+    expect(result.outcome).toBe('merged');
+    expect(result.addedQuantity).toBe(2);
+    expect(result.lines[0].quantity).toBe(MAX_LINE_QUANTITY);
+  });
+
+  it('reports capped with nothing added when the line is already at 10', () => {
+    const lines = [{ ...dressM, quantity: MAX_LINE_QUANTITY }];
+    const result = addLine(lines, dressM, 3);
+    expect(result.outcome).toBe('capped');
+    expect(result.addedQuantity).toBe(0);
+    expect(result.lines).toBe(lines);
+  });
+
+  it('reports full with nothing added for a new line past the line limit', () => {
+    const lines: CartLine[] = Array.from({ length: MAX_CART_LINES }, (_, i) => ({
+      slug: `piece-${i}`,
+      options: {},
+      quantity: 1,
+    }));
+    const result = addLine(lines, dressM, 4);
+    expect(result.outcome).toBe('full');
+    expect(result.addedQuantity).toBe(0);
+    expect(result.lines).toBe(lines);
+  });
+
+  it.each([
+    [0, 1],
+    [-2, 1],
+    [Number.NaN, 1],
+    [2.7, 2],
+    [15, MAX_LINE_QUANTITY],
+  ])('normalises a requested quantity of %s to %s', (requested, expected) => {
+    const result = addLine([], dressM, requested);
+    expect(result.addedQuantity).toBe(expected);
+    expect(result.lines[0].quantity).toBe(expected);
+  });
+
+  it('defaults to one piece and reports it', () => {
+    expect(addLine([], dressM).addedQuantity).toBe(1);
+  });
+
   it('does not share the caller options object', () => {
     const options: Record<string, string> = { size: 'M' };
     const { lines } = addLine([], { slug: 'a', options });

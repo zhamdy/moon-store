@@ -21,6 +21,8 @@ export interface AddResult {
   lines: readonly CartLine[];
   outcome: AddOutcome;
   key: string;
+  /** Pieces actually added: less than requested when a merge hits the cap; 0 for `capped` and `full`. */
+  addedQuantity: number;
 }
 
 function byKey([a]: [string, string], [b]: [string, string]): number {
@@ -44,8 +46,17 @@ function capQuantity(quantity: number): number {
   return Math.min(quantity, MAX_LINE_QUANTITY);
 }
 
+/** A requested add quantity as an integer in 1..10: NaN and <1 become 1, fractions truncate. */
+export function normalizeAddQuantity(quantity: number): number {
+  if (Number.isNaN(quantity)) {
+    return 1;
+  }
+  return Math.min(Math.max(Math.trunc(quantity), 1), MAX_LINE_QUANTITY);
+}
+
 /**
- * Adds one piece (or `quantity`). Same identity merges in place; a line already at the cap
+ * Adds `quantity` pieces (default 1, normalised to 1..10). Same identity merges in place,
+ * capped at 10, and `addedQuantity` reports what actually landed; a line already at the cap
  * is `capped` and a new line past `MAX_CART_LINES` is `full`, both leaving lines unchanged.
  */
 export function addLine(
@@ -53,29 +64,36 @@ export function addLine(
   identity: CartLineIdentity,
   quantity = 1
 ): AddResult {
+  const requested = normalizeAddQuantity(quantity);
   const key = cartLineKey(identity);
   const index = lines.findIndex((line) => cartLineKey(line) === key);
 
   if (index >= 0) {
     const current = lines[index];
     if (current.quantity >= MAX_LINE_QUANTITY) {
-      return { lines, outcome: 'capped', key };
+      return { lines, outcome: 'capped', key, addedQuantity: 0 };
     }
+    const nextQuantity = capQuantity(current.quantity + requested);
     const next = lines.slice();
-    next[index] = { ...current, quantity: capQuantity(current.quantity + quantity) };
-    return { lines: next, outcome: 'merged', key };
+    next[index] = { ...current, quantity: nextQuantity };
+    return {
+      lines: next,
+      outcome: 'merged',
+      key,
+      addedQuantity: nextQuantity - current.quantity,
+    };
   }
 
   if (lines.length >= MAX_CART_LINES) {
-    return { lines, outcome: 'full', key };
+    return { lines, outcome: 'full', key, addedQuantity: 0 };
   }
 
   const line: CartLine = {
     slug: identity.slug,
     options: { ...identity.options },
-    quantity: Math.max(1, capQuantity(quantity)),
+    quantity: requested,
   };
-  return { lines: [...lines, line], outcome: 'added', key };
+  return { lines: [...lines, line], outcome: 'added', key, addedQuantity: requested };
 }
 
 /**

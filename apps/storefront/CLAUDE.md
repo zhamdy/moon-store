@@ -201,8 +201,11 @@ Server Components by default (R21/R22). `'use client'` is limited to sixteen ent
    decision is `utils/share-action.ts` (`shareAction`, `isShareAbort`), unit-tested.
 14. `features/cart/components/add-to-bag-button.tsx` — Add to Bag in the purchase panel's
    action slot (see *Cart*). Takes `slug`, the page's localized `name` and resolved
-   `strings`; reads readiness through `usePurchaseSelection()`. The intent and drawer
-   opening are `utils/add-to-bag-action.ts`, unit-tested. Warms the drawer chunk on mount.
+   `strings`; reads readiness through `usePurchaseSelection()`. Owns the quantity beside the
+   button (owner decision 2026-09-15, replacing "one piece per press"): the bag's
+   `QuantityStepper` (`size="action"`), 1..10, `useState(1)`, reset to 1 after an add that
+   landed pieces. The intent and drawer opening are `utils/add-to-bag-action.ts`,
+   unit-tested. Warms the drawer chunk on mount.
 15. `features/cart/components/bag-trigger.tsx` — the header Bag link, its count badge, the
    lazy drawer host and the drawer's always-mounted polite region (the message comes from
    `drawer-announcer.ts`). Composed by `app/[locale]/layout.tsx` into `Header`'s `bag`
@@ -788,7 +791,9 @@ live region rendered with the first paint. `purchase-panel-slot.tsx` resolves st
 a map of pre-formatted prices on the server, so the island never formats a number.
 `fillTemplate` lives in `lib/utils/fill-template.ts`: importing it from
 `catalog-controls-state.ts` pulled nuqs into this route. The island measured +1.2 KB gz
-of eager JS.
+of eager JS. Its `action` slot holds Add to Bag with a 1..10 quantity stepper at the inline
+start (owner decision 2026-09-15; see *Cart* → *Surfaces*); the stepper is the cart
+slice's, never the panel's.
 
 ### Related row
 
@@ -878,14 +883,17 @@ key-set drift on the server, strands a line as unavailable (visible, never subst
 no provider. The server snapshot is `{ hydrated: false }`, so SSR never pretends to know
 the bag; the first client subscription reads storage and notifies. A `storage` event from
 another tab re-reads (last write wins). Mutations run the pure reducer, write storage
-(failure keeps memory) and notify. `add` returns `added | merged | capped | full`.
+(failure keeps memory) and notify. `add(identity, { quantity?, hint? })` returns
+`added | merged | capped | full` with `addedQuantity`, the pieces that actually landed: the
+request is normalised to an integer 1..10 (NaN and <1 → 1, fractions truncate), a merge
+caps at 10 (8 + 5 → `merged`, 2), and `capped`/`full` add 0.
 Session state lives beside it and is never persisted: the drawer (`open`, `mode`,
 `addedKey`, `description`), previous unit prices per line key, price-update flags,
 announced quote keys and Add to Bag hints.
 
-**Add to Bag hint** (in memory only, R2 kept): `add(identity, hint)` stores
-`{ name (LocalizedText), imageUrl, unitPrice }` by line key for an `added` or `merged`
-outcome (never `capped` or `full`); `remove`, `clear` and a canonical rewrite drop it. The
+**Add to Bag hint** (in memory only, R2 kept): `add(identity, { hint })` stores
+`{ name (LocalizedText), imageUrl, unitPrice }` by line key when `addedQuantity > 0` (an
+`added` or `merged` outcome, never `capped` or `full`); `remove`, `clear` and a canonical rewrite drop it. The
 page passes the localized name and first image URL to `AddToBagButton`; the unit price is
 the purchase panel's exact `displayedPrice` for a `ready` selection, read through
 `PurchaseSelectionContext.unitPrice` (`purchaseReadiness` is unchanged). No
@@ -950,13 +958,23 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
 
 ### Surfaces
 
-- **Add to Bag** (CD-11, CD-13): `ready` adds one piece of `readiness.options` and opens
-  the drawer with the description "Added to your bag: {name}" (the page's localized name,
-  in memory only); `capped` (already 10) opens it with "You can add up to 10 of this piece"
-  and scrolls to the line; `full` (30 lines) opens it with "Your bag is full…" and adds
-  nothing. `needsSelection` keeps the button enabled: a press focuses the first unselected
-  option's radio and the panel's existing live region says "Choose a {option}". `soldOut`
-  reads "Sold out", `aria-disabled`, focusable, inert. No quantity picker on the product page.
+- **Add to Bag** (CD-11, CD-13): `ready` adds the stepper's quantity of `readiness.options`
+  and opens the drawer with the description "Added to your bag: {name}" for one piece or
+  `bag.addedQuantity` "Added to your bag: {name} ({count})" for more (the page's localized
+  name, in memory only); a merge that hits 10 part-way (8 in the bag + 5) still opens in
+  `added` mode but says "You can add up to 10 of this piece"; `capped` (already 10) opens it
+  in browse mode with that notice and scrolls to the line; `full` (30 lines) opens it with
+  "Your bag is full…" and adds nothing. `needsSelection` keeps the button enabled: a press
+  focuses the first unselected option's radio and the panel's existing live region says
+  "Choose a {option}". `soldOut` reads "Sold out", `aria-disabled`, focusable, inert.
+- **Product page quantity** (owner decision 2026-09-15, overriding plan Unit 5's "one piece
+  per press"): a − / value / + stepper at the row's inline start, Add to Bag taking the rest,
+  in one `flex-wrap` row (the button's `basis-40` wraps it onto its own line when narrow). It
+  is the bag's `QuantityStepper` and `quantityControl(value, { status: 'unquoted' })`: − stops
+  at 1, + at 10 with the capped notice as its description; labels are `bag.quantity` /
+  `increase` / `decrease` filled with the page's name. Starts at 1 on the server and first
+  client render, resets to 1 when an add lands pieces, stays usable under `needsSelection`,
+  and is not rendered when sold out. No server change: the quote already caps a line at 10.
 - **Header trigger** (CD-12): the same 44px `Link` to `/bag`. After hydration and off
   `/bag`, an unmodified primary click opens the drawer and the link carries
   `aria-haspopup="dialog"`; on `/bag` it navigates and carries `aria-current="page"`; a
@@ -1077,6 +1095,12 @@ Browser-only; no storefront DOM or browser harness exists, so none of this is pr
   → content with no empty flash and no summary jump; the failed state with the API stopped.
 - Reduced motion: placeholders static and immediately visible, no reveal fades.
 - Arabic: the provisional name's `lang`, "هذه القطعة" in stepper and Remove names.
+- Product page stepper row at 320, 375 and 1440 in both locales: the stepper and button
+  edges line up, the Arabic button wraps below the stepper at 320 with no horizontal
+  scroll, and the stepper sits at the inline start (right in Arabic).
+- 8 of a selection in the bag, stepper at 5, Add to Bag: the line reaches 10 and the drawer
+  says "You can add up to 10 of this piece"; the stepper is back at 1 afterwards. A sold-out
+  product shows no stepper; Tab runs Decrease, Increase, then Add to Bag.
 - Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 8.
 
 ## Guideline overrides and copy decisions

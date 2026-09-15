@@ -193,8 +193,14 @@ navigation shell.
    chosen, pressing it opens the drawer with focus on the "Bag" heading and the
    description "Added to your bag: {name}" read with the dialog. On a sold-out product the
    button reads "Sold out", is announced as dimmed/unavailable, stays in the Tab order and
-   does nothing. Pressing it an eleventh time for one line opens the drawer with "You can
-   add up to 10 of this piece". **Drawer:** Tab stays inside it; Escape and a backdrop
+   does nothing, and no quantity stepper is present. Pressing it an eleventh time for one
+   line opens the drawer with "You can add up to 10 of this piece". **Product page
+   stepper:** Tab reaches Decrease, then Increase, then Add to Bag. The group is named
+   "Quantity, {name}"; Decrease is unavailable at 1; at 10 Increase is unavailable and
+   carries the up-to-10 description. With 3 chosen, Add to Bag reads "Added to your bag:
+   {name} (3)" with the dialog; with 8 already in the bag and 5 chosen, it reads "You can add
+   up to 10 of this piece". After either, the value is back at 1. With no size chosen the
+   stepper still works and Add to Bag still moves focus to the size group. **Drawer:** Tab stays inside it; Escape and a backdrop
    click close it and focus returns to Add to Bag or the header Bag link; following a line
    name or View bag closes it and focus lands on the page's main region, never on a stale
    trigger. The header link is announced as "Bag, 3 items" (plain "Bag" when empty), with a

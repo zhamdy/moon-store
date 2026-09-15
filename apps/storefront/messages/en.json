@@ -333,6 +333,7 @@
     "title": "Bag",
     "close": "Close bag",
     "added": "Added to your bag: {name}",
+    "addedQuantity": "Added to your bag: {name} ({count})",
     "justAdded": "Just added",
     "viewBag": "View bag",
     "continueShopping": "Continue shopping",

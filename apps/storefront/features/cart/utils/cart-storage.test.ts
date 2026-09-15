@@ -238,7 +238,7 @@ describe('createCartStore', () => {
     notified = 0;
 
     const key = cartLineKey(dress);
-    store.add({ slug: dress.slug, options: dress.options }, hint);
+    store.add({ slug: dress.slug, options: dress.options }, { hint });
     expect(notified).toBe(1);
     expect(store.getSession().hints.get(key)).toEqual(hint);
 
@@ -253,15 +253,34 @@ describe('createCartStore', () => {
     expect(memory.raw()).toBe(serializeCart([]));
   });
 
+  it('persists a requested quantity and keeps the hint when a capped merge still adds', () => {
+    const memory = memoryStorage(serializeCart([{ ...dress, quantity: 8 }]));
+    const store = createCartStore(() => memory.storage);
+    store.subscribe(() => {});
+
+    const result = store.add({ slug: dress.slug, options: dress.options }, { quantity: 5, hint });
+    expect(result).toMatchObject({ outcome: 'merged', addedQuantity: 2 });
+    expect(parseCart(memory.raw()).lines).toEqual([{ ...dress, quantity: 10 }]);
+    expect(store.getSession().hints.get(cartLineKey(dress))).toEqual(hint);
+
+    store.add({ slug: tote.slug, options: {} }, { quantity: 3 });
+    expect(parseCart(memory.raw()).lines).toEqual([
+      { ...dress, quantity: 10 },
+      { ...tote, quantity: 3 },
+    ]);
+  });
+
   it('clear drops every hint; a capped add stores none', () => {
     const memory = memoryStorage(serializeCart([{ ...dress, quantity: 10 }]));
     const store = createCartStore(() => memory.storage);
     store.subscribe(() => {});
 
-    expect(store.add({ slug: dress.slug, options: dress.options }, hint).outcome).toBe('capped');
+    expect(
+      store.add({ slug: dress.slug, options: dress.options }, { quantity: 3, hint }).outcome
+    ).toBe('capped');
     expect(store.getSession().hints.size).toBe(0);
 
-    store.add({ slug: tote.slug, options: {} }, { ...hint, imageUrl: null });
+    store.add({ slug: tote.slug, options: {} }, { hint: { ...hint, imageUrl: null } });
     expect(store.getSession().hints.has(cartLineKey(tote))).toBe(true);
     store.clear();
     expect(store.getSession().hints.size).toBe(0);

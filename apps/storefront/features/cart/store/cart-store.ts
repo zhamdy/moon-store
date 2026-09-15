@@ -66,9 +66,15 @@ export interface OpenDrawerInput {
   description?: string | null;
 }
 
+export interface AddInput {
+  /** Pieces to add, normalised by `addLine` to 1..10; default 1. */
+  quantity?: number;
+  /** Kept in memory for an added or merged line; never written to storage. */
+  hint?: BagLineHint;
+}
+
 export interface CartActions {
-  /** `hint` is kept in memory for an added or merged line; never written to storage. */
-  add(identity: CartLineIdentity, hint?: BagLineHint): AddResult;
+  add(identity: CartLineIdentity, input?: AddInput): AddResult;
   setQuantity(key: string, quantity: number): void;
   remove(key: string): void;
   clear(): void;
@@ -204,10 +210,10 @@ export function createCartStore(getStorage: GetCartStorage = browserCartStorage)
     getServerSnapshot: () => NOT_HYDRATED,
     getSession: () => session,
 
-    add(identity, hint) {
+    add(identity, { quantity, hint } = {}) {
       ensureHydrated();
-      const result = addLine(currentLines(), identity);
-      if (hint && (result.outcome === 'added' || result.outcome === 'merged')) {
+      const result = addLine(currentLines(), identity, quantity);
+      if (hint && result.addedQuantity > 0) {
         updateHints((hints) => hints.set(result.key, hint));
       }
       commit(result.lines);

@@ -15,9 +15,20 @@ export interface AddToBagStrings {
   soldOut: string;
   /** `{name}`: the drawer description fixed at an `added` opening (CD-13). */
   added: string;
+  /** `{name}`, `{count}`: the added description when the stepper asked for more than one. */
+  addedQuantity: string;
   /** `{max}` */
   capped: string;
   full: string;
+  /** The product page stepper's labels, `{name}` templates shared with the bag's stepper. */
+  stepper: {
+    /** `{name}` */
+    quantity: string;
+    /** `{name}` */
+    increase: string;
+    /** `{name}` */
+    decrease: string;
+  };
 }
 
 export interface BagTriggerStrings {
@@ -158,8 +169,14 @@ export async function getAddToBagStrings(locale: AppLocale): Promise<AddToBagStr
     addToBag: tp('addToBag'),
     soldOut: tp('availability.soldOut'),
     added: t.raw('added') as string,
+    addedQuantity: t.raw('addedQuantity') as string,
     capped: t.raw('notice.capped') as string,
     full: t('notice.full'),
+    stepper: {
+      quantity: t.raw('quantity') as string,
+      increase: t.raw('increase') as string,
+      decrease: t.raw('decrease') as string,
+    },
   };
 }
 

@@ -666,6 +666,7 @@ a subtotal from anything but a quote for the current key.
   checked-or-first radio and announces "Choose a size". No disabled button.
 - `soldOut` → button reads "Sold out", `aria-disabled="true"`, stays focusable, does nothing.
 - One piece per press; no PDP quantity stepper (quantity lives in the bag).
+- 2026-09-15, owner override of the line above: a 1..10 stepper beside Add to Bag adds that many pieces, combining with the bag's line up to 10 (the drawer says when capped), and resets to 1 after an add.
 - The button warms the drawer chunk on mount through the shared `loadDrawer` (CD-19), so
   the first add does not wait on a chunk before the dialog opens.
 - Before hydration the button renders but is inert; acceptable, no-JS is not a supported mode.

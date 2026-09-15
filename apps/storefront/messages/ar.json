@@ -333,6 +333,7 @@
     "title": "الحقيبة",
     "close": "إغلاق الحقيبة",
     "added": "أُضيفت إلى حقيبتك: {name}",
+    "addedQuantity": "أُضيفت إلى حقيبتك: {name} ({count})",
     "justAdded": "أُضيفت للتو",
     "viewBag": "عرض الحقيبة",
     "continueShopping": "تابعي التسوّق",
