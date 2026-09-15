@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
-import dynamic from 'next/dynamic';
+import { lazy, Suspense, useState, type MouseEvent } from 'react';
 import { ShoppingBag } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { BAG_HREF } from '@/components/layout/navigation-items';
@@ -13,10 +12,9 @@ import type { BagDrawerStrings, BagTriggerStrings } from '../utils/bag-strings';
 import { useDrawerAnnouncement } from './drawer-announcer';
 import { loadDrawer } from './load-drawer';
 
-// The specifier is written inline, the same one `loadDrawer` imports, so both resolve to one
-// chunk: Next matches a lazy module to its `dynamic()` call only when `import()` sits inside
-// it. `ssr: false` because the drawer only ever mounts after a client-side open.
-const BagDrawer = dynamic(() => import('./bag-drawer'), { ssr: false });
+// React.lazy rather than next/dynamic: the drawer never renders on the server, and
+// next/dynamic's loader measured ~1.2 KB gz of extra eager JS on every page.
+const BagDrawer = lazy(loadDrawer);
 
 export interface BagTriggerProps {
   strings: BagTriggerStrings;
@@ -39,7 +37,7 @@ function isPlainPrimaryClick(event: MouseEvent<HTMLAnchorElement>): boolean {
 }
 
 const warmDrawer = () => {
-  // A failed fetch is retried by the drawer's own dynamic import.
+  // Warm-up only; the lazy component requests the same module again when it first renders.
   loadDrawer().catch(() => {});
 };
 
@@ -103,7 +101,11 @@ export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTrig
       <p role="status" className="sr-only">
         {announcement}
       </p>
-      {drawerMounted && <BagDrawer strings={drawerStrings} locale={locale} shopHref={shopHref} />}
+      {drawerMounted && (
+        <Suspense fallback={null}>
+          <BagDrawer strings={drawerStrings} locale={locale} shopHref={shopHref} />
+        </Suspense>
+      )}
     </>
   );
 }
