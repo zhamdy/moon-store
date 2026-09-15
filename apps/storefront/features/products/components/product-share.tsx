@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import { getTranslations } from 'next-intl/server';
-import { Twitter } from 'lucide-react';
+import { XIcon } from '@/components/brand/x-icon';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
 import type { AppLocale } from '@/i18n/routing';
 import { resolveSiteUrl } from '@/lib/site-url';
@@ -17,7 +17,7 @@ type ShareIcon = ComponentType<{
 
 /** Keyed so a network added to `ShareNetwork` fails to compile until it has an icon. */
 const shareIcons: Record<ShareNetwork, ShareIcon> = {
-  x: Twitter,
+  x: XIcon,
   whatsapp: WhatsAppIcon,
 };
 
