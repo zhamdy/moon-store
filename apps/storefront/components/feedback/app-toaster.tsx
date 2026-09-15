@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
-import { Toaster } from 'sonner';
+import { loadSonner, toasterGate, type SonnerModule } from './show-toast';
 
 export interface AppToasterProps {
   /** "Notifications": the region's name; the hotkey is appended here. */
@@ -20,6 +21,16 @@ const ICON = { size: 16, strokeWidth: 1.5, 'aria-hidden': true } as const;
 const FOCUS =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-(--focus-ring-color)';
 
+/** Idle after hydration; Safari has no `requestIdleCallback`, so a macrotask stands in. */
+function whenIdle(callback: () => void): () => void {
+  if (typeof window.requestIdleCallback === 'function') {
+    const handle = window.requestIdleCallback(callback, { timeout: 5000 });
+    return () => window.cancelIdleCallback(handle);
+  }
+  const handle = window.setTimeout(callback, 1);
+  return () => window.clearTimeout(handle);
+}
+
 /**
  * The storefront's one toaster (the seventeenth client boundary), mounted by the locale
  * layout as a direct child of `<body>`: Headless UI's dialogs make only the subtree that owns
@@ -27,8 +38,51 @@ const FOCUS =
  * operable while a dialog is open. Owner decisions 2026-09-15: bottom centre, an ink pill
  * (ink ground, light text, `rounded-media`). Sonner keeps positioning, stacking, swipe and
  * its own reduced-motion rule.
+ *
+ * Lazy (owner decision 2026-09-15): renders nothing on the server and on the first client
+ * render, then loads Sonner when the browser is idle or when the first toast asks, whichever
+ * comes first. Plain state rather than `React.lazy`, so a failed import renders nothing
+ * instead of reaching an error boundary, and the next request retries. The gate opens one
+ * frame after `Toaster` has mounted (its subscribe effect runs before this component's), so
+ * its `aria-live` section is in the DOM before the first queued message is added.
  */
 export function AppToaster({ label, closeLabel, dir }: AppToasterProps) {
+  const [Toaster, setToaster] = useState<SonnerModule['Toaster'] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    let loading = false;
+    const mount = () => {
+      if (loading) return;
+      loading = true;
+      loadSonner().then(
+        (sonner) => {
+          if (active) setToaster(() => sonner.Toaster);
+        },
+        () => {
+          // The queue logs the failure; the next request retries.
+          loading = false;
+        }
+      );
+    };
+    const unsubscribe = toasterGate.onRequest(mount);
+    const cancelIdle = whenIdle(() => toasterGate.request());
+    return () => {
+      active = false;
+      unsubscribe();
+      cancelIdle();
+      toasterGate.markUnready();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Toaster === null) return;
+    const frame = requestAnimationFrame(() => toasterGate.markReady());
+    return () => cancelAnimationFrame(frame);
+  }, [Toaster]);
+
+  if (Toaster === null) return null;
+
   return (
     <Toaster
       dir={dir}

@@ -193,7 +193,10 @@ navigation shell.
    is spoken once (from the error toast, not from the inline text); choosing a size removes
    the toast. With a size chosen, pressing it keeps focus on the button, the drawer does
    **not** open, and "Added to your bag: {name}" is spoken from a toast in the bottom inline
-   corner. On a sold-out product the
+   corner. **First toast after load:** Sonner is lazy-loaded, so with the cache cleared,
+   reload and press Add to Bag as soon as the page renders: the toast still appears and is
+   spoken once (the queue waits for the "Notifications" region to exist first). Alt+T does
+   nothing until the toaster has loaded, normally moments after the page settles. On a sold-out product the
    button reads "Sold out", is announced as dimmed/unavailable, stays in the Tab order and
    does nothing, and no quantity stepper is present. Pressing it an eleventh time for one
    line raises "You can add up to 10 of this piece". **Toasts:** each is spoken once through

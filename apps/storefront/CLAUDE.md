@@ -218,8 +218,9 @@ Server Components by default (R21/R22). `'use client'` is limited to sixteen ent
    toasts.
 17. `components/feedback/app-toaster.tsx` — the one Sonner `<Toaster>` (owner decision
    2026-09-15), mounted by `app/[locale]/layout.tsx` after the footer as a direct child of
-   `<body>`. Takes resolved `label` / `closeLabel` (`toaster.*`) and `dir`. See *Cart* →
-   *Toasts*.
+   `<body>`. Takes resolved `label` / `closeLabel` (`toaster.*`) and `dir`. Lazy: it imports
+   no `sonner`, renders nothing on the server and the first client render, and mounts the
+   real `Toaster` when the browser is idle or the first toast asks. See *Cart* → *Toasts*.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -228,7 +229,8 @@ heading into masked word spans on the server.
 `features/cart/components/bag-drawer.tsx` (a lazy chunk, ~10.6 KB gz, reached only from
 15), `cart-line.tsx`, `quantity-stepper.tsx`, `bag-summary.tsx`, `use-bag-controller.ts`
 (shared by the drawer and the page), `load-drawer.ts`, `components/feedback/show-toast.ts`
-(the one `toast()` caller; pure modules import only its `ToastTone` type), and
+(the one `toast()` caller and the one `import('sonner')`; pure modules import only its
+`ToastTone` type; its queue and gate are the pure `toast-queue.ts`, unit-tested), and
 `features/products/components/purchase-selection-context.ts` — a plain `createContext`
 module imported only by `purchase-panel.tsx` and `add-to-bag-button.tsx`. A Server
 Component must never import it: `createContext` does not exist in the react-server build.
@@ -1093,6 +1095,27 @@ rest. Two unlayered rules in `globals.css` set the body face and restore the foc
 because Sonner's runtime sheet is unlayered and injected later. Every call goes through
 `showToast` / `dismissToast` (`components/feedback/show-toast.ts`).
 
+**Lazy loading** (owner decision 2026-09-15: keep Sonner and the ink pill, off the initial
+JS). No file imports `sonner` statically except `import type`; `loadSonner` in
+`show-toast.ts` is the one memoized `import('sonner')` (a rejection is not cached), so the
+module-level `ToastState` behind `toast` is the same instance `Toaster` subscribes to.
+`AppToaster` holds the loaded `Toaster` in state (not `React.lazy`, so a failed chunk
+renders nothing rather than reaching an error boundary, and the next request retries) and
+loads it on the first of `requestIdleCallback` (timeout 5s; a 1ms `setTimeout` where it does
+not exist) or the first toast, which calls `toasterGate.request()`. **The ready gate** opens
+one `requestAnimationFrame` after `Toaster` has mounted, and closes again on unmount.
+`showToast` / `dismissToast` run through `createToastQueue` (`toast-queue.ts`, pure and
+unit-tested): calls before the module is loaded *and* the gate is open are held in call
+order and flushed together; after that they run synchronously; a failed load logs, drops
+what was held and never throws to the caller. Sonner itself would keep a pre-mount toast
+(`Observer.subscribe` replays `getActiveToasts()`, `dist/index.mjs`), so the gate exists for
+the live region: the `aria-live` `<section>` and the Alt+T `keydown` listener are both
+inside `Toaster`, and a message added in the same moment its region appears is not
+reliably announced. Consequences: **Alt+T does nothing until the toaster has loaded**
+(normally idle shortly after hydration), and on a cold cache the first toast raised before
+idle waits for the Sonner chunk to download plus one frame. A `dismissToast` before load
+also triggers the load.
+
 | Event | Tone | Action | Id / dedupe | Inline counterpart |
 | --- | --- | --- | --- | --- |
 | Add, all pieces landed | success "Added to your bag: {name}" (or "({count})") | View bag → `/bag` | `add-to-bag`: a second add replaces it | none (the header count changes) |
@@ -1112,9 +1135,8 @@ remove toasts, the live-store check marks a quote key before either raises it, a
 ids are the second guard. Not messages, so untouched: the catalog result-count live region,
 `product-grid-skeleton.tsx`, the hero carousel, the purchase panel's price/status region.
 
-**Bundle.** The toaster loads on every page (it is in the locale layout). Its eager cost was
-**not measured**: the dev server was running on the shared `.next`, so `next build` was
-skipped. Measure it with the *Bundle budget* method below before trusting any figure.
+**Bundle.** The toaster is mounted on every page (it is in the locale layout), but Sonner
+itself is a lazy chunk; see *Bundle budget* for the measurements.
 
 ### Copy
 
@@ -1141,6 +1163,13 @@ bytes are not comparable with the older "195.2 KB" figures, which used a differe
 The product route measured +12.1 KB after Add to Bag (Unit 5), before the Zod removal; it
 was not re-measured since. The drawer is a separate lazy chunk (~10.6 KB gz).
 
+**Sonner** (2026-09-15, same method). With the toaster loaded eagerly, `/en` was
+**258,816 B** (from 244,959 on `main`, and 251,064 before the toaster and loading work),
+`/en/bag` 260,450 B, `/en/products/silk-midi-dress` 255,525 B. Sonner's imported surface
+(`Toaster` + `toast`, minified, React external) is 9,629 B gz. The owner chose to keep Sonner
+and its look but lazy-load it (see *Toasts* → *Lazy loading*). Post-lazy measurement
+pending.
+
 ### Implementation outcomes
 
 - Server batched reads use a bounded `IN ($1, …, $n)` list, not `ANY($1)`, because pg-mem
@@ -1165,6 +1194,9 @@ Browser-only; no storefront DOM or browser harness exists, so none of this is pr
 - Toasts: bottom inline end at 1440, full width at 320 in Arabic (message, action and close
   on one row or wrapping without overflow); no duplicate with the drawer open over `/bag`;
   Sonner's swipe and stacking under reduced motion.
+- Lazy toaster: press Add to Bag the moment the product page renders (cold cache, before
+  idle): the toast appears and is announced once; rapid presses give one replacing toast,
+  none lost or doubled; Alt+T works once the page has idled; the ink pill is unchanged.
 - Keyboard Undo over the open drawer (source-verified, not yet seen in a browser): remove a
   line, Alt+T, Tab to Undo, Enter; the line returns and focus goes back to the drawer row.
   Also Escape while focus is in a toast (it closes the drawer too), and that Shift+Tab from a
