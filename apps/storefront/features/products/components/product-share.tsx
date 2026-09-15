@@ -1,13 +1,13 @@
 import type { ComponentType } from 'react';
 import { getTranslations } from 'next-intl/server';
-import { Facebook, Mail, Twitter } from 'lucide-react';
-import { PinterestIcon } from '@/components/brand/pinterest-icon';
+import { Twitter } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
 import type { AppLocale } from '@/i18n/routing';
 import { resolveSiteUrl } from '@/lib/site-url';
 import type { CatalogProductDetail } from '../types/catalog-product-detail';
 import { localizedName } from '../utils/localized-name';
 import { productShareLinks, type ShareNetwork } from '../utils/share-links';
+import { ShareButton } from './share-button';
 
 type ShareIcon = ComponentType<{
   size?: number;
@@ -17,11 +17,8 @@ type ShareIcon = ComponentType<{
 
 /** Keyed so a network added to `ShareNetwork` fails to compile until it has an icon. */
 const shareIcons: Record<ShareNetwork, ShareIcon> = {
-  facebook: Facebook,
   x: Twitter,
-  pinterest: PinterestIcon,
   whatsapp: WhatsAppIcon,
-  email: Mail,
 };
 
 // One share row per page, so a fixed id is unique; the list is named by the visible label.
@@ -33,10 +30,10 @@ export interface ProductShareProps {
 }
 
 /**
- * "Share it:" and plain links to each network's share endpoint. Server-rendered with no
- * client JS, which is also why there is no copy-link button. The shared URL is absolute,
- * from `SITE_URL`, since it leaves this site. Icons keep the footer's look: 44px hit
- * areas, no chips, secondary text colour darkening on hover, never mirrored in RTL.
+ * "Share it:", server-rendered links to X and WhatsApp, and the share-sheet button (the
+ * only client JS here, as its own list item so the row stays one list). The shared URL is
+ * absolute, from `SITE_URL`, since it leaves this site. Icons keep the footer's look: 44px
+ * hit areas, no chips, secondary text colour darkening on hover, never mirrored in RTL.
  */
 export async function ProductShare({ locale, product }: ProductShareProps) {
   const t = await getTranslations({ locale });
@@ -44,34 +41,27 @@ export async function ProductShare({ locale, product }: ProductShareProps) {
     `/${locale}/products/${encodeURIComponent(product.slug)}`,
     resolveSiteUrl()
   ).toString();
-  const links = productShareLinks({
-    url,
-    title: localizedName(product, locale).text,
-    image: product.images[0]?.url ?? null,
-  });
+  const title = localizedName(product, locale).text;
+  const links = productShareLinks({ url, title });
 
   return (
     <div className="flex flex-wrap items-center gap-x-2">
       <p id={LABEL_ID} className="type-small text-text-secondary">
         {t('product.share.label')}
       </p>
-      <ul aria-labelledby={LABEL_ID} className="flex flex-wrap">
+      <ul aria-labelledby={LABEL_ID} className="flex flex-wrap items-center">
         {links.map(({ network, href }) => {
           const Icon = shareIcons[network];
-          const isEmail = network === 'email';
           return (
             <li key={network}>
               <a
                 href={href}
-                {...(isEmail ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
-                aria-label={
-                  isEmail
-                    ? t('product.share.email')
-                    : t('product.share.on', {
-                        network: t(`product.share.networks.${network}`),
-                        newTab: t('footer.newTab'),
-                      })
-                }
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('product.share.on', {
+                  network: t(`product.share.networks.${network}`),
+                  newTab: t('footer.newTab'),
+                })}
                 className="flex h-11 w-11 items-center justify-center text-text-secondary transition-colors duration-fast ease-ui hover:text-text"
               >
                 <Icon size={20} strokeWidth={1.5} aria-hidden="true" />
@@ -79,6 +69,17 @@ export async function ProductShare({ locale, product }: ProductShareProps) {
             </li>
           );
         })}
+        <li className="flex items-center gap-x-2">
+          <ShareButton
+            url={url}
+            title={title}
+            labels={{
+              share: t('product.share.button'),
+              copied: t('product.share.copied'),
+              copyFailed: t('product.share.copyFailed'),
+            }}
+          />
+        </li>
       </ul>
     </div>
   );

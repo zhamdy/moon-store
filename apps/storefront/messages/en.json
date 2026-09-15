@@ -318,13 +318,12 @@
     "share": {
       "label": "Share it:",
       "on": "Share on {network} ({newTab})",
-      "email": "Share by email",
+      "button": "Share",
+      "copied": "Link copied",
+      "copyFailed": "Couldn't copy the link",
       "networks": {
-        "facebook": "Facebook",
         "x": "X",
-        "pinterest": "Pinterest",
-        "whatsapp": "WhatsApp",
-        "email": "Email"
+        "whatsapp": "WhatsApp"
       }
     }
   }

@@ -144,8 +144,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to twelve entries
-(thirteen files):
+Server Components by default (R21/R22). `'use client'` is limited to thirteen entries
+(fourteen files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -191,6 +191,12 @@ Server Components by default (R21/R22). `'use client'` is limited to twelve entr
    tablist `label`, `dir` and `panels: Record<id, ReactNode>` rendered on the server by
    `product-details-tabs.tsx`; the keyboard rule is `utils/tab-keys.ts` (`tabKeyTarget`,
    shared with the gallery), unit-tested.
+13. `features/products/components/share-button.tsx` — the share row's native share
+   button (owner decision 2026-09-15): `navigator.share` and the clipboard exist only in
+   the browser, and Instagram, TikTok and Messenger have no web share URL. Takes `url`,
+   `title` and resolved `labels: { share, copied, copyFailed }` from `product-share.tsx`;
+   reads `navigator` only on click, and its `role="status"` region is always mounted. The
+   decision is `utils/share-action.ts` (`shareAction`, `isShareAbort`), unit-tested.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -215,7 +221,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding a thirteenth
+`useTranslations`, is a new decision, not a precedent. Before adding a fourteenth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
@@ -659,11 +665,16 @@ column below), the details tabs at full container width, the related row.
   Details tab keeps the full list), "Part of" links (Arabic `ضمن {collection}`, since
   collection names already carry مجموعة). The lead sits above the price because price and sizes are one island.
 - **Share row** (`product-share.tsx`, the `share` slot, last in the info column): "Share
-  it:" and server-rendered links to Facebook, X, Pinterest, WhatsApp and email, built by
-  the pure `utils/share-links.ts`; no client JS and no SDK. The shared URL is absolute,
-  from `SITE_URL` through `lib/site-url.ts` (the same origin as `metadataBase`). Pinterest
-  appears only when the product has an image. A hairline above it unless the facts `dl`
-  is directly above. No copy-link button: it would need a client boundary.
+  it:", server-rendered links to X and WhatsApp built by the pure `utils/share-links.ts`
+  (no SDK), and a Share button, the `share-button.tsx` island as the list's last `li`
+  (owner decision 2026-09-15). The button opens the device share sheet, which is how
+  Instagram, TikTok and Messenger are reached: the first two have no web share URL and
+  Messenger's needs a Facebook app id. A dismissed sheet (`AbortError`) does nothing; any
+  other share error, or no Web Share API (most desktops), copies the link and announces
+  "Link copied" (or "Couldn't copy the link") for 2.5s in a polite region mounted from the
+  first paint. The shared URL is absolute, from `SITE_URL` through `lib/site-url.ts` (the
+  same origin as `metadataBase`). A hairline above it unless the facts `dl` is directly
+  above.
 - **Details tabs** (ED-4, `product-details-tabs.tsx` + the `product-tabs.tsx` island):
   Description (every paragraph), Details (a `dl`: material, care, fit, category link,
   collection links, sizes from the `size` option) and Shipping & returns (delivery and
