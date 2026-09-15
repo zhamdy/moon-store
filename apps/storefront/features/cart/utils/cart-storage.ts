@@ -1,7 +1,7 @@
 import { CART_STORAGE_KEY, CART_VERSION } from '../constants';
 import {
-  persistedCartEnvelopeSchema,
-  persistedCartLineSchema,
+  parsePersistedCartEnvelope,
+  parsePersistedCartLine,
   type PersistedCart,
 } from '../schemas/persisted-cart';
 import { mergeDuplicateLines, type CartLine } from './cart-lines';
@@ -55,16 +55,16 @@ export function parseCart(raw: string | null): ParsedCart {
     return { lines: [], repaired: true };
   }
 
-  const envelope = persistedCartEnvelopeSchema.safeParse(json);
-  if (!envelope.success || envelope.data.version !== CART_VERSION) {
+  const envelope = parsePersistedCartEnvelope(json);
+  if (!envelope || envelope.version !== CART_VERSION) {
     return { lines: [], repaired: true };
   }
 
   const valid: CartLine[] = [];
-  for (const candidate of envelope.data.lines) {
-    const line = persistedCartLineSchema.safeParse(candidate);
-    if (line.success) {
-      valid.push(line.data);
+  for (const candidate of envelope.lines) {
+    const line = parsePersistedCartLine(candidate);
+    if (line) {
+      valid.push(line);
     }
   }
 
