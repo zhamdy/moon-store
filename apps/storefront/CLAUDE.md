@@ -487,8 +487,9 @@ collections are indistinguishable 404s (the API shares one body).
 - An uncached list that fails inside Suspense has already sent 200: the client error
   screen (`(catalog)/error.tsx`, "Try again" calls `retry()`) replaces the grid.
 - A failed entity lookup before Suspense (categories list, collection) is a 500 with the
-  same error screen. `getCatalogCollection` returns `null` only for `NOT_FOUND`; every
-  other error rethrows, so an outage never masquerades as a 404.
+  same error screen. `getCatalogCollection` returns `null` only for `NOT_FOUND` and a
+  malformed slug's 400 `VALIDATION_ERROR` (#198); every other error rethrows, so an
+  outage never masquerades as a 404.
 - The error screen never renders `error.message` or a code; Next logs the digest.
 
 ### Metadata (`features/catalog/utils/catalog-metadata.ts`)
@@ -620,8 +621,8 @@ so KD-10 holds and `catalog-routes.test.ts` pins it. Unknown, inactive, disconti
 slug-less products are one indistinguishable 404 (PD-2), and so is a malformed slug: the
 API rejects it with a 400 `VALIDATION_ERROR`, which `getCatalogProduct` also maps to `null`
 (the slug is the endpoint's only input; the server regex is deliberately not copied here).
-Any other `ApiError` rethrows to the error screen. `getCatalogCollection` still maps only
-`NOT_FOUND`, so `/collections/Evening` is a 500 today (pre-existing, from #196).
+Any other `ApiError` rethrows to the error screen. `getCatalogCollection` maps the same
+two codes, so a malformed collection slug (`/collections/Evening`) is a real 404 too (#198).
 
 `getCatalogProduct` is the one entity read that **does** pass `timeoutMs`: it is wrapped
 in `React.cache`, so `generateMetadata` and the page still share one API call per render

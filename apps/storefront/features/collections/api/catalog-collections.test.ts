@@ -90,6 +90,24 @@ describe('catalog collections and categories', () => {
       await expect(getCatalogCollection('upcoming')).resolves.toBeNull();
     });
 
+    it('returns null on a 400 VALIDATION_ERROR (a malformed slug is a missing collection)', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        jsonResponse(400, { error: { code: 'VALIDATION_ERROR', message: 'Invalid slug' } })
+      );
+
+      await expect(getCatalogCollection('Evening')).resolves.toBeNull();
+    });
+
+    it('rethrows a 503 SERVICE_UNAVAILABLE', async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        jsonResponse(503, { error: { code: 'SERVICE_UNAVAILABLE', message: 'Down' } })
+      );
+
+      await expect(getCatalogCollection('silk')).rejects.toMatchObject({
+        code: 'SERVICE_UNAVAILABLE',
+      });
+    });
+
     it('rethrows a 500 as INTERNAL_ERROR', async () => {
       vi.mocked(fetch).mockResolvedValue(
         jsonResponse(500, { error: { code: 'INTERNAL_ERROR', message: 'Boom' } })
