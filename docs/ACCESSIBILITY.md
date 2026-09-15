@@ -225,7 +225,9 @@ navigation shell.
    within 4s: focus leaves the drawer for the toast (the toast stops its timer). Tab once:
    the "Undo" action (Tab again: Dismiss). Press Enter: the line is back in place with its
    quantity, the toast closes, and focus returns to the line name that held it before Alt+T,
-   still inside the drawer; Tab and Shift+Tab stay in the drawer again. Undo by pointer
+   still inside the drawer; Tab and Shift+Tab stay in the drawer again. While the drawer
+   is open, Shift+Tab from a toast and a screen reader's browse mode must not reach the skip
+   link, the page content or the footer (the drawer makes them inert). Undo by pointer
    works too. Try two removals in quick succession: two toasts. **Navigation close:** open
    the drawer from the header Bag link, Tab to a line name (or View bag) and press Enter:
    the drawer slides out and, once it has gone (~300ms), focus is on the page's main region

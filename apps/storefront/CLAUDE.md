@@ -1074,9 +1074,12 @@ the trap's window `focus` listener and `onBlur` reclaim focus only under `FocusL
 `useRootContainers` counts every other `body > *`, the toaster included, as inside, so a
 press on a toast is not an outside click. Sonner's `keydown` listener on `document` focuses
 its `<ol>` (`tabIndex=-1`), and its `onBlur` / unmount cleanup return focus to the element
-focused before (`Toaster` in `dist/index.mjs`). Known limits, not fixed: Escape while in a
-toast also closes the drawer (Headless UI's window `keydown`), and Shift+Tab from a toast
-reaches `main`/`footer`, which the drawer does not make inert. Bottom centre in both
+focused before (`Toaster` in `dist/index.mjs`). Because Headless UI inerts only `header`,
+the drawer itself marks the skip link, `main` and the footer `inert` while open (owner
+decision 2026-09-15), releasing exactly the elements it set as the close starts, so the page
+behind is unreachable by Tab, Shift+Tab or a screen reader and `main` is focusable again
+before a navigation close focuses it. Known limit, not fixed: Escape while in a toast also
+closes the drawer (Headless UI's window `keydown`). Bottom centre in both
 directions (owner decision 2026-09-15), full width minus 16px below 600px, at most 3 visible,
 pausing on hover and focus. `unstyled` + semantic utilities, an ink pill (owner decision
 2026-09-15): `rounded-media`, `bg-action text-on-action`, no border,
@@ -1164,8 +1167,10 @@ Browser-only; no storefront DOM or browser harness exists, so none of this is pr
   Sonner's swipe and stacking under reduced motion.
 - Keyboard Undo over the open drawer (source-verified, not yet seen in a browser): remove a
   line, Alt+T, Tab to Undo, Enter; the line returns and focus goes back to the drawer row.
-  Also Escape while focus is in a toast (it closes the drawer too) and Shift+Tab from a toast
-  (it reaches the page behind, which the drawer leaves non-inert).
+  Also Escape while focus is in a toast (it closes the drawer too), and that Shift+Tab from a
+  toast and a screen reader's browse mode no longer reach the skip link, `main` or the footer
+  while the drawer is open (the drawer marks them inert), and that they are usable again as
+  soon as it closes, including focus landing on `main` after View bag.
 - Placeholders never flash on a fast quote (150ms delay); the breathing reads as quiet,
   not as shimmer; content fades in once and never on a stepper press.
 - A row with no quote and no hint (throttled network): options, stepper and Remove usable;

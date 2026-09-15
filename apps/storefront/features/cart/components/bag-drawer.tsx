@@ -88,6 +88,22 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
   useEffect(() => {
     if (open) closedForNavigation.current = false;
   }, [open]);
+
+  // Headless UI inerts only `header` (the body child holding the opener), so the page behind
+  // stayed reachable by Shift+Tab and screen readers. Released as the close starts, before
+  // `AfterTrapUnmount` focuses `#main-content`; the toaster stays outside and operable.
+  useEffect(() => {
+    if (!open) return;
+    const targets = [
+      document.querySelector<HTMLElement>('body .skip-link'),
+      document.getElementById('main-content'),
+      document.querySelector<HTMLElement>('body > footer, body footer[data-surface]'),
+    ].filter((element): element is HTMLElement => element !== null && !element.inert);
+    for (const element of targets) element.inert = true;
+    return () => {
+      for (const element of targets) element.inert = false;
+    };
+  }, [open]);
   const navigate = () => closeForNavigation(closedForNavigation);
   const afterTrapUnmount = (remounted: boolean) => {
     const decision = shouldFocusMainAfterDrawerUnmount({
