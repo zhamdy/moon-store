@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import { X } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
@@ -7,6 +7,7 @@ import { BAG_HREF } from '@/components/layout/navigation-items';
 import { formatPrice } from '@/features/products/utils/price';
 import { cartStore, useCartActions, useCartSession } from '../store/cart-store';
 import type { BagDrawerStrings } from '../utils/bag-strings';
+import { shouldFocusMainAfterDrawerUnmount } from '../utils/drawer-close-focus';
 import { selectPlural } from '../utils/plural-templates';
 import { BagFigure, CartLine } from './cart-line';
 import { useBagController } from './use-bag-controller';
@@ -25,15 +26,38 @@ const PRIMARY_LINK =
 
 /**
  * Closes for a navigation (a line name, View bag, the empty state's link, or any pathname
- * change). Headless UI would hand focus back to the invoker, which on the next page is a
- * stale place to be; focus lands on the page's main region instead, as the skip link's does.
+ * change) and marks it, so `AfterTrapUnmount` moves focus to the page's main region (as the
+ * skip link does) instead of Headless UI's restore to the now stale invoker.
  */
-function closeForNavigation() {
+function closeForNavigation(closedForNavigation: RefObject<boolean>) {
   if (!cartStore.getSession().drawer.open) return;
+  closedForNavigation.current = true;
   cartStore.closeDrawer();
-  requestAnimationFrame(() => {
-    document.getElementById('main-content')?.focus({ preventScroll: true });
+}
+
+/**
+ * Rendered inside the `Dialog`, so it unmounts with `FocusTrap` when the leave transition
+ * ends. Headless UI restores focus from the trap's `useOnUnmount`, in a microtask queued from
+ * its passive cleanup; this cleanup queues a microtask that queues another, so `onUnmount`
+ * runs after that restore whatever order React runs the two cleanups in. `remounted` is true
+ * when the component came straight back (a Strict Mode effect re-run).
+ */
+function AfterTrapUnmount({ onUnmount }: { onUnmount(remounted: boolean): void }) {
+  const latest = useRef(onUnmount);
+  const mounted = useRef(false);
+  useEffect(() => {
+    latest.current = onUnmount;
   });
+  useEffect(() => {
+    const callback = latest;
+    const state = mounted;
+    state.current = true;
+    return () => {
+      state.current = false;
+      queueMicrotask(() => queueMicrotask(() => callback.current(state.current)));
+    };
+  }, []);
+  return null;
 }
 
 /**
@@ -60,12 +84,28 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
     onEmpty,
   } = useBagController({ active: open, locale, strings });
 
+  const closedForNavigation = useRef(false);
+  useEffect(() => {
+    if (open) closedForNavigation.current = false;
+  }, [open]);
+  const navigate = () => closeForNavigation(closedForNavigation);
+  const afterTrapUnmount = (remounted: boolean) => {
+    const decision = shouldFocusMainAfterDrawerUnmount({
+      closedForNavigation: closedForNavigation.current,
+      open: cartStore.getSession().drawer.open,
+      remounted,
+    });
+    if (!decision) return;
+    closedForNavigation.current = false;
+    document.getElementById('main-content')?.focus({ preventScroll: true });
+  };
+
   const pathname = usePathname();
   const lastPathname = useRef(pathname);
   useEffect(() => {
     if (lastPathname.current === pathname) return;
     lastPathname.current = pathname;
-    closeForNavigation();
+    closeForNavigation(closedForNavigation);
   }, [pathname]);
 
   const rows = view.kind === 'ready' || view.kind === 'loading' ? view.rows : null;
@@ -75,6 +115,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
 
   return (
     <Dialog open={open} onClose={() => actions.closeDrawer()} transition className="relative z-50">
+      <AfterTrapUnmount onUnmount={afterTrapUnmount} />
       <DialogBackdrop
         transition
         className="fixed inset-0 bg-scrim transition-opacity duration-base ease-ui data-closed:opacity-0"
@@ -136,7 +177,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
                 <h3 ref={emptyHeading} tabIndex={-1} className="type-body-lg focus:outline-none">
                   {strings.status.emptyTitle}
                 </h3>
-                <Link href={shopHref} onClick={closeForNavigation} className={TEXT_ACTION}>
+                <Link href={shopHref} onClick={navigate} className={TEXT_ACTION}>
                   {strings.status.emptyAction}
                 </Link>
               </div>
@@ -156,7 +197,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
                     focusRef={focusRef(row.key)}
                     onQuantityChange={onQuantityChange}
                     onRemove={onRemove}
-                    onNavigate={closeForNavigation}
+                    onNavigate={navigate}
                   />
                 ))}
               </ul>
@@ -186,12 +227,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
               )}
               {/* Reserved for Checkout (CD-17): nothing renders here in this phase. */}
               <div data-checkout-action="" className="empty:hidden" />
-              <Link
-                href={BAG_HREF}
-                onClick={closeForNavigation}
-                data-surface="ink"
-                className={PRIMARY_LINK}
-              >
+              <Link href={BAG_HREF} onClick={navigate} data-surface="ink" className={PRIMARY_LINK}>
                 {strings.viewBag}
               </Link>
               <div className="flex justify-center">

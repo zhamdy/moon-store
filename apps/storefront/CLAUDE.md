@@ -854,7 +854,7 @@ noun are "Bag" (`/bag`); the domain, API, store, types and slice say `cart` (CD-
 | `/bag` | `app/[locale]/bag/page.tsx` (server shell: `h1`) + `BagView` (boundary 16) |
 | Every page | `AppToaster` (boundary 17) in the locale layout; every bag message is a toast |
 | Shared by drawer and page | `use-bag-controller.ts`, `cart-line.tsx`, `quantity-stepper.tsx` |
-| Pure, unit-tested | `utils/cart-lines.ts`, `cart-storage.ts`, `reconcile.ts`, `bag-view-model.ts`, `quantity-control.ts`, `add-to-bag-action.ts`, `bag-trigger-label.ts`, `plural-templates.ts`; `schemas/persisted-cart.ts`; `api/quote-cart.ts`, `api/use-cart-quote.ts` (its pure parts) |
+| Pure, unit-tested | `utils/cart-lines.ts`, `cart-storage.ts`, `reconcile.ts`, `bag-view-model.ts`, `quantity-control.ts`, `add-to-bag-action.ts`, `bag-trigger-label.ts`, `plural-templates.ts`, `drawer-close-focus.ts`; `schemas/persisted-cart.ts`; `api/quote-cart.ts`, `api/use-cart-quote.ts` (its pure parts) |
 
 ### Persisted shape (v1)
 
@@ -1005,8 +1005,19 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   (`max-w-[26rem]`, full width below that), backdrop, Escape and backdrop close. Title `h2`
   "Bag" is focused on open (`data-autofocus`); opened only from the header Bag link, with no
   description line. Line photographs mount only while open. Footer: Subtotal, the empty `[data-checkout-action]`, "View bag", "Continue
-  shopping" (closes). Following a line name, View bag or the empty state's link, or any
-  pathname change, closes it and moves focus to `#main-content` instead of the invoker.
+  shopping" (closes). Escape, the backdrop, the X and Continue shopping return focus to the
+  header Bag link (Headless UI's restore). Following a line name, View bag or the empty
+  state's link, or any pathname change, closes it and focus lands on `#main-content` once
+  the leave transition has ended. Evidence (`@headlessui/react` 2.2.10): the transition keeps
+  providing `Open | Closing` until the leave ends (`Transition.Child`'s state bits in
+  `dist/components/transition/transition.js`), so `Dialog` keeps `FocusTrap`'s `RestoreFocus`
+  on, and the trap's `useOnUnmount` (`dist/components/focus-trap/focus-trap.js`, the
+  restore hook) focuses the element focused before opening in a microtask, **without checking
+  where focus is**. An early `focus()` on `#main-content` (the old rAF) was overridden ~300ms
+  later. `AfterTrapUnmount`, rendered inside the `Dialog`, queues a nested microtask from its
+  own unmount cleanup, so it runs after that restore; the decision is
+  `shouldFocusMainAfterDrawerUnmount` (`utils/drawer-close-focus.ts`, unit-tested: navigation
+  close, not reopened, really unmounted). During the leave focus stays on the pressed link.
 - **`/bag`**: static per locale, outside `(catalog)`, `noindex, nofollow`, no canonical, no
   `loading.tsx` (`app/bag-route.test.ts`). Before hydration one reserved `aria-busy` region
   one row tall (no fake row count) beside the summary in its final layout (heading,
@@ -1052,7 +1063,20 @@ sticky mobile purchase bar) and PD-7 (no JSON-LD `Product`) stand.
 UI's `Dialog` marks only the subtree that owns it inert (`header` for the drawer, `main` for
 the filter sheet), so toasts stay visible, announced and clickable over a dialog. Sonner's
 `<section>` is the one polite live region (`aria-live="polite"`, always mounted), named
-"Notifications (Alt+T)"; Alt+T moves focus into the toasts. Bottom centre in both
+"Notifications (Alt+T)"; Alt+T moves focus into the toasts, **including over the open
+drawer**, so its Undo is reachable by keyboard with no in-drawer copy. Verified in the
+installed source (2026-09-15, `@headlessui/react` 2.2.10, `sonner` 2.0.8): `Dialog` gives
+`FocusTrap` `RestoreFocus | TabLock | AutoFocus | InitialFocus` but never `FocusLock`, and
+the trap's window `focus` listener and `onBlur` reclaim focus only under `FocusLock`
+(`dist/components/focus-trap/focus-trap.js`); `useInertOthers`' `disallowed` is the one
+`body > *` holding the dialog's owner and `allowed` walks only up to `<body>`
+(`dist/hooks/use-inert-others.js`, called from `dist/components/dialog/dialog.js`); and
+`useRootContainers` counts every other `body > *`, the toaster included, as inside, so a
+press on a toast is not an outside click. Sonner's `keydown` listener on `document` focuses
+its `<ol>` (`tabIndex=-1`), and its `onBlur` / unmount cleanup return focus to the element
+focused before (`Toaster` in `dist/index.mjs`). Known limits, not fixed: Escape while in a
+toast also closes the drawer (Headless UI's window `keydown`), and Shift+Tab from a toast
+reaches `main`/`footer`, which the drawer does not make inert. Bottom centre in both
 directions (owner decision 2026-09-15), full width minus 16px below 600px, at most 3 visible,
 pausing on hover and focus. `unstyled` + semantic utilities, an ink pill (owner decision
 2026-09-15): `rounded-media`, `bg-action text-on-action`, no border,
@@ -1137,16 +1161,20 @@ Browser-only; no storefront DOM or browser harness exists, so none of this is pr
   line shows the page's name, photograph and price at once, and no line total until its quote.
 - Toasts: bottom inline end at 1440, full width at 320 in Arabic (message, action and close
   on one row or wrapping without overflow); no duplicate with the drawer open over `/bag`;
-  whether the drawer's focus trap pulls Alt+T focus back out of a toast (pointer Undo works
-  either way; keyboard Undo over the open drawer is unproven); Sonner's swipe and stacking
-  under reduced motion.
+  Sonner's swipe and stacking under reduced motion.
+- Keyboard Undo over the open drawer (source-verified, not yet seen in a browser): remove a
+  line, Alt+T, Tab to Undo, Enter; the line returns and focus goes back to the drawer row.
+  Also Escape while focus is in a toast (it closes the drawer too) and Shift+Tab from a toast
+  (it reaches the page behind, which the drawer leaves non-inert).
 - Placeholders never flash on a fast quote (150ms delay); the breathing reads as quiet,
   not as shimmer; content fades in once and never on a stepper press.
 - A row with no quote and no hint (throttled network): options, stepper and Remove usable;
   focus after removing a neighbour lands on its Remove.
 - Announcement wording and timing in both locales (VoiceOver/NVDA).
-- Whether Headless UI returns focus to the invoker after Escape/backdrop, and that a
-  navigation close lands on `#main-content` instead.
+- Focus after closing: Escape, backdrop, the X and Continue shopping return to the header Bag
+  link; a line name, View bag or the empty state's link lands on `#main-content` after the
+  slide-out, with no visible ring flashing on the Bag link in between (both locales, and
+  under reduced motion). Reopen the drawer during the slide-out: focus stays in the drawer.
 - Remote line images (needs `MEDIA_ORIGIN`); the iOS safe-area footer.
 - `/bag` line layout at 320, 375 and 768-1023; the sticky summary from 1024 clearing the header.
 - No hydration warnings; `/bag` reload at 320 and 1440: reserved region → placeholder rows

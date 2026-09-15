@@ -220,9 +220,18 @@ navigation shell.
    Remove available. **Remove:** after the row fades, focus is on the next line's name (else
    the previous one, else the "Your bag is empty" heading), never on `body`, and "{name}
    removed from your bag" is spoken from a toast with Undo. On `/bag`, Alt+T then Tab reaches
-   Undo, and pressing it puts the line back in its place with its quantity. In the open
-   drawer, check whether Alt+T can reach Undo at all (the dialog's focus trap may pull focus
-   back; Undo by pointer must work). Try two removals in quick succession: two toasts.
+   Undo, and pressing it puts the line back in its place with its quantity. **In the open
+   drawer:** Remove a line with Enter; focus lands on the next line's name. Press Alt+T
+   within 4s: focus leaves the drawer for the toast (the toast stops its timer). Tab once:
+   the "Undo" action (Tab again: Dismiss). Press Enter: the line is back in place with its
+   quantity, the toast closes, and focus returns to the line name that held it before Alt+T,
+   still inside the drawer; Tab and Shift+Tab stay in the drawer again. Undo by pointer
+   works too. Try two removals in quick succession: two toasts. **Navigation close:** open
+   the drawer from the header Bag link, Tab to a line name (or View bag) and press Enter:
+   the drawer slides out and, once it has gone (~300ms), focus is on the page's main region
+   (the next Tab reaches the first link of the new page), not on the header Bag link. Open it
+   again and press Escape (then the X, then Continue shopping): each time focus returns to
+   the header Bag link.
    **Toasts**, each spoken once, never repeated on reopening, never two for one event with the
    drawer open over `/bag`:
 
