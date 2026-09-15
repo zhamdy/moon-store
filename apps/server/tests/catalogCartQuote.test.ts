@@ -483,6 +483,27 @@ describe('POST /api/v1/catalog/cart/quote', () => {
       expect(r.headers['cache-control']).toBe('no-store');
     });
 
+    it('answers HEAD on the quote path with 404', async () => {
+      const r = await send('HEAD', QUOTE);
+      expect(r.status).toBe(404);
+    });
+
+    it('drops a __proto__ option key without polluting Object.prototype', async () => {
+      // Raw text: JSON.stringify would never emit an own `__proto__` key.
+      const r = await send(
+        'POST',
+        QUOTE,
+        '{"lines":[{"slug":"silk-midi","options":{"__proto__":"polluted","size":"M"},"quantity":1}]}'
+      );
+      expect(r.status).toBe(200);
+      expect(r.body.data.lines[0]).toMatchObject({
+        status: 'ok',
+        options: [{ key: 'size', label: 'size', value: 'M' }],
+      });
+      expect(({} as Json).polluted).toBeUndefined();
+      expect(Object.getOwnPropertyNames(Object.prototype)).not.toContain('polluted');
+    });
+
     it('maps a statement timeout to 503 SERVICE_UNAVAILABLE with no-store', async () => {
       vi.spyOn(catalogRepository, 'findPublicProductsBySlugs').mockRejectedValue(
         Object.assign(new Error('canceling statement due to statement timeout'), {

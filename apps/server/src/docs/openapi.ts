@@ -10259,7 +10259,7 @@ export const openApiSpec = {
         tags: ['Catalog'],
         summary: 'Quote a guest bag (Public)',
         description:
-          'Endpoint classification: B. Allowed Roles: Public. Re-prices and re-checks bag ' +
+          'Endpoint classification: S. Allowed Roles: Public. Re-prices and re-checks bag ' +
           'lines against current catalog data; writes nothing and reserves no stock.',
         security: [],
         responses: {
