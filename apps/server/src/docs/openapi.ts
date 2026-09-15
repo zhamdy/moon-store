@@ -10414,7 +10414,28 @@ export const openApiSpec = {
             content: {
               'application/json': {
                 schema: {
-                  $ref: '#/components/schemas/ApiError',
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -10432,7 +10453,28 @@ export const openApiSpec = {
             content: {
               'application/json': {
                 schema: {
-                  $ref: '#/components/schemas/ApiError',
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -10450,7 +10492,28 @@ export const openApiSpec = {
             content: {
               'application/json': {
                 schema: {
-                  $ref: '#/components/schemas/ApiError',
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -10468,7 +10531,28 @@ export const openApiSpec = {
             content: {
               'application/json': {
                 schema: {
-                  $ref: '#/components/schemas/ApiError',
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -10486,7 +10570,28 @@ export const openApiSpec = {
             content: {
               'application/json': {
                 schema: {
-                  $ref: '#/components/schemas/ApiError',
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },

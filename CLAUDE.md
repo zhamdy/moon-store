@@ -97,7 +97,7 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 | Ratchet | Where | Today |
 | --- | --- | --- |
 | ESLint warnings | `--max-warnings` in `apps/server/package.json` | `384`, essentially all `@typescript-eslint/no-explicit-any` |
-| Operations with no request contract | `EXPECTED_UNCONVERTED` in `apps/server/src/docs/requestContracts.ts` | `3` of 192 — the health probes |
+| Operations with no request contract | `EXPECTED_UNCONVERTED` in `apps/server/src/docs/requestContracts.ts` | `3` of 209 — the health probes |
 | Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
 | Routes weaker than their manifest | `EXPECTED_UNDER_PROTECTED` in `apps/server/src/http/endpointManifest.ts` | `0`; any entry in `UNDER_PROTECTED_ROUTES` is an open owner decision |
 
