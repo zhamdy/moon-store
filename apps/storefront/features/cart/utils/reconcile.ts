@@ -1,4 +1,5 @@
 import { isApiError } from '@/lib/api/errors';
+import type { LocalizedText } from '@/features/products/utils/localized-name';
 import type {
   CartQuoteLine,
   CartQuoteLineStatus,
@@ -31,6 +32,18 @@ export interface CartSessionMemory {
   /** Line key → the quote key that found its price change (the store's `priceUpdates`). */
   readonly priceUpdates: ReadonlyMap<string, string>;
   readonly announcedQuoteKeys: ReadonlySet<string>;
+  /** Line key → what the product page knew at Add to Bag; in memory only, never persisted. */
+  readonly hints: ReadonlyMap<string, BagLineHint>;
+}
+
+/**
+ * The product page's own name, first image and exact unit price, kept for a line no quote
+ * has seen yet so the piece just added is never a grey block. Display only: never totalled.
+ */
+export interface BagLineHint {
+  name: LocalizedText;
+  imageUrl: string | null;
+  unitPrice: number | null;
 }
 
 /** `pending`: no verdict for the stored quantity yet (new line, or quantity changed). */
@@ -50,6 +63,8 @@ export interface BagRow {
   status: BagRowStatus;
   /** Null when the quote has no product for this key (unavailable, or not quoted yet). */
   product: CartQuoteProduct | null;
+  /** The Add to Bag hint, only while no quote line exists for this key; status is `pending`. */
+  provisional: BagLineHint | null;
   /** Canonical options from the quote when resolved, else the stored spelling (label = key). */
   options: readonly CartQuoteOption[];
   unitPrice: number | null;
@@ -63,27 +78,34 @@ export interface BagRow {
    * quotes. Null only when no quote has seen the line.
    */
   knownMaxQuantity: number | null;
-  /** Only from a quote line priced at the stored quantity; null for excluded lines. */
+  /**
+   * Only ever a quoted figure. While `pending` it is the previous quote's total (rendered
+   * dimmed and busy); null for excluded lines and for lines no quote has priced.
+   */
   lineTotal: number | null;
   notices: readonly BagNotice[];
 }
 
 export interface BagSummary {
-  /** `current` only when the quote answers exactly the stored lines; `stale` is dimmed, busy. */
+  /**
+   * `current` only when the quote answers exactly the stored lines. `stale` keeps the
+   * previous quote's figures on screen, dimmed and busy, until the new quote settles.
+   */
   state: 'current' | 'stale';
-  /** From a current quote only. */
-  subtotal: number | null;
-  /** The quote's `itemCount`; current only. */
-  purchasablePieces: number | null;
-  /** Local pieces the quote cannot sell (sold out, unavailable, limited); current only. */
-  excludedPieces: number | null;
+  /** The quote's subtotal: the current quote's, or the previous one's while stale. */
+  subtotal: number;
+  /** The quote's `itemCount`. */
+  purchasablePieces: number;
+  /** Pieces the quote it came from could not sell (sold out, unavailable, limited). */
+  excludedPieces: number;
   /** Σ stored quantities (CD-18). */
   localPieces: number;
 }
 
 export type BagView =
   | { kind: 'empty' }
-  | { kind: 'loading'; skeletonRows: number; localPieces: number }
+  /** No quote yet: rows carry only what is local (options, quantity, any Add to Bag hint). */
+  | { kind: 'loading'; rows: readonly BagRow[]; localPieces: number }
   | {
       kind: 'failed';
       localPieces: number;
@@ -166,7 +188,8 @@ function buildRow(
   line: CartLine,
   key: string,
   quoteLine: CartQuoteLine | undefined,
-  priceUpdated: boolean
+  priceUpdated: boolean,
+  hint: BagLineHint | undefined
 ): BagRow {
   if (quoteLine === undefined) {
     return {
@@ -174,8 +197,9 @@ function buildRow(
       line,
       status: 'pending',
       product: null,
+      provisional: hint ?? null,
       options: storedOptions(line),
-      unitPrice: null,
+      unitPrice: hint?.unitPrice ?? null,
       displayQuantity: line.quantity,
       maxQuantity: null,
       knownMaxQuantity: null,
@@ -189,7 +213,8 @@ function buildRow(
   // waits for its own quote instead of showing the old verdict.
   const status: BagRowStatus =
     UNAVAILABLE.has(quoteLine.status) || atStoredQuantity ? quoteLine.status : 'pending';
-  const priced = status === 'ok' || status === 'reduced';
+  // Pending keeps the previous verdict's figure (only ok/reduced lines ever go pending).
+  const priced = quoteLine.status === 'ok' || quoteLine.status === 'reduced';
 
   const notices: BagNotice[] = [];
   const notice = statusNotice(status, quoteLine);
@@ -201,6 +226,7 @@ function buildRow(
     line,
     status,
     product: quoteLine.product,
+    provisional: null,
     options: quoteLine.options.length > 0 ? quoteLine.options : storedOptions(line),
     unitPrice: quoteLine.unitPrice,
     displayQuantity: status === 'reduced' ? quoteLine.quantity : line.quantity,
@@ -233,7 +259,11 @@ export function reconcileBag({ lines, result, fetch, session }: ReconcileInput):
   }
 
   if (result === undefined) {
-    return { view: { kind: 'loading', skeletonRows: lines.length, localPieces }, ...none };
+    const rows = [...lines].reverse().map((line) => {
+      const key = cartLineKey(line);
+      return buildRow(line, key, undefined, false, session.hints.get(key));
+    });
+    return { view: { kind: 'loading', rows, localPieces }, ...none };
   }
 
   const current = result.key === currentKey;
@@ -271,7 +301,7 @@ export function reconcileBag({ lines, result, fetch, session }: ReconcileInput):
       if (cartLineKey({ slug: line.slug, options }) !== key) rewrites.push({ key, options });
     }
 
-    const row = buildRow(line, key, quoteLine, priceUpdated);
+    const row = buildRow(line, key, quoteLine, priceUpdated, session.hints.get(key));
     if (UNAVAILABLE.has(row.status)) issues.unavailable += 1;
     if (row.status === 'reduced') issues.limited += 1;
     if (row.notices.some((notice) => notice.kind === 'priceUpdated')) issues.priceUpdated += 1;
@@ -279,21 +309,18 @@ export function reconcileBag({ lines, result, fetch, session }: ReconcileInput):
   });
 
   const { subtotal, itemCount } = result.quote;
-  const summary: BagSummary = current
-    ? {
-        state: 'current',
-        subtotal,
-        purchasablePieces: itemCount,
-        excludedPieces: localPieces - itemCount,
-        localPieces,
-      }
-    : {
-        state: 'stale',
-        subtotal: null,
-        purchasablePieces: null,
-        excludedPieces: null,
-        localPieces,
-      };
+  // Excluded pieces are counted against the lines the quote answered, so a stale quote's
+  // figures stay internally consistent while they remain on screen.
+  const quotedPieces = current
+    ? localPieces
+    : result.quote.lines.reduce((sum, quoteLine) => sum + quoteLine.requestedQuantity, 0);
+  const summary: BagSummary = {
+    state: current ? 'current' : 'stale',
+    subtotal,
+    purchasablePieces: itemCount,
+    excludedPieces: quotedPieces - itemCount,
+    localPieces,
+  };
 
   const correction = rewrites.length > 0 ? { quoteKey: result.key, rewrites } : null;
   const hasIssues = issues.unavailable + issues.limited + issues.priceUpdated > 0;

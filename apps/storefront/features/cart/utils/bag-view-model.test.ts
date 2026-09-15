@@ -27,6 +27,8 @@ const LINE: BagLineStrings = {
   unitPrice: 'Price',
   lineTotal: 'Total',
   unavailablePiece: 'A piece that is no longer available',
+  pendingPiece: 'This piece',
+  updating: 'Updating',
   justAdded: 'Just added',
   currency: 'EGP',
   notice: {
@@ -65,6 +67,7 @@ function rowOf(over: Partial<BagRow> = {}): BagRow {
       nameEn: 'Silk Midi Dress',
       image: null,
     },
+    provisional: null,
     options: [{ key: 'size', label: 'Size', value: 'M' }],
     unitPrice: 2850,
     displayQuantity: 2,
@@ -139,6 +142,22 @@ describe('rowName', () => {
       lang: 'en',
     });
     expect(rowName(rowOf({ status: 'pending', product: null }), 'en', 'x')).toBeNull();
+  });
+
+  it('names a line no quote has seen from its Add to Bag hint, and the quote wins once present', () => {
+    const provisional = {
+      name: { text: 'فستان حرير', lang: 'ar' as const },
+      imageUrl: null,
+      unitPrice: 2850,
+    };
+    expect(rowName(rowOf({ status: 'pending', product: null, provisional }), 'en', 'x')).toEqual({
+      text: 'فستان حرير',
+      lang: 'ar',
+    });
+    expect(rowName(rowOf({ provisional }), 'en', 'x')).toEqual({
+      text: 'Silk Midi Dress',
+      lang: 'en',
+    });
   });
 });
 
@@ -247,18 +266,12 @@ describe('announcements', () => {
 
   it('a quantity change waits for a current quote, then announces once', () => {
     const rows = [rowOf({ line: { ...rowOf().line, quantity: 3 }, displayQuantity: 3 })];
-    expect(settledQuantity({ kind: 'loading', skeletonRows: 1, localPieces: 3 }, 'k')).toEqual({
+    expect(settledQuantity({ kind: 'loading', rows, localPieces: 3 }, 'k')).toEqual({
       kind: 'wait',
     });
+    // A stale summary shows the previous subtotal, which is never announced.
     expect(
-      settledQuantity(
-        {
-          kind: 'ready',
-          rows,
-          summary: { ...CURRENT, state: 'stale', subtotal: null },
-        },
-        'k'
-      )
+      settledQuantity({ kind: 'ready', rows, summary: { ...CURRENT, state: 'stale' } }, 'k')
     ).toEqual({ kind: 'wait' });
     expect(settledQuantity({ kind: 'ready', rows, summary: CURRENT }, 'k')).toEqual({
       kind: 'announce',

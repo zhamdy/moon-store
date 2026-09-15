@@ -5,12 +5,11 @@ import { Link, usePathname } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import { BAG_HREF } from '@/components/layout/navigation-items';
 import { formatPrice } from '@/features/products/utils/price';
-import { cn } from '@/lib/utils/cn';
 import { cartStore, useCartActions, useCartSession } from '../store/cart-store';
 import type { BagDrawerStrings } from '../utils/bag-strings';
 import { scrollTopToReveal } from '../utils/bag-view-model';
 import { selectPlural } from '../utils/plural-templates';
-import { CartLine, CartLineSkeleton } from './cart-line';
+import { BagFigure, CartLine } from './cart-line';
 import { announceInDrawer } from './drawer-announcer';
 import { useBagController } from './use-bag-controller';
 
@@ -99,10 +98,10 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
     closeForNavigation();
   }, [pathname]);
 
+  const rows = view.kind === 'ready' || view.kind === 'loading' ? view.rows : null;
   const summary = view.kind === 'ready' ? view.summary : null;
-  const subtotal =
-    summary?.subtotal != null ? formatPrice(summary.subtotal, locale, strings.line.currency) : null;
-  const excluded = summary?.state === 'current' ? (summary.excludedPieces ?? 0) : 0;
+  const subtotal = summary ? formatPrice(summary.subtotal, locale, strings.line.currency) : null;
+  const excluded = summary?.excludedPieces ?? 0;
 
   return (
     <Dialog open={open} onClose={() => actions.closeDrawer()} transition className="relative z-50">
@@ -145,19 +144,9 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
 
           <div
             ref={scrollContainer}
-            aria-busy={view.kind === 'loading' || undefined}
             className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 md:px-8"
           >
-            {view.kind === 'loading' && (
-              <>
-                <p className="sr-only">{strings.summary.updating}</p>
-                <ul aria-hidden="true" className="divide-y divide-border">
-                  {Array.from({ length: view.skeletonRows }, (_, index) => (
-                    <CartLineSkeleton key={index} variant="drawer" />
-                  ))}
-                </ul>
-              </>
-            )}
+            {view.kind === 'loading' && <p className="sr-only">{strings.summary.updating}</p>}
 
             {view.kind === 'failed' && (
               <div className="py-10">
@@ -191,9 +180,9 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
               </div>
             )}
 
-            {view.kind === 'ready' && (
+            {rows && (
               <ul className="divide-y divide-border">
-                {view.rows.map((row) => (
+                {rows.map((row) => (
                   <CartLine
                     key={row.key}
                     row={row}
@@ -221,20 +210,15 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
             <div className="flex shrink-0 flex-col gap-4 border-t border-border px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-8 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
               {view.kind !== 'failed' && (
                 <div>
-                  <div
-                    aria-busy={subtotal === null || undefined}
-                    className="flex items-baseline justify-between gap-4"
-                  >
+                  <div className="flex items-baseline justify-between gap-4">
                     <span className="type-body">{strings.summary.subtotal}</span>
-                    {/* A stale quote never shows its figure (CD-9): "Updating", dimmed. */}
-                    <span
-                      className={cn(
-                        'type-body tabular-nums',
-                        subtotal === null && 'text-text-secondary'
-                      )}
-                    >
-                      {subtotal ?? strings.summary.updating}
-                    </span>
+                    {/* A stale quote keeps the previous figure, dimmed and busy (CD-9). */}
+                    <BagFigure
+                      value={subtotal}
+                      stale={summary?.state === 'stale'}
+                      updating={strings.summary.updating}
+                      className="type-body"
+                    />
                   </div>
                   {excluded > 0 && (
                     <p className="type-small mt-1 text-text-secondary">

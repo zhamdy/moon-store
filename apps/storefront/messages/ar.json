@@ -350,6 +350,7 @@
     "unitPrice": "السعر",
     "lineTotal": "الإجمالي",
     "unavailablePiece": "قطعة لم تعد متوفّرة",
+    "pendingPiece": "هذه القطعة",
     "notice": {
       "soldOut": "نفدت الكمية",
       "variantUnavailable": "هذا الخيار لم يعد متوفّرًا",

@@ -65,6 +65,7 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
   const formatted = prices[String(price.price)] ?? String(price.price);
   const status = availabilityStatus(selection, product);
   const readiness = useMemo(() => purchaseReadiness(selection, product), [selection, product]);
+  const unitPrice = readiness.kind === 'ready' && price.kind === 'exact' ? price.price : null;
 
   const focusFirstUnselected = useCallback(() => {
     if (readiness.kind !== 'needsSelection') return;
@@ -81,8 +82,8 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
   }, [readiness, product.options, legends, strings.chooseOption]);
 
   const context = useMemo<PurchaseSelection>(
-    () => ({ readiness, focusFirstUnselected }),
-    [readiness, focusFirstUnselected]
+    () => ({ readiness, unitPrice, focusFirstUnselected }),
+    [readiness, unitPrice, focusFirstUnselected]
   );
 
   return (

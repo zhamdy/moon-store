@@ -64,15 +64,17 @@ export function focusTargetAfterRemove(
 }
 
 /**
- * The row's display name. `null` when nothing names it yet: a line the quote on screen has
- * not seen (just added while an older quote is shown) renders as a skeleton until it has.
+ * The row's display name: the quote's product, else the Add to Bag hint, else the
+ * unavailable-piece text. `null` when nothing names it yet (no quote line and no hint): the
+ * row renders its options, stepper and Remove with placeholders for name, photo and price.
  */
 export function rowName(
-  row: Pick<BagRow, 'product' | 'status'>,
+  row: Pick<BagRow, 'product' | 'status' | 'provisional'>,
   locale: AppLocale,
   unavailablePiece: string
 ): LocalizedText | null {
   if (row.product) return localizedName(row.product, locale);
+  if (row.provisional) return row.provisional.name;
   return row.status === 'productUnavailable' ? { text: unavailablePiece, lang: locale } : null;
 }
 
@@ -191,7 +193,8 @@ export function settledQuantity(view: BagView, key: string): QuantitySettle {
   if (view.kind === 'loading') return { kind: 'wait' };
   if (view.kind !== 'ready') return { kind: 'drop' };
   const { summary } = view;
-  if (summary.state !== 'current' || summary.subtotal === null) return { kind: 'wait' };
+  // A stale summary still shows the previous subtotal; only a current one is announced.
+  if (summary.state !== 'current') return { kind: 'wait' };
   const row = view.rows.find((candidate) => candidate.key === key);
   if (!row) return { kind: 'drop' };
   if (row.status === 'pending') return { kind: 'wait' };

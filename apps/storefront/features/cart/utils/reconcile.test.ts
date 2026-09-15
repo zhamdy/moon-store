@@ -6,6 +6,7 @@ import {
   cartQuoteKey,
   failureAnnouncementKey,
   reconcileBag,
+  type BagLineHint,
   type BagView,
   type CartQuoteFetch,
   type CartSessionMemory,
@@ -26,6 +27,13 @@ const EMPTY_SESSION: CartSessionMemory = {
   previousPrices: new Map(),
   priceUpdates: new Map(),
   announcedQuoteKeys: new Set(),
+  hints: new Map(),
+};
+
+const C_HINT: BagLineHint = {
+  name: { text: 'Cashmere Pullover', lang: 'en' },
+  imageUrl: 'https://media.example/pullover.jpg',
+  unitPrice: 1900,
 };
 
 function okLine(line: CartLine, index: number, over: Partial<CartQuoteLine> = {}): CartQuoteLine {
@@ -69,7 +77,8 @@ function ready(view: BagView) {
 }
 
 function row(view: BagView, line: CartLine) {
-  const found = ready(view).rows.find((r) => r.key === cartLineKey(line));
+  const rows = view.kind === 'loading' ? view.rows : ready(view).rows;
+  const found = rows.find((r) => r.key === cartLineKey(line));
   if (!found) throw new Error('row missing');
   return found;
 }
@@ -77,12 +86,14 @@ function row(view: BagView, line: CartLine) {
 function session(
   prices: Record<string, number> | null,
   announced: string[] = [],
-  priceUpdates: Record<string, string> | null = null
+  priceUpdates: Record<string, string> | null = null,
+  hints: Record<string, BagLineHint> | null = null
 ): CartSessionMemory {
   return {
     previousPrices: new Map(Object.entries(prices ?? {})),
     priceUpdates: new Map(Object.entries(priceUpdates ?? {})),
     announcedQuoteKeys: new Set(announced),
+    hints: new Map(Object.entries(hints ?? {})),
   };
 }
 
@@ -118,7 +129,7 @@ describe('reconcileBag', () => {
     expect(out.rememberPrices).toEqual({ [cartLineKey(A)]: 2850, [cartLineKey(B)]: 1200 });
   });
 
-  it('stale key: summary stale with no subtotal; unchanged lines keep their price; the changed line has no total', () => {
+  it('stale key: summary keeps the previous figures, marked stale; the changed line keeps its previous total', () => {
     const previous = resultFor([A, B]);
     const lines = [{ ...A, quantity: 3 }, B];
     const out = reconcileBag({
@@ -130,17 +141,18 @@ describe('reconcileBag', () => {
 
     expect(ready(out.view).summary).toEqual({
       state: 'stale',
-      subtotal: null,
-      purchasablePieces: null,
-      excludedPieces: null,
+      subtotal: 6900,
+      purchasablePieces: 3,
+      excludedPieces: 0,
       localPieces: 4,
     });
     expect(row(out.view, B)).toMatchObject({ status: 'ok', unitPrice: 1200, lineTotal: 1200 });
+    // The previous quote's figure at quantity 2, never a client-side 2850 x 3.
     expect(row(out.view, lines[0]!)).toMatchObject({
       status: 'pending',
       unitPrice: 2850,
       displayQuantity: 3,
-      lineTotal: null,
+      lineTotal: 5700,
       maxQuantity: null,
     });
     expect(out.rememberPrices).toBeNull();
@@ -163,7 +175,7 @@ describe('reconcileBag', () => {
     expect(row(out.view, C).product?.slug).toBe('cashmere-pullover');
   });
 
-  it('a line added while pending has no price and no product', () => {
+  it('a line added while pending with no hint has no price, no product and its stored options', () => {
     const out = reconcileBag({
       lines: [A, C],
       result: resultFor([A]),
@@ -173,9 +185,83 @@ describe('reconcileBag', () => {
     expect(row(out.view, C)).toMatchObject({
       status: 'pending',
       product: null,
+      provisional: null,
       unitPrice: null,
       lineTotal: null,
+      displayQuantity: 1,
+      knownMaxQuantity: null,
       options: [{ key: 'size', label: 'size', value: 'S' }],
+    });
+  });
+
+  it('a hinted line with no quote line is provisional: hint name, image and unit price, no total', () => {
+    const previous = resultFor([A]);
+    const lines = [A, C];
+    const out = reconcileBag({
+      lines,
+      result: previous,
+      fetch: { status: 'fetching' },
+      session: session(null, [], null, { [cartLineKey(C)]: C_HINT }),
+    });
+    expect(row(out.view, C)).toMatchObject({
+      status: 'pending',
+      product: null,
+      provisional: C_HINT,
+      unitPrice: 1900,
+      lineTotal: null,
+      maxQuantity: null,
+      knownMaxQuantity: null,
+      notices: [],
+    });
+    // The hint never reaches a figure or a count: the summary is the previous quote's.
+    expect(ready(out.view).summary).toEqual({
+      state: 'stale',
+      subtotal: 5700,
+      purchasablePieces: 2,
+      excludedPieces: 0,
+      localPieces: 3,
+    });
+    expect(out.announcement).toBeNull();
+    expect(out.rememberPrices).toBeNull();
+  });
+
+  it('quote data wins over a hint as soon as a quote line exists for the key', () => {
+    const lines = [A, C];
+    const result = resultFor(lines, (line) => (line === C ? { unitPrice: 2000 } : {}));
+    const out = reconcileBag({
+      lines,
+      result,
+      fetch: SETTLED,
+      session: session(null, [], null, { [cartLineKey(C)]: C_HINT }),
+    });
+    expect(row(out.view, C)).toMatchObject({
+      status: 'ok',
+      provisional: null,
+      unitPrice: 2000,
+      lineTotal: 2000,
+    });
+    expect(row(out.view, C).product?.name).toBe('name:cashmere-pullover');
+    expect(ready(out.view).summary.subtotal).toBe(7700);
+  });
+
+  it('a stale summary counts excluded pieces against the lines its quote answered', () => {
+    const S: CartLine = { slug: 'silk-slip-dress', options: { size: 'M' }, quantity: 2 };
+    const answered = [A, S];
+    const previous = resultFor(answered, (line) =>
+      line.slug === S.slug ? { status: 'soldOut', quantity: 0, maxQuantity: 0, lineTotal: 0 } : {}
+    );
+    const out = reconcileBag({
+      lines: [{ ...A, quantity: 5 }, S],
+      result: previous,
+      fetch: { status: 'fetching' },
+      session: EMPTY_SESSION,
+    });
+    expect(ready(out.view).summary).toEqual({
+      state: 'stale',
+      subtotal: 5700,
+      purchasablePieces: 2,
+      excludedPieces: 2,
+      localPieces: 7,
     });
   });
 
@@ -456,14 +542,32 @@ describe('reconcileBag', () => {
     });
   });
 
-  it('no usable quote yet: skeleton rows, one per local line', () => {
+  it('no usable quote yet: one local row per line, newest first, hints applied', () => {
     const out = reconcileBag({
       lines: [A, B],
       result: undefined,
       fetch: { status: 'fetching' },
-      session: EMPTY_SESSION,
+      session: session(null, [], null, { [cartLineKey(B)]: C_HINT }),
     });
-    expect(out.view).toEqual({ kind: 'loading', skeletonRows: 2, localPieces: 3 });
+    if (out.view.kind !== 'loading') throw new Error(`expected loading, got ${out.view.kind}`);
+    expect(out.view.localPieces).toBe(3);
+    expect(out.view.rows.map((r) => r.key)).toEqual([cartLineKey(B), cartLineKey(A)]);
+    expect(row(out.view, A)).toMatchObject({
+      status: 'pending',
+      product: null,
+      provisional: null,
+      unitPrice: null,
+      lineTotal: null,
+      displayQuantity: 2,
+      options: [{ key: 'size', label: 'size', value: 'M' }],
+    });
+    expect(row(out.view, B)).toMatchObject({
+      provisional: C_HINT,
+      unitPrice: 1900,
+      lineTotal: null,
+    });
+    expect(out.correction).toBeNull();
+    expect(out.announcement).toBeNull();
   });
 
   it.each([

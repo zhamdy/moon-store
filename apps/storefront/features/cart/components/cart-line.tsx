@@ -27,6 +27,70 @@ const IMAGE_SIZES: Record<CartLineVariant, string> = {
   page: '(min-width: 768px) 120px, 72px',
 };
 
+/**
+ * A loading shape: appears after 150ms and breathes (`[data-bag-placeholder]` in
+ * globals.css). Never the brand mark, which means "no photograph", not "loading".
+ */
+export function BagPlaceholder({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-bag-placeholder=""
+      className={cn('block bg-surface-soft', className)}
+    />
+  );
+}
+
+export interface BagFigureProps {
+  /** The formatted quoted figure, or null when no quote has priced it yet. */
+  value: string | null;
+  /** The figure is the previous quote's while a new one loads: dimmed and busy. */
+  stale: boolean;
+  /** Visually hidden lead-in ("Total"). */
+  label?: string;
+  updating: string;
+  className?: string;
+  placeholderClassName?: string;
+}
+
+/**
+ * A subtotal or line total. Stale figures stay in place, dimmed, so nothing blanks or
+ * changes width between stepper presses; the value span persists, so its fade-in never replays.
+ */
+export function BagFigure({
+  value,
+  stale,
+  label,
+  updating,
+  className,
+  placeholderClassName = 'w-20',
+}: BagFigureProps) {
+  const busy = value === null || stale;
+  return (
+    <span
+      aria-busy={busy || undefined}
+      className={cn(
+        'tabular-nums transition-colors duration-fast ease-ui',
+        stale && 'text-text-secondary',
+        className
+      )}
+    >
+      {label && <span className="sr-only">{label} </span>}
+      {value === null ? (
+        <BagPlaceholder
+          key="placeholder"
+          className={cn('inline-block h-[0.8lh] align-middle', placeholderClassName)}
+        />
+      ) : (
+        <span key="value" data-bag-reveal="">
+          {value}
+        </span>
+      )}
+      {busy && <span className="sr-only"> {updating}</span>}
+    </span>
+  );
+}
+
 export interface CartLineProps {
   row: BagRow;
   variant: CartLineVariant;
@@ -47,22 +111,11 @@ export interface CartLineProps {
   onNavigate?(): void;
 }
 
-export function CartLineSkeleton({ variant }: { variant: CartLineVariant }) {
-  return (
-    <li aria-hidden="true" className="flex gap-4 py-5">
-      <div className={cn('aspect-4/5 shrink-0 rounded-media-sm bg-surface-soft', FRAME[variant])} />
-      <div className="flex-1 space-y-2 pt-1">
-        <div className="h-4 w-3/5 bg-surface-soft" />
-        <div className="h-3 w-1/4 bg-surface-soft" />
-      </div>
-    </li>
-  );
-}
-
 /**
  * One bag line, shared by the drawer and the bag page. Hairline-separated by its list, no
  * card. The photograph is decorative (the name beside it is the link). Stock and price
- * verdicts come from `reconcileBag`; nothing here computes a price.
+ * verdicts come from `reconcileBag`; nothing here computes a price. A row no quote has seen
+ * still shows its options, stepper and Remove; only name, photo and price are placeholders.
  */
 export function CartLine({
   row,
@@ -79,38 +132,58 @@ export function CartLine({
   onNavigate,
 }: CartLineProps) {
   const name = rowName(row, locale, strings.unavailablePiece);
-  if (name === null) return <CartLineSkeleton variant={variant} />;
+  const displayName = name?.text ?? strings.pendingPiece;
+  const awaiting = row.status === 'pending';
 
   const Heading = variant === 'page' ? 'h2' : 'h3';
   const options = optionText(row.options, strings);
   const stepper = lineStepper(row, pending);
   const step = (delta: 1 | -1) => {
     const next = stepperCommitValue(row.line.quantity, stepper, delta);
-    if (next !== null) onQuantityChange(row.key, next, name.text);
+    if (next !== null) onQuantityChange(row.key, next, displayName);
   };
 
   const heading = (
-    <Heading className="type-body min-w-0 font-body break-words">
-      {row.product ? (
-        <Link
-          ref={focusRef}
-          href={`/products/${row.product.slug}`}
-          onClick={onNavigate}
-          {...langProps(name, locale)}
-          className="decoration-1 underline-offset-4 hover:underline"
-        >
-          {name.text}
-        </Link>
+    <Heading className={cn('type-body min-w-0 font-body break-words', name === null && 'flex-1')}>
+      {name === null ? (
+        <>
+          <span className="sr-only">{strings.pendingPiece}</span>
+          <span aria-hidden="true" className="flex h-lh items-center">
+            <BagPlaceholder className="h-[0.7lh] w-3/5" />
+          </span>
+        </>
       ) : (
-        <span {...langProps(name, locale)}>{name.text}</span>
+        // Keyed wrapper: a hint name becoming the quoted name does not replay the fade.
+        <span key="name" data-bag-reveal="">
+          {row.product ? (
+            <Link
+              ref={focusRef}
+              href={`/products/${row.product.slug}`}
+              onClick={onNavigate}
+              {...langProps(name, locale)}
+              className="decoration-1 underline-offset-4 hover:underline"
+            >
+              {name.text}
+            </Link>
+          ) : (
+            <span {...langProps(name, locale)}>{name.text}</span>
+          )}
+        </span>
       )}
     </Heading>
   );
   const lineTotal = (className: string) =>
-    row.lineTotal !== null && (
+    (row.lineTotal !== null || awaiting) && (
       <p className={className}>
-        <span className="sr-only">{strings.lineTotal} </span>
-        {formatPrice(row.lineTotal, locale, strings.currency)}
+        <BagFigure
+          value={
+            row.lineTotal === null ? null : formatPrice(row.lineTotal, locale, strings.currency)
+          }
+          stale={awaiting}
+          label={strings.lineTotal}
+          updating={strings.updating}
+          placeholderClassName="w-16"
+        />
       </p>
     );
   const details = (
@@ -118,11 +191,19 @@ export function CartLine({
       {justAdded && <p className="sr-only">{strings.justAdded}</p>}
 
       {options && <p className="type-small mt-1 text-text-secondary">{options}</p>}
-      {row.unitPrice !== null && (
+      {row.unitPrice !== null ? (
         <p className="type-small mt-1 text-text-secondary tabular-nums">
           <span className="sr-only">{strings.unitPrice} </span>
-          {formatPrice(row.unitPrice, locale, strings.currency)}
+          <span key="price" data-bag-reveal="">
+            {formatPrice(row.unitPrice, locale, strings.currency)}
+          </span>
         </p>
+      ) : (
+        awaiting && (
+          <p className="type-small mt-1 flex h-lh items-center">
+            <BagPlaceholder key="placeholder" className="h-[0.7lh] w-1/4" />
+          </p>
+        )
       )}
     </>
   );
@@ -138,9 +219,9 @@ export function CartLine({
       value={stepper.value}
       control={stepper.control}
       labels={{
-        group: fillTemplate(strings.quantity, { name: name.text }),
-        decrease: fillTemplate(strings.decrease, { name: name.text }),
-        increase: fillTemplate(strings.increase, { name: name.text }),
+        group: fillTemplate(strings.quantity, { name: displayName }),
+        decrease: fillTemplate(strings.decrease, { name: displayName }),
+        increase: fillTemplate(strings.increase, { name: displayName }),
         limit: stepperLimitText(stepper.control, strings),
       }}
       onStep={step}
@@ -150,8 +231,8 @@ export function CartLine({
     <button
       ref={row.product ? undefined : focusRef}
       type="button"
-      onClick={() => onRemove(row, name.text)}
-      aria-label={fillTemplate(strings.removeLabel, { name: name.text })}
+      onClick={() => onRemove(row, displayName)}
+      aria-label={fillTemplate(strings.removeLabel, { name: displayName })}
       className={cn(
         'type-small inline-flex min-h-11 cursor-pointer items-center text-text underline decoration-text-secondary decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:decoration-text',
         className
@@ -160,6 +241,10 @@ export function CartLine({
       {strings.remove}
     </button>
   );
+
+  const imageUrl = row.product?.image?.url ?? row.provisional?.imageUrl ?? null;
+  // Nothing names the row yet, so its photograph is unknown rather than missing.
+  const photoUnknown = name === null;
 
   return (
     <li
@@ -176,20 +261,25 @@ export function CartLine({
 
       <div
         className={cn(
-          'relative isolate aspect-4/5 shrink-0 self-start overflow-hidden rounded-media-sm bg-surface-soft',
+          'relative isolate aspect-4/5 shrink-0 self-start overflow-hidden rounded-media-sm',
+          !photoUnknown && 'bg-surface-soft',
           FRAME[variant]
         )}
       >
-        {row.product?.image ? (
+        {imageUrl ? (
           <Image
-            src={row.product.image.url}
+            key="photo"
+            src={imageUrl}
             alt=""
             fill
             sizes={IMAGE_SIZES[variant]}
+            data-bag-reveal=""
             className="object-cover"
           />
+        ) : photoUnknown ? (
+          <BagPlaceholder key="placeholder" className="absolute inset-0" />
         ) : (
-          <ProductImagePlaceholder />
+          <ProductImagePlaceholder key="mark" />
         )}
       </div>
 
@@ -197,7 +287,7 @@ export function CartLine({
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-start justify-between gap-x-4">
             {heading}
-            {lineTotal('type-body shrink-0 tabular-nums')}
+            {lineTotal('type-body shrink-0')}
           </div>
           {details}
           {notices}
@@ -214,7 +304,7 @@ export function CartLine({
           <div className="min-w-0 md:col-start-1 md:row-start-1">
             {heading}
             {details}
-            {lineTotal('type-body mt-1 tabular-nums md:hidden')}
+            {lineTotal('type-body mt-1 md:hidden')}
             {notices}
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 md:contents">
@@ -226,7 +316,7 @@ export function CartLine({
             )}
           </div>
           {lineTotal(
-            'type-body hidden tabular-nums md:col-start-3 md:row-start-1 md:block md:pt-0.5 md:text-end'
+            'type-body hidden md:col-start-3 md:row-start-1 md:block md:pt-0.5 md:text-end'
           )}
         </div>
       )}

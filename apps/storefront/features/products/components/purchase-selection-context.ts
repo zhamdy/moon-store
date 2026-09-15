@@ -10,6 +10,8 @@ import type { PurchaseReadiness } from '../utils/variant-selection';
  */
 export interface PurchaseSelection {
   readiness: PurchaseReadiness;
+  /** The exact unit price of the ready selection, else null; a display hint, never a total. */
+  unitPrice: number | null;
   /** Focuses the first unselected option group and announces "Choose a {option}". */
   focusFirstUnselected(): void;
 }

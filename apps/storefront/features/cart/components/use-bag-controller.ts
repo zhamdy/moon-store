@@ -155,7 +155,7 @@ export function useBagController({
     }
   });
 
-  const rows: readonly BagRow[] = view.kind === 'ready' ? view.rows : [];
+  const rows: readonly BagRow[] = view.kind === 'ready' || view.kind === 'loading' ? view.rows : [];
 
   const onQuantityChange = (key: string, quantity: number, name: string) => {
     onInteract?.();

@@ -221,4 +221,50 @@ describe('createCartStore', () => {
     expect(store.getSession().drawer.open).toBe(false);
     expect(memory.writes()).toBe(0);
   });
+
+  const hint = {
+    name: { text: 'Silk Midi Dress', lang: 'en' as const },
+    imageUrl: 'https://media.example/silk-midi-dress.jpg',
+    unitPrice: 2850,
+  };
+
+  it('keeps an Add to Bag hint in memory only, and drops it with its line', () => {
+    const memory = memoryStorage();
+    const store = createCartStore(() => memory.storage);
+    let notified = 0;
+    store.subscribe(() => {
+      notified += 1;
+    });
+    notified = 0;
+
+    const key = cartLineKey(dress);
+    store.add({ slug: dress.slug, options: dress.options }, hint);
+    expect(notified).toBe(1);
+    expect(store.getSession().hints.get(key)).toEqual(hint);
+
+    const raw = memory.raw()!;
+    expect(raw).toBe(serializeCart([{ ...dress, quantity: 1 }]));
+    for (const leaked of ['Silk Midi Dress', 'silk-midi-dress.jpg', '2850', 'hint']) {
+      expect(raw).not.toContain(leaked);
+    }
+
+    store.remove(key);
+    expect(store.getSession().hints.has(key)).toBe(false);
+    expect(memory.raw()).toBe(serializeCart([]));
+  });
+
+  it('clear drops every hint; a capped add stores none', () => {
+    const memory = memoryStorage(serializeCart([{ ...dress, quantity: 10 }]));
+    const store = createCartStore(() => memory.storage);
+    store.subscribe(() => {});
+
+    expect(store.add({ slug: dress.slug, options: dress.options }, hint).outcome).toBe('capped');
+    expect(store.getSession().hints.size).toBe(0);
+
+    store.add({ slug: tote.slug, options: {} }, { ...hint, imageUrl: null });
+    expect(store.getSession().hints.has(cartLineKey(tote))).toBe(true);
+    store.clear();
+    expect(store.getSession().hints.size).toBe(0);
+    expect(memory.raw()).toBe(serializeCart([]));
+  });
 });

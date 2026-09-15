@@ -94,7 +94,8 @@ export default async function ProductPage(props: Props) {
           action={
             <AddToBagButton
               slug={product.slug}
-              name={localizedName(product, locale).text}
+              name={localizedName(product, locale)}
+              imageUrl={product.images[0]?.url ?? null}
               strings={addToBagStrings}
             />
           }

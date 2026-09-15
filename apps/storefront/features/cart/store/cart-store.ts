@@ -18,6 +18,7 @@ import {
   writeCart,
   type GetCartStorage,
 } from '../utils/cart-storage';
+import type { BagLineHint } from '../utils/reconcile';
 
 /**
  * The bag's module-level external store (CD-8): the header badge, Add to Bag, the drawer
@@ -55,6 +56,8 @@ export interface CartSession {
   readonly priceUpdates: ReadonlyMap<string, string>;
   /** Quote keys whose issues were already announced this session. */
   readonly announcedQuoteKeys: ReadonlySet<string>;
+  /** Line key -> the Add to Bag hint (name, image, unit price); dropped with its line. */
+  readonly hints: ReadonlyMap<string, BagLineHint>;
 }
 
 export interface OpenDrawerInput {
@@ -64,7 +67,8 @@ export interface OpenDrawerInput {
 }
 
 export interface CartActions {
-  add(identity: CartLineIdentity): AddResult;
+  /** `hint` is kept in memory for an added or merged line; never written to storage. */
+  add(identity: CartLineIdentity, hint?: BagLineHint): AddResult;
   setQuantity(key: string, quantity: number): void;
   remove(key: string): void;
   clear(): void;
@@ -102,6 +106,7 @@ export function createCartStore(getStorage: GetCartStorage = browserCartStorage)
     previousPrices: new Map(),
     priceUpdates: new Map(),
     announcedQuoteKeys: new Set(),
+    hints: new Map(),
   };
   const listeners = new Set<() => void>();
   let detachStorageEvents: (() => void) | null = null;
@@ -169,6 +174,13 @@ export function createCartStore(getStorage: GetCartStorage = browserCartStorage)
     notify();
   };
 
+  /** Rewrites hints without notifying: the line commit that follows notifies once. */
+  const updateHints = (change: (hints: Map<string, BagLineHint>) => void) => {
+    const hints = new Map(session.hints);
+    change(hints);
+    session = { ...session, hints };
+  };
+
   return {
     subscribe(listener) {
       listeners.add(listener);
@@ -192,9 +204,12 @@ export function createCartStore(getStorage: GetCartStorage = browserCartStorage)
     getServerSnapshot: () => NOT_HYDRATED,
     getSession: () => session,
 
-    add(identity) {
+    add(identity, hint) {
       ensureHydrated();
       const result = addLine(currentLines(), identity);
+      if (hint && (result.outcome === 'added' || result.outcome === 'merged')) {
+        updateHints((hints) => hints.set(result.key, hint));
+      }
       commit(result.lines);
       return result;
     },
@@ -204,16 +219,20 @@ export function createCartStore(getStorage: GetCartStorage = browserCartStorage)
     },
     remove(key) {
       ensureHydrated();
+      if (session.hints.has(key)) updateHints((hints) => hints.delete(key));
       commit(removeLine(currentLines(), key));
     },
     clear() {
       ensureHydrated();
+      if (session.hints.size > 0) updateHints((hints) => hints.clear());
       if (currentLines().length > 0) {
         commit(clearLines());
       }
     },
     applyCanonical(key, canonicalOptions) {
       ensureHydrated();
+      // A rewrite follows a settled quote, so the line is already named by it.
+      if (session.hints.has(key)) updateHints((hints) => hints.delete(key));
       commit(applyCanonical(currentLines(), key, canonicalOptions));
     },
 
@@ -294,7 +313,7 @@ export function useCartLines(): CartSnapshot {
   );
 }
 
-/** Session state: the drawer, previous prices and announced quote keys. Never persisted. */
+/** Session state: the drawer, prices, announced quote keys and hints. Never persisted. */
 export function useCartSession(): CartSession {
   return useSyncExternalStore(cartStore.subscribe, cartStore.getSession, cartStore.getSession);
 }

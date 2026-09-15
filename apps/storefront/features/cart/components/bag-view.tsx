@@ -5,8 +5,8 @@ import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { BagPageStrings } from '../utils/bag-strings';
 import { selectPlural } from '../utils/plural-templates';
-import { BagSummary, BagSummarySkeleton } from './bag-summary';
-import { CartLine, CartLineSkeleton } from './cart-line';
+import { BagSummary } from './bag-summary';
+import { CartLine } from './cart-line';
 import { useBagController } from './use-bag-controller';
 
 export interface BagViewProps {
@@ -18,9 +18,6 @@ export interface BagViewProps {
   statusId: string;
 }
 
-/** Rows shown before the store hydrates, when the bag's size is not yet known. */
-const UNHYDRATED_SKELETON_ROWS = 2;
-
 const TEXT_ACTION =
   'type-small inline-flex min-h-11 cursor-pointer items-center text-text underline decoration-text-secondary decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:decoration-text';
 
@@ -30,8 +27,9 @@ const TEXT_ACTION =
  * announcement rules are the same; messages go to the page shell's own live region, which
  * exists in the server HTML before anything is written to it.
  *
- * The server HTML and the first client render are the unhydrated skeleton, so a non-empty
- * bag never flashes the empty state.
+ * The server HTML and the first client render are one reserved, busy region (the bag's size
+ * is unknown there, so no fake rows) beside the summary in its final layout; a non-empty bag
+ * never flashes the empty state.
  */
 export function BagView({ strings, locale, shopHref, statusId }: BagViewProps) {
   const generation = useRef(0);
@@ -79,21 +77,19 @@ export function BagView({ strings, locale, shopHref, statusId }: BagViewProps) {
     );
   }
 
-  const loading = !cart.hydrated || view.kind === 'loading';
-  const skeletonRows = view.kind === 'loading' ? view.skeletonRows : UNHYDRATED_SKELETON_ROWS;
+  const rows = view.kind === 'ready' || view.kind === 'loading' ? view.rows : null;
 
   return (
     <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-12 xl:gap-x-16">
-      <div aria-busy={loading || undefined} className="lg:col-span-8">
-        {loading && (
-          <>
+      <div className="lg:col-span-8">
+        {!cart.hydrated && (
+          // One row's height at each width (frame + padding), so a one-line bag never shifts.
+          <div
+            aria-busy="true"
+            className="min-h-[8.125rem] border-y border-border md:min-h-[12.875rem]"
+          >
             <p className="sr-only">{strings.summary.updating}</p>
-            <ul aria-hidden="true" className="divide-y divide-border border-y border-border">
-              {Array.from({ length: skeletonRows }, (_, index) => (
-                <CartLineSkeleton key={index} variant="page" />
-              ))}
-            </ul>
-          </>
+          </div>
         )}
 
         {cart.hydrated && view.kind === 'failed' && (
@@ -117,39 +113,38 @@ export function BagView({ strings, locale, shopHref, statusId }: BagViewProps) {
           </div>
         )}
 
-        {cart.hydrated && view.kind === 'ready' && (
-          <ul className="divide-y divide-border border-y border-border">
-            {view.rows.map((row) => (
-              <CartLine
-                key={row.key}
-                row={row}
-                variant="page"
-                locale={locale}
-                strings={strings.line}
-                pending={pending}
-                removing={removing.has(row.key)}
-                focusRef={focusRef(row.key)}
-                onQuantityChange={onQuantityChange}
-                onRemove={onRemove}
-              />
-            ))}
-          </ul>
+        {cart.hydrated && rows && (
+          <>
+            {view.kind === 'loading' && <p className="sr-only">{strings.summary.updating}</p>}
+            <ul className="divide-y divide-border border-y border-border">
+              {rows.map((row) => (
+                <CartLine
+                  key={row.key}
+                  row={row}
+                  variant="page"
+                  locale={locale}
+                  strings={strings.line}
+                  pending={pending}
+                  removing={removing.has(row.key)}
+                  focusRef={focusRef(row.key)}
+                  onQuantityChange={onQuantityChange}
+                  onRemove={onRemove}
+                />
+              ))}
+            </ul>
+          </>
         )}
       </div>
 
       {view.kind !== 'failed' && (
         <div className="mt-12 lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:col-span-4 lg:mt-0">
-          {cart.hydrated ? (
-            <BagSummary
-              summary={view.kind === 'ready' ? view.summary : null}
-              strings={strings.summary}
-              currency={strings.line.currency}
-              locale={locale}
-              shopHref={shopHref}
-            />
-          ) : (
-            <BagSummarySkeleton />
-          )}
+          <BagSummary
+            summary={view.kind === 'ready' ? view.summary : null}
+            strings={strings.summary}
+            currency={strings.line.currency}
+            locale={locale}
+            shopHref={shopHref}
+          />
         </div>
       )}
     </div>

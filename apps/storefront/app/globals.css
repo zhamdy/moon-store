@@ -1023,6 +1023,12 @@ header[data-surface][data-surface-ready] {
     transform: none;
   }
 
+  /* Placeholders show at once and hold still; revealed content does not fade. */
+  [data-bag-placeholder],
+  [data-bag-reveal] {
+    animation: none;
+  }
+
   .marquee-track[aria-hidden='true'],
   [data-marquee-copy] {
     display: none;
@@ -1088,5 +1094,44 @@ header[data-surface][data-surface-ready] {
   [data-product-tabs-panel],
   [data-product-tabs-panel] a {
     scroll-margin-block-start: calc(var(--header-h) + 5rem);
+  }
+}
+
+/* Bag loading: a placeholder appears only after 150ms, so a near-instant quote never
+   flashes one, then breathes slowly. The loop fills nothing, so the entrance's held
+   opacity 0 wins during the delay. Content replacing a placeholder fades in on mount. */
+@layer components {
+  [data-bag-placeholder] {
+    animation:
+      moon-bag-placeholder-in 240ms var(--ease-ui) 150ms both,
+      moon-bag-breathe 1.6s ease-in-out 390ms infinite alternate none;
+  }
+
+  [data-bag-reveal] {
+    animation: moon-bag-reveal var(--motion-fast) var(--ease-ui) both;
+  }
+}
+
+@keyframes moon-bag-placeholder-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes moon-bag-breathe {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+@keyframes moon-bag-reveal {
+  from {
+    opacity: 0;
   }
 }

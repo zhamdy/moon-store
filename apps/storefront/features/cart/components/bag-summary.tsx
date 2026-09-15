@@ -5,9 +5,10 @@ import { cn } from '@/lib/utils/cn';
 import type { BagSummaryStrings } from '../utils/bag-strings';
 import { selectPlural } from '../utils/plural-templates';
 import type { BagSummary as BagSummaryModel } from '../utils/reconcile';
+import { BagFigure, BagPlaceholder } from './cart-line';
 
 export interface BagSummaryProps {
-  /** Null while the first quote loads: rendered as stale. */
+  /** Null before the store hydrates and while the first quote loads: placeholders in place. */
   summary: BagSummaryModel | null;
   strings: BagSummaryStrings;
   currency: string;
@@ -17,16 +18,16 @@ export interface BagSummaryProps {
 }
 
 /**
- * The bag page summary (plan Unit 7): subtotal only (R10, CD-17), from a quote for the
- * current lines. A stale quote never shows its figure: "Updating", dimmed and busy. No
+ * The bag page summary (plan Unit 7): subtotal only (R10, CD-17), always from a quote. A
+ * stale quote keeps its figures on screen, dimmed and busy, until the new one settles. The
+ * layout is final from the server HTML on, so nothing jumps when the quote arrives. No
  * shipping, tax, discount or delivery text, and no Checkout control: the
  * `[data-checkout-action]` slot stays empty until Checkout.
  */
 export function BagSummary({ summary, strings, currency, locale, shopHref }: BagSummaryProps) {
-  const current = summary?.state === 'current' ? summary : null;
-  const subtotal =
-    current?.subtotal != null ? formatPrice(current.subtotal, locale, currency) : null;
-  const excluded = current?.excludedPieces ?? 0;
+  const stale = summary?.state === 'stale';
+  const subtotal = summary ? formatPrice(summary.subtotal, locale, currency) : null;
+  const excluded = summary?.excludedPieces ?? 0;
 
   return (
     <section aria-labelledby="bag-summary-heading" className="border-t border-text pt-5">
@@ -35,24 +36,30 @@ export function BagSummary({ summary, strings, currency, locale, shopHref }: Bag
       </h2>
 
       <div className="mt-6 border-b border-border pb-5">
-        <div
-          aria-busy={subtotal === null || undefined}
-          className="flex items-baseline justify-between gap-4"
-        >
+        <div className="flex items-baseline justify-between gap-4">
           <span className="type-body">{strings.subtotal}</span>
-          <span
-            className={cn('type-body-lg tabular-nums', subtotal === null && 'text-text-secondary')}
-          >
-            {subtotal ?? strings.updating}
-          </span>
+          <BagFigure
+            value={subtotal}
+            stale={stale}
+            updating={strings.updating}
+            className="type-body-lg"
+            placeholderClassName="w-24"
+          />
         </div>
-        {current?.purchasablePieces != null && (
-          <p className="type-small mt-1 text-text-secondary">
-            {selectPlural(strings.pieces, current.purchasablePieces, locale)}
-          </p>
-        )}
+        <p className="type-small mt-1 flex min-h-lh items-center text-text-secondary">
+          {summary ? (
+            selectPlural(strings.pieces, summary.purchasablePieces, locale)
+          ) : (
+            <BagPlaceholder className="h-[0.7lh] w-16" />
+          )}
+        </p>
         {excluded > 0 && (
-          <p className="type-small mt-1 text-text">
+          <p
+            className={cn(
+              'type-small mt-1 text-text transition-colors duration-fast ease-ui',
+              stale && 'text-text-secondary'
+            )}
+          >
             {selectPlural(strings.excluded, excluded, locale)}
           </p>
         )}
@@ -68,15 +75,5 @@ export function BagSummary({ summary, strings, currency, locale, shopHref }: Bag
         {strings.continueShopping}
       </Link>
     </section>
-  );
-}
-
-/** The summary's shape before the store hydrates; nothing in it is readable. */
-export function BagSummarySkeleton() {
-  return (
-    <div aria-hidden="true" className="border-t border-border pt-5">
-      <div className="h-6 w-1/3 bg-surface-soft" />
-      <div className="mt-6 h-5 w-full bg-surface-soft" />
-    </div>
   );
 }

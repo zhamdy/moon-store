@@ -44,6 +44,10 @@ export interface BagLineStrings {
   unitPrice: string;
   lineTotal: string;
   unavailablePiece: string;
+  /** The accessible name of a row nothing names yet (no quote line, no hint). */
+  pendingPiece: string;
+  /** Visually hidden beside a figure kept from the previous quote. */
+  updating: string;
   justAdded: string;
   currency: string;
   notice: {
@@ -185,6 +189,8 @@ async function sharedBagStrings(locale: AppLocale) {
     unitPrice: t('unitPrice'),
     lineTotal: t('lineTotal'),
     unavailablePiece: t('unavailablePiece'),
+    pendingPiece: t('pendingPiece'),
+    updating: t('updating'),
     justAdded: t('justAdded'),
     currency: tProducts('currency'),
     notice: {

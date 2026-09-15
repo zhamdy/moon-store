@@ -350,6 +350,7 @@
     "unitPrice": "Price",
     "lineTotal": "Total",
     "unavailablePiece": "A piece that is no longer available",
+    "pendingPiece": "This piece",
     "notice": {
       "soldOut": "Sold out",
       "variantUnavailable": "This option is no longer available",

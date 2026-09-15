@@ -880,8 +880,16 @@ the bag; the first client subscription reads storage and notifies. A `storage` e
 another tab re-reads (last write wins). Mutations run the pure reducer, write storage
 (failure keeps memory) and notify. `add` returns `added | merged | capped | full`.
 Session state lives beside it and is never persisted: the drawer (`open`, `mode`,
-`addedKey`, `description`), previous unit prices per line key, price-update flags and
-announced quote keys.
+`addedKey`, `description`), previous unit prices per line key, price-update flags,
+announced quote keys and Add to Bag hints.
+
+**Add to Bag hint** (in memory only, R2 kept): `add(identity, hint)` stores
+`{ name (LocalizedText), imageUrl, unitPrice }` by line key for an `added` or `merged`
+outcome (never `capped` or `full`); `remove`, `clear` and a canonical rewrite drop it. The
+page passes the localized name and first image URL to `AddToBagButton`; the unit price is
+the purchase panel's exact `displayedPrice` for a `ready` selection, read through
+`PurchaseSelectionContext.unitPrice` (`purchaseReadiness` is unchanged). No
+`sessionStorage` or display cache: after a full reload the bag waits for the quote.
 
 ### Quote
 
@@ -915,17 +923,27 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   `productUnavailable` line shows the image placeholder, "A piece that is no longer
   available", the stored option text and Remove.
 - A line whose quantity changed waits (`pending`) for its own verdict; + holds at the last
-  quoted `maxQuantity` meanwhile (10 before any quote).
+  quoted `maxQuantity` meanwhile (10 before any quote). It keeps the previous quote's line
+  total, dimmed and `aria-busy`, so the figure never blanks between stepper presses.
+- A line with no quote line but a hint is `provisional`: the hint's name, image and unit
+  price, still `pending`, no line total, in no count or subtotal, stepper limit 10. As soon
+  as a quote line exists for the key, quote data wins. With no hint the row still shows its
+  stored options, stepper and Remove; name, photo and price are placeholders, and its
+  accessible names use `bag.pendingPiece` ("This piece").
 - The **only store write** is the canonical rewrite: options spelled differently from the
   quote's canonical ones are rewritten and merged, once per settled quote key. A second
   quote is therefore a fixed point.
 - "Price updated" is in-session only (CD-16): the unit price differs from the one remembered
   for that key earlier in the session. No cross-visit notice, since that would persist a price.
-- Summary: subtotal and purchasable pieces only from a quote whose key equals the current
-  lines (`current`); otherwise "Updating", dimmed and `aria-busy`. Excluded pieces = local
-  sum − the quote's `itemCount`. Subtotal only: no shipping, tax, discount or delivery text (R10).
-- View states: `empty`; `loading` (skeleton rows, `aria-hidden`, with a visually hidden
-  "Updating"); `failed` (no rows: "{count} pieces in your bag", the error and Try again; a 400
+- Summary: subtotal and pieces only ever come from a quote, never computed on the client.
+  `current` when its key equals the current lines; otherwise `stale`, which keeps the
+  previous quote's subtotal and counts on screen in `text-text-secondary` (a `color`
+  transition), `aria-busy`, with a visually hidden "Updating". Excluded pieces = the pieces
+  that quote answered − its `itemCount`. Quantity changes are announced only from a
+  `current` quote (`settledQuantity`). Subtotal only: no shipping, tax, discount or
+  delivery text (R10).
+- View states: `empty`; `loading` (no quote yet: one local row per line, as above, and a
+  visually hidden "Updating"); `failed` (no rows: "{count} pieces in your bag", the error and Try again; a 400
   `VALIDATION_ERROR` offers Empty bag instead, the only use of `clear`); `ready`.
 - The header count is the local sum of stored quantities on every page (CD-18), including
   sold-out and unavailable lines; the header never reads the quote.
@@ -958,13 +976,25 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   shopping" (closes). Following a line name, View bag or the empty state's link, or any
   pathname change, closes it and moves focus to `#main-content` instead of the invoker.
 - **`/bag`**: static per locale, outside `(catalog)`, `noindex, nofollow`, no canonical, no
-  `loading.tsx` (`app/bag-route.test.ts`). Before hydration a skeleton with `aria-busy`, so a
-  non-empty bag never flashes the empty state. From 1024 a 8/4 grid with the summary sticky
+  `loading.tsx` (`app/bag-route.test.ts`). Before hydration one reserved `aria-busy` region
+  one row tall (no fake row count) beside the summary in its final layout (heading,
+  Subtotal, placeholder figure and pieces line, Continue shopping), so a non-empty bag never
+  flashes the empty state and the summary never changes shape. From 1024 a 8/4 grid with the summary sticky
   under the header; below, linear. Summary: Subtotal, pieces, excluded pieces, the empty
   `[data-checkout-action]`, Continue shopping to `/shop`.
 - **Remove**: announced at once, the row fades 180ms (instant under reduced motion), then
   unmounts; focus moves to the next row's name link (or its Remove when the product is
   gone), else the previous row, else the empty-state heading (`tabIndex=-1`).
+
+**Placeholders and reveals** (`app/globals.css`, CSS only). `[data-bag-placeholder]`
+(`BagPlaceholder` in `cart-line.tsx`, a `bg-surface-soft` shape; the frame keeps its 4:5
+`rounded-media-sm`) holds opacity 0 for 150ms, fades in, then breathes 1 → 0.55 over 1.6s,
+alternating; the loop fills nothing so the delayed entrance wins meanwhile. Never
+`ProductImagePlaceholder`, which means "no photograph". `[data-bag-reveal]` fades content in
+over `--motion-fast` on mount only: placeholder and content are differently keyed elements,
+and figures, the name wrapper and the unit price keep their element across stale → current
+and hint → quote, so a stepper press or a quote arrival never replays it. Under reduced
+motion both are `animation: none`: placeholders show at once and hold still.
 
 **Checkout seam** (CD-17): an empty `[data-checkout-action]` in the drawer footer and the
 page summary (`empty:hidden`). No Checkout button and no Clear bag control until Checkout
@@ -1030,14 +1060,23 @@ Browser-only; no storefront DOM or browser harness exists, so none of this is pr
 - Drawer: slide side and close-button position in RTL; full width at 320; long Arabic names.
 - Remove fade and focus hand-off, including rapid double removes.
 - The added line's scroll into view while the panel is still sliding in.
-- The "Updating" subtotal while a re-quote runs.
+- Rapid stepper presses: the line total and subtotal stay in place, dim and return to ink
+  with no width change; one announcement after the quote settles.
+- Drawer after Add to Bag with a quote already on screen: the new line shows the page's
+  name, photograph and price at once, and no line total until its quote.
+- Placeholders never flash on a fast quote (150ms delay); the breathing reads as quiet,
+  not as shimmer; content fades in once and never on a stepper press.
+- A row with no quote and no hint (throttled network): options, stepper and Remove usable;
+  focus after removing a neighbour lands on its Remove.
 - Announcement wording and timing in both locales (VoiceOver/NVDA).
 - Whether Headless UI returns focus to the invoker after Escape/backdrop, and that a
   navigation close lands on `#main-content` instead.
 - Remote line images (needs `MEDIA_ORIGIN`); the iOS safe-area footer.
 - `/bag` line layout at 320, 375 and 768-1023; the sticky summary from 1024 clearing the header.
-- No hydration warnings; skeleton → content with no empty flash; the failed state with the
-  API stopped.
+- No hydration warnings; `/bag` reload at 320 and 1440: reserved region → placeholder rows
+  → content with no empty flash and no summary jump; the failed state with the API stopped.
+- Reduced motion: placeholders static and immediately visible, no reveal fades.
+- Arabic: the provisional name's `lang`, "هذه القطعة" in stepper and Remove names.
 - Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 8.
 
 ## Guideline overrides and copy decisions
