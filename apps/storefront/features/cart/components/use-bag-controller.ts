@@ -4,6 +4,7 @@ import { formatPrice } from '@/features/products/utils/price';
 import { fillTemplate } from '@/lib/utils/fill-template';
 import { useCartQuote } from '../api/use-cart-quote';
 import {
+  cartStore,
   useCartActions,
   useCartLines,
   useCartSession,
@@ -17,6 +18,7 @@ import {
   focusTargetAfterRemove,
   quantityChangedText,
   settledQuantity,
+  visibleRowKeys,
   type RemoveFocusTarget,
 } from '../utils/bag-view-model';
 import { reconcileBag, type BagRow, type BagView } from '../utils/reconcile';
@@ -128,7 +130,8 @@ export function useBagController({
         );
       }
     }
-    if (announcement) {
+    // The live store, not the render's session: a Strict Mode re-run must not announce twice.
+    if (announcement && !cartStore.getSession().announcedQuoteKeys.has(announcement.markKey)) {
       messages.push(bagAnnouncementText(announcement, strings.announcements, locale));
       actions.markQuoteAnnounced(announcement.markKey);
     }
@@ -164,7 +167,11 @@ export function useBagController({
     if (removing.has(row.key)) return;
     onInteract?.();
     announce(fillTemplate(strings.announcements.removed, { name }));
-    const keys = rows.map((r) => r.key).filter((key) => key === row.key || !removing.has(key));
+    const keys = visibleRowKeys(
+      rows.map((r) => r.key),
+      removing,
+      row.key
+    );
 
     const finish = () => {
       pendingFocus.current = focusTargetAfterRemove(keys, row.key);

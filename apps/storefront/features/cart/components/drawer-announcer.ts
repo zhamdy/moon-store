@@ -10,6 +10,7 @@ import { useSyncExternalStore } from 'react';
  */
 
 let message = '';
+let generation = 0;
 const listeners = new Set<() => void>();
 
 function publish(next: string) {
@@ -25,9 +26,13 @@ function publish(next: string) {
  * the next frame, so screen readers announce it again.
  */
 export function announceInDrawer(next: string): void {
+  const token = ++generation;
   if (next !== '' && next === message && typeof requestAnimationFrame === 'function') {
     publish('');
-    requestAnimationFrame(() => publish(next));
+    // A newer message published before the frame wins.
+    requestAnimationFrame(() => {
+      if (token === generation) publish(next);
+    });
     return;
   }
   publish(next);
@@ -40,7 +45,9 @@ function subscribe(listener: () => void) {
   };
 }
 
-const getSnapshot = () => message;
+/** The current message, outside React (the hook's snapshot). */
+export const getDrawerAnnouncement = () => message;
+const getSnapshot = getDrawerAnnouncement;
 const getServerSnapshot = () => '';
 
 /** The current message; always `''` on the server and during hydration. */

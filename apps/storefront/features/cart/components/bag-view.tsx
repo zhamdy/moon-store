@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { BagPageStrings } from '../utils/bag-strings';
@@ -34,15 +34,17 @@ const TEXT_ACTION =
  * bag never flashes the empty state.
  */
 export function BagView({ strings, locale, shopHref, statusId }: BagViewProps) {
+  const generation = useRef(0);
   const announce = useCallback(
     (message: string) => {
       const region = document.getElementById(statusId);
       if (!region) return;
+      const token = ++generation.current;
       // Repeating the current text would not be announced again: clear, then rewrite.
       if (message !== '' && region.textContent === message) {
         region.textContent = '';
         requestAnimationFrame(() => {
-          region.textContent = message;
+          if (token === generation.current) region.textContent = message;
         });
         return;
       }

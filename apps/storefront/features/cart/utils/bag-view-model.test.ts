@@ -3,6 +3,7 @@ import type { BagAnnouncementStrings, BagLineStrings } from './bag-strings';
 import {
   bagAnnouncementText,
   focusTargetAfterRemove,
+  visibleRowKeys,
   lineStepper,
   noticeText,
   optionText,
@@ -82,6 +83,28 @@ const CURRENT: BagSummary = {
   excludedPieces: 0,
   localPieces: 2,
 };
+
+describe('visibleRowKeys', () => {
+  it('skips a row already fading out, so overlapping removals never focus it', () => {
+    // 'b' is removed first and still fading; 'c' is removed next.
+    const removing = new Set(['b']);
+    const keys = visibleRowKeys(['a', 'b', 'c', 'd'], removing, 'c');
+    expect(keys).toEqual(['a', 'c', 'd']);
+    expect(focusTargetAfterRemove(keys, 'c')).toEqual({ kind: 'line', key: 'd' });
+  });
+
+  it('falls back past a fading neighbour to the row before', () => {
+    const removing = new Set(['c']);
+    const keys = visibleRowKeys(['a', 'b', 'c'], removing, 'b');
+    expect(keys).toEqual(['a', 'b']);
+    expect(focusTargetAfterRemove(keys, 'b')).toEqual({ kind: 'line', key: 'a' });
+  });
+
+  it('lands on the empty state when the only other row is fading', () => {
+    const keys = visibleRowKeys(['a', 'b'], new Set(['a']), 'b');
+    expect(focusTargetAfterRemove(keys, 'b')).toEqual({ kind: 'empty' });
+  });
+});
 
 describe('focusTargetAfterRemove', () => {
   it('moves to the next row, else the previous one, else the empty heading', () => {

@@ -35,6 +35,18 @@ export function scrollTopToReveal(
 export type RemoveFocusTarget = { kind: 'line'; key: string } | { kind: 'empty' };
 
 /**
+ * The rows focus can land on when `targetKey` is removed: rows already fading out are
+ * skipped, so two overlapping removals never hand focus to a row that is going away.
+ */
+export function visibleRowKeys(
+  rowKeys: readonly string[],
+  removing: ReadonlySet<string>,
+  targetKey: string
+): string[] {
+  return rowKeys.filter((key) => key === targetKey || !removing.has(key));
+}
+
+/**
  * Where focus goes once a removed row unmounts (plan *Announcement policy*): the row that
  * followed it, else the one before it, else the empty-state heading. `keys` is the rendered
  * order (newest first).

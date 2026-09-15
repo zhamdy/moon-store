@@ -10,11 +10,8 @@ import { bagTriggerLabel } from '../utils/bag-trigger-label';
 import type { AppLocale } from '@/i18n/routing';
 import type { BagDrawerStrings, BagTriggerStrings } from '../utils/bag-strings';
 import { useDrawerAnnouncement } from './drawer-announcer';
+import { DrawerErrorBoundary } from './drawer-error-boundary';
 import { loadDrawer } from './load-drawer';
-
-// React.lazy rather than next/dynamic: the drawer never renders on the server, and
-// next/dynamic's loader measured ~1.2 KB gz of extra eager JS on every page.
-const BagDrawer = lazy(loadDrawer);
 
 export interface BagTriggerProps {
   strings: BagTriggerStrings;
@@ -62,6 +59,15 @@ export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTrig
   if (drawer.open && !drawerMounted) {
     setDrawerMounted(true);
   }
+  // React.lazy, not next/dynamic (~1.2 KB gz less eager JS); in state so a failed import can retry.
+  const [BagDrawer, setBagDrawer] = useState(() => lazy(loadDrawer));
+
+  const onDrawerError = () => {
+    // A rejected lazy is cached forever: close, unmount, and retry the import on the next open.
+    actions.closeDrawer();
+    setDrawerMounted(false);
+    setBagDrawer(() => lazy(loadDrawer));
+  };
 
   const count = cart.hydrated ? totalPieces(cart.lines) : 0;
   const label = bagTriggerLabel(cart.hydrated, count, onBag, strings, locale);
@@ -102,9 +108,11 @@ export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTrig
         {announcement}
       </p>
       {drawerMounted && (
-        <Suspense fallback={null}>
-          <BagDrawer strings={drawerStrings} locale={locale} shopHref={shopHref} />
-        </Suspense>
+        <DrawerErrorBoundary onError={onDrawerError}>
+          <Suspense fallback={null}>
+            <BagDrawer strings={drawerStrings} locale={locale} shopHref={shopHref} />
+          </Suspense>
+        </DrawerErrorBoundary>
       )}
     </>
   );

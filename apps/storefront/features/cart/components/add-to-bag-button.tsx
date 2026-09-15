@@ -29,7 +29,7 @@ export function AddToBagButton({ slug, name, strings }: AddToBagButtonProps) {
 
   useEffect(() => {
     // Warm the drawer chunk so the first add opens the dialog without waiting on it (CD-19).
-    // A failed fetch is retried by the drawer's own dynamic import.
+    // A failed warm-up is ignored; a failed drawer load is caught by the trigger and retried on the next open.
     loadDrawer().catch(() => {});
   }, []);
 

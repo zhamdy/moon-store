@@ -119,6 +119,22 @@ type PluralKey =
   | 'issues.limited'
   | 'issues.priceUpdated';
 
+/** Every plural family `plural()` reads, pinned against both catalogues by bag-strings.test.ts. */
+export const PLURAL_KEYS = [
+  'count',
+  'pieces',
+  'piecesInBag',
+  'excluded',
+  'issues.unavailable',
+  'issues.limited',
+  'issues.priceUpdated',
+] as const satisfies readonly PluralKey[];
+
+// Fails typecheck when a PluralKey is added without listing it above.
+type UnlistedPluralKey = Exclude<PluralKey, (typeof PLURAL_KEYS)[number]>;
+const pluralKeysComplete: UnlistedPluralKey extends never ? true : never = true;
+void pluralKeysComplete;
+
 function plural(t: BagTranslator, key: PluralKey): PluralTemplates {
   // next-intl types `raw` for leaf keys only; a plural family is an object of six leaves
   // (messages.test.ts guarantees both locales carry all six).
@@ -141,12 +157,6 @@ export async function getAddToBagStrings(locale: AppLocale): Promise<AddToBagStr
     capped: t.raw('notice.capped') as string,
     full: t('notice.full'),
   };
-}
-
-/** The purchase panel's "Choose a {option}" template (`{option}`: the localized legend). */
-export async function getChooseOptionTemplate(locale: AppLocale): Promise<string> {
-  const tp = await getTranslations({ locale, namespace: 'product' });
-  return tp.raw('chooseOption') as string;
 }
 
 export async function getBagTriggerStrings(locale: AppLocale): Promise<BagTriggerStrings> {

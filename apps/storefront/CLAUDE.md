@@ -539,8 +539,10 @@ one exception, `timeoutMs: 15_000` (`CATALOG_LIST_TIMEOUT_MS`): only ProductGrid
 it, once per render, so the deadline costs no memoization, and its `TIMEOUT` ApiError
 reaches the `(catalog)` error boundary.
 
-- `lib/api/catalog.ts` and **every** `features/*/api/*` file import `server-only`, so a
-  client import of the token path fails the build. Tests alias `server-only` to
+- `lib/api/catalog.ts` and **every** `features/*/api/*` file import `server-only` (except
+  the bag's browser quote client, `features/cart/api/quote-cart.ts` and `use-cart-quote.ts`,
+  which deliberately do not: CD-4, see *Cart*), so a client import of the token path fails
+  the build. Tests alias `server-only` to
   `test/stubs/server-only.ts` in `vitest.config.ts` (the real package throws outside the
   `react-server` condition).
 - DTOs (`features/products/types/catalog-product.ts`,
