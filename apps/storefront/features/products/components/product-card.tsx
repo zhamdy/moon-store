@@ -167,8 +167,8 @@ export function ProductCard({
           <span
             className={
               badge === 'soldOut'
-                ? 'type-caption absolute start-3 top-3 bg-bg px-2 py-1 font-medium tracking-[0.08em] uppercase text-text-secondary'
-                : 'type-caption absolute start-3 top-3 bg-bg px-2 py-1 font-medium tracking-[0.08em] uppercase'
+                ? 'type-caption absolute start-3 top-3 rounded-media-sm bg-action px-2 py-1 font-medium tracking-[0.08em] uppercase text-on-action'
+                : 'type-caption absolute start-3 top-3 rounded-media-sm bg-brand-soft px-2 py-1 font-medium tracking-[0.08em] uppercase text-brand-dark'
             }
           >
             {badgeLabels[badge]}

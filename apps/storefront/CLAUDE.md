@@ -550,7 +550,9 @@ products are seeded without images, so a fresh dev database shows the no-image s
 `ProductCard` never sees a data source: it renders a `ProductCardModel` built by
 `fromHomeMock` (static registry slots, blur kept) or `fromCatalogDto` (remote URLs).
 One badge at most, and sold out wins over new (it changes what the shopper can do);
-sold out never greys the photograph and the price stays. No photograph shows the frame
+sold out never greys the photograph and the price stays. Badge colours (owner, 2026-09-15):
+"New" is `bg-brand-soft text-brand-dark` (~4.9:1), "Sold out" `bg-action text-on-action`
+(ink), both `rounded-media-sm`; the product page's sold-out status line uses the same ink badge. No photograph shows the frame
 with a small, faint brand mark, deliberately unlike the flat `ProductGridSkeleton`, so
 a missing image never reads as loading. A name in another language than the page
 carries `lang` and `dir="auto"`. The hover image is `display: none` on touch and below
@@ -751,8 +753,9 @@ the step table every `sizes` string is derived from.
 ### Purchase panel
 
 The tenth client boundary (see *Client boundary rule*). Native radios in a `fieldset` per
-option; sold-out and unavailable values stay enabled, struck through, with visually hidden
-"sold out" text — never `disabled`, never colour alone. Price and status share one polite
+option; sold-out and unavailable values stay enabled, struck through in `text-text-secondary`
+(not `text-disabled`, ~2.3:1 and hard to see) inside a dashed `bg-surface-soft` cell, with
+visually hidden "sold out" text — never `disabled`, never colour alone. Price and status share one polite
 live region rendered with the first paint. `purchase-panel-slot.tsx` resolves strings and
 a map of pre-formatted prices on the server, so the island never formats a number.
 `fillTemplate` lives in `lib/utils/fill-template.ts`: importing it from

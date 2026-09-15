@@ -66,8 +66,15 @@ export function PurchasePanel({ product, legends, prices, strings }: PurchasePan
             ? fillTemplate(strings.priceFrom, { price: formatted })
             : formatted}
         </p>
-        <p className="type-small mt-2 min-h-[1lh] text-text-secondary">
-          {status === 'inStock' ? strings.inStock : status === 'soldOut' ? strings.soldOut : null}
+        {/* Height reserved for the badge, so choosing a sold-out size never shifts the layout. */}
+        <p className="type-small mt-2 flex min-h-7 items-center text-text-secondary">
+          {status === 'inStock' ? (
+            strings.inStock
+          ) : status === 'soldOut' ? (
+            <span className="type-caption rounded-media-sm bg-action px-2 py-1 font-medium tracking-[0.08em] uppercase text-on-action">
+              {strings.soldOut}
+            </span>
+          ) : null}
         </p>
       </div>
 
@@ -88,7 +95,10 @@ export function PurchasePanel({ product, legends, prices, strings }: PurchasePan
               {option.values.map((value) => {
                 const available = valueAvailable(option.key, value, selection, product.variants);
                 return (
-                  <label key={value} className={CELL}>
+                  <label
+                    key={value}
+                    className={available ? CELL : `${CELL} border-dashed bg-surface-soft`}
+                  >
                     <input
                       type="radio"
                       name={name}
@@ -106,7 +116,7 @@ export function PurchasePanel({ product, legends, prices, strings }: PurchasePan
                         <span
                           aria-hidden="true"
                           dir="auto"
-                          className="type-small text-disabled line-through"
+                          className="type-small text-text-secondary line-through"
                         >
                           {value}
                         </span>
