@@ -456,5 +456,66 @@
   "toaster": {
     "label": "الإشعارات",
     "close": "إغلاق"
+  },
+  "checkout": {
+    "title": "إتمام الطلب",
+    "metaTitle": "إتمام الطلب",
+    "metaDescription": "بيانات التواصل والتوصيل.",
+    "backToBag": "العودة إلى الحقيبة",
+    "sections": {
+      "contact": "التواصل",
+      "address": "عنوان التوصيل",
+      "delivery": "التوصيل"
+    },
+    "optional": "اختياري",
+    "fields": {
+      "fullName": "الاسم الكامل",
+      "phone": "رقم الموبايل",
+      "email": "البريد الإلكتروني",
+      "governorate": "المحافظة",
+      "area": "المدينة أو المنطقة",
+      "street": "الشارع",
+      "apartment": "الدور والشقة",
+      "landmark": "علامة مميزة أو إرشادات"
+    },
+    "hints": {
+      "street": "اسم الشارع ورقم المبنى"
+    },
+    "errors": {
+      "required": "هذا الحقل مطلوب",
+      "phoneInvalid": "أدخلي رقمًا من 8 إلى 15 خانة",
+      "emailInvalid": "أدخلي بريدًا إلكترونيًا مثل name@example.com",
+      "tooLong": "استخدمي {max} حرفًا أو أقل"
+    },
+    "delivery": {
+      "pending": "سيتم تأكيد خيارات التوصيل لاحقًا."
+    },
+    "summary": {
+      "heading": "الملخص",
+      "toggle": "الملخص، {pieces}، {subtotal}",
+      "lines": "القطع في حقيبتك",
+      "quantity": "الكمية {count}",
+      "delivery": "التوصيل",
+      "deliveryLater": "يُؤكَّد لاحقًا",
+      "editBag": "تعديل الحقيبة"
+    },
+    "notice": {
+      "checking": "جارٍ التحقق من حقيبتك",
+      "blockedBody": "حدّثي حقيبتك للمتابعة: {names}",
+      "priceUpdatedBody": "الأسعار المعروضة هي الأسعار الحالية.",
+      "failed": "تعذّر التحقق من حقيبتك",
+      "rejected": "تحتاج حقيبتك إلى تحديث قبل المتابعة",
+      "returnToBag": "العودة إلى الحقيبة",
+      "tryAgain": "أعيدي المحاولة"
+    },
+    "action": {
+      "continue": "متابعة",
+      "checking": "جارٍ التحقق من حقيبتك"
+    },
+    "outcome": {
+      "unavailablePreview": "الطلب عبر الإنترنت غير متاح بعد. تُحفظ بياناتك خلال جلسة التصفح هذه.",
+      "backToBag": "العودة إلى الحقيبة",
+      "continueShopping": "تابعي التسوّق"
+    }
   }
 }
