@@ -1001,7 +1001,8 @@ copy is a first draft in the feminine-singular register, pending the native revi
 
 Measured method, for comparison next time: `next build`, then gzip -9 each
 `/_next/static/chunks/*.js` referenced by `.next/server/app/en.html` and sum. `/en` eager
-went from 244,959 B to 251,019 B with the cart: **+6.06 KB**, over the plan's +5 KB budget;
+went from 244,959 B to 250,921 B with the cart (`24cf33e`; `/en/bag` 252,138 B): **+5.96 KB**,
+over the plan's +5 KB budget;
 the owner accepted the overage. The cost is the header island itself (store, hand-written
 persisted-cart guard, the count label with `Intl.PluralRules`, the announcer). `zod/v4/mini`
 was removed from the eager path (the store went from 9.5 to 2.0 KB gz, `c197a58`), and the
