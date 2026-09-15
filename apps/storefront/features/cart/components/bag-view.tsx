@@ -3,9 +3,11 @@
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { BagPageStrings } from '../utils/bag-strings';
+import { checkoutReadiness } from '../utils/checkout-readiness';
 import { selectPlural } from '../utils/plural-templates';
 import { BagSummary } from './bag-summary';
 import { CartLine } from './cart-line';
+import { CheckoutEntry } from './checkout-entry';
 import { useBagController } from './use-bag-controller';
 
 export interface BagViewProps {
@@ -31,6 +33,7 @@ export function BagView({ strings, locale, shopHref }: BagViewProps) {
   const {
     cart,
     view,
+    fetch,
     pending,
     removing,
     emptyHeading,
@@ -40,6 +43,11 @@ export function BagView({ strings, locale, shopHref }: BagViewProps) {
     onRetry,
     onEmpty,
   } = useBagController({ active: true, locale, strings });
+  // Not strict: a focus refetch of an unchanged bag must not flip the link (CO-3).
+  const readiness = checkoutReadiness(
+    { hydrated: cart.hydrated, lines: cart.hydrated ? cart.lines : [], view, fetch },
+    { strict: false }
+  );
 
   if (cart.hydrated && view.kind === 'empty') {
     return (
@@ -121,6 +129,13 @@ export function BagView({ strings, locale, shopHref }: BagViewProps) {
             currency={strings.line.currency}
             locale={locale}
             shopHref={shopHref}
+            checkoutAction={
+              <CheckoutEntry
+                readiness={readiness}
+                strings={strings.summary.checkout}
+                locale={locale}
+              />
+            }
           />
         </div>
       )}

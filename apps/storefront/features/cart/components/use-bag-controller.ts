@@ -23,7 +23,7 @@ import {
   type BagToast,
   type RemoveFocusTarget,
 } from '../utils/bag-view-model';
-import { reconcileBag, type BagRow, type BagView } from '../utils/reconcile';
+import { reconcileBag, type BagRow, type BagView, type CartQuoteFetch } from '../utils/reconcile';
 
 const NO_LINES: readonly StoredLine[] = [];
 const NO_KEYS: ReadonlySet<string> = new Set();
@@ -60,6 +60,8 @@ export interface BagControllerOptions {
 export interface BagController {
   cart: CartSnapshot;
   view: BagView;
+  /** The quote's fetch state, for checkout readiness. */
+  fetch: CartQuoteFetch;
   /** A re-quote is in flight. */
   pending: boolean;
   removing: ReadonlySet<string>;
@@ -247,6 +249,7 @@ export function useBagController({ active, locale, strings }: BagControllerOptio
   return {
     cart,
     view,
+    fetch: quote.fetch,
     pending,
     removing,
     emptyHeading,

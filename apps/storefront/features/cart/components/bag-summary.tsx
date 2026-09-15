@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import { formatPrice } from '@/features/products/utils/price';
@@ -15,16 +16,25 @@ export interface BagSummaryProps {
   locale: AppLocale;
   /** `catalogPath({ kind: 'all' })`, resolved on the server. */
   shopHref: string;
+  /** The Checkout entry (plan 2026-09-15-002, Unit 2); the slot hides itself when empty. */
+  checkoutAction?: ReactNode;
 }
 
 /**
  * The bag page summary (plan Unit 7): subtotal only (R10, CD-17), always from a quote. A
  * stale quote keeps its figures on screen, dimmed and busy, until the new one settles. The
  * layout is final from the server HTML on, so nothing jumps when the quote arrives. No
- * shipping, tax, discount or delivery text, and no Checkout control: the
- * `[data-checkout-action]` slot stays empty until Checkout.
+ * shipping, tax, discount or delivery text. The `[data-checkout-action]` slot holds the
+ * Checkout entry, which renders nothing when Checkout is off in this build.
  */
-export function BagSummary({ summary, strings, currency, locale, shopHref }: BagSummaryProps) {
+export function BagSummary({
+  summary,
+  strings,
+  currency,
+  locale,
+  shopHref,
+  checkoutAction,
+}: BagSummaryProps) {
   const stale = summary?.state === 'stale';
   const subtotal = summary ? formatPrice(summary.subtotal, locale, currency) : null;
   const excluded = summary?.excludedPieces ?? 0;
@@ -65,8 +75,9 @@ export function BagSummary({ summary, strings, currency, locale, shopHref }: Bag
         )}
       </div>
 
-      {/* Reserved for Checkout (CD-17): nothing renders here in this phase. */}
-      <div data-checkout-action="" className="empty:hidden" />
+      <div data-checkout-action="" className="empty:hidden">
+        {checkoutAction}
+      </div>
 
       <Link
         href={shopHref}

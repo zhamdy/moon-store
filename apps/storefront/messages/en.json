@@ -362,6 +362,27 @@
       "full": "Your bag is full. Remove a piece to add another"
     },
     "summaryHeading": "Summary",
+    "checkout": {
+      "action": "Checkout",
+      "checking": "Checking your bag",
+      "failed": "Your bag couldn't be checked. Try again to continue",
+      "blockedUnavailable": {
+        "zero": "Remove {count} unavailable pieces to continue",
+        "one": "Remove {count} unavailable piece to continue",
+        "two": "Remove {count} unavailable pieces to continue",
+        "few": "Remove {count} unavailable pieces to continue",
+        "many": "Remove {count} unavailable pieces to continue",
+        "other": "Remove {count} unavailable pieces to continue"
+      },
+      "blockedLimited": {
+        "zero": "Update the quantities of {count} pieces to continue",
+        "one": "Update the quantity of {count} piece to continue",
+        "two": "Update the quantities of {count} pieces to continue",
+        "few": "Update the quantities of {count} pieces to continue",
+        "many": "Update the quantities of {count} pieces to continue",
+        "other": "Update the quantities of {count} pieces to continue"
+      }
+    },
     "subtotal": "Subtotal",
     "updating": "Updating",
     "pieces": {
