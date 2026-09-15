@@ -87,6 +87,20 @@ export interface CartQuoteState {
   result: CartQuoteResult | undefined;
   fetch: CartQuoteFetch;
   retry(): void;
+  /**
+   * Re-quotes the current query key and resolves once that fetch settles, success or failure
+   * (the outcome is read from `fetch`). During the quantity debounce the current key can still
+   * be the previous lines; Checkout's submit machine closes that gap with a key check (CO-14).
+   */
+  refresh(): Promise<void>;
+}
+
+/** A refetch as a promise that always resolves: callers read the result from query state. */
+export function settleRefetch(refetch: () => Promise<unknown>): Promise<void> {
+  return refetch().then(
+    () => undefined,
+    () => undefined
+  );
 }
 
 /**
@@ -119,5 +133,6 @@ export function useCartQuote(snapshot: CartSnapshot, active: boolean): CartQuote
     retry: () => {
       void query.refetch();
     },
+    refresh: () => settleRefetch(() => query.refetch()),
   };
 }

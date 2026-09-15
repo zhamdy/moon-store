@@ -157,6 +157,24 @@ export function failureAnnouncementKey(quoteKey: string): string {
   return `failed:${quoteKey}`;
 }
 
+/**
+ * What an `updated` announcement is marked with: the quote key plus which line has which
+ * issue. The quote key ignores stock and price, so a later quote for the same lines that finds
+ * a new issue (a second piece sold out, seen on a focus refetch) announces again, while an
+ * identical quote stays silent (plan 2026-09-15-002, CO-13).
+ */
+export function issueMarkKey(quoteKey: string, rows: readonly BagRow[]): string {
+  const issues = rows
+    .flatMap((row) => {
+      const flags: string[] = [];
+      if (UNAVAILABLE.has(row.status) || row.status === 'reduced') flags.push(row.status);
+      if (row.notices.some((notice) => notice.kind === 'priceUpdated')) flags.push('priceUpdated');
+      return flags.length > 0 ? [[row.key, flags.join(',')]] : [];
+    })
+    .sort(([a], [b]) => (a! < b! ? -1 : a! > b! ? 1 : 0));
+  return JSON.stringify([quoteKey, issues]);
+}
+
 const UNAVAILABLE: ReadonlySet<BagRowStatus> = new Set<BagRowStatus>([
   'soldOut',
   'variantUnavailable',
@@ -324,10 +342,11 @@ export function reconcileBag({ lines, result, fetch, session }: ReconcileInput):
 
   const correction = rewrites.length > 0 ? { quoteKey: result.key, rewrites } : null;
   const hasIssues = issues.unavailable + issues.limited + issues.priceUpdated > 0;
+  const markKey = issueMarkKey(result.key, rows);
   // A quote about to be corrected re-quotes at once with the same issues; announce that one.
   const announcement: BagAnnouncement | null =
-    current && !correction && hasIssues && !session.announcedQuoteKeys.has(result.key)
-      ? { kind: 'updated', markKey: result.key, issues }
+    current && !correction && hasIssues && !session.announcedQuoteKeys.has(markKey)
+      ? { kind: 'updated', markKey, issues }
       : null;
 
   return {

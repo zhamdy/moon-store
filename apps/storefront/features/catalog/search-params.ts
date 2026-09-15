@@ -5,6 +5,7 @@ import {
   parseAsStringLiteral,
   type inferParserType,
 } from 'nuqs/server';
+import { toAsciiDigits } from '@/lib/utils/ascii-digits';
 
 // `nuqs/server` carries no 'use client' directive, so this module is importable from
 // Server Components (loader, serializer) and from the controls island (parsers for
@@ -33,21 +34,13 @@ export type CatalogRoute =
   | { kind: 'collection'; slug: string }
   | { kind: 'new' };
 
-// Eastern Arabic (U+0660-0669) and Persian (U+06F0-06F9) digits, mapped to ASCII.
-const NON_ASCII_DIGIT = /[\u0660-\u0669\u06f0-\u06f9]/g;
 // Thousands separators and grouping spaces: comma, Arabic thousands separator,
 // Arabic comma, space, no-break space, narrow no-break space.
 const GROUPING = /[,\u066c\u060c \u00a0\u202f]/g;
 
 /** Digits normalised to ASCII and grouping removed; `null` unless a plain integer remains. */
 export function normalizeDigits(raw: string): string | null {
-  const ascii = raw
-    .trim()
-    .replace(NON_ASCII_DIGIT, (d) => {
-      const code = d.charCodeAt(0);
-      return String(code - (code >= 0x06f0 ? 0x06f0 : 0x0660));
-    })
-    .replace(GROUPING, '');
+  const ascii = toAsciiDigits(raw.trim()).replace(GROUPING, '');
   // Nine digits keeps every value a safe integer and far above any real price.
   return /^\d{1,9}$/.test(ascii) ? ascii : null;
 }

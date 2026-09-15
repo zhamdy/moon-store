@@ -1,6 +1,7 @@
 import 'server-only';
 import { getTranslations } from 'next-intl/server';
 import type { AppLocale } from '@/i18n/routing';
+import type { CheckoutEntryStrings } from './checkout-entry-model';
 import type { PluralTemplates } from './plural-templates';
 
 /**
@@ -82,6 +83,8 @@ export interface BagSummaryStrings {
   piecesInBag: PluralTemplates;
   excluded: PluralTemplates;
   continueShopping: string;
+  /** The Bag page's Checkout entry (plan 2026-09-15-002, Unit 2). */
+  checkout: CheckoutEntryStrings;
 }
 
 export interface BagStatusStrings {
@@ -137,7 +140,9 @@ type PluralKey =
   | 'excluded'
   | 'issues.unavailable'
   | 'issues.limited'
-  | 'issues.priceUpdated';
+  | 'issues.priceUpdated'
+  | 'checkout.blockedUnavailable'
+  | 'checkout.blockedLimited';
 
 /** Every plural family `plural()` reads, pinned against both catalogues by bag-strings.test.ts. */
 export const PLURAL_KEYS = [
@@ -148,6 +153,8 @@ export const PLURAL_KEYS = [
   'issues.unavailable',
   'issues.limited',
   'issues.priceUpdated',
+  'checkout.blockedUnavailable',
+  'checkout.blockedLimited',
 ] as const satisfies readonly PluralKey[];
 
 // Fails typecheck when a PluralKey is added without listing it above.
@@ -233,6 +240,13 @@ async function sharedBagStrings(locale: AppLocale) {
     piecesInBag: plural(t, 'piecesInBag'),
     excluded: plural(t, 'excluded'),
     continueShopping: t('continueShopping'),
+    checkout: {
+      action: t('checkout.action'),
+      checking: t('checkout.checking'),
+      failed: t('checkout.failed'),
+      blockedUnavailable: plural(t, 'checkout.blockedUnavailable'),
+      blockedLimited: plural(t, 'checkout.blockedLimited'),
+    },
   };
 
   const status: BagStatusStrings = {

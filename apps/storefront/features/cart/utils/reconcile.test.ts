@@ -5,6 +5,7 @@ import { applyCanonical, cartLineKey, type CartLine } from './cart-lines';
 import {
   cartQuoteKey,
   failureAnnouncementKey,
+  issueMarkKey,
   reconcileBag,
   type BagLineHint,
   type BagView,
@@ -375,11 +376,11 @@ describe('reconcileBag', () => {
     expect(out.priceUpdates).toEqual({ [cartLineKey(A)]: result.key });
     expect(out.announcement).toEqual({
       kind: 'updated',
-      markKey: result.key,
+      markKey: issueMarkKey(result.key, ready(out.view).rows),
       issues: { unavailable: 0, limited: 0, priceUpdated: 1 },
     });
 
-    const remembered = session(out.rememberPrices, [result.key], out.priceUpdates);
+    const remembered = session(out.rememberPrices, [out.announcement!.markKey], out.priceUpdates);
     // Prices stay in their own map: nothing but line keys is ever written there.
     expect([...remembered.previousPrices.keys()]).toEqual([cartLineKey(A)]);
     const after = reconcileBag({ lines, result, fetch: SETTLED, session: remembered });
@@ -498,7 +499,7 @@ describe('reconcileBag', () => {
     const first = reconcileBag({ lines, result, fetch: SETTLED, session: EMPTY_SESSION });
     expect(first.announcement).toEqual({
       kind: 'updated',
-      markKey: result.key,
+      markKey: issueMarkKey(result.key, ready(first.view).rows),
       issues: { unavailable: 1, limited: 1, priceUpdated: 0 },
     });
 
@@ -506,7 +507,7 @@ describe('reconcileBag', () => {
       lines,
       result,
       fetch: SETTLED,
-      session: session(null, [result.key]),
+      session: session(null, [first.announcement!.markKey]),
     });
     expect(remount.announcement).toBeNull();
 
@@ -596,6 +597,38 @@ describe('reconcileBag', () => {
       session: session(null, [markKey]),
     });
     expect(again.announcement).toBeNull();
+  });
+
+  it('a new issue under the same quote key announces again; an identical quote does not', () => {
+    const lines = [A, C];
+    const oneSoldOut = resultFor(lines, (line) =>
+      line.slug === C.slug ? { status: 'soldOut', quantity: 0, maxQuantity: 0, lineTotal: 0 } : {}
+    );
+    const first = reconcileBag({
+      lines,
+      result: oneSoldOut,
+      fetch: SETTLED,
+      session: EMPTY_SESSION,
+    });
+    const seen = session(null, [first.announcement!.markKey]);
+
+    expect(
+      reconcileBag({ lines, result: oneSoldOut, fetch: SETTLED, session: seen }).announcement
+    ).toBeNull();
+
+    const bothSoldOut = resultFor(lines, () => ({
+      status: 'soldOut',
+      quantity: 0,
+      maxQuantity: 0,
+      lineTotal: 0,
+    }));
+    expect(bothSoldOut.key).toBe(oneSoldOut.key);
+    const second = reconcileBag({ lines, result: bothSoldOut, fetch: SETTLED, session: seen });
+    expect(second.announcement).toMatchObject({
+      kind: 'updated',
+      issues: { unavailable: 2, limited: 0, priceUpdated: 0 },
+    });
+    expect(second.announcement!.markKey).not.toBe(first.announcement!.markKey);
   });
 
   it('VALIDATION_ERROR: failed with Empty bag and no retry', () => {

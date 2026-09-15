@@ -9,6 +9,7 @@ import {
   cartQuoteQueryOptions,
   quoteDebounceDelay,
   selectQuoteLines,
+  settleRefetch,
   toCartQuoteFetch,
 } from './use-cart-quote';
 
@@ -112,6 +113,46 @@ describe('cart quote query (integration, no DOM)', () => {
     expect(fetch).not.toHaveBeenCalled();
     unsubscribe();
     client.clear();
+  });
+});
+
+describe('settleRefetch', () => {
+  it('resolves after the refetch settles, and never rejects on a failed quote', async () => {
+    const order: string[] = [];
+    await settleRefetch(async () => {
+      order.push('fetched');
+    }).then(() => order.push('resolved'));
+    expect(order).toEqual(['fetched', 'resolved']);
+    await expect(
+      settleRefetch(() => Promise.reject(new ApiError({ status: 503, code: 'X', message: '' })))
+    ).resolves.toBeUndefined();
+  });
+
+  it('with a real observer, resolves only once the refetch has landed', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    vi.stubEnv('NEXT_PUBLIC_API_URL', undefined);
+    vi.mocked(fetch).mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ data: okQuote([A]) }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
+    const client = new QueryClient();
+    const observer = new QueryObserver(client, cartQuoteQueryOptions([A], true));
+    const unsubscribe = observer.subscribe(() => {});
+    await vi.waitFor(() => expect(observer.getCurrentResult().status).toBe('success'));
+    const before = observer.getCurrentResult().dataUpdatedAt;
+
+    await settleRefetch(() => observer.refetch());
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(observer.getCurrentResult().fetchStatus).toBe('idle');
+    expect(observer.getCurrentResult().dataUpdatedAt).toBeGreaterThanOrEqual(before);
+
+    unsubscribe();
+    client.clear();
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 });
 

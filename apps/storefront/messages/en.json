@@ -362,6 +362,27 @@
       "full": "Your bag is full. Remove a piece to add another"
     },
     "summaryHeading": "Summary",
+    "checkout": {
+      "action": "Checkout",
+      "checking": "Checking your bag",
+      "failed": "Your bag couldn't be checked. Try again to continue",
+      "blockedUnavailable": {
+        "zero": "Remove {count} unavailable pieces to continue",
+        "one": "Remove {count} unavailable piece to continue",
+        "two": "Remove {count} unavailable pieces to continue",
+        "few": "Remove {count} unavailable pieces to continue",
+        "many": "Remove {count} unavailable pieces to continue",
+        "other": "Remove {count} unavailable pieces to continue"
+      },
+      "blockedLimited": {
+        "zero": "Update the quantities of {count} pieces to continue",
+        "one": "Update the quantity of {count} piece to continue",
+        "two": "Update the quantities of {count} pieces to continue",
+        "few": "Update the quantities of {count} pieces to continue",
+        "many": "Update the quantities of {count} pieces to continue",
+        "other": "Update the quantities of {count} pieces to continue"
+      }
+    },
     "subtotal": "Subtotal",
     "updating": "Updating",
     "pieces": {
@@ -435,5 +456,66 @@
   "toaster": {
     "label": "Notifications",
     "close": "Dismiss"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "metaTitle": "Checkout",
+    "metaDescription": "Your contact and delivery details.",
+    "backToBag": "Back to bag",
+    "sections": {
+      "contact": "Contact",
+      "address": "Delivery address",
+      "delivery": "Delivery"
+    },
+    "optional": "Optional",
+    "fields": {
+      "fullName": "Full name",
+      "phone": "Mobile number",
+      "email": "Email",
+      "governorate": "Governorate",
+      "area": "City or area",
+      "street": "Street",
+      "apartment": "Floor and apartment",
+      "landmark": "Landmark or directions"
+    },
+    "hints": {
+      "street": "Street name and building number"
+    },
+    "errors": {
+      "required": "This is required",
+      "phoneInvalid": "Enter a phone number of 8 to 15 digits",
+      "emailInvalid": "Enter an email like name@example.com",
+      "tooLong": "Use {max} characters or fewer"
+    },
+    "delivery": {
+      "pending": "Delivery options will be confirmed later."
+    },
+    "summary": {
+      "heading": "Summary",
+      "toggle": "Summary, {pieces}, {subtotal}",
+      "lines": "Pieces in your bag",
+      "quantity": "Qty {count}",
+      "delivery": "Delivery",
+      "deliveryLater": "Confirmed later",
+      "editBag": "Edit bag"
+    },
+    "notice": {
+      "checking": "Checking your bag",
+      "blockedBody": "Update your bag to continue: {names}",
+      "priceUpdatedBody": "The prices shown are the current prices.",
+      "failed": "We couldn't check your bag",
+      "rejected": "Your bag needs updating before you continue",
+      "returnToBag": "Return to bag",
+      "tryAgain": "Try again"
+    },
+    "action": {
+      "continue": "Continue",
+      "checking": "Checking your bag"
+    },
+    "outcome": {
+      "unavailablePreview": "Online ordering isn't open yet. Your details are kept for this browser session.",
+      "backToBag": "Back to bag",
+      "continueShopping": "Continue shopping"
+    }
   }
 }
