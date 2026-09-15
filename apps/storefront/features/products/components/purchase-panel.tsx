@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { CircleAlert } from 'lucide-react';
 import { fillTemplate } from '@/lib/utils/fill-template';
 import {
   availabilityStatus,
@@ -58,8 +59,8 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
   const baseId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<Selection>(() => initialSelection(product.options));
-  // "Choose a {option}" after a press with a missing choice; cleared by the next selection.
-  const [prompt, setPrompt] = useState<string | null>(null);
+  // "Choose a {option}" under the option that is missing, after a press; the next selection clears it.
+  const [prompt, setPrompt] = useState<{ key: string; text: string } | null>(null);
 
   const price = displayedPrice(selection, product);
   const formatted = prices[String(price.price)] ?? String(price.price);
@@ -78,7 +79,7 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
       group?.querySelector<HTMLInputElement>('input[type="radio"]');
     radio?.focus();
     const legend = legends[key]?.text ?? product.options[index]!.label;
-    setPrompt(fillTemplate(strings.chooseOption, { option: legend }));
+    setPrompt({ key, text: fillTemplate(strings.chooseOption, { option: legend }) });
   }, [readiness, product.options, legends, strings.chooseOption]);
 
   const context = useMemo<PurchaseSelection>(
@@ -104,9 +105,7 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
               <span className="type-caption rounded-media-sm bg-action px-2 py-1 font-medium tracking-[0.08em] uppercase text-on-action">
                 {strings.soldOut}
               </span>
-            ) : (
-              prompt
-            )}
+            ) : null}
           </p>
         </div>
 
@@ -114,16 +113,43 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
           const legend = legends[option.key] ?? { text: option.label, staff: true };
           const chosen = selection[option.key] ?? null;
           const name = `${baseId}-option-${optionIndex}`;
+          const promptId = `${name}-prompt`;
+          const prompted = prompt?.key === option.key;
           return (
-            <fieldset key={option.key} data-option-index={optionIndex} className="mt-8 min-w-0">
-              <legend className="type-label text-text-secondary">
+            <fieldset
+              key={option.key}
+              data-option-index={optionIndex}
+              aria-describedby={prompted ? promptId : undefined}
+              className="mt-8 min-w-0"
+            >
+              <legend
+                className={`type-label transition-colors duration-fast ease-ui ${prompted ? 'text-text' : 'text-text-secondary'}`}
+              >
                 <span dir={legend.staff ? 'auto' : undefined}>
                   {chosen === null
                     ? legend.text
                     : fillTemplate(strings.selected, { option: legend.text, value: chosen })}
                 </span>
               </legend>
-              <div className="mt-3 flex flex-wrap gap-2">
+              {/* Mounted empty with its height reserved: announced when it appears, and the
+                  cells and Add to Bag never move under a second tap. */}
+              <div aria-live="polite" className="min-h-6 pt-2">
+                {prompted && (
+                  <p
+                    id={promptId}
+                    className="type-small flex items-start gap-2 font-medium text-text"
+                  >
+                    <CircleAlert
+                      size={16}
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                      className="mt-0.5 shrink-0"
+                    />
+                    {prompt.text}
+                  </p>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
                 {option.values.map((value) => {
                   const available = valueAvailable(option.key, value, selection, product.variants);
                   return (
