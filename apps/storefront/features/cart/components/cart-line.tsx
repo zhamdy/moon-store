@@ -89,6 +89,78 @@ export function CartLine({
     if (next !== null) onQuantityChange(row.key, next, name.text);
   };
 
+  const heading = (
+    <Heading className="type-body min-w-0 font-body break-words">
+      {row.product ? (
+        <Link
+          ref={focusRef}
+          href={`/products/${row.product.slug}`}
+          onClick={onNavigate}
+          {...langProps(name, locale)}
+          className="decoration-1 underline-offset-4 hover:underline"
+        >
+          {name.text}
+        </Link>
+      ) : (
+        <span {...langProps(name, locale)}>{name.text}</span>
+      )}
+    </Heading>
+  );
+  const lineTotal = (className: string) =>
+    row.lineTotal !== null && (
+      <p className={className}>
+        <span className="sr-only">{strings.lineTotal} </span>
+        {formatPrice(row.lineTotal, locale, strings.currency)}
+      </p>
+    );
+  const details = (
+    <>
+      {justAdded && <p className="sr-only">{strings.justAdded}</p>}
+
+      {options && <p className="type-small mt-1 text-text-secondary">{options}</p>}
+      {row.unitPrice !== null && (
+        <p className="type-small mt-1 text-text-secondary tabular-nums">
+          <span className="sr-only">{strings.unitPrice} </span>
+          {formatPrice(row.unitPrice, locale, strings.currency)}
+        </p>
+      )}
+    </>
+  );
+  const notices = row.notices.length > 0 && (
+    <ul className="type-small mt-2 space-y-0.5 text-text">
+      {row.notices.map((notice) => (
+        <li key={notice.kind}>{noticeText(notice, strings)}</li>
+      ))}
+    </ul>
+  );
+  const quantityStepper = row.status !== 'productUnavailable' && (
+    <QuantityStepper
+      value={stepper.value}
+      control={stepper.control}
+      labels={{
+        group: fillTemplate(strings.quantity, { name: name.text }),
+        decrease: fillTemplate(strings.decrease, { name: name.text }),
+        increase: fillTemplate(strings.increase, { name: name.text }),
+        limit: stepperLimitText(stepper.control, strings),
+      }}
+      onStep={step}
+    />
+  );
+  const removeButton = (className: string) => (
+    <button
+      ref={row.product ? undefined : focusRef}
+      type="button"
+      onClick={() => onRemove(row, name.text)}
+      aria-label={fillTemplate(strings.removeLabel, { name: name.text })}
+      className={cn(
+        'type-small inline-flex min-h-11 cursor-pointer items-center text-text underline decoration-text-secondary decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:decoration-text',
+        className
+      )}
+    >
+      {strings.remove}
+    </button>
+  );
+
   return (
     <li
       ref={rowRef}
@@ -121,73 +193,43 @@ export function CartLine({
         )}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-start justify-between gap-x-4">
-          <Heading className="type-body min-w-0 font-body break-words">
-            {row.product ? (
-              <Link
-                ref={focusRef}
-                href={`/products/${row.product.slug}`}
-                onClick={onNavigate}
-                {...langProps(name, locale)}
-                className="decoration-1 underline-offset-4 hover:underline"
-              >
-                {name.text}
-              </Link>
-            ) : (
-              <span {...langProps(name, locale)}>{name.text}</span>
+      {variant === 'drawer' ? (
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-start justify-between gap-x-4">
+            {heading}
+            {lineTotal('type-body shrink-0 tabular-nums')}
+          </div>
+          {details}
+          {notices}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {quantityStepper}
+            {removeButton('ms-auto')}
+          </div>
+        </div>
+      ) : (
+        // One DOM order for both layouts. Below 768 it stacks: text, the line total under
+        // the unit price, then stepper and Remove on one row. From 768 the grid places the
+        // stepper in its own column and the total at the inline end, Remove under the text.
+        <div className="grid min-w-0 flex-1 grid-cols-1 content-start md:grid-cols-[minmax(0,1fr)_auto_minmax(6rem,auto)] md:gap-x-8">
+          <div className="min-w-0 md:col-start-1 md:row-start-1">
+            {heading}
+            {details}
+            {lineTotal('type-body mt-1 tabular-nums md:hidden')}
+            {notices}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 md:contents">
+            {quantityStepper && (
+              <div className="md:col-start-2 md:row-start-1 md:self-start">{quantityStepper}</div>
             )}
-          </Heading>
-          {row.lineTotal !== null && (
-            <p className="type-body shrink-0 tabular-nums">
-              <span className="sr-only">{strings.lineTotal} </span>
-              {formatPrice(row.lineTotal, locale, strings.currency)}
-            </p>
+            {removeButton(
+              'ms-auto md:col-start-1 md:row-start-2 md:ms-0 md:mt-2 md:justify-self-start'
+            )}
+          </div>
+          {lineTotal(
+            'type-body hidden tabular-nums md:col-start-3 md:row-start-1 md:block md:pt-0.5 md:text-end'
           )}
         </div>
-        {justAdded && <p className="sr-only">{strings.justAdded}</p>}
-
-        {options && <p className="type-small mt-1 text-text-secondary">{options}</p>}
-        {row.unitPrice !== null && (
-          <p className="type-small mt-1 text-text-secondary tabular-nums">
-            <span className="sr-only">{strings.unitPrice} </span>
-            {formatPrice(row.unitPrice, locale, strings.currency)}
-          </p>
-        )}
-
-        {row.notices.length > 0 && (
-          <ul className="type-small mt-2 space-y-0.5 text-text">
-            {row.notices.map((notice) => (
-              <li key={notice.kind}>{noticeText(notice, strings)}</li>
-            ))}
-          </ul>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-          {row.status !== 'productUnavailable' && (
-            <QuantityStepper
-              value={stepper.value}
-              control={stepper.control}
-              labels={{
-                group: fillTemplate(strings.quantity, { name: name.text }),
-                decrease: fillTemplate(strings.decrease, { name: name.text }),
-                increase: fillTemplate(strings.increase, { name: name.text }),
-                limit: stepperLimitText(stepper.control, strings),
-              }}
-              onStep={step}
-            />
-          )}
-          <button
-            ref={row.product ? undefined : focusRef}
-            type="button"
-            onClick={() => onRemove(row, name.text)}
-            aria-label={fillTemplate(strings.removeLabel, { name: name.text })}
-            className="type-small ms-auto inline-flex min-h-11 cursor-pointer items-center text-text underline decoration-text-secondary decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:decoration-text"
-          >
-            {strings.remove}
-          </button>
-        </div>
-      </div>
+      )}
     </li>
   );
 }
