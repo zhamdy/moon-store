@@ -199,22 +199,27 @@ Server Components by default (R21/R22). `'use client'` is limited to sixteen ent
    button (owner decision 2026-09-15): `navigator.share` and the clipboard exist only in
    the browser, and Instagram, TikTok and Messenger have no web share URL. Takes `url`,
    `title` and resolved `labels: { share, copied, copyFailed }` from `product-share.tsx`;
-   reads `navigator` only on click, and its `role="status"` region is always mounted. The
-   decision is `utils/share-action.ts` (`shareAction`, `isShareAbort`), unit-tested.
+   reads `navigator` only on click, and reports the copy result as a toast (no region of
+   its own). The decision is `utils/share-action.ts` (`shareAction`, `isShareAbort`),
+   unit-tested.
 14. `features/cart/components/add-to-bag-button.tsx` — Add to Bag in the purchase panel's
    action slot (see *Cart*). Takes `slug`, the page's localized `name` and resolved
    `strings`; reads readiness through `usePurchaseSelection()`. Owns the quantity beside the
    button (owner decision 2026-09-15, replacing "one piece per press"): the bag's
    `QuantityStepper` (`size="action"`), 1..10, `useState(1)`, reset to 1 after an add that
-   landed pieces. The intent and drawer opening are `utils/add-to-bag-action.ts`,
-   unit-tested. Warms the drawer chunk on mount.
-15. `features/cart/components/bag-trigger.tsx` — the header Bag link, its count badge, the
-   lazy drawer host and the drawer's always-mounted polite region (the message comes from
-   `drawer-announcer.ts`). Composed by `app/[locale]/layout.tsx` into `Header`'s `bag`
+   landed pieces. An add raises a toast with View bag (`useRouter` push to `/bag`) and
+   never opens the drawer. The intent and the toast descriptor (`addToBagToast`) are
+   `utils/add-to-bag-action.ts`, unit-tested.
+15. `features/cart/components/bag-trigger.tsx` — the header Bag link, its count badge and
+   the lazy drawer host. Composed by `app/[locale]/layout.tsx` into `Header`'s `bag`
    slot, with the trigger's and the drawer's strings resolved there. The label and ARIA
    state are `utils/bag-trigger-label.ts`, unit-tested.
-16. `features/cart/components/bag-view.tsx` — the `/bag` review island; writes to the page
-   shell's server-rendered `role="status"` region by id.
+16. `features/cart/components/bag-view.tsx` — the `/bag` review island; its messages are
+   toasts.
+17. `components/feedback/app-toaster.tsx` — the one Sonner `<Toaster>` (owner decision
+   2026-09-15), mounted by `app/[locale]/layout.tsx` after the footer as a direct child of
+   `<body>`. Takes resolved `label` / `closeLabel` (`toaster.*`) and `dir`. See *Cart* →
+   *Toasts*.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -222,7 +227,8 @@ heading into masked word spans on the server.
 **Client-bundled, but not boundaries** (no directive; only boundary islands import them):
 `features/cart/components/bag-drawer.tsx` (a lazy chunk, ~10.6 KB gz, reached only from
 15), `cart-line.tsx`, `quantity-stepper.tsx`, `bag-summary.tsx`, `use-bag-controller.ts`
-(shared by the drawer and the page), `drawer-announcer.ts`, `load-drawer.ts`, and
+(shared by the drawer and the page), `load-drawer.ts`, `components/feedback/show-toast.ts`
+(the one `toast()` caller; pure modules import only its `ToastTone` type), and
 `features/products/components/purchase-selection-context.ts` — a plain `createContext`
 module imported only by `purchase-panel.tsx` and `add-to-bag-button.tsx`. A Server
 Component must never import it: `createContext` does not exist in the react-server build.
@@ -247,7 +253,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding a seventeenth
+`useTranslations`, is a new decision, not a precedent. Before adding an eighteenth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
@@ -705,9 +711,9 @@ column below), the details tabs at full container width, the related row.
   (owner decision 2026-09-15). The button opens the device share sheet, which is how
   Instagram, TikTok and Messenger are reached: the first two have no web share URL and
   Messenger's needs a Facebook app id. A dismissed sheet (`AbortError`) does nothing; any
-  other share error, or no Web Share API (most desktops), copies the link and announces
-  "Link copied" (or "Couldn't copy the link") for 2.5s in a polite region mounted from the
-  first paint. The shared URL is absolute, from `SITE_URL` through `lib/site-url.ts` (the
+  other share error, or no Web Share API (most desktops), copies the link and raises a
+  "Link copied" success toast (or a "Couldn't copy the link" error toast; see *Cart* →
+  *Toasts*). The shared URL is absolute, from `SITE_URL` through `lib/site-url.ts` (the
   same origin as `metadataBase`). A hairline above it unless the facts `dl` is directly
   above.
 - **Details tabs** (ED-4, `product-details-tabs.tsx` + the `product-tabs.tsx` island):
@@ -845,7 +851,8 @@ noun are "Bag" (`/bag`); the domain, API, store, types and slice say `cart` (CD-
 | Product page | `AddToBagButton` (boundary 14) in `PurchasePanel`'s `action` slot, composed by `products/[slug]/page.tsx` (CD-11) |
 | Every page | `BagTrigger` (boundary 15) in `Header`'s `bag` slot, composed by `app/[locale]/layout.tsx`; `Header` imports no feature slice |
 | Drawer | `bag-drawer.tsx`, lazy, mounted by the trigger |
-| `/bag` | `app/[locale]/bag/page.tsx` (server shell: `h1`, empty polite region) + `BagView` (boundary 16) |
+| `/bag` | `app/[locale]/bag/page.tsx` (server shell: `h1`) + `BagView` (boundary 16) |
+| Every page | `AppToaster` (boundary 17) in the locale layout; every bag message is a toast |
 | Shared by drawer and page | `use-bag-controller.ts`, `cart-line.tsx`, `quantity-stepper.tsx` |
 | Pure, unit-tested | `utils/cart-lines.ts`, `cart-storage.ts`, `reconcile.ts`, `bag-view-model.ts`, `quantity-control.ts`, `add-to-bag-action.ts`, `bag-trigger-label.ts`, `plural-templates.ts`; `schemas/persisted-cart.ts`; `api/quote-cart.ts`, `api/use-cart-quote.ts` (its pure parts) |
 
@@ -889,9 +896,11 @@ another tab re-reads (last write wins). Mutations run the pure reducer, write st
 `added | merged | capped | full` with `addedQuantity`, the pieces that actually landed: the
 request is normalised to an integer 1..10 (NaN and <1 → 1, fractions truncate), a merge
 caps at 10 (8 + 5 → `merged`, 2), and `capped`/`full` add 0.
-Session state lives beside it and is never persisted: the drawer (`open`, `mode`,
-`addedKey`, `description`), previous unit prices per line key, price-update flags,
-announced quote keys and Add to Bag hints.
+Session state lives beside it and is never persisted: the drawer (`open` only), previous
+unit prices per line key, price-update flags, announced quote keys and Add to Bag hints.
+`restore({ line, index, hint })` is Remove's Undo: the pure `restoreLine` puts the line back
+at its store index (clamped) with its quantity, and the hint returns with it; a no-op when a
+line with that key is already there or the bag is full (unit-tested).
 
 **Add to Bag hint** (in memory only, R2 kept): `add(identity, { hint })` stores
 `{ name (LocalizedText), imageUrl, unitPrice }` by line key when `addedQuantity > 0` (an
@@ -960,17 +969,19 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
 
 ### Surfaces
 
-- **Add to Bag** (CD-11, CD-13): `ready` adds the stepper's quantity of `readiness.options`
-  and opens the drawer with the description "Added to your bag: {name}" for one piece or
-  `bag.addedQuantity` "Added to your bag: {name} ({count})" for more (the page's localized
-  name, in memory only); a merge that hits 10 part-way (8 in the bag + 5) still opens in
-  `added` mode but says "You can add up to 10 of this piece"; `capped` (already 10) opens it
-  in browse mode with that notice and scrolls to the line; `full` (30 lines) opens it with
-  "Your bag is full…" and adds nothing. `needsSelection` keeps the button enabled: a press
-  focuses the first unselected option's radio and shows "Choose a {option}" under that
-  option's legend (`text-error` garnet with `CircleAlert`, legend turns ink; owner feedback
-  2026-09-15: the grey status-line prompt was hard to see, and errors read as red). Its polite region is mounted empty with `min-h-6`
-  reserved, so the cells and Add to Bag never move under a second tap. `soldOut` reads "Sold out", `aria-disabled`, focusable, inert.
+- **Add to Bag** (CD-11; CD-13 overridden by the owner, 2026-09-15): `ready` adds the
+  stepper's quantity of `readiness.options` and raises a toast with **View bag**; the drawer
+  does not open. A success "Added to your bag: {name}" for one piece or `bag.addedQuantity`
+  "Added to your bag: {name} ({count})" for more (the page's localized name, in memory only);
+  a merge that hits 10 part-way (8 in the bag + 5), or `capped` (already 10), is an info
+  "You can add up to 10 of this piece"; `full` (30 lines) is an error "Your bag is full…" and
+  adds nothing. `needsSelection` keeps the button enabled: a press focuses the first
+  unselected option's radio, shows "Choose a {option}" under that option's legend
+  (`text-error` garnet with `CircleAlert`, legend turns ink; owner feedback 2026-09-15: the
+  grey status-line prompt was hard to see, and errors read as red) and raises the same text
+  as an error toast; choosing a value dismisses it. The inline prompt is not a live region
+  (the toast announces it) and keeps `min-h-6` reserved, so the cells and Add to Bag never
+  move under a second tap. `soldOut` reads "Sold out", `aria-disabled`, focusable, inert.
 - **Product page quantity** (owner decision 2026-09-15, overriding plan Unit 5's "one piece
   per press"): a − / value / + stepper at the row's inline start, Add to Bag taking the rest,
   in one `flex-wrap` row (the button's `basis-40` wraps it onto its own line when narrow). It
@@ -987,14 +998,13 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   "Bag, {count} items", plain "Bag" when empty.
 - **Drawer loading** (CD-19, as built): `React.lazy(loadDrawer)` inside
   `<Suspense fallback={null}>`, mounted on the first open and kept mounted so its close
-  transition runs. `loadDrawer()` (`load-drawer.ts`) is warmed on Add to Bag mount and on
-  the trigger's `pointerenter`/`focus`. It replaced `next/dynamic`, which measured ~1.2 KB gz
+  transition runs. `loadDrawer()` (`load-drawer.ts`) is warmed on the trigger's
+  `pointerenter`/`focus` (Add to Bag no longer opens the drawer, so it no longer warms it). It replaced `next/dynamic`, which measured ~1.2 KB gz
   of extra eager JS on every page for a component that never renders on the server.
 - **Drawer**: Headless UI `Dialog`, a full-height panel from the inline end at every width
   (`max-w-[26rem]`, full width below that), backdrop, Escape and backdrop close. Title `h2`
-  "Bag" is focused on open (`data-autofocus`); the description renders only in added/capped/
-  full openings and clears at the first bag interaction. Line photographs mount only while
-  open. Footer: Subtotal, the empty `[data-checkout-action]`, "View bag", "Continue
+  "Bag" is focused on open (`data-autofocus`); opened only from the header Bag link, with no
+  description line. Line photographs mount only while open. Footer: Subtotal, the empty `[data-checkout-action]`, "View bag", "Continue
   shopping" (closes). Following a line name, View bag or the empty state's link, or any
   pathname change, closes it and moves focus to `#main-content` instead of the invoker.
 - **`/bag`**: static per locale, outside `(catalog)`, `noindex, nofollow`, no canonical, no
@@ -1004,9 +1014,12 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   flashes the empty state and the summary never changes shape. From 1024 a 8/4 grid with the summary sticky
   under the header; below, linear. Summary: Subtotal, pieces, excluded pieces, the empty
   `[data-checkout-action]`, Continue shopping to `/shop`.
-- **Remove**: announced at once, the row fades 180ms (instant under reduced motion), then
-  unmounts; focus moves to the next row's name link (or its Remove when the product is
-  gone), else the previous row, else the empty-state heading (`tabIndex=-1`).
+- **Remove**: the row fades 180ms (instant under reduced motion), then unmounts; focus
+  moves to the next row's name link (or its Remove when the product is gone), else the
+  previous row, else the empty-state heading (`tabIndex=-1`). As the line leaves the store
+  the controller reads its index, quantity and hint and raises "{name} removed from your
+  bag" with **Undo** (`restore`). Raised after the fade, not at the press, so an Undo can
+  never run before the removal it undoes.
 
 **Placeholders and reveals** (`app/globals.css`, CSS only). `[data-bag-placeholder]`
 (`BagPlaceholder` in `cart-line.tsx`, a `bg-surface-soft` shape; the frame keeps its 4:5
@@ -1024,22 +1037,57 @@ exists; readiness rules belong to that plan. Quote stock is advisory (CD-6): Che
 re-validate with reservations under lock, never trust a quote. PD-B is filled; PD-14 (no
 sticky mobile purchase bar) and PD-7 (no JSON-LD `Product`) stand.
 
-### Announcement policy
+### Toasts (owner decisions, 2026-09-15)
 
-One polite region per surface, mounted before any message: the drawer's in the always-mounted
-`BagTrigger` (fed by `announceInDrawer`), the page's in the server-rendered shell. Repeating
-the current text clears and rewrites on the next frame so it is spoken again. Announced quote
-keys live in session memory, so reopening a surface never repeats an announcement.
+1. **Sonner** (`sonner` 2.0.8) is the toast library.
+2. **Every info and error message** in the bag, product-page and filter flows is a toast.
+3. **Add to Bag raises a toast with View bag instead of opening the drawer**; the drawer opens
+   only from the header Bag link. This overrides plan CD-13.
+4. **Field validation stays visible inline as well** ("Choose a size", the filter sheet's
+   price error): a transient toast alone is missed by keyboard and screen-reader users. The
+   toast is the announcement; the inline text is visual, is no longer a live region, and
+   stays associated through `aria-describedby`.
 
-| Event | Announcement |
-| --- | --- |
-| Add (drawer opens) | Nothing extra: dialog title + its description |
-| Add while a choice is missing | "Choose a {option}" in the region under that option's legend; focus to that option |
-| Quantity change | After a current quote settles: "{name}, quantity {n}. Subtotal {subtotal}" (one per debounced change) |
-| Remove | "{name} removed from your bag", immediately |
-| Settled current quote with issues, first time this session | "Your bag was updated" + pluralised counts (unavailable, limited, price updated); not for a quote about to be canonically rewritten |
-| Quote failure | "We couldn't update your bag", once per quote key |
-| Header count | Never live; the link's name carries it |
+**The toaster.** `AppToaster` (boundary 17), one per page, a direct child of `<body>`. Headless
+UI's `Dialog` marks only the subtree that owns it inert (`header` for the drawer, `main` for
+the filter sheet), so toasts stay visible, announced and clickable over a dialog. Sonner's
+`<section>` is the one polite live region (`aria-live="polite"`, always mounted), named
+"Notifications (Alt+T)"; Alt+T moves focus into the toasts. Bottom centre in both
+directions (owner decision 2026-09-15), full width minus 16px below 600px, at most 3 visible,
+pausing on hover and focus. `unstyled` + semantic utilities, an ink pill (owner decision
+2026-09-15): `rounded-media`, `bg-action text-on-action`, no border,
+`shadow-(--shadow-overlay)` (a floating surface), `type-small`, 16px lucide icon at the
+inline start (`CircleCheck` success and `Info` info in the text colour; `CircleAlert` error
+in `text-error` on a small `bg-surface` badge, since garnet fails contrast on ink), the
+action an underlined 44px text button, a 44px close button named "Dismiss". The toast sets
+`--focus-ring-color` to its text colour so the focus ring stays visible on ink. Durations: success/info 4s, error 7s (`TOAST_DURATION_MS`). Reduced motion: Sonner's
+own `prefers-reduced-motion` rule removes its transitions, and the global rule zeroes the
+rest. Two unlayered rules in `globals.css` set the body face and restore the focus ring,
+because Sonner's runtime sheet is unlayered and injected later. Every call goes through
+`showToast` / `dismissToast` (`components/feedback/show-toast.ts`).
+
+| Event | Tone | Action | Id / dedupe | Inline counterpart |
+| --- | --- | --- | --- | --- |
+| Add, all pieces landed | success "Added to your bag: {name}" (or "({count})") | View bag → `/bag` | `add-to-bag`: a second add replaces it | none (the header count changes) |
+| Add capped part-way, or already 10 | info "You can add up to 10 of this piece" | View bag | `add-to-bag` | the stepper's + description at 10 |
+| Add to a full bag | error "Your bag is full…" | View bag | `add-to-bag` | none |
+| Add while a choice is missing | error "Choose a {option}" | none | `choose-option`; dismissed on selection | garnet prompt under the legend, `aria-describedby` on the fieldset; focus to the option |
+| Quantity change | info "{name}, quantity {n}. Subtotal {subtotal}", after a current quote settles | none | `bag-quantity:{lineKey}`: rapid changes replace | the dimmed then updated figures |
+| Remove | info "{name} removed from your bag", after the fade | Undo → `restore` | `bag-removed:{lineKey}`: two lines, two toasts | the row leaves; focus hand-off unchanged |
+| Settled current quote with issues, first time this session | info "Your bag was updated" + pluralised counts; not for a quote about to be canonically rewritten | none | `bag-quote`; once per quote key via `announcedQuoteKeys`, read from the live store | per-line notices |
+| Quote failure | error "We couldn't update your bag" | Try again → quote retry | `bag-quote`; once per quote key | the failed state's text and Try again |
+| Share link copied / copy failed | success "Link copied" / error "Couldn't copy the link" | none | `share-link` | none; a dismissed share sheet raises nothing |
+| Filter sheet price error | error (the inline text) | none | `catalog-price-error`; replaced as the text changes, dismissed when fixed or the sheet closes | garnet text under the inputs, `aria-describedby` |
+| Header count | never a toast | | | the link's name carries it |
+
+The drawer over `/bag` mounts two controllers; only the surface pressed raises quantity and
+remove toasts, the live-store check marks a quote key before either raises it, and the stable
+ids are the second guard. Not messages, so untouched: the catalog result-count live region,
+`product-grid-skeleton.tsx`, the hero carousel, the purchase panel's price/status region.
+
+**Bundle.** The toaster loads on every page (it is in the locale layout). Its eager cost was
+**not measured**: the dev server was running on the shared `.next`, so `next build` was
+skipped. Measure it with the *Bundle budget* method below before trusting any figure.
 
 ### Copy
 
@@ -1058,7 +1106,8 @@ Measured method, for comparison next time: `next build`, then gzip -9 each
 went from 244,959 B to 250,921 B with the cart (`24cf33e`; `/en/bag` 252,138 B): **+5.96 KB**,
 over the plan's +5 KB budget;
 the owner accepted the overage. The cost is the header island itself (store, hand-written
-persisted-cart guard, the count label with `Intl.PluralRules`, the announcer). `zod/v4/mini`
+persisted-cart guard, the count label with `Intl.PluralRules`, the announcer, since removed
+for the toaster, whose own cost is unmeasured; see *Toasts*). `zod/v4/mini`
 was removed from the eager path (the store went from 9.5 to 2.0 KB gz, `c197a58`), and the
 storefront imports no Zod. Inlining the `BAG_HREF` import saved 7 B and was not done. These
 bytes are not comparable with the older "195.2 KB" figures, which used a different method.
@@ -1080,12 +1129,17 @@ was not re-measured since. The drawer is a separate lazy chunk (~10.6 KB gz).
 Browser-only; no storefront DOM or browser harness exists, so none of this is proven by a test.
 
 - Drawer: slide side and close-button position in RTL; full width at 320; long Arabic names.
-- Remove fade and focus hand-off, including rapid double removes.
-- The added line's scroll into view while the panel is still sliding in.
+- Remove fade and focus hand-off, including rapid double removes; Undo in the drawer and on
+  `/bag` puts the line back in place with its quantity and photograph.
 - Rapid stepper presses: the line total and subtotal stay in place, dim and return to ink
-  with no width change; one announcement after the quote settles.
-- Drawer after Add to Bag with a quote already on screen: the new line shows the page's
-  name, photograph and price at once, and no line total until its quote.
+  with no width change; one toast after the quote settles.
+- The header drawer opened right after Add to Bag with a quote already on screen: the new
+  line shows the page's name, photograph and price at once, and no line total until its quote.
+- Toasts: bottom inline end at 1440, full width at 320 in Arabic (message, action and close
+  on one row or wrapping without overflow); no duplicate with the drawer open over `/bag`;
+  whether the drawer's focus trap pulls Alt+T focus back out of a toast (pointer Undo works
+  either way; keyboard Undo over the open drawer is unproven); Sonner's swipe and stacking
+  under reduced motion.
 - Placeholders never flash on a fast quote (150ms delay); the breathing reads as quiet,
   not as shimmer; content fades in once and never on a stepper press.
 - A row with no quote and no hint (throttled network): options, stepper and Remove usable;
@@ -1102,7 +1156,7 @@ Browser-only; no storefront DOM or browser harness exists, so none of this is pr
 - Product page stepper row at 320, 375 and 1440 in both locales: the stepper and button
   edges line up, the Arabic button wraps below the stepper at 320 with no horizontal
   scroll, and the stepper sits at the inline start (right in Arabic).
-- 8 of a selection in the bag, stepper at 5, Add to Bag: the line reaches 10 and the drawer
+- 8 of a selection in the bag, stepper at 5, Add to Bag: the line reaches 10 and the toast
   says "You can add up to 10 of this piece"; the stepper is back at 1 afterwards. A sold-out
   product shows no stepper; Tab runs Decrease, Increase, then Add to Bag.
 - Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 8.

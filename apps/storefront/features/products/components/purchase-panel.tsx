@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CircleAlert } from 'lucide-react';
+import { dismissToast, showToast } from '@/components/feedback/show-toast';
 import { fillTemplate } from '@/lib/utils/fill-template';
 import {
   availabilityStatus,
@@ -48,6 +49,9 @@ const CELL = [
   'has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-solid has-focus-visible:outline-(--focus-ring-color)',
 ].join(' ');
 
+/** One id: repeated presses replace the "Choose a {option}" toast rather than stacking it. */
+const CHOOSE_OPTION_TOAST_ID = 'choose-option';
+
 /**
  * Option selection with a live price and availability (PD-11, the tenth client boundary).
  * Native radios give arrow keys and state announcements; sold-out values stay enabled so
@@ -79,7 +83,10 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
       group?.querySelector<HTMLInputElement>('input[type="radio"]');
     radio?.focus();
     const legend = legends[key]?.text ?? product.options[index]!.label;
-    setPrompt({ key, text: fillTemplate(strings.chooseOption, { option: legend }) });
+    const text = fillTemplate(strings.chooseOption, { option: legend });
+    setPrompt({ key, text });
+    // The toast is the announcement; the inline prompt stays as the visible, described error.
+    showToast({ tone: 'error', message: text, id: CHOOSE_OPTION_TOAST_ID });
   }, [readiness, product.options, legends, strings.chooseOption]);
 
   const context = useMemo<PurchaseSelection>(
@@ -131,9 +138,9 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
                     : fillTemplate(strings.selected, { option: legend.text, value: chosen })}
                 </span>
               </legend>
-              {/* Mounted empty with its height reserved: announced when it appears, and the
-                  cells and Add to Bag never move under a second tap. */}
-              <div aria-live="polite" className="min-h-6 pt-2">
+              {/* Height reserved so the cells and Add to Bag never move under a second tap.
+                  Not a live region: the error toast announces it, once. */}
+              <div className="min-h-6 pt-2">
                 {prompted && (
                   <p
                     id={promptId}
@@ -163,6 +170,7 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
                         value={value}
                         checked={chosen === value}
                         onChange={() => {
+                          if (prompt !== null) dismissToast(CHOOSE_OPTION_TOAST_ID);
                           setPrompt(null);
                           setSelection((prev) => ({ ...prev, [option.key]: value }));
                         }}

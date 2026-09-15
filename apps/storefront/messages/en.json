@@ -334,7 +334,6 @@
     "close": "Close bag",
     "added": "Added to your bag: {name}",
     "addedQuantity": "Added to your bag: {name} ({count})",
-    "justAdded": "Just added",
     "viewBag": "View bag",
     "continueShopping": "Continue shopping",
     "empty": {
@@ -347,6 +346,7 @@
     "remove": "Remove",
     "removeLabel": "Remove {name}",
     "removed": "{name} removed from your bag",
+    "undo": "Undo",
     "optionValue": "{label}: {value}",
     "unitPrice": "Price",
     "lineTotal": "Total",
@@ -431,5 +431,9 @@
     },
     "metaTitle": "Bag",
     "metaDescription": "Review the pieces in your bag."
+  },
+  "toaster": {
+    "label": "Notifications",
+    "close": "Dismiss"
   }
 }

@@ -9,7 +9,6 @@ import { totalPieces } from '../utils/cart-lines';
 import { bagTriggerLabel } from '../utils/bag-trigger-label';
 import type { AppLocale } from '@/i18n/routing';
 import type { BagDrawerStrings, BagTriggerStrings } from '../utils/bag-strings';
-import { useDrawerAnnouncement } from './drawer-announcer';
 import { DrawerErrorBoundary } from './drawer-error-boundary';
 import { loadDrawer } from './load-drawer';
 
@@ -40,9 +39,9 @@ const warmDrawer = () => {
 
 /**
  * The header Bag action (the fifteenth client boundary): the same 44px icon link to `/bag`
- * the header always rendered, plus the count badge, the lazy drawer host and the drawer's
- * live region (CD-12, CD-19). An unmodified primary click off `/bag` opens the drawer; a
- * modified click, a click before hydration or a click on `/bag` navigates.
+ * the header always rendered, plus the count badge and the lazy drawer host (CD-12, CD-19).
+ * An unmodified primary click off `/bag` opens the drawer, the only way it opens; a modified
+ * click, a click before hydration or a click on `/bag` navigates. Bag messages are toasts.
  *
  * The server snapshot is "not hydrated", so the server HTML and the first client render are
  * the same element: label "Bag", no badge, no `aria-haspopup`.
@@ -52,7 +51,6 @@ export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTrig
   const { drawer } = useCartSession();
   const actions = useCartActions();
   const onBag = usePathname() === BAG_HREF;
-  const announcement = useDrawerAnnouncement();
 
   // Mount the drawer at its first opening and keep it mounted, so its close transition runs.
   const [drawerMounted, setDrawerMounted] = useState(false);
@@ -77,7 +75,7 @@ export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTrig
       return;
     }
     event.preventDefault();
-    actions.openDrawer({ mode: 'browse' });
+    actions.openDrawer();
   };
 
   return (
@@ -104,9 +102,6 @@ export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTrig
           </span>
         )}
       </Link>
-      <p role="status" className="sr-only">
-        {announcement}
-      </p>
       {drawerMounted && (
         <DrawerErrorBoundary onError={onDrawerError}>
           <Suspense fallback={null}>

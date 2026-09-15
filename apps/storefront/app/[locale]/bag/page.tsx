@@ -9,9 +9,6 @@ import { BagView } from '@/features/cart/components/bag-view';
 import { getBagMetadataStrings, getBagPageStrings } from '@/features/cart/utils/bag-strings';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
 
-/** The page shell's polite live region; the island writes to it only after mount. */
-const BAG_STATUS_ID = 'bag-status';
-
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
@@ -53,13 +50,7 @@ export default async function BagPage({ params }: { params: Promise<{ locale: st
           {strings.title}
         </h1>
       </Reveal>
-      <p id={BAG_STATUS_ID} role="status" className="sr-only" />
-      <BagView
-        strings={strings}
-        locale={locale}
-        shopHref={catalogPath({ kind: 'all' })}
-        statusId={BAG_STATUS_ID}
-      />
+      <BagView strings={strings} locale={locale} shopHref={catalogPath({ kind: 'all' })} />
     </Container>
   );
 }

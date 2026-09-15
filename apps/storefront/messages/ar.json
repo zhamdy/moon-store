@@ -334,7 +334,6 @@
     "close": "إغلاق الحقيبة",
     "added": "أُضيفت إلى حقيبتك: {name}",
     "addedQuantity": "أُضيفت إلى حقيبتك: {name} ({count})",
-    "justAdded": "أُضيفت للتو",
     "viewBag": "عرض الحقيبة",
     "continueShopping": "تابعي التسوّق",
     "empty": {
@@ -347,6 +346,7 @@
     "remove": "إزالة",
     "removeLabel": "إزالة {name}",
     "removed": "أُزيلت {name} من حقيبتك",
+    "undo": "تراجعي",
     "optionValue": "{label}: {value}",
     "unitPrice": "السعر",
     "lineTotal": "الإجمالي",
@@ -431,5 +431,9 @@
     },
     "metaTitle": "الحقيبة",
     "metaDescription": "راجعي القطع في حقيبتك."
+  },
+  "toaster": {
+    "label": "الإشعارات",
+    "close": "إغلاق"
   }
 }

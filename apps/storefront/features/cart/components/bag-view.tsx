@@ -1,6 +1,5 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { BagPageStrings } from '../utils/bag-strings';
@@ -14,8 +13,6 @@ export interface BagViewProps {
   locale: AppLocale;
   /** `catalogPath({ kind: 'all' })`, resolved on the server. */
   shopHref: string;
-  /** The id of the page shell's polite live region (server-rendered, empty). */
-  statusId: string;
 }
 
 const TEXT_ACTION =
@@ -23,34 +20,14 @@ const TEXT_ACTION =
 
 /**
  * The bag page's review (plan Unit 7; the sixteenth client boundary). Shares the drawer's
- * controller, so corrections, price memory, the remove fade and focus hand-off and the
- * announcement rules are the same; messages go to the page shell's own live region, which
- * exists in the server HTML before anything is written to it.
+ * controller, so corrections, price memory, the remove fade and focus hand-off and the toast
+ * rules are the same; messages are toasts in the layout's one toaster.
  *
  * The server HTML and the first client render are one reserved, busy region (the bag's size
  * is unknown there, so no fake rows) beside the summary in its final layout; a non-empty bag
  * never flashes the empty state.
  */
-export function BagView({ strings, locale, shopHref, statusId }: BagViewProps) {
-  const generation = useRef(0);
-  const announce = useCallback(
-    (message: string) => {
-      const region = document.getElementById(statusId);
-      if (!region) return;
-      const token = ++generation.current;
-      // Repeating the current text would not be announced again: clear, then rewrite.
-      if (message !== '' && region.textContent === message) {
-        region.textContent = '';
-        requestAnimationFrame(() => {
-          if (token === generation.current) region.textContent = message;
-        });
-        return;
-      }
-      region.textContent = message;
-    },
-    [statusId]
-  );
-
+export function BagView({ strings, locale, shopHref }: BagViewProps) {
   const {
     cart,
     view,
@@ -62,7 +39,7 @@ export function BagView({ strings, locale, shopHref, statusId }: BagViewProps) {
     onRemove,
     onRetry,
     onEmpty,
-  } = useBagController({ active: true, locale, strings, announce });
+  } = useBagController({ active: true, locale, strings });
 
   if (cart.hydrated && view.kind === 'empty') {
     return (

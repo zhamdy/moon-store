@@ -7,6 +7,7 @@ import {
   clearLines,
   mergeDuplicateLines,
   removeLine,
+  restoreLine,
   setLineQuantity,
   totalPieces,
   type CartLine,
@@ -209,6 +210,40 @@ describe('removeLine and clearLines', () => {
 
   it('clears to empty', () => {
     expect(clearLines()).toEqual([]);
+  });
+});
+
+describe('restoreLine', () => {
+  const lines: CartLine[] = [
+    { ...tote, quantity: 1 },
+    { ...dressM, quantity: 4 },
+    { ...dressL, quantity: 2 },
+  ];
+
+  it('puts a removed line back at its original index with its quantity', () => {
+    const removed = lines[1]!;
+    const after = removeLine(lines, cartLineKey(removed));
+    expect(restoreLine(after, removed, 1)).toEqual(lines);
+  });
+
+  it('clamps an index past the end to the end', () => {
+    const removed = lines[2]!;
+    const after = removeLine(lines, cartLineKey(removed));
+    expect(restoreLine(after, removed, 99)).toEqual(lines);
+    expect(restoreLine(after, removed, -3)[0]).toEqual(removed);
+  });
+
+  it('is a no-op when the bag already has that line', () => {
+    expect(restoreLine(lines, { ...dressM, quantity: 9 }, 0)).toBe(lines);
+  });
+
+  it('is a no-op when the bag has filled up since', () => {
+    const full: CartLine[] = Array.from({ length: MAX_CART_LINES }, (_, i) => ({
+      slug: `piece-${i}`,
+      options: {},
+      quantity: 1,
+    }));
+    expect(restoreLine(full, { ...dressM, quantity: 1 }, 0)).toBe(full);
   });
 });
 

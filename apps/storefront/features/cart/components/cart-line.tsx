@@ -98,11 +98,8 @@ export interface CartLineProps {
   strings: BagLineStrings;
   /** A re-quote is in flight. */
   pending: boolean;
-  /** The line an `added` or capped opening points at: hairline marker plus "Just added". */
-  justAdded?: boolean;
   /** Fading out before it unmounts. */
   removing?: boolean;
-  rowRef?: (element: HTMLLIElement | null) => void;
   /** Receives where focus lands after a neighbour is removed: the name link, else Remove. */
   focusRef?: (element: HTMLElement | null) => void;
   onQuantityChange(key: string, quantity: number, name: string): void;
@@ -123,9 +120,7 @@ export function CartLine({
   locale,
   strings,
   pending,
-  justAdded = false,
   removing = false,
-  rowRef,
   focusRef,
   onQuantityChange,
   onRemove,
@@ -188,8 +183,6 @@ export function CartLine({
     );
   const details = (
     <>
-      {justAdded && <p className="sr-only">{strings.justAdded}</p>}
-
       {options && <p className="type-small mt-1 text-text-secondary">{options}</p>}
       {row.unitPrice !== null ? (
         <p className="type-small mt-1 text-text-secondary tabular-nums">
@@ -248,17 +241,12 @@ export function CartLine({
 
   return (
     <li
-      ref={rowRef}
       data-removing={removing ? '' : undefined}
       className={cn(
         'relative flex gap-4 py-5 transition-opacity duration-fast ease-ui data-removing:opacity-0',
         variant === 'page' && 'md:gap-6 md:py-7'
       )}
     >
-      {justAdded && (
-        <span aria-hidden="true" className="absolute inset-y-5 -start-3 w-px bg-text" />
-      )}
-
       <div
         className={cn(
           'relative isolate aspect-4/5 shrink-0 self-start overflow-hidden rounded-media-sm',

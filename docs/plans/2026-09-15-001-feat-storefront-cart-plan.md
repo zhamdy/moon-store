@@ -184,6 +184,8 @@ preventing-flash-before-hydration, lazy-loading, server-and-client-components
 | CD-21 | **The quote path has its own edge chain in `app.ts`, ahead of the app-wide CORS, global limiter and 10 MB parser**: path-scoped CORS (`STOREFRONT_ORIGINS`, `credentials: false`, POST/OPTIONS, `Content-Type` only), a dedicated per-IP quote limiter (`CART_QUOTE_RATE_LIMIT_MAX`, default 300/15min, no server-token bucket), `express.json({ limit: '16kb' })`. The app-wide chain skips this exact path | The app-wide CORS is credentialed and would give the storefront origin credentialed access to every route (and the `.vercel.app` branch would open it wider); a public POST must not parse and sanitize 10 MB before any limit counts it. The storefront never joins `ALLOWED_ORIGINS`. |
 | CD-22 | **The quote route is registered before `publicCacheOnSuccess`** with its own `no-store` middleware | `publicCacheOnSuccess` wraps `writeHead` and overwrites `Cache-Control` on any 2xx regardless of method, so a header set in the controller would ship `public, max-age=60`. |
 
+> 2026-09-15 (owner): **CD-13 overridden.** Add to Bag raises a toast (Sonner) with View bag and no longer opens the drawer, which opens only from the header Bag link; bag, share and filter messages are toasts, with field validation also kept inline. See storefront `CLAUDE.md` → *Cart* → *Toasts*.
+
 ## Open Questions
 
 ### Resolved During Planning

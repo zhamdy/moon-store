@@ -196,27 +196,15 @@ describe('createCartStore', () => {
     const memory = memoryStorage();
     const store = createCartStore(() => memory.storage);
     store.subscribe(() => {});
-    store.openDrawer({ mode: 'added', addedKey: 'k', description: 'Added to your bag: Dress' });
+    store.openDrawer();
     store.rememberPrices({ k: 2850 });
     store.markQuoteAnnounced('q');
 
     const session = store.getSession();
-    expect(session.drawer).toEqual({
-      open: true,
-      mode: 'added',
-      addedKey: 'k',
-      description: 'Added to your bag: Dress',
-    });
+    expect(session.drawer).toEqual({ open: true });
     expect(session.previousPrices.get('k')).toBe(2850);
     expect(session.announcedQuoteKeys.has('q')).toBe(true);
 
-    store.browseDrawer();
-    expect(store.getSession().drawer).toEqual({
-      open: true,
-      mode: 'browse',
-      addedKey: null,
-      description: null,
-    });
     store.closeDrawer();
     expect(store.getSession().drawer.open).toBe(false);
     expect(memory.writes()).toBe(0);
@@ -227,6 +215,30 @@ describe('createCartStore', () => {
     imageUrl: 'https://media.example/silk-midi-dress.jpg',
     unitPrice: 2850,
   };
+
+  it('restores a removed line at its index with its quantity and hint, once', () => {
+    const memory = memoryStorage(serializeCart([tote, { ...dress, quantity: 3 }]));
+    const store = createCartStore(() => memory.storage);
+    store.subscribe(() => {});
+
+    const key = cartLineKey(dress);
+    const bag = [tote, { ...dress, quantity: 4 }];
+    store.add({ slug: dress.slug, options: dress.options }, { hint });
+    expect(store.getSnapshot()).toEqual({ hydrated: true, lines: bag });
+    store.remove(key);
+    expect(store.getSession().hints.has(key)).toBe(false);
+
+    store.restore({ line: { ...dress, quantity: 4 }, index: 1, hint });
+    expect(store.getSnapshot()).toEqual({ hydrated: true, lines: bag });
+    expect(store.getSession().hints.get(key)).toEqual(hint);
+    expect(parseCart(memory.raw()).lines).toEqual(bag);
+
+    // A second Undo (the drawer and /bag both showing) changes and writes nothing.
+    const writes = memory.writes();
+    store.restore({ line: { ...dress, quantity: 1 }, index: 0 });
+    expect(store.getSnapshot()).toEqual({ hydrated: true, lines: bag });
+    expect(memory.writes()).toBe(writes);
+  });
 
   it('keeps an Add to Bag hint in memory only, and drops it with its line', () => {
     const memory = memoryStorage();

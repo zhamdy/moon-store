@@ -13,13 +13,15 @@ import type { PluralTemplates } from './plural-templates';
 export interface AddToBagStrings {
   addToBag: string;
   soldOut: string;
-  /** `{name}`: the drawer description fixed at an `added` opening (CD-13). */
+  /** `{name}`: the add acknowledgement toast. */
   added: string;
-  /** `{name}`, `{count}`: the added description when the stepper asked for more than one. */
+  /** `{name}`, `{count}`: the added toast when the stepper asked for more than one. */
   addedQuantity: string;
   /** `{max}` */
   capped: string;
   full: string;
+  /** The add toast's action, to `/bag`. */
+  viewBag: string;
   /** The product page stepper's labels, `{name}` templates shared with the bag's stepper. */
   stepper: {
     /** `{name}` */
@@ -59,7 +61,6 @@ export interface BagLineStrings {
   pendingPiece: string;
   /** Visually hidden beside a figure kept from the previous quote. */
   updating: string;
-  justAdded: string;
   currency: string;
   notice: {
     soldOut: string;
@@ -96,6 +97,10 @@ export interface BagAnnouncementStrings {
   quantityChanged: string;
   /** `{name}` */
   removed: string;
+  /** The removed toast's action. */
+  undo: string;
+  /** The quote failure toast's action. */
+  retry: string;
   updated: string;
   issues: {
     unavailable: PluralTemplates;
@@ -172,6 +177,7 @@ export async function getAddToBagStrings(locale: AppLocale): Promise<AddToBagStr
     addedQuantity: t.raw('addedQuantity') as string,
     capped: t.raw('notice.capped') as string,
     full: t('notice.full'),
+    viewBag: t('viewBag'),
     stepper: {
       quantity: t.raw('quantity') as string,
       increase: t.raw('increase') as string,
@@ -208,7 +214,6 @@ async function sharedBagStrings(locale: AppLocale) {
     unavailablePiece: t('unavailablePiece'),
     pendingPiece: t('pendingPiece'),
     updating: t('updating'),
-    justAdded: t('justAdded'),
     currency: tProducts('currency'),
     notice: {
       soldOut: t('notice.soldOut'),
@@ -241,6 +246,8 @@ async function sharedBagStrings(locale: AppLocale) {
   const announcements: BagAnnouncementStrings = {
     quantityChanged: t.raw('quantityChanged') as string,
     removed: t.raw('removed') as string,
+    undo: t('undo'),
+    retry: t('error.retry'),
     updated: t('updated'),
     issues: {
       unavailable: plural(t, 'issues.unavailable'),

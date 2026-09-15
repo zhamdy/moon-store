@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { addLine, cartLineKey, type CartLine } from './cart-lines';
-import { addToBagIntent, drawerOpeningFor } from './add-to-bag-action';
+import { addLine, type CartLine } from './cart-lines';
+import { ADD_TO_BAG_TOAST_ID, addToBagIntent, addToBagToast } from './add-to-bag-action';
 import { MAX_CART_LINES, MAX_LINE_QUANTITY } from '../constants';
 
 const strings = {
@@ -40,63 +40,58 @@ describe('addToBagIntent', () => {
   });
 });
 
-describe('drawerOpeningFor', () => {
+describe('addToBagToast', () => {
   const identity = { slug: 'silk-midi-dress', options: { size: 'M' } };
-  const key = cartLineKey(identity);
   const cappedNotice = `You can add up to ${MAX_LINE_QUANTITY} of this piece`;
-
-  it('opens in added mode with the page name for one new piece', () => {
-    const result = addLine([], identity);
-    expect(result.outcome).toBe('added');
-    expect(drawerOpeningFor(result, 'Silk Midi Dress', strings, 1)).toEqual({
-      mode: 'added',
-      addedKey: key,
-      description: 'Added to your bag: Silk Midi Dress',
-    });
+  const toastOf = (tone: string, message: string) => ({
+    tone,
+    message,
+    id: ADD_TO_BAG_TOAST_ID,
+    action: 'viewBag',
   });
 
-  it('opens in added mode for a one-piece merge into an existing line', () => {
+  it('is a success naming the piece for one new piece', () => {
+    const result = addLine([], identity);
+    expect(result.outcome).toBe('added');
+    expect(addToBagToast(result, 'Silk Midi Dress', strings, 1)).toEqual(
+      toastOf('success', 'Added to your bag: Silk Midi Dress')
+    );
+  });
+
+  it('is a success for a one-piece merge into an existing line', () => {
     const result = addLine([{ ...identity, quantity: 2 }], identity);
     expect(result.outcome).toBe('merged');
-    expect(drawerOpeningFor(result, 'Silk Midi Dress', strings, 1)).toEqual({
-      mode: 'added',
-      addedKey: key,
-      description: 'Added to your bag: Silk Midi Dress',
-    });
+    expect(addToBagToast(result, 'Silk Midi Dress', strings, 1)).toEqual(
+      toastOf('success', 'Added to your bag: Silk Midi Dress')
+    );
   });
 
   it('names the count when three pieces are added', () => {
     const result = addLine([], identity, 3);
-    expect(drawerOpeningFor(result, 'Silk Midi Dress', strings, 3)).toEqual({
-      mode: 'added',
-      addedKey: key,
-      description: 'Added to your bag: Silk Midi Dress (3)',
-    });
+    expect(addToBagToast(result, 'Silk Midi Dress', strings, 3)).toEqual(
+      toastOf('success', 'Added to your bag: Silk Midi Dress (3)')
+    );
   });
 
-  it('says the add was capped when a merge landed fewer pieces than requested', () => {
+  it('is an info notice when a merge landed fewer pieces than requested', () => {
     const result = addLine([{ ...identity, quantity: 8 }], identity, 5);
     expect(result).toMatchObject({ outcome: 'merged', addedQuantity: 2 });
-    expect(drawerOpeningFor(result, 'Silk Midi Dress', strings, 5)).toEqual({
-      mode: 'added',
-      addedKey: key,
-      description: cappedNotice,
-    });
+    expect(addToBagToast(result, 'Silk Midi Dress', strings, 5)).toEqual(
+      toastOf('info', cappedNotice)
+    );
   });
 
-  it('opens in browse mode with the capped notice and the line to scroll to', () => {
+  it('is an info notice when the line is already at the cap', () => {
     const lines = [{ ...identity, quantity: MAX_LINE_QUANTITY }];
     const result = addLine(lines, identity, 3);
     expect(result.outcome).toBe('capped');
     expect(result.lines).toBe(lines);
-    expect(drawerOpeningFor(result, 'Silk Midi Dress', strings, 3)).toEqual({
-      mode: 'browse',
-      addedKey: key,
-      description: cappedNotice,
-    });
+    expect(addToBagToast(result, 'Silk Midi Dress', strings, 3)).toEqual(
+      toastOf('info', cappedNotice)
+    );
   });
 
-  it('opens in browse mode with the full notice and adds nothing', () => {
+  it('is an error when the bag is full, and adds nothing', () => {
     const lines: CartLine[] = Array.from({ length: MAX_CART_LINES }, (_, i) => ({
       slug: `piece-${i}`,
       options: {},
@@ -105,10 +100,8 @@ describe('drawerOpeningFor', () => {
     const result = addLine(lines, identity, 2);
     expect(result.outcome).toBe('full');
     expect(result.lines).toBe(lines);
-    expect(drawerOpeningFor(result, 'Silk Midi Dress', strings, 2)).toEqual({
-      mode: 'browse',
-      addedKey: null,
-      description: strings.full,
-    });
+    expect(addToBagToast(result, 'Silk Midi Dress', strings, 2)).toEqual(
+      toastOf('error', strings.full)
+    );
   });
 });

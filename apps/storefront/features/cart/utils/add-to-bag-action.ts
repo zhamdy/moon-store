@@ -1,8 +1,8 @@
 import { fillTemplate } from '@/lib/utils/fill-template';
+import type { ToastTone } from '@/components/feedback/show-toast';
 import type { PurchaseReadiness } from '@/features/products/utils/variant-selection';
 import { MAX_LINE_QUANTITY } from '../constants';
 import type { AddResult, CartLineIdentity } from './cart-lines';
-import type { OpenDrawerInput } from '../store/cart-store';
 import type { AddToBagStrings } from './bag-strings';
 
 export type AddToBagIntent =
@@ -32,34 +32,47 @@ export function addToBagIntent(
   }
 }
 
+/** One id for every add acknowledgement: a second press replaces the toast, never stacks. */
+export const ADD_TO_BAG_TOAST_ID = 'add-to-bag';
+
+export interface AddToBagToast {
+  tone: ToastTone;
+  message: string;
+  id: string;
+  action: 'viewBag';
+}
+
 /**
- * The drawer opening that acknowledges an add (CD-13): its description is fixed here.
- * `name` is the product page's localized name, an in-memory hint that is never persisted.
- * A merge that landed fewer pieces than requested still opens in `added` mode, but says why.
+ * The toast that acknowledges an add (owner decision 2026-09-15, overriding CD-13's drawer
+ * opening). Every outcome carries View bag. `name` is the product page's localized name, an
+ * in-memory hint that is never persisted. A merge that landed fewer pieces than requested is
+ * an info notice, not a success.
  */
-export function drawerOpeningFor(
-  result: Pick<AddResult, 'outcome' | 'key' | 'addedQuantity'>,
+export function addToBagToast(
+  result: Pick<AddResult, 'outcome' | 'addedQuantity'>,
   name: string,
   strings: Pick<AddToBagStrings, 'added' | 'addedQuantity' | 'capped' | 'full'>,
   requestedQuantity: number
-): Required<OpenDrawerInput> {
+): AddToBagToast {
+  const base = { id: ADD_TO_BAG_TOAST_ID, action: 'viewBag' } as const;
   const cappedNotice = fillTemplate(strings.capped, { max: MAX_LINE_QUANTITY });
   switch (result.outcome) {
     case 'added':
     case 'merged':
+      if (result.addedQuantity < requestedQuantity) {
+        return { ...base, tone: 'info', message: cappedNotice };
+      }
       return {
-        mode: 'added',
-        addedKey: result.key,
-        description:
-          result.addedQuantity < requestedQuantity
-            ? cappedNotice
-            : requestedQuantity > 1
-              ? fillTemplate(strings.addedQuantity, { name, count: result.addedQuantity })
-              : fillTemplate(strings.added, { name }),
+        ...base,
+        tone: 'success',
+        message:
+          requestedQuantity > 1
+            ? fillTemplate(strings.addedQuantity, { name, count: result.addedQuantity })
+            : fillTemplate(strings.added, { name }),
       };
     case 'capped':
-      return { mode: 'browse', addedKey: result.key, description: cappedNotice };
+      return { ...base, tone: 'info', message: cappedNotice };
     case 'full':
-      return { mode: 'browse', addedKey: null, description: strings.full };
+      return { ...base, tone: 'error', message: strings.full };
   }
 }

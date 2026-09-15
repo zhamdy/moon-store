@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Description, Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
+import { useEffect, useRef } from 'react';
+import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import { X } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
@@ -7,10 +7,8 @@ import { BAG_HREF } from '@/components/layout/navigation-items';
 import { formatPrice } from '@/features/products/utils/price';
 import { cartStore, useCartActions, useCartSession } from '../store/cart-store';
 import type { BagDrawerStrings } from '../utils/bag-strings';
-import { scrollTopToReveal } from '../utils/bag-view-model';
 import { selectPlural } from '../utils/plural-templates';
 import { BagFigure, CartLine } from './cart-line';
-import { announceInDrawer } from './drawer-announcer';
 import { useBagController } from './use-bag-controller';
 
 export interface BagDrawerProps {
@@ -39,28 +37,16 @@ function closeForNavigation() {
 }
 
 /**
- * The Bag drawer (plan Unit 6): reached only through `BagTrigger`'s lazy `dynamic()` import,
- * so it is not a client boundary of its own. `useBagController` quotes the bag while open,
- * reconciles it and applies the model's store writes and announcements; this renders it.
+ * The Bag drawer (plan Unit 6): reached only through `BagTrigger`'s lazy import, so it is not
+ * a client boundary of its own, and opened only from the header Bag link (Add to Bag raises a
+ * toast instead, owner decision 2026-09-15). `useBagController` quotes the bag while open,
+ * reconciles it and applies the model's store writes and toasts; this renders it.
  * The panel's content unmounts when closed, so line photographs load only while it is open.
  */
 export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps) {
   const { drawer } = useCartSession();
   const actions = useCartActions();
   const { open } = drawer;
-  const addedKey = open ? drawer.addedKey : null;
-
-  // The description is fixed at open (CD-13); the store clears it at the first interaction.
-  const [opening, setOpening] = useState({ id: 0, description: null as string | null });
-  const [wasOpen, setWasOpen] = useState(false);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) setOpening({ id: opening.id + 1, description: drawer.description });
-  }
-
-  const scrollContainer = useRef<HTMLDivElement>(null);
-  const rowElements = useRef(new Map<string, HTMLLIElement>());
-  const scrolledOpening = useRef(0);
 
   const {
     view,
@@ -72,23 +58,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
     onRemove,
     onRetry,
     onEmpty,
-  } = useBagController({
-    active: open,
-    locale,
-    strings,
-    announce: announceInDrawer,
-    onInteract: actions.browseDrawer,
-    // Bring an `added` or capped line into view once per opening (focus stays on the title).
-    onAfterRender: () => {
-      const container = scrollContainer.current;
-      const row = addedKey === null ? undefined : rowElements.current.get(addedKey);
-      if (container && row && scrolledOpening.current !== opening.id) {
-        scrolledOpening.current = opening.id;
-        const top = scrollTopToReveal(row, container);
-        if (top !== null) container.scrollTop = top;
-      }
-    },
-  });
+  } = useBagController({ active: open, locale, strings });
 
   const pathname = usePathname();
   const lastPathname = useRef(pathname);
@@ -126,11 +96,6 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
               >
                 {strings.title}
               </DialogTitle>
-              {opening.description && (
-                <Description className="type-small mt-1 text-text-secondary">
-                  {opening.description}
-                </Description>
-              )}
             </div>
             <button
               type="button"
@@ -142,10 +107,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
             </button>
           </div>
 
-          <div
-            ref={scrollContainer}
-            className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 md:px-8"
-          >
+          <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 md:px-8">
             {view.kind === 'loading' && <p className="sr-only">{strings.summary.updating}</p>}
 
             {view.kind === 'failed' && (
@@ -190,12 +152,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
                     locale={locale}
                     strings={strings.line}
                     pending={pending}
-                    justAdded={addedKey === row.key}
                     removing={removing.has(row.key)}
-                    rowRef={(element) => {
-                      if (element) rowElements.current.set(row.key, element);
-                      else rowElements.current.delete(row.key);
-                    }}
                     focusRef={focusRef(row.key)}
                     onQuantityChange={onQuantityChange}
                     onRemove={onRemove}

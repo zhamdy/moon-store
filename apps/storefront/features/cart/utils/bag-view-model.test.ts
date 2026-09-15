@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { BagAnnouncementStrings, BagLineStrings } from './bag-strings';
 import {
+  BAG_QUOTE_TOAST_ID,
   bagAnnouncementText,
+  bagAnnouncementToast,
   focusTargetAfterRemove,
   visibleRowKeys,
   lineStepper,
   noticeText,
   optionText,
-  quantityChangedText,
+  quantityChangedToast,
+  removedToast,
   rowName,
-  scrollTopToReveal,
   settledQuantity,
   stepperCommitValue,
   stepperLimitText,
@@ -29,7 +31,6 @@ const LINE: BagLineStrings = {
   unavailablePiece: 'A piece that is no longer available',
   pendingPiece: 'This piece',
   updating: 'Updating',
-  justAdded: 'Just added',
   currency: 'EGP',
   notice: {
     soldOut: 'Sold out',
@@ -44,6 +45,8 @@ const LINE: BagLineStrings = {
 const ANNOUNCE: BagAnnouncementStrings = {
   quantityChanged: '{name}, quantity {count}. Subtotal {subtotal}',
   removed: '{name} removed from your bag',
+  undo: 'Undo',
+  retry: 'Try again',
   updated: 'Your bag was updated',
   issues: {
     unavailable: {
@@ -284,22 +287,54 @@ describe('announcements', () => {
     expect(
       settledQuantity({ kind: 'failed', localPieces: 3, canRetry: true, canEmpty: false }, 'k')
     ).toEqual({ kind: 'drop' });
-    expect(quantityChangedText(ANNOUNCE, 'Silk Midi Dress', 3, '8,550 EGP')).toBe(
-      'Silk Midi Dress, quantity 3. Subtotal 8,550 EGP'
-    );
   });
 });
 
-describe('scrollTopToReveal', () => {
-  const list = { scrollTop: 100, clientHeight: 400 };
-
-  it('leaves a visible row alone', () => {
-    expect(scrollTopToReveal({ offsetTop: 150, offsetHeight: 120 }, list)).toBeNull();
+describe('bag toasts', () => {
+  it('maps a settled update to an info toast with no action', () => {
+    expect(
+      bagAnnouncementToast(
+        { kind: 'updated', markKey: 'q', issues: { unavailable: 0, limited: 1, priceUpdated: 0 } },
+        ANNOUNCE,
+        'en'
+      )
+    ).toEqual({
+      tone: 'info',
+      message: 'Your bag was updated. 1 quantity limited',
+      id: BAG_QUOTE_TOAST_ID,
+      action: null,
+    });
   });
 
-  it('aligns a row below to the bottom and a row above (or a tall one) to the top', () => {
-    expect(scrollTopToReveal({ offsetTop: 600, offsetHeight: 120 }, list)).toBe(320);
-    expect(scrollTopToReveal({ offsetTop: 20, offsetHeight: 120 }, list)).toBe(20);
-    expect(scrollTopToReveal({ offsetTop: 480, offsetHeight: 500 }, list)).toBe(480);
+  it('maps a quote failure to an error toast with Try again, under the same id', () => {
+    expect(bagAnnouncementToast({ kind: 'failed', markKey: 'f' }, ANNOUNCE, 'en')).toEqual({
+      tone: 'error',
+      message: "We couldn't update your bag",
+      id: BAG_QUOTE_TOAST_ID,
+      action: 'retry',
+    });
+  });
+
+  it('gives each line one quantity toast, replaced on the next change', () => {
+    const first = quantityChangedToast(ANNOUNCE, 'k', 'Silk Midi Dress', 3, '8,550 EGP');
+    expect(first).toEqual({
+      tone: 'info',
+      message: 'Silk Midi Dress, quantity 3. Subtotal 8,550 EGP',
+      id: 'bag-quantity:k',
+      action: null,
+    });
+    expect(quantityChangedToast(ANNOUNCE, 'k', 'Silk Midi Dress', 4, '11,400 EGP').id).toBe(
+      first.id
+    );
+    expect(quantityChangedToast(ANNOUNCE, 'other', 'Tote', 1, '900 EGP').id).not.toBe(first.id);
+  });
+
+  it('offers Undo on a removal, per line', () => {
+    expect(removedToast(ANNOUNCE, 'k', 'Silk Midi Dress')).toEqual({
+      tone: 'info',
+      message: 'Silk Midi Dress removed from your bag',
+      id: 'bag-removed:k',
+      action: 'undo',
+    });
   });
 });

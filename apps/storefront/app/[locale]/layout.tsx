@@ -8,6 +8,7 @@ import { AppProviders } from '@/providers/app-providers';
 import { SkipLink } from '@/components/layout/skip-link';
 import { Header } from '@/components/layout/header/header';
 import { Footer } from '@/components/layout/footer/footer';
+import { AppToaster } from '@/components/feedback/app-toaster';
 import { BagTrigger } from '@/features/cart/components/bag-trigger';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
 import { getBagDrawerStrings, getBagTriggerStrings } from '@/features/cart/utils/bag-strings';
@@ -63,9 +64,10 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
   // Resolved strings only (never the catalogue): the drawer's ride in the trigger's props, so
   // the lazy chunk needs no second server round trip when it first opens.
-  const [bagTriggerStrings, bagDrawerStrings] = await Promise.all([
+  const [bagTriggerStrings, bagDrawerStrings, tToaster] = await Promise.all([
     getBagTriggerStrings(locale),
     getBagDrawerStrings(locale),
+    getTranslations({ locale, namespace: 'toaster' }),
   ]);
 
   return (
@@ -92,6 +94,13 @@ export default async function LocaleLayout({
               {children}
             </main>
             <Footer />
+            {/* A direct child of <body> (the providers render no element): a dialog makes
+                only its own subtree inert, so toasts stay operable over the drawer. */}
+            <AppToaster
+              label={tToaster('label')}
+              closeLabel={tToaster('close')}
+              dir={getDirection(locale)}
+            />
           </AppProviders>
         </NextIntlClientProvider>
       </body>

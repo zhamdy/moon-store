@@ -4,7 +4,9 @@ import {
   addLine,
   applyCanonical,
   clearLines,
+  cartLineKey,
   removeLine,
+  restoreLine,
   setLineQuantity,
   type AddResult,
   type CartLine,
@@ -34,15 +36,9 @@ export type CartSnapshot =
   | { readonly hydrated: false }
   | { readonly hydrated: true; readonly lines: readonly CartLine[] };
 
-export type DrawerMode = 'browse' | 'added';
-
+/** Opened only by the header Bag link; Add to Bag raises a toast instead (owner, 2026-09-15). */
 export interface DrawerState {
   readonly open: boolean;
-  readonly mode: DrawerMode;
-  /** The line to scroll into view in an `added` or capped opening. */
-  readonly addedKey: string | null;
-  /** The description fixed at open (CD-13); `null` for a plain browse opening. */
-  readonly description: string | null;
 }
 
 export interface CartSession {
@@ -60,10 +56,13 @@ export interface CartSession {
   readonly hints: ReadonlyMap<string, BagLineHint>;
 }
 
-export interface OpenDrawerInput {
-  mode?: DrawerMode;
-  addedKey?: string | null;
-  description?: string | null;
+export interface RestoreInput {
+  /** The line as it was stored when removed. */
+  line: CartLine;
+  /** Its index in store order at removal. */
+  index: number;
+  /** Its Add to Bag hint, if it had one. */
+  hint?: BagLineHint;
 }
 
 export interface AddInput {
@@ -77,12 +76,12 @@ export interface CartActions {
   add(identity: CartLineIdentity, input?: AddInput): AddResult;
   setQuantity(key: string, quantity: number): void;
   remove(key: string): void;
+  /** Undo for Remove: the line back at its index, with its quantity and hint; a no-op if present. */
+  restore(input: RestoreInput): void;
   clear(): void;
   applyCanonical(key: string, canonicalOptions: CartOptions): void;
-  openDrawer(input?: OpenDrawerInput): void;
+  openDrawer(): void;
   closeDrawer(): void;
-  /** Ends an `added` opening at the first bag interaction; keeps the drawer open. */
-  browseDrawer(): void;
   rememberPrices(prices: Readonly<Record<string, number>>): void;
   /** Pins each line key's "Price updated" notice to the quote key that found the change. */
   markPriceUpdates(updates: Readonly<Record<string, string>>): void;
@@ -98,12 +97,8 @@ export interface CartStore extends CartActions {
 
 const NOT_HYDRATED: CartSnapshot = { hydrated: false };
 
-const CLOSED_DRAWER: DrawerState = {
-  open: false,
-  mode: 'browse',
-  addedKey: null,
-  description: null,
-};
+const CLOSED_DRAWER: DrawerState = { open: false };
+const OPEN_DRAWER: DrawerState = { open: true };
 
 export function createCartStore(getStorage: GetCartStorage = browserCartStorage): CartStore {
   let snapshot: CartSnapshot = NOT_HYDRATED;
@@ -228,6 +223,14 @@ export function createCartStore(getStorage: GetCartStorage = browserCartStorage)
       if (session.hints.has(key)) updateHints((hints) => hints.delete(key));
       commit(removeLine(currentLines(), key));
     },
+    restore({ line, index, hint }) {
+      ensureHydrated();
+      const lines = currentLines();
+      const next = restoreLine(lines, line, index);
+      if (next === lines) return;
+      if (hint) updateHints((hints) => hints.set(cartLineKey(line), hint));
+      commit(next);
+    },
     clear() {
       ensureHydrated();
       if (session.hints.size > 0) updateHints((hints) => hints.clear());
@@ -242,21 +245,14 @@ export function createCartStore(getStorage: GetCartStorage = browserCartStorage)
       commit(applyCanonical(currentLines(), key, canonicalOptions));
     },
 
-    openDrawer({ mode = 'browse', addedKey = null, description = null } = {}) {
-      setSession({ ...session, drawer: { open: true, mode, addedKey, description } });
+    openDrawer() {
+      if (!session.drawer.open) {
+        setSession({ ...session, drawer: OPEN_DRAWER });
+      }
     },
     closeDrawer() {
       if (session.drawer.open) {
         setSession({ ...session, drawer: CLOSED_DRAWER });
-      }
-    },
-    browseDrawer() {
-      const { drawer } = session;
-      if (drawer.mode !== 'browse' || drawer.description !== null || drawer.addedKey !== null) {
-        setSession({
-          ...session,
-          drawer: { ...drawer, mode: 'browse', addedKey: null, description: null },
-        });
       }
     },
     rememberPrices(prices) {
@@ -300,11 +296,11 @@ const cartActions: CartActions = {
   add: cartStore.add,
   setQuantity: cartStore.setQuantity,
   remove: cartStore.remove,
+  restore: cartStore.restore,
   clear: cartStore.clear,
   applyCanonical: cartStore.applyCanonical,
   openDrawer: cartStore.openDrawer,
   closeDrawer: cartStore.closeDrawer,
-  browseDrawer: cartStore.browseDrawer,
   rememberPrices: cartStore.rememberPrices,
   markPriceUpdates: cartStore.markPriceUpdates,
   markQuoteAnnounced: cartStore.markQuoteAnnounced,

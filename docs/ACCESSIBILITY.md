@@ -189,19 +189,27 @@ navigation shell.
 8. **Storefront bag, keyboard and screen reader.** Also not axe-scanned. In EN and AR,
    with `silk-midi-dress` (sizes), `cashmere-pullover` (mixed stock) and `silk-slip-dress`
    (sold out). **Add to Bag:** with no size chosen, the button is enabled; pressing it
-   moves focus to the size group's first radio and "Choose a size" is spoken. With a size
-   chosen, pressing it opens the drawer with focus on the "Bag" heading and the
-   description "Added to your bag: {name}" read with the dialog. On a sold-out product the
+   moves focus to the size group's first radio, "Choose a size" appears under the legend and
+   is spoken once (from the error toast, not from the inline text); choosing a size removes
+   the toast. With a size chosen, pressing it keeps focus on the button, the drawer does
+   **not** open, and "Added to your bag: {name}" is spoken from a toast in the bottom inline
+   corner. On a sold-out product the
    button reads "Sold out", is announced as dimmed/unavailable, stays in the Tab order and
    does nothing, and no quantity stepper is present. Pressing it an eleventh time for one
-   line opens the drawer with "You can add up to 10 of this piece". **Product page
+   line raises "You can add up to 10 of this piece". **Toasts:** each is spoken once through
+   the "Notifications (Alt+T)" region and never takes focus; Alt+T moves focus into the
+   toasts, Tab reaches the action (View bag, Undo, Try again) and Dismiss, each a 44px target,
+   and focus returns to where it was when the toasts close. Success and info toasts stay
+   about 4s, errors about 7s, and hovering or focusing one pauses it. A second Add to Bag
+   replaces the toast rather than stacking one. **Product page
    stepper:** Tab reaches Decrease, then Increase, then Add to Bag. The group is named
    "Quantity, {name}"; Decrease is unavailable at 1; at 10 Increase is unavailable and
-   carries the up-to-10 description. With 3 chosen, Add to Bag reads "Added to your bag:
-   {name} (3)" with the dialog; with 8 already in the bag and 5 chosen, it reads "You can add
+   carries the up-to-10 description. With 3 chosen, Add to Bag's toast reads "Added to your
+   bag: {name} (3)"; with 8 already in the bag and 5 chosen, it reads "You can add
    up to 10 of this piece". After either, the value is back at 1. With no size chosen the
-   stepper still works and Add to Bag still moves focus to the size group. **Drawer:** Tab stays inside it; Escape and a backdrop
-   click close it and focus returns to Add to Bag or the header Bag link; following a line
+   stepper still works and Add to Bag still moves focus to the size group. **Drawer:** opens
+   only from the header Bag link. Tab stays inside it; Escape and a backdrop
+   click close it and focus returns to the header Bag link; following a line
    name or View bag closes it and focus lands on the page's main region, never on a stale
    trigger. The header link is announced as "Bag, 3 items" (plain "Bag" when empty), with a
    popup hint off `/bag` and as the current page on `/bag`; its count is never announced on
@@ -209,22 +217,30 @@ navigation shell.
    "Decrease/Increase quantity, {name}", stay focusable when unavailable, and at the limit
    + carries the description "Only {count} available" (stock) or the up-to-10 notice.
    Decrease is unavailable at 1. Sold-out and unavailable lines have both unavailable and
-   Remove available. **Remove:** "{name} removed from your bag" is spoken at once; after
-   the row fades, focus is on the next line's name (else the previous one, else the "Your
-   bag is empty" heading), never on `body`. Try two removals in quick succession.
-   **Announcements**, each spoken once, never repeated on reopening:
+   Remove available. **Remove:** after the row fades, focus is on the next line's name (else
+   the previous one, else the "Your bag is empty" heading), never on `body`, and "{name}
+   removed from your bag" is spoken from a toast with Undo. On `/bag`, Alt+T then Tab reaches
+   Undo, and pressing it puts the line back in its place with its quantity. In the open
+   drawer, check whether Alt+T can reach Undo at all (the dialog's focus trap may pull focus
+   back; Undo by pointer must work). Try two removals in quick succession: two toasts.
+   **Toasts**, each spoken once, never repeated on reopening, never two for one event with the
+   drawer open over `/bag`:
 
    | Action | Expected |
    | --- | --- |
-   | Change a quantity (several quick presses) | One "{name}, quantity {n}. Subtotal {subtotal}" after the update |
-   | Open a bag whose quote has a sold-out, limited or re-priced line | "Your bag was updated" plus the counts |
-   | Stop the API, open the bag | "We couldn't update your bag" once; Try again reachable |
+   | Change a quantity (several quick presses) | One "{name}, quantity {n}. Subtotal {subtotal}" toast after the update, replacing any earlier one for that line |
+   | Open a bag whose quote has a sold-out, limited or re-priced line | An info toast "Your bag was updated" plus the counts |
+   | Stop the API, open the bag | An error toast "We couldn't update your bag" once; Try again reachable in the toast (Alt+T) and in the bag |
+   | Share on a desktop without Web Share | "Link copied" toast; with the clipboard blocked, "Couldn't copy the link" |
+   | Filter sheet: min above max, leave the field | The price error spoken once from a toast; the garnet text stays under the inputs |
 
    **`/bag`:** Tab order runs lines then the summary; the subtotal reads "Updating" while a
    change is pending; the page never announces or shows "Your bag is empty" for a non-empty
    bag while loading. At 320px and 200% zoom, no horizontal page scroll in the drawer or
-   the page, and the stepper and Remove stay 44px targets. **Reduced motion:** the drawer
-   appears without sliding, a removed row disappears without fading, and focus still moves.
+   the page, and the stepper and Remove stay 44px targets; in Arabic the toast sits bottom
+   left (bottom right in EN) and spans the width at 320. **Reduced motion:** the drawer
+   appears without sliding, a removed row disappears without fading, toasts appear and leave
+   without sliding or scaling, and focus still moves.
 
 ## Running the checks
 

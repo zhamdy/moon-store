@@ -126,6 +126,26 @@ export function removeLine(lines: readonly CartLine[], key: string): readonly Ca
   return next.length === lines.length ? lines : next;
 }
 
+/**
+ * Undo for Remove: puts `line` back at `index` (clamped to the end) with its quantity. A no-op
+ * when a line with that key is already in the bag (re-added meanwhile, or restored twice) or
+ * the bag has filled up since.
+ */
+export function restoreLine(
+  lines: readonly CartLine[],
+  line: CartLine,
+  index: number
+): readonly CartLine[] {
+  const key = cartLineKey(line);
+  if (lines.some((current) => cartLineKey(current) === key) || lines.length >= MAX_CART_LINES) {
+    return lines;
+  }
+  const at = Math.min(Math.max(Math.trunc(index) || 0, 0), lines.length);
+  const next = lines.slice();
+  next.splice(at, 0, { slug: line.slug, options: { ...line.options }, quantity: line.quantity });
+  return next;
+}
+
 export function clearLines(): readonly CartLine[] {
   return [];
 }

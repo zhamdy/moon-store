@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { AppLocale } from '@/i18n/routing';
+import { showToast } from '@/components/feedback/show-toast';
 import { formatPrice } from '@/features/products/utils/price';
-import { fillTemplate } from '@/lib/utils/fill-template';
 import { useCartQuote } from '../api/use-cart-quote';
 import {
   cartStore,
@@ -10,15 +10,17 @@ import {
   useCartSession,
   type CartSnapshot,
 } from '../store/cart-store';
-import type { CartLine as StoredLine } from '../utils/cart-lines';
+import { cartLineKey, type CartLine as StoredLine } from '../utils/cart-lines';
 import type { BagAnnouncementStrings, BagLineStrings } from '../utils/bag-strings';
 import {
   REMOVE_FADE_MS,
-  bagAnnouncementText,
+  bagAnnouncementToast,
   focusTargetAfterRemove,
-  quantityChangedText,
+  quantityChangedToast,
+  removedToast,
   settledQuantity,
   visibleRowKeys,
+  type BagToast,
   type RemoveFocusTarget,
 } from '../utils/bag-view-model';
 import { reconcileBag, type BagRow, type BagView } from '../utils/reconcile';
@@ -30,17 +32,29 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/** Raises a bag toast, attaching the handler its `action` names (and that action's label). */
+function raise(
+  bagToast: BagToast,
+  strings: Pick<BagAnnouncementStrings, 'undo' | 'retry'>,
+  handlers: { undo?(): void; retry?(): void } = {}
+) {
+  const handler = bagToast.action === null ? undefined : handlers[bagToast.action];
+  showToast({
+    tone: bagToast.tone,
+    message: bagToast.message,
+    id: bagToast.id,
+    action:
+      bagToast.action !== null && handler
+        ? { label: strings[bagToast.action], onClick: handler }
+        : undefined,
+  });
+}
+
 export interface BagControllerOptions {
   /** The surface is showing the bag (the drawer while open; the bag page always). */
   active: boolean;
   locale: AppLocale;
   strings: { line: Pick<BagLineStrings, 'currency'>; announcements: BagAnnouncementStrings };
-  /** Writes to the surface's own polite live region; must be referentially stable. */
-  announce(message: string): void;
-  /** Runs before every bag interaction (the drawer ends its `added` mode here). */
-  onInteract?(): void;
-  /** Runs after every render, before a pending removal focus lands (the drawer's scroll). */
-  onAfterRender?(): void;
 }
 
 export interface BagController {
@@ -60,17 +74,10 @@ export interface BagController {
 
 /**
  * What the drawer and the bag page share (plan Units 6-7): the quote, `reconcileBag`, and
- * the model's store writes, announcements, remove fade and focus hand-off, applied in
- * effects. Client-bundled without a directive: only boundary islands import it.
+ * the model's store writes, toasts, remove fade and focus hand-off, applied in effects.
+ * Client-bundled without a directive: only boundary islands import it.
  */
-export function useBagController({
-  active,
-  locale,
-  strings,
-  announce,
-  onInteract,
-  onAfterRender,
-}: BagControllerOptions): BagController {
+export function useBagController({ active, locale, strings }: BagControllerOptions): BagController {
   const cart = useCartLines();
   const session = useCartSession();
   const actions = useCartActions();
@@ -91,6 +98,12 @@ export function useBagController({
   const pendingQuantity = useRef<{ key: string; name: string } | null>(null);
   const appliedCorrection = useRef<string | null>(null);
   const timers = useRef(new Set<number>());
+  // A toast's Try again can be pressed long after the render that raised it.
+  const retryQuote = useRef(quote.retry);
+
+  useEffect(() => {
+    retryQuote.current = quote.retry;
+  });
 
   useEffect(() => {
     const pendingTimers = timers.current;
@@ -115,34 +128,43 @@ export function useBagController({
     if (rememberPrices) actions.rememberPrices(rememberPrices);
   }, [active, priceUpdates, rememberPrices, actions]);
 
-  // Announcements go out after the quote settles, through the surface's live region.
+  // Toasts go out after the quote settles.
   useEffect(() => {
     if (!active) return;
-    const messages: string[] = [];
     const changed = pendingQuantity.current;
     if (changed) {
       const settle = settledQuantity(view, changed.key);
       if (settle.kind !== 'wait') pendingQuantity.current = null;
       if (settle.kind === 'announce') {
         const subtotal = formatPrice(settle.subtotal, locale, strings.line.currency);
-        messages.push(
-          quantityChangedText(strings.announcements, changed.name, settle.count, subtotal)
+        raise(
+          quantityChangedToast(
+            strings.announcements,
+            changed.key,
+            changed.name,
+            settle.count,
+            subtotal
+          ),
+          strings.announcements
         );
       }
     }
-    // The live store, not the render's session: a Strict Mode re-run must not announce twice.
+    // The live store, not the render's session: a Strict Mode re-run, or the drawer open over
+    // `/bag` (two controllers), must not raise it twice. The stable id is the second guard.
     if (announcement && !cartStore.getSession().announcedQuoteKeys.has(announcement.markKey)) {
-      messages.push(bagAnnouncementText(announcement, strings.announcements, locale));
       actions.markQuoteAnnounced(announcement.markKey);
+      raise(
+        bagAnnouncementToast(announcement, strings.announcements, locale),
+        strings.announcements,
+        {
+          retry: () => retryQuote.current(),
+        }
+      );
     }
-    if (messages.length > 0) announce(messages.join('. '));
-  }, [active, view, announcement, strings, locale, actions, announce]);
+  }, [active, view, announcement, strings, locale, actions]);
 
-  // After every render: the surface's own work first, then focus after a removal once its
-  // row has unmounted.
+  // After every render: focus after a removal, once its row has unmounted.
   useEffect(() => {
-    onAfterRender?.();
-
     const target = pendingFocus.current;
     if (target === null) return;
     const element =
@@ -158,15 +180,12 @@ export function useBagController({
   const rows: readonly BagRow[] = view.kind === 'ready' || view.kind === 'loading' ? view.rows : [];
 
   const onQuantityChange = (key: string, quantity: number, name: string) => {
-    onInteract?.();
     pendingQuantity.current = { key, name };
     actions.setQuantity(key, quantity);
   };
 
   const onRemove = (row: BagRow, name: string) => {
     if (removing.has(row.key)) return;
-    onInteract?.();
-    announce(fillTemplate(strings.announcements.removed, { name }));
     const keys = visibleRowKeys(
       rows.map((r) => r.key),
       removing,
@@ -174,6 +193,14 @@ export function useBagController({
     );
 
     const finish = () => {
+      // What Undo needs, read as the line leaves the store: its position, quantity and hint.
+      const stored = cartStore.getSnapshot();
+      const index = stored.hydrated
+        ? stored.lines.findIndex((line) => cartLineKey(line) === row.key)
+        : -1;
+      const line = stored.hydrated && index >= 0 ? stored.lines[index]! : null;
+      const hint = cartStore.getSession().hints.get(row.key);
+
       pendingFocus.current = focusTargetAfterRemove(keys, row.key);
       if (pendingQuantity.current?.key === row.key) pendingQuantity.current = null;
       actions.remove(row.key);
@@ -183,6 +210,12 @@ export function useBagController({
         next.delete(row.key);
         return next;
       });
+
+      if (line) {
+        raise(removedToast(strings.announcements, row.key, name), strings.announcements, {
+          undo: () => actions.restore({ line, index, hint }),
+        });
+      }
     };
 
     if (prefersReducedMotion()) {
@@ -198,12 +231,10 @@ export function useBagController({
   };
 
   const onRetry = () => {
-    onInteract?.();
     quote.retry();
   };
 
   const onEmpty = () => {
-    onInteract?.();
     pendingFocus.current = { kind: 'empty' };
     actions.clear();
   };

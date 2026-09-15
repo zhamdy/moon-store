@@ -1103,6 +1103,19 @@ header[data-surface][data-surface-ready] {
   }
 }
 
+/* Toaster (Sonner, `components/feedback/app-toaster.tsx`). Sonner injects an unlayered sheet
+   at runtime, after this one, so these rules are unlayered too and one step more specific:
+   its system font stack and its `outline: 0` on the focusable toast would otherwise win.
+   Its own `prefers-reduced-motion` rule already removes the slide and stacking transitions. */
+[data-sonner-toaster][data-y-position] {
+  font-family: var(--font-body);
+}
+
+[data-sonner-toaster] [data-sonner-toast]:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
 /* Bag loading: a placeholder appears only after 150ms, so a near-instant quote never
    flashes one, then breathes slowly. The loop fills nothing, so the entrance's held
    opacity 0 wins during the delay. Content replacing a placeholder fades in on mount. */

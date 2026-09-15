@@ -1,4 +1,5 @@
 import type { AppLocale } from '@/i18n/routing';
+import type { ToastTone } from '@/components/feedback/show-toast';
 import { localizedName, type LocalizedText } from '@/features/products/utils/localized-name';
 import { fillTemplate } from '@/lib/utils/fill-template';
 import { MAX_LINE_QUANTITY } from '../constants';
@@ -15,22 +16,6 @@ import type { BagAnnouncement, BagIssueCounts, BagNotice, BagRow, BagView } from
 
 /** The removed row's fade before it unmounts (`--motion-fast`). */
 export const REMOVE_FADE_MS = 180;
-
-/**
- * The list scroll position that brings a row fully into view, or `null` when it already is.
- * Manual rather than `scrollIntoView`, which would also try to scroll the page behind the
- * locked dialog while the panel is still translated off-screen.
- */
-export function scrollTopToReveal(
-  row: { offsetTop: number; offsetHeight: number },
-  list: { scrollTop: number; clientHeight: number }
-): number | null {
-  const bottom = row.offsetTop + row.offsetHeight;
-  const visibleBottom = list.scrollTop + list.clientHeight;
-  if (row.offsetTop >= list.scrollTop && bottom <= visibleBottom) return null;
-  if (row.offsetTop < list.scrollTop || row.offsetHeight > list.clientHeight) return row.offsetTop;
-  return bottom - list.clientHeight;
-}
 
 export type RemoveFocusTarget = { kind: 'line'; key: string } | { kind: 'empty' };
 
@@ -201,12 +186,62 @@ export function settledQuantity(view: BagView, key: string): QuantitySettle {
   return { kind: 'announce', count: row.displayQuantity, subtotal: summary.subtotal };
 }
 
-/** "{name}, quantity {count}. Subtotal {subtotal}", with the subtotal already formatted. */
-export function quantityChangedText(
+/**
+ * A bag message as a toast (owner decision 2026-09-15). `action` names the handler the
+ * controller attaches; its label is the same-named string. Ids are stable so a newer message
+ * of the same kind replaces the one showing, and the drawer over `/bag` never stacks two.
+ */
+export interface BagToast {
+  tone: ToastTone;
+  message: string;
+  id: string;
+  action: 'undo' | 'retry' | null;
+}
+
+/** One id for the quote's status: an update notice and a failure replace each other. */
+export const BAG_QUOTE_TOAST_ID = 'bag-quote';
+
+export function bagAnnouncementToast(
+  announcement: BagAnnouncement,
+  strings: Pick<BagAnnouncementStrings, 'updated' | 'issues' | 'errorLoad'>,
+  locale: string
+): BagToast {
+  return announcement.kind === 'failed'
+    ? { tone: 'error', message: strings.errorLoad, id: BAG_QUOTE_TOAST_ID, action: 'retry' }
+    : {
+        tone: 'info',
+        message: bagAnnouncementText(announcement, strings, locale),
+        id: BAG_QUOTE_TOAST_ID,
+        action: null,
+      };
+}
+
+/** "{name}, quantity {count}. Subtotal {subtotal}", one toast per line, replaced on each change. */
+export function quantityChangedToast(
   strings: Pick<BagAnnouncementStrings, 'quantityChanged'>,
+  key: string,
   name: string,
   count: number,
   subtotal: string
-): string {
-  return fillTemplate(strings.quantityChanged, { name, count, subtotal });
+): BagToast {
+  return {
+    tone: 'info',
+    message: fillTemplate(strings.quantityChanged, { name, count, subtotal }),
+    id: `bag-quantity:${key}`,
+    action: null,
+  };
+}
+
+/** "{name} removed from your bag" with Undo; per line, so two removals are two toasts. */
+export function removedToast(
+  strings: Pick<BagAnnouncementStrings, 'removed'>,
+  key: string,
+  name: string
+): BagToast {
+  return {
+    tone: 'info',
+    message: fillTemplate(strings.removed, { name }),
+    id: `bag-removed:${key}`,
+    action: 'undo',
+  };
 }
