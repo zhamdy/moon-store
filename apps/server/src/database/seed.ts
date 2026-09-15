@@ -975,6 +975,24 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
         [key, value]
       );
     }
+
+    // Placeholder copy: replace with the real policy before launch (storefront product page).
+    // Deliberately promises nothing (no area, fee, time, return or exchange; ED-5 revised).
+    const storePolicies = [
+      ['delivery_policy', 'نؤكد لكِ تفاصيل التوصيل عند إتمام طلبك.'],
+      ['delivery_policy_en', 'Delivery details are confirmed when you place your order.'],
+      ['returns_policy', 'لديكِ سؤال عن طلبك؟ تواصلي معنا وسيساعدك فريقنا.'],
+      ['returns_policy_en', 'Questions about your order? Contact us and our team will help.'],
+    ];
+
+    // Only when absent. Note the settings table is cleared above, so this protects a
+    // policy only if that clear is ever narrowed; it never overwrites an existing row.
+    for (const [key, value] of storePolicies) {
+      await client.query(
+        `INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`,
+        [key, value]
+      );
+    }
     logger.info('✓ Settings configured (EGP, Egypt).');
 
     // ─── Shipping Companies ──────────────────────────────────────────

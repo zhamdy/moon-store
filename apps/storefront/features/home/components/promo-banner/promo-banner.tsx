@@ -12,7 +12,7 @@ import { editorialImages } from '@/lib/editorial/images';
 /**
  * 04 - Promo banner (user decision, 2026-09-14), in place of the guideline's
  * editorial brand moment. A full-bleed photograph announcing a new collection or
- * an offer: a label, a headline, one line and a button.
+ * an offer: a headline, a description line, one line of copy and a button.
  *
  * Everything it says lives in `home.banner` in both message catalogues, and the
  * href, slots and per-crop `object-position` live in
@@ -36,8 +36,9 @@ import { editorialImages } from '@/lib/editorial/images';
  *
  * Layers are explicit (photo z-0, scrims z-10, copy z-20). Motion, one Reveal: the
  * photograph settles from 1.08 as the section arrives and drifts with the scroll;
- * the label wipes in, the headline rises word by word, the line follows and the
- * button comes last. Scrims never move, so contrast holds at every frame.
+ * the headline (the `eyebrow` message, owner decision 2026-09-14) rises word by word,
+ * the description (the `title` message) and the line follow and the button comes
+ * last. Scrims never move, so contrast holds at every frame.
  */
 export async function PromoBanner() {
   const t = await getTranslations('home.banner');
@@ -96,29 +97,29 @@ export async function PromoBanner() {
       <Container as="div" className="relative z-20 w-full py-(--section-space)">
         {/* Under RTL, margin-inline-start: auto pushes the block to the physical left. */}
         <div className="max-w-xl rtl:banner-wide:ms-auto">
-          <p
-            data-motion="wipe"
-            className="type-label w-fit text-text-secondary [--motion-offset:250ms]"
-          >
-            {t('eyebrow')}
-          </p>
           <TextReveal
             as="h2"
             id="promo-banner-title"
-            text={t('title')}
+            text={t('eyebrow')}
             offset={350}
             step={80}
-            className="type-h1 mt-4 text-balance"
+            className="type-h1 text-balance"
           />
           <p
             data-motion="rise"
-            className="type-body-lg mt-5 max-w-md text-text/85 [--motion-offset:700ms] [--motion-rise:32px]"
+            className="type-h4 mt-4 text-text-secondary [--motion-offset:600ms] [--motion-rise:24px]"
+          >
+            {t('title')}
+          </p>
+          <p
+            data-motion="rise"
+            className="type-body-lg mt-4 max-w-md text-text/85 [--motion-offset:750ms] [--motion-rise:32px]"
           >
             {t('body')}
           </p>
           {/* The button's own colour transition would replace the reveal's, so the
               wrapper carries the entrance. */}
-          <div data-motion="rise" className="mt-8 [--motion-offset:900ms] [--motion-rise:24px]">
+          <div data-motion="rise" className="mt-8 [--motion-offset:950ms] [--motion-rise:24px]">
             {/* Ivory on the ink surface: bg-text / text-bg invert with the surface. */}
             <Link
               href={promoBanner.href}

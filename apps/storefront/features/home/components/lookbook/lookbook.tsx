@@ -76,7 +76,9 @@ export async function Lookbook() {
             travel={TRAVEL[index % TRAVEL.length]}
             className={cn('w-[78vw] shrink-0 snap-start lg:w-auto', MOSAIC[index])}
           >
-            <figure className={cn('relative bg-surface-soft', item.aspect)}>
+            <figure
+              className={cn('relative overflow-hidden rounded-media bg-surface-soft', item.aspect)}
+            >
               <Image
                 src={editorialImages[item.slot].src}
                 alt={t(item.altKey)}

@@ -36,6 +36,45 @@ export interface CatalogProductRow {
   in_stock: boolean;
 }
 
+/** A product detail row. `id`, `stock` and `has_variants` are internal and never mapped out. */
+export interface CatalogProductDetailRow {
+  id: number;
+  slug: string;
+  name: string;
+  name_en: string | null;
+  description: string | null;
+  description_en: string | null;
+  material: string | null;
+  material_en: string | null;
+  care: string | null;
+  care_en: string | null;
+  fit: string | null;
+  fit_en: string | null;
+  price: string | number;
+  image_url: string | null;
+  stock: string | number | null;
+  has_variants: string | number | boolean | null;
+  is_new: boolean;
+  category_slug: string | null;
+  category_name: string | null;
+  category_name_en: string | null;
+}
+
+/** One variant of a detail product. `id` orders and identifies it in logs only. */
+export interface CatalogVariantRow {
+  id: number;
+  /** NUMERIC and nullable: null means the product's price applies. */
+  price: string | number | null;
+  stock: string | number | null;
+  attributes: string | null;
+}
+
+export interface CatalogProductCollectionRow {
+  slug: string;
+  name: string;
+  name_en: string | null;
+}
+
 export interface CatalogGalleryRow {
   product_id: number;
   image_url: string;
@@ -77,6 +116,46 @@ export interface CatalogProductDto {
   inStock: boolean;
 }
 
+export interface CatalogContextDto {
+  slug: string;
+  name: string;
+  nameEn: string | null;
+}
+
+export interface CatalogOptionDto {
+  key: string;
+  label: string;
+  values: string[];
+}
+
+export interface CatalogVariantDto {
+  options: Record<string, string>;
+  price: number;
+  inStock: boolean;
+}
+
+export interface CatalogProductDetailDto {
+  slug: string;
+  name: string;
+  nameEn: string | null;
+  description: string | null;
+  descriptionEn: string | null;
+  material: string | null;
+  materialEn: string | null;
+  care: string | null;
+  careEn: string | null;
+  fit: string | null;
+  fitEn: string | null;
+  price: number;
+  isNew: boolean;
+  inStock: boolean;
+  images: CatalogImageDto[];
+  category: CatalogContextDto | null;
+  collections: CatalogContextDto[];
+  options: CatalogOptionDto[];
+  variants: CatalogVariantDto[];
+}
+
 export interface CatalogCategoryDto {
   slug: string;
   name: string;
@@ -97,6 +176,14 @@ export interface CatalogCollectionDto {
   imageUrl: string | null;
   isFeatured: boolean;
   productCount: number;
+}
+
+/** Store-wide product-page copy. Each field is null when unset, empty or whitespace-only. */
+export interface CatalogStorePoliciesDto {
+  delivery: string | null;
+  deliveryEn: string | null;
+  returns: string | null;
+  returnsEn: string | null;
 }
 
 export interface CatalogPriceRange {

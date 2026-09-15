@@ -1,19 +1,16 @@
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
-import { logoAssets } from '@/lib/brand/logo-assets';
 import { editorialImages } from '@/lib/editorial/images';
 import { cn } from '@/lib/utils/cn';
 import type { ImageSource, ProductCardBadge, ProductCardModel } from '../utils/product-card-model';
 import { formatPrice } from '../utils/price';
+import { ProductImagePlaceholder } from './product-image-placeholder';
 
 /** Card width in the homepage's 4-up desktop grid / 2-up below. */
 export const CATALOG_CARD_SIZES = '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, 46vw';
 /** The Curated Edit's 2x2 feature card. */
 export const LARGE_CARD_SIZES = '(min-width: 1440px) 672px, (min-width: 1024px) 48vw, 92vw';
-
-/** The missing-image mark's rendered width; its height follows the asset's ratio. */
-const MARK_WIDTH = 40;
 
 export interface ProductCardProps {
   /** Built by `fromHomeMock` or `fromCatalogDto`; the card never sees a data source. */
@@ -109,7 +106,7 @@ export function ProductCard({
       <Link href={product.href} className="relative block">
         <div
           data-motion={reveal === 'image' ? 'image' : undefined}
-          className="relative aspect-4/5 overflow-hidden bg-surface-soft"
+          className="relative isolate aspect-4/5 overflow-hidden rounded-media bg-surface-soft"
         >
           <div data-motion-zoom={reveal === 'image' ? '' : undefined} className="absolute inset-0">
             <div className="absolute inset-0 transition-transform duration-base ease-ui group-hover:scale-[1.03]">
@@ -124,20 +121,7 @@ export function ProductCard({
                   className="object-cover"
                 />
               ) : (
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 flex items-center justify-center"
-                >
-                  <Image
-                    src={logoAssets.mark.src}
-                    alt=""
-                    width={MARK_WIDTH}
-                    height={Math.round(
-                      (logoAssets.mark.height / logoAssets.mark.width) * MARK_WIDTH
-                    )}
-                    className="opacity-15"
-                  />
-                </div>
+                <ProductImagePlaceholder />
               )}
               {/* .hover-alt-image (app/globals.css): display:none unless
                   (hover: hover) and (min-width: 768px), so this lazy image is
@@ -183,8 +167,8 @@ export function ProductCard({
           <span
             className={
               badge === 'soldOut'
-                ? 'type-caption absolute start-3 top-3 bg-bg px-2 py-1 font-medium tracking-[0.08em] uppercase text-text-secondary'
-                : 'type-caption absolute start-3 top-3 bg-bg px-2 py-1 font-medium tracking-[0.08em] uppercase'
+                ? 'type-caption absolute start-3 top-3 rounded-media-sm bg-action px-2 py-1 font-medium tracking-[0.08em] uppercase text-on-action'
+                : 'type-caption absolute start-3 top-3 rounded-media-sm bg-brand-soft px-2 py-1 font-medium tracking-[0.08em] uppercase text-brand-dark'
             }
           >
             {badgeLabels[badge]}

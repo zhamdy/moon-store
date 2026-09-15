@@ -44,8 +44,8 @@ export async function CuratedEdit({ locale }: { locale: AppLocale }) {
           grouped
           offset={250}
           id="curated-title"
-          eyebrow={t('eyebrow')}
-          title={t('title')}
+          title={t('eyebrow')}
+          description={t('title')}
           link={{ href: '/shop', label: t('link') }}
         />
         <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-10 lg:mt-14 lg:grid-cols-4 lg:gap-x-8">

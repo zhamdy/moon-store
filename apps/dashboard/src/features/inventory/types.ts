@@ -50,6 +50,16 @@ export interface ProductFormData {
   slug?: string;
   /** Blank in the form; sent as null, which clears it. Arabic `name` stays primary. */
   name_en?: string | null;
+  /** Same blank-clears convention as `name_en`. Arabic `description` stays primary. */
+  description?: string | null;
+  description_en?: string | null;
+  /** The storefront Details tab; same blank-clears convention, unsuffixed is Arabic. */
+  material?: string | null;
+  material_en?: string | null;
+  care?: string | null;
+  care_en?: string | null;
+  fit?: string | null;
+  fit_en?: string | null;
 }
 
 /** One additional image from GET products/:id/images, ordered by `position`. */

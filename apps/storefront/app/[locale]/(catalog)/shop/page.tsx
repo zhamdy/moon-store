@@ -37,14 +37,13 @@ export default async function ShopPage({ params, searchParams }: PageProps<'/[lo
   const catalogParams = await loadCatalogParams(searchParams, ROUTE);
   // For the category row; resolved before anything streams, like every catalog entity.
   const categories = await listCatalogCategories();
-  const t = await getTranslations('catalog');
 
   return (
     <CatalogPage
       route={ROUTE}
       params={catalogParams}
       locale={locale}
-      intro={{ title: { text: t('intro.shopTitle'), lang: locale } }}
+      intro={{}}
       categories={categories}
     />
   );

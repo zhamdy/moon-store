@@ -53,7 +53,7 @@ export async function EditorialStrip() {
           ) : (
             <span
               key={index}
-              className="relative block shrink-0 overflow-hidden"
+              className="relative isolate block shrink-0 overflow-hidden rounded-media"
               style={{ width: STRIP_IMAGE_WIDTH, height: STRIP_IMAGE_HEIGHT }}
             >
               <Image

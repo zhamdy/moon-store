@@ -6,8 +6,10 @@ import { cn } from '@/lib/utils/cn';
 export interface SectionHeadingProps {
   /** The `h2`'s id, referenced by the section's `aria-labelledby`. */
   id: string;
-  eyebrow: string;
+  /** The `h2`. */
   title: string;
+  /** The quiet line under it. */
+  description: string;
   link?: { href: string; label: string };
   /** Milliseconds before the heading starts, for a section that shows something else first. */
   offset?: number;
@@ -19,9 +21,11 @@ export interface SectionHeadingProps {
 const offsetStyle = (ms: number) => ({ '--motion-offset': `${ms}ms` }) as CSSProperties;
 
 /**
- * The commerce sections' shared heading row: eyebrow and `h2` at inline-start, an
- * optional editorial link at inline-end. Deliberately quiet (AD-11, 2026-09-14):
- * the eyebrow fades, the title rises once as a whole, the link fades in last. The
+ * The commerce sections' shared heading row: `h2` and a description line at
+ * inline-start, an optional editorial link at inline-end. No eyebrow (owner decision,
+ * 2026-09-14: the former eyebrow copy is the title, the former title the description).
+ * Deliberately quiet (AD-11, 2026-09-14): the title rises once as a whole, the
+ * description fades just after it, the link fades in last. The
  * word-masked rise belongs to the signature moments (promo banner, featured
  * collection, campaign) so it stays distinct; Shop and Collections inherit this
  * quieter heading. The link sits in its own wrapper because its underline
@@ -29,8 +33,8 @@ const offsetStyle = (ms: number) => ({ '--motion-offset': `${ms}ms` }) as CSSPro
  */
 export function SectionHeading({
   id,
-  eyebrow,
   title,
+  description,
   link,
   offset = 0,
   grouped = false,
@@ -40,21 +44,21 @@ export function SectionHeading({
   const content = (
     <>
       <div>
-        <p
-          data-motion="fade"
-          style={offsetStyle(offset)}
-          className="type-label text-text-secondary"
-        >
-          {eyebrow}
-        </p>
         <h2
           id={id}
           data-motion="rise"
           style={offsetStyle(offset + 120)}
-          className="type-h2 mt-3 [--motion-rise:24px]"
+          className="type-h2 [--motion-rise:24px]"
         >
           {title}
         </h2>
+        <p
+          data-motion="fade"
+          style={offsetStyle(offset + 240)}
+          className="type-body-lg mt-3 text-text-secondary"
+        >
+          {description}
+        </p>
       </div>
       {link && (
         <div data-motion="fade" style={offsetStyle(offset + 450)} className="mb-1">

@@ -344,6 +344,132 @@ describe('Inventory product authoring fields', () => {
       ).not.toBeInTheDocument()
     );
   }, 20000);
+
+  it('accepts typed text in both description fields on the create form (Controller wiring)', async () => {
+    renderInventory(authoringTransport());
+    await screen.findByText('Silk Dress');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Add Product$/ }));
+    const description = (await screen.findByLabelText('Description')) as HTMLTextAreaElement;
+    const descriptionEn = screen.getByLabelText('English description') as HTMLTextAreaElement;
+
+    fireEvent.change(description, { target: { value: 'Arabic copy' } });
+    fireEvent.change(descriptionEn, { target: { value: 'English copy' } });
+
+    // HeroUI's Textarea holds its own controlled value; a plain `register()` would
+    // leave `reset()` unable to populate it later, so this proves Controller wiring
+    // reflects typed input rather than only accepting a programmatic default.
+    await waitFor(() => expect(description.value).toBe('Arabic copy'));
+    expect(descriptionEn.value).toBe('English copy');
+  }, 20000);
+
+  const DETAIL_LABELS = {
+    material: 'Material',
+    material_en: 'English material',
+    care: 'Care',
+    care_en: 'English care',
+    fit: 'Fit',
+    fit_en: 'English fit',
+  };
+
+  it('accepts typed text in all six product detail fields on the create form (Controller wiring)', async () => {
+    const transport = authoringTransport();
+    renderInventory(transport);
+    await screen.findByText('Silk Dress');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Add Product$/ }));
+    await screen.findByLabelText('Material');
+    for (const [field, label] of Object.entries(DETAIL_LABELS)) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value: `${field} copy` } });
+    }
+    for (const [field, label] of Object.entries(DETAIL_LABELS)) {
+      await waitFor(() => expect(screen.getByLabelText(label)).toHaveValue(`${field} copy`));
+    }
+  }, 20000);
+
+  it('loads stored product details into the edit form, resubmits them, and sends a blanked one as null', async () => {
+    const details = {
+      material: 'حرير',
+      material_en: 'Silk',
+      care: 'تنظيف جاف',
+      care_en: 'Dry clean',
+      fit: 'قصة واسعة',
+      fit_en: 'Relaxed',
+    };
+    const transport = createMemoryTransport(
+      {
+        products: [{ ...SILK_DRESS, ...details }, CASHMERE_COAT],
+        distributors: [],
+      },
+      {
+        reads: {
+          'products/categories': [{ id: 3, name: 'Dresses', code: 'DRS' }],
+          'products/1/images': [],
+        },
+      }
+    );
+    renderInventory(transport);
+    await screen.findByText('Silk Dress');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Actions' })[0]);
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Edit/ }));
+    expect(await screen.findByLabelText('Material')).toHaveValue('حرير');
+    for (const [field, label] of Object.entries(DETAIL_LABELS)) {
+      expect(screen.getByLabelText(label)).toHaveValue(details[field as keyof typeof details]);
+    }
+
+    fireEvent.change(screen.getByLabelText('English fit'), { target: { value: '' } });
+    await waitFor(() => expect(screen.getByLabelText('English fit')).toHaveValue(''));
+    fireEvent.click(screen.getByRole('button', { name: /^Update$/ }));
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'PUT',
+          path: 'products/1',
+          body: expect.objectContaining({ ...details, fit_en: null }),
+        })
+      )
+    );
+  }, 20000);
+
+  it('loads a stored description into the edit form and resubmits it unchanged', async () => {
+    const transport = createMemoryTransport(
+      {
+        products: [
+          { ...SILK_DRESS, description: 'وصف عربي', description_en: 'Silk copy' },
+          CASHMERE_COAT,
+        ],
+        distributors: [],
+      },
+      {
+        reads: {
+          'products/categories': [{ id: 3, name: 'Dresses', code: 'DRS' }],
+          'products/1/images': [],
+        },
+      }
+    );
+    renderInventory(transport);
+    await screen.findByText('Silk Dress');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Actions' })[0]);
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Edit/ }));
+    expect(await screen.findByLabelText('Description')).toHaveValue('وصف عربي');
+    expect(screen.getByLabelText('English description')).toHaveValue('Silk copy');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Update$/ }));
+    await waitFor(() =>
+      expect(transport.calls()).toContainEqual(
+        expect.objectContaining({
+          method: 'PUT',
+          path: 'products/1',
+          body: expect.objectContaining({
+            description: 'وصف عربي',
+            description_en: 'Silk copy',
+          }),
+        })
+      )
+    );
+  }, 20000);
 });
 
 describe('Inventory product dialog: stale generated codes', () => {

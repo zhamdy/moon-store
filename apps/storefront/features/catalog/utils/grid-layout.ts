@@ -92,3 +92,16 @@ export const CATALOG_GRID_CLASS =
 /** The utility row: result count at the start, the controls slot at the end. Height reserved. */
 export const CATALOG_TOOLBAR_CLASS =
   'flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-border py-3';
+
+/** The product page's related row: 4 up from 1024, 2 up below, the catalog gaps and gutters. */
+export const RELATED_GRID_STEPS: readonly CatalogGridStep[] = [
+  { minWidth: 1440, columns: 4, columnGap: 24, gutter: 64 },
+  { minWidth: 1024, columns: 4, columnGap: 24, gutter: 48 },
+  { minWidth: 768, columns: 2, columnGap: 20, gutter: 32 },
+  { minWidth: 0, columns: 2, columnGap: 12, gutter: 20 },
+];
+
+export const RELATED_GRID_SIZES = catalogGridSizes(RELATED_GRID_STEPS);
+
+export const RELATED_GRID_CLASS =
+  'grid grid-cols-2 gap-x-3 gap-y-8 md:gap-x-5 md:gap-y-12 lg:grid-cols-4 lg:gap-x-6';

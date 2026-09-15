@@ -295,6 +295,54 @@ describe('storefront fields on the product write paths (HTTP boundary)', () => {
     expect(renamed.body.data).toMatchObject({ slug: 'slip-dress', name_en: null });
   });
 
+  it('persists description and description_en on create and update, both visible on the admin GET', async () => {
+    const created = await create({
+      description: 'فستان حريري',
+      description_en: 'A silk slip dress.',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      description: 'فستان حريري',
+      description_en: 'A silk slip dress.',
+    });
+
+    const read = await http.request('GET', `/api/v1/products/${created.body.data.id}`);
+    expect(read.status).toBe(200);
+    expect(read.body.data).toMatchObject({ description_en: 'A silk slip dress.' });
+
+    const updated = await http.request(
+      'PUT',
+      `/api/v1/products/${created.body.data.id}`,
+      productBody({ description_en: 'An updated description.' })
+    );
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.description_en).toBe('An updated description.');
+  });
+
+  it('leaves description and description_en alone when a PUT omits them, and clears them on null', async () => {
+    const created = await create({ description: 'Arabic copy', description_en: 'English copy' });
+    const id = created.body.data.id;
+
+    const untouched = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ stock: 7 })
+    );
+    expect(untouched.status).toBe(200);
+    expect(untouched.body.data).toMatchObject({
+      description: 'Arabic copy',
+      description_en: 'English copy',
+    });
+
+    const cleared = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ description: null, description_en: null })
+    );
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.data).toMatchObject({ description: null, description_en: null });
+  });
+
   it('answers 409 when all ten candidates are taken', async () => {
     for (let i = 1; i <= 10; i += 1) {
       const slug = i === 1 ? 'wrap-dress' : `wrap-dress-${i}`;
@@ -326,6 +374,105 @@ describe('storefront fields on the product write paths (HTTP boundary)', () => {
       { sku: 'I-2', slug: 'linen-shirt-2', name_en: 'Linen Shirt' },
       { sku: 'I-3', slug: 'custom-linen', name_en: 'Linen Trousers' },
     ]);
+  });
+
+  it('persists descriptions from a CSV import and keeps them when a re-import omits them', async () => {
+    const first = await http.request('POST', '/api/v1/products/import', {
+      products: [
+        productBody({ sku: 'D-1', description: 'حرير طبيعي', description_en: 'Natural silk.' }),
+      ],
+    });
+    expect(first.body.data).toEqual({ imported: 1, errors: [] });
+
+    const again = await http.request('POST', '/api/v1/products/import', {
+      products: [productBody({ sku: 'D-1', stock: 7 })],
+    });
+    expect(again.body.data).toEqual({ imported: 1, errors: [] });
+
+    const { rows } = await testPool.query(
+      "SELECT stock, description, description_en FROM products WHERE sku = 'D-1'"
+    );
+    expect(rows).toEqual([
+      { stock: 7, description: 'حرير طبيعي', description_en: 'Natural silk.' },
+    ]);
+  });
+
+  const DETAILS = {
+    material: 'حرير طبيعي ١٠٠٪',
+    material_en: '100% silk',
+    care: 'تنظيف جاف فقط',
+    care_en: 'Dry clean only',
+    fit: 'قصة واسعة',
+    fit_en: 'Relaxed fit',
+  };
+  const NO_DETAILS = {
+    material: null,
+    material_en: null,
+    care: null,
+    care_en: null,
+    fit: null,
+    fit_en: null,
+  };
+
+  it('persists material, care and fit on create, keeps them when a PUT omits them, clears them on null', async () => {
+    const created = await create(DETAILS);
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject(DETAILS);
+    const id = created.body.data.id;
+
+    const read = await http.request('GET', `/api/v1/products/${id}`);
+    expect(read.status).toBe(200);
+    expect(read.body.data).toMatchObject(DETAILS);
+
+    const untouched = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ stock: 7 })
+    );
+    expect(untouched.status).toBe(200);
+    expect(untouched.body.data).toMatchObject(DETAILS);
+
+    const cleared = await http.request(
+      'PUT',
+      `/api/v1/products/${id}`,
+      productBody({ ...NO_DETAILS, care_en: 'Hand wash' })
+    );
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.data).toMatchObject({ ...NO_DETAILS, care_en: 'Hand wash' });
+  });
+
+  it.each(Object.keys(DETAILS))('rejects a %s longer than 2000 characters', async (field) => {
+    const res = await create({ [field]: 'a'.repeat(2001) });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('accepts material, care and fit at exactly 2000 characters', async () => {
+    const res = await create({ material: 'a'.repeat(2000) });
+    expect(res.status).toBe(201);
+  });
+
+  it('persists material, care and fit from a CSV import and keeps them when a re-import omits them', async () => {
+    const first = await http.request('POST', '/api/v1/products/import', {
+      products: [productBody({ sku: 'M-1', ...DETAILS })],
+    });
+    expect(first.body.data).toEqual({ imported: 1, errors: [] });
+
+    const again = await http.request('POST', '/api/v1/products/import', {
+      products: [productBody({ sku: 'M-1', stock: 7 })],
+    });
+    expect(again.body.data).toEqual({ imported: 1, errors: [] });
+
+    const { rows } = await testPool.query(
+      "SELECT stock, material, material_en, care, care_en, fit, fit_en FROM products WHERE sku = 'M-1'"
+    );
+    expect(rows).toEqual([{ stock: 7, ...DETAILS }]);
+  });
+
+  it('rejects a description longer than 5000 characters on create', async () => {
+    const res = await create({ description: 'a'.repeat(5001) });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('fails only the import row whose explicit slug another SKU holds, and keeps a re-imported slug', async () => {

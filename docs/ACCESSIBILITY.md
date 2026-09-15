@@ -121,6 +121,28 @@ autofocus; the rule is an opinion about general web pages.
 to a single frame rather than removing animations — `animation: none` can strand an
 element on its opening keyframe, invisible.
 
+**Storefront sold-out sizes stay selectable.** On the product page each option is a
+`<fieldset>` of native radios (`features/products/components/purchase-panel.tsx`), and a
+sold-out or unavailable value is never `disabled`: disabled radios are skipped by arrow keys
+and hidden by many screen readers, so a shopper could not find out that M is sold out. The
+value is struck through in `text-disabled` and its label carries visually hidden
+"{value}, sold out" text, so the state is never colour alone. Price and availability share
+one polite live region rendered with the first paint, because a region mounted alongside its
+message announces nothing.
+
+**The storefront gallery is a vertical tablist of thumbnails.** With two or more images the
+thumbnails are a WAI-ARIA tablist (`aria-orientation="vertical"`, labelled) with a roving
+tabindex and automatic activation: Up/Down move, Left/Right move in reading direction
+(mirrored in RTL), Home/End jump, and movement wraps. The large image frame is the one
+`tabpanel`, labelled by the active tab and itself a tab stop (it holds no focusable content),
+with an inset focus ring. Zoom in place is pointer-only by design (a fine hovering pointer at
+1024 and above); keyboard and touch users rely on browser zoom. One image: no tablist.
+
+**The storefront product details are horizontal tabs.** Description / Details / Shipping &
+returns are WAI-ARIA tabs with Left/Right (mirrored in RTL) and Home/End, wrapping; inactive
+panels are `hidden`, and a panel with no focusable content is itself a tab stop. The tab bar
+is sticky under the site header, so focus must never land beneath either.
+
 **Colour tokens are measured, not eyeballed.** `success` and `warning` are defined per
 theme in `tailwind.config.js` with their contrast ratios in the comment. HeroUI's default
 success (`#17C964`) measures **2.19:1** on a light surface and was in use in table cells.
@@ -144,6 +166,19 @@ navigation shell.
    missing or stuck invisible as a result.
 6. **Offline banner and queue states.** Pull the network: the state change should be
    announced, not only shown.
+7. **Storefront product page, keyboard and screen reader.** The storefront is not
+   axe-scanned by `e2e/`, so this is the only check it gets. On a product with mixed stock
+   (`cashmere-pullover` in a seeded catalog), in EN and AR: Tab enters each size fieldset
+   once, arrow keys move and select, and the focus ring is visible and never under the
+   sticky header. VoiceOver/NVDA announce something like "M, sold out, 2 of 3, selected",
+   and the price/status change is spoken. Gallery: Tab reaches the selected thumbnail once;
+   Up/Down, reading-direction Left/Right (mirrored in AR), Home/End move and wrap, and each
+   change is announced as the selected tab. Tab again reaches the image panel, its ring is
+   visible inside the frame, and its alt text is read. Details tabs: Tab reaches the active
+   tab once; Left/Right (mirrored in AR) and Home/End switch, and Tab moves into the panel.
+   Focus is never hidden under the sticky header or the stuck details tab bar. At 320px
+   there is no horizontal page scroll: a long category in the breadcrumb truncates, and the
+   thumbnail column and the tab bar stay inside the page (the bar scrolls sideways itself).
 
 ## Running the checks
 

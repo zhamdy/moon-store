@@ -11,6 +11,7 @@ import {
   ModalFooter,
   Select,
   SelectItem,
+  Textarea,
 } from '@heroui/react';
 import { useTransport } from '../../../../shared/lib/transport/index';
 import { useTranslation } from '../../../../shared/i18n/index';
@@ -324,6 +325,164 @@ export default function ProductFormDialog({
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Controller: HeroUI's Textarea holds its own controlled value, so
+                    react-hook-form's `reset` on dialog open never reaches it otherwise. */}
+                <Controller
+                  name="description"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      label={t('inventory.description')}
+                      size="sm"
+                      variant="bordered"
+                      dir="rtl"
+                      minRows={2}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onValueChange={field.onChange}
+                      isInvalid={!!errors.description}
+                      errorMessage={errors.description?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="description_en"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      label={t('catalog.descriptionEn')}
+                      size="sm"
+                      variant="bordered"
+                      dir="ltr"
+                      minRows={2}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onValueChange={field.onChange}
+                      isInvalid={!!errors.description_en}
+                      errorMessage={errors.description_en?.message}
+                    />
+                  )}
+                />
+              </div>
+
+              {/* The storefront product page's Details tab; same Controller reason as above. */}
+              <fieldset className="flex flex-col gap-2">
+                <legend className="text-sm font-medium mb-2">
+                  {t('inventory.productDetails')}
+                </legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Controller
+                    name="material"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        label={t('inventory.material')}
+                        size="sm"
+                        variant="bordered"
+                        dir="rtl"
+                        minRows={2}
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onValueChange={field.onChange}
+                        isInvalid={!!errors.material}
+                        errorMessage={errors.material?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    name="material_en"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        label={t('inventory.materialEn')}
+                        size="sm"
+                        variant="bordered"
+                        dir="ltr"
+                        minRows={2}
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onValueChange={field.onChange}
+                        isInvalid={!!errors.material_en}
+                        errorMessage={errors.material_en?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    name="care"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        label={t('inventory.care')}
+                        size="sm"
+                        variant="bordered"
+                        dir="rtl"
+                        minRows={2}
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onValueChange={field.onChange}
+                        isInvalid={!!errors.care}
+                        errorMessage={errors.care?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    name="care_en"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        label={t('inventory.careEn')}
+                        size="sm"
+                        variant="bordered"
+                        dir="ltr"
+                        minRows={2}
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onValueChange={field.onChange}
+                        isInvalid={!!errors.care_en}
+                        errorMessage={errors.care_en?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    name="fit"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        label={t('inventory.fit')}
+                        size="sm"
+                        variant="bordered"
+                        dir="rtl"
+                        minRows={2}
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onValueChange={field.onChange}
+                        isInvalid={!!errors.fit}
+                        errorMessage={errors.fit?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    name="fit_en"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        label={t('inventory.fitEn')}
+                        size="sm"
+                        variant="bordered"
+                        dir="ltr"
+                        minRows={2}
+                        value={field.value ?? ''}
+                        onBlur={field.onBlur}
+                        onValueChange={field.onChange}
+                        isInvalid={!!errors.fit_en}
+                        errorMessage={errors.fit_en?.message}
+                      />
+                    )}
+                  />
+                </div>
+              </fieldset>
+
               {/* Images address the product by id, so they appear once it exists. */}
               {editingProduct && (
                 <>
@@ -361,6 +520,14 @@ export function getEditFormValues(product: Product) {
   return {
     name: product.name,
     name_en: product.name_en ?? '',
+    description: product.description ?? '',
+    description_en: product.description_en ?? '',
+    material: product.material ?? '',
+    material_en: product.material_en ?? '',
+    care: product.care ?? '',
+    care_en: product.care_en ?? '',
+    fit: product.fit ?? '',
+    fit_en: product.fit_en ?? '',
     slug: product.slug ?? '',
     sku: product.sku,
     barcode: product.barcode || '',
@@ -377,6 +544,14 @@ export function getCreateFormValues() {
   return {
     name: '',
     name_en: '',
+    description: '',
+    description_en: '',
+    material: '',
+    material_en: '',
+    care: '',
+    care_en: '',
+    fit: '',
+    fit_en: '',
     slug: '',
     sku: '',
     barcode: '',

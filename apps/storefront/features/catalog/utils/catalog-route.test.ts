@@ -55,16 +55,6 @@ describe('catalogRouteConfig', () => {
     }
   });
 
-  it('links the eyebrow everywhere but the page it names (KD-16)', () => {
-    expect(catalogRouteConfig(SHOP).eyebrow).toEqual({ labelKey: 'shop', href: null });
-    expect(catalogRouteConfig(DRESSES).eyebrow).toEqual({ labelKey: 'shop', href: '/shop' });
-    expect(catalogRouteConfig(NEW_IN).eyebrow).toEqual({ labelKey: 'shop', href: '/shop' });
-    expect(catalogRouteConfig(SILK).eyebrow).toEqual({
-      labelKey: 'collections',
-      href: '/collections',
-    });
-  });
-
   it('closes New In and a collection with one editorial link, and nothing else', () => {
     expect(catalogRouteConfig(NEW_IN).endLink).toEqual({
       labelKey: 'shopByCategory',

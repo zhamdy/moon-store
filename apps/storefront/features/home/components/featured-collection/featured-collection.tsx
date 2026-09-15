@@ -18,7 +18,9 @@ import { editorialImages } from '@/lib/editorial/images';
  * title at the inline start beside the small image, which is pulled up to overlap
  * the large image's bottom edge at the inline end, then the link.
  *
- * Choreography, one Reveal: the large image opens first, the title follows, the
+ * Choreography, one Reveal: the large image opens first, the title (the `eyebrow`
+ * message, owner decision 2026-09-14) rises word by word, its description (the
+ * `title` message) follows, the
  * small image rises into its overlap later, and the link arrives last. On scroll
  * the small image travels faster than the page (element parallax), so the overlap
  * deepens as the section passes.
@@ -31,7 +33,7 @@ export async function FeaturedCollection() {
       <Reveal className="grid-editorial" amount={0.2}>
         <div
           data-motion="image"
-          className="relative col-span-4 aspect-3/2 overflow-hidden bg-surface-soft lg:col-span-8"
+          className="relative isolate col-span-4 aspect-3/2 overflow-hidden rounded-media bg-surface-soft lg:col-span-8"
         >
           <div data-motion-zoom="" className="absolute inset-0">
             <Image
@@ -47,25 +49,25 @@ export async function FeaturedCollection() {
 
         <div className="relative col-span-4 grid grid-cols-12 items-start gap-x-4 md:gap-x-6 lg:col-span-4 lg:col-start-9 lg:block">
           <div className="col-span-7 pt-6 md:pt-10 lg:pt-4">
-            <p
-              data-motion="wipe"
-              className="type-label w-fit text-text-secondary [--motion-offset:300ms]"
-            >
-              {t('eyebrow')}
-            </p>
             {/* h2 size below 1024 so the title sits comfortably beside the image;
                 a responsive pair, so the lg: variant wins deterministically. */}
             <TextReveal
               as="h2"
               id="featured-title"
-              text={t('title')}
+              text={t('eyebrow')}
               offset={400}
               step={90}
-              className="type-h2 lg:type-h1 mt-3 text-balance"
+              className="type-h2 lg:type-h1 text-balance"
             />
             <p
               data-motion="rise"
-              className="type-body mt-4 max-w-xs text-text-secondary [--motion-offset:700ms] [--motion-rise:24px] lg:mt-5"
+              className="type-h4 mt-3 text-text-secondary [--motion-offset:600ms] [--motion-rise:16px]"
+            >
+              {t('title')}
+            </p>
+            <p
+              data-motion="rise"
+              className="type-body mt-4 max-w-xs text-text-secondary [--motion-offset:750ms] [--motion-rise:24px] lg:mt-5"
             >
               {t('body')}
             </p>
@@ -82,7 +84,7 @@ export async function FeaturedCollection() {
             >
               <div
                 data-motion="image"
-                className="absolute inset-0 overflow-hidden bg-surface-soft [--motion-offset:750ms]"
+                className="absolute inset-0 isolate overflow-hidden rounded-media bg-surface-soft [--motion-offset:750ms]"
               >
                 <div data-motion-zoom="" className="absolute inset-0 [--motion-offset:750ms]">
                   <Image

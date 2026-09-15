@@ -7,6 +7,7 @@ import {
   CardBody,
   Button,
   Input,
+  Textarea,
   Switch,
   Select,
   SelectItem,
@@ -33,6 +34,11 @@ export default function Settings() {
   const [loyaltyPointsPerEgp, setLoyaltyPointsPerEgp] = useState('1');
   const [loyaltyEgpPerPoint, setLoyaltyEgpPerPoint] = useState('0.1');
 
+  const [deliveryPolicy, setDeliveryPolicy] = useState('');
+  const [deliveryPolicyEn, setDeliveryPolicyEn] = useState('');
+  const [returnsPolicy, setReturnsPolicy] = useState('');
+  const [returnsPolicyEn, setReturnsPolicyEn] = useState('');
+
   const { data: settings, isLoading } = useApiQuery<AppSettings>(['settings'], 'settings');
 
   useEffect(() => {
@@ -43,6 +49,10 @@ export default function Settings() {
       setLoyaltyEnabled(settings.loyalty_enabled === 'true');
       setLoyaltyPointsPerEgp(settings.loyalty_points_per_egp || '1');
       setLoyaltyEgpPerPoint(settings.loyalty_egp_per_point || '0.1');
+      setDeliveryPolicy(settings.delivery_policy ?? '');
+      setDeliveryPolicyEn(settings.delivery_policy_en ?? '');
+      setReturnsPolicy(settings.returns_policy ?? '');
+      setReturnsPolicyEn(settings.returns_policy_en ?? '');
     }
   }, [settings]);
 
@@ -64,6 +74,10 @@ export default function Settings() {
       loyalty_enabled: loyaltyEnabled ? 'true' : 'false',
       loyalty_points_per_egp: loyaltyPointsPerEgp,
       loyalty_egp_per_point: loyaltyEgpPerPoint,
+      delivery_policy: deliveryPolicy,
+      delivery_policy_en: deliveryPolicyEn,
+      returns_policy: returnsPolicy,
+      returns_policy_en: returnsPolicyEn,
     });
   };
 
@@ -187,6 +201,50 @@ export default function Settings() {
               </div>
             </div>
           )}
+        </CardBody>
+      </Card>
+
+      {/* Storefront policies: shown on every storefront product page */}
+      <Card className="max-w-xl border border-border bg-card shadow-sm">
+        <CardHeader className="flex-col items-start gap-0.5 border-b border-border/50 px-6 py-4">
+          <h2 className="text-base font-semibold text-foreground">
+            {t('settings.storefrontPolicies')}
+          </h2>
+          <p className="text-xs text-muted-foreground">{t('settings.storefrontPoliciesDesc')}</p>
+        </CardHeader>
+        <CardBody className="p-6 space-y-4">
+          <Textarea
+            label={t('settings.deliveryPolicyAr')}
+            variant="bordered"
+            dir="rtl"
+            minRows={3}
+            value={deliveryPolicy}
+            onValueChange={setDeliveryPolicy}
+          />
+          <Textarea
+            label={t('settings.deliveryPolicyEn')}
+            variant="bordered"
+            dir="ltr"
+            minRows={3}
+            value={deliveryPolicyEn}
+            onValueChange={setDeliveryPolicyEn}
+          />
+          <Textarea
+            label={t('settings.returnsPolicyAr')}
+            variant="bordered"
+            dir="rtl"
+            minRows={3}
+            value={returnsPolicy}
+            onValueChange={setReturnsPolicy}
+          />
+          <Textarea
+            label={t('settings.returnsPolicyEn')}
+            variant="bordered"
+            dir="ltr"
+            minRows={3}
+            value={returnsPolicyEn}
+            onValueChange={setReturnsPolicyEn}
+          />
         </CardBody>
       </Card>
 

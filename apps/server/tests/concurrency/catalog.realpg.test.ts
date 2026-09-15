@@ -16,7 +16,11 @@ import {
   type RealPostgresHarness,
 } from '../support/realPostgres';
 import { resetEnvCache } from '../../src/config/env';
-import { catalogService, runCatalogRead } from '../../src/modules/commerce/catalog/service';
+import {
+  CatalogService,
+  catalogService,
+  runCatalogRead,
+} from '../../src/modules/commerce/catalog/service';
 import {
   CatalogRepository,
   type ResolvedProductQuery,
@@ -47,6 +51,26 @@ describeWithPostgres('public catalog on real PostgreSQL', () => {
     if (savedBase === undefined) delete process.env.MEDIA_PUBLIC_BASE_URL;
     else process.env.MEDIA_PUBLIC_BASE_URL = savedBase;
     resetEnvCache();
+  });
+
+  it('store policies: reads only the four named settings, trimmed, blank as null', async () => {
+    await harness.truncate();
+    await harness.pool.query(
+      `INSERT INTO settings (key, value) VALUES
+         ('tax_rate', '14'),
+         ('delivery_policy', ' نوصّل داخل مصر '),
+         ('delivery_policy_en', 'We deliver within Egypt.'),
+         ('returns_policy', '  ')
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`
+    );
+    await harness.pool.query(`DELETE FROM settings WHERE key = 'returns_policy_en'`);
+
+    expect(await catalogService.getStorePolicies()).toEqual({
+      delivery: 'نوصّل داخل مصر',
+      deliveryEn: 'We deliver within Egypt.',
+      returns: null,
+      returnsEn: null,
+    });
   });
 
   it('returns price as a JS number and orders by price numerically, not lexically', async () => {
@@ -202,4 +226,63 @@ describeWithPostgres('public catalog on real PostgreSQL', () => {
       }
     }
   }, 120_000);
+  it('product detail: NUMERIC variant prices as numbers, null category, public collections', async () => {
+    await harness.truncate();
+    await harness.pool.query(
+      `INSERT INTO categories (id, name, code, slug) VALUES (1, 'No slug', 'NS', NULL)`
+    );
+    await harness.pool.query(
+      `INSERT INTO products (id, name, sku, slug, price, stock, has_variants, status, category_id,
+                             description, description_en) VALUES
+         (1, 'knit', 'S1', 'knit', 1250.00, 6, 1, 'active', 1, 'وصف', 'Description'),
+         (2, 'bare', 'S2', 'bare', 300, 0, 0, 'active', NULL, NULL, NULL),
+         (3, 'hidden', 'S3', 'hidden', 300, 1, 0, 'inactive', NULL, NULL, NULL)`
+    );
+    await harness.pool.query(
+      `INSERT INTO product_variants (product_id, sku, stock, price, attributes) VALUES
+         (1, 'V1', 4, NULL, '{"size":"S"}'),
+         (1, 'V2', 0, 1399.50, '{"size":"M"}')`
+    );
+    await harness.pool.query(
+      `INSERT INTO collections (id, name, slug, status, is_featured, year) VALUES
+         (1, 'Evening', 'evening', 'active', 0, 2025),
+         (2, 'Winter', 'winter-tailoring', 'upcoming', 0, 2027)`
+    );
+    await harness.pool.query(
+      `INSERT INTO collection_products (collection_id, product_id, position) VALUES (1, 1, 0), (2, 1, 0)`
+    );
+
+    const raw = await harness.pool.query<{ price: unknown }>(
+      'SELECT price FROM product_variants WHERE price IS NOT NULL'
+    );
+    expect(typeof raw.rows[0].price).toBe('string');
+
+    const knit = await catalogService.getProduct('knit');
+    expect(knit.price).toBe(1250);
+    expect(knit.variants).toEqual([
+      { options: { size: 'S' }, price: 1250, inStock: true },
+      { options: { size: 'M' }, price: 1399.5, inStock: false },
+    ]);
+    expect(knit.inStock).toBe(true);
+    expect(knit.category).toBeNull();
+    expect(knit.collections).toEqual([{ slug: 'evening', name: 'Evening', nameEn: null }]);
+    expect([knit.description, knit.descriptionEn]).toEqual(['وصف', 'Description']);
+
+    const bare = await catalogService.getProduct('bare');
+    expect(bare).toMatchObject({ category: null, inStock: false, options: [], variants: [] });
+
+    await expect(catalogService.getProduct('hidden')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('product detail: a read past the statement timeout is a 503', async () => {
+    class SlowRepository extends CatalogRepository {
+      override async findPublicProductBySlug(_slug: string, db: Queryable) {
+        await db.query('SELECT pg_sleep(3)');
+        return null;
+      }
+    }
+    await expect(new CatalogService(new SlowRepository()).getProduct('knit')).rejects.toMatchObject(
+      { code: 'SERVICE_UNAVAILABLE' }
+    );
+  }, 20_000);
 });

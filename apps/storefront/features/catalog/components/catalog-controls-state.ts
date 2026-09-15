@@ -1,3 +1,4 @@
+import { fillTemplate } from '@/lib/utils/fill-template';
 import {
   catalogParsers,
   nextCatalogParams,
@@ -172,17 +173,6 @@ export function focusAfterRemoval(
   const index = parts.indexOf(removed);
   const remaining = parts.filter((part) => part !== removed);
   return remaining[index] ?? 'filter';
-}
-
-/**
- * `{name}` substitution for the few templates the island formats with client-side
- * values (the island never receives the message catalogue or an ICU formatter).
- * An unknown placeholder is left as written.
- */
-export function fillTemplate(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
-    key in values ? String(values[key]) : match
-  );
 }
 
 export interface PriceSummaryTemplates {

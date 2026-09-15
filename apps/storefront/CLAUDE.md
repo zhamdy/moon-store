@@ -7,8 +7,10 @@ design tokens, the API client and the global shell. The homepage, header surface
 menu panel and footer come from `2026-09-13-002-feat-storefront-homepage-header-footer`.
 Shop + Collections (`2026-09-14-002-feat-storefront-shop-collections`) added the first
 API-backed surfaces: Shop All, category pages, New In, the collections index and
-collection pages (see *Catalog*). Product detail (`/products/<slug>`, where every card
-links) still 404s through the catch-all, by design — no placeholder pages.
+collection pages (see *Catalog*). Product detail
+(`2026-09-14-003-feat-storefront-product-detail`) added `/products/<slug>`, where every
+card links (see *Product detail*). Cart and checkout still 404 through the catch-all, by
+design — no placeholder pages.
 
 ## Design guideline
 
@@ -42,6 +44,26 @@ so never pass a second one through `className`; the one sanctioned pairing is a
 responsive variant on the same element (`type-display md:type-display-xl`, the hero
 title), where Tailwind emits the variant after the base utility and the winner is
 deterministic.
+
+### Media radius (owner decision, 2026-09-14)
+
+One token pair in `app/globals.css`'s `@theme inline`: `--radius-media` (12px, the
+`rounded-media` utility) and `--radius-media-sm` (8px, `rounded-media-sm`). Never a raw
+`rounded-[12px]`. `rounded-media`: the product card image frame, category tiles, the
+collections index photographs, the collection intro image, the featured collection's
+two frames, lookbook images, the editorial strip photographs, the gallery frame and its
+no-image frame, the product page's gallery fallback and both skeleton frames.
+`rounded-media-sm`: gallery thumbnails (the inner photograph is concentric,
+`radius - 4px`) and the purchase panel's 44px size cells, where 12px read as pills. Full-bleed photographs stay square: the hero, the promo
+banner and the campaign (edge to edge horizontally). Buttons, inputs, chips, the header
+and the footer stay square.
+
+The element carrying the radius is the one that clips (`overflow: hidden`, plus
+`isolate` where a transformed child scales inside it, so WebKit keeps the corners), so
+hover swaps, zoom and the `data-motion-zoom` settle never square the corners. The
+`data-motion="image"` wipe insets carry `round var(--radius-media)` in both states, since
+every element using it is a rounded frame; the gallery's inset focus ring inherits the
+radius. Shadows and boxed sections are still out.
 
 ### Surfaces: the `--surface-*` indirection
 
@@ -122,8 +144,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to nine entries
-(ten files):
+Server Components by default (R21/R22). `'use client'` is limited to thirteen entries
+(fourteen files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -145,12 +167,36 @@ Server Components by default (R21/R22). `'use client'` is limited to nine entrie
    filter summary, Filter button and Headless UI filter sheet, and sort select, written
    to the URL with nuqs (`shallow: false`, `history: 'push'`). Strings arrive resolved
    from `catalog-controls-slot.tsx` (`catalogControlsRenderer`); the few values it
-   formats itself use `{name}` templates through `fillTemplate`, not ICU. Its root is
+   formats itself use `{name}` templates through `fillTemplate` (`lib/utils/fill-template.ts`), not ICU. Its root is
    `display: contents` so its controls wrap as items of the utility row. Pure rules
    live in `catalog-controls-state.ts`, unit-tested.
 9. `app/[locale]/(catalog)/error.tsx` — every catalog route's error boundary. Next
    requires an error boundary to be a client component, so it cannot take resolved
    strings as props; see the one namespace exception below.
+10. `features/products/components/purchase-panel.tsx` — the product page's option
+   radios, live price and availability (PD-11, owner decision PD-E): the selection
+   drives price and per-value availability, which CSS cannot compute, and Cart needs an
+   island here anyway. Takes the DTO's `price`/`inStock`/`options`/`variants`, resolved
+   strings and a pre-formatted price map from `purchase-panel-slot.tsx`; the rules are
+   `utils/variant-selection.ts`, unit-tested. No button (PD-B): `data-readiness` exposes
+   `purchaseReadiness` for Cart.
+11. `features/products/components/product-gallery-viewer.tsx` — the product gallery's
+   thumbnail tabs and zoom in place (owner decision 2026-09-14): which image is active
+   and the pointer-following zoom origin cannot be CSS. Takes resolved `label`/`alt`/
+   `thumbLabel` strings, `dir`, and plain `{ url, sizes, zoomSizes, loading,
+   fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
+   rule are `utils/gallery-layout.ts`, unit-tested.
+12. `features/products/components/product-tabs.tsx` — the product details tabs (ED-4):
+   owns only which tab is active. Takes `tabs: { id, label, panelHasFocusable }[]`, the
+   tablist `label`, `dir` and `panels: Record<id, ReactNode>` rendered on the server by
+   `product-details-tabs.tsx`; the keyboard rule is `utils/tab-keys.ts` (`tabKeyTarget`,
+   shared with the gallery), unit-tested.
+13. `features/products/components/share-button.tsx` — the share row's native share
+   button (owner decision 2026-09-15): `navigator.share` and the clipboard exist only in
+   the browser, and Instagram, TikTok and Messenger have no web share URL. Takes `url`,
+   `title` and resolved `labels: { share, copied, copyFailed }` from `product-share.tsx`;
+   reads `navigator` only on click, and its `role="status"` region is always mounted. The
+   decision is `utils/share-action.ts` (`shareAction`, `isShareAbort`), unit-tested.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -175,7 +221,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding a tenth
+`useTranslations`, is a new decision, not a precedent. Before adding a fourteenth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
@@ -194,17 +240,17 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
 
 1. **Hero** — CSS keyed on the carousel's `data-active` / `data-leaving`, so the first
    slide plays from the server HTML with no JS. Sequence on load and on every change:
-   image 1.08 → 1 from 120ms, label wipe (`data-enter="wipe"`) at 200ms, masked title
-   lines at 300/420ms, copy at 450ms, link at 600ms; the tab row settles at 750ms on
-   load. The outgoing slide fades over 1s while its image drifts to 1.04 and its title
-   exits upward through the same masks. Progress bars are empty before hydration
+   image 1.08 → 1 from 120ms, the masked title (one mask) at 300ms, the description
+   fade-up at 420ms, copy at 540ms, link at 660ms; the tab row settles at 750ms on
+   load. The outgoing slide fades over 1s while its image drifts to 1.04, its title
+   exits upward through the same mask and the description, copy and link fade out. Progress bars are empty before hydration
    (`idle`), fill over 7s while rotating, and refill quickly on each manual change once
    stopped.
 2. **Scroll reveal** — `<Reveal>` is a *trigger*, not an effect. The server HTML is the
    visible state; on mount `decideInitialRevealState` (`reveal-policy.ts`, unit-tested)
    marks only elements entirely below the fold as `pending`, never under reduced motion,
    and a shared observer flips them to `in`. What moves is declared on server markup
-   with `data-motion="rise" | "fade" | "image" | "wipe" | "word"` (plus
+   with `data-motion="rise" | "fade" | "image" | "word"` (plus
    `data-motion-zoom` inside an `image`), on the Reveal or any descendant. Timing is
    `--motion-stagger` (inherited step count) × `--motion-step` + `--motion-offset`;
    offset and duration are registered `@property`s that do **not** inherit, so set them
@@ -242,11 +288,30 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    checkbox, `role="switch"`, outside the tracks, pausing via
    `[data-strip]:has([data-strip-toggle]:checked)`, no client boundary).
 
-**Signature vs commerce entrances** (AD-11, 2026-09-14). The label wipe and the
-word-masked `TextReveal` belong to the signature moments only: the promo banner, the
-featured collection and the campaign. `SectionHeading` (New Arrivals, Categories, The
-Edit) fades its label and raises its title once, and the catalog's `PageIntro` (an `h1`,
-not a `SectionHeading`) uses the same entrance. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
+**No eyebrows: the eyebrow is the title, the title is the description** (owner
+decision, 2026-09-14). No section renders a label above its heading. The `eyebrow`
+message keys keep their names and copy but render as the heading element the old title
+used, at the old title's `type-*` size and with its entrance; the old `title` copy
+renders as a `<p>` under it:
+
+| Where | Heading | Description |
+| --- | --- | --- |
+| Hero slides | `h2` in one line mask, 300ms | `title1` + `title2` space-joined, one `type-h4 text-text-secondary` line, fade-up 420ms |
+| New Arrivals, Categories, The Edit (`SectionHeading`) | `h2` `type-h2`, rise at offset +120 | `type-body-lg text-text-secondary`, fade at +240 |
+| Promo banner | `TextReveal` `h2` `type-h1`, 350ms | `type-h4 text-text-secondary`, rise 600ms (body 750, button 950) |
+| Featured collection | `TextReveal` `h2` `type-h2 lg:type-h1`, 400ms | `type-h4 text-text-secondary`, rise 600ms (body 750) |
+| Catalog `PageIntro` | `h1` `type-h1` = the page's own name (category, collection, "New In"; "Shop" on `/shop`, "Collections" on `/collections`), rise 120ms | the context line `type-body-lg text-text-secondary`, fade 240ms: "Shop" linked to `/shop` (category, New In), "Collections" linked to `/collections` (collection), plain "All pieces" (`/shop`), omitted on `/collections`. One pure rule, `catalogIntroHeadings` (`utils/intro-heading.ts`), unit-tested with a guard that two categories or collections never share an `h1` (#200 correction, owner, 2026-09-15; the eyebrow swap had made every category `h1` "Shop") |
+
+Signature descriptions are `type-h4` so they stay distinct from the body line under
+them; commerce ones are `type-body-lg`. A collection card's season · year now sits under
+its name, not above it. The label wipe (`data-motion="wipe"`, `data-enter="wipe"`) is
+gone with the eyebrows; don't reintroduce it as a heading device.
+
+**Signature vs commerce entrances** (AD-11, 2026-09-14). The word-masked `TextReveal`
+belongs to the signature moments only: the promo banner, the featured collection and
+the campaign. `SectionHeading` (New Arrivals, Categories, The Edit) raises its title
+once and fades its description, and the catalog's `PageIntro` (an `h1`, not a
+`SectionHeading`) uses the same entrance. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
 settle) is for one feature card per section, like The Edit's first card and the first
 `CategoryTile`. Adding the word mask back to a commerce heading repeats the same entrance
 down the page.
@@ -355,7 +420,7 @@ beside the server render, plus hydration payload).
 | `/new-in` | `.../new-in/page.tsx` | products created in the server's `NEW_IN_DAYS` window |
 | `/collections` | `.../collections/page.tsx` | live collections (no product grid) |
 | `/collections/[slug]` | `.../collections/[slug]/page.tsx` | one collection, merchandised order |
-| `/products/[slug]` | none yet | the card href; 404s through the catch-all |
+| `/products/[slug]` | `.../products/[slug]/page.tsx` | one product (see *Product detail*) |
 
 Categories and collections stay distinct in URLs, API and UI (UD-3). A category is
 **path-only**: there is no `?category=`, so the query form can never compete with the
@@ -367,10 +432,11 @@ layout exists only for the error strings (see *Client boundary rule*).
 `features/catalog/utils/catalog-route.ts` → `catalogRouteConfig` is the single source
 of what each listing route is: API scope, default sort, allowed sorts in display order
 (`curated` only on a collection, and its default there), whether the category row shows
-(Shop All and category pages), the eyebrow (the only breadcrumb: plain text on the page
-it names, a link elsewhere) and the end-of-listing link (New In → "Shop by category",
+(Shop All and category pages) and the end-of-listing link (New In → "Shop by category",
 collection → "Explore collections"). A per-route difference goes in that table, never in
-a page branch.
+a page branch. The intro's `h1` and its linked context line (the only breadcrumb) are
+not in the table: `catalogIntroHeadings` decides them, since a category or collection
+`h1` is the entity's name (#200, owner, 2026-09-15).
 
 ### URL grammar (`features/catalog/search-params.ts`)
 
@@ -396,9 +462,10 @@ data-cache entry.
 
 ### Rendering and caching
 
-The five catalog routes are dynamic (`ƒ`); nothing calls the API at `next build`. The
-four listings read `searchParams`. `/collections` reads none, so it calls
-`await connection()`; without that it would prerender and call the API at build.
+The six catalog routes are dynamic (`ƒ`); nothing calls the API at `next build`. The
+four listings read `searchParams`. `/collections` and `/products/[slug]` read none, so
+they call `await connection()`; without that they would prerender (at build, or at
+runtime into the full-route cache).
 Catalog fetches go through the Next data cache with `revalidate` 60s for product lists
 and 300s for categories and collections (`CATALOG_REVALIDATE`), so a deactivated
 product can linger up to 60s — fine for browsing, never for checkout.
@@ -484,7 +551,9 @@ products are seeded without images, so a fresh dev database shows the no-image s
 `ProductCard` never sees a data source: it renders a `ProductCardModel` built by
 `fromHomeMock` (static registry slots, blur kept) or `fromCatalogDto` (remote URLs).
 One badge at most, and sold out wins over new (it changes what the shopper can do);
-sold out never greys the photograph and the price stays. No photograph shows the frame
+sold out never greys the photograph and the price stays. Badge colours (owner, 2026-09-15):
+"New" is `bg-brand-soft text-brand-dark` (~4.9:1), "Sold out" `bg-action text-on-action`
+(ink), both `rounded-media-sm`; the product page's sold-out status line uses the same ink badge. No photograph shows the frame
 with a small, faint brand mark, deliberately unlike the flat `ProductGridSkeleton`, so
 a missing image never reads as loading. A name in another language than the page
 carries `lang` and `dir="auto"`. The hover image is `display: none` on touch and below
@@ -493,8 +562,8 @@ carries `lang` and `dir="auto"`. The hover image is `display: none` on touch and
 ### Motion level
 
 Low-to-medium (R21). The grid is one `Reveal` on the `ul`; cards rise, staggered for
-the first eight only (`catalogStagger`). The intro fades its eyebrow and rises the `h1`
-once; a collection's image band only fades. No parallax, marquee or `TextReveal` on
+the first eight only (`catalogStagger`). The intro rises the `h1` once and fades the
+lines under it; a collection's image band only fades. No parallax, marquee or `TextReveal` on
 catalog routes. Filters never replay entrances: `decideInitialRevealState` only holds
 back a grid entirely below the fold, and the Suspense boundary is unkeyed, so a filter
 transition re-renders the same grid in place.
@@ -536,6 +605,196 @@ fill a row. No live collection: the catalog empty state.
 - Sort may wrap to its own line at 320.
 - Whether phones below 1024 need a compact sticky Filter/Sort row.
 - The client error screen (API stopped, uncached URL) has not been seen after hydration.
+
+## Product detail
+
+Plan `2026-09-14-003`; decisions are cited by their PD numbers there.
+
+### Route, data and 404s
+
+`app/[locale]/(catalog)/products/[slug]/page.tsx`, inside `(catalog)` so it inherits the
+error boundary and the KD-14 provider (PD-5). `resolve()` calls `await connection()`
+(PD-8), then `getCatalogProduct(slug)` (`features/products/api/get-catalog-product.ts`,
+`GET /api/v1/catalog/products/:slug`), then `notFound()` on `null` — before any Suspense,
+so KD-10 holds and `catalog-routes.test.ts` pins it. Unknown, inactive, discontinued and
+slug-less products are one indistinguishable 404 (PD-2), and so is a malformed slug: the
+API rejects it with a 400 `VALIDATION_ERROR`, which `getCatalogProduct` also maps to `null`
+(the slug is the endpoint's only input; the server regex is deliberately not copied here).
+Any other `ApiError` rethrows to the error screen. `getCatalogCollection` still maps only
+`NOT_FOUND`, so `/collections/Evening` is a 500 today (pre-existing, from #196).
+
+`getCatalogProduct` is the one entity read that **does** pass `timeoutMs`: it is wrapped
+in `React.cache`, so `generateMetadata` and the page still share one API call per render
+(PD-9, measured in dev with a hit counter: 1 per render with the wrapper, 2 without).
+Copy that pairing, not the timeout alone. It reads with the list lifetime (60s), and the
+listing card, the detail read and the related row are separate cache entries that can
+briefly disagree — fine for browsing, never for Cart, which must re-price on the server.
+
+Metadata (`utils/product-metadata.ts`): localized name as title; the localized
+description when it exists in the page's locale, else `catalog.meta.productDescription`;
+self canonical and both-locale alternates; the first image as `openGraph.images`; always
+indexable. No JSON-LD `Product` until Cart makes it purchasable (PD-7).
+
+### Composition
+
+`ProductDetail` is a slot layout: the page passes `breadcrumb`, `gallery`, `purchase`,
+`details`, `related` and the listing `hrefs` (it builds every href; `features/products`
+never imports `features/catalog`). Order: breadcrumb row, a 50/50 split from 1024 with a
+64px column gap (`lg:grid-cols-2 lg:gap-x-16`, mirrored by `utils/gallery-layout.ts`; one
+column below), the details tabs at full container width, the related row.
+
+- **One screen from 1024** (owner feedback 2026-09-14, the Bella product page): the large
+  frame is `flex: 0 1 max(22rem, calc((100svh - var(--header-h) - 11rem) * 0.8))`, so the
+  4:5 image fits under the sticky header with the breadcrumb and shrinks to the space the
+  thumbnails leave; the thumbnail column follows its height. The gallery row packs to
+  `flex-end`, its inline end, which faces the info column in both directions. `sizes`
+  still describe the uncapped half column, a slight overestimate.
+
+- **Breadcrumb** (`product-breadcrumb.tsx`): `nav` (`product.breadcrumb.label`) > `ol`,
+  Home (`product.breadcrumb.home`) / Shop (its own noun key `product.breadcrumb.shop`,
+  "Shop" / "كل القطع", not the `navigation.shop` verb) / Category when present, then the
+  product as a non-link `span aria-current="page"`. The product and the category (capped
+  width) truncate; Home and Shop never shrink, so 320px never overflows. Separators are
+  `aria-hidden`.
+- **Info column**, `position: sticky` from 1024 (PD-15), kept after the enhancement: with
+  the description moved into the tabs the column is usually shorter than the 4:5 gallery,
+  so price and sizes stay in view beside it. Content capped at `max-w-[30rem]`. No category
+  eyebrow (owner, 2026-09-14: the breadcrumb already names it); the column opens with the
+  h1 at `type-h2` (it must not compete with the photograph), then a short lead (the first
+  paragraph of the localized description, `productLead`; omitted without one), the
+  purchase slot, `[data-product-action]` (the reserved, empty Add to Bag place, PD-B: no
+  button and no copy until Cart, and no sticky mobile purchase bar, PD-14), quick facts (a
+  `type-small` `dl` of material and fit under a hairline, omitted when both are empty; the
+  Details tab keeps the full list), "Part of" links (Arabic `ضمن {collection}`, since
+  collection names already carry مجموعة). The lead sits above the price because price and sizes are one island.
+- **Share row** (`product-share.tsx`, the `share` slot, last in the info column): "Share
+  it:", server-rendered links to X and WhatsApp built by the pure `utils/share-links.ts`
+  (no SDK), and a Share button, the `share-button.tsx` island as the list's last `li`
+  (owner decision 2026-09-15). The button opens the device share sheet, which is how
+  Instagram, TikTok and Messenger are reached: the first two have no web share URL and
+  Messenger's needs a Facebook app id. A dismissed sheet (`AbortError`) does nothing; any
+  other share error, or no Web Share API (most desktops), copies the link and announces
+  "Link copied" (or "Couldn't copy the link") for 2.5s in a polite region mounted from the
+  first paint. The shared URL is absolute, from `SITE_URL` through `lib/site-url.ts` (the
+  same origin as `metadataBase`). A hairline above it unless the facts `dl` is directly
+  above.
+- **Details tabs** (ED-4, `product-details-tabs.tsx` + the `product-tabs.tsx` island):
+  Description (every paragraph), Details (a `dl`: material, care, fit, category link,
+  collection links, sizes from the `size` option) and Shipping & returns (delivery and
+  returns). Built by `productDetailsTabs` (`utils/product-details-model.ts`, unit-tested)
+  from real data only: **a tab or row with no content is not rendered**; one tab renders
+  as a headed section without a tablist; none renders nothing. Horizontal WAI-ARIA tabs,
+  automatic activation, Left/Right (mirrored in RTL) and Home/End wrap; inactive panels
+  `hidden`; a panel with no focusable content is itself a tab stop. The bar
+  (`[data-product-tabs*]` in `app/globals.css`) is sticky under the header (z-30, below
+  its z-40), scrolls sideways if the labels overflow, and marks the active tab with a 2px
+  inset ink underline. Changing tabs while the bar is stuck scrolls the section top back
+  under the header; a changed panel fades in over 180ms. One Reveal (a fade) on the
+  section. The island measured +0.4 KB gz of eager JS (194.8 → 195.2).
+
+### Store policies
+
+`features/products/api/get-store-policies.ts` reads `GET /api/v1/catalog/store-policies`
+(`{ delivery, deliveryEn, returns, returnsEn }`, each string or null) with the entity
+lifetime (300s) and no `timeoutMs`; a missing field reads as `null`, any other type throws
+`INVALID_RESPONSE`. The page calls it through `load-store-policies.ts` only after the
+product resolved (so it never touches a 404): `unstable_rethrow` first, any `ApiError`
+logged and mapped to `null`, anything else rethrown — a failed read only drops the
+Shipping tab. The text is edited in the dashboard's store settings. **The delivery and
+returns copy seeded in dev is placeholder text and a launch blocker** until the business
+replaces it (ED-5 revised); no fees, times, areas or return periods may be invented here.
+
+### Variants
+
+The server derives the options (normalized keys, a canonical key set, unusable variants
+dropped and logged, effective price `variant.price ?? product.price`; see
+`apps/server/CLAUDE.md` → *Public catalog*). The client never re-derives them:
+`features/products/utils/variant-selection.ts` holds every selection, availability, price
+and readiness rule, unit-tested, and `purchaseReadiness` is the **Cart contract**. The
+variant price rule disagrees with POS today, where a NULL variant price sells at 0 (PD-C);
+that must be fixed before Cart. Selection is component state, not URL state (PD-12).
+
+### Gallery
+
+The Bella template's gallery (owner decision 2026-09-14, replacing the PD-10 rail/grid).
+`product-gallery.tsx` (Server Component) resolves strings and the model; the island
+`product-gallery-viewer.tsx` (the eleventh boundary) renders a thumbnail column beside
+one 4:5 large image. Thumbnails sit at the large image's inline start from 992 and its
+inline end below (`row-reverse`), so in Arabic they are on the right from 992 and the
+left below; photographs are never mirrored. Thumbs are 72px from 992, 88px at 768-991
+and 72px below, with 4px between them, 3px padding and a 1px border; inactive at 0.6
+opacity, the active one at 1 with a `--color-text` hairline (gold on ivory is 2.64:1,
+under 3:1). A column taller than the frame scrolls inside the frame height.
+`[data-gallery*]` in `app/globals.css` holds the layout; `utils/gallery-layout.ts` holds
+the step table every `sizes` string is derived from.
+
+- **Semantics.** A vertical WAI-ARIA tablist (`product.gallery.label`) of buttons named
+  `product.gallery.thumbLabel`, roving `tabIndex`, automatic activation; the frame is the
+  one `tabpanel`, labelled by the active tab and itself a tab stop (`tabIndex=0`: it holds
+  only an image), with an inset focus ring drawn on a `::after` above the panes because the
+  frame clips an outside outline. Arrow Down/Up and the reading-direction Left/Right move and wrap (the APG
+  tabs rule), Home/End jump (`galleryKeyTarget`, unit-tested). One image: no tablist.
+- **Downloads.** The first large image is the page's only eager *high-priority* image
+  (`loading="eager"` + `fetchPriority="high"`; React also emits its head preload). A large pane mounts
+  only once shown and stays mounted but `hidden`: lazy alone would not stop hidden panes
+  laid out in the frame from downloading (the hero's `slideMediaVisible` lesson). A new
+  pane fades in over the previous one (300ms, `--ease-ui`). Thumbnails are
+  `fetchPriority="low"`, `sizes` 64/80px; the first `GALLERY_EAGER_THUMBS` (3) are eager
+  and the rest lazy (`galleryThumbLoading`, unit-tested). Switching thumbnails while zoomed
+  also mounts that pane's zoom image, so a keyboard change never magnifies the 1x source.
+- **Zoom in place.** Only under `GALLERY_ZOOM_QUERY` (hover, fine pointer, 1024+),
+  tracked with `matchMedia`. A mouse entering the frame scales the pane layer 2x with
+  `transform-origin` from `--zoom-x`/`--zoom-y`, written in a rAF-throttled
+  `pointermove`; leaving resets. A second image at `zoomSizes` (2x) mounts for that pane
+  on its first zoom and fades in once loaded, so the LCP never pays for it. No zoom on
+  touch or keyboard; clicking does nothing; reduced motion keeps zoom without transitions.
+- No image: the `ProductImagePlaceholder` brand-mark frame `ProductCard` also uses. No
+  component harness exists, so the island itself is covered only by the screenshot review.
+
+### Purchase panel
+
+The tenth client boundary (see *Client boundary rule*). Native radios in a `fieldset` per
+option; sold-out and unavailable values stay enabled, struck through in `text-text-secondary`
+(not `text-disabled`, ~2.3:1 and hard to see) inside a dashed `bg-surface-soft` cell, with
+visually hidden "sold out" text — never `disabled`, never colour alone. Price and status share one polite
+live region rendered with the first paint. `purchase-panel-slot.tsx` resolves strings and
+a map of pre-formatted prices on the server, so the island never formats a number.
+`fillTemplate` lives in `lib/utils/fill-template.ts`: importing it from
+`catalog-controls-state.ts` pulled nuqs into this route. The island measured +1.2 KB gz
+of eager JS.
+
+### Related row
+
+`features/catalog/components/related-products.tsx` (PD-13): scope is the first public
+collection (sort `curated`), else the category (sort `newest`), page 1, current product
+excluded, 4 kept, section hidden when empty. It reads through
+`listCatalogProducts(toProductQuery(...))`, and a test pins that its API path equals the
+listing's page-1 path, so they share one data-cache entry. It streams in its own
+Suspense; `loadRelatedProducts` calls `unstable_rethrow` first, returns `null` on an
+`ApiError` (logged) and rethrows anything else, so a related failure never replaces a
+rendered product with the error screen (unit-tested only; never observed against a
+stopped API).
+
+### Open for the screenshot review
+
+Fixtures (dev DB `moon_store_sf_smoke`, 2026-09-14): `silk-midi-dress` (6 images, mixed
+sizes), `embroidered-evening-gown` (1 image), `linen-summer-dress` (long EN/AR names,
+descriptions), `cashmere-pullover` (mixed stock), `silk-slip-dress` (all sold out).
+
+- Gallery: thumbnail column scrolling at 320-375 (6 thumbs overflow the frame), the
+  crossfade and zoom feel at 1440, the 992-1023 band (thumbs at the start, no split), and
+  whether keyboard focus on a thumb clears the sticky header (`scroll-margin-block-start`
+  also offsets the column's own scroll).
+- A single image fills the full width below 1024 (~704px on a portrait tablet).
+- An in-stock product with no options shows no status line, per the plan's model;
+  "In stock" there is the alternative.
+- The sticky info column beside a short gallery at 1024; long Arabic titles; option
+  wrapping at 320.
+- Details tabs: the lead above the price (the reference shows it below); the sticky tab
+  bar's scroll-back on tab change; tab labels scrolling at 320; the `dl` two-column rows
+  from 768; the breadcrumb truncating a long Arabic name.
+- The related skeleton is hidden from screen readers and announces no loading state.
+- Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 7.
 
 ## Guideline overrides and copy decisions
 
@@ -605,11 +864,13 @@ not a permanent architectural requirement:
 Four slices exist. `features/home` composes the homepage from static, typed mock data
 and imports from `products` and `collections`. `features/catalog` is the listing
 composition slice (URL state, route table, intro, category row, grid, controls,
-pagination, empty states) and imports from both. `products` and `collections` own their
-catalog API functions and DTOs and still do not import each other; the one reverse edge
-is `products/api/list-catalog-products.ts` taking `CatalogProductQuery` from
-`features/catalog/search-params.ts` (a dependency-free module). A slice follows this
-shape:
+pagination, empty states, and the product page's related row) and imports from both.
+`products` and `collections` own their catalog API functions and DTOs and still do not
+import each other; the one reverse edge is `products/api/list-catalog-products.ts` taking
+`CatalogProductQuery` from `features/catalog/search-params.ts` (a dependency-free
+module). Keep it the only one: `ProductDetail` takes its category and collection hrefs
+from the page (which may call `catalogPath`) rather than importing it, and the related
+row lives in `catalog`, not `products`. A slice follows this shape:
 
 ```
 features/<slice>/
@@ -680,7 +941,7 @@ for a same-shape asset swap.
 `●` SSG, not `ƒ` dynamic) — the *current state*, not an architectural rule.
 `generateStaticParams` + `setRequestLocale` make that possible because nothing here
 reads request-specific data; the homepage's client islands do not change that (a
-`'use client'` file never makes a route dynamic). The five catalog routes are the first
+`'use client'` file never makes a route dynamic). The six catalog routes are the first
 dynamic (`ƒ`) routes: request-time rendering over the Next data cache (see *Catalog* →
 *Rendering and caching*), chosen on their own merits. The catch-all and 404 are
 unchanged. Each future feature (a cart, a session) chooses its own

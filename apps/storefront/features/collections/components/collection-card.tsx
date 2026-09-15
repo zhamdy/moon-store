@@ -82,7 +82,8 @@ function ExploreLink({
 }
 
 /**
- * A collection on the index. Content is name, season · year and the link: no
+ * A collection on the index. Content is name, then season · year under it (never an
+ * eyebrow above it, owner decision 2026-09-14), and the link: no
  * product count. The photograph repeats the link for pointer users only
  * (`tabIndex=-1`, `aria-hidden`), so keyboard and screen-reader users meet one
  * link per collection. Hover scales the photograph on an inner wrapper, apart
@@ -106,8 +107,8 @@ export function CollectionCard({
         )}
       >
         <div className="max-w-2xl">
-          <Meta meta={collection.meta} />
-          <Name collection={collection} locale={locale} className="type-h2 mt-3" />
+          <Name collection={collection} locale={locale} className="type-h2" />
+          <Meta meta={collection.meta} className="mt-3" />
         </div>
         <div className="mb-1">
           <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
@@ -121,7 +122,7 @@ export function CollectionCard({
       <div
         data-motion={feature ? 'image' : undefined}
         className={cn(
-          'relative overflow-hidden bg-surface-soft',
+          'relative isolate overflow-hidden rounded-media bg-surface-soft',
           feature ? 'aspect-4/5 md:aspect-3/2' : 'aspect-4/5'
         )}
       >
@@ -143,11 +144,11 @@ export function CollectionCard({
       >
         <div className="lg:col-span-7">{photo(FEATURE_SIZES, true)}</div>
         <div className="lg:col-span-5">
-          <div data-motion="fade" className="[--motion-offset:300ms]">
-            <Meta meta={collection.meta} />
-          </div>
-          <div data-motion="rise" className="mt-3 [--motion-offset:400ms] [--motion-rise:24px]">
+          <div data-motion="rise" className="[--motion-offset:300ms] [--motion-rise:24px]">
             <Name collection={collection} locale={locale} className="type-h2 lg:type-h1" />
+          </div>
+          <div data-motion="fade" className="mt-3 [--motion-offset:400ms]">
+            <Meta meta={collection.meta} />
           </div>
           <div data-motion="fade" className="mt-8 [--motion-offset:600ms]">
             <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
@@ -161,8 +162,8 @@ export function CollectionCard({
     <article data-motion="rise" className={cn('group', className)}>
       {photo(CARD_SIZES, false)}
       <div data-motion="fade" className="mt-5 [--motion-offset:240ms]">
-        <Meta meta={collection.meta} />
-        <Name collection={collection} locale={locale} className="type-h3 mt-2" />
+        <Name collection={collection} locale={locale} className="type-h3" />
+        <Meta meta={collection.meta} className="mt-2" />
         <div className="mt-4">
           <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
         </div>

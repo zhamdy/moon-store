@@ -31,8 +31,8 @@ export async function NewArrivals({ locale }: { locale: AppLocale }) {
     <Container as="section" aria-labelledby="new-arrivals-title" className="section-y">
       <SectionHeading
         id="new-arrivals-title"
-        eyebrow={t('eyebrow')}
-        title={t('title')}
+        title={t('eyebrow')}
+        description={t('title')}
         link={{ href: '/new-in', label: t('link') }}
       />
       <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-10 [--motion-rise:64px] lg:mt-14 lg:grid-cols-4 lg:gap-x-8">

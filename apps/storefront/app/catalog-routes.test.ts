@@ -13,6 +13,7 @@ const LOADING_FILES = ['loading.tsx', 'loading.ts', 'loading.jsx', 'loading.js']
 const SLUG_PAGES = [
   path.join(CATALOG, 'shop', '[category]', 'page.tsx'),
   path.join(CATALOG, 'collections', '[slug]', 'page.tsx'),
+  path.join(CATALOG, 'products', '[slug]', 'page.tsx'),
 ];
 
 function directoriesUnder(dir: string): string[] {

@@ -37,6 +37,14 @@ export interface Product {
   /** Storefront URL segment; admin reads carry it, other projections may not. */
   slug?: string | null;
   name_en?: string | null;
+  description?: string | null;
+  description_en?: string | null;
+  material?: string | null;
+  material_en?: string | null;
+  care?: string | null;
+  care_en?: string | null;
+  fit?: string | null;
+  fit_en?: string | null;
   has_variants: number;
   variant_count: number;
   variant_stock: number;
@@ -137,4 +145,10 @@ export interface AppSettings {
   loyalty_earn_rate?: string;
   /** @deprecated legacy alias for `loyalty_egp_per_point`; read-only compatibility. */
   loyalty_redeem_value?: string;
+  /** Storefront product-page copy, read publicly via `GET /catalog/store-policies`. Arabic. */
+  delivery_policy?: string;
+  delivery_policy_en?: string;
+  /** Arabic; `returns_policy_en` is the English twin. */
+  returns_policy?: string;
+  returns_policy_en?: string;
 }

@@ -28,7 +28,7 @@ export function ProductGridSkeleton({ loadingLabel, count = 8 }: ProductGridSkel
         <ul role="list" className={`mt-6 md:mt-8 ${CATALOG_GRID_CLASS}`}>
           {Array.from({ length: count }, (_, index) => (
             <li key={index}>
-              <div className="aspect-4/5 bg-surface-soft" />
+              <div className="aspect-4/5 rounded-media bg-surface-soft" />
               {/* One type-body line tall, like the card's name/price row. */}
               <div className="mt-4 flex h-[1.6rem] items-center justify-between gap-4">
                 <span className="block h-3.5 w-3/5 bg-surface-soft" />

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { localizedName } from '@/features/products/utils/localized-name';
 import { loadCatalogParams, type CatalogRoute } from '../search-params';
 import { buildCatalogMetadata } from './catalog-metadata';
 
@@ -54,6 +55,29 @@ describe('buildCatalogMetadata', () => {
       params: loadCatalogParams(query, SHOP),
     });
     expect(meta.robots).toEqual({ index: false, follow: true });
+  });
+
+  // #200: the title is the page's own name, never only the generic "Shop"/"Collections".
+  it('titles a category and a collection by their own localized name', () => {
+    const category = buildCatalogMetadata({
+      locale: 'en',
+      path: '/shop/dresses',
+      title: localizedName({ name: 'فساتين', nameEn: 'Dresses' }, 'en').text,
+      description: 'Dresses',
+      params: loadCatalogParams('', DRESSES),
+    });
+    const collection = buildCatalogMetadata({
+      locale: 'ar',
+      path: '/collections/evening',
+      title: localizedName({ name: 'مجموعة المساء', nameEn: 'Evening' }, 'ar').text,
+      description: 'Evening',
+      params: loadCatalogParams('', EVENING),
+    });
+    expect(category.title).toContain('Dresses');
+    expect(collection.title).toContain('مجموعة المساء');
+    for (const title of [category.title, collection.title]) {
+      expect(['Shop', 'Collections', 'المجموعات', 'تسوّقي']).not.toContain(title);
+    }
   });
 
   it('a route-default or invalid sort stays indexable', () => {

@@ -36,11 +36,29 @@ export const CATALOG_PRICE_MAX = 10_000_000;
 /** At most this many images per product in a listing: the primary and the hover image. */
 export const CATALOG_LIST_IMAGE_COUNT = 2;
 
+/**
+ * At most this many images on a product detail: the primary plus the dashboard's gallery cap
+ * of 8. Enforced here because `product_images` has no database limit.
+ */
+export const CATALOG_DETAIL_IMAGE_COUNT = 9;
+
 /** `SET LOCAL statement_timeout` for every catalog read transaction (KD-17). */
 export const CATALOG_STATEMENT_TIMEOUT_MS = 2000;
 
 /** Collection statuses the public may see. `upcoming` and `archived` are invisible. */
 export const PUBLIC_COLLECTION_STATUSES = ['active', 'on_sale'] as const;
+
+/**
+ * The only `settings` keys the public may read: store-wide delivery and returns copy for
+ * the product page (Arabic primary, `_en` English). Named in SQL, never the whole table,
+ * because `settings` also holds tax, loyalty and receipt configuration.
+ */
+export const STORE_POLICY_SETTING_KEYS = {
+  delivery: 'delivery_policy',
+  deliveryEn: 'delivery_policy_en',
+  returns: 'returns_policy',
+  returnsEn: 'returns_policy_en',
+} as const;
 
 /** Successful catalog responses may be shared-cached for this long (KD-5). */
 export const CATALOG_CACHE_SECONDS = 60;

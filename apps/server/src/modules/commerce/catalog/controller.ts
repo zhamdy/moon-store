@@ -18,6 +18,16 @@ export class CatalogController {
     }
   }
 
+  async getProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      contracts.getCatalogProduct.parseQuery(req.query);
+      const { slug } = contracts.getCatalogProduct.parseParams<{ slug: string }>(req.params);
+      res.json(success(await catalogService.getProduct(slug)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async listCategories(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       contracts.listCatalogCategories.parseQuery(req.query);
@@ -31,6 +41,15 @@ export class CatalogController {
     try {
       contracts.listCatalogCollections.parseQuery(req.query);
       res.json(success(await catalogService.listCollections()));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getStorePolicies(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      contracts.getCatalogStorePolicies.parseQuery(req.query);
+      res.json(success(await catalogService.getStorePolicies()));
     } catch (err) {
       next(err);
     }

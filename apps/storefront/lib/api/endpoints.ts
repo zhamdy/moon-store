@@ -8,7 +8,9 @@ export const API_PREFIX = '/api/v1';
  */
 export const CATALOG_ENDPOINTS = {
   products: '/catalog/products',
+  product: (slug: string) => `/catalog/products/${encodeURIComponent(slug)}`,
   categories: '/catalog/categories',
   collections: '/catalog/collections',
   collection: (slug: string) => `/catalog/collections/${encodeURIComponent(slug)}`,
+  storePolicies: '/catalog/store-policies',
 } as const;

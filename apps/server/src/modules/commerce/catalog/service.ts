@@ -1,8 +1,20 @@
 import { PublicError } from '../../../http/errors';
 import { paginationMeta } from '../../../http/pagination';
 import { resolveMediaPublicOrigin } from '../../../config/env';
-import { CATALOG_NOT_FOUND_MESSAGE, CATALOG_PAGE_SIZE } from './constants';
-import { toCatalogCategoryDto, toCatalogCollectionDto, toCatalogProductDto } from './mappers';
+import logger from '../../../../lib/logger';
+import {
+  CATALOG_NOT_FOUND_MESSAGE,
+  CATALOG_PAGE_SIZE,
+  STORE_POLICY_SETTING_KEYS,
+} from './constants';
+import {
+  deriveVariantOptions,
+  rowHasVariants,
+  toCatalogCategoryDto,
+  toCatalogCollectionDto,
+  toCatalogProductDetailDto,
+  toCatalogProductDto,
+} from './mappers';
 import {
   CatalogRepository,
   catalogRepository,
@@ -12,8 +24,10 @@ import {
 import type {
   CatalogCategoryDto,
   CatalogCollectionDto,
+  CatalogProductDetailDto,
   CatalogProductFilters,
   CatalogProductList,
+  CatalogStorePoliciesDto,
 } from './types';
 
 /** SQLSTATE `query_canceled`, which is what `statement_timeout` raises. */
@@ -87,6 +101,38 @@ export class CatalogService {
     });
   }
 
+  async getProduct(slug: string): Promise<CatalogProductDetailDto> {
+    const origin = resolveMediaPublicOrigin();
+
+    const read = await runCatalogRead(async (client) => {
+      const row = await this.repo.findPublicProductBySlug(slug, client);
+      if (row === null) throw catalogNotFound();
+      const gallery = await this.repo.listGallery([row.id], client);
+      const variants = await this.repo.listVariants(row.id, client);
+      const collections = await this.repo.listProductCollections(row.id, client);
+      return { row, gallery, variants, collections };
+    });
+
+    const hasVariants = rowHasVariants(read.row);
+    const derived = hasVariants
+      ? deriveVariantOptions(read.variants, read.row.price)
+      : { options: [], variants: [], droppedVariantIds: [] };
+    if (derived.droppedVariantIds.length > 0) {
+      logger.warn('Catalog product detail dropped unusable variants', {
+        product_slug: slug,
+        variant_ids: derived.droppedVariantIds,
+      });
+    }
+
+    return toCatalogProductDetailDto(
+      read.row,
+      read.gallery.map((image) => image.image_url),
+      derived,
+      read.collections,
+      origin
+    );
+  }
+
   async listCategories(): Promise<CatalogCategoryDto[]> {
     const rows = await runCatalogRead((client) => this.repo.listCategories(client));
     return rows.map(toCatalogCategoryDto);
@@ -96,6 +142,21 @@ export class CatalogService {
     const origin = resolveMediaPublicOrigin();
     const rows = await runCatalogRead((client) => this.repo.listCollections(client));
     return rows.map((row) => toCatalogCollectionDto(row, origin));
+  }
+
+  async getStorePolicies(): Promise<CatalogStorePoliciesDto> {
+    const rows = await runCatalogRead((client) => this.repo.listStorePolicySettings(client));
+    const byKey = new Map(rows.map((row) => [row.key, row.value]));
+    const text = (key: string): string | null => {
+      const value = byKey.get(key);
+      return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+    };
+    return {
+      delivery: text(STORE_POLICY_SETTING_KEYS.delivery),
+      deliveryEn: text(STORE_POLICY_SETTING_KEYS.deliveryEn),
+      returns: text(STORE_POLICY_SETTING_KEYS.returns),
+      returnsEn: text(STORE_POLICY_SETTING_KEYS.returnsEn),
+    };
   }
 
   async getCollection(slug: string): Promise<CatalogCollectionDto> {

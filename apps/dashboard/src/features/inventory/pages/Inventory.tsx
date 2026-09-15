@@ -103,6 +103,14 @@ const getProductSchema = () =>
     distributor_id: z.coerce.number().int().positive().optional().nullable(),
     min_stock: z.coerce.number().int().min(0).default(5),
     name_en: z.string().max(255).optional().nullable(),
+    description: z.string().max(5000).optional().nullable(),
+    description_en: z.string().max(5000).optional().nullable(),
+    material: z.string().max(2000).optional().nullable(),
+    material_en: z.string().max(2000).optional().nullable(),
+    care: z.string().max(2000).optional().nullable(),
+    care_en: z.string().max(2000).optional().nullable(),
+    fit: z.string().max(2000).optional().nullable(),
+    fit_en: z.string().max(2000).optional().nullable(),
     slug: slugFormSchema(),
   });
 
@@ -341,6 +349,14 @@ export default function Inventory() {
       id: editingProduct?.id ?? null,
       ...data,
       name_en: englishForWrite(data.name_en),
+      description: englishForWrite(data.description),
+      description_en: englishForWrite(data.description_en),
+      material: englishForWrite(data.material),
+      material_en: englishForWrite(data.material_en),
+      care: englishForWrite(data.care),
+      care_en: englishForWrite(data.care_en),
+      fit: englishForWrite(data.fit),
+      fit_en: englishForWrite(data.fit_en),
       slug: slugForWrite(data.slug),
     });
   };

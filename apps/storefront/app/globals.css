@@ -139,6 +139,14 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-pill: 999px;
+  /* Media radius (owner decision, 2026-09-14): every image frame and card, the
+     skeleton frames that stand in for them and the size cells take `rounded-media`;
+     thumbnails and images under ~96px take `rounded-media-sm`. Buttons, inputs,
+     chips, the header and the footer stay square. The frame carrying the radius is
+     the one that clips (`overflow: hidden`), so zoom, hover swaps and parallax
+     over-scale stay inside the shape. */
+  --radius-media: 12px;
+  --radius-media-sm: 8px;
 
   --ease-ui: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-editorial: cubic-bezier(0.16, 1, 0.3, 1);
@@ -432,26 +440,6 @@ header[data-surface][data-surface-ready] {
   }
 }
 
-/* A wipe along the reading direction. The end inset is negative so glyphs that
-   overhang the box (Arabic marks, italic tails) are never cut. */
-@keyframes moon-wipe {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(-0.25em);
-  }
-}
-
-@keyframes moon-wipe-rtl {
-  from {
-    clip-path: inset(0 0 0 100%);
-  }
-  to {
-    clip-path: inset(-0.25em);
-  }
-}
-
 @keyframes moon-image-in {
   from {
     transform: scale(1.08);
@@ -487,7 +475,6 @@ header[data-surface][data-surface-ready] {
      rise   opacity + translateY(--motion-rise)
      fade   opacity
      image  clip wipe upward; a [data-motion-zoom] inside settles from 1.06
-     wipe   clip wipe along the reading direction (labels)
      word   a word rising inside its mask (components/motion/text-reveal.tsx)
 
    Timing: delay = --motion-stagger (inherited, a step count) x --motion-step
@@ -529,18 +516,15 @@ header[data-surface][data-surface-ready] {
     --motion-duration: 700ms;
   }
 
+  /* Every image frame is rounded, so the wipe's inset carries the same radius and
+     the corners hold for the whole animation. */
   [data-motion='image'] {
     --motion-duration: 1100ms;
-    clip-path: inset(0);
+    clip-path: inset(0 round var(--radius-media));
   }
 
   [data-motion-zoom] {
     --motion-duration: 1600ms;
-  }
-
-  [data-motion='wipe'] {
-    --motion-duration: 900ms;
-    clip-path: inset(-0.25em);
   }
 
   [data-motion-mask] {
@@ -572,19 +556,11 @@ header[data-surface][data-surface-ready] {
   }
 
   :is([data-reveal='pending'], [data-reveal='pending'] *):is([data-motion='image']) {
-    clip-path: inset(100% 0 0 0);
+    clip-path: inset(100% 0 0 0 round var(--radius-media));
   }
 
   [data-reveal='pending'] [data-motion-zoom] {
     transform: scale(var(--motion-zoom, 1.06));
-  }
-
-  :is([data-reveal='pending'], [data-reveal='pending'] *):is([data-motion='wipe']) {
-    clip-path: inset(0 100% 0 0);
-  }
-
-  [dir='rtl'] :is([data-reveal='pending'], [data-reveal='pending'] *):is([data-motion='wipe']) {
-    clip-path: inset(0 0 0 100%);
   }
 
   [data-reveal='pending'] [data-motion='word'] {
@@ -597,10 +573,11 @@ header[data-surface][data-surface-ready] {
    from the server HTML and every change replays it.
 
    Load and change share one sequence: the image settles 1.08 -> 1 from 120ms,
-   the label wipes in at 200ms, the title lines rise through their masks at
-   300/420ms, the copy at 450ms, the link at 600ms. The outgoing slide fades over
-   1s while its image drifts 1 -> 1.04 and its title leaves upward through the
-   same masks, so old and new titles cross in place. Visibility is delayed on the
+   the title rises through its mask at 300ms, the description fades up at 420ms,
+   the copy at 540ms, the link at 660ms (no eyebrow, owner decision 2026-09-14).
+   The outgoing slide fades over 1s while its image drifts 1 -> 1.04 and its
+   title leaves upward through the same mask, so old and new titles cross in
+   place. Visibility is delayed on the
    way out so the fade can run. */
 [data-hero-slide] {
   opacity: 0;
@@ -630,15 +607,6 @@ header[data-surface][data-surface-ready] {
   animation-delay: var(--entrance-delay, 0ms);
 }
 
-[data-hero-slide][data-active] [data-enter='wipe'] {
-  animation: moon-wipe 900ms var(--ease-editorial) both;
-  animation-delay: var(--entrance-delay, 0ms);
-}
-
-[dir='rtl'] [data-hero-slide][data-active] [data-enter='wipe'] {
-  animation-name: moon-wipe-rtl;
-}
-
 [data-hero-slide][data-active] [data-enter='line'] {
   animation: moon-line-reveal 1000ms var(--ease-editorial) both;
   animation-delay: var(--entrance-delay, 0ms);
@@ -653,7 +621,7 @@ header[data-surface][data-surface-ready] {
   animation: moon-line-exit 650ms cubic-bezier(0.7, 0, 0.84, 0) both;
 }
 
-[data-hero-slide][data-leaving] :is([data-enter='fade'], [data-enter='wipe']) {
+[data-hero-slide][data-leaving] [data-enter='fade'] {
   animation: moon-fade-out 400ms var(--ease-ui) both;
 }
 
@@ -785,6 +753,199 @@ header[data-surface][data-surface-ready] {
   display: none;
 }
 
+/* ============================================================
+   Product gallery - features/products/components/product-gallery-viewer.tsx.
+   The 72 / 88 / 72 thumbnails, their 4px inset and the 16px gap mirror
+   features/products/utils/gallery-layout.ts (GALLERY_STEPS); a change here must
+   change that table.
+   ============================================================ */
+@layer components {
+  /* Thumbnails at the inline end below 992 and at the inline start from it; `dir`
+     decides which physical side that is. Photographs are never mirrored. */
+  [data-gallery] {
+    --gallery-thumb: 72px;
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 16px;
+  }
+
+  @media (min-width: 768px) {
+    [data-gallery] {
+      --gallery-thumb: 88px;
+    }
+  }
+
+  @media (min-width: 992px) {
+    [data-gallery] {
+      --gallery-thumb: 72px;
+      flex-direction: row;
+    }
+  }
+
+  /* From the split the row packs to its inline end, which faces the info column in both
+     directions, so image and text read as one composition. */
+  @media (min-width: 1024px) {
+    [data-gallery] {
+      justify-content: flex-end;
+    }
+  }
+
+  /* The column adds no height: its list is absolutely placed, so the 4:5 frame sets the
+     row and any thumbnails past its height scroll inside it. */
+  [data-gallery-thumbs] {
+    position: relative;
+    flex: none;
+    inline-size: var(--gallery-thumb);
+  }
+
+  [data-gallery-thumbs] > [role='tablist'] {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+  }
+
+  [data-gallery-thumbs] > [role='tablist']::-webkit-scrollbar {
+    display: none;
+  }
+
+  [data-gallery-thumb] {
+    display: block;
+    flex: none;
+    block-size: var(--gallery-thumb);
+    inline-size: 100%;
+    padding: 3px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-media-sm);
+    opacity: 0.6;
+    cursor: pointer;
+    transition:
+      border-color 400ms var(--ease-ui),
+      opacity 400ms var(--ease-ui);
+    /* Keyboard focus clears the sticky header. */
+    scroll-margin-block-start: calc(var(--header-h) + 16px);
+  }
+
+  @media (hover: hover) {
+    [data-gallery-thumb]:hover {
+      opacity: 1;
+    }
+  }
+
+  /* Ink, not gold: gold on ivory is 2.64:1, under the 3:1 a state indicator needs. */
+  [data-gallery-thumb][aria-selected='true'] {
+    border-color: var(--color-text);
+    opacity: 1;
+  }
+
+  /* Inset over the border and padding, since the scrolling column clips an outset ring. */
+  [data-gallery-thumb]:focus-visible {
+    opacity: 1;
+    outline-offset: -2px;
+  }
+
+  [data-gallery-thumb] > span {
+    position: relative;
+    display: block;
+    block-size: 100%;
+    overflow: hidden;
+    /* Concentric with the button: its radius minus the 3px padding and 1px border. */
+    border-radius: calc(var(--radius-media-sm) - 4px);
+    background-color: var(--color-surface-soft);
+  }
+
+  [data-gallery-frame] {
+    position: relative;
+    flex: 1 1 0%;
+    min-inline-size: 0;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: var(--radius-media);
+    /* Keeps the scale(2) zoom layer inside the rounded clip in WebKit. */
+    isolation: isolate;
+    background-color: var(--color-surface-soft);
+  }
+
+  /* From 1024 the product fits one screen under the sticky header: the frame takes the 4:5
+     width (0.8) of the viewport height left after header and breadcrumb, never under 22rem,
+     and shrinks to the space the thumbnail column leaves. */
+  @media (min-width: 1024px) {
+    [data-gallery-frame] {
+      flex: 0 1 max(22rem, calc((100svh - var(--header-h) - 11rem) * 0.8));
+    }
+  }
+
+  /* The frame clips an outside outline and its panes paint over an inset shadow, so the
+     ring is an inset outline on a layer above them that never takes the pointer. */
+  [data-gallery-frame]:focus-visible {
+    outline: none;
+  }
+
+  [data-gallery-frame]:focus-visible::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: -2px;
+    border-radius: inherit;
+  }
+
+  [data-gallery-frame][data-zoomable] {
+    cursor: zoom-in;
+  }
+
+  /* Zoom in place: the origin follows the pointer (written by the island), the scale is
+     here. Reduced motion keeps the zoom and loses the transition (global rule). */
+  [data-gallery-zoom] {
+    position: absolute;
+    inset: 0;
+    transform-origin: var(--zoom-x, 50%) var(--zoom-y, 50%);
+    transition: transform 300ms var(--ease-ui);
+  }
+
+  [data-gallery-frame][data-zoomed] [data-gallery-zoom] {
+    transform: scale(2);
+  }
+
+  /* The outgoing pane stays painted beneath while the new one fades in over it. */
+  [data-gallery-pane] {
+    position: absolute;
+    inset: 0;
+  }
+
+  [data-gallery-pane][data-state='active'] {
+    z-index: 1;
+  }
+
+  [data-gallery-pane][data-fade] {
+    animation: moon-gallery-fade 300ms var(--ease-ui) both;
+  }
+
+  [data-gallery-hires] {
+    opacity: 0;
+    transition: opacity 300ms var(--ease-ui);
+  }
+
+  [data-gallery-hires][data-loaded] {
+    opacity: 1;
+  }
+}
+
+@keyframes moon-gallery-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Editorial strip depth: each detail photograph drifts sideways inside its frame
    on its own slow cycle, over-scaled so no edge shows, so the images move at a
    different speed from the words without leaving the line. `ease-in-out` is
@@ -865,5 +1026,67 @@ header[data-surface][data-surface-ready] {
   .marquee-track[aria-hidden='true'],
   [data-marquee-copy] {
     display: none;
+  }
+}
+
+/* Product details tabs (ED-4, the Bella tab bar): full container width between two
+   hairlines, sticky under the header, the active tab marked by a 2px ink underline. */
+@layer components {
+  [data-product-tabs] {
+    scroll-margin-block-start: var(--header-h);
+  }
+
+  [data-product-tabs-bar] {
+    position: sticky;
+    inset-block-start: var(--header-h);
+    /* Below the header (z-40), above the page. */
+    z-index: 30;
+    background-color: var(--color-bg);
+    border-block: 1px solid var(--color-border);
+  }
+
+  /* Scrolls sideways inside the bar when the labels outrun a 320px screen. */
+  [data-product-tabs-bar] > [role='tablist'] {
+    display: flex;
+    gap: 40px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  [data-product-tab] {
+    flex: none;
+    min-block-size: 44px;
+    padding-block: 20px;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition:
+      color 180ms var(--ease-ui),
+      box-shadow 180ms var(--ease-ui);
+  }
+
+  @media (hover: hover) {
+    [data-product-tab]:hover {
+      color: var(--color-text);
+    }
+  }
+
+  [data-product-tab][aria-selected='true'] {
+    color: var(--color-text);
+    box-shadow: inset 0 -2px 0 0 var(--color-text);
+  }
+
+  /* Inset, since the scrolling tablist clips an outset ring. */
+  [data-product-tab]:focus-visible {
+    outline-offset: -2px;
+  }
+
+  [data-product-tabs-panel][data-fade] {
+    animation: moon-gallery-fade 180ms var(--ease-ui) both;
+  }
+
+  /* Keyboard focus inside a panel clears the header and the stuck bar. */
+  [data-product-tabs-panel],
+  [data-product-tabs-panel] a {
+    scroll-margin-block-start: calc(var(--header-h) + 5rem);
   }
 }
