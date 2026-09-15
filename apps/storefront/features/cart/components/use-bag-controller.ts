@@ -62,6 +62,8 @@ export interface BagController {
   view: BagView;
   /** The quote's fetch state, for checkout readiness. */
   fetch: CartQuoteFetch;
+  /** Re-quote and resolve once settled: Checkout's pre-submit check (CO-14). */
+  refresh(): Promise<void>;
   /** A re-quote is in flight. */
   pending: boolean;
   removing: ReadonlySet<string>;
@@ -250,6 +252,7 @@ export function useBagController({ active, locale, strings }: BagControllerOptio
     cart,
     view,
     fetch: quote.fetch,
+    refresh: quote.refresh,
     pending,
     removing,
     emptyHeading,
