@@ -325,6 +325,115 @@
         "x": "X",
         "whatsapp": "WhatsApp"
       }
-    }
+    },
+    "addToBag": "Add to Bag",
+    "chooseOption": "Choose a {option}"
+  },
+  "bag": {
+    "title": "Bag",
+    "close": "Close bag",
+    "added": "Added to your bag: {name}",
+    "addedQuantity": "Added to your bag: {name} ({count})",
+    "viewBag": "View bag",
+    "continueShopping": "Continue shopping",
+    "empty": {
+      "title": "Your bag is empty",
+      "action": "Continue shopping"
+    },
+    "quantity": "Quantity, {name}",
+    "increase": "Increase quantity, {name}",
+    "decrease": "Decrease quantity, {name}",
+    "remove": "Remove",
+    "removeLabel": "Remove {name}",
+    "removed": "{name} removed from your bag",
+    "undo": "Undo",
+    "optionValue": "{label}: {value}",
+    "unitPrice": "Price",
+    "lineTotal": "Total",
+    "unavailablePiece": "A piece that is no longer available",
+    "pendingPiece": "This piece",
+    "notice": {
+      "soldOut": "Sold out",
+      "variantUnavailable": "This option is no longer available",
+      "productUnavailable": "This piece is no longer available",
+      "quantityLimited": "Only {count} available",
+      "priceUpdated": "Price updated",
+      "capped": "You can add up to {max} of this piece",
+      "full": "Your bag is full. Remove a piece to add another"
+    },
+    "summaryHeading": "Summary",
+    "subtotal": "Subtotal",
+    "updating": "Updating",
+    "pieces": {
+      "zero": "{count} pieces",
+      "one": "{count} piece",
+      "two": "{count} pieces",
+      "few": "{count} pieces",
+      "many": "{count} pieces",
+      "other": "{count} pieces"
+    },
+    "piecesInBag": {
+      "zero": "{count} pieces in your bag",
+      "one": "{count} piece in your bag",
+      "two": "{count} pieces in your bag",
+      "few": "{count} pieces in your bag",
+      "many": "{count} pieces in your bag",
+      "other": "{count} pieces in your bag"
+    },
+    "excluded": {
+      "zero": "{count} pieces not included in the subtotal",
+      "one": "{count} piece not included in the subtotal",
+      "two": "{count} pieces not included in the subtotal",
+      "few": "{count} pieces not included in the subtotal",
+      "many": "{count} pieces not included in the subtotal",
+      "other": "{count} pieces not included in the subtotal"
+    },
+    "quantityChanged": "{name}, quantity {count}. Subtotal {subtotal}",
+    "updated": "Your bag was updated",
+    "issues": {
+      "unavailable": {
+        "zero": "{count} pieces are no longer available",
+        "one": "{count} piece is no longer available",
+        "two": "{count} pieces are no longer available",
+        "few": "{count} pieces are no longer available",
+        "many": "{count} pieces are no longer available",
+        "other": "{count} pieces are no longer available"
+      },
+      "limited": {
+        "zero": "{count} quantities limited",
+        "one": "{count} quantity limited",
+        "two": "{count} quantities limited",
+        "few": "{count} quantities limited",
+        "many": "{count} quantities limited",
+        "other": "{count} quantities limited"
+      },
+      "priceUpdated": {
+        "zero": "{count} prices updated",
+        "one": "{count} price updated",
+        "two": "{count} prices updated",
+        "few": "{count} prices updated",
+        "many": "{count} prices updated",
+        "other": "{count} prices updated"
+      }
+    },
+    "error": {
+      "load": "We couldn't update your bag",
+      "retry": "Try again",
+      "emptyBag": "Empty bag"
+    },
+    "count": {
+      "zero": "Bag, {count} items",
+      "one": "Bag, {count} item",
+      "two": "Bag, {count} items",
+      "few": "Bag, {count} items",
+      "many": "Bag, {count} items",
+      "other": "Bag, {count} items"
+    },
+    "metaTitle": "Bag",
+    "metaDescription": "Review the pieces in your bag."
+  },
+  "toaster": {
+    "label": "Notifications",
+    "close": "Dismiss"
   }
 }

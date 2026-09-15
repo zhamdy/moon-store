@@ -29,6 +29,9 @@
   --moon-stone-400: #aaa39c;
   --moon-stone-600: #6d6660;
 
+  /* Validation only (owner decision 2026-09-15): 7.1:1 on ivory, 6.6:1 on cream. */
+  --moon-garnet: #9b2c2c;
+
   /* Layout (guideline §6). Container tracks the 12-column desktop grid's
      max width; gutters and section spacing step up by breakpoint below. */
   --container-max: 1440px;
@@ -129,6 +132,9 @@
      utility names would otherwise silently shadow with a different, coincidentally
      similar grey — see Button's disabled state. */
   --color-disabled: var(--moon-stone-400);
+
+  /* Validation messages only, always with an icon and text (never colour alone). */
+  --color-error: var(--moon-garnet);
 
   --font-display: var(--font-display-active);
   --font-body: var(--font-body-active);
@@ -1023,6 +1029,12 @@ header[data-surface][data-surface-ready] {
     transform: none;
   }
 
+  /* Placeholders show at once and hold still; revealed content does not fade. */
+  [data-bag-placeholder],
+  [data-bag-reveal] {
+    animation: none;
+  }
+
   .marquee-track[aria-hidden='true'],
   [data-marquee-copy] {
     display: none;
@@ -1088,5 +1100,57 @@ header[data-surface][data-surface-ready] {
   [data-product-tabs-panel],
   [data-product-tabs-panel] a {
     scroll-margin-block-start: calc(var(--header-h) + 5rem);
+  }
+}
+
+/* Toaster (Sonner, `components/feedback/app-toaster.tsx`). Sonner injects an unlayered sheet
+   at runtime, after this one, so these rules are unlayered too and one step more specific:
+   its system font stack and its `outline: 0` on the focusable toast would otherwise win.
+   Its own `prefers-reduced-motion` rule already removes the slide and stacking transitions. */
+[data-sonner-toaster][data-y-position] {
+  font-family: var(--font-body);
+}
+
+[data-sonner-toaster] [data-sonner-toast]:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+/* Bag loading: a placeholder appears only after 150ms, so a near-instant quote never
+   flashes one, then breathes slowly. The loop fills nothing, so the entrance's held
+   opacity 0 wins during the delay. Content replacing a placeholder fades in on mount. */
+@layer components {
+  [data-bag-placeholder] {
+    animation:
+      moon-bag-placeholder-in 240ms var(--ease-ui) 150ms both,
+      moon-bag-breathe 1.6s ease-in-out 390ms infinite alternate none;
+  }
+
+  [data-bag-reveal] {
+    animation: moon-bag-reveal var(--motion-fast) var(--ease-ui) both;
+  }
+}
+
+@keyframes moon-bag-placeholder-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes moon-bag-breathe {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+@keyframes moon-bag-reveal {
+  from {
+    opacity: 0;
   }
 }

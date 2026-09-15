@@ -239,6 +239,13 @@ describe('purchaseReadiness precedence', () => {
     });
   });
 
+  it('ready options equal the variant DTO options object (the Cart line identity)', () => {
+    const result = purchaseReadiness({ size: 'M', color: 'Black' }, twoOptions);
+    expect(result.kind === 'ready' && result.options).toStrictEqual(
+      twoOptions.variants[1]!.options
+    );
+  });
+
   it('returns a copy of the options, not the variant record', () => {
     const result = purchaseReadiness({ size: 'L' }, knit);
     expect(result.kind).toBe('ready');

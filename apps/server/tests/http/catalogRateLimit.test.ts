@@ -23,6 +23,7 @@ import {
   CATALOG_SERVER_BUCKET,
   catalogRateLimitKey,
   hasValidCatalogServerToken,
+  isCartQuotePath,
   isRateLimitExempt,
   logCatalogRateLimitConfig,
 } from '../../src/http/rateLimits';
@@ -33,6 +34,7 @@ const TOKEN_B = 'b2'.repeat(32);
 
 const ENV_KEYS = [
   'RATE_LIMIT_MAX',
+  'CART_QUOTE_RATE_LIMIT_MAX',
   'CATALOG_RATE_LIMIT_MAX',
   'CATALOG_SERVER_RATE_LIMIT_MAX',
   'CATALOG_SERVER_TOKEN',
@@ -79,6 +81,30 @@ describe('global limiter exemption', () => {
       '/api/v1/products',
     ]) {
       expect(isRateLimitExempt({ method: 'GET', path: p }), p).toBe(false);
+    }
+  });
+
+  // Deliberate change (plan 2026-09-15-001, CD-21): POST under the catalog prefix used to be
+  // on the global budget without exception. Exactly the cart quote path now leaves it for
+  // its own limiter; every other catalog POST still spends the global budget.
+  it('exempts exactly the cart quote path, any method, and nothing beside it', () => {
+    for (const p of [
+      '/api/v1/catalog/cart/quote',
+      '/api/v1/catalog/cart/quote/',
+      '/API/V1/Catalog/Cart/Quote',
+    ]) {
+      expect(isCartQuotePath({ path: p }), p).toBe(true);
+      expect(isRateLimitExempt({ method: 'POST', path: p }), p).toBe(true);
+    }
+    for (const p of [
+      '/api/v1/catalog/cart',
+      '/api/v1/catalog/cart/quotes',
+      '/api/v1/catalog/cart/quote/x',
+      '/api/v1/catalog/products',
+      '/x/api/v1/catalog/cart/quote',
+    ]) {
+      expect(isCartQuotePath({ path: p }), p).toBe(false);
+      expect(isRateLimitExempt({ method: 'POST', path: p }), p).toBe(false);
     }
   });
 });
@@ -189,11 +215,26 @@ describe('catalog limiter through the real app', { timeout: 60_000 }, () => {
 
   function send(
     url: string,
-    headers: Record<string, string | string[]> = {}
+    headers: Record<string, string | string[]> = {},
+    method = 'GET',
+    payload?: string
   ): Promise<{ status: number; cache: string | undefined; body: string }> {
     return new Promise((resolve, reject) => {
       const r = http.request(
-        { host: '127.0.0.1', port, path: url, method: 'GET', headers },
+        {
+          host: '127.0.0.1',
+          port,
+          path: url,
+          method,
+          headers:
+            payload === undefined
+              ? headers
+              : {
+                  'content-type': 'application/json',
+                  'content-length': String(Buffer.byteLength(payload)),
+                  ...headers,
+                },
+        },
         (res) => {
           let body = '';
           res.setEncoding('utf8');
@@ -208,6 +249,7 @@ describe('catalog limiter through the real app', { timeout: 60_000 }, () => {
         }
       );
       r.on('error', reject);
+      if (payload !== undefined) r.write(payload);
       r.end();
     });
   }
@@ -279,6 +321,39 @@ describe('catalog limiter through the real app', { timeout: 60_000 }, () => {
       (await send('/api/v1/catalog/categories', { 'x-catalog-server-token': TOKEN_B })).status
     ).toBe(200);
     expect((await send('/api/v1/catalog/categories', server)).status).toBe(429);
+  });
+
+  it('charges the cart quote to its own per-IP bucket only, and refuses before parsing', async () => {
+    process.env.CART_QUOTE_RATE_LIMIT_MAX = '2';
+    process.env.CATALOG_RATE_LIMIT_MAX = '2';
+    process.env.RATE_LIMIT_MAX = '3';
+    process.env.CATALOG_SERVER_TOKEN = TOKEN_A;
+    resetEnvCache();
+    await boot();
+
+    const quote = JSON.stringify({ lines: [{ slug: 'any-piece', options: {}, quantity: 1 }] });
+    const server = { 'x-catalog-server-token': TOKEN_A };
+    const post = (headers: Record<string, string> = {}, payload = quote) =>
+      send('/api/v1/catalog/cart/quote', headers, 'POST', payload);
+
+    // A valid server token earns no bigger bucket: the ceiling of 2 applies to it too.
+    expect((await post(server)).status).toBe(200);
+    expect((await post()).status).toBe(200);
+    const limited = await post(server);
+    expect(limited.status).toBe(429);
+    expect(limited.cache).toBe('no-store');
+    expect(JSON.parse(limited.body)).toEqual({
+      error: expect.objectContaining({ code: 'RATE_LIMITED' }),
+    });
+
+    // Refused before the body is read: malformed JSON over the limit is a 429, not a 400.
+    expect((await post({}, '{"lines": [')).status).toBe(429);
+
+    // Neither the catalog read bucket (2) nor the anonymous global bucket (3) was spent.
+    expect(await statuses('/api/v1/catalog/categories', 2)).toEqual([200, 200]);
+    expect((await send('/api/v1/catalog/categories')).status).toBe(429);
+    expect(await statuses('/api/v1/catalogue', 3)).toEqual([404, 404, 404]);
+    expect((await send('/api/v1/catalogue')).status).toBe(429);
   });
 
   it('treats a wrong, wrong-length or repeated token as anonymous, never a 500', async () => {

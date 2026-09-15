@@ -6,8 +6,18 @@
  * and COUNT-derived values as strings, pg-mem returns numbers, and the DTO is a number on
  * both.
  */
-import { CATALOG_DETAIL_IMAGE_COUNT, CATALOG_LIST_IMAGE_COUNT } from './constants';
+import {
+  CATALOG_DETAIL_IMAGE_COUNT,
+  CATALOG_LIST_IMAGE_COUNT,
+  MAX_LINE_QUANTITY,
+} from './constants';
 import type {
+  CartQuoteDto,
+  CartQuoteLineDto,
+  CartQuoteLineStatus,
+  CartQuoteOptionDto,
+  CartQuoteRequestLine,
+  CatalogQuoteProductRow,
   CatalogCategoryDto,
   CatalogCategoryRow,
   CatalogCollectionDto,
@@ -118,6 +128,34 @@ interface ParsedVariant {
   signature: string;
 }
 
+/**
+ * Attribute normalizers, shared by variant derivation and cart quote matching (plan
+ * 2026-09-15-001, CD-5) so a bag line and the product page can never disagree on what
+ * "the same option" means. NFC so a composed and a decomposed spelling compare equal.
+ */
+export function normalizeAttributeLabel(raw: string): string {
+  return raw.trim().normalize('NFC');
+}
+
+/** A key as matched: trimmed, NFC, lower-cased (`Size` and `size` are one key). */
+export function normalizeAttributeKey(raw: string): string {
+  return normalizeAttributeLabel(raw).toLowerCase();
+}
+
+/** A value as shown: trimmed, NFC. Values match case-insensitively, see `combinationKey`. */
+export function normalizeAttributeValue(raw: string): string {
+  return raw.trim().normalize('NFC');
+}
+
+/** One variant's identity: normalized keys with lower-cased values, in key order. */
+function combinationKey(entries: readonly (readonly [string, string])[]): string {
+  return JSON.stringify(
+    entries
+      .map(([key, value]) => [key, value.toLowerCase()])
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  );
+}
+
 /** `attributes` with trimmed, lower-cased keys, or null when any part is unusable. */
 function parseAttributes(row: CatalogVariantRow): ParsedVariant | null {
   let raw: unknown;
@@ -132,9 +170,8 @@ function parseAttributes(row: CatalogVariantRow): ParsedVariant | null {
   const seen = new Set<string>();
   for (const [originalKey, originalValue] of Object.entries(raw)) {
     if (typeof originalValue !== 'string') return null;
-    // NFC so a composed and a decomposed spelling of the same text compare equal.
-    const label = originalKey.trim().normalize('NFC');
-    const value = originalValue.trim().normalize('NFC');
+    const label = normalizeAttributeLabel(originalKey);
+    const value = normalizeAttributeValue(originalValue);
     const key = label.toLowerCase();
     if (!key || !value || seen.has(key)) return null;
     seen.add(key);
@@ -151,6 +188,20 @@ export interface DerivedVariants {
   droppedVariantIds: number[];
 }
 
+/** A listed variant as the quote needs it. Internal: `stock` must never reach a response. */
+export interface UsableVariant {
+  combination: string;
+  /** Canonical key -> shown value, exactly the DTO variant's `options`. */
+  selected: Record<string, string>;
+  price: number;
+  stock: number;
+}
+
+export interface DerivedVariantsWithStock extends DerivedVariants {
+  /** One entry per `variants` entry, in the same order. */
+  usable: UsableVariant[];
+}
+
 /**
  * Options and purchasable variants from free-form variant attributes (plan 2026-09-14-003,
  * *Variant and availability model*). Pure.
@@ -165,6 +216,19 @@ export function deriveVariantOptions(
   rows: readonly CatalogVariantRow[],
   productPrice: string | number
 ): DerivedVariants {
+  const { options, variants, droppedVariantIds } = deriveVariantsWithStock(rows, productPrice);
+  return { options, variants, droppedVariantIds };
+}
+
+/**
+ * `deriveVariantOptions` plus each listed variant's stock and match key, for the cart quote
+ * (CD-5). The same derivation, not a copy: the quote's price, availability and dropped
+ * variants are exactly the product page's.
+ */
+export function deriveVariantsWithStock(
+  rows: readonly CatalogVariantRow[],
+  productPrice: string | number
+): DerivedVariantsWithStock {
   const parsed: ParsedVariant[] = [];
   const droppedVariantIds: number[] = [];
   const signatureCounts = new Map<string, number>();
@@ -191,6 +255,7 @@ export function deriveVariantOptions(
   const options: OptionBuilder[] = [];
   const optionByKey = new Map<string, OptionBuilder>();
   const variants: CatalogVariantDto[] = [];
+  const usable: UsableVariant[] = [];
   const combinations = new Set<string>();
 
   for (const variant of parsed) {
@@ -199,11 +264,7 @@ export function deriveVariantOptions(
       continue;
     }
     const normalized = variant.entries.map((entry) => entry.value.toLowerCase());
-    const combination = JSON.stringify(
-      variant.entries
-        .map((entry, i) => [entry.key, normalized[i]])
-        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    );
+    const combination = combinationKey(variant.entries.map((entry) => [entry.key, entry.value]));
     if (combinations.has(combination)) {
       droppedVariantIds.push(variant.row.id);
       continue;
@@ -227,17 +288,17 @@ export function deriveVariantOptions(
       selected[entry.key] = shown;
     });
 
-    variants.push({
-      options: selected,
-      price: toNumber(variant.row.price ?? productPrice),
-      inStock: toNumber(variant.row.stock) > 0,
-    });
+    const price = toNumber(variant.row.price ?? productPrice);
+    const stock = toNumber(variant.row.stock);
+    variants.push({ options: selected, price, inStock: stock > 0 });
+    usable.push({ combination, selected, price, stock });
   }
 
   return {
     options: options.map(({ key, label, values }) => ({ key, label, values })),
     variants,
     droppedVariantIds: droppedVariantIds.sort((a, b) => a - b),
+    usable,
   };
 }
 
@@ -285,5 +346,136 @@ export function toCatalogProductDetailDto(
     })),
     options,
     variants,
+  };
+}
+
+/** What the quote knows about one named public product. */
+export interface QuoteProductContext {
+  row: CatalogQuoteProductRow;
+  hasVariants: boolean;
+  options: CatalogOptionDto[];
+  usable: UsableVariant[];
+}
+
+/** Money in the response: two decimals, so `1399.5 * 3` never ships as `4198.499999`. */
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * The requested options' identity under the derivation's own normalization, or null when
+ * the request cannot name one variant (a blank or repeated normalized key or value).
+ */
+export function requestedCombination(options: Readonly<Record<string, string>>): string | null {
+  const entries: [string, string][] = [];
+  const seen = new Set<string>();
+  for (const [rawKey, rawValue] of Object.entries(options)) {
+    if (typeof rawValue !== 'string') return null;
+    const key = normalizeAttributeKey(rawKey);
+    const value = normalizeAttributeValue(rawValue);
+    if (!key || !value || seen.has(key)) return null;
+    seen.add(key);
+    entries.push([key, value]);
+  }
+  return combinationKey(entries);
+}
+
+function unavailableLine(
+  line: CartQuoteRequestLine,
+  index: number,
+  status: Extract<CartQuoteLineStatus, 'variantUnavailable' | 'productUnavailable'>,
+  product: CartQuoteLineDto['product']
+): CartQuoteLineDto {
+  return {
+    index,
+    slug: line.slug,
+    status,
+    product,
+    options: [],
+    unitPrice: null,
+    requestedQuantity: line.quantity,
+    quantity: 0,
+    maxQuantity: 0,
+    lineTotal: 0,
+  };
+}
+
+/**
+ * One quote line (plan 2026-09-15-001, *Quote contract*). Evaluated on its own against
+ * `min(stock, MAX_LINE_QUANTITY)`: lines naming the same variant never share an allocation
+ * (CD-7), so no response can reveal stock above the cap. Names every key it emits; `stock`
+ * appears only as `maxQuantity`.
+ */
+export function toCartQuoteLineDto(
+  line: CartQuoteRequestLine,
+  index: number,
+  product: QuoteProductContext | undefined,
+  origin: string
+): CartQuoteLineDto {
+  if (product === undefined) return unavailableLine(line, index, 'productUnavailable', null);
+
+  const url = absoluteMediaUrl(product.row.image_url, origin);
+  const productDto = {
+    slug: product.row.slug,
+    name: product.row.name,
+    nameEn: product.row.name_en ?? null,
+    image: url ? { url } : null,
+  };
+
+  let unitPrice: number;
+  let stock: number;
+  let options: CartQuoteOptionDto[];
+
+  if (!product.hasVariants) {
+    if (Object.keys(line.options).length > 0) {
+      return unavailableLine(line, index, 'variantUnavailable', productDto);
+    }
+    unitPrice = toNumber(product.row.price);
+    stock = toNumber(product.row.stock);
+    options = [];
+  } else {
+    const combination = requestedCombination(line.options);
+    const variant =
+      combination === null
+        ? undefined
+        : product.usable.find((candidate) => candidate.combination === combination);
+    if (variant === undefined) {
+      return unavailableLine(line, index, 'variantUnavailable', productDto);
+    }
+    unitPrice = variant.price;
+    stock = variant.stock;
+    options = product.options.map((option) => ({
+      key: option.key,
+      label: option.label,
+      value: variant.selected[option.key],
+    }));
+  }
+
+  const available = Math.max(0, Math.floor(stock));
+  const maxQuantity = Math.min(available, MAX_LINE_QUANTITY);
+  const quantity = Math.min(line.quantity, maxQuantity);
+  const status: CartQuoteLineStatus =
+    maxQuantity === 0 ? 'soldOut' : quantity < line.quantity ? 'reduced' : 'ok';
+
+  return {
+    index,
+    slug: line.slug,
+    status,
+    product: productDto,
+    options,
+    unitPrice,
+    requestedQuantity: line.quantity,
+    quantity,
+    maxQuantity,
+    lineTotal: roundMoney(unitPrice * quantity),
+  };
+}
+
+export function toCartQuoteDto(lines: CartQuoteLineDto[]): CartQuoteDto {
+  return {
+    lines,
+    subtotal: roundMoney(lines.reduce((sum, line) => sum + line.lineTotal, 0)),
+    itemCount: lines.reduce((sum, line) => sum + line.quantity, 0),
+    maxLineQuantity: MAX_LINE_QUANTITY,
   };
 }

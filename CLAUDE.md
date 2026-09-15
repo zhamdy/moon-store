@@ -9,12 +9,15 @@ contracts load on demand, when you work in the tree they govern.
 Run `pnpm install` at the repository root first. The workspace contains
 `apps/dashboard`, `apps/server`, and `apps/storefront` (a Next.js storefront: a static
 homepage plus Shop, category, New In, Collections and product detail pages rendered from
-the server's public catalog API; cart and checkout still 404 by design).
+the server's public catalog API, and a guest bag (Add to Bag, a header drawer and `/bag`)
+priced by the server's cart quote; checkout still 404s by design).
 Use `pnpm dev:storefront` for it on port 3000; copy `apps/storefront/.env.example` to
 `apps/storefront/.env.local` first (see `apps/storefront/CLAUDE.md` for what each
 variable does). The catalog pages need the API running on a database with migration 014
 and the seed applied; `CATALOG_SERVER_TOKEN` (matching the API's) and `MEDIA_ORIGIN` are
-set in the storefront env, the latter before `next build`.
+set in the storefront env, the latter before `next build`. The bag calls the API from the
+browser, so it also needs `NEXT_PUBLIC_API_URL` at build and the storefront's origin in the
+server's `STOREFRONT_ORIGINS` (dev default `http://localhost:3000`).
 
 ```bash
 # Terminal 1 — Server (port 3001)
@@ -97,7 +100,7 @@ Two numbers in this repo are ratchets, and they follow the same rule.
 | Ratchet | Where | Today |
 | --- | --- | --- |
 | ESLint warnings | `--max-warnings` in `apps/server/package.json` | `384`, essentially all `@typescript-eslint/no-explicit-any` |
-| Operations with no request contract | `EXPECTED_UNCONVERTED` in `apps/server/src/docs/requestContracts.ts` | `3` of 192 — the health probes |
+| Operations with no request contract | `EXPECTED_UNCONVERTED` in `apps/server/src/docs/requestContracts.ts` | `3` of 209 — the health probes |
 | Operations accounted for by neither | `EXPECTED_UNCLASSIFIED`, same file | `0`, and it must stay there |
 | Routes weaker than their manifest | `EXPECTED_UNDER_PROTECTED` in `apps/server/src/http/endpointManifest.ts` | `0`; any entry in `UNDER_PROTECTED_ROUTES` is an open owner decision |
 
@@ -286,3 +289,8 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   which matched a *comment* in migration 006, so that suite never had
   `collection_products.position`. A shim that matches SQL text must match statements, not
   prose (2026-09-14)
+- In the storefront, `next/dynamic` is not free for a component that never renders on the
+  server: its loader runtime measured ~1.2 KB gz of extra eager JS on every page just to
+  host the lazy Bag drawer. `React.lazy` + `Suspense` loads the same chunk at no eager cost.
+  Measure the eager chunks of `.next/server/app/en.html` before and after any lazy-loading
+  change; the method is in `apps/storefront/CLAUDE.md` → *Cart* (2026-09-15)

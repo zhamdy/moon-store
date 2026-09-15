@@ -325,6 +325,115 @@
         "x": "إكس",
         "whatsapp": "واتساب"
       }
-    }
+    },
+    "addToBag": "أضيفي إلى الحقيبة",
+    "chooseOption": "اختاري {option}"
+  },
+  "bag": {
+    "title": "الحقيبة",
+    "close": "إغلاق الحقيبة",
+    "added": "أُضيفت إلى حقيبتك: {name}",
+    "addedQuantity": "أُضيفت إلى حقيبتك: {name} ({count})",
+    "viewBag": "عرض الحقيبة",
+    "continueShopping": "تابعي التسوّق",
+    "empty": {
+      "title": "حقيبتك فارغة",
+      "action": "تابعي التسوّق"
+    },
+    "quantity": "الكمية، {name}",
+    "increase": "زيادة الكمية، {name}",
+    "decrease": "تقليل الكمية، {name}",
+    "remove": "إزالة",
+    "removeLabel": "إزالة {name}",
+    "removed": "أُزيلت {name} من حقيبتك",
+    "undo": "تراجعي",
+    "optionValue": "{label}: {value}",
+    "unitPrice": "السعر",
+    "lineTotal": "الإجمالي",
+    "unavailablePiece": "قطعة لم تعد متوفّرة",
+    "pendingPiece": "هذه القطعة",
+    "notice": {
+      "soldOut": "نفدت الكمية",
+      "variantUnavailable": "هذا الخيار لم يعد متوفّرًا",
+      "productUnavailable": "هذه القطعة لم تعد متوفّرة",
+      "quantityLimited": "المتوفّر {count} فقط",
+      "priceUpdated": "تغيّر السعر",
+      "capped": "يمكنكِ إضافة {max} كحدٍّ أقصى من هذه القطعة",
+      "full": "حقيبتك ممتلئة. أزيلي قطعة لتضيفي أخرى"
+    },
+    "summaryHeading": "الملخص",
+    "subtotal": "المجموع الفرعي",
+    "updating": "جارٍ التحديث",
+    "pieces": {
+      "zero": "{count} قطعة",
+      "one": "{count} قطعة",
+      "two": "{count} قطعتان",
+      "few": "{count} قطع",
+      "many": "{count} قطعة",
+      "other": "{count} قطعة"
+    },
+    "piecesInBag": {
+      "zero": "{count} قطعة في حقيبتك",
+      "one": "{count} قطعة في حقيبتك",
+      "two": "{count} قطعتان في حقيبتك",
+      "few": "{count} قطع في حقيبتك",
+      "many": "{count} قطعة في حقيبتك",
+      "other": "{count} قطعة في حقيبتك"
+    },
+    "excluded": {
+      "zero": "{count} قطعة غير محتسبة في المجموع الفرعي",
+      "one": "{count} قطعة غير محتسبة في المجموع الفرعي",
+      "two": "{count} قطعتان غير محتسبتين في المجموع الفرعي",
+      "few": "{count} قطع غير محتسبة في المجموع الفرعي",
+      "many": "{count} قطعة غير محتسبة في المجموع الفرعي",
+      "other": "{count} قطعة غير محتسبة في المجموع الفرعي"
+    },
+    "quantityChanged": "{name}، الكمية {count}. المجموع الفرعي {subtotal}",
+    "updated": "تم تحديث حقيبتك",
+    "issues": {
+      "unavailable": {
+        "zero": "{count} قطعة لم تعد متوفّرة",
+        "one": "{count} قطعة لم تعد متوفّرة",
+        "two": "{count} قطعتان لم تعودا متوفّرتين",
+        "few": "{count} قطع لم تعد متوفّرة",
+        "many": "{count} قطعة لم تعد متوفّرة",
+        "other": "{count} قطعة لم تعد متوفّرة"
+      },
+      "limited": {
+        "zero": "{count} كمية محدودة",
+        "one": "{count} كمية محدودة",
+        "two": "{count} كميتان محدودتان",
+        "few": "{count} كميات محدودة",
+        "many": "{count} كمية محدودة",
+        "other": "{count} كمية محدودة"
+      },
+      "priceUpdated": {
+        "zero": "{count} سعر تغيّر",
+        "one": "{count} سعر تغيّر",
+        "two": "{count} سعران تغيّرا",
+        "few": "{count} أسعار تغيّرت",
+        "many": "{count} سعرًا تغيّر",
+        "other": "{count} سعر تغيّر"
+      }
+    },
+    "error": {
+      "load": "تعذّر تحديث حقيبتك",
+      "retry": "حاولي مرة أخرى",
+      "emptyBag": "إفراغ الحقيبة"
+    },
+    "count": {
+      "zero": "الحقيبة، {count} قطعة",
+      "one": "الحقيبة، {count} قطعة",
+      "two": "الحقيبة، {count} قطعتان",
+      "few": "الحقيبة، {count} قطع",
+      "many": "الحقيبة، {count} قطعة",
+      "other": "الحقيبة، {count} قطعة"
+    },
+    "metaTitle": "الحقيبة",
+    "metaDescription": "راجعي القطع في حقيبتك."
+  },
+  "toaster": {
+    "label": "الإشعارات",
+    "close": "إغلاق"
   }
 }

@@ -13,4 +13,6 @@ export const CATALOG_ENDPOINTS = {
   collections: '/catalog/collections',
   collection: (slug: string) => `/catalog/collections/${encodeURIComponent(slug)}`,
   storePolicies: '/catalog/store-policies',
+  /** The one browser-called catalog path (CD-4): a POST, read-only. */
+  cartQuote: '/catalog/cart/quote',
 } as const;

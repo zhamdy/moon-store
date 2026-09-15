@@ -11,6 +11,8 @@ import {
 } from '@/features/catalog/components/related-products';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
 import { relatedScope } from '@/features/catalog/utils/related-scope';
+import { AddToBagButton } from '@/features/cart/components/add-to-bag-button';
+import { getAddToBagStrings } from '@/features/cart/utils/bag-strings';
 import { getCatalogProduct } from '@/features/products/api/get-catalog-product';
 import { loadStorePolicies } from '@/features/products/api/load-store-policies';
 import { ProductBreadcrumb } from '@/features/products/components/product-breadcrumb';
@@ -19,6 +21,7 @@ import { ProductDetailsTabs } from '@/features/products/components/product-detai
 import { ProductGallery } from '@/features/products/components/product-gallery';
 import { ProductShare } from '@/features/products/components/product-share';
 import { PurchasePanelSlot } from '@/features/products/components/purchase-panel-slot';
+import { localizedName } from '@/features/products/utils/localized-name';
 import { buildProductMetadata } from '@/features/products/utils/product-metadata';
 
 type Props = PageProps<'/[locale]/products/[slug]'>;
@@ -54,7 +57,10 @@ export default async function ProductPage(props: Props) {
   setRequestLocale(locale);
   // Only once the product is known, so it never delays or masks a 404 (KD-10). Contained:
   // a failed read yields null and only drops the Shipping tab.
-  const policies = await loadStorePolicies();
+  const [policies, addToBagStrings] = await Promise.all([
+    loadStorePolicies(),
+    getAddToBagStrings(locale),
+  ]);
 
   const hrefs = {
     category: product.category
@@ -78,7 +84,23 @@ export default async function ProductPage(props: Props) {
         />
       }
       gallery={<ProductGallery locale={locale} product={product} />}
-      purchase={<PurchasePanelSlot key={product.slug} locale={locale} product={product} />}
+      purchase={
+        // The page is the only place both slices meet: `features/products` never imports
+        // `features/cart`, so the action is composed here into the panel's slot (CD-11).
+        <PurchasePanelSlot
+          key={product.slug}
+          locale={locale}
+          product={product}
+          action={
+            <AddToBagButton
+              slug={product.slug}
+              name={localizedName(product, locale)}
+              imageUrl={product.images[0]?.url ?? null}
+              strings={addToBagStrings}
+            />
+          }
+        />
+      }
       share={<ProductShare locale={locale} product={product} />}
       details={
         <ProductDetailsTabs locale={locale} product={product} policies={policies} hrefs={hrefs} />

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { Container } from '@/components/ui/container';
@@ -20,8 +21,11 @@ import { HeaderShell } from './header-shell';
  *
  * Sticky, above the hero (which is later in DOM order and positioned for its
  * scrim), keeping its `--header-h` flow slot so non-home pages need nothing.
+ *
+ * `bag` is the Bag action, composed by the layout (`BagTrigger`) so the header imports no
+ * feature slice; it renders last in the end cluster, where the Bag link always sat.
  */
-export async function Header() {
+export async function Header({ bag }: { bag: ReactNode }) {
   const t = await getTranslations('navigation');
   const tCommon = await getTranslations('common');
   const localeSwitcher = await getLocaleSwitcherLabels();
@@ -92,6 +96,7 @@ export async function Header() {
               <item.icon size={20} strokeWidth={1.5} aria-hidden="true" />
             </Link>
           ))}
+          {bag}
         </div>
       </Container>
     </HeaderShell>

@@ -403,7 +403,8 @@ input (no manifest entries, no client calls, no postponed list) rather than pass
 
 Six anonymous GETs the storefront renders from (plan 2026-09-14-002, Unit 4; the product
 detail from plan 2026-09-14-003, Unit 1): `/products` (the one listing), `/products/:slug`,
-`/categories`, `/collections`, `/collections/:slug`, `/store-policies`. The last reads only
+`/categories`, `/collections`, `/collections/:slug`, `/store-policies`; plus one read-only
+POST, `/cart/quote` (plan 2026-09-15-001, Unit 1; see *Cart quote* below). The last GET reads only
 the `delivery_policy`, `delivery_policy_en`, `returns_policy` and `returns_policy_en`
 settings, by name (`WHERE key IN (...)`; the table also holds tax and loyalty), as
 `{ delivery, deliveryEn, returns, returnsEn }`, trimmed, blank as `null`; staff edit them on
@@ -412,8 +413,11 @@ worded to promise no area, fee, time, return or exchange (inserted `ON CONFLICT 
 `PUT /api/v1/settings` caps these four keys at 5000 characters (400 `VALIDATION_ERROR`);
 other keys stay uncapped. A
 separate module and prefix (`src/modules/commerce/catalog`, manifest
-`publicEntry(['B', 'P'])`) rather than public routes in the postponed Admin-gated
+`publicEntry(['B', 'P', 'S', 'M'])`) rather than public routes in the postponed Admin-gated
 storefront module, so "nothing under this prefix writes" stays structurally checkable.
+`S` covers the quote's own detail entry (a computed read); `M` is there only because
+`tests/http/contracts.test.ts` requires every non-GET route's mount to carry `M` or `E`.
+Nothing under the prefix writes; the POST is a list-shaped read.
 
 **Whitelist rule.** No `SELECT *` / `p.*` in the module: every repository query names its
 columns and a mapper builds each DTO. `products` carries `cost_price`, supplier and reorder
@@ -439,8 +443,9 @@ test change, deliberately.
   `http://localhost:$PORT`.
 - Every read runs in a transaction under `SET LOCAL statement_timeout = '2000ms'`; a
   cancelled query (57014) is `503 SERVICE_UNAVAILABLE`, the eighth public code.
-- 2xx (and 304) send `Cache-Control: public, max-age=60`; every other status `no-store`
-  (`publicCacheOnSuccess`, decided at `writeHead`).
+- GET 2xx (and 304) send `Cache-Control: public, max-age=60`; every other status `no-store`
+  (`publicCacheOnSuccess`, decided at `writeHead`). It overwrites the header on **any** 2xx
+  regardless of method, which is why the quote route is registered ahead of it.
 
 **Product detail (`/products/:slug`).** All four reads (product, gallery, variants,
 collections) run in one `runCatalogRead`. The rules, pinned in `tests/catalog.test.ts`:
@@ -465,8 +470,8 @@ collections) run in one `runCatalogRead`. The rules, pinned in `tests/catalog.te
   repeating an earlier one's combination is dropped too: a public variant is identified by
   its option values alone. Dropped variants are logged (`product_slug`, `variant_ids`),
   never an error. Variants are `ORDER BY id`: creation order is display order.
-- **Effective price** is `variant.price ?? product.price`, always a JS number. POS still
-  sells a NULL-priced variant at 0 (plan PD-C) -- fix that before Cart.
+- **Effective price** is `variant.price ?? product.price`, always a JS number, the same
+  `COALESCE(pv.price, p.price)` POS sells at (#203).
 - **inStock:** a variant is `stock > 0`; the product is any *listed* variant in stock, else
   its own stock. It differs from the listing's `IN_STOCK_SQL` only for malformed or mixed
   variant data (a card may say in stock while the page says sold out); a test pins that the
@@ -478,8 +483,48 @@ JOIN and gallery images are one follow-up query for the page's ids. It also retu
 rows** for `status = 'active' AND slug IS NOT NULL` while the UNIQUE slug index exists and
 statuses are mixed; `tests/support/pgMem.ts` rewrites `slug IS NOT NULL` to the equivalent
 `NOT (slug IS NULL)` rather than the production SQL changing. A fixture whose rows all share
-one status hides the bug. NUMERIC-as-string,
-the timeout and plans are proven in `tests/concurrency/catalog.realpg.test.ts`.
+one status hides the bug. And it matches **no rows** for `slug = ANY($1::text[])` on the
+uniquely indexed slug, so the quote's batched reads use a bounded `IN ($1, ..., $n)` list
+(at most `MAX_CART_LINES` placeholders). NUMERIC-as-string,
+the timeout and plans are proven in `tests/concurrency/catalog.realpg.test.ts` (the quote's
+in `tests/concurrency/catalogCartQuote.realpg.test.ts`).
+
+**Cart quote (`POST /cart/quote`).** One fresh, batched re-price and re-check of bag lines
+for the storefront bag (plan 2026-09-15-001, CD-3). POST only because the payload is a list;
+it writes and reserves nothing. Body `{ lines: [{ slug, options, quantity }] }`, `.strict()`
+(a `price` key is a 400), 1-`MAX_CART_LINES` (30) lines, quantity 1-`MAX_LINE_QUANTITY` (10).
+Pinned in `tests/catalogCartQuote.test.ts`:
+
+- **One read** in one `runCatalogRead`: public products by the deduplicated slug set (the
+  detail predicate), then variants for those with `has_variants = 1`, ordered
+  `product_id, id` so each group keeps the lowest-id canonical tie-break.
+- **Same derivation as the product page.** Each product goes through the mapper's
+  `deriveVariantsWithStock`, the function `deriveVariantOptions` wraps, so dropped variants,
+  canonical spellings and effective price are exactly what `/products/:slug` shows; option
+  matching uses the mapper's normalizers.
+- **Every line is capped independently** at `maxQuantity = min(stock, 10)`, never
+  cumulatively across lines naming the same variant: a cumulative allocation over 30 lines
+  would disclose stock up to 300; independent lines never disclose beyond 10. In-stock
+  state and stock below 10 stay enumerable within the rate limit (accepted residual, CD-7).
+  Duplicates are the client's to merge.
+- **Line status** `ok` | `reduced` (0 < stock < requested; quantity = stock) | `soldOut`
+  (price shown, quantity 0) | `variantUnavailable` (no usable variant matches, or options on
+  a no-variant product) | `productUnavailable` (unknown, inactive, discontinued, slug-less).
+  Unavailable lines carry quantity, `maxQuantity` and `lineTotal` 0; `subtotal` and
+  `itemCount` sum the lines.
+- **No 404 for an unknown slug.** A vanished product is a normal line state, and a missing
+  and an inactive product answer identically, so the quote is no existence oracle.
+- **Stock is advisory**: the catalog's on-hand formula, reservations not subtracted, nothing
+  held. A line quoted `ok` can still fail at Checkout, which must re-validate price and stock
+  under lock itself (CD-6); a quote is never an order.
+- Output whitelist as the other DTOs: no `id`, `sku`, `barcode`, `stock`, `cost_price`,
+  `product_id` or `min_stock`; `maxQuantity` is the only stock-derived number.
+- **Dropped variants are not logged here.** The product page already logs them, and this
+  read is uncached and batched, so logging would let one caller multiply log volume.
+- `Cache-Control: no-store` on every status: the route is registered **before**
+  `publicCacheOnSuccess` behind its own `noStore` middleware (CD-22). Set in the controller
+  behind the cache middleware, the header would be rewritten at `writeHead` to
+  `public, max-age=60` on a priced, per-bag response.
 
 **Indexes were measured, not assumed.** KD-17 planned four listing indexes; EXPLAIN on
 8,000 products used only `idx_products_status_created (status, created_at DESC, id)`, for
@@ -525,6 +570,42 @@ token (`assertProductionEnv`; the message names both variables, never a value) u
 Next server's per-IP budget, and boot warns. **The trusted bucket is not a per-shopper limit** -- every SSR
 request shares it, so per-client limiting belongs at the edge in front of Next (UD-5, B-9).
 Ceilings fall back and warn exactly like `RATE_LIMIT_MAX`.
+
+### The cart quote's edge chain
+
+The storefront calls the quote **from the browser** (storefront CD-4): through a Next Route
+Handler every quote would either share the trusted server-token bucket (one abuser drains
+SSR reads for all shoppers) or the Next server's one IP. So the one path
+(`isCartQuotePath`, built from `CART_QUOTE_PATH`) gets its own chain in `app.ts`, ahead of
+and skipped by the app-wide CORS, global limiter and 10 MB parser (CD-21):
+
+quote CORS → observability → `createCartQuoteLimiter` → `express.json({ limit: '16kb' })`
+→ `cartQuoteBodyErrors` → sanitize → catalog router (`noStore` → handler).
+
+- **CORS scoped to the path**: exact origins from `STOREFRONT_ORIGINS`, `credentials: false`,
+  `POST`/`OPTIONS`, `Content-Type` only. An unlisted origin gets no allow header, not an error.
+- **The storefront origin is never added to `ALLOWED_ORIGINS`.** That CORS is credentialed
+  and covers every route, admin included, and its `.vercel.app` branch would open it wider
+  still; a storefront origin there would get credentialed cross-origin access to the whole
+  API. `STOREFRONT_ORIGINS` is exact matches only, with no wildcard branch.
+- **Dedicated per-IP limiter**, no server-token bucket: a valid `X-Catalog-Server-Token`
+  earns nothing here. It runs before parsing, so an abusive caller is refused before its body
+  is read, and its store is separate from the global and catalog limiters (one budget spent).
+- **16 KB parser**: a public POST must not buy a 10 MB parse and sanitize. Parser failures
+  are answered on this path only, with `no-store`: an oversized body is `413`
+  `VALIDATION_ERROR`, malformed JSON `400` `VALIDATION_ERROR` (the shared handler would
+  otherwise turn a parser 400 into a 500).
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `STOREFRONT_ORIGINS` | `http://localhost:3000` outside production; unset in production allows **no** origin | Comma list of exact origins. Never a `.vercel.app` wildcard. |
+| `CART_QUOTE_RATE_LIMIT_MAX` | `300` | Per IP, per 15 min. Falls back and warns like the other ceilings. |
+
+**Launch prerequisite: `TRUST_PROXY`.** Behind a proxy with it unset, every shopper's `req.ip`
+is the proxy's and all share one quote bucket; with `true`, a client picks its own bucket
+through `X-Forwarded-For`. Production sets the exact hop count or proxy list, never `true`.
+Even then carrier NAT shares addresses, so per-client limiting at the edge (UD-5) remains the
+real control; this limiter is the floor.
 
 ## Postponed modules: served, behind Admin
 

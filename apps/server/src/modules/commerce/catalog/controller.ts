@@ -3,6 +3,7 @@ import { success } from '../../../http/responses';
 import {
   catalogRequestContracts as contracts,
   normalizeCatalogProductQuery,
+  type CartQuoteBody,
   type CatalogProductListQuery,
 } from './schemas';
 import { catalogService } from './service';
@@ -23,6 +24,16 @@ export class CatalogController {
       contracts.getCatalogProduct.parseQuery(req.query);
       const { slug } = contracts.getCatalogProduct.parseParams<{ slug: string }>(req.params);
       res.json(success(await catalogService.getProduct(slug)));
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async quoteCart(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      contracts.cartQuote.parseQuery(req.query);
+      const body = contracts.cartQuote.parseBody<CartQuoteBody>(req.body);
+      res.json(success(await catalogService.quoteCart(body.lines)));
     } catch (err) {
       next(err);
     }

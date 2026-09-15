@@ -3,7 +3,7 @@ import type { Request } from 'express';
 import rateLimit, { type RateLimitRequestHandler } from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { getEnv, splitCatalogServerTokens } from '../config/env';
-import { CATALOG_API_PREFIX } from '../modules/commerce/catalog/constants';
+import { CART_QUOTE_PATH, CATALOG_API_PREFIX } from '../modules/commerce/catalog/constants';
 import { errorResponse } from './errors';
 import logger from '../../lib/logger';
 import { isHealthPath } from '../observability/probePaths';
@@ -58,14 +58,30 @@ export function authRateLimitMax(): number {
  * real, DB-touching endpoints out of abuse protection for no remaining benefit.
  */
 export function isRateLimitExempt(req: Pick<Request, 'method' | 'path'>): boolean {
-  return (req.method === 'GET' && isHealthPath(req.path)) || isCatalogRead(req);
+  return (
+    (req.method === 'GET' && isHealthPath(req.path)) || isCatalogRead(req) || isCartQuotePath(req)
+  );
 }
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /** `^/api/v1/catalog(/|$)`, case-insensitive, built from the constant the router mounts. */
-const CATALOG_PATH = new RegExp(
-  `^${CATALOG_API_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/|$)`,
-  'i'
-);
+const CATALOG_PATH = new RegExp(`^${escapeRegExp(CATALOG_API_PREFIX)}(?:/|$)`, 'i');
+
+/**
+ * Exactly the cart quote path, any method, case-insensitively and with the trailing slash
+ * Express routing also accepts. Nothing below it and no sibling matches.
+ */
+const CART_QUOTE_PATH_PATTERN = new RegExp(`^${escapeRegExp(CART_QUOTE_PATH)}/?$`, 'i');
+
+/**
+ * The cart quote has its own edge chain in `app.ts` (plan 2026-09-15-001, CD-21): path CORS,
+ * `createCartQuoteLimiter` and a 16 KB parser. The global limiter, the app-wide CORS and
+ * 10 MB parser, and the catalog read limiter all skip it, so it spends exactly one budget.
+ */
+export function isCartQuotePath(req: Pick<Request, 'path'>): boolean {
+  return CART_QUOTE_PATH_PATTERN.test(req.path);
+}
 
 /**
  * Public catalog reads leave the global budget for the catalog limiter.
@@ -263,6 +279,43 @@ export function createCatalogLimiter(): RateLimitRequestHandler {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: catalogRateLimitKey,
+    // A non-POST request to the quote path still reaches this router; the quote limiter has
+    // already counted it, so it must not spend a catalog read as well.
+    skip: isCartQuotePath,
+    handler: (_req, res, _next, options) => {
+      res.set('Cache-Control', 'no-store');
+      res.status(options.statusCode).json(options.message);
+    },
+    message: errorResponse('RATE_LIMITED'),
+  });
+}
+
+/** Per-IP ceiling on the public cart quote, per 15 min (plan 2026-09-15-001, CD-21). */
+export const DEFAULT_CART_QUOTE_RATE_LIMIT_MAX = 300;
+
+export function cartQuoteRateLimitMax(): number {
+  return resolveCeiling(getEnv().CART_QUOTE_RATE_LIMIT_MAX, DEFAULT_CART_QUOTE_RATE_LIMIT_MAX);
+}
+
+/**
+ * The cart quote's limiter, mounted by `app.ts` for that path only, ahead of body parsing.
+ *
+ * Per IP and nothing else. Browsers call the quote directly (CD-4), so a trusted server
+ * bucket would be one budget every abuser shares with the storefront's SSR; a valid
+ * `X-Catalog-Server-Token` therefore earns nothing here. Per IP is only as good as
+ * `TRUST_PROXY` behind a proxy, and carrier NAT still shares addresses, which is why
+ * per-client limiting at the edge remains the real control (UD-5).
+ *
+ * Its own store, so its `ip:` keys never meet the global or catalog limiter's. A 429 sets
+ * `no-store` itself: it is answered before the route's own `no-store`.
+ */
+export function createCartQuoteLimiter(): RateLimitRequestHandler {
+  return rateLimit({
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    max: () => cartQuoteRateLimitMax(),
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => `ip:${req.ip ?? 'unknown'}`,
     handler: (_req, res, _next, options) => {
       res.set('Cache-Control', 'no-store');
       res.status(options.statusCode).json(options.message);
@@ -288,6 +341,11 @@ export function logCatalogRateLimitConfig(): void {
     'CATALOG_SERVER_RATE_LIMIT_MAX',
     env.CATALOG_SERVER_RATE_LIMIT_MAX,
     DEFAULT_CATALOG_SERVER_RATE_LIMIT_MAX
+  );
+  warnIfIgnored(
+    'CART_QUOTE_RATE_LIMIT_MAX',
+    env.CART_QUOTE_RATE_LIMIT_MAX,
+    DEFAULT_CART_QUOTE_RATE_LIMIT_MAX
   );
 
   if (

@@ -70,5 +70,23 @@ export const CATALOG_CACHE_SECONDS = 60;
  */
 export const CATALOG_NOT_FOUND_MESSAGE = 'Resource not found';
 
+/** Where the cart quote is served (plan 2026-09-15-001, CD-3). Built from the mount prefix. */
+export const CART_QUOTE_PATH = `${CATALOG_API_PREFIX}/cart/quote`;
+
+/**
+ * Most pieces of one line a quote will allow, and the ceiling on every stock-derived number
+ * it returns (CD-7): `maxQuantity` is `min(stock, MAX_LINE_QUANTITY)`, so stock above it is
+ * never disclosed.
+ */
+export const MAX_LINE_QUANTITY = 10;
+
+/** Most lines one quote request may carry; bounds the body and the batched read (CD-7). */
+export const MAX_CART_LINES = 30;
+
+/** Option bounds on a quote line, mirroring the storefront's persisted bag shape. */
+export const MAX_CART_LINE_OPTIONS = 5;
+export const MAX_CART_OPTION_KEY_LENGTH = 40;
+export const MAX_CART_OPTION_VALUE_LENGTH = 60;
+
 export const CATALOG_SORTS = ['newest', 'price-asc', 'price-desc', 'curated'] as const;
 export type CatalogSort = (typeof CATALOG_SORTS)[number];

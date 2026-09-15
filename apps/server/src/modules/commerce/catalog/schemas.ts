@@ -14,6 +14,11 @@ import {
   CATALOG_PRICE_MAX,
   CATALOG_PRICE_STEP,
   CATALOG_SORTS,
+  MAX_CART_LINE_OPTIONS,
+  MAX_CART_LINES,
+  MAX_CART_OPTION_KEY_LENGTH,
+  MAX_CART_OPTION_VALUE_LENGTH,
+  MAX_LINE_QUANTITY,
   NEW_IN_DAYS,
 } from './constants';
 import type { CatalogProductFilters } from './types';
@@ -117,6 +122,31 @@ export const catalogCollectionParamsSchema = z.object({ slug: slugParam('slug') 
 /** Products and collections share one slug grammar. */
 export const catalogProductParamsSchema = catalogCollectionParamsSchema;
 
+/**
+ * One bag line (plan 2026-09-15-001, CD-2/CD-7). `.strict()` at every level, so a `price`
+ * key anywhere is a 400 rather than silently ignored: the request carries intent only.
+ */
+const cartQuoteLineSchema = z
+  .object({
+    slug: slugParam('slug'),
+    options: z
+      .record(
+        z.string().min(1).max(MAX_CART_OPTION_KEY_LENGTH),
+        z.string().min(1).max(MAX_CART_OPTION_VALUE_LENGTH)
+      )
+      .refine((options) => Object.keys(options).length <= MAX_CART_LINE_OPTIONS, {
+        message: `at most ${MAX_CART_LINE_OPTIONS} options`,
+      }),
+    quantity: z.number().int().min(1).max(MAX_LINE_QUANTITY),
+  })
+  .strict();
+
+export const cartQuoteBodySchema = z
+  .object({ lines: z.array(cartQuoteLineSchema).min(1).max(MAX_CART_LINES) })
+  .strict();
+
+export type CartQuoteBody = z.infer<typeof cartQuoteBodySchema>;
+
 const PUBLIC_READ =
   'Public and unauthenticated. Rate limited by the catalog limiter, not the global one: ' +
   'per IP, or one shared bucket for a request carrying a valid X-Catalog-Server-Token. ' +
@@ -209,6 +239,32 @@ export const catalogRequestContracts = {
         'returns_policy_en are read; no other setting is ever exposed.',
       'Each field is the trimmed stored text, or null when the setting is unset, empty or ' +
         'whitespace-only. Always 200.',
+    ],
+  }),
+
+  cartQuote: defineRequestContract({
+    method: 'POST',
+    path: '/api/v1/catalog/cart/quote',
+    operation: 'cartQuote',
+    query: catalogEmptyQuerySchema,
+    body: cartQuoteBodySchema,
+    beyondSchema: [
+      'Public and unauthenticated, and read-only: it writes nothing and reserves no stock. ' +
+        'Rate limited per IP by its own quote limiter (an X-Catalog-Server-Token earns no ' +
+        'larger bucket), with a 16 KB body limit (413 above it). Every status carries ' +
+        'Cache-Control: no-store.',
+      `options holds at most ${MAX_CART_LINE_OPTIONS} entries. The request carries no price: ` +
+        'an unknown key anywhere, price included, is a 400.',
+      'Each line is evaluated independently, never cumulatively across lines naming the same ' +
+        `variant. maxQuantity is min(stock, ${MAX_LINE_QUANTITY}) and is the only ` +
+        'stock-derived number returned; quantity is the allowed quantity.',
+      'status: productUnavailable for an unknown, inactive or discontinued product (identical ' +
+        'lines, product null); variantUnavailable when options match no listed variant, or ' +
+        'are non-empty for a product without variants; soldOut at zero stock (unitPrice ' +
+        'still shown); reduced when stock is below the request; otherwise ok.',
+      'Options match like the product page: keys trimmed and lower-cased, values compared ' +
+        'case-insensitively; the response returns the canonical spellings. unitPrice is the ' +
+        'variant price, else the product price. subtotal and itemCount sum the allowed lines.',
     ],
   }),
 

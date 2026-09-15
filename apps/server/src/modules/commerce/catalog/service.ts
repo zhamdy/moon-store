@@ -9,11 +9,15 @@ import {
 } from './constants';
 import {
   deriveVariantOptions,
+  deriveVariantsWithStock,
   rowHasVariants,
+  toCartQuoteDto,
+  toCartQuoteLineDto,
   toCatalogCategoryDto,
   toCatalogCollectionDto,
   toCatalogProductDetailDto,
   toCatalogProductDto,
+  type QuoteProductContext,
 } from './mappers';
 import {
   CatalogRepository,
@@ -22,6 +26,9 @@ import {
   type ResolvedProductQuery,
 } from './repository';
 import type {
+  CartQuoteDto,
+  CartQuoteRequestLine,
+  CatalogVariantRow,
   CatalogCategoryDto,
   CatalogCollectionDto,
   CatalogProductDetailDto,
@@ -130,6 +137,54 @@ export class CatalogService {
       derived,
       read.collections,
       origin
+    );
+  }
+
+  /**
+   * A fresh, batched quote for bag lines (plan 2026-09-15-001, Unit 1). One read for every
+   * named product and its variants, then each line resolved on its own through the same
+   * derivation the product page uses (CD-5), capped per line and never cumulatively (CD-7).
+   *
+   * Dropped variants are not logged here: the product page already logs them, and this read
+   * is uncached and batched, so logging would let one caller multiply log volume.
+   */
+  async quoteCart(lines: readonly CartQuoteRequestLine[]): Promise<CartQuoteDto> {
+    const origin = resolveMediaPublicOrigin();
+    const slugs = [...new Set(lines.map((line) => line.slug))];
+
+    const read = await runCatalogRead(async (client) => {
+      const products = await this.repo.findPublicProductsBySlugs(slugs, client);
+      // `has_variants` is the authority, as on the product page: stale rows are not read.
+      const variants = await this.repo.listVariantsForProducts(
+        products.filter(rowHasVariants).map((product) => product.id),
+        client
+      );
+      return { products, variants };
+    });
+
+    const variantsByProduct = new Map<number, CatalogVariantRow[]>();
+    for (const variant of read.variants) {
+      const group = variantsByProduct.get(variant.product_id) ?? [];
+      group.push(variant);
+      variantsByProduct.set(variant.product_id, group);
+    }
+
+    const bySlug = new Map<string, QuoteProductContext>();
+    for (const row of read.products) {
+      const hasVariants = rowHasVariants(row);
+      const derived = hasVariants
+        ? deriveVariantsWithStock(variantsByProduct.get(row.id) ?? [], row.price)
+        : null;
+      bySlug.set(row.slug, {
+        row,
+        hasVariants,
+        options: derived?.options ?? [],
+        usable: derived?.usable ?? [],
+      });
+    }
+
+    return toCartQuoteDto(
+      lines.map((line, index) => toCartQuoteLineDto(line, index, bySlug.get(line.slug), origin))
     );
   }
 

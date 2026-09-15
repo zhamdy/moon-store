@@ -27,6 +27,13 @@ motion, but its visible pause toggle was removed by owner decision (2026-09-14),
 keyboard or touch user without the reduced-motion setting cannot stop it. Closing the gap
 means restoring the CSS-only toggle described in `apps/storefront/CLAUDE.md` → *Motion* §5.
 
+**Storefront bag has no automated keyboard, focus or announcement check (open).** The
+storefront has no DOM or browser harness and is not axe-scanned by `e2e/`. The bag's rules
+(stepper limits, focus target after Remove, announcement text and once-per-quote policy)
+are pure functions with unit tests, but the drawer's focus trap and return, the live
+regions actually speaking, and the Remove focus hand-off are proven only by manual
+scenario 8 below.
+
 **#111 — HeroUI buttons wired with `onClick` were pointer-only.** Fixed, and recorded here
 because the way it hid is the useful part. HeroUI's `Button` is react-aria based: it
 intercepts key events and dispatches `onPress`, suppressing the native click, so a handler
@@ -179,6 +186,75 @@ navigation shell.
    Focus is never hidden under the sticky header or the stuck details tab bar. At 320px
    there is no horizontal page scroll: a long category in the breadcrumb truncates, and the
    thumbnail column and the tab bar stay inside the page (the bar scrolls sideways itself).
+8. **Storefront bag, keyboard and screen reader.** Also not axe-scanned. In EN and AR,
+   with `silk-midi-dress` (sizes), `cashmere-pullover` (mixed stock) and `silk-slip-dress`
+   (sold out). **Add to Bag:** with no size chosen, the button is enabled; pressing it
+   moves focus to the size group's first radio, "Choose a size" appears under the legend and
+   is spoken once (from the error toast, not from the inline text); choosing a size removes
+   the toast. With a size chosen, pressing it keeps focus on the button, the drawer does
+   **not** open, and "Added to your bag: {name}" is spoken from a toast in the bottom inline
+   corner. **First toast after load:** Sonner is lazy-loaded, so with the cache cleared,
+   reload and press Add to Bag as soon as the page renders: the toast still appears and is
+   spoken once (the queue waits for the "Notifications" region to exist first). Alt+T does
+   nothing until the toaster has loaded, normally moments after the page settles. On a sold-out product the
+   button reads "Sold out", is announced as dimmed/unavailable, stays in the Tab order and
+   does nothing, and no quantity stepper is present. Pressing it an eleventh time for one
+   line raises "You can add up to 10 of this piece". **Toasts:** each is spoken once through
+   the "Notifications (Alt+T)" region and never takes focus; Alt+T moves focus into the
+   toasts, Tab reaches the action (View bag, Undo, Try again) and Dismiss, each a 44px target,
+   and focus returns to where it was when the toasts close. Success and info toasts stay
+   about 4s, errors about 7s, and hovering or focusing one pauses it. A second Add to Bag
+   replaces the toast rather than stacking one. **Product page
+   stepper:** Tab reaches Decrease, then Increase, then Add to Bag. The group is named
+   "Quantity, {name}"; Decrease is unavailable at 1; at 10 Increase is unavailable and
+   carries the up-to-10 description. With 3 chosen, Add to Bag's toast reads "Added to your
+   bag: {name} (3)"; with 8 already in the bag and 5 chosen, it reads "You can add
+   up to 10 of this piece". After either, the value is back at 1. With no size chosen the
+   stepper still works and Add to Bag still moves focus to the size group. **Drawer:** opens
+   only from the header Bag link. Tab stays inside it; Escape and a backdrop
+   click close it and focus returns to the header Bag link; following a line
+   name or View bag closes it and focus lands on the page's main region, never on a stale
+   trigger. The header link is announced as "Bag, 3 items" (plain "Bag" when empty), with a
+   popup hint off `/bag` and as the current page on `/bag`; its count is never announced on
+   its own. **Stepper:** each is a group named "Quantity, {name}"; the buttons are named
+   "Decrease/Increase quantity, {name}", stay focusable when unavailable, and at the limit
+   + carries the description "Only {count} available" (stock) or the up-to-10 notice.
+   Decrease is unavailable at 1. Sold-out and unavailable lines have both unavailable and
+   Remove available. **Remove:** after the row fades, focus is on the next line's name (else
+   the previous one, else the "Your bag is empty" heading), never on `body`, and "{name}
+   removed from your bag" is spoken from a toast with Undo. On `/bag`, Alt+T then Tab reaches
+   Undo, and pressing it puts the line back in its place with its quantity. **In the open
+   drawer:** Remove a line with Enter; focus lands on the next line's name. Press Alt+T
+   within 4s: focus leaves the drawer for the toast (the toast stops its timer). Tab once:
+   the "Undo" action (Tab again: Dismiss). Press Enter: the line is back in place with its
+   quantity, the toast closes, and focus returns to the line name that held it before Alt+T,
+   still inside the drawer; Tab and Shift+Tab stay in the drawer again. While the drawer
+   is open, Shift+Tab from a toast and a screen reader's browse mode must not reach the skip
+   link, the page content or the footer (the drawer makes them inert). Undo by pointer
+   works too. Try two removals in quick succession: two toasts. **Navigation close:** open
+   the drawer from the header Bag link, Tab to a line name (or View bag) and press Enter:
+   the drawer slides out and, once it has gone (~300ms), focus is on the page's main region
+   (the next Tab reaches the first link of the new page), not on the header Bag link. Open it
+   again and press Escape (then the X, then Continue shopping): each time focus returns to
+   the header Bag link.
+   **Toasts**, each spoken once, never repeated on reopening, never two for one event with the
+   drawer open over `/bag`:
+
+   | Action | Expected |
+   | --- | --- |
+   | Change a quantity (several quick presses) | One "{name}, quantity {n}. Subtotal {subtotal}" toast after the update, replacing any earlier one for that line |
+   | Open a bag whose quote has a sold-out, limited or re-priced line | An info toast "Your bag was updated" plus the counts |
+   | Stop the API, open the bag | An error toast "We couldn't update your bag" once; Try again reachable in the toast (Alt+T) and in the bag |
+   | Share on a desktop without Web Share | "Link copied" toast; with the clipboard blocked, "Couldn't copy the link" |
+   | Filter sheet: min above max, leave the field | The price error spoken once from a toast; the garnet text stays under the inputs |
+
+   **`/bag`:** Tab order runs lines then the summary; the subtotal reads "Updating" while a
+   change is pending; the page never announces or shows "Your bag is empty" for a non-empty
+   bag while loading. At 320px and 200% zoom, no horizontal page scroll in the drawer or
+   the page, and the stepper and Remove stay 44px targets; in Arabic the toast sits bottom
+   left (bottom right in EN) and spans the width at 320. **Reduced motion:** the drawer
+   appears without sliding, a removed row disappears without fading, toasts appear and leave
+   without sliding or scaling, and focus still moves.
 
 ## Running the checks
 

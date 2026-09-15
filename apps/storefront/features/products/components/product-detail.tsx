@@ -39,9 +39,9 @@ const LINK_HOVER =
  * The info column holds only what decides a purchase: name (no eyebrow), a short
  * lead (the description's first paragraph; the full text is the Description tab), the
  * purchase slot, a glance at material and fit (the full list is the Details tab) and
- * "Part of" links. `[data-product-action]` is the reserved Add to Bag
- * place (PD-B): empty, no copy, and outside the purchase slot, so the island that
- * replaces the static summary never owns it. Hover lives on the links, the entrance on
+ * "Part of" links. Add to Bag is not placed here: the page composes it into the purchase
+ * panel's `action` slot, where `[data-product-action]` renders after the options so the
+ * action reads the panel's selection (CD-11). Hover lives on the links, the entrance on
  * their parents.
  */
 export async function ProductDetail({
@@ -114,8 +114,6 @@ export async function ProductDetail({
                 </>
               )}
             </div>
-
-            <div data-product-action className="mt-8" />
 
             {facts.length > 0 && (
               <dl className="type-small mt-8 space-y-2 border-t border-border pt-6">

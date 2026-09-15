@@ -14,6 +14,7 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/re
 import { ChevronDown, CircleAlert, SlidersHorizontal, X } from 'lucide-react';
 import { useQueryStates } from 'nuqs';
 import { Button } from '@/components/ui/button';
+import { dismissToast, showToast } from '@/components/feedback/show-toast';
 import type { AppLocale } from '@/i18n/routing';
 import { formatAmount } from '@/features/products/utils/price';
 import { cn } from '@/lib/utils/cn';
@@ -87,6 +88,7 @@ const TEXT_CONTROL =
 const UNDERLINED =
   'underline decoration-text-secondary decoration-1 underline-offset-4 hover:decoration-text';
 const BOTTOM_SHEET_QUERY = '(max-width: 767px)';
+const PRICE_ERROR_TOAST_ID = 'catalog-price-error';
 
 /**
  * The catalog's one interactive island (KD-14/KD-15): the active filter summary,
@@ -220,6 +222,17 @@ export function CatalogControls({
         : showOrderError
           ? strings.priceOrderError
           : '';
+
+  // The toast is the price error's announcement (the inline garnet text stays, described by
+  // the inputs); a new error replaces it, and fixing the fields or closing the sheet dismisses it.
+  const priceErrorToast = sheet.open ? errorText : '';
+  useEffect(() => {
+    if (priceErrorToast) {
+      showToast({ tone: 'error', message: priceErrorToast, id: PRICE_ERROR_TOAST_ID });
+    } else {
+      dismissToast(PRICE_ERROR_TOAST_ID);
+    }
+  }, [priceErrorToast]);
 
   const sortId = `${ids}-sort`;
   const hintId = `${ids}-price-hint`;
@@ -441,10 +454,10 @@ export function CatalogControls({
                     </div>
                   ))}
                 </div>
-                {/* Mounted empty so the error is announced when it appears. */}
-                <div aria-live="polite" className="min-h-6 pt-3">
+                {/* Height reserved; not a live region, since the error toast announces it. */}
+                <div className="min-h-6 pt-3">
                   {errorText && (
-                    <p id={errorId} className="type-small flex items-start gap-2 text-text">
+                    <p id={errorId} className="type-small flex items-start gap-2 text-error">
                       <CircleAlert
                         size={16}
                         strokeWidth={1.5}

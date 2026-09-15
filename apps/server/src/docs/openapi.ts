@@ -10254,6 +10254,351 @@ export const openApiSpec = {
         },
       },
     },
+    '/api/v1/catalog/cart/quote': {
+      post: {
+        tags: ['Catalog'],
+        summary: 'Quote a guest bag (Public)',
+        description:
+          'Endpoint classification: S. Allowed Roles: Public. Re-prices and re-checks bag ' +
+          'lines against current catalog data; writes nothing and reserves no stock.',
+        security: [],
+        responses: {
+          '200': {
+            description: 'One quote line per request line, in request order, and the totals',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['data'],
+                  properties: {
+                    data: {
+                      type: 'object',
+                      additionalProperties: false,
+                      required: ['lines', 'subtotal', 'itemCount', 'maxLineQuantity'],
+                      properties: {
+                        lines: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            additionalProperties: false,
+                            required: [
+                              'index',
+                              'slug',
+                              'status',
+                              'product',
+                              'options',
+                              'unitPrice',
+                              'requestedQuantity',
+                              'quantity',
+                              'maxQuantity',
+                              'lineTotal',
+                            ],
+                            properties: {
+                              index: {
+                                type: 'integer',
+                              },
+                              slug: {
+                                type: 'string',
+                              },
+                              status: {
+                                type: 'string',
+                                enum: [
+                                  'ok',
+                                  'reduced',
+                                  'soldOut',
+                                  'variantUnavailable',
+                                  'productUnavailable',
+                                ],
+                              },
+                              product: {
+                                type: ['object', 'null'],
+                                additionalProperties: false,
+                                required: ['slug', 'name', 'nameEn', 'image'],
+                                properties: {
+                                  slug: {
+                                    type: 'string',
+                                  },
+                                  name: {
+                                    type: 'string',
+                                  },
+                                  nameEn: {
+                                    type: ['string', 'null'],
+                                  },
+                                  image: {
+                                    type: ['object', 'null'],
+                                    additionalProperties: false,
+                                    required: ['url'],
+                                    properties: {
+                                      url: {
+                                        type: 'string',
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                              options: {
+                                type: 'array',
+                                items: {
+                                  type: 'object',
+                                  additionalProperties: false,
+                                  required: ['key', 'label', 'value'],
+                                  properties: {
+                                    key: {
+                                      type: 'string',
+                                    },
+                                    label: {
+                                      type: 'string',
+                                    },
+                                    value: {
+                                      type: 'string',
+                                    },
+                                  },
+                                },
+                              },
+                              unitPrice: {
+                                type: ['number', 'null'],
+                              },
+                              requestedQuantity: {
+                                type: 'integer',
+                              },
+                              quantity: {
+                                type: 'integer',
+                              },
+                              maxQuantity: {
+                                type: 'integer',
+                                maximum: 10,
+                              },
+                              lineTotal: {
+                                type: 'number',
+                              },
+                            },
+                          },
+                        },
+                        subtotal: {
+                          type: 'number',
+                        },
+                        itemCount: {
+                          type: 'integer',
+                        },
+                        maxLineQuantity: {
+                          type: 'integer',
+                          example: 10,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description:
+              'VALIDATION_ERROR: malformed JSON, an unknown key (price included) or a value ' +
+              'outside the contract',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '413': {
+            description: 'VALIDATION_ERROR: the body is larger than 16 KB',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '429': {
+            description: 'RATE_LIMITED: cart quote limiter ceiling reached',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '500': {
+            description: 'INTERNAL_ERROR',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '503': {
+            description: 'SERVICE_UNAVAILABLE: the read exceeded its statement timeout',
+            headers: {
+              'Cache-Control': {
+                schema: {
+                  type: 'string',
+                  example: 'no-store',
+                },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['error'],
+                  properties: {
+                    error: {
+                      type: 'object',
+                      required: ['code', 'message'],
+                      properties: {
+                        code: {
+                          type: 'string',
+                        },
+                        message: {
+                          type: 'string',
+                        },
+                        details: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     '/api/v1/storefront/banners': {
       get: {
         tags: ['Storefront'],
