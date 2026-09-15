@@ -6,24 +6,13 @@ import type { AppLocale } from '@/i18n/routing';
 import { BAG_HREF } from '@/components/layout/navigation-items';
 import { formatPrice } from '@/features/products/utils/price';
 import { cn } from '@/lib/utils/cn';
-import { fillTemplate } from '@/lib/utils/fill-template';
-import { useCartQuote } from '../api/use-cart-quote';
-import { cartStore, useCartActions, useCartLines, useCartSession } from '../store/cart-store';
-import type { CartLine as StoredLine } from '../utils/cart-lines';
+import { cartStore, useCartActions, useCartSession } from '../store/cart-store';
 import type { BagDrawerStrings } from '../utils/bag-strings';
-import {
-  REMOVE_FADE_MS,
-  bagAnnouncementText,
-  focusTargetAfterRemove,
-  quantityChangedText,
-  scrollTopToReveal,
-  settledQuantity,
-  type RemoveFocusTarget,
-} from '../utils/bag-view-model';
+import { scrollTopToReveal } from '../utils/bag-view-model';
 import { selectPlural } from '../utils/plural-templates';
-import { reconcileBag, type BagRow } from '../utils/reconcile';
 import { CartLine, CartLineSkeleton } from './cart-line';
 import { announceInDrawer } from './drawer-announcer';
+import { useBagController } from './use-bag-controller';
 
 export interface BagDrawerProps {
   strings: BagDrawerStrings;
@@ -31,9 +20,6 @@ export interface BagDrawerProps {
   /** `catalogPath({ kind: 'all' })`, resolved on the server. */
   shopHref: string;
 }
-
-const NO_LINES: readonly StoredLine[] = [];
-const NO_KEYS: ReadonlySet<string> = new Set();
 
 const TEXT_ACTION =
   'type-small inline-flex min-h-11 cursor-pointer items-center text-text underline decoration-text-secondary decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:decoration-text';
@@ -53,32 +39,16 @@ function closeForNavigation() {
   });
 }
 
-function prefersReducedMotion(): boolean {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
 /**
  * The Bag drawer (plan Unit 6): reached only through `BagTrigger`'s lazy `dynamic()` import,
- * so it is not a client boundary of its own. It quotes the bag while open, renders
- * `reconcileBag`'s view, and applies the model's store writes and announcements in effects.
+ * so it is not a client boundary of its own. `useBagController` quotes the bag while open,
+ * reconciles it and applies the model's store writes and announcements; this renders it.
  * The panel's content unmounts when closed, so line photographs load only while it is open.
  */
 export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps) {
-  const cart = useCartLines();
-  const session = useCartSession();
+  const { drawer } = useCartSession();
   const actions = useCartActions();
-  const { drawer } = session;
   const { open } = drawer;
-
-  const quote = useCartQuote(cart, open);
-  const out = reconcileBag({
-    lines: cart.hydrated ? cart.lines : NO_LINES,
-    result: quote.result,
-    fetch: quote.fetch,
-    session,
-  });
-  const { view, correction, announcement, rememberPrices, priceUpdates } = out;
-  const pending = quote.fetch.status === 'fetching';
   const addedKey = open ? drawer.addedKey : null;
 
   // The description is fixed at open (CD-13); the store clears it at the first interaction.
@@ -89,16 +59,37 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
     if (open) setOpening({ id: opening.id + 1, description: drawer.description });
   }
 
-  const [removing, setRemoving] = useState<ReadonlySet<string>>(NO_KEYS);
   const scrollContainer = useRef<HTMLDivElement>(null);
   const rowElements = useRef(new Map<string, HTMLLIElement>());
-  const focusElements = useRef(new Map<string, HTMLElement>());
-  const emptyHeading = useRef<HTMLHeadingElement>(null);
-  const pendingFocus = useRef<RemoveFocusTarget | null>(null);
-  const pendingQuantity = useRef<{ key: string; name: string } | null>(null);
-  const appliedCorrection = useRef<string | null>(null);
   const scrolledOpening = useRef(0);
-  const timers = useRef(new Set<number>());
+
+  const {
+    view,
+    pending,
+    removing,
+    emptyHeading,
+    focusRef,
+    onQuantityChange,
+    onRemove,
+    onRetry,
+    onEmpty,
+  } = useBagController({
+    active: open,
+    locale,
+    strings,
+    announce: announceInDrawer,
+    onInteract: actions.browseDrawer,
+    // Bring an `added` or capped line into view once per opening (focus stays on the title).
+    onAfterRender: () => {
+      const container = scrollContainer.current;
+      const row = addedKey === null ? undefined : rowElements.current.get(addedKey);
+      if (container && row && scrolledOpening.current !== opening.id) {
+        scrolledOpening.current = opening.id;
+        const top = scrollTopToReveal(row, container);
+        if (top !== null) container.scrollTop = top;
+      }
+    },
+  });
 
   const pathname = usePathname();
   const lastPathname = useRef(pathname);
@@ -107,123 +98,6 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
     lastPathname.current = pathname;
     closeForNavigation();
   }, [pathname]);
-
-  useEffect(() => {
-    const pendingTimers = timers.current;
-    return () => {
-      for (const timer of pendingTimers) window.clearTimeout(timer);
-    };
-  }, []);
-
-  // The one store correction, once per settled quote key.
-  useEffect(() => {
-    if (!open || !correction || appliedCorrection.current === correction.quoteKey) return;
-    appliedCorrection.current = correction.quoteKey;
-    for (const rewrite of correction.rewrites) {
-      actions.applyCanonical(rewrite.key, rewrite.options);
-    }
-  }, [open, correction, actions]);
-
-  // Session memory; both setters ignore a write that changes nothing.
-  useEffect(() => {
-    if (!open) return;
-    if (priceUpdates) actions.markPriceUpdates(priceUpdates);
-    if (rememberPrices) actions.rememberPrices(rememberPrices);
-  }, [open, priceUpdates, rememberPrices, actions]);
-
-  // Announcements go out after the quote settles, through the trigger's live region.
-  useEffect(() => {
-    if (!open) return;
-    const messages: string[] = [];
-    const changed = pendingQuantity.current;
-    if (changed) {
-      const settle = settledQuantity(view, changed.key);
-      if (settle.kind !== 'wait') pendingQuantity.current = null;
-      if (settle.kind === 'announce') {
-        const subtotal = formatPrice(settle.subtotal, locale, strings.line.currency);
-        messages.push(
-          quantityChangedText(strings.announcements, changed.name, settle.count, subtotal)
-        );
-      }
-    }
-    if (announcement) {
-      messages.push(bagAnnouncementText(announcement, strings.announcements, locale));
-      actions.markQuoteAnnounced(announcement.markKey);
-    }
-    if (messages.length > 0) announceInDrawer(messages.join('. '));
-  }, [open, view, announcement, strings, locale, actions]);
-
-  // After every render: bring an `added` or capped line into view once per opening (focus
-  // stays on the title), and land focus after a removal once its row has unmounted.
-  useEffect(() => {
-    const container = scrollContainer.current;
-    const row = addedKey === null ? undefined : rowElements.current.get(addedKey);
-    if (container && row && scrolledOpening.current !== opening.id) {
-      scrolledOpening.current = opening.id;
-      const top = scrollTopToReveal(row, container);
-      if (top !== null) container.scrollTop = top;
-    }
-
-    const target = pendingFocus.current;
-    if (target === null) return;
-    const element =
-      target.kind === 'empty' ? emptyHeading.current : focusElements.current.get(target.key);
-    if (element) {
-      pendingFocus.current = null;
-      element.focus();
-    } else if (view.kind !== 'loading') {
-      pendingFocus.current = null;
-    }
-  });
-
-  const rows: readonly BagRow[] = view.kind === 'ready' ? view.rows : [];
-
-  const onQuantityChange = (key: string, quantity: number, name: string) => {
-    actions.browseDrawer();
-    pendingQuantity.current = { key, name };
-    actions.setQuantity(key, quantity);
-  };
-
-  const onRemove = (row: BagRow, name: string) => {
-    if (removing.has(row.key)) return;
-    actions.browseDrawer();
-    announceInDrawer(fillTemplate(strings.announcements.removed, { name }));
-    const keys = rows.map((r) => r.key).filter((key) => key === row.key || !removing.has(key));
-
-    const finish = () => {
-      pendingFocus.current = focusTargetAfterRemove(keys, row.key);
-      if (pendingQuantity.current?.key === row.key) pendingQuantity.current = null;
-      actions.remove(row.key);
-      setRemoving((current) => {
-        if (!current.has(row.key)) return current;
-        const next = new Set(current);
-        next.delete(row.key);
-        return next;
-      });
-    };
-
-    if (prefersReducedMotion()) {
-      finish();
-      return;
-    }
-    setRemoving((current) => new Set(current).add(row.key));
-    const timer = window.setTimeout(() => {
-      timers.current.delete(timer);
-      finish();
-    }, REMOVE_FADE_MS);
-    timers.current.add(timer);
-  };
-
-  const onRetry = () => {
-    actions.browseDrawer();
-    quote.retry();
-  };
-
-  const onEmpty = () => {
-    actions.browseDrawer();
-    pendingFocus.current = { kind: 'empty' };
-    actions.clear();
-  };
 
   const summary = view.kind === 'ready' ? view.summary : null;
   const subtotal =
@@ -333,10 +207,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
                       if (element) rowElements.current.set(row.key, element);
                       else rowElements.current.delete(row.key);
                     }}
-                    focusRef={(element) => {
-                      if (element) focusElements.current.set(row.key, element);
-                      else focusElements.current.delete(row.key);
-                    }}
+                    focusRef={focusRef(row.key)}
                     onQuantityChange={onQuantityChange}
                     onRemove={onRemove}
                     onNavigate={closeForNavigation}
