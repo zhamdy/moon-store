@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, RequestHandler, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -12,13 +12,67 @@ import { errorResponse } from './http/errors';
 import { servedOpenApiSpec } from './docs/servedSpec';
 import { routeTable } from './router';
 import { getStorage, LocalStorageDriver } from './storage';
+import { getEnv } from './config/env';
 import {
+  createCartQuoteLimiter,
   createGlobalLimiter,
+  isCartQuotePath,
   logCatalogRateLimitConfig,
   logRateLimitOverrides,
   logTrustProxyOverride,
   trustProxySetting,
 } from './http/rateLimits';
+
+/** Development's storefront (`pnpm dev:storefront`). Never a default in production. */
+const DEV_STOREFRONT_ORIGIN = 'http://localhost:3000';
+
+/**
+ * The exact origins a browser may call the cart quote from. Exact matches only: no
+ * `.vercel.app` branch like the dashboard allowlist has, because this list opens a public
+ * POST to whoever matches it.
+ */
+export function resolveStorefrontOrigins(
+  raw: string | undefined,
+  nodeEnv: string | undefined
+): string[] {
+  if (raw === undefined) return nodeEnv === 'production' ? [] : [DEV_STOREFRONT_ORIGIN];
+  return raw
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
+
+const onlyForCartQuote =
+  (handler: RequestHandler): RequestHandler =>
+  (req, res, next) =>
+    isCartQuotePath(req) ? handler(req, res, next) : next();
+
+const exceptCartQuote =
+  (handler: RequestHandler): RequestHandler =>
+  (req, res, next) =>
+    isCartQuotePath(req) ? next() : handler(req, res, next);
+
+/**
+ * Body-parser failures on the quote path. The shared error handler knows no 413 and maps a
+ * parser 400 to a 500, which would tell a shopper's browser the server broke when the body
+ * was the problem. Answered here, before the router's `no-store`, so it sets its own.
+ */
+function cartQuoteBodyErrors(err: unknown, req: Request, res: Response, next: NextFunction): void {
+  if (!isCartQuotePath(req)) return next(err);
+  const { type, status } = (err ?? {}) as { type?: unknown; status?: unknown };
+  if (type === 'entity.too.large') {
+    res.set('Cache-Control', 'no-store');
+    res.status(413).json(errorResponse('VALIDATION_ERROR', 'Request body is too large'));
+    return;
+  }
+  const code = Number(status);
+  if (code >= 400 && code < 500) {
+    res.set('Cache-Control', 'no-store');
+    res.status(400).json(errorResponse('VALIDATION_ERROR', 'Request body is not valid JSON'));
+    return;
+  }
+  next(err);
+}
 
 /**
  * Builds the full request-handling Express app: every middleware in production order,
@@ -58,26 +112,52 @@ export function createApp(): express.Express {
         'http://localhost:5175',
       ];
 
+  /**
+   * The cart quote's own CORS (plan 2026-09-15-001, CD-21). The storefront calls the quote
+   * from the browser, but it must never join `allowedOrigins`: that CORS is credentialed and
+   * covers every route, admin included. So this one path gets exact storefront origins, no
+   * credentials, POST only and `Content-Type` only; any other origin simply gets no allow
+   * header. The app-wide CORS below skips the path, so the two can never both answer.
+   */
+  const storefrontOrigins = resolveStorefrontOrigins(
+    getEnv().STOREFRONT_ORIGINS,
+    getEnv().NODE_ENV
+  );
   app.use(
-    cors({
-      origin: function (
-        origin: string | undefined,
-        callback: (err: Error | null, allow?: boolean) => void
-      ) {
-        if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else if (
-          origin.endsWith('.vercel.app') &&
-          allowedOrigins.some((o) => o.endsWith('.vercel.app'))
+    onlyForCartQuote(
+      cors({
+        origin: (origin, callback) =>
+          callback(null, origin !== undefined && storefrontOrigins.includes(origin)),
+        credentials: false,
+        methods: ['POST', 'OPTIONS'],
+        allowedHeaders: ['Content-Type'],
+        maxAge: 600,
+      })
+    )
+  );
+
+  app.use(
+    exceptCartQuote(
+      cors({
+        origin: function (
+          origin: string | undefined,
+          callback: (err: Error | null, allow?: boolean) => void
         ) {
-          // Allow all Vercel preview/branch URLs when any Vercel domain is whitelisted
-          callback(null, true);
-        } else {
-          callback(new Error(`Origin ${origin} not allowed by CORS`));
-        }
-      },
-      credentials: true,
-    })
+          if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+          } else if (
+            origin.endsWith('.vercel.app') &&
+            allowedOrigins.some((o) => o.endsWith('.vercel.app'))
+          ) {
+            // Allow all Vercel preview/branch URLs when any Vercel domain is whitelisted
+            callback(null, true);
+          } else {
+            callback(new Error(`Origin ${origin} not allowed by CORS`));
+          }
+        },
+        credentials: true,
+      })
+    )
   );
 
   /**
@@ -89,13 +169,18 @@ export function createApp(): express.Express {
    */
   app.use(observabilityMiddleware);
 
-  // Rate limiting
+  // Rate limiting. The quote's limiter runs before any parsing, so an abusive caller is
+  // refused before its body is read; the global limiter skips the quote path.
   logRateLimitOverrides();
   logCatalogRateLimitConfig();
+  app.use(onlyForCartQuote(createCartQuoteLimiter()));
   app.use(createGlobalLimiter());
 
-  // Parsing
-  app.use(express.json({ limit: '10mb' }));
+  // Parsing. A public POST must not buy a 10 MB parse and sanitize, so the quote path has
+  // its own 16 KB parser and the app-wide one skips it.
+  app.use(onlyForCartQuote(express.json({ limit: '16kb' })));
+  app.use(cartQuoteBodyErrors);
+  app.use(exceptCartQuote(express.json({ limit: '10mb' })));
   app.use(cookieParser());
 
   // Input sanitization (strip HTML/XSS vectors from request body strings)

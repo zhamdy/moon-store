@@ -186,6 +186,75 @@ export interface CatalogStorePoliciesDto {
   returnsEn: string | null;
 }
 
+/** A product a quote line names. `id`, `stock` and `has_variants` are internal. */
+export interface CatalogQuoteProductRow {
+  id: number;
+  slug: string;
+  name: string;
+  name_en: string | null;
+  price: string | number;
+  stock: string | number | null;
+  has_variants: string | number | boolean | null;
+  image_url: string | null;
+}
+
+/** A variant row of a batched quote read; `product_id` groups it and is never mapped out. */
+export interface CatalogQuoteVariantRow extends CatalogVariantRow {
+  product_id: number;
+}
+
+/** One requested bag line, as the request contract admits it. The request carries no price. */
+export interface CartQuoteRequestLine {
+  slug: string;
+  options: Record<string, string>;
+  quantity: number;
+}
+
+export type CartQuoteLineStatus =
+  | 'ok'
+  | 'reduced'
+  | 'soldOut'
+  | 'variantUnavailable'
+  | 'productUnavailable';
+
+export interface CartQuoteProductDto {
+  slug: string;
+  name: string;
+  nameEn: string | null;
+  image: CatalogImageDto | null;
+}
+
+export interface CartQuoteOptionDto {
+  key: string;
+  label: string;
+  value: string;
+}
+
+export interface CartQuoteLineDto {
+  index: number;
+  slug: string;
+  status: CartQuoteLineStatus;
+  /** Null only for `productUnavailable`. */
+  product: CartQuoteProductDto | null;
+  /** Canonical spellings; empty for a no-variant product or an unresolved variant. */
+  options: CartQuoteOptionDto[];
+  /** The effective price; null when the product or variant is unavailable. */
+  unitPrice: number | null;
+  requestedQuantity: number;
+  /** The allowed quantity; 0 when not purchasable. */
+  quantity: number;
+  /** `min(stock, MAX_LINE_QUANTITY)`; 0 when not purchasable. The only stock-derived number. */
+  maxQuantity: number;
+  lineTotal: number;
+}
+
+export interface CartQuoteDto {
+  lines: CartQuoteLineDto[];
+  subtotal: number;
+  itemCount: number;
+  maxLineQuantity: number;
+}
+
 export interface CatalogPriceRange {
   min: number | null;
   max: number | null;

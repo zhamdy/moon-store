@@ -65,7 +65,9 @@ export const endpointManifest: Record<string, EndpointManifestEntry> = {
   '/api/v1/feedback': authenticated(['P', 'M']),
   '/api/v1/segments': authenticated(['B', 'M']),
   '/api/v1/storefront': publicEntry(['B', 'P', 'M']),
-  '/api/v1/catalog': publicEntry(['B', 'P']),
+  // 'S' and 'M' are for POST /cart/quote (plan 2026-09-15-001). It writes nothing: 'M' is here
+  // only because the group-level contract check requires it of any non-GET verb.
+  '/api/v1/catalog': publicEntry(['B', 'P', 'S', 'M']),
   '/api/v1/online-orders': authenticated(['P', 'S', 'M']),
   '/api/v1/warranty': authenticated(['P', 'M']),
   '/api/v1/delivery': authenticated(['P', 'S', 'M']),
@@ -768,6 +770,14 @@ export const endpointDetailsManifest: readonly DetailedEndpointEntry[] = [
     method: 'GET',
     path: '/api/v1/catalog/store-policies',
     classification: 'B',
+    authorization: publicAuth,
+  },
+  // Read-only despite POST (plan 2026-09-15-001, CD-3): the payload is a list of bag lines,
+  // and the response is one computed quote, hence 'S' rather than 'M'.
+  {
+    method: 'POST',
+    path: '/api/v1/catalog/cart/quote',
+    classification: 'S',
     authorization: publicAuth,
   },
 

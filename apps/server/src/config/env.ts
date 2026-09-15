@@ -129,6 +129,19 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
   /**
+   * Per-IP ceiling on the public cart quote, per 15 min, resolved by `src/http/rateLimits.ts`
+   * like the ceilings above. Its own bucket: browsers call the quote directly, so neither the
+   * global nor the catalog read budget is the right one (plan 2026-09-15-001, CD-21).
+   */
+  CART_QUOTE_RATE_LIMIT_MAX: z.string().optional(),
+  /**
+   * Comma list of exact storefront origins allowed to call the cart quote from a browser,
+   * read by `src/app.ts`. CORS for that one path only, without credentials; the storefront
+   * never joins `ALLOWED_ORIGINS`, whose CORS is credentialed and covers every route. Unset
+   * means `http://localhost:3000` outside production and no origin in production.
+   */
+  STOREFRONT_ORIGINS: z.string().optional(),
+  /**
    * How often the `service_metrics` snapshot line is emitted, in milliseconds, resolved
    * by `src/observability/metrics.ts`. `0` disables it. Values under a second are raised
    * to a second — a sub-second snapshot is a log flood, not a metric.

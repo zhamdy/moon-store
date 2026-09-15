@@ -27,6 +27,8 @@ import type {
   CatalogProductDetailRow,
   CatalogProductFilters,
   CatalogProductRow,
+  CatalogQuoteProductRow,
+  CatalogQuoteVariantRow,
   CatalogVariantRow,
 } from './types';
 
@@ -233,6 +235,48 @@ export class CatalogRepository {
         WHERE v.product_id = $1
         ORDER BY v.id ASC`,
       [productId]
+    );
+    return rows;
+  }
+
+  /**
+   * The public products a cart quote names (CD-3). Same predicate as the detail read, so an
+   * inactive, discontinued, slug-less or unknown product is simply absent.
+   */
+  async findPublicProductsBySlugs(
+    slugs: readonly string[],
+    db: Queryable
+  ): Promise<CatalogQuoteProductRow[]> {
+    if (slugs.length === 0) return [];
+    // A bounded IN list, not `= ANY($1::text[])`: pg-mem matches no rows for the array form on
+    // the uniquely indexed slug. The contract caps a request at MAX_CART_LINES slugs.
+    const placeholders = slugs.map((_, i) => `$${i + 1}`).join(', ');
+    const { rows } = await db.query<CatalogQuoteProductRow>(
+      `SELECT p.id, p.slug, p.name, p.name_en, p.price, p.stock, p.has_variants, p.image_url
+         FROM products p
+        WHERE p.slug IN (${placeholders}) AND p.status = 'active'`,
+      [...slugs]
+    );
+    return rows;
+  }
+
+  /**
+   * Variants for several products. Ordered by product then id: `deriveVariantOptions` breaks a
+   * canonical key-set tie toward the lowest id, so each product's group must stay in id order.
+   */
+  async listVariantsForProducts(
+    productIds: readonly number[],
+    db: Queryable
+  ): Promise<CatalogQuoteVariantRow[]> {
+    if (productIds.length === 0) return [];
+    // Bounded IN list for the same pg-mem reason as `findPublicProductsBySlugs`.
+    const placeholders = productIds.map((_, i) => `$${i + 1}`).join(', ');
+    const { rows } = await db.query<CatalogQuoteVariantRow>(
+      `SELECT v.product_id, v.id, v.price, v.stock, v.attributes
+         FROM product_variants v
+        WHERE v.product_id IN (${placeholders})
+        ORDER BY v.product_id ASC, v.id ASC`,
+      [...productIds]
     );
     return rows;
   }
