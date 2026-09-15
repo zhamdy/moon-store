@@ -5,7 +5,6 @@ import { applyCanonical, cartLineKey, type CartLine } from './cart-lines';
 import {
   cartQuoteKey,
   failureAnnouncementKey,
-  priceUpdateMemoryKey,
   reconcileBag,
   type BagView,
   type CartQuoteFetch,
@@ -25,6 +24,7 @@ const PRICES: Record<string, number> = {
 const SETTLED: CartQuoteFetch = { status: 'settled' };
 const EMPTY_SESSION: CartSessionMemory = {
   previousPrices: new Map(),
+  priceUpdates: new Map(),
   announcedQuoteKeys: new Set(),
 };
 
@@ -76,10 +76,12 @@ function row(view: BagView, line: CartLine) {
 
 function session(
   prices: Record<string, number> | null,
-  announced: string[] = []
+  announced: string[] = [],
+  priceUpdates: Record<string, string> | null = null
 ): CartSessionMemory {
   return {
     previousPrices: new Map(Object.entries(prices ?? {})),
+    priceUpdates: new Map(Object.entries(priceUpdates ?? {})),
     announcedQuoteKeys: new Set(announced),
   };
 }
@@ -283,20 +285,21 @@ describe('reconcileBag', () => {
 
     const out = reconcileBag({ lines, result, fetch: SETTLED, session: memory });
     expect(row(out.view, A).notices).toEqual([{ kind: 'priceUpdated' }]);
-    expect(out.rememberPrices).toEqual({
-      [cartLineKey(A)]: 3100,
-      [priceUpdateMemoryKey(result.key, cartLineKey(A))]: 2850,
-    });
+    expect(out.rememberPrices).toEqual({ [cartLineKey(A)]: 3100 });
+    expect(out.priceUpdates).toEqual({ [cartLineKey(A)]: result.key });
     expect(out.announcement).toEqual({
       kind: 'updated',
       markKey: result.key,
       issues: { unavailable: 0, limited: 0, priceUpdated: 1 },
     });
 
-    const remembered = session(out.rememberPrices, [result.key]);
+    const remembered = session(out.rememberPrices, [result.key], out.priceUpdates);
+    // Prices stay in their own map: nothing but line keys is ever written there.
+    expect([...remembered.previousPrices.keys()]).toEqual([cartLineKey(A)]);
     const after = reconcileBag({ lines, result, fetch: SETTLED, session: remembered });
     expect(row(after.view, A).notices).toEqual([{ kind: 'priceUpdated' }]);
     expect(after.rememberPrices).toBeNull();
+    expect(after.priceUpdates).toBeNull();
     expect(after.announcement).toBeNull();
 
     // A later quote at the same price clears the flag.
@@ -432,6 +435,7 @@ describe('reconcileBag', () => {
       correction: null,
       announcement: null,
       rememberPrices: null,
+      priceUpdates: null,
     });
   });
 

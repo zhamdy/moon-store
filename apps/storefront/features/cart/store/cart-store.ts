@@ -48,6 +48,11 @@ export interface CartSession {
   readonly drawer: DrawerState;
   /** Last quoted unit price per line key, for the in-session "Price updated" notice (CD-16). */
   readonly previousPrices: ReadonlyMap<string, number>;
+  /**
+   * Line key → the quote key that found its price change. The notice shows while that quote
+   * is on screen; `previousPrices` alone would lose it on the next render.
+   */
+  readonly priceUpdates: ReadonlyMap<string, string>;
   /** Quote keys whose issues were already announced this session. */
   readonly announcedQuoteKeys: ReadonlySet<string>;
 }
@@ -69,6 +74,8 @@ export interface CartActions {
   /** Ends an `added` opening at the first bag interaction; keeps the drawer open. */
   browseDrawer(): void;
   rememberPrices(prices: Readonly<Record<string, number>>): void;
+  /** Pins each line key's "Price updated" notice to the quote key that found the change. */
+  markPriceUpdates(updates: Readonly<Record<string, string>>): void;
   markQuoteAnnounced(quoteKey: string): void;
 }
 
@@ -93,6 +100,7 @@ export function createCartStore(getStorage: GetCartStorage = browserCartStorage)
   let session: CartSession = {
     drawer: CLOSED_DRAWER,
     previousPrices: new Map(),
+    priceUpdates: new Map(),
     announcedQuoteKeys: new Set(),
   };
   const listeners = new Set<() => void>();
@@ -237,6 +245,17 @@ export function createCartStore(getStorage: GetCartStorage = browserCartStorage)
       }
       setSession({ ...session, previousPrices });
     },
+    markPriceUpdates(updates) {
+      const entries = Object.entries(updates);
+      if (entries.every(([key, quoteKey]) => session.priceUpdates.get(key) === quoteKey)) {
+        return;
+      }
+      const priceUpdates = new Map(session.priceUpdates);
+      for (const [key, quoteKey] of entries) {
+        priceUpdates.set(key, quoteKey);
+      }
+      setSession({ ...session, priceUpdates });
+    },
     markQuoteAnnounced(quoteKey) {
       if (session.announcedQuoteKeys.has(quoteKey)) {
         return;
@@ -262,6 +281,7 @@ const cartActions: CartActions = {
   closeDrawer: cartStore.closeDrawer,
   browseDrawer: cartStore.browseDrawer,
   rememberPrices: cartStore.rememberPrices,
+  markPriceUpdates: cartStore.markPriceUpdates,
   markQuoteAnnounced: cartStore.markQuoteAnnounced,
 };
 

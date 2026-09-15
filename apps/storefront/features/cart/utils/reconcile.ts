@@ -28,6 +28,8 @@ export type CartQuoteFetch =
 
 export interface CartSessionMemory {
   readonly previousPrices: ReadonlyMap<string, number>;
+  /** Line key → the quote key that found its price change (the store's `priceUpdates`). */
+  readonly priceUpdates: ReadonlyMap<string, string>;
   readonly announcedQuoteKeys: ReadonlySet<string>;
 }
 
@@ -115,17 +117,12 @@ export interface ReconcileOutput {
   announcement: BagAnnouncement | null;
   /** Pass to `rememberPrices`; null when nothing is new. */
   rememberPrices: Record<string, number> | null;
-}
-
-/**
- * Session-memory entry recording that `quoteKey` revealed a price change on `lineKey`. The
- * store's `previousPrices` holds the last price per line key; overwriting it alone would make
- * the notice vanish on the next render, so the change is pinned to the quote that found it
- * and stays visible for as long as that quote is on screen. Line keys are JSON arrays, so
- * this prefix cannot collide with one.
- */
-export function priceUpdateMemoryKey(quoteKey: string, lineKey: string): string {
-  return `price-updated:${quoteKey}:${lineKey}`;
+  /**
+   * Pass to `markPriceUpdates`; null when nothing is new. Overwriting `previousPrices` alone
+   * would make the notice vanish on the next render, so a change is pinned to the quote that
+   * found it and stays visible for as long as that quote is on screen.
+   */
+  priceUpdates: Record<string, string> | null;
 }
 
 export function failureAnnouncementKey(quoteKey: string): string {
@@ -212,7 +209,7 @@ function failure(error: unknown, localPieces: number): BagView {
 }
 
 export function reconcileBag({ lines, result, fetch, session }: ReconcileInput): ReconcileOutput {
-  const none = { correction: null, announcement: null, rememberPrices: null };
+  const none = { correction: null, announcement: null, rememberPrices: null, priceUpdates: null };
   if (lines.length === 0) return { view: { kind: 'empty' }, ...none };
 
   const localPieces = totalPieces(lines);
@@ -221,10 +218,9 @@ export function reconcileBag({ lines, result, fetch, session }: ReconcileInput):
   if (fetch.status === 'error') {
     const markKey = failureAnnouncementKey(currentKey);
     return {
+      ...none,
       view: failure(fetch.error, localPieces),
-      correction: null,
       announcement: session.announcedQuoteKeys.has(markKey) ? null : { kind: 'failed', markKey },
-      rememberPrices: null,
     };
   }
 
@@ -240,6 +236,7 @@ export function reconcileBag({ lines, result, fetch, session }: ReconcileInput):
   });
 
   const prices: Record<string, number> = {};
+  const priceUpdates: Record<string, string> = {};
   const rewrites: { key: string; options: CartOptions }[] = [];
   const issues: BagIssueCounts = { unavailable: 0, limited: 0, priceUpdated: 0 };
 
@@ -248,8 +245,7 @@ export function reconcileBag({ lines, result, fetch, session }: ReconcileInput):
     const key = cartLineKey(line);
     const quoteLine = quoteLines.get(key);
 
-    let priceUpdated =
-      quoteLine !== undefined && session.previousPrices.has(priceUpdateMemoryKey(result.key, key));
+    let priceUpdated = quoteLine !== undefined && session.priceUpdates.get(key) === result.key;
 
     if (current && quoteLine && quoteLine.unitPrice !== null) {
       const previous = session.previousPrices.get(key);
@@ -258,7 +254,7 @@ export function reconcileBag({ lines, result, fetch, session }: ReconcileInput):
       } else if (previous !== quoteLine.unitPrice) {
         priceUpdated = true;
         prices[key] = quoteLine.unitPrice;
-        prices[priceUpdateMemoryKey(result.key, key)] = previous;
+        priceUpdates[key] = result.key;
       }
     }
 
@@ -304,5 +300,6 @@ export function reconcileBag({ lines, result, fetch, session }: ReconcileInput):
     correction,
     announcement,
     rememberPrices: Object.keys(prices).length > 0 ? prices : null,
+    priceUpdates: Object.keys(priceUpdates).length > 0 ? priceUpdates : null,
   };
 }
