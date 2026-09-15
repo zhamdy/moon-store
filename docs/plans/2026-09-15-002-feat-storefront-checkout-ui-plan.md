@@ -345,7 +345,7 @@ flowchart TB
   U7 --> U8[8 Docs, bundle, QA handoff]
 ```
 
-- [ ] **Unit 1: Shared pure foundations: ASCII digits and checkout readiness**
+- [x] **Unit 1: Shared pure foundations: ASCII digits and checkout readiness**
 
 **Goal:** A reusable digit mapper, and the one readiness rule the Bag entry and Checkout share.
 
@@ -391,7 +391,7 @@ flowchart TB
 
 **Verification:** Readiness is derived purely from `BagView`, with no store or DOM access. Catalog digit behaviour is unchanged.
 
-- [ ] **Unit 2: Bag page entry into Checkout**
+- [x] **Unit 2: Bag page entry into Checkout**
 
 **Goal:** Fill `BagSummary`'s `[data-checkout-action]` slot with an entry that is a link only when ready.
 
@@ -439,7 +439,7 @@ flowchart TB
 
 **Verification:** `/bag` shows Checkout only for a fully purchasable, freshly quoted bag. Otherwise it explains why without moving the layout.
 
-- [ ] **Unit 3: Checkout schema, field errors, phone rule**
+- [x] **Unit 3: Checkout schema, field errors, phone rule**
 
 **Goal:** The validated shape of checkout state, independent of UI.
 
@@ -487,7 +487,7 @@ flowchart TB
 
 **Verification:** The schema is the single validation authority. Messages are keys, and the FormApi boundary test passes.
 
-- [ ] **Unit 4: Checkout draft persistence (sessionStorage)**
+- [x] **Unit 4: Checkout draft persistence (sessionStorage)**
 
 **Goal:** Typed details survive a refresh and a Back-to-Bag round trip in the same tab, safely.
 
@@ -524,7 +524,7 @@ flowchart TB
 
 **Verification:** Persistence is session-scoped, versioned, minimal, validated before use, and never throws.
 
-- [ ] **Unit 5: Commerce seam, submission builder, submit machine; quote refresh**
+- [x] **Unit 5: Commerce seam, submission builder, submit machine; quote refresh**
 
 **Goal:** The future boundary and the pure orchestration from Continue to outcome.
 
@@ -570,7 +570,7 @@ flowchart TB
 
 **Verification:** The seam compiles independently of any strategy, the submission contains intent only, and the machine never reaches `submitting` on a stale, blocked or failed bag.
 
-- [ ] **Unit 6: Route shell, server strings, messages**
+- [x] **Unit 6: Route shell, server strings, messages**
 
 **Goal:** `/[locale]/checkout` exists as a static, noindex page with resolved EN/AR strings.
 
@@ -611,7 +611,7 @@ flowchart TB
 
 **Verification:** `next build` lists `/en/checkout` and `/ar/checkout` as static (`●`). Metadata is noindex.
 
-- [ ] **Unit 7: The checkout island (form, summary, notice, delivery section)**
+- [x] **Unit 7: The checkout island (form, summary, notice, delivery section)**
 
 **Goal:** The interactive page, wired to the pieces from Units 1–6.
 
@@ -698,7 +698,7 @@ flowchart TB
 
 **Verification:** Every view state renders from the models. Continue never calls the seam unless readiness is `ready` for the current key. No network call besides the quote.
 
-- [ ] **Unit 8: Documentation, bundle measurement, QA handoff**
+- [x] **Unit 8: Documentation, bundle measurement, QA handoff**
 
 **Goal:** Contracts recorded, cost measured, manual checks handed to the owner.
 
@@ -876,6 +876,26 @@ Widths 320, 375, 768, 1024, 1440 × `en` and `ar`. Fixtures in `moon_store_sf_sm
     manual confirmation, COD, mixed). The UI is independent of it. The future implementation
     MUST revalidate products and variants and stock, reprice every line, determine delivery,
     and calculate final payable totals before an order is final (CO-17).
+
+## Implementation Notes (2026-09-15)
+
+Where the build differs from the text above, the code and storefront `CLAUDE.md` → *Checkout*
+are authoritative.
+
+- `blocked` carries `blockedKeys` rather than names; the checkout view model resolves the names,
+  so readiness stays locale-free.
+- Field errors are computed from values with `checkoutFieldError`, not read from TanStack's
+  error maps: form-core keeps a form-level `onSubmit` error in each field's `errorMap` until the
+  next submit, so a fixed field would still show it. The schema still runs as the form's
+  `onSubmit` validator and drives `firstInvalidField`.
+- Unit 1's "failure → recovery → failure again under the same key is announced again" was not
+  implemented: failure marks stay keyed by quote key only. Issue-signature marks cover the
+  stock/price case the reviewers raised.
+- The delivery radio group was not built (no rules give it options); the section renders the
+  neutral sentence and `deliveryMethod` is always null.
+- Units 6 and 7 landed as one commit, because the page imports the island.
+- Bundle: `/en/bag` +1.7 KB (budget +1 KB), `/en/checkout` +28.6 KB over `/en/bag` (budget
+  +25 KB). Recorded for the owner; see storefront `CLAUDE.md` → *Checkout* → *Bundle*.
 
 ## Sources & References
 

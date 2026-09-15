@@ -150,6 +150,14 @@ returns are WAI-ARIA tabs with Left/Right (mirrored in RTL) and Home/End, wrappi
 panels are `hidden`, and a panel with no focusable content is itself a tab stop. The tab bar
 is sticky under the site header, so focus must never land beneath either.
 
+**Storefront checkout validation is announced by focus, not by toasts.** Errors are inline
+(icon, text and border) and linked with `aria-describedby`; none is a live region. Continue on
+an invalid form moves focus to the first invalid field in DOM order, so the screen reader reads
+its label, "invalid" and the error once. A field that already has focus is blurred and focused
+again on the next frame, because `focus()` on the focused element fires nothing. The storefront
+elsewhere pairs field errors with a toast; checkout deliberately does not (owner decision
+2026-09-15), to avoid two announcements at once.
+
 **Colour tokens are measured, not eyeballed.** `success` and `warning` are defined per
 theme in `tailwind.config.js` with their contrast ratios in the comment. HeroUI's default
 success (`#17C964`) measures **2.19:1** on a light surface and was in use in table cells.
@@ -255,6 +263,31 @@ navigation shell.
    left (bottom right in EN) and spans the width at 320. **Reduced motion:** the drawer
    appears without sliding, a removed row disappears without fading, toasts appear and leave
    without sliding or scaling, and focus still moves.
+9. **Storefront checkout, keyboard and screen reader.** Also not axe-scanned. Needs a build or
+   dev server with Checkout enabled. In EN and AR, with `silk-midi-dress` in the bag. **Entry:**
+   on `/bag`, Tab reaches Checkout after the summary figures; with a sold-out line
+   (`silk-slip-dress`) it is announced as dimmed/unavailable with its reason ("Remove 1
+   unavailable piece to continue") and does nothing. Focus the Checkout link, switch tabs and
+   come back: focus is still on it. **Form:** Tab order is Back to bag, the summary toggle
+   (below 1024; from 1024, Edit bag), then Full name, Mobile number, Email, Governorate, City or
+   area, Street, Floor and apartment, Landmark, Continue. Each field is read with its label,
+   "required" (or the visible "Optional"), and the Street hint. Tab through an empty required
+   field: its error appears after leaving it and is read when you return. Press Continue on an
+   empty form: focus moves to Full name and "This is required" is read once, with no toast. Press
+   Enter inside that empty Full name again: it is read again. Fix a field: its error disappears
+   as you type. Phone accepts `٠١٠٠١١١٢٢٣٣` and `+20 100 111 2233`; `123` gives "Enter a phone
+   number of 8 to 15 digits". No field or error ever sits under the sticky header. **Summary:**
+   below 1024 the toggle is announced as "Summary, 1 piece, 2,850 EGP, collapsed/expanded";
+   from 1024 a long bag's line list is a labelled region you can Tab into and scroll. It says
+   "Delivery: Confirmed later" and has no Total. **Bag changes:** with the form half filled,
+   set the variant's stock to 0 in the dashboard and return to the tab: "Your bag was updated"
+   is spoken once from a toast, and the notice above the form names the piece. Press Continue:
+   focus moves to that notice's heading, and Return to bag is the next Tab. **Outcome
+   (preview):** with a valid form and ready bag, Continue reads "Checking your bag" and then shows
+   "Online ordering isn't open yet…" with Back to bag and Continue shopping, plus one toast;
+   nothing navigates. **Draft:** refresh, and the typed details are back without being announced.
+   At 320px and 200% zoom there is no horizontal page scroll, long Arabic errors wrap, and every
+   input is 48px tall. Reduced motion: the heading does not rise and the chevron does not turn.
 
 ## Running the checks
 

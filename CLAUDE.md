@@ -10,7 +10,9 @@ Run `pnpm install` at the repository root first. The workspace contains
 `apps/dashboard`, `apps/server`, and `apps/storefront` (a Next.js storefront: a static
 homepage plus Shop, category, New In, Collections and product detail pages rendered from
 the server's public catalog API, and a guest bag (Add to Bag, a header drawer and `/bag`)
-priced by the server's cart quote; checkout still 404s by design).
+priced by the server's cart quote; a Checkout base UI that collects contact and delivery
+details and stops at a commerce seam with no order behind it, switched off in production
+builds by `NEXT_PUBLIC_CHECKOUT_ENABLED` until a commerce strategy exists).
 Use `pnpm dev:storefront` for it on port 3000; copy `apps/storefront/.env.example` to
 `apps/storefront/.env.local` first (see `apps/storefront/CLAUDE.md` for what each
 variable does). The catalog pages need the API running on a database with migration 014

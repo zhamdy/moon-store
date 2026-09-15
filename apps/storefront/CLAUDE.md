@@ -11,7 +11,9 @@ collection pages (see *Catalog*). Product detail
 (`2026-09-14-003-feat-storefront-product-detail`) added `/products/<slug>`, where every
 card links (see *Product detail*). Cart (`2026-09-15-001-feat-storefront-cart`) added the
 guest bag: Add to Bag on the product page, the header Bag drawer and `/bag` (see *Cart*).
-Checkout still 404s through the catch-all, by design — no placeholder pages.
+Checkout base UI (`2026-09-15-002-feat-storefront-checkout-ui`) added `/checkout`: contact
+and delivery-address details over the quote, ending at a commerce seam with no order behind
+it, and off in production builds until a commerce strategy exists (see *Checkout*).
 
 ## Design guideline
 
@@ -147,8 +149,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to sixteen entries
-(seventeen files):
+Server Components by default (R21/R22). `'use client'` is limited to eighteen entries
+(nineteen files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -221,6 +223,12 @@ Server Components by default (R21/R22). `'use client'` is limited to sixteen ent
    `<body>`. Takes resolved `label` / `closeLabel` (`toaster.*`) and `dir`. Lazy: it imports
    no `sonner`, renders nothing on the server and the first client render, and mounts the
    real `Toaster` when the browser is idle or the first toast asks. See *Cart* → *Toasts*.
+18. `features/checkout/components/checkout-view.tsx` — the checkout page island: TanStack Form
+   state, the submit machine, the order summary and the cart notice (see *Checkout*). Takes
+   resolved `CheckoutPageStrings` (the bag's included), `locale`, `shopHref`, `bagHref` and
+   `deliveryMethods` from `app/[locale]/checkout/page.tsx`, and reads the bag through
+   `useBagController`. Its rules are `features/checkout/utils/*` and
+   `features/cart/utils/checkout-readiness.ts`, unit-tested.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -234,6 +242,11 @@ heading into masked word spans on the server.
 `features/products/components/purchase-selection-context.ts` — a plain `createContext`
 module imported only by `purchase-panel.tsx` and `add-to-bag-button.tsx`. A Server
 Component must never import it: `createContext` does not exist in the react-server build.
+
+The checkout island's children are client-bundled the same way: `checkout-summary.tsx`,
+`checkout-cart-notice.tsx`, `text-field.tsx`, `governorate-field.tsx`,
+`delivery-method-section.tsx` and `use-media-query.ts`, plus the Bag page's
+`features/cart/components/checkout-entry.tsx` (reached only from 16).
 
 **Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
 `useInView` import put the whole engine (~46 KB gz across two chunks) into the eager
@@ -255,7 +268,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding an eighteenth
+`useTranslations`, is a new decision, not a precedent. Before adding a nineteenth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
@@ -1046,7 +1059,9 @@ motion both are `animation: none`: placeholders show at once and hold still.
 
 **Checkout seam** (CD-17): an empty `[data-checkout-action]` in the drawer footer and the
 page summary (`empty:hidden`). No Checkout button and no Clear bag control until Checkout
-exists; readiness rules belong to that plan. Quote stock is advisory (CD-6): Checkout must
+exists; readiness rules belong to that plan. **Now filled on the page only** (`2026-09-15-002`, CO-4):
+`BagSummary`'s slot holds `CheckoutEntry`; the drawer's stays empty, so the flow is drawer →
+View bag → `/bag` → Checkout. Still no Clear bag control. Quote stock is advisory (CD-6): Checkout must
 re-validate with reservations under lock, never trust a quote. PD-B is filled; PD-14 (no
 sticky mobile purchase bar) and PD-7 (no JSON-LD `Product`) stand.
 
@@ -1158,7 +1173,8 @@ the owner accepted the overage. The cost is the header island itself (store, han
 persisted-cart guard, the count label with `Intl.PluralRules`, the announcer, since removed
 for the toaster; the toaster's own cost is measured below). `zod/v4/mini`
 was removed from the eager path (the store went from 9.5 to 2.0 KB gz, `c197a58`), and the
-storefront imports no Zod. Inlining the `BAG_HREF` import saved 7 B and was not done. These
+storefront imports no Zod outside `features/checkout` (the checkout route's own chunk; a test
+enforces it). Inlining the `BAG_HREF` import saved 7 B and was not done. These
 bytes are not comparable with the older "195.2 KB" figures, which used a different method.
 The product route measured +12.1 KB after Add to Bag (Unit 5), before the Zod removal; it
 was not re-measured since. The drawer is a separate lazy chunk (~10.6 KB gz).
@@ -1231,6 +1247,142 @@ Browser-only; no storefront DOM or browser harness exists, so none of this is pr
   product shows no stepper; Tab runs Decrease, Increase, then Add to Bag.
 - Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 8.
 
+## Checkout (base UI)
+
+Plan `2026-09-15-002-feat-storefront-checkout-ui`; decisions are cited as CO-n there.
+Bag → `/checkout` → contact, delivery address, delivery structure and the quote's summary →
+validated form state → the commerce seam. **No order is created, no stock is reserved and no
+payment is taken.** The commerce strategy (API-first, gateway-first, IPN/webhook, manual
+confirmation, COD or a mix) is deliberately undecided, and nothing here depends on it.
+
+### Availability (CO-22)
+
+`CHECKOUT_ENABLED` (`features/cart/utils/checkout-availability.ts`) comes from
+`NEXT_PUBLIC_CHECKOUT_ENABLED`, read at `next build`: `true` or `false` wins; otherwise it is on
+unless `NODE_ENV === 'production'`. Off: no Bag entry, and `/checkout` is a prerendered 404.
+**Production leaves it unset until a commerce strategy exists; preview deployments set `true`.**
+The route and its code stay compiled and tested either way. `features/cart/constants.ts`
+re-exports the value as `CHECKOUT_ENTRY_ENABLED` for the entry.
+
+### Entry and readiness
+
+`checkoutReadiness` (cart slice, pure) returns `hydrating | empty | checking |
+failed{rejected} | blocked{unavailable, limited, blockedKeys} | ready{quoteKey, pieces,
+subtotal, priceUpdated}`. It blocks on no current quote, a pending row, a failed quote, any
+sold-out or unavailable line and any `reduced` line. **A price change never blocks**: the new
+price shows and the bag-updated notice says so (owner, 2026-09-15). `strict: false` on `/bag`
+(a focus refetch of an unchanged bag keeps the link, and keyboard focus with it); `strict: true`
+on submit. `CheckoutEntry` in `BagSummary`'s slot is a link only when ready, otherwise an
+`aria-disabled` button described by a reserved reason line. No entry in the drawer (CO-4).
+`reconcileBag`'s announcement mark key carries an issue signature (`issueMarkKey`), because the
+quote key ignores stock and price: a second sell-out under the same lines is announced too.
+
+### Page
+
+`app/[locale]/checkout/page.tsx`: static per locale, `noindex, nofollow`, outside `(catalog)`,
+no `loading.tsx` (`app/checkout-route.test.ts`). The normal header and footer, a "Back to bag"
+link, the rising `h1`, then `CheckoutView` (boundary 18). Before the bag hydrates: one reserved
+busy region, no fields. An empty bag: the Bag's empty state, no form. Otherwise a 12-column grid
+from 1024 (form 7, summary 4, sticky at the inline end); below, the summary comes first. The
+summary is first in source order at every width, so from 1024 Tab reaches Edit bag before the
+fields (accepted, CO-19).
+
+### Fields
+
+| Field | Required | Input | `autocomplete` | Limit |
+| --- | --- | --- | --- | --- |
+| Full name | yes | text | `name` | 100 |
+| Mobile number | yes | `tel`, `dir="ltr"` | `tel` | 30 as typed |
+| Email | no | `email`, `dir="ltr"` | `email` | 254 |
+| Governorate | yes | text (`GovernorateField`) | `shipping address-level1` | 50 |
+| City or area | yes | text | `shipping address-level2` | 50 |
+| Street | yes | text, hint "Street name and building number" | `shipping address-line1` | 150 |
+| Floor and apartment | no | text | `shipping address-line2` | 50 |
+| Landmark or directions | no | text | `off` | 200 |
+
+Rules live in the pure `checkoutFieldError`, which the `zod/v4/mini` schema wraps. Messages are
+keys (`required`, `phoneInvalid`, `emailInvalid`, `tooLong`) resolved from `checkout.errors`.
+Phone: Arabic digits mapped, spaces, hyphens, dots and parentheses removed, an optional leading
+`+`, 8-15 digits, and no Egyptian prefix rule (owner). **Governorate is free text** (owner): no
+list of all 27, which would imply delivery everywhere. `GovernorateField` is the one component a
+supported-coverage select replaces once delivery zones exist. Lengths fit `online_orders` (CO-8).
+
+### Validation UX (owner decision 2026-09-15)
+
+Inline errors (icon, text and border, in a reserved row linked by `aria-describedby`) show once a
+field was left (`isBlurred`) or after Continue. They are computed from the value with the pure
+rule, never read from TanStack's per-cause error maps: form-core keeps a form `onSubmit` error in
+the field's `errorMap` until the next submit, so a fixed field would still show it. Continue on
+an invalid form focuses the first invalid field in DOM order (`firstInvalidField`); a field that
+already has focus is blurred and refocused on the next frame so it is announced again. **No toast
+for form validation.** Toasts are only for events outside the fields: the bag's quote updates and
+failures (the controller's) and the outcome.
+
+### Submit machine and commerce seam
+
+`utils/submit-machine.ts` (pure): `idle → validating → verifying{refreshed} → submitting →
+outcome`. `verifying` ignores readiness until the pre-submit `refresh()` has settled (in the
+commit that enters it, TanStack still reports the previous quote) and accepts `ready` only for
+the current lines' key; a second press while busy is ignored. The form is `method="post"` and
+`noValidate`, with `preventDefault` first, so personal data can never become a GET query.
+`buildSubmission` sends trimmed contact and address, the normalised phone and the intent lines
+with `quoteKey` (untrusted, a correlation value only): never a price. `features/checkout/commerce/index.ts`
+exports the active strategy, today `unavailableCommerce` (`{ kind: 'unavailable' }`, no I/O).
+
+**Commerce invariants.** Before any order is final the future implementation MUST, on the server,
+revalidate products, variants and stock, reprice every line, determine delivery and calculate the
+payable total. The quote shown on Checkout is authoritative for the UI only and is never a
+transaction guarantee. **Seam invariants:** the submission travels in a body, never a URL; a
+redirect outcome goes only to an allowlisted origin; submission and form values are never logged
+or sent to error reporting; credentials are explicit per adapter; success clears the draft.
+
+### Copy
+
+"Online ordering isn't open yet…" (`checkout.outcome.unavailablePreview`) is **development and
+preview QA copy only**: production cannot reach it (CO-22), and the commerce plan replaces it.
+Delivery wording stays neutral, with no timing, coverage, fees or couriers
+(`checkout-strings.test.ts` guards it). The CTA is "Continue". All checkout Arabic is a first
+draft in the feminine-singular register, pending the native review on #201.
+
+### Draft persistence (CO-16)
+
+`sessionStorage` key `moon-fashion-checkout`, `{ version: 1, draft }`: non-empty contact and
+address strings only, written after 400ms of quiet and on `pagehide`, read once before the form's
+first render as its `defaultValues`. A malformed or other-version draft is removed; a field
+survives only as a known key holding a string within its limit. Retention is the browsing
+session (a reopened or duplicated tab restores it), never `localStorage`; no "Remember my details"
+control; no payment data, tokens, prices or the quote. Storage that throws means no draft, never
+an error. **Any new third-party script on this origin requires re-reviewing this persistence**:
+it could read the draft.
+
+### Delivery method
+
+`DeliveryMethodSection` takes `methods` (empty today) and renders one neutral sentence; the
+summary shows "Delivery: Confirmed later", with no figure and no Total. The required radio group
+lands with real delivery rules and is not built ahead of them.
+
+### Bundle (2026-09-15, same method as *Cart* → *Bundle budget*)
+
+Built with `NEXT_PUBLIC_CHECKOUT_ENABLED=true`: `/en` **250,785 B** (250,616 before), `/en/bag`
+**253,846 B** (252,128 before, +1.7 KB: the entry, its model and the plural strings; the plan's
+budget was +1 KB), `/en/checkout` and `/ar/checkout` **282,495 B**, +28.6 KB over `/en/bag`
+(plan budget +25 KB) for TanStack Form, `zod/v4/mini` and the island. Both overages are recorded
+for the owner, not worked around. No eager chunk on `/en` or `/en/bag` contains TanStack Form,
+Zod or Sonner markers. The "before" figures are the lazy-toaster measurement (`29f2bdf`); this
+build also carried unrelated uncommitted working-tree changes, so the deltas are approximate.
+
+### Open for the screenshot review
+
+Browser-only; no storefront DOM or browser harness exists.
+
+- The summary disclosure at 320 and 375 in both locales; the sticky column with a long bag at
+  1024 and 1440 (the list scrolls, Subtotal stays visible).
+- The field grid at 768; `dir="ltr"` phone and email alignment in Arabic.
+- Focus after an invalid Continue with the phone keyboard open; the refocus announcement in
+  VoiceOver and NVDA.
+- The notice's inline-start rule; the outcome row; the Bag entry's reason line in Arabic at 320.
+- Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 9.
+
 ## Guideline overrides and copy decisions
 
 - §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the
@@ -1296,7 +1448,10 @@ not a permanent architectural requirement:
 
 ## Feature slice shape
 
-Five slices exist. `features/home` composes the homepage from static, typed mock data
+Six slices exist. `features/checkout` owns the checkout page (form, schema, draft, submit
+machine, commerce seam) and imports from `cart` (the controller, readiness, reconcile, bag
+strings) and `products` (price, names, the image placeholder); `cart` **never imports
+`checkout`**, which is why checkout readiness and the Bag entry live in the cart slice. `features/home` composes the homepage from static, typed mock data
 and imports from `products` and `collections`. `features/catalog` is the listing
 composition slice (URL state, route table, intro, category row, grid, controls,
 pagination, empty states, and the product page's related row) and imports from both.
@@ -1385,7 +1540,8 @@ reads request-specific data; the homepage's client islands do not change that (a
 `'use client'` file never makes a route dynamic). The six catalog routes are the first
 dynamic (`ƒ`) routes: request-time rendering over the Next data cache (see *Catalog* →
 *Rendering and caching*), chosen on their own merits. `/en/bag` and `/ar/bag` are SSG
-(`●`): the page reads no request data and the bag fills in the browser after hydration.
+(`●`): the page reads no request data and the bag fills in the browser after hydration. `/en/checkout` and `/ar/checkout` are SSG too when
+Checkout is enabled in the build, and a prerendered 404 when it is not (CO-22).
 The catch-all and 404 are unchanged. Each future feature (checkout, a session) chooses its own
 caching/revalidation/dynamic strategy; nothing here requires any route to stay static.
 
