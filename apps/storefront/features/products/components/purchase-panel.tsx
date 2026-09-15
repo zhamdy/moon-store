@@ -137,7 +137,7 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
                 {prompted && (
                   <p
                     id={promptId}
-                    className="type-small flex items-start gap-2 font-medium text-text"
+                    className="type-small flex items-start gap-2 font-medium text-error"
                   >
                     <CircleAlert
                       size={16}

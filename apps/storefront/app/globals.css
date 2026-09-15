@@ -29,6 +29,9 @@
   --moon-stone-400: #aaa39c;
   --moon-stone-600: #6d6660;
 
+  /* Validation only (owner decision 2026-09-15): 7.1:1 on ivory, 6.6:1 on cream. */
+  --moon-garnet: #9b2c2c;
+
   /* Layout (guideline §6). Container tracks the 12-column desktop grid's
      max width; gutters and section spacing step up by breakpoint below. */
   --container-max: 1440px;
@@ -129,6 +132,9 @@
      utility names would otherwise silently shadow with a different, coincidentally
      similar grey — see Button's disabled state. */
   --color-disabled: var(--moon-stone-400);
+
+  /* Validation messages only, always with an icon and text (never colour alone). */
+  --color-error: var(--moon-garnet);
 
   --font-display: var(--font-display-active);
   --font-body: var(--font-body-active);

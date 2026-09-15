@@ -23,7 +23,9 @@ The visual source of truth is `docs/design/moon-fashion-website-design-guideline
 
 Semantic Moon utilities (`bg-bg`, `bg-surface`, `bg-surface-soft`, `text-text`,
 `text-text-secondary`, `border-border`, `bg-brand`/`text-brand-dark`, `bg-action`/
-`text-on-action`, `bg-disabled`/`text-disabled`/`border-disabled`) and the `type-*`
+`text-on-action`, `bg-disabled`/`text-disabled`/`border-disabled`, `text-error` for
+validation messages only, always beside an icon and text so colour never carries the
+meaning alone) and the `type-*`
 typography utilities (`type-display-xl` … `type-caption`, `type-label`) are the
 preferred API — components never reference `--moon-*` custom properties directly.
 Default Tailwind utilities (`text-white`, `bg-black`, `rounded-sm`, …) remain
@@ -966,8 +968,8 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   in browse mode with that notice and scrolls to the line; `full` (30 lines) opens it with
   "Your bag is full…" and adds nothing. `needsSelection` keeps the button enabled: a press
   focuses the first unselected option's radio and shows "Choose a {option}" under that
-  option's legend (ink, `CircleAlert`, legend turns ink; owner feedback 2026-09-15: the grey
-  status-line prompt was hard to see). Its polite region is mounted empty with `min-h-6`
+  option's legend (`text-error` garnet with `CircleAlert`, legend turns ink; owner feedback
+  2026-09-15: the grey status-line prompt was hard to see, and errors read as red). Its polite region is mounted empty with `min-h-6`
   reserved, so the cells and Add to Bag never move under a second tap. `soldOut` reads "Sold out", `aria-disabled`, focusable, inert.
 - **Product page quantity** (owner decision 2026-09-15, overriding plan Unit 5's "one piece
   per press"): a − / value / + stepper at the row's inline start, Add to Bag taking the rest,

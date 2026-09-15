@@ -444,7 +444,7 @@ export function CatalogControls({
                 {/* Mounted empty so the error is announced when it appears. */}
                 <div aria-live="polite" className="min-h-6 pt-3">
                   {errorText && (
-                    <p id={errorId} className="type-small flex items-start gap-2 text-text">
+                    <p id={errorId} className="type-small flex items-start gap-2 text-error">
                       <CircleAlert
                         size={16}
                         strokeWidth={1.5}
