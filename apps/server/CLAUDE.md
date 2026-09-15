@@ -485,6 +485,8 @@ the timeout and plans are proven in `tests/concurrency/catalog.realpg.test.ts`.
 8,000 products used only `idx_products_status_created (status, created_at DESC, id)`, for
 `new=true`. The price, category and in-stock candidates were never chosen, so `014` does
 not create them rather than pay for them on every write. Re-measure before adding one.
+`017` adds `idx_collection_products_product_id` for the product page's
+`listProductCollections`, which filters by `product_id` while the PK leads with `collection_id`.
 
 **Known cost:** a listing runs its scoped join+aggregate twice and pins one pooled connection
 across 3-4 queries; deferred to the B-9 launch load review (plan 2026-09-14-002, *Deferred to
