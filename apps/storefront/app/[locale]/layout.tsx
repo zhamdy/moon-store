@@ -8,6 +8,8 @@ import { AppProviders } from '@/providers/app-providers';
 import { SkipLink } from '@/components/layout/skip-link';
 import { Header } from '@/components/layout/header/header';
 import { Footer } from '@/components/layout/footer/footer';
+import { BagTrigger } from '@/features/cart/components/bag-trigger';
+import { getBagTriggerStrings } from '@/features/cart/utils/bag-strings';
 import { resolveSiteUrl } from '@/lib/site-url';
 import { lora, inter, tajawal } from '../fonts';
 import '../globals.css';
@@ -58,6 +60,7 @@ export default async function LocaleLayout({
   }
 
   setRequestLocale(locale);
+  const bagTriggerStrings = await getBagTriggerStrings(locale);
 
   return (
     <html lang={locale} dir={getDirection(locale)} className={fontVariables[locale]}>
@@ -69,7 +72,7 @@ export default async function LocaleLayout({
         <NextIntlClientProvider messages={null}>
           <AppProviders>
             <SkipLink />
-            <Header />
+            <Header bag={<BagTrigger strings={bagTriggerStrings} locale={locale} />} />
             <main id="main-content" tabIndex={-1}>
               {children}
             </main>

@@ -1,4 +1,4 @@
-import { Search, ShoppingBag, UserRound, type LucideIcon } from 'lucide-react';
+import { Search, UserRound, type LucideIcon } from 'lucide-react';
 import type { Messages } from 'next-intl';
 
 export interface NavItem {
@@ -22,12 +22,15 @@ export const primaryNavItems: NavItem[] = [
 /**
  * Header actions, icon-only at every breakpoint (user decision, 2026-09-13). The
  * translated label is the link's accessible name. Account is desktop-only: on
- * mobile it lives in the mobile menu's lower band.
+ * mobile it lives in the mobile menu's lower band. Bag is not listed: it renders last in
+ * the same cluster through the header's `bag` slot (`BagTrigger`, a client island).
  */
 export const headerActionItems: ActionNavItem[] = [
   { key: 'search', href: '/search', messageKey: 'search', icon: Search },
   { key: 'account', href: '/account', messageKey: 'account', icon: UserRound, desktopOnly: true },
-  { key: 'bag', href: '/bag', messageKey: 'bag', icon: ShoppingBag },
 ];
+
+/** The bag page, the header Bag link's href. */
+export const BAG_HREF = '/bag';
 
 export const accountItem: NavItem = { key: 'account', href: '/account', messageKey: 'account' };
