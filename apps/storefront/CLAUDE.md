@@ -1156,7 +1156,7 @@ went from 244,959 B to 250,921 B with the cart (`24cf33e`; `/en/bag` 252,138 B):
 over the plan's +5 KB budget;
 the owner accepted the overage. The cost is the header island itself (store, hand-written
 persisted-cart guard, the count label with `Intl.PluralRules`, the announcer, since removed
-for the toaster, whose own cost is unmeasured; see *Toasts*). `zod/v4/mini`
+for the toaster; the toaster's own cost is measured below). `zod/v4/mini`
 was removed from the eager path (the store went from 9.5 to 2.0 KB gz, `c197a58`), and the
 storefront imports no Zod. Inlining the `BAG_HREF` import saved 7 B and was not done. These
 bytes are not comparable with the older "195.2 KB" figures, which used a different method.
@@ -1167,8 +1167,13 @@ was not re-measured since. The drawer is a separate lazy chunk (~10.6 KB gz).
 **258,816 B** (from 244,959 on `main`, and 251,064 before the toaster and loading work),
 `/en/bag` 260,450 B, `/en/products/silk-midi-dress` 255,525 B. Sonner's imported surface
 (`Toaster` + `toast`, minified, React external) is 9,629 B gz. The owner chose to keep Sonner
-and its look but lazy-load it (see *Toasts* → *Lazy loading*). Post-lazy measurement
-pending.
+and its look but lazy-load it (see *Toasts* → *Lazy loading*). Lazy (`29f2bdf`, same method):
+`/en` **250,616 B** (+5,657 B over `main`, −8,200 B from the eager toaster), `/en/bag`
+252,128 B, `/en/products/silk-midi-dress` 247,233 B (measured with `next start` and
+`API_URL` set; without it the product lookup throws and the page renders not-found). No eager
+chunk contains Sonner markers; Sonner ships as one lazy chunk. What remains on every page is
+the header bag island, about 0.66 KB over the plan's 5 KB budget and below the ~6.1 KB the
+owner accepted; `/en`, `/ar`, `/en/bag` and `/ar/bag` still build static (`●`).
 
 ### Implementation outcomes
 
