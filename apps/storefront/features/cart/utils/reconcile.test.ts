@@ -324,6 +324,23 @@ describe('reconcileBag', () => {
     expect(row(out.view, A).notices).toEqual([]);
   });
 
+  it('a pending quantity keeps the last quoted limit; an unquoted line has none', () => {
+    const result = resultFor([A], () => ({ maxQuantity: 4 }));
+    const changed = { ...A, quantity: 3 };
+    const out = reconcileBag({
+      lines: [changed, B],
+      result,
+      fetch: { status: 'fetching' },
+      session: EMPTY_SESSION,
+    });
+    expect(row(out.view, changed)).toMatchObject({
+      status: 'pending',
+      maxQuantity: null,
+      knownMaxQuantity: 4,
+    });
+    expect(row(out.view, B)).toMatchObject({ status: 'pending', knownMaxQuantity: null });
+  });
+
   it('canonical options: one correction, and applying it then re-quoting is a fixed point', () => {
     const stored: CartLine = { slug: 'silk-midi-dress', options: { Size: 'm' }, quantity: 2 };
     const canonical = [{ key: 'size', label: 'Size', value: 'M' }];

@@ -9,7 +9,8 @@ import { SkipLink } from '@/components/layout/skip-link';
 import { Header } from '@/components/layout/header/header';
 import { Footer } from '@/components/layout/footer/footer';
 import { BagTrigger } from '@/features/cart/components/bag-trigger';
-import { getBagTriggerStrings } from '@/features/cart/utils/bag-strings';
+import { catalogPath } from '@/features/catalog/utils/catalog-path';
+import { getBagDrawerStrings, getBagTriggerStrings } from '@/features/cart/utils/bag-strings';
 import { resolveSiteUrl } from '@/lib/site-url';
 import { lora, inter, tajawal } from '../fonts';
 import '../globals.css';
@@ -60,7 +61,12 @@ export default async function LocaleLayout({
   }
 
   setRequestLocale(locale);
-  const bagTriggerStrings = await getBagTriggerStrings(locale);
+  // Resolved strings only (never the catalogue): the drawer's ride in the trigger's props, so
+  // the lazy chunk needs no second server round trip when it first opens.
+  const [bagTriggerStrings, bagDrawerStrings] = await Promise.all([
+    getBagTriggerStrings(locale),
+    getBagDrawerStrings(locale),
+  ]);
 
   return (
     <html lang={locale} dir={getDirection(locale)} className={fontVariables[locale]}>
@@ -72,7 +78,16 @@ export default async function LocaleLayout({
         <NextIntlClientProvider messages={null}>
           <AppProviders>
             <SkipLink />
-            <Header bag={<BagTrigger strings={bagTriggerStrings} locale={locale} />} />
+            <Header
+              bag={
+                <BagTrigger
+                  strings={bagTriggerStrings}
+                  drawerStrings={bagDrawerStrings}
+                  shopHref={catalogPath({ kind: 'all' })}
+                  locale={locale}
+                />
+              }
+            />
             <main id="main-content" tabIndex={-1}>
               {children}
             </main>

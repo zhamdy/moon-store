@@ -57,6 +57,12 @@ export interface BagRow {
   displayQuantity: number;
   /** Null until the quote has a verdict for this line at its stored quantity. */
   maxQuantity: number | null;
+  /**
+   * The latest quoted `maxQuantity` for this key, kept while the verdict is pending: it is
+   * `min(stock, 10)` and does not depend on the requested quantity, so + holds there between
+   * quotes. Null only when no quote has seen the line.
+   */
+  knownMaxQuantity: number | null;
   /** Only from a quote line priced at the stored quantity; null for excluded lines. */
   lineTotal: number | null;
   notices: readonly BagNotice[];
@@ -172,6 +178,7 @@ function buildRow(
       unitPrice: null,
       displayQuantity: line.quantity,
       maxQuantity: null,
+      knownMaxQuantity: null,
       lineTotal: null,
       notices: [],
     };
@@ -198,6 +205,7 @@ function buildRow(
     unitPrice: quoteLine.unitPrice,
     displayQuantity: status === 'reduced' ? quoteLine.quantity : line.quantity,
     maxQuantity: status === 'pending' ? null : quoteLine.maxQuantity,
+    knownMaxQuantity: quoteLine.maxQuantity,
     lineTotal: priced ? quoteLine.lineTotal : null,
     notices,
   };

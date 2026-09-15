@@ -8,7 +8,8 @@ import { BAG_HREF } from '@/components/layout/navigation-items';
 import { useCartActions, useCartLines, useCartSession } from '../store/cart-store';
 import { totalPieces } from '../utils/cart-lines';
 import { bagTriggerLabel } from '../utils/bag-trigger-label';
-import type { BagTriggerStrings } from '../utils/bag-strings';
+import type { AppLocale } from '@/i18n/routing';
+import type { BagDrawerStrings, BagTriggerStrings } from '../utils/bag-strings';
 import { useDrawerAnnouncement } from './drawer-announcer';
 import { loadDrawer } from './load-drawer';
 
@@ -19,7 +20,11 @@ const BagDrawer = dynamic(() => import('./bag-drawer'), { ssr: false });
 
 export interface BagTriggerProps {
   strings: BagTriggerStrings;
-  locale: string;
+  /** Resolved on the server with the trigger's; passed through to the lazy drawer. */
+  drawerStrings: BagDrawerStrings;
+  /** The empty drawer's Continue shopping target, from `catalogPath` on the server. */
+  shopHref: string;
+  locale: AppLocale;
 }
 
 function isPlainPrimaryClick(event: MouseEvent<HTMLAnchorElement>): boolean {
@@ -47,7 +52,7 @@ const warmDrawer = () => {
  * The server snapshot is "not hydrated", so the server HTML and the first client render are
  * the same element: label "Bag", no badge, no `aria-haspopup`.
  */
-export function BagTrigger({ strings, locale }: BagTriggerProps) {
+export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTriggerProps) {
   const cart = useCartLines();
   const { drawer } = useCartSession();
   const actions = useCartActions();
@@ -98,7 +103,7 @@ export function BagTrigger({ strings, locale }: BagTriggerProps) {
       <p role="status" className="sr-only">
         {announcement}
       </p>
-      {drawerMounted && <BagDrawer />}
+      {drawerMounted && <BagDrawer strings={drawerStrings} locale={locale} shopHref={shopHref} />}
     </>
   );
 }
