@@ -27,6 +27,13 @@ motion, but its visible pause toggle was removed by owner decision (2026-09-14),
 keyboard or touch user without the reduced-motion setting cannot stop it. Closing the gap
 means restoring the CSS-only toggle described in `apps/storefront/CLAUDE.md` → *Motion* §5.
 
+**Storefront bag has no automated keyboard, focus or announcement check (open).** The
+storefront has no DOM or browser harness and is not axe-scanned by `e2e/`. The bag's rules
+(stepper limits, focus target after Remove, announcement text and once-per-quote policy)
+are pure functions with unit tests, but the drawer's focus trap and return, the live
+regions actually speaking, and the Remove focus hand-off are proven only by manual
+scenario 8 below.
+
 **#111 — HeroUI buttons wired with `onClick` were pointer-only.** Fixed, and recorded here
 because the way it hid is the useful part. HeroUI's `Button` is react-aria based: it
 intercepts key events and dispatches `onPress`, suppressing the native click, so a handler
@@ -179,6 +186,39 @@ navigation shell.
    Focus is never hidden under the sticky header or the stuck details tab bar. At 320px
    there is no horizontal page scroll: a long category in the breadcrumb truncates, and the
    thumbnail column and the tab bar stay inside the page (the bar scrolls sideways itself).
+8. **Storefront bag, keyboard and screen reader.** Also not axe-scanned. In EN and AR,
+   with `silk-midi-dress` (sizes), `cashmere-pullover` (mixed stock) and `silk-slip-dress`
+   (sold out). **Add to Bag:** with no size chosen, the button is enabled; pressing it
+   moves focus to the size group's first radio and "Choose a size" is spoken. With a size
+   chosen, pressing it opens the drawer with focus on the "Bag" heading and the
+   description "Added to your bag: {name}" read with the dialog. On a sold-out product the
+   button reads "Sold out", is announced as dimmed/unavailable, stays in the Tab order and
+   does nothing. Pressing it an eleventh time for one line opens the drawer with "You can
+   add up to 10 of this piece". **Drawer:** Tab stays inside it; Escape and a backdrop
+   click close it and focus returns to Add to Bag or the header Bag link; following a line
+   name or View bag closes it and focus lands on the page's main region, never on a stale
+   trigger. The header link is announced as "Bag, 3 items" (plain "Bag" when empty), with a
+   popup hint off `/bag` and as the current page on `/bag`; its count is never announced on
+   its own. **Stepper:** each is a group named "Quantity, {name}"; the buttons are named
+   "Decrease/Increase quantity, {name}", stay focusable when unavailable, and at the limit
+   + carries the description "Only {count} available" (stock) or the up-to-10 notice.
+   Decrease is unavailable at 1. Sold-out and unavailable lines have both unavailable and
+   Remove available. **Remove:** "{name} removed from your bag" is spoken at once; after
+   the row fades, focus is on the next line's name (else the previous one, else the "Your
+   bag is empty" heading), never on `body`. Try two removals in quick succession.
+   **Announcements**, each spoken once, never repeated on reopening:
+
+   | Action | Expected |
+   | --- | --- |
+   | Change a quantity (several quick presses) | One "{name}, quantity {n}. Subtotal {subtotal}" after the update |
+   | Open a bag whose quote has a sold-out, limited or re-priced line | "Your bag was updated" plus the counts |
+   | Stop the API, open the bag | "We couldn't update your bag" once; Try again reachable |
+
+   **`/bag`:** Tab order runs lines then the summary; the subtotal reads "Updating" while a
+   change is pending; the page never announces or shows "Your bag is empty" for a non-empty
+   bag while loading. At 320px and 200% zoom, no horizontal page scroll in the drawer or
+   the page, and the stepper and Remove stay 44px targets. **Reduced motion:** the drawer
+   appears without sliding, a removed row disappears without fading, and focus still moves.
 
 ## Running the checks
 

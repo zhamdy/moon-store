@@ -9,8 +9,9 @@ Shop + Collections (`2026-09-14-002-feat-storefront-shop-collections`) added the
 API-backed surfaces: Shop All, category pages, New In, the collections index and
 collection pages (see *Catalog*). Product detail
 (`2026-09-14-003-feat-storefront-product-detail`) added `/products/<slug>`, where every
-card links (see *Product detail*). Cart and checkout still 404 through the catch-all, by
-design — no placeholder pages.
+card links (see *Product detail*). Cart (`2026-09-15-001-feat-storefront-cart`) added the
+guest bag: Add to Bag on the product page, the header Bag drawer and `/bag` (see *Cart*).
+Checkout still 404s through the catch-all, by design — no placeholder pages.
 
 ## Design guideline
 
@@ -144,8 +145,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to thirteen entries
-(fourteen files):
+Server Components by default (R21/R22). `'use client'` is limited to sixteen entries
+(seventeen files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -178,8 +179,9 @@ Server Components by default (R21/R22). `'use client'` is limited to thirteen en
    drives price and per-value availability, which CSS cannot compute, and Cart needs an
    island here anyway. Takes the DTO's `price`/`inStock`/`options`/`variants`, resolved
    strings and a pre-formatted price map from `purchase-panel-slot.tsx`; the rules are
-   `utils/variant-selection.ts`, unit-tested. No button (PD-B): `data-readiness` exposes
-   `purchaseReadiness` for Cart.
+   `utils/variant-selection.ts`, unit-tested. It renders the page-composed `action` slot
+   inside `PurchaseSelectionContext` (CD-11), which is how Add to Bag (14) reads
+   `purchaseReadiness`; `data-readiness` still exposes it.
 11. `features/products/components/product-gallery-viewer.tsx` — the product gallery's
    thumbnail tabs and zoom in place (owner decision 2026-09-14): which image is active
    and the pointer-following zoom origin cannot be CSS. Takes resolved `label`/`alt`/
@@ -197,9 +199,28 @@ Server Components by default (R21/R22). `'use client'` is limited to thirteen en
    `title` and resolved `labels: { share, copied, copyFailed }` from `product-share.tsx`;
    reads `navigator` only on click, and its `role="status"` region is always mounted. The
    decision is `utils/share-action.ts` (`shareAction`, `isShareAbort`), unit-tested.
+14. `features/cart/components/add-to-bag-button.tsx` — Add to Bag in the purchase panel's
+   action slot (see *Cart*). Takes `slug`, the page's localized `name` and resolved
+   `strings`; reads readiness through `usePurchaseSelection()`. The intent and drawer
+   opening are `utils/add-to-bag-action.ts`, unit-tested. Warms the drawer chunk on mount.
+15. `features/cart/components/bag-trigger.tsx` — the header Bag link, its count badge, the
+   lazy drawer host and the drawer's always-mounted polite region (the message comes from
+   `drawer-announcer.ts`). Composed by `app/[locale]/layout.tsx` into `Header`'s `bag`
+   slot, with the trigger's and the drawer's strings resolved there. The label and ARIA
+   state are `utils/bag-trigger-label.ts`, unit-tested.
+16. `features/cart/components/bag-view.tsx` — the `/bag` review island; writes to the page
+   shell's server-rendered `role="status"` region by id.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
+
+**Client-bundled, but not boundaries** (no directive; only boundary islands import them):
+`features/cart/components/bag-drawer.tsx` (a lazy chunk, ~10.6 KB gz, reached only from
+15), `cart-line.tsx`, `quantity-stepper.tsx`, `bag-summary.tsx`, `use-bag-controller.ts`
+(shared by the drawer and the page), `drawer-announcer.ts`, `load-drawer.ts`, and
+`features/products/components/purchase-selection-context.ts` — a plain `createContext`
+module imported only by `purchase-panel.tsx` and `add-to-bag-button.tsx`. A Server
+Component must never import it: `createContext` does not exist in the react-server build.
 
 **Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
 `useInView` import put the whole engine (~46 KB gz across two chunks) into the eager
@@ -221,7 +242,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding a fourteenth
+`useTranslations`, is a new decision, not a precedent. Before adding a seventeenth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
@@ -407,9 +428,11 @@ Every homepage image is a static import behind one registry, swappable by file d
 ## Catalog (Shop + Collections)
 
 The first API-backed pages (plan `2026-09-14-002`). Every read is a Server Component
-fetch; nothing in a browser calls the catalog API, so there is no CORS change and no
-TanStack Query for the catalog (KD-9: a client cache would be a second source of truth
-beside the server render, plus hydration payload).
+fetch; no browser reads listings, so there is no TanStack Query for catalog reads (KD-9:
+a client cache would be a second source of truth beside the server render, plus
+hydration payload). The one browser call under `/api/v1/catalog` is the bag's quote
+(`POST /api/v1/catalog/cart/quote`, CD-4; see *Cart*), which has its own path-scoped CORS
+on the server and never carries the catalog token.
 
 ### URL model and routes
 
@@ -634,7 +657,8 @@ briefly disagree — fine for browsing, never for Cart, which must re-price on t
 Metadata (`utils/product-metadata.ts`): localized name as title; the localized
 description when it exists in the page's locale, else `catalog.meta.productDescription`;
 self canonical and both-locale alternates; the first image as `openGraph.images`; always
-indexable. No JSON-LD `Product` until Cart makes it purchasable (PD-7).
+indexable. No JSON-LD `Product` (PD-7): it waits for Checkout, since a bag is not a
+purchase.
 
 ### Composition
 
@@ -663,8 +687,8 @@ column below), the details tabs at full container width, the related row.
   eyebrow (owner, 2026-09-14: the breadcrumb already names it); the column opens with the
   h1 at `type-h2` (it must not compete with the photograph), then a short lead (the first
   paragraph of the localized description, `productLead`; omitted without one), the
-  purchase slot, `[data-product-action]` (the reserved, empty Add to Bag place, PD-B: no
-  button and no copy until Cart, and no sticky mobile purchase bar, PD-14), quick facts (a
+  purchase slot (whose `[data-product-action]` now holds Add to Bag inside the panel, PD-B
+  filled; still no sticky mobile purchase bar, PD-14), quick facts (a
   `type-small` `dl` of material and fit under a hairline, omitted when both are empty; the
   Details tab keeps the full list), "Part of" links (Arabic `ضمن {collection}`, since
   collection names already carry مجموعة). The lead sits above the price because price and sizes are one island.
@@ -711,9 +735,9 @@ The server derives the options (normalized keys, a canonical key set, unusable v
 dropped and logged, effective price `variant.price ?? product.price`; see
 `apps/server/CLAUDE.md` → *Public catalog*). The client never re-derives them:
 `features/products/utils/variant-selection.ts` holds every selection, availability, price
-and readiness rule, unit-tested, and `purchaseReadiness` is the **Cart contract**. The
-variant price rule disagrees with POS today, where a NULL variant price sells at 0 (PD-C);
-that must be fixed before Cart. Selection is component state, not URL state (PD-12).
+and readiness rule, unit-tested, and `purchaseReadiness` is the **Cart contract** (Add to
+Bag consumes it; see *Cart*). POS now agrees on the NULL variant price (PD-C, fixed by
+#203). Selection is component state, not URL state (PD-12).
 
 ### Gallery
 
@@ -797,6 +821,222 @@ descriptions), `cashmere-pullover` (mixed stock), `silk-slip-dress` (all sold ou
 - The related skeleton is hidden from screen readers and announces no loading state.
 - Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 7.
 
+## Cart
+
+Plan `2026-09-15-001-feat-storefront-cart`; decisions are cited by their CD numbers there.
+A guest bag in `localStorage`: the browser holds **intent only** (`slug`, options,
+quantity); names, images, prices, availability and totals always come from the server's
+quote. No checkout, payment, account, server cart, reservation or expiry. The route and UI
+noun are "Bag" (`/bag`); the domain, API, store, types and slice say `cart` (CD-1).
+
+### Pieces
+
+| Where | What |
+| --- | --- |
+| Product page | `AddToBagButton` (boundary 14) in `PurchasePanel`'s `action` slot, composed by `products/[slug]/page.tsx` (CD-11) |
+| Every page | `BagTrigger` (boundary 15) in `Header`'s `bag` slot, composed by `app/[locale]/layout.tsx`; `Header` imports no feature slice |
+| Drawer | `bag-drawer.tsx`, lazy, mounted by the trigger |
+| `/bag` | `app/[locale]/bag/page.tsx` (server shell: `h1`, empty polite region) + `BagView` (boundary 16) |
+| Shared by drawer and page | `use-bag-controller.ts`, `cart-line.tsx`, `quantity-stepper.tsx` |
+| Pure, unit-tested | `utils/cart-lines.ts`, `cart-storage.ts`, `reconcile.ts`, `bag-view-model.ts`, `quantity-control.ts`, `add-to-bag-action.ts`, `bag-trigger-label.ts`, `plural-templates.ts`; `schemas/persisted-cart.ts`; `api/quote-cart.ts`, `api/use-cart-quote.ts` (its pure parts) |
+
+### Persisted shape (v1)
+
+Key `moon-fashion-cart` (`constants.ts`), value
+`{ "version": 1, "lines": [{ "slug", "options": { key: value }, "quantity" }] }`. Never a
+price, stock, name, image or promo state (R2). Limits mirror the server contract (CD-7), so
+a change moves both: `MAX_LINE_QUANTITY` 10, `MAX_CART_LINES` 30, slug ≤80 chars and the
+public slug pattern, ≤5 options, key ≤40, value ≤60.
+
+`schemas/persisted-cart.ts` is a **hand-written guard**, not Zod (see *Bundle budget*).
+Read policy (`cart-storage.ts` `parseCart`):
+
+- Never written (`null`) → empty bag, no write.
+- Malformed JSON, a malformed envelope, or any `version` other than 1 → reset to empty and
+  rewrite. **An unknown version resets**, so rolling back after a future v2 ships wipes
+  every v2 bag; a v2 must add a migration here and ship its reader before its writer.
+- Lines are judged one by one; an invalid line is dropped, the rest kept. Invalid: not a
+  plain object; a bad slug; `quantity` not an integer 1..10 (`"2"`, `1.5`, `NaN` fail);
+  options not a plain object, more than 5, a key or value empty or too long, a non-string
+  value, or a key spelled `__proto__`, `constructor` or `prototype`.
+- Accepted lines are rebuilt from the named fields, so extra keys (`price`, `name`) vanish
+  on rewrite. Duplicates by line key merge into the first occurrence (sum capped at 10),
+  and only the first 30 distinct lines are kept.
+- Any repair rewrites storage. Storage that throws (private mode, quota, disabled site
+  data) keeps an in-memory bag for the session and never throws.
+
+Line identity (CD-2) is `cartLineKey`: slug plus options sorted by key (code-unit order),
+JSON-encoded, used for merging, React keys and quote keys. Same slug + options merges; a
+different option is a new line. The cost: a renamed slug or option value, or canonical
+key-set drift on the server, strands a line as unavailable (visible, never substituted).
+
+### Store (CD-8)
+
+`store/cart-store.ts` is a module-level external store read with `useSyncExternalStore`;
+no provider. The server snapshot is `{ hydrated: false }`, so SSR never pretends to know
+the bag; the first client subscription reads storage and notifies. A `storage` event from
+another tab re-reads (last write wins). Mutations run the pure reducer, write storage
+(failure keeps memory) and notify. `add` returns `added | merged | capped | full`.
+Session state lives beside it and is never persisted: the drawer (`open`, `mode`,
+`addedKey`, `description`), previous unit prices per line key, price-update flags and
+announced quote keys.
+
+### Quote
+
+`api/quote-cart.ts` calls `POST /api/v1/catalog/cart/quote` **from the browser** (CD-4)
+through `apiFetch`: base `NEXT_PUBLIC_API_URL`, `credentials: 'omit'`, no catalog token, no
+`server-only`. The body carries only `slug`, `options`, `quantity` per line; the response is
+validated by hand against the request (line count, index, slug, statuses, numeric fields)
+and anything off throws `INVALID_RESPONSE`. The server side (edge chain, `STOREFRONT_ORIGINS`
+CORS, limiter, `no-store`) is `apps/server/CLAUDE.md` → *Public catalog*. An environment
+without `NEXT_PUBLIC_API_URL` at build, or without the storefront origin in the API's
+`STOREFRONT_ORIGINS`, shows the bag's failed state on every quote.
+
+`api/use-cart-quote.ts` (CD-9): TanStack `useQuery` keyed `['cart-quote', cartQuoteKey]`
+(line keys with quantities, in store order), `staleTime: 0`, `refetchOnMount: 'always'`,
+previous data kept while a new key loads, `retry: shouldRetryQuery` (the app policy: at
+most 2, only network/timeout (status 0) or 5xx, never `INVALID_RESPONSE`; 400 and 429 are
+not retried). Enabled only while a bag surface shows (the drawer open, or `/bag`) and the
+bag is hydrated and non-empty; other pages never quote. Quantity-only changes re-quote after
+`QUOTE_DEBOUNCE_MS` (300ms), so stepper presses coalesce; an add, remove or canonical rewrite
+re-quotes immediately.
+
+### Reconciliation (`utils/reconcile.ts`)
+
+Quote lines join stored lines **by line key**, never by position; rows render newest first.
+
+- `ok` → priced. `reduced` → shows and totals the allowed quantity with "Only {count}
+  available", but the stored quantity changes only when the shopper presses the stepper or
+  Remove (CD-15); both stepper buttons stay enabled then, and either press commits a quantity
+  the quote allows. `soldOut`, `variantUnavailable`, `productUnavailable` → kept, flagged,
+  excluded from the subtotal, never auto-removed; stepper disabled, Remove enabled. A
+  `productUnavailable` line shows the image placeholder, "A piece that is no longer
+  available", the stored option text and Remove.
+- A line whose quantity changed waits (`pending`) for its own verdict; + holds at the last
+  quoted `maxQuantity` meanwhile (10 before any quote).
+- The **only store write** is the canonical rewrite: options spelled differently from the
+  quote's canonical ones are rewritten and merged, once per settled quote key. A second
+  quote is therefore a fixed point.
+- "Price updated" is in-session only (CD-16): the unit price differs from the one remembered
+  for that key earlier in the session. No cross-visit notice, since that would persist a price.
+- Summary: subtotal and purchasable pieces only from a quote whose key equals the current
+  lines (`current`); otherwise "Updating", dimmed and `aria-busy`. Excluded pieces = local
+  sum − the quote's `itemCount`. Subtotal only: no shipping, tax, discount or delivery text (R10).
+- View states: `empty`; `loading` (skeleton rows, `aria-hidden`, with a visually hidden
+  "Updating"); `failed` (no rows: "{count} pieces in your bag", the error and Try again; a 400
+  `VALIDATION_ERROR` offers Empty bag instead, the only use of `clear`); `ready`.
+- The header count is the local sum of stored quantities on every page (CD-18), including
+  sold-out and unavailable lines; the header never reads the quote.
+
+### Surfaces
+
+- **Add to Bag** (CD-11, CD-13): `ready` adds one piece of `readiness.options` and opens
+  the drawer with the description "Added to your bag: {name}" (the page's localized name,
+  in memory only); `capped` (already 10) opens it with "You can add up to 10 of this piece"
+  and scrolls to the line; `full` (30 lines) opens it with "Your bag is full…" and adds
+  nothing. `needsSelection` keeps the button enabled: a press focuses the first unselected
+  option's radio and the panel's existing live region says "Choose a {option}". `soldOut`
+  reads "Sold out", `aria-disabled`, focusable, inert. No quantity picker on the product page.
+- **Header trigger** (CD-12): the same 44px `Link` to `/bag`. After hydration and off
+  `/bag`, an unmodified primary click opens the drawer and the link carries
+  `aria-haspopup="dialog"`; on `/bag` it navigates and carries `aria-current="page"`; a
+  modified click or a click before hydration navigates. The badge is `aria-hidden`, hidden
+  until hydrated and when empty, "99+" past 99; the accessible name is the pluralised
+  "Bag, {count} items", plain "Bag" when empty.
+- **Drawer loading** (CD-19, as built): `React.lazy(loadDrawer)` inside
+  `<Suspense fallback={null}>`, mounted on the first open and kept mounted so its close
+  transition runs. `loadDrawer()` (`load-drawer.ts`) is warmed on Add to Bag mount and on
+  the trigger's `pointerenter`/`focus`. It replaced `next/dynamic`, which measured ~1.2 KB gz
+  of extra eager JS on every page for a component that never renders on the server.
+- **Drawer**: Headless UI `Dialog`, a full-height panel from the inline end at every width
+  (`max-w-[26rem]`, full width below that), backdrop, Escape and backdrop close. Title `h2`
+  "Bag" is focused on open (`data-autofocus`); the description renders only in added/capped/
+  full openings and clears at the first bag interaction. Line photographs mount only while
+  open. Footer: Subtotal, the empty `[data-checkout-action]`, "View bag", "Continue
+  shopping" (closes). Following a line name, View bag or the empty state's link, or any
+  pathname change, closes it and moves focus to `#main-content` instead of the invoker.
+- **`/bag`**: static per locale, outside `(catalog)`, `noindex, nofollow`, no canonical, no
+  `loading.tsx` (`app/bag-route.test.ts`). Before hydration a skeleton with `aria-busy`, so a
+  non-empty bag never flashes the empty state. From 1024 a 8/4 grid with the summary sticky
+  under the header; below, linear. Summary: Subtotal, pieces, excluded pieces, the empty
+  `[data-checkout-action]`, Continue shopping to `/shop`.
+- **Remove**: announced at once, the row fades 180ms (instant under reduced motion), then
+  unmounts; focus moves to the next row's name link (or its Remove when the product is
+  gone), else the previous row, else the empty-state heading (`tabIndex=-1`).
+
+**Checkout seam** (CD-17): an empty `[data-checkout-action]` in the drawer footer and the
+page summary (`empty:hidden`). No Checkout button and no Clear bag control until Checkout
+exists; readiness rules belong to that plan. Quote stock is advisory (CD-6): Checkout must
+re-validate with reservations under lock, never trust a quote. PD-B is filled; PD-14 (no
+sticky mobile purchase bar) and PD-7 (no JSON-LD `Product`) stand.
+
+### Announcement policy
+
+One polite region per surface, mounted before any message: the drawer's in the always-mounted
+`BagTrigger` (fed by `announceInDrawer`), the page's in the server-rendered shell. Repeating
+the current text clears and rewrites on the next frame so it is spoken again. Announced quote
+keys live in session memory, so reopening a surface never repeats an announcement.
+
+| Event | Announcement |
+| --- | --- |
+| Add (drawer opens) | Nothing extra: dialog title + its description |
+| Add while a choice is missing | "Choose a {option}" in the purchase panel's region; focus to that option |
+| Quantity change | After a current quote settles: "{name}, quantity {n}. Subtotal {subtotal}" (one per debounced change) |
+| Remove | "{name} removed from your bag", immediately |
+| Settled current quote with issues, first time this session | "Your bag was updated" + pluralised counts (unavailable, limited, price updated); not for a quote about to be canonically rewritten |
+| Quote failure | "We couldn't update your bag", once per quote key |
+| Header count | Never live; the link's name carries it |
+
+### Copy
+
+All strings resolve on the server (`utils/bag-strings.ts`) and ride island props; no client
+reads the catalogue. Counts are per-category keys (`zero one two few many other`, each with
+`{count}`) selected with `Intl.PluralRules` by `selectPlural`; both locales carry all six for
+the parity test, so the Arabic `one` and `two` forms also carry `{count}` ("{count} قطعة",
+"{count} قطعتان") where natural Arabic would drop the numeral. `bag.notice.variantUnavailable`
+is option-generic ("This option is no longer available"), not size-specific. All bag Arabic
+copy is a first draft in the feminine-singular register, pending the native review on #201.
+
+### Bundle budget (owner decision, 2026-09-15)
+
+Measured method, for comparison next time: `next build`, then gzip -9 each
+`/_next/static/chunks/*.js` referenced by `.next/server/app/en.html` and sum. `/en` eager
+went from 244,959 B to 251,019 B with the cart: **+6.06 KB**, over the plan's +5 KB budget;
+the owner accepted the overage. The cost is the header island itself (store, hand-written
+persisted-cart guard, the count label with `Intl.PluralRules`, the announcer). `zod/v4/mini`
+was removed from the eager path (the store went from 9.5 to 2.0 KB gz, `c197a58`), and the
+storefront imports no Zod. Inlining the `BAG_HREF` import saved 7 B and was not done. These
+bytes are not comparable with the older "195.2 KB" figures, which used a different method.
+The product route measured +12.1 KB after Add to Bag (Unit 5), before the Zod removal; it
+was not re-measured since. The drawer is a separate lazy chunk (~10.6 KB gz).
+
+### Implementation outcomes
+
+- Server batched reads use a bounded `IN ($1, …, $n)` list, not `ANY($1)`, because pg-mem
+  did not support the latter.
+- Quantity re-quote debounce: 300ms.
+- **Open:** how the server's `sanitizeBody` treats option values that look like tags was
+  not verified; such a value could be rewritten before matching and resolve
+  `variantUnavailable`.
+- Dropped-variant warnings are not logged on the quote path.
+
+### Open for the screenshot review
+
+Browser-only; no storefront DOM or browser harness exists, so none of this is proven by a test.
+
+- Drawer: slide side and close-button position in RTL; full width at 320; long Arabic names.
+- Remove fade and focus hand-off, including rapid double removes.
+- The added line's scroll into view while the panel is still sliding in.
+- The "Updating" subtotal while a re-quote runs.
+- Announcement wording and timing in both locales (VoiceOver/NVDA).
+- Whether Headless UI returns focus to the invoker after Escape/backdrop, and that a
+  navigation close lands on `#main-content` instead.
+- Remote line images (needs `MEDIA_ORIGIN`); the iOS safe-area footer.
+- `/bag` line layout at 320, 375 and 768-1023; the sticky summary from 1024 clearing the header.
+- No hydration warnings; skeleton → content with no empty flash; the failed state with the
+  API stopped.
+- Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → *Manual scenarios* 8.
+
 ## Guideline overrides and copy decisions
 
 - §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the
@@ -862,7 +1102,7 @@ not a permanent architectural requirement:
 
 ## Feature slice shape
 
-Four slices exist. `features/home` composes the homepage from static, typed mock data
+Five slices exist. `features/home` composes the homepage from static, typed mock data
 and imports from `products` and `collections`. `features/catalog` is the listing
 composition slice (URL state, route table, intro, category row, grid, controls,
 pagination, empty states, and the product page's related row) and imports from both.
@@ -871,13 +1111,18 @@ import each other; the one reverse edge is `products/api/list-catalog-products.t
 `CatalogProductQuery` from `features/catalog/search-params.ts` (a dependency-free
 module). Keep it the only one: `ProductDetail` takes its category and collection hrefs
 from the page (which may call `catalogPath`) rather than importing it, and the related
-row lives in `catalog`, not `products`. A slice follows this shape:
+row lives in `catalog`, not `products`. `features/cart` owns the bag (store, quote,
+drawer, page island) and imports from `products` (readiness, price, names, the image
+placeholder, `PurchaseSelectionContext`) and `catalog`'s pure utilities; `features/products`
+**never imports `features/cart`** — the product page composes both (Add to Bag into the
+panel's `action` slot), and the layout composes `BagTrigger` into the header. A slice
+follows this shape:
 
 ```
 features/<slice>/
   api/        # calls into lib/api, feature-specific query hooks
   components/ # feature-owned UI, not reused elsewhere
-  schemas/    # zod schemas for this feature's forms/params
+  schemas/    # validation schemas or hand-written guards for this feature's data
   types/      # DTOs specific to this feature (not server/db types — see below)
   utils/
 ```
@@ -917,9 +1162,10 @@ the storefront has no visibility into `apps/server`'s internals and must not gai
   `apps/dashboard/src/shared/lib/apiBase.ts` — a page that can't reach its API should
   fail visibly, not take the whole app down).
 - Both fall back to `http://localhost:3001` outside production.
-- Only the catalog calls the API, always at request time from the server (see
-  *Catalog*), so `next build` still makes no API call and `NEXT_PUBLIC_API_URL` is still
-  unused. The first **statically rendered** page that fetches data must have `API_URL`
+- Catalog reads call the API at request time from the server (see *Catalog*), so
+  `next build` still makes no API call. `NEXT_PUBLIC_API_URL` is used by exactly one
+  caller, the bag's browser quote (see *Cart*), and must be an origin the API's
+  `STOREFRONT_ORIGINS` allows. The first **statically rendered** page that fetches data must have `API_URL`
   set in the build environment — this is the thing that will silently break if
   forgotten.
 
@@ -944,8 +1190,9 @@ for a same-shape asset swap.
 reads request-specific data; the homepage's client islands do not change that (a
 `'use client'` file never makes a route dynamic). The six catalog routes are the first
 dynamic (`ƒ`) routes: request-time rendering over the Next data cache (see *Catalog* →
-*Rendering and caching*), chosen on their own merits. The catch-all and 404 are
-unchanged. Each future feature (a cart, a session) chooses its own
+*Rendering and caching*), chosen on their own merits. `/en/bag` and `/ar/bag` are SSG
+(`●`): the page reads no request data and the bag fills in the browser after hydration.
+The catch-all and 404 are unchanged. Each future feature (checkout, a session) chooses its own
 caching/revalidation/dynamic strategy; nothing here requires any route to stay static.
 
 ## Mobile menu typography exception
