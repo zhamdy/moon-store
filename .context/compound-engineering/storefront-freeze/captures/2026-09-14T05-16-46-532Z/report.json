@@ -1,0 +1,158 @@
+[
+  {
+    "tag": "en-320",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 320,
+    "innerWidth": 320,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile",
+      "hero-linen-mobile"
+    ]
+  },
+  {
+    "tag": "en-375",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 375,
+    "innerWidth": 375,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile",
+      "hero-linen-mobile"
+    ]
+  },
+  {
+    "tag": "en-768",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 768,
+    "innerWidth": 768,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile",
+      "hero-linen-mobile"
+    ]
+  },
+  {
+    "tag": "en-1024",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 1024,
+    "innerWidth": 1024,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile",
+      "hero-linen-mobile"
+    ]
+  },
+  {
+    "tag": "en-1440",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 1440,
+    "innerWidth": 1440,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-desktop",
+      "hero-linen-desktop"
+    ]
+  },
+  {
+    "tag": "en-1440@2x",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 1440,
+    "innerWidth": 1440,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-desktop",
+      "hero-linen-desktop"
+    ]
+  },
+  {
+    "tag": "en-375-reduced",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 375,
+    "innerWidth": 375,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile"
+    ]
+  },
+  {
+    "tag": "en-1440-reduced",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 1440,
+    "innerWidth": 1440,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-desktop"
+    ]
+  },
+  {
+    "tag": "ar-320",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 320,
+    "innerWidth": 320,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile",
+      "hero-linen-mobile"
+    ]
+  },
+  {
+    "tag": "ar-375",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 375,
+    "innerWidth": 375,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile",
+      "hero-linen-mobile"
+    ]
+  },
+  {
+    "tag": "ar-768",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 768,
+    "innerWidth": 768,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile",
+      "hero-linen-mobile"
+    ]
+  },
+  {
+    "tag": "ar-1024",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 1024,
+    "innerWidth": 1024,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile",
+      "hero-linen-mobile"
+    ]
+  },
+  {
+    "tag": "ar-1440",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 1440,
+    "innerWidth": 1440,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-desktop",
+      "hero-linen-desktop"
+    ]
+  },
+  {
+    "tag": "ar-1440@2x",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 1440,
+    "innerWidth": 1440,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-desktop",
+      "hero-linen-desktop"
+    ]
+  },
+  {
+    "tag": "ar-375-reduced",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 375,
+    "innerWidth": 375,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-mobile"
+    ]
+  },
+  {
+    "tag": "ar-1440-reduced",
+    "noHorizontalOverflow": true,
+    "scrollWidth": 1440,
+    "innerWidth": 1440,
+    "heroImagesFetchedBeforeInteraction": [
+      "hero-desktop"
+    ]
+  }
+]
