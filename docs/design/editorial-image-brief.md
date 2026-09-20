@@ -16,6 +16,15 @@ After swapping the hero or campaign, re-check that the ivory copy and the header
 (see *Contrast zones* below). The code scrims are the guarantee; this brief is the first line
 of defence.
 
+## Current hero images (2026-09-20)
+
+The four heroes now use closer editorial photography: Evening against charcoal plaster,
+Linen in a sunlit courtyard, Abaya in a sandstone arcade, and Knitwear seated on a bench.
+This supersedes the historical hero settings, tiny figures and empty-floor rules below.
+Desktop JPEGs are 1584x990; mobile centre crops are 792x990, with no upscaling.
+These native generations remain below the historical target sizes. Images are top-aligned
+without the former 125% zoom; existing overlays support the bilingual copy.
+
 ## Asset classes
 
 Three classes, never mixed:
