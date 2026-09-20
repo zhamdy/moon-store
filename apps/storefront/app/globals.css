@@ -852,19 +852,9 @@ header[data-surface][data-surface-ready] {
 @layer components {
   [data-rail] {
     --rail-gap: 12px;
-    /* `min(step, --rail-count)`: a set shorter than the step's visible count fills
-       the column exactly instead of leaving a stub of empty track, so the no-API
-       fallback's four cards read as a row rather than as a carousel that is
-       somehow broken. The island sets --rail-count from the set it was handed. */
-    /* 1.15 rather than 1.25 (2026-09-20): the card now carries a description and a
-       44px+ action, and a phone card has to be substantial enough to read them. */
-    --rail-visible: min(1.15, var(--rail-count, 99));
-    /* One repeating card width, named so the lead card can be a multiple of it
-       rather than a second copy of the same arithmetic. */
+    /* Leave the next photograph visible as the swipe affordance. */
+    --rail-visible: min(1.2, var(--rail-count, 99));
     --rail-card: calc((100% - (var(--rail-visible) - 1) * var(--rail-gap)) / var(--rail-visible));
-    /* On a phone the lead card is the same width as the rest and earns its place
-       through its caption alone: 1.4x of 84vw would be a card you cannot see. */
-    --rail-lead-scale: 1;
     display: flex;
     gap: var(--rail-gap);
     margin-inline: calc(var(--page-gutter) * -1);
@@ -889,13 +879,6 @@ header[data-surface][data-surface-ready] {
     inline-size: var(--rail-card);
   }
 
-  /* The art-directed opening card (New Arrivals, owner brief 2026-09-20). A width
-     multiple, not a width: every other measurement in the rail stays derived, so a
-     change to the visible count still holds the whole row together. */
-  [data-rail] > [data-rail-lead] {
-    inline-size: calc(var(--rail-card) * var(--rail-lead-scale));
-  }
-
   /* A mandatory snap fights a dragged scrollLeft frame by frame, so the drag
      turns it off; the island puts the rail back on a card boundary on release. */
   [data-rail][data-dragging] {
@@ -906,38 +889,14 @@ header[data-surface][data-surface-ready] {
 
   @media (min-width: 768px) {
     [data-rail] {
-      --rail-gap: 20px;
-      --rail-visible: min(2.4, var(--rail-count, 99));
-      --rail-lead-scale: 1.25;
+      --rail-gap: 24px;
+      --rail-visible: min(2.2, var(--rail-count, 99));
     }
   }
 
   @media (min-width: 1024px) {
     [data-rail] {
-      --rail-gap: 24px;
-      /* The rail's column is three quarters of the page from 1024 (the masthead takes
-         the rest), so the visible count is read against *that*, not the page: 2.2 here
-         and 2.6 from 1280 keeps a supporting card near 300px at every width, which is
-         what its copy and its button need. Quality of the card over one more card on
-         screen (brief, 2026-09-20). */
-      --rail-visible: min(2.2, var(--rail-count, 99));
-      --rail-lead-scale: 1.35;
-    }
-
-    /* `data-rail-inset`: the rail sits in the composition's second column from 1024,
-       so it must not pull out at the inline start any more — only its end still
-       bleeds, which is what makes the row read as continuing past the page edge. */
-    [data-rail][data-rail-inset] {
-      margin-inline-start: 0;
-      padding-inline-start: 0;
-      scroll-padding-inline-start: 0;
-    }
-  }
-
-  @media (min-width: 1280px) {
-    [data-rail] {
-      --rail-visible: min(2.6, var(--rail-count, 99));
-      --rail-lead-scale: 1.4;
+      --rail-visible: min(3.2, var(--rail-count, 99));
     }
   }
 

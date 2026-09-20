@@ -42,6 +42,8 @@ export interface ProductCardProps {
    * has no hierarchy at all.
    */
   emphasis?: 'lead' | 'supporting';
+  /** Stack name and price for the homepage's quiet, uniform rail. */
+  captionLayout?: 'inline' | 'stacked';
   /** `products.viewDetails`. Rendered beside the action, on a `lead` card only. */
   detailsLabel?: string;
   /**
@@ -101,7 +103,7 @@ function imageProps(image: ImageSource) {
  *
  * **Two registers.** `emphasis="supporting"` is the tile every listing uses: name and
  * price on one baseline, two lines of copy, one outlined action. `emphasis="lead"` is
- * the art-directed card the New Arrivals rail opens with (owner brief, 2026-09-20): a
+ * an optional feature-card treatment: a
  * wider frame, the name at heading size in the display face, the price on its own line,
  * three lines of copy and a details link beside a filled action. The difference is
  * hierarchy, not decoration — nothing is added to the lead card that the tile hides.
@@ -138,6 +140,7 @@ export function ProductCard({
   sizes,
   action,
   emphasis = 'supporting',
+  captionLayout = 'inline',
   detailsLabel,
   reveal = 'rise',
   loading,
@@ -224,7 +227,11 @@ export function ProductCard({
         data-motion="fade"
         className={cn('mt-3', lead && 'mt-5 lg:mt-6', '[--motion-offset:240ms]')}
       >
-        <div className={cn(!lead && 'flex items-baseline justify-between gap-3')}>
+        <div
+          className={cn(
+            !lead && captionLayout === 'inline' && 'flex items-baseline justify-between gap-3'
+          )}
+        >
           <h3
             className={cn(
               'min-w-0 font-medium text-balance text-text',
@@ -251,7 +258,11 @@ export function ProductCard({
           <p
             className={cn(
               'font-medium text-text tabular-nums tracking-[0.02em]',
-              lead ? 'type-body mt-2' : 'type-small shrink-0'
+              lead
+                ? 'type-body mt-2'
+                : captionLayout === 'stacked'
+                  ? 'type-small mt-2 text-text-secondary'
+                  : 'type-small shrink-0'
             )}
           >
             {priceText}
@@ -286,7 +297,8 @@ export function ProductCard({
       {action && (
         <div
           className={cn(
-            'mt-auto pt-1',
+            'mt-auto',
+            captionLayout === 'stacked' ? 'pt-4' : 'pt-1',
             lead && detailsLabel && 'relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3'
           )}
         >

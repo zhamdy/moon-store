@@ -18,7 +18,7 @@ import { railEdges, railStep, snapTarget, type RailEdges } from './rail-scroll';
 export interface ProductRailProps {
   /** The section's server-rendered masthead: title, rule and lead line. */
   heading: ReactNode;
-  /** The server-rendered "View all" link, under the masthead and above the controls. */
+  /** The server-rendered "View all" link beside the navigation controls. */
   viewAll: ReactNode;
   /** Resolved control labels; this island renders no message of its own. */
   labels: { previous: string; next: string };
@@ -153,12 +153,7 @@ export function ProductRail({ heading, viewAll, labels, count, children }: Produ
     });
   };
 
-  /**
-   * One card boundary, measured rather than assumed: the item pitch includes the gap.
-   * Measured across the **last two** items, not the first two: the rail opens with a
-   * wider lead card, so the first pitch is the one distance that is not the repeating
-   * one a released drag should settle on.
-   */
+  /** Measure the repeating card pitch, including the gap, for drag snapping. */
   const itemPitch = (rail: HTMLUListElement): number => {
     const items = rail.children;
     const last = items[items.length - 1];
@@ -261,20 +256,13 @@ export function ProductRail({ heading, viewAll, labels, count, children }: Produ
   );
 
   return (
-    // The composition (owner brief, 2026-09-20): from 1024 the masthead is a column of
-    // its own and the rail runs beside it, bleeding off the page's inline end so the row
-    // reads as continuing past the screen rather than stopping at a margin. Below that
-    // the masthead sits above a full-bleed rail. One grid, so the title, the link, the
-    // controls and the cards are one block instead of a heading with a strip under it.
-    <div className="lg:grid lg:grid-cols-[minmax(15rem,3fr)_9fr] lg:items-start lg:gap-x-12">
-      <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6 lg:sticky lg:top-[calc(var(--header-h)+3rem)] lg:block">
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5 border-b border-border pb-6 md:pb-8">
         {heading}
-        <div className="flex items-center gap-6 lg:mt-10 lg:flex-col lg:items-start lg:gap-8">
+        <div className="flex items-center gap-6 md:gap-8">
           {viewAll}
           {controls}
         </div>
-        {/* The desktop column's own progress rule, under the controls it belongs to. */}
-        {progress && <div className="hidden w-32 lg:mt-10 lg:block">{progress}</div>}
       </div>
 
       <div className="min-w-0">
@@ -283,8 +271,7 @@ export function ProductRail({ heading, viewAll, labels, count, children }: Produ
           id={railId}
           role="list"
           data-rail=""
-          data-rail-inset=""
-          className="mt-8 lg:mt-0"
+          className="mt-6 md:mt-8"
           style={{ '--rail-count': count } as CSSProperties}
           onScroll={onScroll}
           onPointerDown={onPointerDown}
@@ -305,8 +292,8 @@ export function ProductRail({ heading, viewAll, labels, count, children }: Produ
           {children}
         </ul>
 
-        {/* Below 1024 the rule sits under the rail, where the swipe is. */}
-        {progress && <div className="mt-6 lg:hidden">{progress}</div>}
+        {/* Progress stays beside the browsing surface at every width. */}
+        {progress && <div className="mt-8">{progress}</div>}
       </div>
     </div>
   );
