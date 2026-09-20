@@ -54,14 +54,19 @@ function imageProps(image: ImageSource) {
  * **The editorial tile** (owner brief, 2026-09-20, superseding every boxed pass
  * before it). There is no card: there is a photograph, and under it a caption.
  *
- * - The frame is a bare **4:5** photograph on `bg-surface-soft` - no border, no
- *   radius, no shadow, no plate. `[--radius-media:0px]` squares the
+ * - The frame is a **4:5** photograph on `bg-surface-soft` - no radius, no
+ *   shadow, no plate, and a single warm hairline (`border-border`, ink at 12%).
+ *   The hairline is the brief's "subtle 1px divider only if necessary" and it
+ *   became necessary: the product shots are pale garments on pale studio
+ *   backgrounds, so on an ivory page a borderless tile had no edge at all and the
+ *   row read as washed-out floating shapes. `[--radius-media:0px]` squares the
  *   `data-motion="image"` wipe with it; every other frame on the site keeps
- *   `rounded-media`, so this is scoped to the product card. 4:5 is the fashion
- *   ratio the brief asks for, and `object-cover` means the garment fills the
- *   frame's width rather than floating inside a letterboxed plate - how much of
- *   the frame the garment itself occupies is then a property of the source crop,
- *   not of this component.
+ *   `rounded-media`, so this is scoped to the product card.
+ * - The editorial assets are authored at exactly 4:5 (1120x1400) with their own
+ *   margins, so `object-cover` here crops **nothing**: how much of the frame the
+ *   garment fills is a property of the source crop, not of this component, and
+ *   no `scale` baked in here can fix a loose one without cutting a hem. Tighter
+ *   crops belong in `assets/editorial/` - see `docs/design/editorial-image-brief.md`.
  * - The badge is **printed on the photograph**, not stuck to it: `type-caption`,
  *   uppercase, widely tracked, bronze for "New" and ink for "Sold out", pinned to
  *   the image's top inline start. No pill, no capsule, no backdrop - the tile's
@@ -71,15 +76,19 @@ function imageProps(image: ImageSource) {
  *   is against the `Link`'s own `relative`, which shares its origin with the image
  *   frame. Any future reorder must keep both in step - Shop, Collections and
  *   Related Products all reuse this card.
- * - Name and price share **one baseline**, 14px under the photograph (16 from
- *   `lg`). The name takes the space it needs (`min-w-0`, clamped to two lines,
- *   with a two-line `min-h` so a one-line and a two-line card end at the same
- *   height) and the price is anchored at the inline end, tabular and quiet. A
- *   price dropped underneath read as an afterthought.
+ * - Name and price **stack**, 12px under the photograph and 4px apart. They
+ *   shared one baseline for a pass and it only worked while every name fitted on
+ *   one line: the moment one wrapped, its price stayed pinned to the first
+ *   baseline and floated in the gap beside the second line. A stack reads the
+ *   same whether the name takes one line or two, which is what every real
+ *   storefront does. The two-line `min-h` on the name keeps a row's prices on one
+ *   line regardless.
  * - The name is `type-body-lg` at weight 500 in the **display face** (set on
- *   `[data-product-name]`) with tight leading; the price is `type-small` in the
- *   body face, secondary ink. One serif/sans pairing carries the character and it
- *   adds no element. Arabic relaxes the leading - Tajawal needs the room.
+ *   `[data-product-name]`) with tight leading; the price is `type-small`, weight
+ *   500, in **full ink** rather than secondary - at 14px secondary grey under a
+ *   pale photograph was the weakest thing on the card, and a price a shopper has
+ *   to hunt for is a commerce failure, not restraint. Arabic relaxes the leading
+ *   - Tajawal needs the room.
  *
  * Hover (CSS `group-hover`, which Tailwind wraps in `@media (hover: hover)`, so
  * touch devices never get a stuck alternate view): the second photograph
@@ -128,7 +137,7 @@ export function ProductCard({
           data-motion={reveal === 'image' ? 'image' : undefined}
           // `[--radius-media:0px]` so the `data-motion="image"` wipe, whose clip-path
           // insets carry `round var(--radius-media)`, squares off with the frame.
-          className="relative isolate aspect-4/5 overflow-hidden bg-surface-soft [--radius-media:0px]"
+          className="relative isolate aspect-4/5 overflow-hidden border border-border bg-surface-soft [--radius-media:0px]"
         >
           <div data-motion-zoom={reveal === 'image' ? '' : undefined} className="absolute inset-0">
             <div className="absolute inset-0 transition-transform duration-base ease-ui group-hover:scale-[1.03]">
@@ -163,30 +172,27 @@ export function ProductCard({
           </div>
         </div>
 
-        {/* The caption: one baseline, the name taking the space it needs and the
-            price anchored at the inline end. 14px under the photograph, 16 from
-            `lg` - close enough to read as its caption, not as a second block. */}
-        <div data-motion="fade" className="mt-3.5 [--motion-offset:240ms] lg:mt-4">
-          <div className="flex items-baseline justify-between gap-4">
-            {/* min-w-0 so a long name wraps inside its own column instead of
-                pushing the price out of the card; two lines at most, and the
-                two-line min-height keeps every card in a row the same height. */}
-            <h3 className="type-body-lg line-clamp-2 min-h-[2.75em] min-w-0 font-medium leading-[1.375] text-text [:lang(ar)_&]:min-h-[3.1em] [:lang(ar)_&]:leading-[1.55]">
-              {/* data-product-name carries the display face and the gold rule
-                  (app/globals.css); the span is inline so the rule is the width of
-                  the name, not the column. */}
-              <span
-                data-product-name=""
-                lang={foreignName ? product.name.lang : undefined}
-                dir={foreignName ? 'auto' : undefined}
-              >
-                {product.name.text}
-              </span>
-            </h3>
-            <p className="type-small shrink-0 text-text-secondary tabular-nums tracking-[0.06em]">
-              {formatPrice(product.price, locale, currencyLabel)}
-            </p>
-          </div>
+        {/* The caption: name, then price under it. 12px under the photograph,
+            4px between the two lines - close enough to read as the photograph's
+            caption rather than as a second block. */}
+        <div data-motion="fade" className="mt-3 [--motion-offset:240ms]">
+          {/* Two lines at most, and the two-line min-height keeps every card in a
+              row the same height whether its name wraps or not. */}
+          <h3 className="type-body-lg line-clamp-2 min-h-[2.75em] font-medium leading-[1.375] text-text [:lang(ar)_&]:min-h-[3.1em] [:lang(ar)_&]:leading-[1.55]">
+            {/* data-product-name carries the display face and the gold rule
+                (app/globals.css); the span is inline so the rule is the width of
+                the name, not the column. */}
+            <span
+              data-product-name=""
+              lang={foreignName ? product.name.lang : undefined}
+              dir={foreignName ? 'auto' : undefined}
+            >
+              {product.name.text}
+            </span>
+          </h3>
+          <p className="type-small mt-1 font-medium text-text tabular-nums tracking-[0.02em]">
+            {formatPrice(product.price, locale, currencyLabel)}
+          </p>
         </div>
 
         {/* Printed on the photograph, last in DOM order so the link still reads
