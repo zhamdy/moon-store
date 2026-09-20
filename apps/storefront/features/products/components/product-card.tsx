@@ -51,33 +51,52 @@ function imageProps(image: ImageSource) {
 /**
  * The first reusable commerce unit. A Server Component.
  *
+ * **The editorial tile** (owner brief, 2026-09-20, superseding every boxed pass
+ * before it). There is no card: there is a photograph, and under it a caption.
+ *
+ * - The frame is a bare **4:5** photograph on `bg-surface-soft` - no border, no
+ *   radius, no shadow, no plate. `[--radius-media:0px]` squares the
+ *   `data-motion="image"` wipe with it; every other frame on the site keeps
+ *   `rounded-media`, so this is scoped to the product card. 4:5 is the fashion
+ *   ratio the brief asks for, and `object-cover` means the garment fills the
+ *   frame's width rather than floating inside a letterboxed plate - how much of
+ *   the frame the garment itself occupies is then a property of the source crop,
+ *   not of this component.
+ * - The badge is **printed on the photograph**, not stuck to it: `type-caption`,
+ *   uppercase, widely tracked, bronze for "New" and ink for "Sold out", pinned to
+ *   the image's top inline start. No pill, no capsule, no backdrop - the tile's
+ *   surfaces are ivory and sand, so the corner it sits in is nearly always quiet.
+ *   It renders **after** the name and price in DOM order, so the link's
+ *   accessible name still starts with the product name; the `absolute` placement
+ *   is against the `Link`'s own `relative`, which shares its origin with the image
+ *   frame. Any future reorder must keep both in step - Shop, Collections and
+ *   Related Products all reuse this card.
+ * - Name and price share **one baseline**, 14px under the photograph (16 from
+ *   `lg`). The name takes the space it needs (`min-w-0`, clamped to two lines,
+ *   with a two-line `min-h` so a one-line and a two-line card end at the same
+ *   height) and the price is anchored at the inline end, tabular and quiet. A
+ *   price dropped underneath read as an afterthought.
+ * - The name is `type-body-lg` at weight 500 in the **display face** (set on
+ *   `[data-product-name]`) with tight leading; the price is `type-small` in the
+ *   body face, secondary ink. One serif/sans pairing carries the character and it
+ *   adds no element. Arabic relaxes the leading - Tajawal needs the room.
+ *
  * Hover (CSS `group-hover`, which Tailwind wraps in `@media (hover: hover)`, so
  * touch devices never get a stuck alternate view): the second photograph
- * crossfades in, the frame scales 1 -> 1.03 and the name's underline draws along
- * the reading direction. Keyboard focus draws the underline too.
- *
- * Reveal: the card declares its entrance with `data-motion` and plays it only
- * inside a `<Reveal>`. By default the card rises and its text follows; with
- * `reveal="image"` the photograph wipes upward and settles from 1.06 instead
- * (AD-11: quiet commerce, one editorial beat per section). Outside a Reveal the
- * attributes are inert. Reveal
- * motion and hover motion sit on separate elements because each owns its
- * element's transition.
+ * crossfades in, the frame scales 1 -> 1.03 and the name's rule draws along the
+ * reading direction. Keyboard focus draws the rule too. The rule is gold
+ * (`--rule-accent`) rather than currentColor and lives in app/globals.css keyed
+ * on `data-product-card` / `data-product-name` - the one editorial accent on an
+ * otherwise colourless tile. Nothing lifts, nothing casts a shadow, no control
+ * appears over the photograph.
  *
  * The whole card is one link whose accessible name is the product name (images
  * are decorative here: `alt=""`). No wishlist control until wishlist behaviour
  * exists: it would be a dead control for keyboard and screen-reader users.
  *
- * The badge ("New" or "Sold out", one at most) renders after the name and price
- * in DOM order, so the link's accessible name starts with the product name — but
- * stays visually pinned to the image's top-start corner via `absolute start-3
- * top-3` against the `Link`'s own `relative`, which shares that corner with the
- * image frame (the image is the Link's first child, at the same origin). Any
- * future reorder must keep both in step: Shop and Collections reuse this card.
- *
- * Sold out never greys the photograph; the label is secondary text on `bg-bg`
- * and the price stays visible. A product with no photograph shows the frame with
- * the brand mark, small and faint, so it never reads as a loading skeleton.
+ * Sold out never greys the photograph and the price stays visible; only the badge
+ * word changes. A product with no photograph shows the frame with the brand mark,
+ * small and faint, so it never reads as a loading skeleton.
  *
  * A name in another language than the page (an Arabic fallback on an English
  * page) carries `lang` and `dir="auto"` on the underline span: Tajawal applies,
@@ -100,13 +119,16 @@ export function ProductCard({
 
   return (
     <article
+      data-product-card=""
       data-motion={reveal === 'rise' ? 'rise' : undefined}
       className={cn('group', className)}
     >
       <Link href={product.href} className="relative block">
         <div
           data-motion={reveal === 'image' ? 'image' : undefined}
-          className="relative isolate aspect-4/5 overflow-hidden rounded-media bg-surface-soft"
+          // `[--radius-media:0px]` so the `data-motion="image"` wipe, whose clip-path
+          // insets carry `round var(--radius-media)`, squares off with the frame.
+          className="relative isolate aspect-4/5 overflow-hidden bg-surface-soft [--radius-media:0px]"
         >
           <div data-motion-zoom={reveal === 'image' ? '' : undefined} className="absolute inset-0">
             <div className="absolute inset-0 transition-transform duration-base ease-ui group-hover:scale-[1.03]">
@@ -141,38 +163,44 @@ export function ProductCard({
           </div>
         </div>
 
-        <div
-          data-motion="fade"
-          className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 [--motion-offset:240ms]"
-        >
-          <h3 className="type-body font-body">
-            <span
-              lang={foreignName ? product.name.lang : undefined}
-              dir={foreignName ? 'auto' : undefined}
-              className={cn(
-                'bg-left-bottom bg-no-repeat rtl:bg-right-bottom',
-                '[background-image:linear-gradient(currentColor,currentColor)] bg-[length:0%_1px]',
-                'transition-[background-size] duration-base ease-ui',
-                'group-hover:bg-[length:100%_1px] group-has-[:focus-visible]:bg-[length:100%_1px]'
-              )}
-            >
-              {product.name.text}
-            </span>
-          </h3>
-          <p className="type-small text-text-secondary shrink-0 tabular-nums">
-            {formatPrice(product.price, locale, currencyLabel)}
-          </p>
+        {/* The caption: one baseline, the name taking the space it needs and the
+            price anchored at the inline end. 14px under the photograph, 16 from
+            `lg` - close enough to read as its caption, not as a second block. */}
+        <div data-motion="fade" className="mt-3.5 [--motion-offset:240ms] lg:mt-4">
+          <div className="flex items-baseline justify-between gap-4">
+            {/* min-w-0 so a long name wraps inside its own column instead of
+                pushing the price out of the card; two lines at most, and the
+                two-line min-height keeps every card in a row the same height. */}
+            <h3 className="type-body-lg line-clamp-2 min-h-[2.75em] min-w-0 font-medium leading-[1.375] text-text [:lang(ar)_&]:min-h-[3.1em] [:lang(ar)_&]:leading-[1.55]">
+              {/* data-product-name carries the display face and the gold rule
+                  (app/globals.css); the span is inline so the rule is the width of
+                  the name, not the column. */}
+              <span
+                data-product-name=""
+                lang={foreignName ? product.name.lang : undefined}
+                dir={foreignName ? 'auto' : undefined}
+              >
+                {product.name.text}
+              </span>
+            </h3>
+            <p className="type-small shrink-0 text-text-secondary tabular-nums tracking-[0.06em]">
+              {formatPrice(product.price, locale, currencyLabel)}
+            </p>
+          </div>
         </div>
+
+        {/* Printed on the photograph, last in DOM order so the link still reads
+            "<name>, <price>" first. Positioned against this Link, whose origin is
+            the image frame's. */}
         {badge && (
-          <span
-            className={
-              badge === 'soldOut'
-                ? 'type-caption absolute start-3 top-3 rounded-media-sm bg-action px-2 py-1 font-medium tracking-[0.08em] uppercase text-on-action'
-                : 'type-caption absolute start-3 top-3 rounded-media-sm bg-brand-soft px-2 py-1 font-medium tracking-[0.08em] uppercase text-brand-dark'
-            }
+          <p
+            className={cn(
+              'type-caption absolute start-3 top-3 uppercase tracking-[0.22em] rtl:tracking-normal lg:start-4 lg:top-4',
+              badge === 'soldOut' ? 'text-text' : 'text-brand'
+            )}
           >
             {badgeLabels[badge]}
-          </span>
+          </p>
         )}
       </Link>
     </article>
