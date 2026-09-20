@@ -76,19 +76,31 @@ export function productImages(
   return images;
 }
 
+/**
+ * A listing item. `derived` is the row's options and variants, derived by the same
+ * `deriveVariantOptions` the detail uses, so a card's Quick Add and the product page can
+ * never disagree on what is choosable or in stock; `{ options: [], variants: [] }` for a
+ * product with no variants. Stock quantities stay internal: a variant carries `inStock`
+ * alone, exactly as on the detail (PD-3).
+ */
 export function toCatalogProductDto(
   row: CatalogProductRow,
   galleryInOrder: readonly string[],
+  derived: Pick<DerivedVariants, 'options' | 'variants'>,
   origin: string
 ): CatalogProductDto {
   return {
     slug: row.slug,
     name: row.name,
     nameEn: row.name_en ?? null,
+    description: row.description ?? null,
+    descriptionEn: row.description_en ?? null,
     price: toNumber(row.price),
     images: productImages(row.image_url, galleryInOrder, origin, CATALOG_LIST_IMAGE_COUNT),
     isNew: row.is_new === true,
     inStock: row.in_stock === true,
+    options: derived.options,
+    variants: derived.variants,
   };
 }
 
@@ -302,7 +314,9 @@ export function deriveVariantsWithStock(
   };
 }
 
-export function rowHasVariants(row: Pick<CatalogProductDetailRow, 'has_variants'>): boolean {
+export function rowHasVariants(row: {
+  has_variants: string | number | boolean | null | undefined;
+}): boolean {
   return row.has_variants === true || Number(row.has_variants) === 1;
 }
 

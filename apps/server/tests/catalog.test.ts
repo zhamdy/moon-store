@@ -47,7 +47,19 @@ const ENV_KEYS = [
 ] as const;
 const savedEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
 
-const PRODUCT_KEYS = ['images', 'inStock', 'isNew', 'name', 'nameEn', 'price', 'slug'];
+const PRODUCT_KEYS = [
+  'description',
+  'descriptionEn',
+  'images',
+  'inStock',
+  'isNew',
+  'name',
+  'nameEn',
+  'options',
+  'price',
+  'slug',
+  'variants',
+];
 const CATEGORY_KEYS = ['description', 'descriptionEn', 'name', 'nameEn', 'productCount', 'slug'];
 const COLLECTION_KEYS = [
   'description',
@@ -996,11 +1008,32 @@ describe('public catalog', () => {
       });
     });
 
-    it('keeps the listing DTO key set unchanged: descriptions and details are detail-only', async () => {
+    it('keeps material, care and fit detail-only: the listing carries the card DTO', async () => {
       const r = await get('/api/v1/catalog/products?category=dresses');
       const item = (r.body.data as Json[]).find((p) => p.slug === 'gallery-dress');
       expect(item).toBeDefined();
       expect(Object.keys(item as Json).sort()).toEqual(PRODUCT_KEYS);
+    });
+
+    it('lists the options and variants the detail derives, for the same product', async () => {
+      // The card's Quick Add selects from these, so a listing that derived them its own
+      // way would offer a size the product page refuses (or refuse one it offers).
+      for (const slug of ['knit-mixed', 'priced-variants', 'merged-keys']) {
+        const detailBody = await detail(slug);
+        const r = await get('/api/v1/catalog/products');
+        const item = (r.body.data as Json[]).find((p) => p.slug === slug);
+        expect(item, slug).toBeDefined();
+        expect(item?.options, slug).toEqual(detailBody.options);
+        expect(item?.variants, slug).toEqual(detailBody.variants);
+        expect(item?.description, slug).toEqual(detailBody.description);
+        expect(item?.descriptionEn, slug).toEqual(detailBody.descriptionEn);
+      }
+    });
+
+    it('lists no options or variants for a product that sells as one piece', async () => {
+      const r = await get('/api/v1/catalog/products');
+      const item = (r.body.data as Json[]).find((p) => p.slug === 'plain-in-stock');
+      expect(item).toMatchObject({ options: [], variants: [] });
     });
 
     it('never exposes internal fields anywhere in the body, variants included', async () => {
