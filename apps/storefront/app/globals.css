@@ -11,25 +11,37 @@
    (via @theme inline), never --moon-* directly.
    ============================================================ */
 :root {
-  /* Raw brand palette (guideline §4). */
-  --moon-ink: #171513;
-  --moon-charcoal: #2d2925;
+  /* Approved Logo-First Brand Palette */
+  --color-ivory: #faf8f4;
+  --color-ink: #1b1917;
 
-  --moon-ivory: #faf8f4;
-  --moon-cream: #f4efe8;
-  --moon-white: #ffffff;
+  --color-bronze: #7a5b34;
+  --color-bronze-dark: #634726;
 
-  --moon-gold: #b79564;
-  --moon-gold-light: #d8c09d;
+  --color-gold: #b79564;
+  --color-champagne: #d4b688;
+
+  --color-espresso: #201a17;
+  --color-midnight-navy: #161b26;
+  --color-sand: #e8ddd0;
+
+  --color-warm-surface: #fffdf9;
+  --color-muted-text: #6f675f;
+
+  /* Legacy brand aliases for backward compatibility */
+  --moon-ink: var(--color-ink);
+  --moon-charcoal: var(--color-espresso);
+  --moon-ivory: var(--color-ivory);
+  --moon-cream: var(--color-sand);
+  --moon-white: var(--color-warm-surface);
+  --moon-gold: var(--color-gold);
+  --moon-gold-light: var(--color-champagne);
   --moon-gold-soft: #eee3d2;
-  --moon-gold-dark: #7a5b34;
-
+  --moon-gold-dark: var(--color-bronze);
   --moon-stone-100: #f1eeea;
-  --moon-stone-200: #e3ded8;
+  --moon-stone-200: var(--color-sand);
   --moon-stone-400: #aaa39c;
-  --moon-stone-600: #6d6660;
-
-  /* Validation only (owner decision 2026-09-15): 7.1:1 on ivory, 6.6:1 on cream. */
+  --moon-stone-600: var(--color-muted-text);
   --moon-garnet: #9b2c2c;
 
   /* Layout (guideline §6). Container tracks the 12-column desktop grid's
@@ -42,15 +54,15 @@
      keeps this slot; the homepage hero pulls up beneath it by the same amount. */
   --header-h: 64px;
 
-  /* Surface indirection. The semantic colours are declared `@theme inline`, so
+  /* Surface indirection. Semantic colours are declared `@theme inline`, so
      `text-text` compiles to the *value* below and a scoped `--color-text`
      override would be inert. Mirroring --font-display-active: components keep
      reading text-text / bg-bg / border-border, and a surface ([data-surface=
-     'overlay' | 'ink']) overrides these --surface-* variables instead. */
-  --surface-bg: var(--moon-ivory);
-  --surface-text: var(--moon-ink);
-  --surface-text-secondary: var(--moon-stone-600);
-  --surface-border: var(--moon-stone-200);
+     'overlay' | 'ink' | 'dark' | 'navy' | 'sand']) overrides these --surface-* variables instead. */
+  --surface-bg: var(--color-ivory);
+  --surface-text: var(--color-ink);
+  --surface-text-secondary: var(--color-muted-text);
+  --surface-border: color-mix(in srgb, var(--color-ink) 12%, transparent);
 
   /* Motion (guideline §13/§19). Mapped to Tailwind's --duration- and --ease-
      theme keys below, under distinct names so that mapping isn't a
@@ -67,10 +79,15 @@
 
   /* Used only by the mobile menu surface (guideline §7: shadows are for
      floating/overlay surfaces, not general UI). */
-  --shadow-overlay: 0 16px 48px -12px rgb(23 21 19 / 0.28);
+  --shadow-overlay: 0 16px 48px -12px rgb(27 25 23 / 0.28);
 
-  /* a11y: default ink ring; switched to ivory on ink/overlay surfaces below. */
-  --focus-ring-color: var(--moon-ink);
+  /* a11y: default brand bronze ring on light surfaces; switched on dark/editorial surfaces. */
+  --focus-ring-color: var(--color-bronze);
+
+  /* The gold hairline drawn as an accent rather than as a surface: the product
+     name's hover rule and the product rail's progress thumb. Semantic, so a
+     component never reaches for a raw palette value. */
+  --rule-accent: var(--color-gold);
 
   /* Locale font switch goes through this indirection, never through
      --font-display/--font-body directly — see app/[locale]/layout.tsx and
@@ -107,34 +124,56 @@
 }
 
 @theme inline {
+  --color-ivory: #faf8f4;
+  --color-ink: #1b1917;
+  --color-bronze: #7a5b34;
+  --color-gold: #b79564;
+  --color-champagne: #d4b688;
+  --color-espresso: #201a17;
+  --color-midnight-navy: #161b26;
+  --color-sand: #e8ddd0;
+  --color-warm-surface: #fffdf9;
+  --color-muted-text: #6f675f;
+
   --color-bg: var(--surface-bg);
-  --color-surface: var(--moon-white);
-  --color-surface-soft: var(--moon-cream);
+  --color-surface: var(--color-warm-surface);
+  --color-surface-soft: var(--color-sand);
+  --color-surface-alt: var(--color-sand);
 
   --color-text: var(--surface-text);
   --color-text-secondary: var(--surface-text-secondary);
+  --color-text-muted: var(--surface-text-secondary);
+  --color-text-inverse: var(--color-ivory);
 
-  --color-brand: var(--moon-gold);
-  --color-brand-dark: var(--moon-gold-dark);
-  --color-brand-soft: var(--moon-gold-soft);
+  --color-brand: var(--color-bronze);
+  --color-brand-dark: #634726;
+  --color-brand-contrast: var(--color-ivory);
+  --color-brand-soft: color-mix(in srgb, var(--color-bronze) 14%, var(--color-warm-surface));
+
+  --color-metallic: var(--color-gold);
+  --color-metallic-highlight: var(--color-champagne);
+  --color-luxury: var(--color-gold);
+
+  --color-dark-surface: var(--color-espresso);
+  --color-editorial-secondary: var(--color-midnight-navy);
 
   --color-border: var(--surface-border);
 
-  --color-action: var(--moon-ink);
-  --color-action-hover: var(--moon-charcoal);
-  --color-on-action: var(--moon-white);
+  --color-action: var(--color-bronze);
+  --color-action-hover: #634726;
+  --color-on-action: var(--color-ivory);
 
-  --color-scrim: rgb(23 21 19 / 0.4);
+  --color-scrim: rgb(22 27 38 / 0.5);
   /* Behind display text set directly on photography (the promo banner). */
-  --color-scrim-strong: rgb(23 21 19 / 0.72);
+  --color-scrim-strong: rgb(22 27 38 / 0.8);
 
   /* Named apart from Tailwind's own built-in `stone-*` palette, which these
      utility names would otherwise silently shadow with a different, coincidentally
      similar grey — see Button's disabled state. */
-  --color-disabled: var(--moon-stone-400);
+  --color-disabled: #aaa39c;
 
   /* Validation messages only, always with an icon and text (never colour alone). */
-  --color-error: var(--moon-garnet);
+  --color-error: #9b2c2c;
 
   --font-display: var(--font-display-active);
   --font-body: var(--font-body-active);
@@ -331,36 +370,49 @@
   }
 
   [data-surface='ink'],
+  [data-surface='dark'],
+  [data-surface='navy'],
   [data-surface='overlay'],
   body:has([data-header-boundary]) header[data-surface='auto'] {
-    --focus-ring-color: var(--moon-ivory);
+    --focus-ring-color: var(--color-ivory);
   }
 }
 
 /* ============================================================
    Surfaces. One attribute drives colours and the focus ring.
    `overlay`: the header over a hero — transparent, ivory text.
-   `ink`: the footer and primary buttons — ink ground, ivory text.
-   The header renders data-surface='auto' from the server; the :has()
-   rule resolves it to overlay whenever the page has a hero carrying
-   data-header-boundary (components/layout/header/header-boundary.ts —
-   the one place that string is repeated by hand), so the server HTML is
-   already correct and there is no first-paint flip. HeaderShell narrows
-   it to 'solid' as soon as the page scrolls.
+   `ink` / `dark`: espresso cinematic dark ground, ivory text.
+   `navy`: midnight navy nocturnal editorial ground, ivory text.
+   `sand`: sand warm neutral ground, ink text.
    ============================================================ */
 [data-surface='overlay'],
 body:has([data-header-boundary]) header[data-surface='auto'] {
   --surface-bg: transparent;
-  --surface-text: var(--moon-ivory);
-  --surface-text-secondary: rgb(250 248 244 / 0.72);
+  --surface-text: var(--color-ivory);
+  --surface-text-secondary: color-mix(in srgb, var(--color-ivory) 75%, transparent);
   --surface-border: transparent;
 }
 
-[data-surface='ink'] {
-  --surface-bg: var(--moon-ink);
-  --surface-text: var(--moon-ivory);
-  --surface-text-secondary: var(--moon-stone-400);
-  --surface-border: var(--moon-stone-600);
+[data-surface='ink'],
+[data-surface='dark'] {
+  --surface-bg: var(--color-espresso);
+  --surface-text: var(--color-ivory);
+  --surface-text-secondary: color-mix(in srgb, var(--color-ivory) 70%, transparent);
+  --surface-border: color-mix(in srgb, var(--color-ivory) 16%, transparent);
+}
+
+[data-surface='navy'] {
+  --surface-bg: var(--color-midnight-navy);
+  --surface-text: var(--color-ivory);
+  --surface-text-secondary: color-mix(in srgb, var(--color-ivory) 75%, transparent);
+  --surface-border: color-mix(in srgb, var(--color-ivory) 18%, transparent);
+}
+
+[data-surface='sand'] {
+  --surface-bg: var(--color-sand);
+  --surface-text: var(--color-ink);
+  --surface-text-secondary: var(--color-muted-text);
+  --surface-border: color-mix(in srgb, var(--color-ink) 14%, transparent);
 }
 
 /* The surface change is a cut until HeaderShell's first observation, then a
@@ -579,11 +631,10 @@ header[data-surface][data-surface-ready] {
    from the server HTML and every change replays it.
 
    Load and change share one sequence: the image settles 1.08 -> 1 from 120ms,
-   the title rises through its mask at 300ms, the description fades up at 420ms,
-   the copy at 540ms, the link at 660ms (no eyebrow, owner decision 2026-09-14).
-   The outgoing slide fades over 1s while its image drifts 1 -> 1.04 and its
-   title leaves upward through the same mask, so old and new titles cross in
-   place. Visibility is delayed on the
+   the gold eyebrow fades up at 120ms, the collection name rises through its mask
+   at 240ms, the description at 420ms, the link at 560ms. The outgoing slide fades
+   over 1s while its image drifts 1 -> 1.04 and its name leaves upward through the
+   same mask, so old and new names cross in place. Visibility is delayed on the
    way out so the fade can run. */
 [data-hero-slide] {
   opacity: 0;
@@ -631,16 +682,28 @@ header[data-surface][data-surface-ready] {
   animation: moon-fade-out 400ms var(--ease-ui) both;
 }
 
-/* The tab row settles last on load. */
+/* The collection index settles last on load. */
 [data-hero-tabs] {
   --enter-rise: 16px;
   animation: moon-fade-up 900ms var(--ease-editorial) 750ms both;
 }
 
-/* Tab progress. While rotating, the selected tab fills 0 -> 100% over
-   --hero-interval and its animationend advances the slide, so pausing the
-   animation pauses the timer. Once stopped, the selected tab refills quickly on
-   every change. Before hydration (idle) every bar is empty. */
+/* The index row scrolls sideways when four names do not fit (320px, or a longer
+   collection name); the scrollbar itself would cut the hairline it sits under. */
+[data-hero-index] {
+  scrollbar-width: none;
+}
+
+[data-hero-index]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Rotation progress: one line at the hero's bottom edge, not one bar per tab.
+   While rotating it fills 0 -> 100% over --hero-interval and its animationend
+   advances the slide, so pausing the animation pauses the timer. React keys the
+   fill on the active index, so a slide change remounts it and the fill restarts.
+   Once stopped it refills quickly on every manual change. Before hydration
+   (idle) it is empty. */
 [data-hero-progress] {
   transform: scaleX(0);
   transform-origin: left;
@@ -650,13 +713,13 @@ header[data-surface][data-surface-ready] {
   transform-origin: right;
 }
 
-[data-carousel-state='stopped'] [data-hero-tab][aria-selected='true'] [data-hero-progress] {
+[data-carousel-state='stopped'] [data-hero-progress] {
   transform: scaleX(1);
   animation: moon-hero-progress 700ms var(--ease-editorial) both;
 }
 
-[data-carousel-state='running'] [data-hero-tab][aria-selected='true'] [data-hero-progress],
-[data-carousel-state='paused'] [data-hero-tab][aria-selected='true'] [data-hero-progress] {
+[data-carousel-state='running'] [data-hero-progress],
+[data-carousel-state='paused'] [data-hero-progress] {
   animation: moon-hero-progress var(--hero-interval) linear both;
 }
 
@@ -719,6 +782,139 @@ header[data-surface][data-surface-ready] {
 @media (hover: hover) and (min-width: 768px) {
   .hover-alt-image {
     display: block;
+  }
+}
+
+/* product-card.tsx: the name's rule, drawn from the reading direction on hover
+   and on keyboard focus. Gold rather than currentColor (the New Arrivals pass,
+   2026-09-20) — one editorial accent per card, and the only colour on it. Here
+   rather than on the element because the palette belongs to the token layer;
+   --rule-accent is the seam a surface could re-point, as --surface-* does. */
+[data-product-name] {
+  /* The display face, not the body face (2026-09-20): a garment's name set in Lora
+     (Tajawal in Arabic) is the card's one piece of character, and it costs nothing
+     - no element, no data, no chrome. Declared here rather than as a `font-display`
+     utility beside `type-body`, which sets a family of its own and would leave the
+     winner to utility order. */
+  font-family: var(--font-display);
+  background-image: linear-gradient(var(--rule-accent), var(--rule-accent));
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 0% 1px;
+  transition: background-size var(--motion-base) var(--ease-ui);
+}
+
+[dir='rtl'] [data-product-name] {
+  background-position: right bottom;
+}
+
+/* Keyed on the card, not on Tailwind's `group` marker: the rule belongs to this
+   component, not to whatever else happens to carry that utility. Focus draws it
+   everywhere; hover only where hovering exists, or a tap on a phone would leave
+   the rule drawn under the card it just opened. */
+[data-product-card]:has(:focus-visible) [data-product-name] {
+  background-size: 100% 1px;
+}
+
+@media (hover: hover) {
+  [data-product-card]:hover [data-product-name] {
+    background-size: 100% 1px;
+  }
+}
+
+/* features/cart/components/quick-add.tsx: the Quick Add panel's entrance. Micro level
+   (180ms, the UI easing), transform and opacity only, and `motion-safe:` on the element
+   so reduced motion gets the panel with no movement at all. */
+@keyframes quick-add-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@utility animate-quick-add {
+  animation: quick-add-in var(--motion-fast, 180ms) var(--ease-ui) both;
+}
+
+/* ============================================================
+   Product rail - features/home/components/new-arrivals/. The New Arrivals
+   carousel is a CSS scroll-snap scroller, the tooling the category and lookbook
+   rails already use: the browser owns the scrolling, the snapping, touch swipe
+   and the reading direction, and `product-rail.tsx` adds only the controls, the
+   progress rule and a mouse drag. Embla stays unused.
+
+   The card count is fractional on purpose, so part of the next card is always in
+   view and the row reads as something to browse sideways. The rail pulls out by
+   one gutter and pads itself back, so its `100%` is exactly the container's
+   content column and a card's width is honest at every viewport - including past
+   --container-max, where the column stops growing.
+   ============================================================ */
+@layer components {
+  [data-rail] {
+    --rail-gap: 12px;
+    /* Leave the next photograph visible as the swipe affordance. */
+    --rail-visible: min(1.2, var(--rail-count, 99));
+    --rail-card: calc((100% - (var(--rail-visible) - 1) * var(--rail-gap)) / var(--rail-visible));
+    display: flex;
+    gap: var(--rail-gap);
+    margin-inline: calc(var(--page-gutter) * -1);
+    padding-inline: var(--page-gutter);
+    /* overflow-x forces a matching computed overflow-y (CSS overflow spec),
+       which would otherwise clip each card's focus ring on the block edges. */
+    padding-block: 6px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--page-gutter);
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  [data-rail]::-webkit-scrollbar {
+    display: none;
+  }
+
+  [data-rail] > * {
+    flex: none;
+    scroll-snap-align: start;
+    inline-size: var(--rail-card);
+  }
+
+  /* A mandatory snap fights a dragged scrollLeft frame by frame, so the drag
+     turns it off; the island puts the rail back on a card boundary on release. */
+  [data-rail][data-dragging] {
+    scroll-snap-type: none;
+    cursor: grabbing;
+    user-select: none;
+  }
+
+  @media (min-width: 768px) {
+    [data-rail] {
+      --rail-gap: 24px;
+      --rail-visible: min(2.2, var(--rail-count, 99));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    [data-rail] {
+      --rail-visible: min(3.2, var(--rail-count, 99));
+    }
+  }
+
+  /* How much of the row is in view, and where it sits: a hairline under the rail
+     with a gold thumb, the same language as the hero's rotation line. Both
+     values are set by the island as unitless numbers; --rail-thumb is 0 until
+     the first measurement, which draws nothing. */
+  [data-rail-progress] {
+    block-size: 1px;
+    background-color: var(--color-border);
+  }
+
+  [data-rail-progress] > span {
+    display: block;
+    block-size: 1px;
+    background-color: var(--rule-accent);
+    inline-size: calc(var(--rail-thumb, 0) * 100%);
+    margin-inline-start: calc(var(--rail-progress, 0) * (100% - var(--rail-thumb, 0) * 100%));
   }
 }
 

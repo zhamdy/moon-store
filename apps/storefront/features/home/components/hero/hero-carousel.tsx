@@ -14,7 +14,6 @@ import {
 } from 'react';
 import { useLocale } from 'next-intl';
 import { getDirection } from '@/i18n/routing';
-import { Container } from '@/components/ui/container';
 import { cn } from '@/lib/utils/cn';
 import {
   carouselState,
@@ -66,8 +65,20 @@ function subscribeReducedMotion(onChange: () => void) {
  * collection names, one tabpanel per slide. Inactive slides are `inert` and hidden,
  * so assistive tech and the keyboard only ever meet the visible one.
  *
- * Rotation is driven by the active tab's CSS progress bar: its `animationend`
- * advances the slide, so pausing the animation pauses the timer with no drift.
+ * **The collection index** (2026-09-20) is what that tablist looks like: one line of
+ * collection names at the foot of the frame, under a hairline that runs gutter to
+ * gutter, at the inline end from 1024 so it balances the masthead at the inline
+ * start. The current collection is ivory over dimmed ivory with a gold rule drawn
+ * under it; the four equal columns, each with its own progress bar, are gone —
+ * that arrangement is what made a campaign read as a row of tabs. Active is marked
+ * by brightness *and* a rule, never by colour alone.
+ *
+ * Rotation is driven by one progress line at the very bottom edge of the hero,
+ * full-bleed under the index: its `animationend` advances the slide, so pausing the
+ * animation pauses the timer with no drift. It is keyed on the active index, so a
+ * slide change remounts it and restarts the fill. Two facts, two elements — which
+ * collection you are on, and how long it stays.
+ *
  * Autoplay never starts before hydration or under reduced motion (read live, so
  * turning the setting on mid-session stops it). There is deliberately no pause
  * button (user decision): hovering pauses rotation until the pointer leaves, and
@@ -221,8 +232,9 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
             data-active={index === active ? '' : undefined}
             data-leaving={index === previous ? '' : undefined}
             inert={index !== active}
-            className="absolute inset-0"
+            className="absolute inset-0 overflow-hidden"
           >
+            {/* Photographic Stage: the full frame, edge to edge, at every breakpoint */}
             {slideMediaVisible({
               index,
               active,
@@ -231,71 +243,94 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
               rotating: state === 'running' || state === 'paused',
               primed,
             }) && slide.media}
-            {slide.content}
+
+            {/* The masthead stands on the floor of the frame at every width. Its
+                bottom padding is the collection index's band plus a clear gap, so
+                the copy never crowds the hairline. */}
+            <div className="absolute inset-0 z-10 flex flex-col justify-end px-(--page-gutter) pt-(--header-h) pb-28 lg:pb-36">
+              <div className="w-full max-w-[42rem] xl:max-w-[52rem]">{slide.content}</div>
+            </div>
           </div>
         ))}
       </div>
 
       {total > 1 && (
-        <div data-hero-tabs="" className="absolute inset-x-0 bottom-0">
-          <Container as="div" className="pb-6 lg:pb-10">
-            <div
-              role="tablist"
-              aria-label={tabListLabel}
-              className="grid gap-2 md:gap-6"
-              style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}
-            >
-              {slides.map((slide, index) => {
-                const selected = index === active;
-                return (
-                  <button
-                    key={slide.key}
-                    ref={(element) => {
-                      tabRefs.current[index] = element;
-                    }}
-                    type="button"
-                    role="tab"
-                    id={`hero-tab-${slide.key}`}
-                    aria-selected={selected}
-                    aria-controls={`hero-slide-${slide.key}`}
-                    tabIndex={selected ? 0 : -1}
-                    data-hero-tab=""
-                    onClick={() => {
-                      goTo(index);
-                      setStopped(true);
-                    }}
-                    onKeyDown={onTabKeyDown}
-                    onPointerEnter={() => prime(index)}
-                    onFocus={() => prime(index - 1, index, index + 1)}
-                    className="group flex min-h-11 flex-col justify-end gap-3 text-start"
-                  >
-                    <span className="block h-px w-full overflow-hidden bg-text/30">
-                      <span
-                        data-hero-progress=""
-                        onAnimationEnd={selected ? onProgressEnd : undefined}
-                        className="block h-full w-full bg-text"
-                      />
-                    </span>
-                    {/* The label is always visible, so the current slide is shown by
-                        text weight and colour (and aria-selected), never only by the
-                        moving progress line. A responsive type pair: caption on phones. */}
-                    <span
-                      className={cn(
-                        'type-caption md:type-label truncate',
-                        'transition-colors duration-fast ease-ui',
-                        selected
-                          ? 'font-medium text-text'
-                          : 'text-text-secondary group-hover:text-text'
-                      )}
-                    >
-                      {slide.tabLabel}
-                    </span>
-                  </button>
-                );
-              })}
+        <nav
+          data-hero-tabs=""
+          aria-label={tabListLabel}
+          className="absolute inset-x-0 bottom-0 z-20"
+        >
+          <div className="px-(--page-gutter)">
+            <div className="border-t border-text/15">
+              {/* Four short names fit at 375 but not always at 320, and never with a
+                  longer collection name — the row scrolls rather than wrapping, which
+                  would put one name on a line of its own under the rule. */}
+              <div data-hero-index="" className="overflow-x-auto">
+                <div
+                  role="tablist"
+                  aria-label={tabListLabel}
+                  className="flex min-w-max items-center gap-6 sm:gap-8 lg:min-w-0 lg:w-full lg:justify-end lg:gap-12"
+                >
+                  {slides.map((slide, index) => {
+                    const selected = index === active;
+                    return (
+                      <button
+                        key={slide.key}
+                        ref={(element) => {
+                          tabRefs.current[index] = element;
+                        }}
+                        type="button"
+                        role="tab"
+                        id={`hero-tab-${slide.key}`}
+                        aria-selected={selected}
+                        aria-controls={`hero-slide-${slide.key}`}
+                        tabIndex={selected ? 0 : -1}
+                        data-hero-tab=""
+                        onClick={() => {
+                          goTo(index);
+                          setStopped(true);
+                        }}
+                        onKeyDown={onTabKeyDown}
+                        onPointerEnter={() => prime(index)}
+                        onFocus={() => prime(index - 1, index, index + 1)}
+                        className="group relative flex min-h-11 shrink-0 items-center whitespace-nowrap"
+                      >
+                        <span
+                          className={cn(
+                            'type-caption uppercase tracking-[0.2em] rtl:tracking-normal transition-colors duration-fast',
+                            selected ? 'text-text' : 'text-text-secondary/60 group-hover:text-text'
+                          )}
+                        >
+                          {slide.tabLabel}
+                        </span>
+                        {/* The current collection's rule. Brightness marks it too, so
+                            this is emphasis, not the only signal. */}
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            'pointer-events-none absolute inset-x-0 bottom-2 h-px origin-left rtl:origin-right bg-metallic transition-transform duration-base ease-editorial',
+                            selected ? 'scale-x-100' : 'scale-x-0'
+                          )}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </Container>
-        </div>
+          </div>
+
+          {/* The timer: one full-bleed line at the hero's bottom edge. Keyed on the
+              active slide, so every change restarts the fill from zero. */}
+          <span aria-hidden="true" className="block h-[2px] w-full bg-text/15">
+            <span
+              key={active}
+              data-hero-progress=""
+              onAnimationEnd={onProgressEnd}
+              className="block h-full w-full bg-luxury"
+            />
+          </span>
+        </nav>
       )}
     </div>
   );

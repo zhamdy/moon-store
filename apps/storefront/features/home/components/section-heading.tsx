@@ -10,7 +10,7 @@ export interface SectionHeadingProps {
   title: string;
   /** The quiet line under it. */
   description: string;
-  link?: { href: string; label: string };
+  link?: { href: string; label: string; tone?: 'text' | 'brand' };
   /** Milliseconds before the heading starts, for a section that shows something else first. */
   offset?: number;
   /** Render without its own Reveal, when an enclosing Reveal already triggers the section. */
@@ -62,7 +62,9 @@ export function SectionHeading({
       </div>
       {link && (
         <div data-motion="fade" style={offsetStyle(offset + 450)} className="mb-1">
-          <EditorialLink href={link.href}>{link.label}</EditorialLink>
+          <EditorialLink href={link.href} tone={link.tone ?? 'brand'}>
+            {link.label}
+          </EditorialLink>
         </div>
       )}
     </>

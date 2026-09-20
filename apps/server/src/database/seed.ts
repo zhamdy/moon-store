@@ -668,6 +668,147 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
       },
     ];
 
+    /**
+     * One short line of copy per piece, Arabic primary and English beside it. The
+     * storefront's product card shows the opening two lines of it and the product page
+     * shows all of it, so a seeded database exercises both. `MN-HJB-003` deliberately
+     * has none: a card with no description is a real state.
+     */
+    const productCopy: Record<string, { ar: string; en: string }> = {
+      'MN-DRS-001': {
+        ar: 'حرير بقصّة ميدي انسيابية، بحزام يُربط عند الخصر.',
+        en: 'Fluid silk cut to the midi, with a belt that ties at the waist.',
+      },
+      'MN-DRS-002': {
+        ar: 'تطريز يدوي على التول، لأمسية واحدة تُتذكَّر.',
+        en: 'Tulle embroidered by hand, for the evening that gets remembered.',
+      },
+      'MN-DRS-003': {
+        ar: 'كتان مغسول يتنفّس، بأكمام قصيرة وجيوب جانبية.',
+        en: 'Washed linen that breathes, with short sleeves and side pockets.',
+      },
+      'MN-KNT-001': {
+        ar: 'كشمير ناعم بياقة دائرية، يُلبس وحده أو فوق قميص.',
+        en: 'Soft cashmere with a round neck, worn alone or over a shirt.',
+      },
+      'MN-KNT-002': {
+        ar: 'صوف طويل مفتوح من الأمام، يلفّ القوام بلا ثقل.',
+        en: 'Long open wool that wraps the shape without weight.',
+      },
+      'MN-KNT-003': {
+        ar: 'تريكو خفيف بأكمام قصيرة، للطبقة الأولى في كل موسم.',
+        en: 'Fine short-sleeved knit, the first layer in every season.',
+      },
+      'MN-BAG-001': {
+        ar: 'جلد طبيعي بحزام كتف قابل للتعديل، وجيب داخلي واحد.',
+        en: 'Natural leather on an adjustable strap, with one inner pocket.',
+      },
+      'MN-BAG-002': {
+        ar: 'مخمل بإغلاق معدني ذهبي، بحجم المساء لا أكثر.',
+        en: 'Velvet with a gold clasp, sized for the evening and nothing more.',
+      },
+      'MN-BAG-003': {
+        ar: 'ظهر جلد بحمّالات مبطّنة، يتّسع لحاسوب محمول.',
+        en: 'Leather with padded straps, wide enough for a laptop.',
+      },
+      'MN-BTM-001': {
+        ar: 'قصّة واسعة من الخصر العالي حتى الكاحل، بكسرات أمامية.',
+        en: 'A wide line from the high waist to the ankle, front-pleated.',
+      },
+      'MN-BTM-002': {
+        ar: 'بليسيه ماكسي يتحرّك مع الخطوة، بخصر مطاطي.',
+        en: 'Pleats that move with the step, on an elasticated waist.',
+      },
+      'MN-BTM-003': {
+        ar: 'جينز بخصر عالٍ وقصّة مستقيمة، بقطن قاسٍ قليلًا.',
+        en: 'High-waisted denim in a straight leg, in a firmer cotton.',
+      },
+      'MN-JWL-001': {
+        ar: 'سلسلة ذهب رفيعة تُلبس وحدها أو فوق طبقات.',
+        en: 'A fine gold chain, worn alone or layered.',
+      },
+      'MN-JWL-002': {
+        ar: 'لؤلؤ طبيعي على قاعدة ذهبية، بوزن خفيف على الأذن.',
+        en: 'Natural pearls on a gold fitting, light on the ear.',
+      },
+      'MN-JWL-003': {
+        ar: 'ثلاثة خواتم تُلبس معًا أو متفرّقة، بلمسة غير لامعة.',
+        en: 'Three rings to stack or separate, in a matte finish.',
+      },
+      'MN-TOP-001': {
+        ar: 'ساتان بكتفين مكشوفين وحافة مطاطية تثبت مكانها.',
+        en: 'Satin off the shoulder, on an elasticated edge that stays put.',
+      },
+      'MN-TOP-002': {
+        ar: 'كتان أوفرسايز بأزرار صدفية، يُلبس مفتوحًا أو مغلقًا.',
+        en: 'Oversized linen with shell buttons, open or closed.',
+      },
+      'MN-TOP-003': {
+        ar: 'كروشيه مشغول يدويًا، كل قطعة تختلف قليلًا عن الأخرى.',
+        en: 'Crocheted by hand, so no two pieces are quite alike.',
+      },
+      'MN-JKT-001': {
+        ar: 'بليزر صوف بقصّة كلاسيكية وبطانة حريرية.',
+        en: 'A classic wool blazer, lined in silk.',
+      },
+      'MN-JKT-002': {
+        ar: 'ترنش بيج بحزام وأكتاف مبنية، لمطر الخريف.',
+        en: 'A belted beige trench with built shoulders, for autumn rain.',
+      },
+      'MN-SHO-001': {
+        ar: 'جلد بكعب رفيع ونعل مبطّن، بارتفاع تسعة سنتيمترات.',
+        en: 'Leather on a fine nine-centimetre heel, with a cushioned sole.',
+      },
+      'MN-SHO-002': {
+        ar: 'صندل فلات مزيّن بحبيبات يدوية، لليوم الطويل.',
+        en: 'Flat sandals beaded by hand, for the long day.',
+      },
+      'MN-SHO-003': {
+        ar: 'شمواه بكعب منخفض وسحّاب جانبي.',
+        en: 'Suede on a low heel, with a side zip.',
+      },
+      'MN-ACC-001': {
+        ar: 'حرير مطبوع بحواف مخاطة يدويًا، يُلبس على الرقبة أو الحقيبة.',
+        en: 'Printed silk with hand-rolled edges, for the neck or the bag.',
+      },
+      'MN-ACC-002': {
+        ar: 'إطار أوفرسايز بعدسات مضادة للأشعة.',
+        en: 'An oversized frame with UV lenses.',
+      },
+      'MN-ACC-003': {
+        ar: 'جلد عريض بإبزيم معدني غير لامع.',
+        en: 'Wide leather on a matte metal buckle.',
+      },
+      'MN-ABA-001': {
+        ar: 'كريب بتطريز على الأكمام، بقصّة واسعة تسقط بثبات.',
+        en: 'Crepe embroidered at the sleeve, falling wide and steady.',
+      },
+      'MN-ABA-002': {
+        ar: 'عباية يومية بألوان هادئة وقصّة مريحة.',
+        en: 'An everyday abaya in quiet colours and an easy cut.',
+      },
+      'MN-HJB-001': {
+        ar: 'شيفون سادة بحواف مخاطة، بطول متر وثمانين.',
+        en: 'Plain chiffon with stitched edges, 180 centimetres long.',
+      },
+      'MN-HJB-002': {
+        ar: 'مربع حرير مطبوع، يُلفّ بأكثر من طريقة.',
+        en: 'A printed silk square that ties more than one way.',
+      },
+      'MN-DRS-004': {
+        ar: 'حرير سليب بحمّالات رفيعة قابلة للتعديل.',
+        en: 'A silk slip on fine adjustable straps.',
+      },
+      'MN-TOP-004': {
+        ar: 'قميص حرير واسع بأزرار مخفية.',
+        en: 'A relaxed silk shirt with a concealed placket.',
+      },
+      'MN-KIM-001': {
+        ar: 'كيمونو قطن مطبوع بحزام من القماش نفسه.',
+        en: 'A printed cotton kimono with a belt in the same cloth.',
+      },
+    };
+
     // The storefront reads `slug`, `name_en` and `created_at`: slugs come from the English
     // name (or an explicit value where name_en is left null to exercise the Arabic
     // fallback), and `days_ago` spreads arrivals over 90 days so "new in" (30 days) has
@@ -677,9 +818,10 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
     for (const p of products) {
       const realDistId = distMap.get(p.dist_id) || null;
       const slug = ('slug' in p ? p.slug : null) ?? slugify(p.name_en);
+      const copy = productCopy[p.sku] ?? null;
       const res = await client.query<{ id: number }>(
-        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, min_stock, distributor_id, status, slug, name_en, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT id FROM categories WHERE name = $8), $9, $10, $11, $12, $13, $14)
+        `INSERT INTO products (name, sku, barcode, price, cost_price, stock, category, category_id, min_stock, distributor_id, status, slug, name_en, description, description_en, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT id FROM categories WHERE name = $8), $9, $10, $11, $12, $13, $14, $15, $16)
          RETURNING id`,
         [
           p.name,
@@ -695,6 +837,8 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
           ('status' in p ? p.status : null) ?? 'active',
           slug,
           p.name_en,
+          copy?.ar ?? null,
+          copy?.en ?? null,
           new Date(now - p.days_ago * DAY_MS).toISOString(),
         ]
       );

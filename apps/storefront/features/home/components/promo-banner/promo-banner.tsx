@@ -96,34 +96,36 @@ export async function PromoBanner() {
 
       <Container as="div" className="relative z-20 w-full py-(--section-space)">
         {/* Under RTL, margin-inline-start: auto pushes the block to the physical left. */}
-        <div className="max-w-xl rtl:banner-wide:ms-auto">
+        <div
+          data-surface="sand"
+          className="max-w-xl rounded-media bg-surface-alt/95 p-6 text-text shadow-sm backdrop-blur-xs md:p-10 rtl:banner-wide:ms-auto"
+        >
           <TextReveal
             as="h2"
             id="promo-banner-title"
             text={t('eyebrow')}
             offset={350}
             step={80}
-            className="type-h1 text-balance"
+            className="type-h1 text-balance text-brand"
           />
           <p
             data-motion="rise"
-            className="type-h4 mt-4 text-text-secondary [--motion-offset:600ms] [--motion-rise:24px]"
+            className="type-h4 mt-4 font-medium text-text [--motion-offset:600ms] [--motion-rise:24px]"
           >
             {t('title')}
           </p>
           <p
             data-motion="rise"
-            className="type-body-lg mt-4 max-w-md text-text/85 [--motion-offset:750ms] [--motion-rise:32px]"
+            className="type-body-lg mt-4 max-w-md text-text/90 [--motion-offset:750ms] [--motion-rise:32px]"
           >
             {t('body')}
           </p>
           {/* The button's own colour transition would replace the reveal's, so the
               wrapper carries the entrance. */}
           <div data-motion="rise" className="mt-8 [--motion-offset:950ms] [--motion-rise:24px]">
-            {/* Ivory on the ink surface: bg-text / text-bg invert with the surface. */}
             <Link
               href={promoBanner.href}
-              className="group inline-flex min-h-12 items-center gap-3 bg-text px-7 text-bg transition-colors duration-fast ease-ui hover:bg-text/85"
+              className="group inline-flex min-h-12 items-center gap-3 rounded-sm bg-brand px-7 text-brand-contrast transition-colors duration-fast ease-ui hover:bg-brand-dark"
             >
               <span className="type-label">{t('cta')}</span>
               <ArrowRight

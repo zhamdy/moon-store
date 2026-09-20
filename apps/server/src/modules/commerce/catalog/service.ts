@@ -88,6 +88,12 @@ export class CatalogService {
         rows.map((row) => row.id),
         client
       );
+      // `has_variants` is the authority here as everywhere else: a cleared flag over
+      // surviving variant rows means the product sells as one piece.
+      const variants = await this.repo.listVariantsForProducts(
+        rows.filter(rowHasVariants).map((row) => row.id),
+        client
+      );
 
       const galleryByProduct = new Map<number, string[]>();
       for (const image of gallery) {
@@ -96,9 +102,23 @@ export class CatalogService {
         galleryByProduct.set(image.product_id, list);
       }
 
+      const variantsByProduct = new Map<number, CatalogVariantRow[]>();
+      for (const variant of variants) {
+        const group = variantsByProduct.get(variant.product_id) ?? [];
+        group.push(variant);
+        variantsByProduct.set(variant.product_id, group);
+      }
+
+      // Dropped variants are not logged here, as in the quote: the product page logs
+      // them per product, and one listing would multiply that by a page of 24.
+      const derive = (row: (typeof rows)[number]) =>
+        rowHasVariants(row)
+          ? deriveVariantOptions(variantsByProduct.get(row.id) ?? [], row.price)
+          : { options: [], variants: [] };
+
       return {
         data: rows.map((row) =>
-          toCatalogProductDto(row, galleryByProduct.get(row.id) ?? [], origin)
+          toCatalogProductDto(row, galleryByProduct.get(row.id) ?? [], derive(row), origin)
         ),
         meta: {
           pagination: paginationMeta(filters.page, CATALOG_PAGE_SIZE, aggregate.total),

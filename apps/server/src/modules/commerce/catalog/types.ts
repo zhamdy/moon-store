@@ -23,15 +23,22 @@ export interface CatalogProductFilters {
   sort: CatalogSort;
 }
 
-/** A listing row. `id` is internal (joins, gallery lookup) and never mapped out. */
+/**
+ * A listing row. `id` (joins, gallery and variant lookup) and `has_variants` (which
+ * stock counts, and whether the row's variants are read at all) are internal and never
+ * mapped out.
+ */
 export interface CatalogProductRow {
   id: number;
   slug: string;
   name: string;
   name_en: string | null;
+  description: string | null;
+  description_en: string | null;
   /** NUMERIC: a string from node-postgres, a number from pg-mem. */
   price: string | number;
   image_url: string | null;
+  has_variants: string | number | boolean | null;
   is_new: boolean;
   in_stock: boolean;
 }
@@ -110,10 +117,16 @@ export interface CatalogProductDto {
   slug: string;
   name: string;
   nameEn: string | null;
+  /** The full stored description; the storefront's card clamps it, nothing is truncated here. */
+  description: string | null;
+  descriptionEn: string | null;
   price: number;
   images: CatalogImageDto[];
   isNew: boolean;
   inStock: boolean;
+  /** Derived exactly as on the detail (`deriveVariantOptions`); empty without variants. */
+  options: CatalogOptionDto[];
+  variants: CatalogVariantDto[];
 }
 
 export interface CatalogContextDto {

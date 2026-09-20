@@ -91,7 +91,8 @@ function buildScoped(resolved: ResolvedProductQuery): BuiltQuery {
     where.push(NEW_WINDOW_SQL);
   }
 
-  const scoped = `SELECT p.id, p.slug, p.name, p.name_en, p.price, p.image_url, p.created_at${positionColumn},
+  const scoped = `SELECT p.id, p.slug, p.name, p.name_en, p.description, p.description_en,
+            p.price, p.image_url, p.has_variants, p.created_at${positionColumn},
             (${NEW_WINDOW_SQL}) AS is_new,
             ${IN_STOCK_SQL} AS in_stock
        FROM products p
@@ -195,7 +196,8 @@ export class CatalogRepository {
     params.push(CATALOG_PAGE_SIZE, (resolved.filters.page - 1) * CATALOG_PAGE_SIZE);
 
     const { rows } = await db.query<CatalogProductRow>(
-      `SELECT s.id, s.slug, s.name, s.name_en, s.price, s.image_url, s.is_new, s.in_stock
+      `SELECT s.id, s.slug, s.name, s.name_en, s.description, s.description_en, s.price,
+              s.image_url, s.has_variants, s.is_new, s.in_stock
          FROM (${scoped}) s
          ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}
         ORDER BY ${orderBy(resolved.filters)}

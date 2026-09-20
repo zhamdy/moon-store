@@ -4,6 +4,9 @@ import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
 import { EditorialLink } from '@/components/ui/editorial-link';
 import type { AppLocale } from '@/i18n/routing';
+import { QuickAdd } from '@/features/cart/components/quick-add';
+import { getQuickAddStrings } from '@/features/cart/utils/bag-strings';
+import { toQuickAddModel } from '@/features/cart/utils/quick-add-model';
 import { listCatalogProducts } from '@/features/products/api/list-catalog-products';
 import { ProductCard } from '@/features/products/components/product-card';
 import type { CatalogPriceRange } from '@/features/products/types/catalog-product';
@@ -73,6 +76,10 @@ export async function ProductGrid({
   );
   const t = await getTranslations('catalog');
   const tp = await getTranslations('products');
+  const tpr = await getTranslations('product');
+  // Resolved once for the page, not per card: the island takes strings, never the
+  // catalogue (the client boundary rule).
+  const quickAddStrings = await getQuickAddStrings(locale);
 
   const variant = catalogEmptyVariant({
     route,
@@ -85,6 +92,7 @@ export async function ProductGrid({
   const showControls = variant === null || variant === 'filtered' || variant === 'outOfRange';
   const badgeLabels = { new: tp('new'), soldOut: tp('soldOut') };
   const currencyLabel = tp('currency');
+  const priceFromLabel = tpr.raw('priceFrom') as string;
 
   return (
     <Container
@@ -135,7 +143,11 @@ export async function ProductGrid({
                     locale={locale}
                     currencyLabel={currencyLabel}
                     badgeLabels={badgeLabels}
+                    priceFromLabel={priceFromLabel}
                     sizes={CATALOG_GRID_SIZES}
+                    action={
+                      <QuickAdd product={toQuickAddModel(dto, locale)} strings={quickAddStrings} />
+                    }
                     {...catalogImageLoading(index)}
                   />
                 </li>

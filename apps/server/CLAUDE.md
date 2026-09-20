@@ -429,6 +429,16 @@ test change, deliberately.
 
 - Only `status = 'active'` products with a slug; `inStock` follows `has_variants` (summed
   variant stock, else own stock); `isNew` is `NEW_IN_DAYS` (30, `constants.ts`), in SQL.
+- **The listing item carries `options` and `variants`** (2026-09-20), derived by the same
+  `deriveVariantOptions` the detail and the quote use, from one batched
+  `listVariantsForProducts` read over the page's products with `has_variants = 1` — the
+  quote's read, the quote's grouping, the quote's tie-break. The storefront card's Quick
+  Add selects from them, so deriving them a second way here would let a card offer a size
+  the product page refuses. Dropped variants are **not** logged on this path (the detail
+  logs per product; a page of 24 would multiply it). Stock stays internal: a listed
+  variant carries `inStock` alone, as on the detail. Cost: one more query per listing,
+  and `tests/catalog.test.ts` pins that a listed product's options, variants and
+  description are byte-identical to its detail's.
 - Strict query grammar: unknown parameter, `category`/`collection`/`new` together,
   `sort=curated` without `collection`, `priceMin > priceMax`, a price not a multiple of 50,
   or `page` outside 1-500 is a 400. Page size is fixed at 24.
@@ -456,8 +466,10 @@ collections) run in one `runCatalogRead`. The rules, pinned in `tests/catalog.te
 - **Images:** primary, then gallery by position, capped at `CATALOG_DETAIL_IMAGE_COUNT` (9)
   in the mapper, because `product_images` has no database limit (only the dashboard caps
   the gallery at 8). `productImages` takes the cap as an argument; the listing passes 2.
-- **Details:** `material`, `care`, `fit` and their `En` twins (016) are detail-only, like the
-  descriptions; the listing DTO key set does not change.
+- **Details:** `material`, `care`, `fit` and their `En` twins (016) are detail-only. The
+  `description`/`descriptionEn` pair is **not**: the listing carries it too (2026-09-20),
+  untruncated, because the storefront's product card shows the product's own short copy
+  and inventing one in the client is the alternative.
 - **Context:** `category` via a LEFT JOIN, `null` when there is none or it has no slug;
   `collections` are the public statuses only, in `listCollections` order.
 - **Options** are derived by the pure `deriveVariantOptions` (`mappers.ts`), and only when

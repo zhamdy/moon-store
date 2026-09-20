@@ -8593,7 +8593,19 @@ export const openApiSpec = {
                       items: {
                         type: 'object',
                         additionalProperties: false,
-                        required: ['slug', 'name', 'nameEn', 'price', 'images', 'isNew', 'inStock'],
+                        required: [
+                          'slug',
+                          'name',
+                          'nameEn',
+                          'description',
+                          'descriptionEn',
+                          'price',
+                          'images',
+                          'isNew',
+                          'inStock',
+                          'options',
+                          'variants',
+                        ],
                         properties: {
                           slug: {
                             type: 'string',
@@ -8604,6 +8616,13 @@ export const openApiSpec = {
                             description: 'Primary (Arabic) name.',
                           },
                           nameEn: {
+                            type: ['string', 'null'],
+                          },
+                          description: {
+                            type: ['string', 'null'],
+                            description: 'The stored description, untruncated.',
+                          },
+                          descriptionEn: {
                             type: ['string', 'null'],
                           },
                           price: {
@@ -8631,6 +8650,55 @@ export const openApiSpec = {
                           },
                           inStock: {
                             type: 'boolean',
+                          },
+                          options: {
+                            type: 'array',
+                            description:
+                              'Derived exactly as on the product detail; empty without variants.',
+                            items: {
+                              type: 'object',
+                              additionalProperties: false,
+                              required: ['key', 'label', 'values'],
+                              properties: {
+                                key: {
+                                  type: 'string',
+                                  example: 'size',
+                                },
+                                label: {
+                                  type: 'string',
+                                  example: 'Size',
+                                },
+                                values: {
+                                  type: 'array',
+                                  items: {
+                                    type: 'string',
+                                  },
+                                  example: ['S', 'M', 'L'],
+                                },
+                              },
+                            },
+                          },
+                          variants: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              additionalProperties: false,
+                              required: ['options', 'price', 'inStock'],
+                              properties: {
+                                options: {
+                                  type: 'object',
+                                  additionalProperties: {
+                                    type: 'string',
+                                  },
+                                },
+                                price: {
+                                  type: 'number',
+                                },
+                                inStock: {
+                                  type: 'boolean',
+                                },
+                              },
+                            },
                           },
                         },
                       },

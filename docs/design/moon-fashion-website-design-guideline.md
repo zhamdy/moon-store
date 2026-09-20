@@ -656,19 +656,14 @@ Keep movement slow and elegant.
 
 ## 03 — New Arrivals
 
-Clean product grid.
+Full-width heading with the collection link and arrow controls, above a uniform
+portrait product rail. Keep the existing ivory, ink and bronze palette.
 
-Suggested desktop:
-```text
-4 columns
-```
-
-Mobile:
-```text
-2 columns
-```
-
-Avoid over-animating every card.
+- Desktop: three equal cards and a glimpse of the next photograph.
+- Tablet: two cards and a glimpse; phone: one generous card and a glimpse.
+- Stack product name and price; keep Add to Bag visible below each caption.
+- Manual swipe/drag and arrows, no autoplay. Progress rule below the products.
+- Use the existing shared entrance and image hover motion.
 
 ---
 
