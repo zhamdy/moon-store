@@ -16,8 +16,12 @@ import { Lookbook } from '@/features/home/components/lookbook/lookbook';
 /**
  * The homepage composes the guideline §12 sections in order, minus Newsletter
  * (§12·11, excluded by the brief). Each section owns its container/bleed and
- * background decision; the page only sequences them. Static (SSG) for both
- * locales — nothing here reads request data.
+ * background decision; the page only sequences them.
+ *
+ * Still prerendered for both locales: nothing here reads request data. New
+ * Arrivals reads the catalog (2026-09-20) on the listing's own 60s revalidate,
+ * and falls back to the static set when there is no API to read — so the page
+ * keeps rendering, and keeps building, without one.
  */
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
