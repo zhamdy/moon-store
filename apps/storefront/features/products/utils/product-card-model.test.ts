@@ -8,6 +8,8 @@ function dto(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
     slug: 'silk-slip-dress',
     name: 'فستان حريري',
     nameEn: 'Silk slip dress',
+    description: 'قصّة انسيابية من الحرير الطبيعي',
+    descriptionEn: 'A fluid cut in natural silk',
     price: 2850,
     images: [
       { url: 'https://media.example.com/a.jpg' },
@@ -15,6 +17,8 @@ function dto(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
     ],
     isNew: false,
     inStock: true,
+    options: [],
+    variants: [],
     ...overrides,
   };
 }
@@ -25,7 +29,9 @@ describe('fromCatalogDto', () => {
     expect(model).toEqual({
       href: '/products/silk-slip-dress',
       name: { text: 'Silk slip dress', lang: 'en' },
+      description: { text: 'A fluid cut in natural silk', lang: 'en' },
       price: 2850,
+      priceFrom: false,
       primary: { kind: 'remote', url: 'https://media.example.com/a.jpg' },
       secondary: { kind: 'remote', url: 'https://media.example.com/b.jpg' },
       badge: null,
@@ -62,6 +68,45 @@ describe('fromCatalogDto', () => {
     expect(fromCatalogDto(dto({ inStock: true, isNew: true }), 'en').badge).toBe('new');
     expect(fromCatalogDto(dto({ inStock: true, isNew: false }), 'en').badge).toBeNull();
   });
+
+  it('shows the lowest variant price as "from" only when the variants differ', () => {
+    const varied = fromCatalogDto(
+      dto({
+        options: [{ key: 'size', label: 'Size', values: ['S', 'M'] }],
+        variants: [
+          { options: { size: 'S' }, price: 2850, inStock: true },
+          { options: { size: 'M' }, price: 3100, inStock: true },
+        ],
+      }),
+      'en'
+    );
+    expect(varied).toMatchObject({ price: 2850, priceFrom: true });
+
+    const level = fromCatalogDto(
+      dto({
+        options: [{ key: 'size', label: 'Size', values: ['S', 'M'] }],
+        variants: [
+          { options: { size: 'S' }, price: 2850, inStock: true },
+          { options: { size: 'M' }, price: 2850, inStock: false },
+        ],
+      }),
+      'en'
+    );
+    expect(level).toMatchObject({ price: 2850, priceFrom: false });
+  });
+
+  it('falls back to the Arabic description on an English page, and says so through lang', () => {
+    expect(fromCatalogDto(dto({ descriptionEn: null }), 'en').description).toEqual({
+      text: 'قصّة انسيابية من الحرير الطبيعي',
+      lang: 'ar',
+    });
+  });
+
+  it('has no description line when the product carries no copy', () => {
+    expect(
+      fromCatalogDto(dto({ description: null, descriptionEn: null }), 'ar').description
+    ).toBeNull();
+  });
 });
 
 describe('fromHomeMock', () => {
@@ -70,6 +115,8 @@ describe('fromHomeMock', () => {
     expect(fromHomeMock(mock, 'en')).toEqual({
       href: `/products/${mock.slug}`,
       name: { text: mock.name.en, lang: 'en' },
+      description: null,
+      priceFrom: false,
       price: mock.price,
       primary: { kind: 'static', slot: mock.images.a },
       secondary: { kind: 'static', slot: mock.images.b },

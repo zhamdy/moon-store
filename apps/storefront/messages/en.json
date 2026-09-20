@@ -31,7 +31,12 @@
   "products": {
     "new": "New",
     "soldOut": "Sold out",
-    "currency": "EGP"
+    "currency": "EGP",
+    "addToBag": "Add to Bag",
+    "addToBagLabel": "Add to Bag, {name}",
+    "chooseOptions": "Choose options, {name}",
+    "closeOptions": "Close the options",
+    "viewDetails": "View details"
   },
   "categories": {
     "dresses": "Dresses",
@@ -96,7 +101,10 @@
     "newArrivals": {
       "eyebrow": "Just in",
       "title": "New Arrivals",
-      "link": "View all"
+      "link": "View all",
+      "previous": "Previous products",
+      "next": "Next products",
+      "lead": "The newest pieces, from the last thirty days."
     },
     "banner": {
       "eyebrow": "New collection",

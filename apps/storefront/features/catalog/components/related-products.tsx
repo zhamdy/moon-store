@@ -4,6 +4,9 @@ import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
 import { EditorialLink } from '@/components/ui/editorial-link';
 import type { AppLocale } from '@/i18n/routing';
+import { QuickAdd } from '@/features/cart/components/quick-add';
+import { getQuickAddStrings } from '@/features/cart/utils/bag-strings';
+import { toQuickAddModel } from '@/features/cart/utils/quick-add-model';
 import { ProductCard } from '@/features/products/components/product-card';
 import type { CatalogProductDetail } from '@/features/products/types/catalog-product-detail';
 import { localizedName } from '@/features/products/utils/localized-name';
@@ -42,6 +45,8 @@ export async function RelatedProducts({ locale, product }: RelatedProductsProps)
   const [before = '', after = ''] = (t.raw('related.description') as string).split('{name}');
   const badgeLabels = { new: tp('new'), soldOut: tp('soldOut') };
   const currencyLabel = tp('currency');
+  const priceFromLabel = t.raw('priceFrom') as string;
+  const quickAddStrings = await getQuickAddStrings(locale);
 
   return (
     <Container as="section" aria-labelledby={HEADING_ID} className={SECTION_CLASS}>
@@ -82,7 +87,11 @@ export async function RelatedProducts({ locale, product }: RelatedProductsProps)
                 locale={locale}
                 currencyLabel={currencyLabel}
                 badgeLabels={badgeLabels}
+                priceFromLabel={priceFromLabel}
                 sizes={RELATED_GRID_SIZES}
+                action={
+                  <QuickAdd product={toQuickAddModel(dto, locale)} strings={quickAddStrings} />
+                }
               />
             </li>
           );
@@ -103,10 +112,14 @@ export function RelatedProductsSkeleton() {
         {Array.from({ length: RELATED_LIMIT }, (_, index) => (
           <li key={index}>
             <div className="aspect-4/5 rounded-media bg-surface-soft" />
-            <div className="mt-4 flex h-[1.6rem] items-center justify-between gap-4">
-              <span className="block h-3.5 w-3/5 bg-surface-soft" />
-              <span className="block h-3.5 w-12 bg-surface-soft" />
+            {/* The card's caption and its action, at the card's own heights: name and
+              price on one baseline, two clamped description lines, a 48px button. */}
+            <div className="mt-3 flex items-baseline justify-between gap-3">
+              <span className="block h-[1.7rem] w-3/5 bg-surface-soft" />
+              <span className="block h-[1.36rem] w-20 bg-surface-soft" />
             </div>
+            <span className="mt-1.5 block h-[2.72rem] bg-surface-soft" />
+            <span className="mt-4 block h-12 bg-surface-soft" />
           </li>
         ))}
       </ul>

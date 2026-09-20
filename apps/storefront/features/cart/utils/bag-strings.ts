@@ -34,6 +34,37 @@ export interface AddToBagStrings {
   };
 }
 
+/**
+ * The product card's Add to Bag and its Quick Add panel (`components/quick-add.tsx`).
+ * Mostly the same messages as the product page's: the card's own strings are the named
+ * button labels, which is what tells 24 identical buttons apart to a screen reader.
+ */
+export interface QuickAddStrings {
+  addToBag: string;
+  /** `{name}`: the button's accessible name when a press adds. */
+  addToBagLabel: string;
+  /** `{name}`: its accessible name when a press opens the options instead. */
+  chooseOptions: string;
+  closeOptions: string;
+  soldOut: string;
+  /** `{option}`: the group's legend while unanswered, and the error when a press needs it. */
+  chooseOption: string;
+  /** `{option}`, `{value}`: the legend once answered. */
+  selected: string;
+  /** `{value}` */
+  valueSoldOut: string;
+  /** The two option keys the storefront translates; any other key keeps the staff label. */
+  optionLabels: { size: string; color: string };
+  /** `{name}` */
+  added: string;
+  /** `{name}`, `{count}` */
+  addedQuantity: string;
+  /** `{max}` */
+  capped: string;
+  full: string;
+  viewBag: string;
+}
+
 export interface BagTriggerStrings {
   /** The link's name when the bag is empty or not hydrated. */
   label: string;
@@ -190,6 +221,30 @@ export async function getAddToBagStrings(locale: AppLocale): Promise<AddToBagStr
       increase: t.raw('increase') as string,
       decrease: t.raw('decrease') as string,
     },
+  };
+}
+
+export async function getQuickAddStrings(locale: AppLocale): Promise<QuickAddStrings> {
+  const [t, tp, tps] = await Promise.all([
+    bagTranslations(locale),
+    getTranslations({ locale, namespace: 'product' }),
+    getTranslations({ locale, namespace: 'products' }),
+  ]);
+  return {
+    addToBag: tps('addToBag'),
+    addToBagLabel: tps.raw('addToBagLabel') as string,
+    chooseOptions: tps.raw('chooseOptions') as string,
+    closeOptions: tps('closeOptions'),
+    soldOut: tps('soldOut'),
+    chooseOption: tp.raw('chooseOption') as string,
+    selected: tp.raw('options.selected') as string,
+    valueSoldOut: tp.raw('options.valueSoldOut') as string,
+    optionLabels: { size: tp('options.size'), color: tp('options.color') },
+    added: t.raw('added') as string,
+    addedQuantity: t.raw('addedQuantity') as string,
+    capped: t.raw('notice.capped') as string,
+    full: t('notice.full'),
+    viewBag: t('viewBag'),
   };
 }
 

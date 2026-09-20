@@ -31,7 +31,12 @@
   "products": {
     "new": "جديد",
     "soldOut": "نفدت الكمية",
-    "currency": "ج.م"
+    "currency": "ج.م",
+    "addToBag": "أضيفي إلى الحقيبة",
+    "addToBagLabel": "أضيفي {name} إلى الحقيبة",
+    "chooseOptions": "اختاري المواصفات، {name}",
+    "closeOptions": "إغلاق المواصفات",
+    "viewDetails": "عرض التفاصيل"
   },
   "categories": {
     "dresses": "فساتين",
@@ -96,7 +101,10 @@
     "newArrivals": {
       "eyebrow": "جديدنا",
       "title": "وصل حديثًا",
-      "link": "عرض الكل"
+      "link": "عرض الكل",
+      "previous": "المنتجات السابقة",
+      "next": "المنتجات التالية",
+      "lead": "أحدث القطع، من آخر ثلاثين يومًا."
     },
     "banner": {
       "eyebrow": "مجموعة جديدة",

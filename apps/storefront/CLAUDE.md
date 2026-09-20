@@ -149,8 +149,8 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to eighteen entries
-(nineteen files):
+Server Components by default (R21/R22). `'use client'` is limited to twenty entries
+(twenty-one files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -230,6 +230,33 @@ Server Components by default (R21/R22). `'use client'` is limited to eighteen en
    `useBagController`. Its rules are `features/checkout/utils/*` and
    `features/cart/utils/checkout-readiness.ts`, unit-tested.
 
+19. `features/home/components/new-arrivals/product-rail.tsx` — the New Arrivals
+   composition: the masthead/rail grid, the controls, their disabled edges, the
+   progress rule and the mouse drag.
+   Everything else about that rail is CSS scroll-snap (`[data-rail]` in
+   `app/globals.css`): the scrolling, the snapping, touch swipe, the reading
+   direction and the cards' keyboard order are the browser's. Takes the heading
+   block, the "View all" link and the cards server-rendered as `ReactNode`s and the
+   two control labels as resolved strings, the `HeroCarousel` contract; it renders no
+   product and resolves no message. From 1024 it lays the masthead (title, rule, lead
+   line, View all, controls, progress) in a column of its own and the rail beside it,
+   bleeding off the page's inline end (`data-rail-inset`); below that the masthead is
+   above a full-bleed rail with the rule under it. Its released-drag pitch is measured
+   across the **last two** items, since the rail opens with a wider lead card. **It never autoplays** (brief, 2026-09-20), so
+   unlike the hero it needs no WCAG 2.2.2 stop mechanism. Its rules are
+   `rail-scroll.ts` (`railEdges`, `railStep`, `snapTarget`), unit-tested.
+
+20. `features/cart/components/quick-add.tsx` — Add to Bag and Quick Add on a product
+   card (owner brief, 2026-09-20). Takes a pure `QuickAddModel` (`utils/quick-add-model.ts`)
+   and resolved `QuickAddStrings` (`getQuickAddStrings`), and owns only its selection, its
+   panel's open state and the "choose a size" prompt. Every rule it applies already existed:
+   `variant-selection.ts` for availability and readiness, `addToBagIntent`/`addToBagToast`
+   for the press and the acknowledgement, the one `cart-store` `add` for the write. Its own
+   rule, `quickAddPress`, is the card-level one — add, open the panel, or sold out — and is
+   unit-tested. The panel is `absolute` under the button, so opening one card's options
+   never reflows the grid or the rail; Escape and an outside pointer close it and return
+   focus to the button. One piece per press: no stepper on a card.
+
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
 
@@ -287,12 +314,14 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
 
 1. **Hero** — CSS keyed on the carousel's `data-active` / `data-leaving`, so the first
    slide plays from the server HTML with no JS. Sequence on load and on every change:
-   image 1.08 → 1 from 120ms, the masked title (one mask) at 300ms, the description
-   fade-up at 420ms, copy at 540ms, link at 660ms; the tab row settles at 750ms on
-   load. The outgoing slide fades over 1s while its image drifts to 1.04, its title
-   exits upward through the same mask and the description, copy and link fade out. Progress bars are empty before hydration
-   (`idle`), fill over 7s while rotating, and refill quickly on each manual change once
-   stopped.
+   image 1.08 → 1 from 120ms, the eyebrow at 120ms, the masked collection name (one
+   mask) at 240ms, the description fade-up at 420ms, link at 560ms; the collection index
+   settles at 750ms on load. The outgoing slide fades over 1s while its image drifts to
+   1.04, its name exits upward through the same mask and the eyebrow, description and
+   link fade out. Rotation shows as **one** progress line at the hero's bottom edge, not
+   one bar per name (2026-09-20): empty before hydration (`idle`), filling over 7s while
+   rotating, refilling quickly on each manual change once stopped. React keys it on the
+   active index, so a slide change remounts it and the fill restarts from zero.
 2. **Scroll reveal** — `<Reveal>` is a *trigger*, not an effect. The server HTML is the
    visible state; on mount `decideInitialRevealState` (`reveal-policy.ts`, unit-tested)
    marks only elements entirely below the fold as `pending`, never under reduced motion,
@@ -343,20 +372,35 @@ renders as a `<p>` under it:
 
 | Where | Heading | Description |
 | --- | --- | --- |
-| Hero slides | `h2` in one line mask, 300ms | `title1` + `title2` space-joined, one `type-h4 text-text-secondary` line, fade-up 420ms |
-| New Arrivals, Categories, The Edit (`SectionHeading`) | `h2` `type-h2`, rise at offset +120 | `type-body-lg text-text-secondary`, fade at +240 |
+| Hero slides | the collection name as `h2` at `type-display md:type-display-xl`, one line mask, 240ms, under a gold `type-caption` eyebrow at 120ms | `title1` + `title2` + `body` space-joined, one upright `type-body-lg text-text-secondary` paragraph capped at 38ch, fade-up 420ms |
+| Categories, The Edit (`SectionHeading`) | `h2` `type-h2`, rise at offset +120 | `type-body-lg text-text-secondary`, fade at +240 |
+| New Arrivals (its own header, 2026-09-20) | `h2` `type-h2` — the commerce level, not the signature `type-h1`: the promo banner sits directly below at that size and matching it had the heading competing with the page — rise at +120, then a 40–48px gold rule fading at +280 | **none.** `eyebrow` and `title` are synonyms; stacked they stuttered and locked to one baseline they still read as the same words twice, so the section states itself once and the rule does the editorial work (owner decision, 2026-09-20, after two passes). `title` stays in both catalogues, unused by this composition. "View all" and the two carousel controls make one cluster at the inline end, fading at +450 |
 | Promo banner | `TextReveal` `h2` `type-h1`, 350ms | `type-h4 text-text-secondary`, rise 600ms (body 750, button 950) |
 | Featured collection | `TextReveal` `h2` `type-h2 lg:type-h1`, 400ms | `type-h4 text-text-secondary`, rise 600ms (body 750) |
 | Catalog `PageIntro` | `h1` `type-h1` = the page's own name (category, collection, "New In"; "Shop" on `/shop`, "Collections" on `/collections`), rise 120ms | the context line `type-body-lg text-text-secondary`, fade 240ms: "Shop" linked to `/shop` (category, New In), "Collections" linked to `/collections` (collection), plain "All pieces" (`/shop`), omitted on `/collections`. One pure rule, `catalogIntroHeadings` (`utils/intro-heading.ts`), unit-tested with a guard that two categories or collections never share an `h1` (#200 correction, owner, 2026-09-15; the eyebrow swap had made every category `h1` "Shop") |
 
 Signature descriptions are `type-h4` so they stay distinct from the body line under
-them; commerce ones are `type-body-lg`. A collection card's season · year now sits under
+them; commerce ones are `type-body-lg`. **The hero is the exception** (owner decision,
+2026-09-20): it has no body line left to stay distinct from — subtitle and body are one
+paragraph — so its description is `type-body-lg`, and it is never italic, because Tajawal
+ships no italic face and the Arabic locale would get a synthesized oblique. The hero panel
+also no longer renders a `01 / 04` counter or the gold divider: the tab strip marks the
+current slide and each tabpanel's `aria-label` carries "1 of 4", and the strip itself now
+shows collection names only, with no numeral — redesigned the same day as the **collection
+index**: one line of names under a hairline that runs gutter to gutter, at the inline end from
+1024 so it balances the masthead at the inline start, the current one ivory over dimmed ivory
+with a gold rule under it (brightness *and* a rule, never colour alone). The four equal columns
+each carrying their own progress bar are what made a campaign read as a row of tabs. The row
+scrolls sideways rather than wrapping when four names do not fit (320px, or a longer name).
+The hero's CTA keeps `EditorialLink` but takes its new `underline="always"`: the rule is drawn
+at rest and goes gold with the text, because a hero affordance that appears only under a
+pointer is not one on a touch screen. A collection card's season · year now sits under
 its name, not above it. The label wipe (`data-motion="wipe"`, `data-enter="wipe"`) is
 gone with the eyebrows; don't reintroduce it as a heading device.
 
 **Signature vs commerce entrances** (AD-11, 2026-09-14). The word-masked `TextReveal`
 belongs to the signature moments only: the promo banner, the featured collection and
-the campaign. `SectionHeading` (New Arrivals, Categories, The Edit) raises its title
+the campaign. `SectionHeading` (Categories, The Edit) raises its title
 once and fades its description, and the catalog's `PageIntro` (an `h1`, not a
 `SectionHeading`) uses the same entrance. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
 settle) is for one feature card per section, like The Edit's first card and the first
@@ -389,8 +433,25 @@ survives leaving and re-entering the viewport. The state union (`idle | running
 unit-tested. The global reduced-motion rule zeroes animation and
 transition *delays* as well as durations — with `fill-mode: both`, a zero-duration
 animation would otherwise hold its `from` state for the whole stagger. Embla is
-installed but unused: CSS scroll-snap gives the category and lookbook rails swipe,
-keyboard and RTL for free.
+installed but unused: CSS scroll-snap gives the category and lookbook rails — and
+the New Arrivals carousel — swipe, keyboard and RTL for free.
+
+**Product rail** — `[data-rail]` in `app/globals.css` is the one carousel
+geometry: a scroll-snap scroller that pulls out by one gutter and pads itself back,
+so its `100%` is the container's content column and `--rail-visible` (1.25 / 2.8 /
+4.2 at 0 / 768 / 1024) is an honest fractional card count at every width, past
+`--container-max` included. The fraction is the point: part of the next card is
+always in view, which is what says the row goes on sideways. `--rail-visible` is
+`min(step, var(--rail-count))`, so a set shorter than the step fills the column
+instead of leaving a stub of empty track — but note what that means: **a set at or
+below the step has nothing to scroll, so the controls and the progress rule hide
+themselves and the carousel is a row.** A four-item fallback did exactly that once
+(2026-09-20) and silently deleted the feature; `FALLBACK_PRODUCTS` is eight for
+that reason, not for variety. `product-rail.tsx` adds
+the controls, the gold progress hairline and a mouse drag; a drag past 6px turns
+snapping off (`data-dragging`, since a mandatory snap fights a dragged
+`scrollLeft` every frame), re-snaps on release through `snapTarget`, and swallows
+the click it would otherwise end in.
 
 ## Image pipeline
 
@@ -425,9 +486,25 @@ Every homepage image is a static import behind one registry, swappable by file d
   focused. The freeze capture measured all four photographs downloading before any
   interaction without it. Everything else is a single lazy import with
   `placeholder="blur"` and an honest `sizes`.
-- Hero photographs keep the figure in the middle of the frame with empty floor below, and
-  the hero copy column is `max-w-[26rem]`: the text sits bottom-left in English and
-  bottom-right in Arabic and clears the figure in both without mirroring the photograph.
+- Hero photographs keep the figure in the middle of the frame with empty floor below. That
+  composition was for the split stage, where the copy sat on the floor; the hero is now
+  full-bleed (`sizes: '125vw'`) with the copy overlaid and bottom-anchored at every width, so
+  each slide crops the floor back with a zoom in `hero-slides.ts`'s `imageClassName`
+  (`object-*` + a matching `origin-*` + `scale-125`). `scale-*` is Tailwind's standalone
+  `scale` property, so it multiplies with the entrance keyframes' `transform: scale(1.08)`
+  rather than replacing it. **`sizes` must stay at or above the largest slide zoom** or the
+  optimizer picks a source that is then upsampled. The masthead is `max-w-[42rem]`
+  (`xl:max-w-[52rem]`) at the inline start in both locales — wide enough that a collection
+  name at `type-display-xl` is never broken to fit prose, with only the paragraph held to a
+  38ch measure. The photograph is still never mirrored, and contrast comes from the scrims,
+  not the image. **Two scrims, both horizontal bands** (2026-09-20): a header band on top and
+  one floor gradient (`h-[92%] lg:h-[88%]`, 0.95 → 0.78 at 48% → transparent) the masthead and
+  the collection index stand on. The 52%-wide inline-start wash at 0.95 is gone — it divided
+  the frame into a lit half and a dark half, which is what made the hero read as a banner with
+  a panel rather than a campaign. The floor's stops are tuned against the masthead's height
+  (its top edge sits ~300px above the floor on phones, ~410px on desktop, landing near the
+  `via` stop at about 0.75 alpha); re-check them if the type scale or the hero's bottom
+  padding changes.
   The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
   other slides are `hero-<collection>-desktop` / `-mobile`.
 - The promo banner and the campaign put their copy on the photograph's empty side, on the
@@ -603,13 +680,63 @@ products are seeded without images, so a fresh dev database shows the no-image s
 `ProductCard` never sees a data source: it renders a `ProductCardModel` built by
 `fromHomeMock` (static registry slots, blur kept) or `fromCatalogDto` (remote URLs).
 One badge at most, and sold out wins over new (it changes what the shopper can do);
-sold out never greys the photograph and the price stays. Badge colours (owner, 2026-09-15):
-"New" is `bg-brand-soft text-brand-dark` (~4.9:1), "Sold out" `bg-action text-on-action`
-(ink), both `rounded-media-sm`; the product page's sold-out status line uses the same ink badge. No photograph shows the frame
-with a small, faint brand mark, deliberately unlike the flat `ProductGridSkeleton`, so
-a missing image never reads as loading. A name in another language than the page
-carries `lang` and `dir="auto"`. The hover image is `display: none` on touch and below
-768 (`.hover-alt-image`), so it is never downloaded there.
+sold out never greys the photograph and the price stays.
+
+**The editorial commerce tile** (owner brief, 2026-09-20, superseding the caption-only
+tile of the same morning). A photograph, a caption that says enough to choose by, and
+one action — nothing else. No wishlist, no rating, no icon strip, no second badge row,
+and no "View details" link: the title already opens the product page, and a second
+anchor would double every card's tab stops to reach it while competing with the one
+action.
+
+- **Frame**: a **4:5** photograph on `bg-surface-soft` with `rounded-media` (12px), no
+  border, no shadow, no plate. The 2026-09-20 bare-3:4 pass is reverted: pale garments
+  on an ivory page have no edge of their own, so the radius and the sand surface are
+  what draw the tile, and the `data-motion="image"` wipe matches the frame with no
+  `--radius-media` override. The editorial assets are authored at 4:5.
+- **Badge**: printed on the photograph again (top inline start), `type-caption`,
+  uppercase, tracked `0.22em` (untracked in Arabic), bronze for New and ink for Sold
+  out. It is last inside the frame, and the caption below is what the link names, so
+  the reading order stays "&lt;name&gt;, &lt;price&gt;".
+- **Caption**: name and price on one baseline, then the description. The name is
+  `type-body-lg`, weight 500, **full ink**, in the display face (set on
+  `[data-product-name]`), `min-w-0` and `text-balance`; the price is `type-small`,
+  weight 500, full ink, `tabular-nums`, `shrink-0` at the inline end — quieter than the
+  name, never hard to find. `priceFrom` (the product page's own `displayedPrice` rule,
+  not a second one) turns it into "From {price}" when variants differ; the caller passes
+  `product.priceFrom` as `priceFromLabel`.
+- **Description**: the product's *own* stored copy (`localizedDescription` over the
+  listing DTO's `description`/`descriptionEn`, added to the API on 2026-09-20), secondary
+  ink, `type-small`, clamped to two lines whose height is reserved (`min-h-[2.72rem]`, the
+  rem value rather than `2lh`), so a row stays level and the buttons line up. Nothing is
+  written here and nothing is truncated server-side. A mock carries none, and a product
+  with no copy simply has no line.
+- **Action**: the `action` slot, composed by the page (`features/cart`'s `QuickAdd`), at
+  `mt-auto` so a wrapped name never leaves one card's button low. `features/products`
+  still imports nothing from `features/cart` — the product page composes Add to Bag into
+  the purchase panel the same way (CD-11).
+
+**Two registers, one component** (owner brief, 2026-09-20). `emphasis="supporting"` is
+the tile above, the one every listing uses. `emphasis="lead"` is the art-directed card
+the New Arrivals rail opens with: the name at `type-h4` in the display face, the price
+on its own line, three clamped lines of copy (`min-h-[4.8rem]`, `max-w-[46ch]`), a
+filled action (`QuickAdd emphasis="solid"`) and a `detailsLabel` link beside it. Only a
+lead card carries that second anchor — on a tile it would double the tab stops to reach
+the page the title already opens. Everything else is identical: one component in two
+registers, never a second card component, and never more than one lead per composition.
+
+**One link, one overlay.** The title's `Link` carries a transparent `::after` over the
+whole card, so the photograph and the caption open the product page while the DOM holds
+a single link. The action sits above that overlay on `z-10`, which is what keeps a
+`<button>` out of an `<a>`: nesting them is invalid and the button would be unreachable.
+Any future control on the card goes in the same layer.
+
+Both skeletons (`ProductGridSkeleton`, `RelatedProductsSkeleton`) mirror the 4:5 frame,
+the metadata row, the two clamped description lines and the 48px action — they are the
+card's reserved height, so they move with it. No photograph shows the frame with a small,
+faint brand mark, deliberately unlike the flat skeleton. Text in another language than
+the page carries `lang` and `dir="auto"`. The hover image is `display: none` on touch and
+below 768 (`.hover-alt-image`), so it is never downloaded there.
 
 ### Motion level
 
@@ -864,12 +991,13 @@ noun are "Bag" (`/bag`); the domain, API, store, types and slice say `cart` (CD-
 | Where | What |
 | --- | --- |
 | Product page | `AddToBagButton` (boundary 14) in `PurchasePanel`'s `action` slot, composed by `products/[slug]/page.tsx` (CD-11) |
+| Every product card | `QuickAdd` (boundary 20) in `ProductCard`'s `action` slot, composed by `ProductGrid`, `RelatedProducts` and `NewArrivals` — never by `features/products` |
 | Every page | `BagTrigger` (boundary 15) in `Header`'s `bag` slot, composed by `app/[locale]/layout.tsx`; `Header` imports no feature slice |
 | Drawer | `bag-drawer.tsx`, lazy, mounted by the trigger |
 | `/bag` | `app/[locale]/bag/page.tsx` (server shell: `h1`) + `BagView` (boundary 16) |
 | Every page | `AppToaster` (boundary 17) in the locale layout; every bag message is a toast |
 | Shared by drawer and page | `use-bag-controller.ts`, `cart-line.tsx`, `quantity-stepper.tsx` |
-| Pure, unit-tested | `utils/cart-lines.ts`, `cart-storage.ts`, `reconcile.ts`, `bag-view-model.ts`, `quantity-control.ts`, `add-to-bag-action.ts`, `bag-trigger-label.ts`, `plural-templates.ts`, `drawer-close-focus.ts`; `schemas/persisted-cart.ts`; `api/quote-cart.ts`, `api/use-cart-quote.ts` (its pure parts) |
+| Pure, unit-tested | `utils/cart-lines.ts`, `cart-storage.ts`, `reconcile.ts`, `bag-view-model.ts`, `quantity-control.ts`, `add-to-bag-action.ts`, `quick-add-model.ts`, `bag-trigger-label.ts`, `plural-templates.ts`, `drawer-close-focus.ts`; `schemas/persisted-cart.ts`; `api/quote-cart.ts`, `api/use-cart-quote.ts` (its pure parts) |
 
 ### Persisted shape (v1)
 
@@ -1178,6 +1306,14 @@ enforces it). Inlining the `BAG_HREF` import saved 7 B and was not done. These
 bytes are not comparable with the older "195.2 KB" figures, which used a different method.
 The product route measured +12.1 KB after Add to Bag (Unit 5), before the Zod removal; it
 was not re-measured since. The drawer is a separate lazy chunk (~10.6 KB gz).
+
+**Quick Add** (2026-09-20) adds an eager island to the catalog routes and to the homepage
+rail whenever the catalog answers with photographs; it adds nothing to a page with no
+product card. It reuses the store, the toast module and `variant-selection.ts` the bag
+already ships, so what is new is the component and two lucide glyphs. Not measured
+against a baseline: those routes are dynamic (`ƒ`), so there is no prerendered
+`.next/server/app/*.html` to sum. The route chunks that carry it gzip to 3.7-7.6 KB
+**including their neighbours**, which is an upper bound, not the island's cost.
 
 **Sonner** (2026-09-15, same method). With the toaster loaded eagerly, `/en` was
 **258,816 B** (from 244,959 on `main`, and 251,064 before the toaster and loading work),
