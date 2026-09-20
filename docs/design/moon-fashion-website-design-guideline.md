@@ -659,7 +659,8 @@ Keep movement slow and elegant.
 Full-width heading with the collection link and arrow controls, above a uniform
 portrait product rail. Keep the existing ivory, ink and bronze palette.
 
-- Desktop: three equal cards and a glimpse of the next photograph.
+- Desktop: three equal cards and a glimpse, capped at 355px per card so wider
+  screens reveal more of the next product instead of enlarging the photographs.
 - Tablet: two cards and a glimpse; phone: one generous card and a glimpse.
 - Stack product name and price; keep Add to Bag visible below each caption.
 - Manual swipe/drag and arrows, no autoplay. Progress rule below the products.

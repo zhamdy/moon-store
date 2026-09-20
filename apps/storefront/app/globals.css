@@ -897,6 +897,11 @@ header[data-surface][data-surface-ready] {
   @media (min-width: 1024px) {
     [data-rail] {
       --rail-visible: min(3.2, var(--rail-count, 99));
+      /* Preserve the compact portrait scale on wide desktop screens. */
+      --rail-card: min(
+        355px,
+        calc((100% - (var(--rail-visible) - 1) * var(--rail-gap)) / var(--rail-visible))
+      );
     }
   }
 
