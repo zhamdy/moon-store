@@ -22,7 +22,7 @@ const HEADING_ID = 'new-arrivals-title';
 
 /** Equal portrait cards across the full container, with a next-card peek. */
 export const RAIL_CARD_SIZES =
-  '(min-width: 1440px) 394px, (min-width: 1024px) 29vw, (min-width: 768px) 40vw, 78vw';
+  '(min-width: 1300px) 355px, (min-width: 1024px) 29vw, (min-width: 768px) 40vw, 78vw';
 
 const STAGGER_COUNT = 4;
 const FALLBACK_PRODUCTS = [...newArrivals, ...curatedEdit].slice(0, NEW_ARRIVALS_LIMIT);
