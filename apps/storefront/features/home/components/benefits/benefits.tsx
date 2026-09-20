@@ -37,7 +37,11 @@ export async function Benefits() {
   const t = await getTranslations('home.benefits');
 
   return (
-    <section aria-labelledby="benefits-title" className="bg-surface-soft">
+    <section
+      aria-labelledby="benefits-title"
+      data-surface="sand"
+      className="bg-surface-alt text-text"
+    >
       <Container as="div" className="py-16 lg:py-20">
         <h2 id="benefits-title" className="sr-only">
           {t('heading')}
@@ -45,7 +49,7 @@ export async function Benefits() {
         <Reveal
           as="ul"
           amount={0.2}
-          className="grid divide-y divide-border [--motion-rise:32px] [--motion-step:120ms] md:grid-cols-3 md:divide-x md:divide-y-0"
+          className="grid divide-y divide-border/60 [--motion-rise:32px] [--motion-step:120ms] md:grid-cols-3 md:divide-x md:divide-y-0 md:divide-border/60"
         >
           {benefits.map((key, index) => {
             const { icon: Icon, mirrorInRtl } = benefitIcons[key];
@@ -64,11 +68,11 @@ export async function Benefits() {
                   aria-hidden="true"
                   data-motion="fade"
                   className={cn(
-                    'text-brand-dark [--motion-offset:200ms]',
+                    'text-brand [--motion-offset:200ms]',
                     mirrorInRtl && 'rtl:-scale-x-100'
                   )}
                 />
-                <h3 className="type-h4 mt-5">{t(`${key}.title`)}</h3>
+                <h3 className="type-h4 mt-5 font-display text-text">{t(`${key}.title`)}</h3>
                 <p className="type-small mt-2 max-w-[30ch] text-text-secondary">
                   {t(`${key}.body`)}
                 </p>

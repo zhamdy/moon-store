@@ -29,85 +29,100 @@ export async function FeaturedCollection() {
   const t = await getTranslations('home.featured');
 
   return (
-    <Container as="section" aria-labelledby="featured-title" className="section-y">
-      <Reveal className="grid-editorial" amount={0.2}>
-        <div
-          data-motion="image"
-          className="relative isolate col-span-4 aspect-3/2 overflow-hidden rounded-media bg-surface-soft lg:col-span-8"
-        >
-          <div data-motion-zoom="" className="absolute inset-0">
-            <Image
-              src={editorialImages['featured-large'].src}
-              alt={t('largeAlt')}
-              fill
-              sizes="(min-width: 1440px) 900px, (min-width: 1024px) 64vw, 100vw"
-              placeholder="blur"
-              className="object-cover"
-            />
-          </div>
-        </div>
-
-        <div className="relative col-span-4 grid grid-cols-12 items-start gap-x-4 md:gap-x-6 lg:col-span-4 lg:col-start-9 lg:block">
-          <div className="col-span-7 pt-6 md:pt-10 lg:pt-4">
-            {/* h2 size below 1024 so the title sits comfortably beside the image;
-                a responsive pair, so the lg: variant wins deterministically. */}
-            <TextReveal
-              as="h2"
-              id="featured-title"
-              text={t('eyebrow')}
-              offset={400}
-              step={90}
-              className="type-h2 lg:type-h1 text-balance"
-            />
-            <p
-              data-motion="rise"
-              className="type-h4 mt-3 text-text-secondary [--motion-offset:600ms] [--motion-rise:16px]"
-            >
-              {t('title')}
-            </p>
-            <p
-              data-motion="rise"
-              className="type-body mt-4 max-w-xs text-text-secondary [--motion-offset:750ms] [--motion-rise:24px] lg:mt-5"
-            >
-              {t('body')}
-            </p>
-          </div>
-
-          <Parallax
-            mode="element"
-            travel={0.08}
-            className="relative col-span-5 -mt-16 md:-mt-28 lg:mt-10 lg:-ms-[25%] lg:w-[110%]"
+    <section
+      data-surface="dark"
+      aria-labelledby="featured-title"
+      className="bg-dark-surface py-20 text-text-inverse lg:py-28"
+    >
+      <Container as="div">
+        <Reveal className="grid-editorial" amount={0.2}>
+          <div
+            data-motion="image"
+            className="relative isolate col-span-4 aspect-3/2 overflow-hidden rounded-media bg-dark-surface lg:col-span-8"
           >
-            <div
-              data-motion="rise"
-              className="relative aspect-4/5 [--motion-duration:1100ms] [--motion-offset:750ms] [--motion-rise:80px]"
+            <div data-motion-zoom="" className="absolute inset-0">
+              <Image
+                src={editorialImages['featured-large'].src}
+                alt={t('largeAlt')}
+                fill
+                sizes="(min-width: 1440px) 900px, (min-width: 1024px) 64vw, 100vw"
+                placeholder="blur"
+                className="object-cover"
+              />
+            </div>
+          </div>
+
+          <div className="relative col-span-4 grid grid-cols-12 items-start gap-x-4 md:gap-x-6 lg:col-span-4 lg:col-start-9 lg:block">
+            <div className="col-span-7 pt-6 md:pt-10 lg:pt-4">
+              {/* h2 size below 1024 so the title sits comfortably beside the image;
+                  a responsive pair, so the lg: variant wins deterministically. */}
+              <TextReveal
+                as="h2"
+                id="featured-title"
+                text={t('eyebrow')}
+                offset={400}
+                step={90}
+                className="type-h2 lg:type-h1 text-balance text-text"
+              />
+              <div
+                data-motion="fade"
+                className="my-4 h-px w-10 bg-metallic-highlight/80 [--motion-offset:500ms]"
+              />
+              <p
+                data-motion="rise"
+                className="type-h4 mt-3 text-text-secondary [--motion-offset:600ms] [--motion-rise:16px]"
+              >
+                {t('title')}
+              </p>
+              <p
+                data-motion="rise"
+                className="type-body mt-4 max-w-xs text-text-secondary [--motion-offset:750ms] [--motion-rise:24px] lg:mt-5"
+              >
+                {t('body')}
+              </p>
+            </div>
+
+            <Parallax
+              mode="element"
+              travel={0.08}
+              className="relative col-span-5 -mt-16 md:-mt-28 lg:mt-10 lg:-ms-[25%] lg:w-[110%]"
             >
               <div
-                data-motion="image"
-                className="absolute inset-0 isolate overflow-hidden rounded-media bg-surface-soft [--motion-offset:750ms]"
+                data-motion="rise"
+                className="relative aspect-4/5 [--motion-duration:1100ms] [--motion-offset:750ms] [--motion-rise:80px]"
               >
-                <div data-motion-zoom="" className="absolute inset-0 [--motion-offset:750ms]">
-                  <Image
-                    src={editorialImages['featured-small'].src}
-                    alt={t('smallAlt')}
-                    fill
-                    sizes="(min-width: 1440px) 440px, (min-width: 1024px) 34vw, 40vw"
-                    placeholder="blur"
-                    className="object-cover"
-                  />
+                <div
+                  data-motion="image"
+                  className="absolute inset-0 isolate overflow-hidden rounded-media bg-dark-surface [--motion-offset:750ms]"
+                >
+                  <div data-motion-zoom="" className="absolute inset-0 [--motion-offset:750ms]">
+                    <Image
+                      src={editorialImages['featured-small'].src}
+                      alt={t('smallAlt')}
+                      fill
+                      sizes="(min-width: 1440px) 440px, (min-width: 1024px) 34vw, 40vw"
+                      placeholder="blur"
+                      className="object-cover"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </Parallax>
+            </Parallax>
 
-          <div
-            data-motion="rise"
-            className="col-span-12 mt-8 [--motion-offset:1100ms] [--motion-rise:16px] lg:mt-8"
-          >
-            <EditorialLink href="/collections">{t('link')}</EditorialLink>
+            <div
+              data-motion="rise"
+              className="col-span-12 mt-8 [--motion-offset:1100ms] [--motion-rise:16px] lg:mt-8"
+            >
+              <EditorialLink
+                href="/collections"
+                className="text-text-inverse hover:text-luxury transition-colors"
+              >
+                {t('link')}
+              </EditorialLink>
+            </div>
           </div>
-        </div>
-      </Reveal>
-    </Container>
+        </Reveal>
+      </Container>
+    </section>
   );
 }

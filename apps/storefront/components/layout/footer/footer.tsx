@@ -131,7 +131,7 @@ export async function Footer() {
           )}
         </div>
 
-        <div className="mt-20 border-t border-brand pt-6 lg:mt-28">
+        <div className="mt-20 border-t border-metallic-highlight/40 pt-6 lg:mt-28">
           <p className="type-caption text-text-secondary">{t('footer.rights', { year })}</p>
         </div>
       </Container>

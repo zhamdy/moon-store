@@ -34,8 +34,8 @@ export async function Campaign() {
   return (
     <section
       aria-labelledby="campaign-title"
-      data-surface="ink"
-      className="bg-surface-soft py-4 md:py-8"
+      data-surface="dark"
+      className="bg-dark-surface py-4 md:py-8"
     >
       <Reveal className="relative isolate" amount={0.45}>
         <Parallax travel={0.06} className="relative z-0 aspect-4/5 md:aspect-[21/9]">
@@ -54,29 +54,35 @@ export async function Campaign() {
           </div>
         </Parallax>
 
-        {/* Mobile: soft scrim under the bottom line only. */}
+        {/* Mobile: Espresso base tone with subtle nocturnal twilight under bottom copy */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2/5 bg-linear-to-t from-scrim to-transparent md:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-1/2 bg-linear-to-t from-dark-surface/90 via-editorial-secondary/25 to-transparent md:hidden"
         />
-        {/* 768+: soft scrim on the empty left side only. */}
+        {/* 768+: Espresso base tone with subtle nocturnal twilight on empty copy side */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-3/5 bg-linear-to-r from-scrim to-transparent md:block"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-3/5 bg-linear-to-r from-dark-surface/90 via-editorial-secondary/20 to-transparent md:block"
         />
 
         <div className="pointer-events-none absolute inset-0 z-20 flex items-end md:items-center">
           <Container as="div" className="w-full pb-10 md:pb-0">
             {/* Under RTL, margin-inline-start: auto keeps the line on the physical left, at every width. */}
-            <TextReveal
-              as="h2"
-              id="campaign-title"
-              text={t('line')}
-              offset={300}
-              step={120}
-              duration={1100}
-              className="type-h1 md:type-display max-w-[10rem] text-balance text-text md:max-w-[11ch] rtl:ms-auto"
-            />
+            <div className="max-w-[10rem] md:max-w-[12ch] rtl:ms-auto">
+              <TextReveal
+                as="h2"
+                id="campaign-title"
+                text={t('line')}
+                offset={300}
+                step={120}
+                duration={1100}
+                className="type-h1 md:type-display text-balance text-text"
+              />
+              <div
+                data-motion="fade"
+                className="mt-4 h-px w-10 bg-metallic-highlight/80 [--motion-offset:500ms]"
+              />
+            </div>
           </Container>
         </div>
       </Reveal>

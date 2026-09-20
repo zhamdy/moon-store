@@ -23,10 +23,10 @@ export interface CategoryTileProps {
  * any photograph. Server Component; the image is decorative because the link text
  * names it.
  *
- * Hover: the photograph scales 1 -> 1.04 and the name shifts along the reading
- * direction. Reveal: the photograph settles from 1.06 and the name rises after it.
- * Reveal and hover motion sit on separate elements because each owns its
- * element's transition.
+ * Hover: the photograph scales 1 -> 1.04, the brand bronze underline reveals,
+ * and the name shifts along the reading direction. Reveal: the photograph settles
+ * from 1.06 and the name rises after it. Reveal and hover motion sit on separate
+ * elements because each owns its element's transition.
  */
 export function CategoryTile({
   category,
@@ -57,6 +57,10 @@ export function CategoryTile({
         </span>
         <span
           aria-hidden="true"
+          className="absolute inset-0 transition-colors duration-base ease-ui group-hover:bg-brand/10"
+        />
+        <span
+          aria-hidden="true"
           className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-scrim-strong to-transparent"
         />
       </span>
@@ -64,8 +68,12 @@ export function CategoryTile({
         data-motion="rise"
         className="absolute inset-x-0 bottom-0 p-5 [--motion-offset:380ms] [--motion-rise:20px] lg:p-6"
       >
-        <span className="type-h4 block text-white transition-transform duration-base ease-ui group-hover:translate-x-1.5 rtl:group-hover:-translate-x-1.5">
+        <span className="type-h4 inline-block text-text-inverse transition-transform duration-base ease-ui group-hover:translate-x-1.5 rtl:group-hover:-translate-x-1.5">
           {label}
+          <span
+            aria-hidden="true"
+            className="mt-1 block h-0.5 w-0 bg-brand transition-[width] duration-base ease-ui group-hover:w-full"
+          />
         </span>
       </span>
     </Link>

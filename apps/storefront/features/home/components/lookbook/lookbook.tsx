@@ -77,7 +77,7 @@ export async function Lookbook() {
             className={cn('w-[78vw] shrink-0 snap-start lg:w-auto', MOSAIC[index])}
           >
             <figure
-              className={cn('relative overflow-hidden rounded-media bg-surface-soft', item.aspect)}
+              className={cn('relative overflow-hidden rounded-media bg-surface-alt', item.aspect)}
             >
               <Image
                 src={editorialImages[item.slot].src}
