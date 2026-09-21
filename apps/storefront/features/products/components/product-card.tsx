@@ -174,7 +174,7 @@ export function ProductCard({
       // overlapping it onto the photograph without touching DOM order, so the name is
       // still read and tabbed before the button. `h-full` so the column can fill the
       // row: both the grid `li` and the rail's flex item stretch, the card does not.
-      className={cn('group relative grid h-full grid-rows-[auto_1fr_auto]', className)}
+      className={cn('group relative grid h-full grid-cols-1 grid-rows-[auto_1fr_auto]', className)}
     >
       <div
         data-motion={reveal === 'image' ? 'image' : undefined}
@@ -185,7 +185,7 @@ export function ProductCard({
         // into this same cell by hand: auto-placement skips a cell an explicitly-placed
         // item already holds, so without these the photograph would slide into row 2 and
         // the disc would sit above the card.
-        className="relative isolate row-start-1 aspect-4/5 overflow-hidden rounded-media bg-surface-soft"
+        className="relative isolate col-start-1 row-start-1 aspect-4/5 overflow-hidden rounded-media bg-surface-soft"
       >
         <div data-motion-zoom={reveal === 'image' ? '' : undefined} className="absolute inset-0">
           <div className="absolute inset-0 transition-transform duration-base ease-ui group-hover:scale-[1.03]">
@@ -239,7 +239,11 @@ export function ProductCard({
           listed, and the stack is what gives the price its own beat. */}
       <div
         data-motion="fade"
-        className={cn('row-start-2 mt-3', lead && 'mt-5 lg:mt-6', '[--motion-offset:240ms]')}
+        className={cn(
+          'col-start-1 row-start-2 mt-3',
+          lead && 'mt-5 lg:mt-6',
+          '[--motion-offset:240ms]'
+        )}
       >
         <div
           className={cn(
@@ -310,17 +314,11 @@ export function ProductCard({
           carry without competing with its own button. */}
       {action && (
         <div
-          // `overlay`: the tile's one action moves onto the photograph's bottom edge
-          // where a pointer exists, and is revealed by hover or by focus anywhere in
-          // the card, so a grid of photographs stays quiet until the shopper is on one
-          // piece. On a touch screen and below 768 it stays in the card's flow, always
-          // visible - a control that only a pointer can summon is not an affordance.
-          // The lead card keeps its action in flow at every width: it is art-directed,
-          // shares its row with a details link, and is the one card already asking for
-          // attention without a hover to earn it.
+          // Share the photograph's grid cell explicitly; auto-placement would create
+          // a second column and shrink the image. Keep the icon visible on touch too.
           data-card-action={lead ? 'flow' : 'overlay'}
           className={cn(
-            'row-start-3',
+            'col-start-1 row-start-3',
             lead && [
               captionLayout === 'stacked' ? 'pt-8' : 'pt-5',
               detailsLabel && 'relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3',
