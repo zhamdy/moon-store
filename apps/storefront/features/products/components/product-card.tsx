@@ -98,8 +98,11 @@ function imageProps(image: ImageSource) {
  *   clamped to two lines in secondary ink. It is never written here and never
  *   truncated by the API; a product with no description simply has no line, and on a
  *   grid that keeps the cards level because the clamp reserves its two lines.
- * - The action is composed by the page into `action` — one Add to Bag, bronze hairline,
- *   full width, 48px tall. It is the only control on the tile.
+ * - The action is composed by the page into `action` — one Add to Bag, a 44px ivory disc
+ *   carrying a bag glyph at the photograph's bottom inline end (owner decision,
+ *   2026-09-21). It is the only control on the tile, it costs the caption no line, and
+ *   it is named to a screen reader rather than to the page: a worded block under every
+ *   caption is the row of buttons this tile was drawn to avoid.
  *
  * **Two registers.** `emphasis="supporting"` is the tile every listing uses: name and
  * price on one baseline, two lines of copy, one outlined action. `emphasis="lead"` is
@@ -120,11 +123,13 @@ function imageProps(image: ImageSource) {
  * Hover (CSS `group-hover`, which Tailwind wraps in `@media (hover: hover)`, so touch
  * devices never get a stuck alternate view): the second photograph crossfades in, the
  * frame scales 1 → 1.03, the name's gold rule draws along the reading direction and the
- * action rises onto the photograph's bottom edge (the 2026-09-21 pass, superseding "no
- * control appears over the photograph": the tile had a button under every caption at
- * rest, which is the row of buttons the editorial tile was drawn to avoid). Keyboard
- * focus anywhere in the card draws the rule and reveals the action too, and the action
- * stays while its Quick Add panel is open. Nothing lifts and nothing casts a shadow.
+ * action disc rises in at the photograph's bottom inline end (the 2026-09-21 pass,
+ * superseding "no control appears over the photograph"). Keyboard focus anywhere in the
+ * card draws the rule and reveals the disc too, and it stays while its Quick Add panel
+ * is open. **Where there is no pointer the disc is simply always there** — below 768 and
+ * on a touch screen, since a control a pointer has to summon is not an affordance
+ * without one. Nothing lifts, and the disc's overlay shadow is the only one on the card:
+ * it is the one thing floating over something else.
  *
  * Sold out never greys the photograph and the price stays visible; the badge word
  * changes and the action reads "Sold out". A product with no photograph shows the frame
@@ -313,8 +318,10 @@ export function ProductCard({
           // attention without a hover to earn it.
           data-card-action={lead ? 'flow' : 'overlay'}
           className={cn(
-            captionLayout === 'stacked' ? 'pt-8' : 'pt-5',
-            lead && detailsLabel && 'relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3'
+            lead && [
+              captionLayout === 'stacked' ? 'pt-8' : 'pt-5',
+              detailsLabel && 'relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3',
+            ]
           )}
         >
           {lead && detailsLabel ? (

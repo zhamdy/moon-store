@@ -822,28 +822,29 @@ header[data-surface][data-surface-ready] {
   }
 }
 
-/* product-card.tsx: the tile's one action (features/cart's QuickAdd). Two placements,
-   one element and one DOM order.
+/* product-card.tsx: the tile's one action (features/cart's QuickAdd) - a 44px disc at
+   the photograph's bottom inline end, placed into the photograph's own grid row rather
+   than positioned absolutely: the overlap needs no measured offset, it leaves DOM order
+   alone (the name is still read and tabbed first) and it keeps the element outside the
+   frame's `overflow: hidden`, so the Quick Add panel can open past the photograph's
+   edge. Grid placement is logical, so the disc mirrors to the left in Arabic on its own.
 
-   In the card's flow - a touch screen, or any viewport below 768 - it sits under the
-   caption and is always visible: a control a pointer has to summon is not an affordance
-   without one. Where a pointer exists it is placed into the photograph's own grid row
-   instead (grid placement, not `position: absolute`: the row overlap needs no measured
-   offset, leaves DOM order alone so the name is still read and tabbed first, and keeps
-   the element outside the frame's `overflow: hidden`, so the Quick Add panel can open
-   past the photograph's edge). It rises in on hover, on keyboard focus anywhere in the
-   card - which is also how it is reached with no pointer at all, since it stays a tab
-   stop while transparent - and for as long as its panel is open, so a pointer leaving
-   the card to reach the options does not take them away with it.
+   Where a pointer exists it is transparent until the card is hovered, until focus lands
+   anywhere inside it - which is how a keyboard reaches it, since it stays a tab stop
+   while transparent - or for as long as its panel is open, so a pointer leaving the card
+   to reach the options does not take them away with it. Where there is no pointer, or
+   below 768, it is simply always there: a control a pointer has to summon is not an
+   affordance without one. Same test as the alternate photograph (.hover-alt-image),
+   and the same reason. */
+[data-card-action='overlay'] {
+  grid-area: 1 / 1;
+  align-self: end;
+  z-index: 10;
+  padding: 0.75rem;
+}
 
-   Same test as the alternate photograph (.hover-alt-image), and the same reason: a
-   hover state that sticks on a phone is worse than no hover state. */
 @media (hover: hover) and (min-width: 768px) {
   [data-card-action='overlay'] {
-    grid-area: 1 / 1;
-    align-self: end;
-    z-index: 10;
-    padding: 0.75rem;
     opacity: 0;
     translate: 0 0.5rem;
     transition:
@@ -856,12 +857,6 @@ header[data-surface][data-surface-ready] {
   [data-card-action='overlay']:has([data-quick-add][data-open]) {
     opacity: 1;
     translate: 0 0;
-  }
-
-  /* The grid and related skeletons reserve the card's real heights, and at this width
-     the action no longer takes a row of its own. */
-  [data-skeleton-action] {
-    display: none;
   }
 }
 

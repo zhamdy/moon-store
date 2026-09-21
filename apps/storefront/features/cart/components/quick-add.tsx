@@ -24,11 +24,14 @@ export interface QuickAddProps {
   product: QuickAddModel;
   strings: QuickAddStrings;
   /**
-   * `brand` (default) is the bronze hairline a tile carries — a row of filled blocks
-   * would read as a marketplace grid. `solid` fills it, for the one lead card in a
-   * composition, which is the only place a second weight earns its keep.
+   * `disc` (default) is what a tile carries (owner decision, 2026-09-21): a 44px ivory
+   * disc with a bag glyph at the photograph's bottom inline end, named to a screen
+   * reader and to nobody else. A labelled block under every caption — outlined or
+   * filled — is the row of buttons the editorial tile was drawn to avoid. `solid` is
+   * the full, worded button, for the one lead card in a composition, which is the only
+   * place a second weight earns its keep.
    */
-  emphasis?: 'brand' | 'solid';
+  emphasis?: 'disc' | 'solid';
 }
 
 /** One id per surface: a second press replaces the notice rather than stacking toasts. */
@@ -69,7 +72,7 @@ const CELL = [
  * The quantity is one piece per press: the stepper belongs on the product page, and a
  * card that carries one has stopped being a card.
  */
-export function QuickAdd({ product, strings, emphasis = 'brand' }: QuickAddProps) {
+export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps) {
   const baseId = useId();
   const panelId = `${baseId}-panel`;
   const actions = useCartActions();
@@ -192,36 +195,55 @@ export function QuickAdd({ product, strings, emphasis = 'brand' }: QuickAddProps
     { name: product.name.text }
   );
 
+  const disc = emphasis === 'disc';
+
   return (
     // z-10 keeps the action above the title link's card-wide overlay (product-card.tsx),
-    // and `relative` anchors the panel to the button rather than to the card's flow.
-    // `data-open` is what keeps the card's revealed action on screen while its panel
-    // is open (`[data-card-action]` in app/globals.css): a pointer that has left the
-    // card to reach the panel must not take the options away with it. Spacing above
-    // the button belongs to the card's action slot, not here - it is zero where the
-    // action sits on the photograph.
+    // and `relative` anchors the panel to this root. The root spans the slot's full width
+    // even when it holds only a disc at its inline end, so the panel is the photograph's
+    // width rather than the disc's — and it is `pointer-events-none` for exactly that
+    // reason: a full-width strip over the photograph would otherwise swallow the clicks
+    // the card link's overlay is there to take. The disc and the panel take their own
+    // back. `data-open` holds a revealed action on screen while its panel is open
+    // (`[data-card-action]` in app/globals.css): a pointer that has left the card to
+    // reach the options must not take them away with it.
     <div
       ref={rootRef}
       data-quick-add=""
       data-open={open ? '' : undefined}
-      className="relative z-10"
+      className={cn('relative z-10', disc && 'pointer-events-none flex justify-end')}
     >
       <Button
         ref={triggerRef}
-        variant={emphasis === 'solid' ? 'primary' : 'brand'}
+        variant={disc ? 'secondary' : 'primary'}
         onClick={onTrigger}
         aria-disabled={press === 'soldOut' || undefined}
-        aria-label={press === 'soldOut' ? undefined : namedLabel}
+        aria-label={press === 'soldOut' ? (disc ? strings.soldOut : undefined) : namedLabel}
         // The disclosure exists for as long as the product has options, even once every
         // group is answered and one more press would add.
         aria-expanded={product.options.length > 0 ? open : undefined}
         aria-controls={open ? panelId : undefined}
-        // Opaque rather than the `brand` variant's transparent fill: the same button
-        // is read over a photograph once the card reveals it, where a hairline alone
-        // has nothing behind it. The bronze fill on hover is the variant's own.
-        className={cn('type-label w-full gap-2 px-4', emphasis === 'brand' && 'bg-surface')}
+        // The disc: 44px (a thumb's target), ivory, no hairline, the ink glyph filling
+        // ink-on-ivory to ivory-on-ink under a pointer. The overlay shadow is the token
+        // the toasts use — the one thing on this card that floats over something else,
+        // and what keeps an ivory disc legible on a pale photograph. Sold out keeps the
+        // disc focusable and inert in disabled ink; the badge on the photograph is what
+        // says the word.
+        className={cn(
+          disc
+            ? [
+                'pointer-events-auto size-11 min-h-11 shrink-0 rounded-full border-0 p-0 px-0',
+                'bg-surface shadow-(--shadow-overlay)',
+                press === 'soldOut'
+                  ? 'text-disabled hover:bg-surface'
+                  : 'text-text hover:bg-action hover:text-on-action active:bg-action',
+              ]
+            : 'type-label w-full gap-2 px-4'
+        )}
       >
-        {press === 'soldOut' ? (
+        {disc ? (
+          <ShoppingBag size={18} strokeWidth={1.5} aria-hidden="true" />
+        ) : press === 'soldOut' ? (
           strings.soldOut
         ) : (
           <>
@@ -237,7 +259,7 @@ export function QuickAdd({ product, strings, emphasis = 'brand' }: QuickAddProps
           role="group"
           aria-label={namedLabel}
           className={cn(
-            'absolute inset-x-0 top-full z-20 mt-2 border border-border bg-surface p-4',
+            'pointer-events-auto absolute inset-x-0 top-full z-20 mt-2 border border-border bg-surface p-4',
             // The panel is the one place on a card that sits over its neighbours, so it
             // carries a hairline and the warm surface rather than a shadow.
             'motion-safe:animate-quick-add'

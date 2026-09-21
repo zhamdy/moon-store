@@ -119,7 +119,6 @@ export function RelatedProductsSkeleton() {
               <span className="block h-[1.36rem] w-20 bg-surface-soft" />
             </div>
             <span className="mt-1.5 block h-[2.72rem] bg-surface-soft" />
-            <span data-skeleton-action="" className="mt-4 block h-12 bg-surface-soft" />
           </li>
         ))}
       </ul>
