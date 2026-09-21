@@ -129,10 +129,11 @@
       "line": "Dressed for the night.",
       "imageAlt": "A woman in a flowing umber silk dress walking through a limestone colonnade at dusk"
     },
-    "curated": {
+    "selection": {
       "eyebrow": "Curated by Moon",
-      "title": "The Edit",
-      "link": "Shop the edit"
+      "title": "The Moon Selection",
+      "description": "A considered selection of standout pieces, chosen for their silhouette, texture, and timeless appeal.",
+      "link": "Explore the selection"
     },
     "benefits": {
       "heading": "Shopping with Moon",

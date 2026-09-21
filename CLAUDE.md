@@ -298,6 +298,14 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   through the gap. It looks like a broken image, not a layout bug, and only appears past
   a certain width — 1900px for the campaign's 21:9 at `max-h-[40rem]`. Both the Silk Edit
   and the campaign hit it; both carry an explicit `w-full` beside the cap (2026-09-21)
+- The homepage's five static mock products (`apps/storefront/features/products/data/home-products.ts`)
+  do not all agree with the seeded catalogue, and the divergence is invisible until a
+  link is followed: `embroidered-evening-dress` and `velvet-evening-bag` are seeded as
+  `embroidered-evening-gown` and `velvet-evening-clutch`, so those two tiles 404, and the
+  cardigan reads 2,750 against the seed's 2,400. The mocks also carry no description,
+  which is why The Moon Selection's feature shows none — the real copy exists in the
+  catalogue (`productCopy` in the server seed) but behind slugs two of these mocks do not
+  use. The same array is the New Arrivals fallback rail, so a fix moves both (2026-09-21)
 - In the storefront, `next/dynamic` is not free for a component that never renders on the
   server: its loader runtime measured ~1.2 KB gz of extra eager JS on every page just to
   host the lazy Bag drawer. `React.lazy` + `Suspense` loads the same chunk at no eager cost.
