@@ -92,29 +92,35 @@ export default async function CollectionsPage({ params }: PageProps<'/[locale]/c
           </p>
         </Container>
       </header>
-      <Container
-        as="section"
-        id="collection-directory"
-        aria-labelledby="collection-directory-heading"
-        className="scroll-mt-28 pt-12 pb-6 md:pt-20 md:pb-8"
-      >
-        <h2 id="collection-directory-heading" className="type-label text-brand">
-          {t('collections.directory')}
-        </h2>
-      </Container>
       {collections.length > 0 ? (
-        <CollectionIndex
-          locale={locale}
-          exploreLabel={t('collections.explore')}
-          collections={collections.map((collection) => ({
-            slug: collection.slug,
-            href: catalogPath({ kind: 'collection', slug: collection.slug }),
-            name: localizedName(collection, locale),
-            meta: collectionMeta(collection),
-            imageUrl: collection.imageUrl,
-            isFeatured: collection.isFeatured,
-          }))}
-        />
+        /*
+          The directory's own heading ("The collection edit") is visually gone
+          (owner decision, 2026-09-21): the hero above already says what the page
+          is, and a label over a grid of named cards said it a second time. It
+          stays as the section's visually hidden accessible name, so the landmark
+          is still named and the `#collection-directory` anchor still lands here.
+        */
+        <section
+          id="collection-directory"
+          aria-labelledby="collection-directory-heading"
+          className="scroll-mt-28 pt-12 md:pt-20"
+        >
+          <h2 id="collection-directory-heading" className="sr-only">
+            {t('collections.directory')}
+          </h2>
+          <CollectionIndex
+            locale={locale}
+            exploreLabel={t('collections.explore')}
+            collections={collections.map((collection) => ({
+              slug: collection.slug,
+              href: catalogPath({ kind: 'collection', slug: collection.slug }),
+              name: localizedName(collection, locale),
+              meta: collectionMeta(collection),
+              imageUrl: collection.imageUrl,
+              isFeatured: collection.isFeatured,
+            }))}
+          />
+        </section>
       ) : (
         <Container as="section" className="pb-(--section-space)">
           <CatalogEmpty
