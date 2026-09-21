@@ -259,9 +259,7 @@ Server Components by default (R21/R22). `'use client'` is limited to twenty entr
    (`emphasis="disc"`, the default) the trigger is the icon disc and the root spans the
    slot's full width while being `pointer-events-none`, so the panel is the photograph's
    width rather than the disc's and the strip over the photograph still belongs to the
-   card link; the disc and the panel take their own events back. It marks `data-open`
-   while the panel is open, which is what holds a revealed disc on screen while the
-   pointer is on the options.
+   card link; the disc and the panel take their own events back.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -729,21 +727,23 @@ action.
   **A 44px ivory disc with a bag glyph at the photograph's bottom inline start** (owner
   decision, 2026-09-21, replacing the full-width worded button under the caption: a
   labelled block on every tile is the row of buttons this card was drawn to avoid, and
-  it cost the caption a line). It is placed into the photograph's grid row
-  (`[data-card-action='overlay']` in `app/globals.css`) rather than positioned
-  absolutely: no measured offset, DOM order untouched (the name is still read and tabbed
-  first), and the element stays outside the frame's `overflow: hidden`, so the panel
-  opens past the photograph's edge. The inline axis is logical throughout, so it mirrors
-  to the right in Arabic on its own; it shares the reading-start column with the badge
-  rather than sitting diagonally opposite it (owner decision, 2026-09-21). From 768 **with a pointer** it is transparent until the card is hovered,
-  until focus lands anywhere in it (it stays a tab stop while transparent — that is how
-  a keyboard reaches it) or while its panel is open; on a touch screen and below 768 it
-  is always visible. It is the only shadow on the card (`--shadow-overlay`, the toasts'
-  token), which is what keeps ivory legible on a pale photograph, and it is named only
-  to a screen reader (`addToBagLabel` / `chooseOptions` / `soldOut`). Sold out keeps the
-  disc focusable and inert in disabled ink; the badge is what says the word. Neither
-  skeleton reserves an action row any more. The lead card keeps a worded, filled action
-  in flow (`QuickAdd emphasis="solid"`).
+  it cost the caption a line). It shares the reading-start column with the badge and
+  mirrors to the right in Arabic on its own — the inline axis is logical throughout.
+  **It is always visible**: a hover reveal was built and rejected the same day (it loses
+  the tile's one affordance on a desktop and cannot exist on a touch screen), so the
+  card's hover states stay what they were.
+  It is placed into the photograph's grid row (`[data-card-action='overlay']` in
+  `app/globals.css`) rather than positioned absolutely: no measured offset, DOM order
+  untouched (the name is still read and tabbed first), and the element stays outside the
+  frame's `overflow: hidden`, so the panel opens past the photograph's edge. **The
+  photograph and the caption carry `row-start-1` / `row-start-2` for that**: grid
+  auto-placement skips a cell an explicitly-placed item holds, and without them the
+  photograph took row 2 and the disc sat above the card. It is the only shadow on the
+  card (`--shadow-overlay`, the toasts' token), which is what keeps ivory legible on a
+  pale photograph, and it is named only to a screen reader (`addToBagLabel` /
+  `chooseOptions` / `soldOut`). Sold out keeps the disc focusable and inert in disabled
+  ink; the badge is what says the word. Neither skeleton reserves an action row any
+  more. The lead card keeps a worded, filled action in flow (`QuickAdd emphasis="solid"`).
 
 **Two registers, one component** (owner brief, 2026-09-20). `emphasis="supporting"` is
 the tile above, the one every listing uses. `emphasis="lead"` is the art-directed card

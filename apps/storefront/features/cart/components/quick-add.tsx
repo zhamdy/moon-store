@@ -204,13 +204,9 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
     // width rather than the disc's — and it is `pointer-events-none` for exactly that
     // reason: a full-width strip over the photograph would otherwise swallow the clicks
     // the card link's overlay is there to take. The disc and the panel take their own
-    // back. `data-open` holds a revealed action on screen while its panel is open
-    // (`[data-card-action]` in app/globals.css): a pointer that has left the card to
-    // reach the options must not take them away with it.
     <div
       ref={rootRef}
       data-quick-add=""
-      data-open={open ? '' : undefined}
       className={cn('relative z-10', disc && 'pointer-events-none flex justify-start')}
     >
       <Button

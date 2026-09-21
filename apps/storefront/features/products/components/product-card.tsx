@@ -122,14 +122,12 @@ function imageProps(image: ImageSource) {
  *
  * Hover (CSS `group-hover`, which Tailwind wraps in `@media (hover: hover)`, so touch
  * devices never get a stuck alternate view): the second photograph crossfades in, the
- * frame scales 1 → 1.03, the name's gold rule draws along the reading direction and the
- * action disc rises in at the photograph's bottom inline start (the 2026-09-21 pass,
- * superseding "no control appears over the photograph"). Keyboard focus anywhere in the
- * card draws the rule and reveals the disc too, and it stays while its Quick Add panel
- * is open. **Where there is no pointer the disc is simply always there** — below 768 and
- * on a touch screen, since a control a pointer has to summon is not an affordance
- * without one. Nothing lifts, and the disc's overlay shadow is the only one on the card:
- * it is the one thing floating over something else.
+ * frame scales 1 → 1.03 and the name's gold rule draws along the reading direction.
+ * Keyboard focus draws the rule too. The action disc is **not** hidden until hover
+ * (owner decision, 2026-09-21, after seeing the reveal): it is the tile's one
+ * affordance, and a shopper should not have to find it with a pointer — nor can a touch
+ * screen. Nothing lifts, and the disc's overlay shadow is the only one on the card: it
+ * is the one thing floating over something else.
  *
  * Sold out never greys the photograph and the price stays visible; the badge word
  * changes and the action reads "Sold out". A product with no photograph shows the frame
@@ -183,7 +181,11 @@ export function ProductCard({
         // `rounded-media` (12px), the site-wide media radius, so the
         // `data-motion="image"` wipe — whose clip-path insets carry
         // `round var(--radius-media)` — matches the frame without an override.
-        className="relative isolate aspect-4/5 overflow-hidden rounded-media bg-surface-soft"
+        // `row-start-1` (and the caption's `row-start-2`) because the action is placed
+        // into this same cell by hand: auto-placement skips a cell an explicitly-placed
+        // item already holds, so without these the photograph would slide into row 2 and
+        // the disc would sit above the card.
+        className="relative isolate row-start-1 aspect-4/5 overflow-hidden rounded-media bg-surface-soft"
       >
         <div data-motion-zoom={reveal === 'image' ? '' : undefined} className="absolute inset-0">
           <div className="absolute inset-0 transition-transform duration-base ease-ui group-hover:scale-[1.03]">
@@ -237,7 +239,7 @@ export function ProductCard({
           listed, and the stack is what gives the price its own beat. */}
       <div
         data-motion="fade"
-        className={cn('mt-3', lead && 'mt-5 lg:mt-6', '[--motion-offset:240ms]')}
+        className={cn('row-start-2 mt-3', lead && 'mt-5 lg:mt-6', '[--motion-offset:240ms]')}
       >
         <div
           className={cn(
@@ -318,6 +320,7 @@ export function ProductCard({
           // attention without a hover to earn it.
           data-card-action={lead ? 'flow' : 'overlay'}
           className={cn(
+            'row-start-3',
             lead && [
               captionLayout === 'stacked' ? 'pt-8' : 'pt-5',
               detailsLabel && 'relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3',
