@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CircleAlert, X } from 'lucide-react';
+import { CircleAlert, ShoppingBag, X } from 'lucide-react';
 import { dismissToast, showToast } from '@/components/feedback/show-toast';
 import { Button } from '@/components/ui/button';
 import { BAG_HREF } from '@/components/layout/navigation-items';
@@ -195,7 +195,17 @@ export function QuickAdd({ product, strings, emphasis = 'brand' }: QuickAddProps
   return (
     // z-10 keeps the action above the title link's card-wide overlay (product-card.tsx),
     // and `relative` anchors the panel to the button rather than to the card's flow.
-    <div ref={rootRef} data-quick-add="" className="relative z-10 mt-4">
+    // `data-open` is what keeps the card's revealed action on screen while its panel
+    // is open (`[data-card-action]` in app/globals.css): a pointer that has left the
+    // card to reach the panel must not take the options away with it. Spacing above
+    // the button belongs to the card's action slot, not here - it is zero where the
+    // action sits on the photograph.
+    <div
+      ref={rootRef}
+      data-quick-add=""
+      data-open={open ? '' : undefined}
+      className="relative z-10"
+    >
       <Button
         ref={triggerRef}
         variant={emphasis === 'solid' ? 'primary' : 'brand'}
@@ -206,9 +216,19 @@ export function QuickAdd({ product, strings, emphasis = 'brand' }: QuickAddProps
         // group is answered and one more press would add.
         aria-expanded={product.options.length > 0 ? open : undefined}
         aria-controls={open ? panelId : undefined}
-        className="type-label w-full px-4"
+        // Opaque rather than the `brand` variant's transparent fill: the same button
+        // is read over a photograph once the card reveals it, where a hairline alone
+        // has nothing behind it. The bronze fill on hover is the variant's own.
+        className={cn('type-label w-full gap-2 px-4', emphasis === 'brand' && 'bg-surface')}
       >
-        {press === 'soldOut' ? strings.soldOut : strings.addToBag}
+        {press === 'soldOut' ? (
+          strings.soldOut
+        ) : (
+          <>
+            <ShoppingBag size={16} strokeWidth={1.5} aria-hidden="true" className="shrink-0" />
+            {strings.addToBag}
+          </>
+        )}
       </Button>
 
       {open && (

@@ -119,9 +119,12 @@ function imageProps(image: ImageSource) {
  *
  * Hover (CSS `group-hover`, which Tailwind wraps in `@media (hover: hover)`, so touch
  * devices never get a stuck alternate view): the second photograph crossfades in, the
- * frame scales 1 → 1.03 and the name's gold rule draws along the reading direction.
- * Keyboard focus draws the rule too. Nothing lifts, nothing casts a shadow, no control
- * appears over the photograph.
+ * frame scales 1 → 1.03, the name's gold rule draws along the reading direction and the
+ * action rises onto the photograph's bottom edge (the 2026-09-21 pass, superseding "no
+ * control appears over the photograph": the tile had a button under every caption at
+ * rest, which is the row of buttons the editorial tile was drawn to avoid). Keyboard
+ * focus anywhere in the card draws the rule and reveals the action too, and the action
+ * stays while its Quick Add panel is open. Nothing lifts and nothing casts a shadow.
  *
  * Sold out never greys the photograph and the price stays visible; the badge word
  * changes and the action reads "Sold out". A product with no photograph shows the frame
@@ -162,9 +165,13 @@ export function ProductCard({
     <article
       data-product-card=""
       data-motion={reveal === 'rise' ? 'rise' : undefined}
-      // `h-full` so the column can push its action to the bottom: both the grid `li`
-      // and the rail's flex item stretch to the row, the card inside them does not.
-      className={cn('group relative flex h-full flex-col', className)}
+      // A grid, not a flex column: the caption row takes the slack so the action still
+      // sits at the card's bottom edge, and where a pointer exists the action is placed
+      // into the frame's own row instead (`[data-card-action]` in app/globals.css) -
+      // overlapping it onto the photograph without touching DOM order, so the name is
+      // still read and tabbed before the button. `h-full` so the column can fill the
+      // row: both the grid `li` and the rail's flex item stretch, the card does not.
+      className={cn('group relative grid h-full grid-rows-[auto_1fr_auto]', className)}
     >
       <div
         data-motion={reveal === 'image' ? 'image' : undefined}
@@ -296,9 +303,17 @@ export function ProductCard({
           carry without competing with its own button. */}
       {action && (
         <div
+          // `overlay`: the tile's one action moves onto the photograph's bottom edge
+          // where a pointer exists, and is revealed by hover or by focus anywhere in
+          // the card, so a grid of photographs stays quiet until the shopper is on one
+          // piece. On a touch screen and below 768 it stays in the card's flow, always
+          // visible - a control that only a pointer can summon is not an affordance.
+          // The lead card keeps its action in flow at every width: it is art-directed,
+          // shares its row with a details link, and is the one card already asking for
+          // attention without a hover to earn it.
+          data-card-action={lead ? 'flow' : 'overlay'}
           className={cn(
-            'mt-auto',
-            captionLayout === 'stacked' ? 'pt-4' : 'pt-1',
+            captionLayout === 'stacked' ? 'pt-8' : 'pt-5',
             lead && detailsLabel && 'relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3'
           )}
         >

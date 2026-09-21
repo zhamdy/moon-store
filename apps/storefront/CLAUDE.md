@@ -255,7 +255,10 @@ Server Components by default (R21/R22). `'use client'` is limited to twenty entr
    rule, `quickAddPress`, is the card-level one — add, open the panel, or sold out — and is
    unit-tested. The panel is `absolute` under the button, so opening one card's options
    never reflows the grid or the rail; Escape and an outside pointer close it and return
-   focus to the button. One piece per press: no stepper on a card.
+   focus to the button. One piece per press: no stepper on a card. It carries no margin of
+   its own (the card's action slot owns the spacing, which is zero over the photograph) and
+   marks `data-open` while the panel is open, which is what holds a revealed action on
+   screen while the pointer is on the options.
 
 `components/motion/text-reveal.tsx` is deliberately *not* a boundary: it only splits a
 heading into masked word spans on the server.
@@ -719,8 +722,20 @@ action.
   rem value rather than `2lh`), so a row stays level and the buttons line up. Nothing is
   written here and nothing is truncated server-side. A mock carries none, and a product
   with no copy simply has no line.
-- **Action**: the `action` slot, composed by the page (`features/cart`'s `QuickAdd`), at
-  `mt-auto` so a wrapped name never leaves one card's button low. `features/products`
+- **Action**: the `action` slot, composed by the page (`features/cart`'s `QuickAdd`), in
+  the card's last grid row so a wrapped name never leaves one card's button low. **Two
+  placements, one element and one DOM order** (2026-09-21): in the flow under the caption
+  on a touch screen and below 768, and from 768 with a pointer it is placed into the
+  photograph's own grid row (`[data-card-action='overlay']` in `app/globals.css`),
+  inset 12px at its bottom edge, transparent at rest and rising in on card hover, on
+  focus anywhere in the card, and for as long as its Quick Add panel is open. Grid
+  placement, not `position: absolute`: the overlap needs no measured offset, DOM order
+  is untouched (the name is still read and tabbed first) and the element stays outside
+  the frame's `overflow: hidden`, so the panel opens past the photograph's edge. It stays
+  a tab stop while transparent — that is how a keyboard reaches it — and the button is
+  opaque (`bg-surface` over the `brand` hairline) because it is read over a photograph.
+  Both skeletons drop their reserved action row under the same query
+  (`[data-skeleton-action]`). The lead card keeps its action in flow at every width. `features/products`
   still imports nothing from `features/cart` — the product page composes Add to Bag into
   the purchase panel the same way (CD-11).
 
