@@ -512,7 +512,9 @@ Every homepage image is a static import behind one registry, swappable by file d
   photograph is ever mirrored. The banner chooses its layout by shape: the 16:9 crop with
   the copy on the left only on landscape screens at least 768px wide and 4:3
   (`banner-wide`, a custom variant in `app/globals.css`), otherwise the 4:5 crop with the
-  copy at the bottom, because on a portrait tablet the wide crop put the copy on the model.
+  copy below the image on an espresso surface. Both banner slots now use
+  `silk-edit-campaign.png`, with the portrait positioned at 82% horizontally.
+  Mobile image sizes account for the wide source covering a portrait frame.
   The campaign line is physical-left at **every** width (`rtl:ms-auto`): on phones the
   figure stands in the right half of the 4:5 window, so an Arabic line at the reading
   start sat on her.
