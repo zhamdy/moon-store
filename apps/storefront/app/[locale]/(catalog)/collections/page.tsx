@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
+import { ArrowDown } from 'lucide-react';
+import { editorialImages } from '@/lib/editorial/images';
 import { connection } from 'next/server';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -6,9 +9,6 @@ import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { Container } from '@/components/ui/container';
 import { CatalogEmpty } from '@/features/catalog/components/catalog-empty';
-import { introLabels } from '@/features/catalog/components/catalog-page';
-import { PageIntro } from '@/features/catalog/components/page-intro';
-import { catalogIntroHeadings } from '@/features/catalog/utils/intro-heading';
 import { DEFAULT_CATALOG_PARAMS } from '@/features/catalog/search-params';
 import { buildCatalogMetadata } from '@/features/catalog/utils/catalog-metadata';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
@@ -46,10 +46,46 @@ export default async function CollectionsPage({ params }: PageProps<'/[locale]/c
 
   return (
     <>
-      <PageIntro
-        locale={locale}
-        headings={catalogIntroHeadings({ kind: 'collections' }, await introLabels(), locale)}
-      />
+      <header className="grid bg-surface-soft md:min-h-[560px] md:grid-cols-2">
+        <div className="flex flex-col justify-between gap-10 px-(--page-gutter) py-12 md:py-16 lg:py-20">
+          <p className="type-label text-brand">Moon Fashion</p>
+          <div>
+            <h1 className="font-display text-[clamp(3rem,6.5vw,7rem)] leading-[1.1] tracking-tight">
+              {t('intro.collectionsTitle')}
+            </h1>
+            <p className="mt-6 max-w-sm text-pretty type-body-lg text-text-secondary">
+              {t('collections.description')}
+            </p>
+          </div>
+          <a
+            href="#collection-directory"
+            className="inline-flex min-h-11 w-fit items-center gap-5 border-b border-brand pb-2 type-label text-brand transition-colors hover:text-text"
+          >
+            {t('collections.browse')}
+            <ArrowDown size={18} aria-hidden="true" />
+          </a>
+        </div>
+        <div className="relative aspect-4/3 overflow-hidden md:aspect-auto">
+          <Image
+            src={editorialImages['lookbook-01'].src}
+            alt=""
+            fill
+            preload
+            sizes="(min-width: 768px) 50vw, 100vw"
+            className="object-cover object-top"
+          />
+        </div>
+      </header>
+      <Container
+        as="section"
+        id="collection-directory"
+        aria-labelledby="collection-directory-heading"
+        className="scroll-mt-28 pt-12 pb-6 md:pt-20 md:pb-8"
+      >
+        <h2 id="collection-directory-heading" className="type-label text-brand">
+          {t('collections.directory')}
+        </h2>
+      </Container>
       {collections.length > 0 ? (
         <CollectionIndex
           locale={locale}

@@ -245,7 +245,10 @@
       "shopByCategory": "Shop by category"
     },
     "collections": {
-      "explore": "Explore"
+      "explore": "Explore",
+      "description": "A considered wardrobe, one collection at a time. Discover the pieces that bring each story together.",
+      "browse": "Discover the collections",
+      "directory": "The collection edit"
     },
     "empty": {
       "catalog": {

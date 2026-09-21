@@ -1123,3 +1123,7 @@ listProducts(query):
 - Design: `docs/design/moon-fashion-website-design-guideline.md` §5, §6, §7, §10, §11, §13, §14, §15, §16, §17, §18
 - Contracts: `apps/storefront/CLAUDE.md`, `apps/server/CLAUDE.md`, root `CLAUDE.md` *Learnings*
 - Next 16.3.5 docs: `apps/storefront/node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/{page,loading,error,not-found}.md`, `04-functions/{generate-metadata,fetch}.md`, `05-config/01-next-config-js/images.md`
+
+## Collections index refresh (2026-09-21)
+
+The index now opens with a full-width editorial split: localized introduction, directory anchor, and the existing lookbook-01 brand photograph. On mobile the copy and photograph stack. The masthead image is page-level editorial imagery; collections without their own images retain typographic entries with larger titles and underlined links. Live collection ordering and featured/pair grouping remain unchanged.

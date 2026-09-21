@@ -72,7 +72,7 @@ function ExploreLink({
 }: Pick<CollectionCardProps, 'collection' | 'locale' | 'exploreLabel'>) {
   const foreign = collection.name.lang !== locale;
   return (
-    <EditorialLink href={collection.href}>
+    <EditorialLink href={collection.href} underline="always" className="min-h-11 gap-5">
       {exploreLabel}
       <span className="sr-only" lang={foreign ? collection.name.lang : undefined}>
         {` ${collection.name.text}`}
@@ -102,13 +102,17 @@ export function CollectionCard({
         as="article"
         effect="rise"
         className={cn(
-          'flex flex-wrap items-end justify-between gap-x-8 gap-y-5 border-t border-border py-10 [--motion-rise:24px] md:py-14',
+          'flex min-h-60 flex-col items-start justify-center gap-8 border-t border-border py-10 [--motion-rise:24px] md:min-h-72 md:flex-row md:items-center md:justify-between md:py-16',
           className
         )}
       >
         <div className="max-w-2xl">
-          <Name collection={collection} locale={locale} className="type-h2" />
-          <Meta meta={collection.meta} className="mt-3" />
+          <Name
+            collection={collection}
+            locale={locale}
+            className="font-display text-[clamp(2.25rem,4.5vw,4.75rem)] leading-tight"
+          />
+          <Meta meta={collection.meta} className="mt-5" />
         </div>
         <div className="mb-1">
           <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
