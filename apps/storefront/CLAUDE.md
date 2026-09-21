@@ -56,7 +56,7 @@ One token pair in `app/globals.css`'s `@theme inline`: `--radius-media` (12px, t
 `rounded-media` utility) and `--radius-media-sm` (8px, `rounded-media-sm`). Never a raw
 `rounded-[12px]`. `rounded-media`: the product card image frame, category tiles, the
 collections index photographs, the collection intro image, the featured collection's
-two frames, The Moon Selection's five frames, lookbook images, the editorial strip photographs, the gallery frame and its
+two frames, lookbook images, the editorial strip photographs, the gallery frame and its
 no-image frame, the product page's gallery fallback and both skeleton frames.
 `rounded-media-sm`: gallery thumbnails (the inner photograph is concentric,
 `radius - 4px`) and the purchase panel's 44px size cells, where 12px read as pills. Full-bleed photographs stay square: the hero, the promo
@@ -366,11 +366,11 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    `[data-strip]:has([data-strip-toggle]:checked)`, no client boundary).
 
 **No eyebrows: the eyebrow is the title, the title is the description** (owner
-decision, 2026-09-14). No section renders a label above its heading, **except The Moon
-Selection** (owner brief, 2026-09-21), which names all three levels and their copy:
-a bronze `type-caption` eyebrow, a gold rule, an `h2` at `type-h1 lg:type-display` and a
-`type-body-lg` description under it. It composes its own header rather than widening
-`SectionHeading`, so the two-level rule below still governs every other section. The `eyebrow`
+decision, 2026-09-14). No section renders a label above its heading. The Moon Selection
+briefly did (owner brief, 2026-09-21) and the eyebrow was removed the same day, so the
+rule holds across the whole page; that section keeps its own header rather than
+`SectionHeading` only because its `h2` runs at `type-h1 lg:type-display`, over a gold
+hairline, with a `type-body-lg` description under it. The `eyebrow`
 message keys keep their names and copy but render as the heading element the old title
 used, at the old title's `type-*` size and with its entrance; the old `title` copy
 renders as a `<p>` under it:
@@ -408,8 +408,8 @@ belongs to the signature moments only: the promo banner, the featured collection
 the campaign. `SectionHeading` (Categories) raises its title
 once and fades its description, and the catalog's `PageIntro` (an `h1`, not a
 `SectionHeading`) uses the same entrance. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
-settle) is for one feature card per section, like the first `CategoryTile`; The Moon
-Selection plays it on its feature photograph through `SelectionFrame`, not `ProductCard`. Adding the word mask back to a commerce heading repeats the same entrance
+settle) is for one feature card per section, like The Moon Selection's first card and
+the first `CategoryTile`. Adding the word mask back to a commerce heading repeats the same entrance
 down the page.
 
 **Reveal and hover never share an element.** A `transition-*` utility replaces the
@@ -1537,14 +1537,12 @@ Browser-only; no storefront DOM or browser harness exists.
   About-shaped destination); §12·12's
   Customer Care column is omitted until Shipping/Returns/Contact pages are planned. No
   FAQ, Blog, About, Newsletter or policy text anywhere.
-- §12·08's product grid is **The Moon Selection** (owner brief, 2026-09-21), an
-  editorial spread rather than a listing: one feature piece at 4:5 with its name, price
-  and a `View details` link, and four supporting pieces at 3:4, 1:1, 5:6 and 3:4 placed
-  around it in two bands. It shares no component with `ProductCard` (see
-  `features/home/components/moon-selection/moon-selection.tsx` for why), carries no
-  badge, description or Quick Add, and every crop stays portrait or square because all
-  nine catalog slots are authored 4:5. Copy is `home.selection`; the composition is
-  `features/home/data/moon-selection.ts`.
+- §12·08 is **The Moon Selection** (owner brief, 2026-09-21), renamed from The Edit.
+  Copy is `home.selection` (title, description, link — no eyebrow). Its **grid is the
+  original one**: a 2x2 `ProductCard` feature plus four standard cards. An asymmetric
+  editorial spread sharing nothing with `ProductCard` was built against the brief and
+  the owner preferred the cards after seeing it; the spread is in the history at
+  `cebe648` rather than deleted. Its heading is the section's own, not `SectionHeading`.
 - The footer carries social links and contact details (user decision, 2026-09-14), and
   no language switcher. They come only from `lib/brand/contact.ts` and render only when
   real values are filled in there; `contact.test.ts` fails the build on a malformed

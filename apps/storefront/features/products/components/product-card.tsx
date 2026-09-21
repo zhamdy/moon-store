@@ -10,6 +10,11 @@ import type { ImageSource, ProductCardBadge, ProductCardModel } from '../utils/p
 import { formatPrice } from '../utils/price';
 import { ProductImagePlaceholder } from './product-image-placeholder';
 
+/** Card width in the homepage's 4-up desktop grid / 2-up below. */
+export const CATALOG_CARD_SIZES = '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, 46vw';
+/** The Moon Selection's 2x2 feature card. */
+export const LARGE_CARD_SIZES = '(min-width: 1440px) 672px, (min-width: 1024px) 48vw, 92vw';
+
 export interface ProductCardProps {
   /** Built by `fromHomeMock` or `fromCatalogDto`; the card never sees a data source. */
   product: ProductCardModel;
