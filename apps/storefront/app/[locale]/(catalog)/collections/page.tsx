@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
-import { ArrowDown } from 'lucide-react';
 import { editorialImages } from '@/lib/editorial/images';
 import { connection } from 'next/server';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
+import { HEADER_BOUNDARY_ATTR } from '@/components/layout/header/header-boundary';
 import { Container } from '@/components/ui/container';
 import { CatalogEmpty } from '@/features/catalog/components/catalog-empty';
 import { DEFAULT_CATALOG_PARAMS } from '@/features/catalog/search-params';
@@ -46,35 +46,51 @@ export default async function CollectionsPage({ params }: PageProps<'/[locale]/c
 
   return (
     <>
-      <header className="grid bg-surface-soft md:min-h-[560px] md:grid-cols-2">
-        <div className="flex flex-col justify-between gap-10 px-(--page-gutter) py-12 md:py-16 lg:py-20">
-          <p className="type-label text-brand">Moon Fashion</p>
-          <div>
-            <h1 className="font-display text-[clamp(3rem,6.5vw,7rem)] leading-[1.1] tracking-tight">
-              {t('intro.collectionsTitle')}
-            </h1>
-            <p className="mt-6 max-w-sm text-pretty type-body-lg text-text-secondary">
-              {t('collections.description')}
-            </p>
-          </div>
-          <a
-            href="#collection-directory"
-            className="inline-flex min-h-11 w-fit items-center gap-5 border-b border-brand pb-2 type-label text-brand transition-colors hover:text-text"
-          >
-            {t('collections.browse')}
-            <ArrowDown size={18} aria-hidden="true" />
-          </a>
-        </div>
-        <div className="relative aspect-4/3 overflow-hidden md:aspect-auto">
+      {/*
+        The page opens on the photograph itself, full-bleed to all four edges and
+        pulled under the header by `--header-h` (the boundary attribute makes the
+        header transparent at the top of the scroll, as the homepage hero does).
+        Centred title and description over it, and nothing else: the eyebrow, the
+        split two-column panel and the jump link were removed (owner decision,
+        2026-09-21) — the directory begins one screen down, so a link to it was
+        naming the scroll the visitor was already making.
+      */}
+      <header
+        {...{ [HEADER_BOUNDARY_ATTR]: '' }}
+        data-surface="dark"
+        className="relative -mt-(--header-h) flex min-h-[clamp(28rem,72svh,44rem)] items-center overflow-hidden bg-dark-surface"
+      >
+        <div className="absolute inset-0">
           <Image
             src={editorialImages['lookbook-01'].src}
             alt=""
             fill
             preload
-            sizes="(min-width: 768px) 50vw, 100vw"
+            sizes="100vw"
             className="object-cover object-top"
           />
+          {/* Header band: enough to carry the ivory logo and nav over the crop */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-linear-to-b from-scrim/70 to-transparent"
+          />
+          {/* One even wash so the centred copy clears contrast wherever it lands */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-dark-surface/55"
+          />
         </div>
+        <Container
+          as="div"
+          className="relative flex w-full flex-col items-center pt-(--header-h) text-center"
+        >
+          <h1 className="font-display text-[clamp(3rem,6.5vw,7rem)] leading-[1.1] tracking-tight text-text">
+            {t('intro.collectionsTitle')}
+          </h1>
+          <p className="mt-6 max-w-[46ch] text-pretty type-body-lg text-text-secondary">
+            {t('collections.description')}
+          </p>
+        </Container>
       </header>
       <Container
         as="section"
