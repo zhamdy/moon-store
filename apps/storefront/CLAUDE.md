@@ -800,11 +800,27 @@ nothing live, filters match nothing (clear filters, sort kept), past the last pa
 
 ### Collections index
 
-Composed by count, not a uniform grid (`collectionIndexLayout`): the first featured
-collection with an image (else the first with one) becomes a 7/5 feature split; the rest
-keep server order, image collections in 2-up rows and image-less ones as ruled
-typographic rows. A text row closes a pair in progress, so order is never shuffled to
-fill a row. No live collection: the catalog empty state.
+The page opens on a full-bleed photograph pulled under the header
+(`HEADER_BOUNDARY_ATTR`, `data-surface="dark"`), with the `h1` and the description
+centred over it and nothing else — no eyebrow, no jump link (owner decision,
+2026-09-21).
+
+Below it, composed by count, not a uniform grid (`collectionIndexLayout`): the first
+featured collection (else the first) is the opening card at the full container width,
+3:2 from 768; the rest keep server order in 2-up 4:5 rows. **Every card is a photograph
+with its name, season · year and an Explore cue standing on the floor of it** (owner
+decision, 2026-09-21), over the same `from-scrim-strong` gradient the category tiles
+use, with copy in ivory through `data-surface="ink"`. The whole card is the one `Link`,
+named by its `h2`; the Explore row is `aria-hidden`, so a collection is a single tab
+stop. The photograph-above-caption card and the image-less typographic row are gone, and
+with them the layout's `text` block kind.
+
+A collection with no image of its own borrows an editorial lookbook crop, picked
+deterministically from its slug (`collectionFallbackSlot`, unit-tested). It is a
+**stand-in, not a claim**: the crop does not depict that collection, its alt text is
+empty, and giving the collection a real image in the dashboard replaces it. Seeded
+collections carry no image, so without it a fresh database would show one card and a
+column of text rows. No live collection: the catalog empty state.
 
 ### Open for the screenshot review (AD-12)
 

@@ -13,10 +13,10 @@ export interface CollectionIndexProps {
 }
 
 /**
- * `/collections` below its intro, composed by count (`collectionIndexLayout`): the
- * feature split, then 2-up image rows and typographic rows for image-less
- * collections. Consecutive text rows stack as one ruled list; every other block
- * change gets section-scale air.
+ * `/collections` below its intro, composed by count (`collectionIndexLayout`):
+ * the opening card at the full container width, then 2-up rows. Every card is a
+ * photograph with its name over it, so the index has one vocabulary whatever the
+ * collections carry; the spacing between blocks is section-scale throughout.
  */
 export function CollectionIndex({ collections, locale, exploreLabel }: CollectionIndexProps) {
   const blocks = collectionIndexLayout(collections);
@@ -24,14 +24,7 @@ export function CollectionIndex({ collections, locale, exploreLabel }: Collectio
   return (
     <Container as="div" className="pb-(--section-space)">
       {blocks.map((block, index) => {
-        const previous = blocks[index - 1];
-        const next = blocks[index + 1];
-        const spacing =
-          index === 0
-            ? undefined
-            : block.kind === 'text' && previous?.kind === 'text'
-              ? undefined
-              : 'mt-20 md:mt-28';
+        const spacing = index === 0 ? undefined : 'mt-20 md:mt-28';
 
         if (block.kind === 'feature') {
           return (
@@ -42,19 +35,6 @@ export function CollectionIndex({ collections, locale, exploreLabel }: Collectio
               exploreLabel={exploreLabel}
               variant="feature"
               className={spacing}
-            />
-          );
-        }
-
-        if (block.kind === 'text') {
-          return (
-            <CollectionCard
-              key={block.collection.slug}
-              collection={block.collection}
-              locale={locale}
-              exploreLabel={exploreLabel}
-              variant="text"
-              className={cn(spacing, next?.kind !== 'text' && 'border-b')}
             />
           );
         }
