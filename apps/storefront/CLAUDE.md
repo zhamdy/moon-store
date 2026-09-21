@@ -807,9 +807,10 @@ centred over it and nothing else — no eyebrow, no jump link (owner decision,
 
 Below it, composed by count, not a uniform grid (`collectionIndexLayout`): the first
 featured collection (else the first) is the opening card at the full container width,
-16:9 from 768; the rest keep server order in one grid, 2-up from 768 and **3-up from
-1024** at **3:2 landscape** at every width (owner, 2026-09-21: portrait tiles belong to
-products), with the tile's own type and padding a step down from the
+21:9 from 768 (3:2 below); the rest keep server order in one grid, 2-up from 768 and
+**3-up from 1024**, each a shallow **2:1 landscape band** at every width (owner,
+2026-09-21: portrait tiles belong to products, and the directory should scan rather than
+fill the screen), with the tile's own type and padding a step down from the
 feature's — a directory tile, not a second feature (owner decision, 2026-09-21: the 2-up
 cards were too large). The grid's reveal stagger restarts per row, so a late card never
 waits on the whole grid. **Every card is a photograph

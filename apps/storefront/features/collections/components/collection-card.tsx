@@ -32,8 +32,11 @@ export interface CollectionCardProps {
   /**
    * `feature`: the index's opening card, the full container width and the only
    * one that wipes its image open (AD-11). `card`: one of the grid below it,
-   * 3-up from 1024 — a landscape 3:2 tile, not a second feature. Portrait tiles
-   * belong to products; a collection is a place, and it reads as one wide.
+   * 3-up from 1024 — a shallow 2:1 band, not a second feature. Portrait tiles
+   * belong to products; a collection is a place, and it reads as one wide. The
+   * copy is what sets the floor: at 2:1 a tile is about 213px tall at 1440, so
+   * the name, its season line and the Explore cue only just clear the padding —
+   * a taller type step here needs the ratio opened back up, not more padding.
    */
   variant: 'feature' | 'card';
   className?: string;
@@ -94,7 +97,7 @@ export function CollectionCard({
       href={collection.href}
       className={cn(
         'group relative isolate block overflow-hidden rounded-media bg-surface-soft',
-        feature ? 'aspect-4/5 md:aspect-16/9' : 'aspect-3/2'
+        feature ? 'aspect-3/2 md:aspect-[21/9]' : 'aspect-2/1'
       )}
     >
       <div data-motion-zoom={feature ? '' : undefined} className="absolute inset-0">
@@ -117,7 +120,7 @@ export function CollectionCard({
         data-surface="ink"
         className={cn(
           'absolute inset-0 flex flex-col justify-end',
-          feature ? 'p-6 md:p-8 lg:p-10' : 'p-5 md:p-6'
+          feature ? 'p-6 md:p-8 lg:p-10' : 'p-4 md:p-5'
         )}
       >
         <Name
@@ -126,7 +129,10 @@ export function CollectionCard({
           className={cn('text-text', feature ? 'type-h2 lg:type-h1' : 'type-h4')}
         />
         {collection.meta ? (
-          <p dir="auto" className={cn('type-label text-text-secondary', feature ? 'mt-3' : 'mt-2')}>
+          <p
+            dir="auto"
+            className={cn('type-label text-text-secondary', feature ? 'mt-3' : 'mt-1.5')}
+          >
             {collection.meta}
           </p>
         ) : null}
@@ -134,7 +140,7 @@ export function CollectionCard({
           aria-hidden="true"
           className={cn(
             'inline-flex self-start items-center gap-3 type-label text-text transition-opacity duration-fast ease-ui group-hover:opacity-70',
-            feature ? 'mt-6' : 'mt-4'
+            feature ? 'mt-6' : 'mt-3'
           )}
         >
           {exploreLabel}
