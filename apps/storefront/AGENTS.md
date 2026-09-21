@@ -10,4 +10,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Learnings
 
-- Silk Edit uses one 16:9 campaign source for both image slots. Its 4:5 mobile frame needs `sizes="223vw"` to keep the cover crop sharp, with the model at 82% horizontally. (2026-09-21)
+- Silk Edit uses one 16:9 campaign source for both image slots. Its full-height mobile background needs height-based image sizes to keep the cover crop sharp, with the model at 82% horizontally. Keep the section `w-full` so the desktop aspect ratio and max-height cannot shrink its width. (2026-09-21)

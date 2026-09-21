@@ -9,8 +9,9 @@ import { editorialImages } from '@/lib/editorial/images';
 
 /**
  * The Silk Edit: copy over the photograph's quiet left side on landscape screens.
- * On portrait screens the photograph gets its own frame above the copy, preserving
- * the blouse and face without placing text over either. Physical placement stays
+ * On portrait screens the image fills the section, with copy over a bottom scrim.
+ * An explicit full width prevents the capped desktop aspect ratio from shrinking
+ * the section on wide displays. Physical placement stays
  * the same in both languages; only the copy's reading direction changes.
  */
 export async function PromoBanner() {
@@ -26,8 +27,8 @@ export async function PromoBanner() {
   } = getImageProps({
     ...common,
     src: editorialImages[promoBanner.portrait].src,
-    // A 16:9 source covering a 4:5 frame needs 2.22x the frame's pixel width.
-    sizes: '223vw',
+    // The wide source covers a portrait section at least 40rem tall.
+    sizes: 'max(72rem, 160svh)',
   });
 
   return (
@@ -36,9 +37,9 @@ export async function PromoBanner() {
       amount={0.2}
       aria-labelledby="promo-banner-title"
       data-surface="ink"
-      className="relative isolate overflow-hidden bg-dark-surface text-text banner-wide:grid banner-wide:min-h-[34rem] banner-wide:max-h-[50rem] banner-wide:aspect-video banner-wide:items-center"
+      className="relative isolate flex h-[90svh] min-h-[40rem] w-full items-end overflow-hidden bg-dark-surface text-text banner-wide:aspect-video banner-wide:h-auto banner-wide:min-h-[34rem] banner-wide:max-h-[50rem] banner-wide:items-center"
     >
-      <div className="relative aspect-4/5 overflow-hidden banner-wide:absolute banner-wide:inset-0 banner-wide:aspect-auto">
+      <div className="absolute inset-0 overflow-hidden">
         <div
           data-motion-zoom=""
           className="absolute inset-0 [--motion-duration:1600ms] [--motion-zoom:1.025]"
@@ -58,13 +59,18 @@ export async function PromoBanner() {
         </div>
       </div>
 
+      {/* The mobile floor protects text contrast while leaving the face and blouse clear. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-linear-to-t from-dark-surface/95 via-dark-surface/65 via-30% to-transparent to-75% banner-wide:hidden"
+      />
       {/* Shade only the desktop copy area, keeping the ivory silk luminous. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 hidden bg-linear-to-r from-dark-surface/80 via-dark-surface/35 via-45% to-transparent to-72% banner-wide:block"
       />
 
-      <Container as="div" className="relative z-10 w-full py-12 md:py-16 banner-wide:py-12">
+      <Container as="div" className="relative z-10 w-full pb-10 pt-24 md:pb-14 banner-wide:py-12">
         <div className="mx-auto max-w-[32rem] text-center banner-wide:mx-0 banner-wide:mr-auto banner-wide:w-[43%] banner-wide:max-w-[30rem]">
           <span
             aria-hidden="true"

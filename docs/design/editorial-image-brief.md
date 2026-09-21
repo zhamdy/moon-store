@@ -106,7 +106,7 @@ Output as JPEG, sRGB, quality 82–90.
 | `hero-knitwear-desktop` | 16:10 | 2400×1500 | hero | **Knitwear slide.** A woman in a cream cashmere sweater and wide trousers, standing in window light, near the centre; bottom 45% empty floor | Low warm light with dark surroundings so the cream knit glows; cream, brown, stone; **dark overall** |
 | `hero-knitwear-mobile` | 4:5 | 1200×1500 | hero | Knitwear slide, tighter: figure centred-high, bottom 45% empty | As above |
 | `strip-01`…`strip-04` | 3:4 | 900×1200 | editorial | Four details from the shoot: fabric close-up, a hand with a bag, a hem in motion, a knit texture | Ivory/cream/stone; light, airy |
-| `moment` | 4:5 display crop | Shared campaign source | editorial | **Silk Edit, portrait screens.** Use `silk-edit-campaign.png`, cropped at 82% horizontally to retain the model. Copy sits below the photograph on an espresso surface. | Ivory silk blouse, warm brown tailored trousers, limestone |
+| `moment` | Full-height portrait cover | Shared campaign source | editorial | **Silk Edit, portrait screens.** Use `silk-edit-campaign.png`, cropped at 82% horizontally to retain the model. Copy overlays a bottom espresso scrim. | Ivory silk blouse, warm brown tailored trousers, limestone |
 | `moment-wide` | 16:9 | 1672 x 941 | editorial | **Silk Edit, landscape screens.** Use `silk-edit-campaign.png`: model at right, centered copy within the quiet left portion. A horizontal scrim shades only the copy area. | Warm afternoon light, natural silk sheen |
 | `featured-large` | 3:2 | 2400×1600 | editorial | **The Evening Edit.** One figure in a **champagne satin bias-cut gown with long sleeves**, seated on lamplit limestone steps, in the left 60%. Must not repeat the hero or campaign garments | Night, lantern glow, champagne and stone |
 | `featured-small` | 4:5 | 1200×1500 | editorial | Detail from the same moment: hands holding a **black velvet clutch with a gold clasp** against the champagne satin; no face | Same light as `featured-large` |
@@ -144,8 +144,8 @@ the scrim becomes visible after a swap, the image is too light there.
   should stay at or below ~35% luminance.
 - `moment-wide`: keep the model at right and the left copy area calm; a horizontal
   espresso scrim provides contrast without dimming the blouse.
-- `moment`: crop around the model at 82% horizontally; copy lives below the image,
-  so the portrait has no scrim or text over the garment.
+- `moment`: crop around the model at 82% horizontally; the image fills the mobile
+  section and a bottom scrim protects the overlaid copy.
 - `campaign`: the left 55% at or below ~35% luminance (the line sits there from 768), and
   the bottom 40% of the mobile 4:5 window centred at 72% of the width (the line sits there
   on phones).
