@@ -292,6 +292,12 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   which matched a *comment* in migration 006, so that suite never had
   `collection_products.position`. A shim that matches SQL text must match statements, not
   prose (2026-09-14)
+- A full-bleed section that pairs `aspect-*` with `max-h-*` stops being full-bleed at
+  the width where the cap binds: the box holds its ratio by shrinking its **width**, so
+  the photograph ends short of the viewport edge and the section's own background shows
+  through the gap. It looks like a broken image, not a layout bug, and only appears past
+  a certain width — 1900px for the campaign's 21:9 at `max-h-[40rem]`. Both the Silk Edit
+  and the campaign hit it; both carry an explicit `w-full` beside the cap (2026-09-21)
 - In the storefront, `next/dynamic` is not free for a component that never renders on the
   server: its loader runtime measured ~1.2 KB gz of extra eager JS on every page just to
   host the lazy Bag drawer. `React.lazy` + `Suspense` loads the same chunk at no eager cost.

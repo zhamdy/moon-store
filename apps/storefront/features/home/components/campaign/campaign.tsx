@@ -28,7 +28,11 @@ import { editorialImages } from '@/lib/editorial/images';
  *   third, so the page's signature moments rhyme.
  *
  * The frame is capped at `40rem` from 768. Unbounded 21:9 is 1100px tall at 2560,
- * which is a section nobody can see at once.
+ * which is a section nobody can see at once. **The cap needs the explicit `w-full`
+ * beside it**: once `max-height` binds, a box with an `aspect-ratio` holds the ratio
+ * by shrinking its width instead, so the photograph stopped short of the right edge
+ * with the section's espresso showing through the gap (seen at 1900px, 2026-09-21).
+ * The Silk Edit hit the same thing one section earlier and carries the same `w-full`.
  *
  * The statement sits in the photograph's empty space, never across the model: the
  * figure stands in the right third, so the line is set on the **physical left in
@@ -52,7 +56,7 @@ export async function Campaign() {
       <Reveal className="relative isolate" amount={0.45}>
         <Parallax
           travel={0.06}
-          className="relative z-0 aspect-4/5 md:aspect-[21/9] md:max-h-[40rem]"
+          className="relative z-0 aspect-4/5 w-full md:aspect-[21/9] md:max-h-[40rem]"
         >
           <div
             data-motion-zoom=""
