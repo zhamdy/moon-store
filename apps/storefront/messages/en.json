@@ -129,11 +129,6 @@
       "line": "Dressed for the night.",
       "imageAlt": "A woman in a flowing umber silk dress walking through a limestone colonnade at dusk"
     },
-    "offer": {
-      "title": "The Sale",
-      "body": "Selected pieces, at reduced prices.",
-      "imageAlt": "A woman in a flowing umber silk dress walking through a limestone colonnade at dusk"
-    },
     "curated": {
       "eyebrow": "Curated by Moon",
       "title": "The Edit",
@@ -162,6 +157,13 @@
       "alt4": "A woman walking along a curved stone corridor in a black blazer, brown ribbed knit and wide black trousers",
       "alt5": "Close-up of a brown wool jacket collar resting on folds of ivory silk"
     }
+  },
+  "promotion": {
+    "title": "Buy one, get one free",
+    "body": "Take two pieces from the shop and the second is on us.",
+    "terms": "On selected pieces. The lower-priced piece is free. While stocks last.",
+    "cta": "Shop the offer",
+    "imageAlt": "A woman in a flowing umber silk dress walking through a limestone colonnade at dusk"
   },
   "footer": {
     "tagline": "Luxury fashion, edited for the modern wardrobe.",

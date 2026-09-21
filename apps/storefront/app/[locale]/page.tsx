@@ -8,7 +8,7 @@ import { NewArrivals } from '@/features/home/components/new-arrivals/new-arrival
 import { PromoBanner } from '@/features/home/components/promo-banner/promo-banner';
 import { FeaturedCollection } from '@/features/home/components/featured-collection/featured-collection';
 import { CategoryGrid } from '@/features/home/components/category-grid/category-grid';
-import { OfferBanner } from '@/features/home/components/offer-banner/offer-banner';
+import { PromotionBanner } from '@/components/promotion/promotion-banner';
 import { CuratedEdit } from '@/features/home/components/curated-edit/curated-edit';
 import { Benefits } from '@/features/home/components/benefits/benefits';
 import { Lookbook } from '@/features/home/components/lookbook/lookbook';
@@ -39,7 +39,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <PromoBanner />
       <FeaturedCollection />
       <CategoryGrid />
-      <OfferBanner />
+      <PromotionBanner />
       <CuratedEdit locale={locale} />
       <Benefits />
       <Lookbook />
