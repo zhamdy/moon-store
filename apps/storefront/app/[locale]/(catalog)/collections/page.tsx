@@ -58,7 +58,7 @@ export default async function CollectionsPage({ params }: PageProps<'/[locale]/c
       <header
         {...{ [HEADER_BOUNDARY_ATTR]: '' }}
         data-surface="dark"
-        className="relative -mt-(--header-h) flex min-h-[clamp(28rem,72svh,44rem)] items-center overflow-hidden bg-dark-surface"
+        className="relative -mt-(--header-h) flex min-h-[clamp(34rem,88svh,56rem)] items-center overflow-hidden bg-dark-surface"
       >
         <div className="absolute inset-0">
           <Image
