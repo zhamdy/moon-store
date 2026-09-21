@@ -39,9 +39,17 @@ import { editorialImages } from '@/lib/editorial/images';
  * both languages at every width** (the photograph is never mirrored). On phones the
  * 4:5 window leaves the figure in the right half, so following the reading direction
  * put the Arabic line across her (freeze capture, 2026-09-14), and the line is capped
- * at 10rem there (not a ch width: in Lora 9ch still held "Dressed for" on one line)
- * so both languages clear her arm at 320. Each position gets only a soft local scrim
- * on its own side.
+ * at 10rem there so both languages clear her arm at 320. Each position gets only a
+ * soft local scrim on its own side.
+ *
+ * **Both measures are absolute, never `ch`.** They sit on the wrapper, which inherits
+ * the body font at 16px, so a `ch` here resolved in Inter rather than in the display
+ * face the line is actually set in: `12ch` came out near 96px, narrower than the word
+ * "Dressed" at `type-display`, and every word took its own line (2026-09-21). Every
+ * other `ch` measure in this codebase sits on the element carrying the `type-*`
+ * utility, where it resolves correctly. 30rem from 768 holds "Dressed for" on one
+ * line, so the statement breaks in two with `text-balance` evening the pair, and
+ * still ends well short of the figure.
  *
  * Motion is slow on purpose: the photograph settles from 1.06 over two seconds
  * while it drifts with the scroll, the rule draws, and the line rises word by word
@@ -87,7 +95,7 @@ export async function Campaign() {
         <div className="pointer-events-none absolute inset-0 z-20 flex items-end">
           <Container as="div" className="w-full pb-10 md:pb-16">
             {/* Under RTL, margin-inline-start: auto keeps the line on the physical left, at every width. */}
-            <div className="max-w-[10rem] md:max-w-[12ch] rtl:ms-auto">
+            <div className="max-w-[10rem] md:max-w-[30rem] rtl:ms-auto">
               <div
                 aria-hidden="true"
                 data-motion="fade"
