@@ -726,15 +726,16 @@ action.
   written here and nothing is truncated server-side. A mock carries none, and a product
   with no copy simply has no line.
 - **Action**: the `action` slot, composed by the page (`features/cart`'s `QuickAdd`).
-  **A 44px ivory disc with a bag glyph at the photograph's bottom inline end** (owner
+  **A 44px ivory disc with a bag glyph at the photograph's bottom inline start** (owner
   decision, 2026-09-21, replacing the full-width worded button under the caption: a
   labelled block on every tile is the row of buttons this card was drawn to avoid, and
   it cost the caption a line). It is placed into the photograph's grid row
   (`[data-card-action='overlay']` in `app/globals.css`) rather than positioned
   absolutely: no measured offset, DOM order untouched (the name is still read and tabbed
   first), and the element stays outside the frame's `overflow: hidden`, so the panel
-  opens past the photograph's edge. Grid placement is logical, so it mirrors in Arabic
-  on its own. From 768 **with a pointer** it is transparent until the card is hovered,
+  opens past the photograph's edge. The inline axis is logical throughout, so it mirrors
+  to the right in Arabic on its own; it shares the reading-start column with the badge
+  rather than sitting diagonally opposite it (owner decision, 2026-09-21). From 768 **with a pointer** it is transparent until the card is hovered,
   until focus lands anywhere in it (it stays a tab stop while transparent — that is how
   a keyboard reaches it) or while its panel is open; on a touch screen and below 768 it
   is always visible. It is the only shadow on the card (`--shadow-overlay`, the toasts'

@@ -823,11 +823,14 @@ header[data-surface][data-surface-ready] {
 }
 
 /* product-card.tsx: the tile's one action (features/cart's QuickAdd) - a 44px disc at
-   the photograph's bottom inline end, placed into the photograph's own grid row rather
+   the photograph's bottom inline start, under the badge, placed into the photograph's
+   own grid row rather
    than positioned absolutely: the overlap needs no measured offset, it leaves DOM order
    alone (the name is still read and tabbed first) and it keeps the element outside the
    frame's `overflow: hidden`, so the Quick Add panel can open past the photograph's
-   edge. Grid placement is logical, so the disc mirrors to the left in Arabic on its own.
+   edge. The inline axis is logical throughout, so the disc mirrors to the right in
+   Arabic on its own (owner decision, 2026-09-21: it reads from the same corner the
+   badge does, not diagonally opposite it).
 
    Where a pointer exists it is transparent until the card is hovered, until focus lands
    anywhere inside it - which is how a keyboard reaches it, since it stays a tab stop

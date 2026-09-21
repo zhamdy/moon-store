@@ -25,7 +25,7 @@ export interface QuickAddProps {
   strings: QuickAddStrings;
   /**
    * `disc` (default) is what a tile carries (owner decision, 2026-09-21): a 44px ivory
-   * disc with a bag glyph at the photograph's bottom inline end, named to a screen
+   * disc with a bag glyph at the photograph's bottom inline start, named to a screen
    * reader and to nobody else. A labelled block under every caption — outlined or
    * filled — is the row of buttons the editorial tile was drawn to avoid. `solid` is
    * the full, worded button, for the one lead card in a composition, which is the only
@@ -211,7 +211,7 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
       ref={rootRef}
       data-quick-add=""
       data-open={open ? '' : undefined}
-      className={cn('relative z-10', disc && 'pointer-events-none flex justify-end')}
+      className={cn('relative z-10', disc && 'pointer-events-none flex justify-start')}
     >
       <Button
         ref={triggerRef}

@@ -99,7 +99,7 @@ function imageProps(image: ImageSource) {
  *   truncated by the API; a product with no description simply has no line, and on a
  *   grid that keeps the cards level because the clamp reserves its two lines.
  * - The action is composed by the page into `action` — one Add to Bag, a 44px ivory disc
- *   carrying a bag glyph at the photograph's bottom inline end (owner decision,
+ *   carrying a bag glyph at the photograph's bottom inline start (owner decision,
  *   2026-09-21). It is the only control on the tile, it costs the caption no line, and
  *   it is named to a screen reader rather than to the page: a worded block under every
  *   caption is the row of buttons this tile was drawn to avoid.
@@ -123,7 +123,7 @@ function imageProps(image: ImageSource) {
  * Hover (CSS `group-hover`, which Tailwind wraps in `@media (hover: hover)`, so touch
  * devices never get a stuck alternate view): the second photograph crossfades in, the
  * frame scales 1 → 1.03, the name's gold rule draws along the reading direction and the
- * action disc rises in at the photograph's bottom inline end (the 2026-09-21 pass,
+ * action disc rises in at the photograph's bottom inline start (the 2026-09-21 pass,
  * superseding "no control appears over the photograph"). Keyboard focus anywhere in the
  * card draws the rule and reveals the disc too, and it stays while its Quick Add panel
  * is open. **Where there is no pointer the disc is simply always there** — below 768 and
