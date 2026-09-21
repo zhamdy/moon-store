@@ -32,7 +32,8 @@ export interface CollectionCardProps {
   /**
    * `feature`: the index's opening card, the full container width and the only
    * one that wipes its image open (AD-11). `card`: one of the grid below it,
-   * 3-up from 1024 — a directory tile, not a second feature.
+   * 3-up from 1024 — a landscape 3:2 tile, not a second feature. Portrait tiles
+   * belong to products; a collection is a place, and it reads as one wide.
    */
   variant: 'feature' | 'card';
   className?: string;
@@ -93,7 +94,7 @@ export function CollectionCard({
       href={collection.href}
       className={cn(
         'group relative isolate block overflow-hidden rounded-media bg-surface-soft',
-        feature ? 'aspect-4/5 md:aspect-16/9' : 'aspect-4/5 sm:aspect-3/4'
+        feature ? 'aspect-4/5 md:aspect-16/9' : 'aspect-3/2'
       )}
     >
       <div data-motion-zoom={feature ? '' : undefined} className="absolute inset-0">
