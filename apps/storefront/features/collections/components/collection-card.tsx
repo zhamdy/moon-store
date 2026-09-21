@@ -31,7 +31,8 @@ export interface CollectionCardProps {
   exploreLabel: string;
   /**
    * `feature`: the index's opening card, the full container width and the only
-   * one that wipes its image open (AD-11). `card`: one of a 2-up row.
+   * one that wipes its image open (AD-11). `card`: one of the grid below it,
+   * 3-up from 1024 — a directory tile, not a second feature.
    */
   variant: 'feature' | 'card';
   className?: string;
@@ -39,8 +40,9 @@ export interface CollectionCardProps {
 
 const FEATURE_SIZES =
   '(min-width: 1440px) 1312px, (min-width: 768px) calc(100vw - 64px), calc(100vw - 40px)';
+/** Mirrors the index grid: 3-up from 1024, 2-up from 768, one below. */
 const CARD_SIZES =
-  '(min-width: 1440px) 640px, (min-width: 1024px) calc(50vw - 64px), (min-width: 768px) calc(50vw - 42px), calc(100vw - 40px)';
+  '(min-width: 1440px) 427px, (min-width: 1024px) calc(33.34vw - 40px), (min-width: 768px) calc(50vw - 42px), calc(100vw - 40px)';
 
 function Name({
   collection,
@@ -91,7 +93,7 @@ export function CollectionCard({
       href={collection.href}
       className={cn(
         'group relative isolate block overflow-hidden rounded-media bg-surface-soft',
-        feature ? 'aspect-4/5 md:aspect-3/2' : 'aspect-4/5'
+        feature ? 'aspect-4/5 md:aspect-16/9' : 'aspect-4/5 sm:aspect-3/4'
       )}
     >
       <div data-motion-zoom={feature ? '' : undefined} className="absolute inset-0">
@@ -112,21 +114,27 @@ export function CollectionCard({
       />
       <div
         data-surface="ink"
-        className="absolute inset-0 flex flex-col justify-end p-6 md:p-8 lg:p-10"
+        className={cn(
+          'absolute inset-0 flex flex-col justify-end',
+          feature ? 'p-6 md:p-8 lg:p-10' : 'p-5 md:p-6'
+        )}
       >
         <Name
           collection={collection}
           locale={locale}
-          className={cn('text-text', feature ? 'type-h1 lg:type-display' : 'type-h3 lg:type-h2')}
+          className={cn('text-text', feature ? 'type-h2 lg:type-h1' : 'type-h4')}
         />
         {collection.meta ? (
-          <p dir="auto" className="mt-3 type-label text-text-secondary">
+          <p dir="auto" className={cn('type-label text-text-secondary', feature ? 'mt-3' : 'mt-2')}>
             {collection.meta}
           </p>
         ) : null}
         <span
           aria-hidden="true"
-          className="mt-6 inline-flex items-center gap-3 type-label text-text transition-opacity duration-fast ease-ui group-hover:opacity-70"
+          className={cn(
+            'inline-flex self-start items-center gap-3 type-label text-text transition-opacity duration-fast ease-ui group-hover:opacity-70',
+            feature ? 'mt-6' : 'mt-4'
+          )}
         >
           {exploreLabel}
           <ArrowRight size={18} className="rtl:-scale-x-100" />

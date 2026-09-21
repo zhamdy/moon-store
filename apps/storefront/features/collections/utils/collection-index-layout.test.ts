@@ -11,8 +11,8 @@ const c = (slug: string, isFeatured = false): Item => ({ slug, isFeatured });
 
 const shape = (blocks: CollectionIndexBlock<Item>[]) =>
   blocks.map((b) =>
-    b.kind === 'pair'
-      ? `pair:${b.collections.map((x) => x.slug).join('+')}`
+    b.kind === 'grid'
+      ? `grid:${b.collections.map((x) => x.slug).join('+')}`
       : `${b.kind}:${b.collection.slug}`
   );
 
@@ -21,25 +21,25 @@ describe('collectionIndexLayout', () => {
     expect(collectionIndexLayout([])).toEqual([]);
   });
 
-  it('renders a single collection as just the opening card', () => {
+  it('renders a single collection as just the opening card, with no empty grid', () => {
     expect(shape(collectionIndexLayout([c('silk')]))).toEqual(['feature:silk']);
   });
 
-  it('opens on the first featured collection, then pairs the rest in order', () => {
+  it('opens on the first featured collection, then grids the rest in order', () => {
     const list = [c('a'), c('b', true), c('d'), c('e')];
-    expect(shape(collectionIndexLayout(list))).toEqual(['feature:b', 'pair:a+d', 'pair:e']);
+    expect(shape(collectionIndexLayout(list))).toEqual(['feature:b', 'grid:a+d+e']);
   });
 
   it('opens on the first collection when none is featured', () => {
     expect(shape(collectionIndexLayout([c('a'), c('b'), c('d')]))).toEqual([
       'feature:a',
-      'pair:b+d',
+      'grid:b+d',
     ]);
   });
 
   it('composes every collection the same way, image or not', () => {
     const list = [c('f', true), c('a'), c('t'), c('b'), c('d')];
-    expect(shape(collectionIndexLayout(list))).toEqual(['feature:f', 'pair:a+t', 'pair:b+d']);
+    expect(shape(collectionIndexLayout(list))).toEqual(['feature:f', 'grid:a+t+b+d']);
   });
 });
 

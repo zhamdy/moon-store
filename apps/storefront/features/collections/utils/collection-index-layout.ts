@@ -5,18 +5,20 @@ type IndexCollection = Pick<CatalogCollection, 'isFeatured'>;
 export type CollectionIndexBlock<T extends IndexCollection> =
   /** The index's opening card, the full container width. */
   | { kind: 'feature'; collection: T }
-  /** One or two cards side by side from 768px. */
-  | { kind: 'pair'; collections: [T] | [T, T] };
+  /** Everything else, as one grid: 2-up from 768 and 3-up from 1024. */
+  | { kind: 'grid'; collections: T[] };
 
 /**
  * The collections index is composed by count, not a uniform grid (plan Unit 10).
  * The first featured collection (else the first) opens the page at full width;
- * the rest keep the server's order, paired into 2-up rows.
+ * the rest keep the server's order in one grid below it.
  *
  * It no longer branches on whether a collection carries an image: every card is
  * a photograph with its name over it, and one with no image of its own borrows
  * an editorial crop (owner decision, 2026-09-21). The `text` block kind and the
- * pair-closing rule it needed went with it.
+ * pair-closing rule it needed went with it, and the 2-up pair rows became one
+ * grid when the cards were made smaller (owner, same day) — three to a row needs
+ * a row that can hold three.
  */
 export function collectionIndexLayout<T extends IndexCollection>(
   collections: readonly T[]
@@ -24,12 +26,9 @@ export function collectionIndexLayout<T extends IndexCollection>(
   const featured = collections.find((c) => c.isFeatured) ?? collections[0];
   if (!featured) return [];
 
-  const blocks: CollectionIndexBlock<T>[] = [{ kind: 'feature', collection: featured }];
   const rest = collections.filter((c) => c !== featured);
-  for (let i = 0; i < rest.length; i += 2) {
-    const pair = rest.slice(i, i + 2) as [T] | [T, T];
-    blocks.push({ kind: 'pair', collections: pair });
-  }
+  const blocks: CollectionIndexBlock<T>[] = [{ kind: 'feature', collection: featured }];
+  if (rest.length > 0) blocks.push({ kind: 'grid', collections: rest });
   return blocks;
 }
 
