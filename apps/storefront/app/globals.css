@@ -822,6 +822,29 @@ header[data-surface][data-surface-ready] {
   }
 }
 
+/* product-card.tsx: the tile's one action (features/cart's QuickAdd) - a 44px disc at
+   the photograph's bottom inline start, under the badge. It is placed into the
+   photograph's own grid row rather than positioned absolutely: the overlap needs no
+   measured offset, it leaves DOM order alone (the name is still read and tabbed first)
+   and it keeps the element outside the frame's `overflow: hidden`, so the Quick Add
+   panel can open past the photograph's edge. The inline axis is logical throughout, so
+   the disc mirrors to the right in Arabic on its own.
+
+   It is always visible (owner decision, 2026-09-21, replacing a hover reveal): the tile
+   has exactly one affordance, and hiding it behind a pointer both loses it on a desktop
+   and cannot exist on a touch screen at all. The card's hover states stay what they
+   were - the alternate photograph, the frame's 1.03 and the name's gold rule.
+
+   The photograph and the caption carry `row-start-1` / `row-start-2` for this rule's
+   sake: auto-placement skips a cell an explicitly-placed item holds, so without them
+   the photograph took row 2 and the disc sat above the card. */
+[data-card-action='overlay'] {
+  grid-area: 1 / 1;
+  align-self: end;
+  z-index: 10;
+  padding: 0.75rem;
+}
+
 /* features/cart/components/quick-add.tsx: the Quick Add panel's entrance. Micro level
    (180ms, the UI easing), transform and opacity only, and `motion-safe:` on the element
    so reduced motion gets the panel with no movement at all. */

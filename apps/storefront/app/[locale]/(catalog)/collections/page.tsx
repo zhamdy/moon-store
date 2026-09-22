@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
+import { editorialImages } from '@/lib/editorial/images';
 import { connection } from 'next/server';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
+import { HEADER_BOUNDARY_ATTR } from '@/components/layout/header/header-boundary';
 import { Container } from '@/components/ui/container';
 import { CatalogEmpty } from '@/features/catalog/components/catalog-empty';
-import { introLabels } from '@/features/catalog/components/catalog-page';
-import { PageIntro } from '@/features/catalog/components/page-intro';
-import { catalogIntroHeadings } from '@/features/catalog/utils/intro-heading';
 import { DEFAULT_CATALOG_PARAMS } from '@/features/catalog/search-params';
 import { buildCatalogMetadata } from '@/features/catalog/utils/catalog-metadata';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
@@ -46,23 +46,81 @@ export default async function CollectionsPage({ params }: PageProps<'/[locale]/c
 
   return (
     <>
-      <PageIntro
-        locale={locale}
-        headings={catalogIntroHeadings({ kind: 'collections' }, await introLabels(), locale)}
-      />
+      {/*
+        The page opens on the photograph itself, full-bleed to all four edges and
+        pulled under the header by `--header-h` (the boundary attribute makes the
+        header transparent at the top of the scroll, as the homepage hero does).
+        Centred title and description over it, and nothing else: the eyebrow, the
+        split two-column panel and the jump link were removed (owner decision,
+        2026-09-21) — the directory begins one screen down, so a link to it was
+        naming the scroll the visitor was already making.
+      */}
+      <header
+        {...{ [HEADER_BOUNDARY_ATTR]: '' }}
+        data-surface="dark"
+        className="relative -mt-(--header-h) flex min-h-[clamp(34rem,88svh,56rem)] items-center overflow-hidden bg-dark-surface"
+      >
+        <div className="absolute inset-0">
+          <Image
+            src={editorialImages['lookbook-01'].src}
+            alt=""
+            fill
+            preload
+            sizes="100vw"
+            className="object-cover object-top"
+          />
+          {/* Header band: enough to carry the ivory logo and nav over the crop */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-linear-to-b from-scrim/70 to-transparent"
+          />
+          {/* One even wash so the centred copy clears contrast wherever it lands */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-dark-surface/55"
+          />
+        </div>
+        <Container
+          as="div"
+          className="relative flex w-full flex-col items-center pt-(--header-h) text-center"
+        >
+          <h1 className="font-display text-[clamp(3rem,6.5vw,7rem)] leading-[1.1] tracking-tight text-text">
+            {t('intro.collectionsTitle')}
+          </h1>
+          <p className="mt-6 max-w-[46ch] text-pretty type-body-lg text-text-secondary">
+            {t('collections.description')}
+          </p>
+        </Container>
+      </header>
       {collections.length > 0 ? (
-        <CollectionIndex
-          locale={locale}
-          exploreLabel={t('collections.explore')}
-          collections={collections.map((collection) => ({
-            slug: collection.slug,
-            href: catalogPath({ kind: 'collection', slug: collection.slug }),
-            name: localizedName(collection, locale),
-            meta: collectionMeta(collection),
-            imageUrl: collection.imageUrl,
-            isFeatured: collection.isFeatured,
-          }))}
-        />
+        /*
+          The directory's own heading ("The collection edit") is visually gone
+          (owner decision, 2026-09-21): the hero above already says what the page
+          is, and a label over a grid of named cards said it a second time. It
+          stays as the section's visually hidden accessible name, so the landmark
+          is still named and the `#collection-directory` anchor still lands here.
+        */
+        <section
+          id="collection-directory"
+          aria-labelledby="collection-directory-heading"
+          className="scroll-mt-28 pt-12 md:pt-20"
+        >
+          <h2 id="collection-directory-heading" className="sr-only">
+            {t('collections.directory')}
+          </h2>
+          <CollectionIndex
+            locale={locale}
+            exploreLabel={t('collections.explore')}
+            collections={collections.map((collection) => ({
+              slug: collection.slug,
+              href: catalogPath({ kind: 'collection', slug: collection.slug }),
+              name: localizedName(collection, locale),
+              meta: collectionMeta(collection),
+              imageUrl: collection.imageUrl,
+              isFeatured: collection.isFeatured,
+            }))}
+          />
+        </section>
       ) : (
         <Container as="section" className="pb-(--section-space)">
           <CatalogEmpty

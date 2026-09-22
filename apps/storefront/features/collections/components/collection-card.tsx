@@ -1,14 +1,18 @@
 import Image from 'next/image';
+import { ArrowRight } from 'lucide-react';
 import { Reveal } from '@/components/motion/reveal';
-import { EditorialLink } from '@/components/ui/editorial-link';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
+import { editorialImages } from '@/lib/editorial/images';
 import { cn } from '@/lib/utils/cn';
+import { collectionFallbackSlot } from '../utils/collection-image';
 
 /**
  * What a collection card renders. The name arrives resolved with its language
  * (the catalog slice maps it with `localizedName`: `products` and `collections`
- * never import each other), and `meta` from `collectionMeta`.
+ * never import each other), and `meta` from `collectionMeta`. `imageUrl` may be
+ * null — the card falls back to an editorial photograph rather than dropping to
+ * a typographic row (see `collection-image.ts`).
  */
 export interface CollectionCardModel {
   slug: string;
@@ -26,18 +30,23 @@ export interface CollectionCardProps {
   /** `catalog.collections.explore`, resolved by the page. */
   exploreLabel: string;
   /**
-   * `feature`: the index's 7/5 split, stacked below 1024, the only one that wipes
-   * its image open (AD-11). `card`: an image card in a 2-up row, rising. `text`:
-   * no image, a typographic row. `feature` and `card` need `imageUrl`.
+   * `feature`: the index's opening card, the full container width and the only
+   * one that wipes its image open (AD-11). `card`: one of the grid below it,
+   * 3-up from 1024 — a shallow 2:1 band, not a second feature. Portrait tiles
+   * belong to products; a collection is a place, and it reads as one wide. The
+   * copy is what sets the floor: at 2:1 a tile is about 213px tall at 1440, so
+   * the name, its season line and the Explore cue only just clear the padding —
+   * a taller type step here needs the ratio opened back up, not more padding.
    */
-  variant: 'feature' | 'card' | 'text';
+  variant: 'feature' | 'card';
   className?: string;
 }
 
 const FEATURE_SIZES =
-  '(min-width: 1440px) 752px, (min-width: 1024px) calc((100vw - 96px) * 0.57), (min-width: 768px) calc(100vw - 64px), calc(100vw - 40px)';
+  '(min-width: 1440px) 1312px, (min-width: 768px) calc(100vw - 64px), calc(100vw - 40px)';
+/** Mirrors the index grid: 3-up from 1024, 2-up from 768, one below. */
 const CARD_SIZES =
-  '(min-width: 1440px) 640px, (min-width: 1024px) calc(50vw - 64px), (min-width: 768px) calc(50vw - 42px), calc(100vw - 40px)';
+  '(min-width: 1440px) 427px, (min-width: 1024px) calc(33.34vw - 40px), (min-width: 768px) calc(50vw - 42px), calc(100vw - 40px)';
 
 function Name({
   collection,
@@ -56,38 +65,22 @@ function Name({
   );
 }
 
-function Meta({ meta, className }: { meta: string | null; className?: string }) {
-  return meta ? (
-    <p dir="auto" className={cn('type-label text-text-secondary', className)}>
-      {meta}
-    </p>
-  ) : null;
-}
-
-/** "Explore" with the collection's name for assistive tech, so every link is distinct. */
-function ExploreLink({
-  collection,
-  locale,
-  exploreLabel,
-}: Pick<CollectionCardProps, 'collection' | 'locale' | 'exploreLabel'>) {
-  const foreign = collection.name.lang !== locale;
-  return (
-    <EditorialLink href={collection.href}>
-      {exploreLabel}
-      <span className="sr-only" lang={foreign ? collection.name.lang : undefined}>
-        {` ${collection.name.text}`}
-      </span>
-    </EditorialLink>
-  );
-}
-
 /**
- * A collection on the index. Content is name, then season · year under it (never an
- * eyebrow above it, owner decision 2026-09-14), and the link: no
- * product count. The photograph repeats the link for pointer users only
- * (`tabIndex=-1`, `aria-hidden`), so keyboard and screen-reader users meet one
- * link per collection. Hover scales the photograph on an inner wrapper, apart
- * from the element carrying `data-motion`.
+ * A collection on the index: the photograph is the card, and the name, its
+ * season · year and the Explore cue stand on the floor of it (owner decision,
+ * 2026-09-21, replacing the photograph-above-caption card and the image-less
+ * typographic row). A collection with no image of its own borrows an editorial
+ * lookbook crop, so the index is one vocabulary at every count.
+ *
+ * **One link per collection, and it is the whole card**: the frame is the `Link`,
+ * named by the `h2` inside it, so keyboard and screen-reader users meet a single
+ * target and the Explore row is a decorative cue (`aria-hidden`) rather than a
+ * second tab stop saying the same thing. Copy sits over the scrim in ivory
+ * through `data-surface="ink"` — never a colour set per element.
+ *
+ * Hover scales the photograph on an inner wrapper, apart from the element
+ * carrying `data-motion`: a `transition-*` utility replaces the whole
+ * `transition-property`, so sharing one element would make the reveal snap.
  */
 export function CollectionCard({
   collection,
@@ -96,78 +89,78 @@ export function CollectionCard({
   variant,
   className,
 }: CollectionCardProps) {
-  if (variant === 'text' || !collection.imageUrl) {
-    return (
-      <Reveal
-        as="article"
-        effect="rise"
-        className={cn(
-          'flex flex-wrap items-end justify-between gap-x-8 gap-y-5 border-t border-border py-10 [--motion-rise:24px] md:py-14',
-          className
-        )}
-      >
-        <div className="max-w-2xl">
-          <Name collection={collection} locale={locale} className="type-h2" />
-          <Meta meta={collection.meta} className="mt-3" />
-        </div>
-        <div className="mb-1">
-          <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
-        </div>
-      </Reveal>
-    );
-  }
+  const feature = variant === 'feature';
+  const src = collection.imageUrl ?? editorialImages[collectionFallbackSlot(collection.slug)].src;
 
-  const photo = (sizes: string, feature: boolean) => (
-    <Link href={collection.href} tabIndex={-1} aria-hidden="true" className="block">
+  const card = (
+    <Link
+      href={collection.href}
+      className={cn(
+        'group relative isolate block overflow-hidden rounded-media bg-surface-soft',
+        feature ? 'aspect-3/2 md:aspect-[21/9]' : 'aspect-2/1'
+      )}
+    >
+      <div data-motion-zoom={feature ? '' : undefined} className="absolute inset-0">
+        <div className="absolute inset-0 transition-transform duration-slow ease-ui group-hover:scale-[1.03]">
+          <Image
+            src={src}
+            alt=""
+            fill
+            sizes={feature ? FEATURE_SIZES : CARD_SIZES}
+            className="object-cover"
+          />
+        </div>
+      </div>
+      {/* The floor the copy stands on; the top of every photograph stays untouched. */}
       <div
-        data-motion={feature ? 'image' : undefined}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-linear-to-t from-scrim-strong via-scrim/45 to-transparent"
+      />
+      <div
+        data-surface="ink"
         className={cn(
-          'relative isolate overflow-hidden rounded-media bg-surface-soft',
-          feature ? 'aspect-4/5 md:aspect-3/2' : 'aspect-4/5'
+          'absolute inset-0 flex flex-col justify-end',
+          feature ? 'p-6 md:p-8 lg:p-10' : 'p-4 md:p-5'
         )}
       >
-        <div data-motion-zoom={feature ? '' : undefined} className="absolute inset-0">
-          <div className="absolute inset-0 transition-transform duration-slow ease-ui group-hover:scale-[1.03]">
-            <Image src={collection.imageUrl!} alt="" fill sizes={sizes} className="object-cover" />
-          </div>
-        </div>
+        <Name
+          collection={collection}
+          locale={locale}
+          className={cn('text-text', feature ? 'type-h2 lg:type-h1' : 'type-h4')}
+        />
+        {collection.meta ? (
+          <p
+            dir="auto"
+            className={cn('type-label text-text-secondary', feature ? 'mt-3' : 'mt-1.5')}
+          >
+            {collection.meta}
+          </p>
+        ) : null}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'inline-flex self-start items-center gap-3 type-label text-text transition-opacity duration-fast ease-ui group-hover:opacity-70',
+            feature ? 'mt-6' : 'mt-3'
+          )}
+        >
+          {exploreLabel}
+          <ArrowRight size={18} className="rtl:-scale-x-100" />
+        </span>
       </div>
     </Link>
   );
 
-  if (variant === 'feature') {
+  if (feature) {
     return (
-      <Reveal
-        as="article"
-        amount={0.2}
-        className={cn('group grid gap-y-8 lg:grid-cols-12 lg:items-center lg:gap-x-8', className)}
-      >
-        <div className="lg:col-span-7">{photo(FEATURE_SIZES, true)}</div>
-        <div className="lg:col-span-5">
-          <div data-motion="rise" className="[--motion-offset:300ms] [--motion-rise:24px]">
-            <Name collection={collection} locale={locale} className="type-h2 lg:type-h1" />
-          </div>
-          <div data-motion="fade" className="mt-3 [--motion-offset:400ms]">
-            <Meta meta={collection.meta} />
-          </div>
-          <div data-motion="fade" className="mt-8 [--motion-offset:600ms]">
-            <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
-          </div>
-        </div>
+      <Reveal as="article" amount={0.2} className={className}>
+        <div data-motion="image">{card}</div>
       </Reveal>
     );
   }
 
   return (
-    <article data-motion="rise" className={cn('group', className)}>
-      {photo(CARD_SIZES, false)}
-      <div data-motion="fade" className="mt-5 [--motion-offset:240ms]">
-        <Name collection={collection} locale={locale} className="type-h3" />
-        <Meta meta={collection.meta} className="mt-2" />
-        <div className="mt-4">
-          <ExploreLink collection={collection} locale={locale} exploreLabel={exploreLabel} />
-        </div>
-      </div>
+    <article data-motion="rise" className={className}>
+      {card}
     </article>
   );
 }

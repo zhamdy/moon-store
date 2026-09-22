@@ -10,35 +10,62 @@ import { editorialImages } from '@/lib/editorial/images';
  * 07 - Campaign: the visual pause between commerce sections. One full-bleed
  * image, 21:9 from 768 and 4:5 below (a single asset: the mobile crop is centred
  * on the figure through `object-position`), with one line of ivory display copy
- * that is the section's heading.
+ * that is the section's heading. It is the only section on the page with no link
+ * in it, deliberately — the two commerce sections it sits between each end in a
+ * call to action, and a third would make the pause another offer.
+ *
+ * Redesign (2026-09-21), three changes:
+ *
+ * - The espresso band. The section used to carry `py-4 md:py-8`, which put a thin
+ *   dark margin between the cream sections and the photograph. At that size it read
+ *   as a letterbox seam rather than as a mat, so the photograph now meets the cream
+ *   directly, as the hero does.
+ * - The line is anchored to the floor of the frame at every width. It used to be
+ *   vertically centred from 768, which read as a quote on a slide; low in the frame
+ *   it reads as a campaign still, and the colonnade above it gets to be architecture.
+ * - The rule moved above the line and went gold, from champagne below it. The Silk
+ *   Edit and the Evening Edit both open their block with that rule; this is the
+ *   third, so the page's signature moments rhyme.
+ *
+ * The frame is capped at `40rem` from 768. Unbounded 21:9 is 1100px tall at 2560,
+ * which is a section nobody can see at once. **The cap needs the explicit `w-full`
+ * beside it**: once `max-height` binds, a box with an `aspect-ratio` holds the ratio
+ * by shrinking its width instead, so the photograph stopped short of the right edge
+ * with the section's espresso showing through the gap (seen at 1900px, 2026-09-21).
+ * The Silk Edit hit the same thing one section earlier and carries the same `w-full`.
  *
  * The statement sits in the photograph's empty space, never across the model: the
  * figure stands in the right third, so the line is set on the **physical left in
- * both languages at every width** (the photograph is never mirrored): vertically
- * centred from 768, bottom-left over the paving on mobile. On phones the 4:5 window
- * leaves the figure in the right half, so following the reading direction put the
- * Arabic line across her (freeze capture, 2026-09-14), and the line is capped at
- * 10rem there (not a ch width: in Lora 9ch still held "Dressed for" on one line)
- * so both languages clear her arm at 320. Each position gets only a soft local scrim on
- * its own side. The cream band before and after is the page's second ivory->cream
- * transition.
+ * both languages at every width** (the photograph is never mirrored). On phones the
+ * 4:5 window leaves the figure in the right half, so following the reading direction
+ * put the Arabic line across her (freeze capture, 2026-09-14), and the line is capped
+ * at 10rem there so both languages clear her arm at 320. Each position gets only a
+ * soft local scrim on its own side.
+ *
+ * **Both measures are absolute, never `ch`.** They sit on the wrapper, which inherits
+ * the body font at 16px, so a `ch` here resolved in Inter rather than in the display
+ * face the line is actually set in: `12ch` came out near 96px, narrower than the word
+ * "Dressed" at `type-display`, and every word took its own line (2026-09-21). Every
+ * other `ch` measure in this codebase sits on the element carrying the `type-*`
+ * utility, where it resolves correctly. 30rem from 768 holds "Dressed for" on one
+ * line, so the statement breaks in two with `text-balance` evening the pair, and
+ * still ends well short of the figure.
  *
  * Motion is slow on purpose: the photograph settles from 1.06 over two seconds
- * while it drifts with the scroll, and the line rises word by word through its
- * masks with a long step. It plays when the section is well into view, so on a
- * phone the line at the bottom is on screen when it arrives.
+ * while it drifts with the scroll, the rule draws, and the line rises word by word
+ * through its masks with a long step. It plays when the section is well into view,
+ * so on a phone the line at the bottom is on screen when it arrives.
  */
 export async function Campaign() {
   const t = await getTranslations('home.campaign');
 
   return (
-    <section
-      aria-labelledby="campaign-title"
-      data-surface="dark"
-      className="bg-dark-surface py-4 md:py-8"
-    >
+    <section aria-labelledby="campaign-title" data-surface="dark" className="bg-dark-surface">
       <Reveal className="relative isolate" amount={0.45}>
-        <Parallax travel={0.06} className="relative z-0 aspect-4/5 md:aspect-[21/9]">
+        <Parallax
+          travel={0.06}
+          className="relative z-0 aspect-4/5 w-full md:aspect-[21/9] md:max-h-[40rem]"
+        >
           <div
             data-motion-zoom=""
             className="absolute inset-0 [--motion-duration:2000ms] [--motion-zoom:1.06]"
@@ -62,25 +89,26 @@ export async function Campaign() {
         {/* 768+: Espresso base tone with subtle nocturnal twilight on empty copy side */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-3/5 bg-linear-to-r from-dark-surface/90 via-editorial-secondary/20 to-transparent md:block"
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-3/5 bg-linear-to-r from-dark-surface/90 via-editorial-secondary/22 via-45% to-transparent md:block"
         />
 
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-end md:items-center">
-          <Container as="div" className="w-full pb-10 md:pb-0">
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-end">
+          <Container as="div" className="w-full pb-10 md:pb-16">
             {/* Under RTL, margin-inline-start: auto keeps the line on the physical left, at every width. */}
-            <div className="max-w-[10rem] md:max-w-[12ch] rtl:ms-auto">
+            <div className="max-w-[10rem] md:max-w-[30rem] rtl:ms-auto">
+              <div
+                aria-hidden="true"
+                data-motion="fade"
+                className="h-px w-10 bg-metallic [--motion-offset:200ms]"
+              />
               <TextReveal
                 as="h2"
                 id="campaign-title"
                 text={t('line')}
-                offset={300}
+                offset={420}
                 step={120}
                 duration={1100}
-                className="type-h1 md:type-display text-balance text-text"
-              />
-              <div
-                data-motion="fade"
-                className="mt-4 h-px w-10 bg-metallic-highlight/80 [--motion-offset:500ms]"
+                className="mt-6 type-h1 md:type-display text-balance text-text"
               />
             </div>
           </Container>

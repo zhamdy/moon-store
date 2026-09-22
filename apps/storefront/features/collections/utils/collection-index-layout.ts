@@ -1,46 +1,34 @@
 import type { CatalogCollection } from '../types/catalog-collection';
 
-type IndexCollection = Pick<CatalogCollection, 'isFeatured' | 'imageUrl'>;
+type IndexCollection = Pick<CatalogCollection, 'isFeatured'>;
 
 export type CollectionIndexBlock<T extends IndexCollection> =
-  /** The large 7/5 split; always has an image. */
+  /** The index's opening card, the full container width. */
   | { kind: 'feature'; collection: T }
-  /** One or two image cards side by side from 768px. */
-  | { kind: 'pair'; collections: [T] | [T, T] }
-  /** No image: a typographic row, never a fake image tile. */
-  | { kind: 'text'; collection: T };
+  /** Everything else, as one grid: 2-up from 768 and 3-up from 1024. */
+  | { kind: 'grid'; collections: T[] };
 
 /**
  * The collections index is composed by count, not a uniform grid (plan Unit 10).
- * The first featured collection with an image (else the first collection with
- * one) becomes the split; the rest keep the server's order, image collections
- * paired into 2-up rows and image-less ones as text rows. A text row closes a pair
- * in progress, so order is never shuffled to fill a row.
+ * The first featured collection (else the first) opens the page at full width;
+ * the rest keep the server's order in one grid below it.
+ *
+ * It no longer branches on whether a collection carries an image: every card is
+ * a photograph with its name over it, and one with no image of its own borrows
+ * an editorial crop (owner decision, 2026-09-21). The `text` block kind and the
+ * pair-closing rule it needed went with it, and the 2-up pair rows became one
+ * grid when the cards were made smaller (owner, same day) — three to a row needs
+ * a row that can hold three.
  */
 export function collectionIndexLayout<T extends IndexCollection>(
   collections: readonly T[]
 ): CollectionIndexBlock<T>[] {
-  const featured =
-    collections.find((c) => c.isFeatured && c.imageUrl) ?? collections.find((c) => c.imageUrl);
-  const blocks: CollectionIndexBlock<T>[] = featured
-    ? [{ kind: 'feature', collection: featured }]
-    : [];
+  const featured = collections.find((c) => c.isFeatured) ?? collections[0];
+  if (!featured) return [];
 
-  let pending: T | null = null;
-  for (const collection of collections) {
-    if (collection === featured) continue;
-    if (!collection.imageUrl) {
-      if (pending) blocks.push({ kind: 'pair', collections: [pending] });
-      pending = null;
-      blocks.push({ kind: 'text', collection });
-    } else if (pending) {
-      blocks.push({ kind: 'pair', collections: [pending, collection] });
-      pending = null;
-    } else {
-      pending = collection;
-    }
-  }
-  if (pending) blocks.push({ kind: 'pair', collections: [pending] });
+  const rest = collections.filter((c) => c !== featured);
+  const blocks: CollectionIndexBlock<T>[] = [{ kind: 'feature', collection: featured }];
+  if (rest.length > 0) blocks.push({ kind: 'grid', collections: rest });
   return blocks;
 }
 

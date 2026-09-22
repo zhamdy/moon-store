@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { getTranslations } from 'next-intl/server';
+import { PromotionBar } from '@/components/promotion/promotion-bar';
 import type { AppLocale } from '@/i18n/routing';
 import type { CatalogCategory } from '@/features/collections/types/catalog-category';
 import type { LocalizedText } from '@/features/products/utils/localized-name';
@@ -37,6 +38,13 @@ export interface CatalogPageProps {
  * The pending hook `[data-catalog]` is on `ProductGrid`'s own section, which holds both
  * the controls island and the grid. Nothing here renders a header boundary: catalog
  * pages keep the solid header.
+ *
+ * The promotion bar sits above the intro on the shop routes only (owner decision,
+ * 2026-09-21): those are the pages the homepage banner's call to action lands on, so
+ * the offer stays on screen where it is spent. It is deliberately not on `/new-in`,
+ * `/collections` or a collection page, which are editorial destinations rather than the
+ * shop, and its `shopRoute` test is the whole rule. Ending the promotion is one line
+ * here plus one in `app/[locale]/page.tsx`; see `lib/promotion/current-promotion.ts`.
  */
 export async function CatalogPage({ route, params, locale, intro, categories }: CatalogPageProps) {
   const config = catalogRouteConfig(route);
@@ -51,8 +59,11 @@ export async function CatalogPage({ route, params, locale, intro, categories }: 
     page = { kind: route.kind };
   }
 
+  const shopRoute = route.kind === 'all' || route.kind === 'category';
+
   return (
     <>
+      {shopRoute && <PromotionBar />}
       <PageIntro
         locale={locale}
         headings={catalogIntroHeadings(page, await introLabels(), locale)}

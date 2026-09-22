@@ -100,11 +100,7 @@ export async function NewArrivals({ locale }: { locale: AppLocale }) {
                   captionLayout="stacked"
                   action={
                     dto && (
-                      <QuickAdd
-                        product={toQuickAddModel(dto, locale)}
-                        strings={quickAddStrings}
-                        emphasis="brand"
-                      />
+                      <QuickAdd product={toQuickAddModel(dto, locale)} strings={quickAddStrings} />
                     )
                   }
                 />

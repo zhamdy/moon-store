@@ -8,8 +8,8 @@ import { NewArrivals } from '@/features/home/components/new-arrivals/new-arrival
 import { PromoBanner } from '@/features/home/components/promo-banner/promo-banner';
 import { FeaturedCollection } from '@/features/home/components/featured-collection/featured-collection';
 import { CategoryGrid } from '@/features/home/components/category-grid/category-grid';
-import { Campaign } from '@/features/home/components/campaign/campaign';
-import { CuratedEdit } from '@/features/home/components/curated-edit/curated-edit';
+import { PromotionBanner } from '@/components/promotion/promotion-banner';
+import { MoonSelection } from '@/features/home/components/moon-selection/moon-selection';
 import { Benefits } from '@/features/home/components/benefits/benefits';
 import { Lookbook } from '@/features/home/components/lookbook/lookbook';
 
@@ -39,8 +39,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <PromoBanner />
       <FeaturedCollection />
       <CategoryGrid />
-      <Campaign />
-      <CuratedEdit locale={locale} />
+      <PromotionBanner />
+      <MoonSelection locale={locale} />
       <Benefits />
       <Lookbook />
     </>

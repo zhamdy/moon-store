@@ -106,8 +106,8 @@ Output as JPEG, sRGB, quality 82–90.
 | `hero-knitwear-desktop` | 16:10 | 2400×1500 | hero | **Knitwear slide.** A woman in a cream cashmere sweater and wide trousers, standing in window light, near the centre; bottom 45% empty floor | Low warm light with dark surroundings so the cream knit glows; cream, brown, stone; **dark overall** |
 | `hero-knitwear-mobile` | 4:5 | 1200×1500 | hero | Knitwear slide, tighter: figure centred-high, bottom 45% empty | As above |
 | `strip-01`…`strip-04` | 3:4 | 900×1200 | editorial | Four details from the shoot: fabric close-up, a hand with a bag, a hem in motion, a knit texture | Ivory/cream/stone; light, airy |
-| `moment` | 4:5 | 1600×2000 | editorial | **Promo banner, phones and portrait tablets.** The current campaign (The Silk Edit): ivory silk blouse with full sleeves and a long brown linen skirt, seated, centred-high; the bottom 40% calm and not bright, because the banner copy sits there | Warm afternoon light, limestone |
-| `moment-wide` | 16:9 | 2560×1440 | editorial | **Promo banner, landscape screens (at least 768px wide and 4:3)**, same look. The model in the right half, face between 60% and 75% of the width; the left 45% calm wall, because the banner copy sits there in **both** languages (never mirrored). Repurposing the banner means editing `apps/storefront/features/home/data/promo-banner.ts` (href, slots, crop position), `home.banner` copy, and replacing both banner files together — no component change | As above |
+| `moment` | Full-height portrait cover | Shared campaign source | editorial | **Silk Edit, portrait screens.** Use `silk-edit-campaign.png`, cropped at 82% horizontally to retain the model. Copy overlays a bottom espresso scrim. | Ivory silk blouse, warm brown tailored trousers, limestone |
+| `moment-wide` | 16:9 | 1672 x 941 | editorial | **Silk Edit, landscape screens.** Use `silk-edit-campaign.png`: model at right, centered copy within the quiet left portion. A horizontal scrim shades only the copy area. | Warm afternoon light, natural silk sheen |
 | `featured-large` | 3:2 | 2400×1600 | editorial | **The Evening Edit.** One figure in a **champagne satin bias-cut gown with long sleeves**, seated on lamplit limestone steps, in the left 60%. Must not repeat the hero or campaign garments | Night, lantern glow, champagne and stone |
 | `featured-small` | 4:5 | 1200×1500 | editorial | Detail from the same moment: hands holding a **black velvet clutch with a gold clasp** against the champagne satin; no face | Same light as `featured-large` |
 | `category-dresses` | 3:4 | 1200×1600 | category | Dress on model, full length, neutral background | Ivory/stone |
@@ -142,9 +142,10 @@ the scrim becomes visible after a swap, the image is too light there.
   mirrored, so the figure must not stand where either language puts the text.
 - Every hero mobile crop (`hero-mobile`, `hero-*-mobile`): the top 25% and the bottom 45%
   should stay at or below ~35% luminance.
-- `moment-wide`: nothing bright (window glare, lit wall) in the left 45% or the right 40%. The code
-  scrim is strong, 0.72 ink at the text edge, and measured ≥5.7:1 on the current photo.
-- `moment`: the bottom 40% calm; same scrim, rising from the bottom edge.
+- `moment-wide`: keep the model at right and the left copy area calm; a horizontal
+  espresso scrim provides contrast without dimming the blouse.
+- `moment`: crop around the model at 82% horizontally; the image fills the mobile
+  section and a bottom scrim protects the overlaid copy.
 - `campaign`: the left 55% at or below ~35% luminance (the line sits there from 768), and
   the bottom 40% of the mobile 4:5 window centred at 72% of the width (the line sits there
   on phones).

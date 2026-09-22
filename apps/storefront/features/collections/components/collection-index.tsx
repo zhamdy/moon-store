@@ -13,10 +13,11 @@ export interface CollectionIndexProps {
 }
 
 /**
- * `/collections` below its intro, composed by count (`collectionIndexLayout`): the
- * feature split, then 2-up image rows and typographic rows for image-less
- * collections. Consecutive text rows stack as one ruled list; every other block
- * change gets section-scale air.
+ * `/collections` below its intro, composed by count (`collectionIndexLayout`):
+ * the opening card at the full container width, then one grid — 2-up from 768,
+ * 3-up from 1024 (owner decision, 2026-09-21: the 2-up cards were too large for
+ * a directory). Every card is a photograph with its name over it, so the index
+ * has one vocabulary whatever the collections carry.
  */
 export function CollectionIndex({ collections, locale, exploreLabel }: CollectionIndexProps) {
   const blocks = collectionIndexLayout(collections);
@@ -24,14 +25,7 @@ export function CollectionIndex({ collections, locale, exploreLabel }: Collectio
   return (
     <Container as="div" className="pb-(--section-space)">
       {blocks.map((block, index) => {
-        const previous = blocks[index - 1];
-        const next = blocks[index + 1];
-        const spacing =
-          index === 0
-            ? undefined
-            : block.kind === 'text' && previous?.kind === 'text'
-              ? undefined
-              : 'mt-20 md:mt-28';
+        const spacing = index === 0 ? undefined : 'mt-16 md:mt-20';
 
         if (block.kind === 'feature') {
           return (
@@ -46,24 +40,11 @@ export function CollectionIndex({ collections, locale, exploreLabel }: Collectio
           );
         }
 
-        if (block.kind === 'text') {
-          return (
-            <CollectionCard
-              key={block.collection.slug}
-              collection={block.collection}
-              locale={locale}
-              exploreLabel={exploreLabel}
-              variant="text"
-              className={cn(spacing, next?.kind !== 'text' && 'border-b')}
-            />
-          );
-        }
-
         return (
           <Reveal
             key={block.collections.map((c) => c.slug).join('+')}
             className={cn(
-              'grid gap-y-14 [--motion-rise:48px] md:grid-cols-2 md:gap-x-6 lg:gap-x-8',
+              'grid gap-x-5 gap-y-10 [--motion-rise:40px] md:grid-cols-2 lg:grid-cols-3 lg:gap-x-6',
               spacing
             )}
           >
@@ -74,7 +55,13 @@ export function CollectionIndex({ collections, locale, exploreLabel }: Collectio
                 locale={locale}
                 exploreLabel={exploreLabel}
                 variant="card"
-                className={i === 1 ? 'md:[--motion-stagger:1]' : undefined}
+                // The stagger runs across a row and restarts on the next, so a
+                // late card never waits on the whole grid before it rises.
+                className={cn(
+                  i % 2 === 1 && 'md:[--motion-stagger:1]',
+                  i % 3 === 1 && 'lg:[--motion-stagger:1]',
+                  i % 3 === 2 && 'lg:[--motion-stagger:2]'
+                )}
               />
             ))}
           </Reveal>

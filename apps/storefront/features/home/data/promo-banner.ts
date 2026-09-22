@@ -25,8 +25,8 @@ export interface PromoBannerData {
 
 /**
  * Repurposing the banner for a new collection or offer is a data + copy change:
- * edit this record, `home.banner` in both message catalogues, and the two files
- * at `assets/editorial/moment.jpg` / `moment-wide.jpg`. No component change
+ * edit this record, `home.banner` in both message catalogues, and the photograph
+ * at `assets/editorial/silk-edit-campaign.png`. No component change
  * needed. The slot names `moment` / `moment-wide` are legacy (left over from the
  * guideline's replaced brand-moment section) and stay as-is; renaming them is
  * deferred to the Collections task that reuses this banner.
@@ -35,6 +35,6 @@ export const promoBanner: PromoBannerData = {
   href: '/collections/silk',
   wide: 'moment-wide',
   portrait: 'moment',
-  portraitImageClassName: 'object-[60%_30%]',
-  wideImageClassName: 'banner-wide:object-[70%_30%]',
+  portraitImageClassName: 'object-[82%_center]',
+  wideImageClassName: 'banner-wide:object-center',
 };

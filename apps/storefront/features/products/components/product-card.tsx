@@ -12,7 +12,7 @@ import { ProductImagePlaceholder } from './product-image-placeholder';
 
 /** Card width in the homepage's 4-up desktop grid / 2-up below. */
 export const CATALOG_CARD_SIZES = '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, 46vw';
-/** The Curated Edit's 2x2 feature card. */
+/** The Moon Selection's 2x2 feature card. */
 export const LARGE_CARD_SIZES = '(min-width: 1440px) 672px, (min-width: 1024px) 48vw, 92vw';
 
 export interface ProductCardProps {
@@ -98,8 +98,11 @@ function imageProps(image: ImageSource) {
  *   clamped to two lines in secondary ink. It is never written here and never
  *   truncated by the API; a product with no description simply has no line, and on a
  *   grid that keeps the cards level because the clamp reserves its two lines.
- * - The action is composed by the page into `action` — one Add to Bag, bronze hairline,
- *   full width, 48px tall. It is the only control on the tile.
+ * - The action is composed by the page into `action` — one Add to Bag, a 44px ivory disc
+ *   carrying a bag glyph at the photograph's bottom inline start (owner decision,
+ *   2026-09-21). It is the only control on the tile, it costs the caption no line, and
+ *   it is named to a screen reader rather than to the page: a worded block under every
+ *   caption is the row of buttons this tile was drawn to avoid.
  *
  * **Two registers.** `emphasis="supporting"` is the tile every listing uses: name and
  * price on one baseline, two lines of copy, one outlined action. `emphasis="lead"` is
@@ -120,8 +123,11 @@ function imageProps(image: ImageSource) {
  * Hover (CSS `group-hover`, which Tailwind wraps in `@media (hover: hover)`, so touch
  * devices never get a stuck alternate view): the second photograph crossfades in, the
  * frame scales 1 → 1.03 and the name's gold rule draws along the reading direction.
- * Keyboard focus draws the rule too. Nothing lifts, nothing casts a shadow, no control
- * appears over the photograph.
+ * Keyboard focus draws the rule too. The action disc is **not** hidden until hover
+ * (owner decision, 2026-09-21, after seeing the reveal): it is the tile's one
+ * affordance, and a shopper should not have to find it with a pointer — nor can a touch
+ * screen. Nothing lifts, and the disc's overlay shadow is the only one on the card: it
+ * is the one thing floating over something else.
  *
  * Sold out never greys the photograph and the price stays visible; the badge word
  * changes and the action reads "Sold out". A product with no photograph shows the frame
@@ -162,16 +168,24 @@ export function ProductCard({
     <article
       data-product-card=""
       data-motion={reveal === 'rise' ? 'rise' : undefined}
-      // `h-full` so the column can push its action to the bottom: both the grid `li`
-      // and the rail's flex item stretch to the row, the card inside them does not.
-      className={cn('group relative flex h-full flex-col', className)}
+      // A grid, not a flex column: the caption row takes the slack so the action still
+      // sits at the card's bottom edge, and where a pointer exists the action is placed
+      // into the frame's own row instead (`[data-card-action]` in app/globals.css) -
+      // overlapping it onto the photograph without touching DOM order, so the name is
+      // still read and tabbed before the button. `h-full` so the column can fill the
+      // row: both the grid `li` and the rail's flex item stretch, the card does not.
+      className={cn('group relative grid h-full grid-cols-1 grid-rows-[auto_1fr_auto]', className)}
     >
       <div
         data-motion={reveal === 'image' ? 'image' : undefined}
         // `rounded-media` (12px), the site-wide media radius, so the
         // `data-motion="image"` wipe — whose clip-path insets carry
         // `round var(--radius-media)` — matches the frame without an override.
-        className="relative isolate aspect-4/5 overflow-hidden rounded-media bg-surface-soft"
+        // `row-start-1` (and the caption's `row-start-2`) because the action is placed
+        // into this same cell by hand: auto-placement skips a cell an explicitly-placed
+        // item already holds, so without these the photograph would slide into row 2 and
+        // the disc would sit above the card.
+        className="relative isolate col-start-1 row-start-1 aspect-4/5 overflow-hidden rounded-media bg-surface-soft"
       >
         <div data-motion-zoom={reveal === 'image' ? '' : undefined} className="absolute inset-0">
           <div className="absolute inset-0 transition-transform duration-base ease-ui group-hover:scale-[1.03]">
@@ -225,7 +239,11 @@ export function ProductCard({
           listed, and the stack is what gives the price its own beat. */}
       <div
         data-motion="fade"
-        className={cn('mt-3', lead && 'mt-5 lg:mt-6', '[--motion-offset:240ms]')}
+        className={cn(
+          'col-start-1 row-start-2 mt-3',
+          lead && 'mt-5 lg:mt-6',
+          '[--motion-offset:240ms]'
+        )}
       >
         <div
           className={cn(
@@ -296,10 +314,15 @@ export function ProductCard({
           carry without competing with its own button. */}
       {action && (
         <div
+          // Share the photograph's grid cell explicitly; auto-placement would create
+          // a second column and shrink the image. Keep the icon visible on touch too.
+          data-card-action={lead ? 'flow' : 'overlay'}
           className={cn(
-            'mt-auto',
-            captionLayout === 'stacked' ? 'pt-4' : 'pt-1',
-            lead && detailsLabel && 'relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3'
+            'col-start-1 row-start-3',
+            lead && [
+              captionLayout === 'stacked' ? 'pt-8' : 'pt-5',
+              detailsLabel && 'relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3',
+            ]
           )}
         >
           {lead && detailsLabel ? (

@@ -5,18 +5,14 @@ import {
   type CollectionIndexBlock,
 } from './collection-index-layout';
 
-type Item = { slug: string; isFeatured: boolean; imageUrl: string | null };
+type Item = { slug: string; isFeatured: boolean };
 
-const c = (slug: string, image: boolean, isFeatured = false): Item => ({
-  slug,
-  isFeatured,
-  imageUrl: image ? `https://media.example/${slug}.jpg` : null,
-});
+const c = (slug: string, isFeatured = false): Item => ({ slug, isFeatured });
 
 const shape = (blocks: CollectionIndexBlock<Item>[]) =>
   blocks.map((b) =>
-    b.kind === 'pair'
-      ? `pair:${b.collections.map((x) => x.slug).join('+')}`
+    b.kind === 'grid'
+      ? `grid:${b.collections.map((x) => x.slug).join('+')}`
       : `${b.kind}:${b.collection.slug}`
   );
 
@@ -25,35 +21,25 @@ describe('collectionIndexLayout', () => {
     expect(collectionIndexLayout([])).toEqual([]);
   });
 
-  it('renders a single collection as just the split', () => {
-    expect(shape(collectionIndexLayout([c('silk', true)]))).toEqual(['feature:silk']);
+  it('renders a single collection as just the opening card, with no empty grid', () => {
+    expect(shape(collectionIndexLayout([c('silk')]))).toEqual(['feature:silk']);
   });
 
-  it('features the first featured collection with an image, then pairs the rest in order', () => {
-    const list = [c('a', true), c('b', true, true), c('d', true), c('e', true)];
-    expect(shape(collectionIndexLayout(list))).toEqual(['feature:b', 'pair:a+d', 'pair:e']);
+  it('opens on the first featured collection, then grids the rest in order', () => {
+    const list = [c('a'), c('b', true), c('d'), c('e')];
+    expect(shape(collectionIndexLayout(list))).toEqual(['feature:b', 'grid:a+d+e']);
   });
 
-  it('skips an image-less featured collection for the split', () => {
-    const list = [c('a', false, true), c('b', true), c('d', true)];
-    expect(shape(collectionIndexLayout(list))).toEqual(['feature:b', 'text:a', 'pair:d']);
-  });
-
-  it('closes a pair in progress at a text row, keeping order', () => {
-    const list = [c('f', true, true), c('a', true), c('t', false), c('b', true), c('d', true)];
-    expect(shape(collectionIndexLayout(list))).toEqual([
-      'feature:f',
-      'pair:a',
-      'text:t',
-      'pair:b+d',
+  it('opens on the first collection when none is featured', () => {
+    expect(shape(collectionIndexLayout([c('a'), c('b'), c('d')]))).toEqual([
+      'feature:a',
+      'grid:b+d',
     ]);
   });
 
-  it('has no split when no collection has an image', () => {
-    expect(shape(collectionIndexLayout([c('a', false, true), c('b', false)]))).toEqual([
-      'text:a',
-      'text:b',
-    ]);
+  it('composes every collection the same way, image or not', () => {
+    const list = [c('f', true), c('a'), c('t'), c('b'), c('d')];
+    expect(shape(collectionIndexLayout(list))).toEqual(['feature:f', 'grid:a+t+b+d']);
   });
 });
 
