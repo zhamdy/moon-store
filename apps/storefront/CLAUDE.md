@@ -522,8 +522,9 @@ Every homepage image is a static import behind one registry, swappable by file d
   the copy on the left only on landscape screens at least 768px wide and 4:3
   (`banner-wide`, a custom variant in `app/globals.css`), otherwise a full-height background with the
   copy over a bottom scrim. The section stays explicitly full width on desktop
-  even when its height reaches the cap. Both banner slots use
-  `silk-edit-campaign.png`, with the portrait positioned at 82% horizontally.
+  even when its height reaches the cap. Both banner crops name the one
+  `silk-edit-campaign` slot, with the portrait positioned at 82% horizontally; the
+  older `moment` / `moment-wide` slots keep their own files and no section renders them.
   Mobile image sizes account for the wide source covering a 90svh, minimum 40rem frame.
   The campaign line is physical-left at **every** width (`rtl:ms-auto`): on phones the
   figure stands in the right half of the 4:5 window, so an Arabic line at the reading
