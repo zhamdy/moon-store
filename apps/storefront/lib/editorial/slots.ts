@@ -24,9 +24,13 @@ export const editorialSlots = [
   'strip-02',
   'strip-03',
   'strip-04',
+  // The replaced brand-moment section's 4:5 and 16:9 crops. No section renders
+  // them since the promo banner moved to `silk-edit-campaign`.
   'moment',
-  // 16:9 desktop crop of the promo banner; `moment` stays the 4:5 mobile crop.
   'moment-wide',
+  // The Silk Edit campaign: one 16:9 source the promo banner uses for both its
+  // crops, cropped by CSS `object-position` rather than by a second file.
+  'silk-edit-campaign',
   'featured-large',
   'featured-small',
   'category-dresses',

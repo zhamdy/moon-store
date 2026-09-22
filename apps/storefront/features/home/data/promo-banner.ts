@@ -6,9 +6,9 @@ export interface PromoBannerData {
    * the locale prefix, so this must never carry one itself.
    */
   href: string;
-  /** 16:9 crop, shown on landscape screens at least 768px wide and 4:3 (`banner-wide`). */
+  /** Shown on landscape screens at least 768px wide and 4:3 (`banner-wide`). */
   wide: EditorialSlot;
-  /** 4:5 crop, shown on phones and portrait tablets. */
+  /** Shown on phones and portrait tablets. May be the same slot as `wide`. */
   portrait: EditorialSlot;
   /**
    * `object-position` for the portrait crop. Written as a full class name so
@@ -26,15 +26,17 @@ export interface PromoBannerData {
 /**
  * Repurposing the banner for a new collection or offer is a data + copy change:
  * edit this record, `home.banner` in both message catalogues, and the photograph
- * at `assets/editorial/silk-edit-campaign.png`. No component change
- * needed. The slot names `moment` / `moment-wide` are legacy (left over from the
- * guideline's replaced brand-moment section) and stay as-is; renaming them is
- * deferred to the Collections task that reuses this banner.
+ * at `assets/editorial/silk-edit-campaign.jpg`. No component change needed.
+ *
+ * Both crops name the same 16:9 source: the mobile background is cropped by
+ * `portraitImageClassName` (the model sits at 82% horizontally) rather than by a
+ * second file. `moment` / `moment-wide` are the older brand-moment slots and are
+ * no longer what this banner renders.
  */
 export const promoBanner: PromoBannerData = {
   href: '/collections/silk',
-  wide: 'moment-wide',
-  portrait: 'moment',
+  wide: 'silk-edit-campaign',
+  portrait: 'silk-edit-campaign',
   portraitImageClassName: 'object-[82%_center]',
   wideImageClassName: 'banner-wide:object-center',
 };

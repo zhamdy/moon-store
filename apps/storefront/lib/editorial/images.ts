@@ -12,7 +12,9 @@ import strip01 from '@/assets/editorial/strip-01.jpg';
 import strip02 from '@/assets/editorial/strip-02.jpg';
 import strip03 from '@/assets/editorial/strip-03.jpg';
 import strip04 from '@/assets/editorial/strip-04.jpg';
-import silkEditCampaign from '@/assets/editorial/silk-edit-campaign.png';
+import moment from '@/assets/editorial/moment.jpg';
+import momentWide from '@/assets/editorial/moment-wide.jpg';
+import silkEditCampaign from '@/assets/editorial/silk-edit-campaign.jpg';
 import featuredLarge from '@/assets/editorial/featured-large.jpg';
 import featuredSmall from '@/assets/editorial/featured-small.jpg';
 import categoryDresses from '@/assets/editorial/category-dresses.jpg';
@@ -73,8 +75,9 @@ export const editorialImages = {
   'strip-02': { src: strip02, role: 'editorial' },
   'strip-03': { src: strip03, role: 'editorial' },
   'strip-04': { src: strip04, role: 'editorial' },
-  moment: { src: silkEditCampaign, role: 'editorial' },
-  'moment-wide': { src: silkEditCampaign, role: 'editorial' },
+  moment: { src: moment, role: 'editorial' },
+  'moment-wide': { src: momentWide, role: 'editorial' },
+  'silk-edit-campaign': { src: silkEditCampaign, role: 'editorial' },
   'featured-large': { src: featuredLarge, role: 'editorial' },
   'featured-small': { src: featuredSmall, role: 'editorial' },
   'category-dresses': { src: categoryDresses, role: 'category' },
