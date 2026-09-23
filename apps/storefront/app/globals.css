@@ -855,8 +855,21 @@ header[data-surface][data-surface-ready] {
   }
 }
 
+/* The same entrance for a panel that opens upward (`placement="above"`, the rail):
+   it must still emerge *from* the disc, so the offset is mirrored. */
+@keyframes quick-add-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
 @utility animate-quick-add {
   animation: quick-add-in var(--motion-fast, 180ms) var(--ease-ui) both;
+}
+
+@utility animate-quick-add-up {
+  animation: quick-add-in-up var(--motion-fast, 180ms) var(--ease-ui) both;
 }
 
 /* ============================================================

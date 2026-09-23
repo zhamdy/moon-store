@@ -25,6 +25,13 @@ export const RAIL_CARD_SIZES =
   '(min-width: 1300px) 355px, (min-width: 1024px) 29vw, (min-width: 768px) 40vw, 78vw';
 
 const STAGGER_COUNT = 4;
+/**
+ * Only for an API that cannot answer at all — editorial photography with no product
+ * behind it, so these cards carry no link, no price and no Add to Bag. Eight, not
+ * four: a set at or below the rail's step has nothing to scroll, and the controls and
+ * progress rule hide themselves, which silently deletes the carousel
+ * (`apps/storefront/CLAUDE.md` → *Product rail*).
+ */
 const FALLBACK_PRODUCTS = [...newArrivals, ...curatedEdit].slice(0, NEW_ARRIVALS_LIMIT);
 
 /** Full-width masthead and a uniform, manually browsed product rail. */
@@ -102,7 +109,13 @@ export async function NewArrivals({ locale }: { locale: AppLocale }) {
                   captionLayout="stacked"
                   action={
                     dto && (
-                      <QuickAdd product={toQuickAddModel(dto, locale)} strings={quickAddStrings} />
+                      <QuickAdd
+                        product={toQuickAddModel(dto, locale)}
+                        strings={quickAddStrings}
+                        // The rail is a scroller, so a panel hanging below the card is
+                        // clipped by its computed overflow-y (MED-6).
+                        placement="above"
+                      />
                     )
                   }
                 />

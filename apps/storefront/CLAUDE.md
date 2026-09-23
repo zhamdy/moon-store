@@ -253,9 +253,16 @@ fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     `variant-selection.ts` for availability and readiness, `addToBagIntent`/`addToBagToast`
     for the press and the acknowledgement, the one `cart-store` `add` for the write. Its own
     rule, `quickAddPress`, is the card-level one — add, open the panel, or sold out — and is
-    unit-tested. The panel is `absolute` under the button, so opening one card's options
-    never reflows the grid or the rail; Escape and an outside pointer close it and return
-    focus to the button. One piece per press: no stepper on a card. On a tile
+    unit-tested. The panel is `absolute`, so opening one card's options never reflows the
+    grid or the rail; Escape and an outside pointer close it and return focus to the
+    button. `placement` decides which way it opens: `below` (default) under the button,
+    right for a grid cell, which is a plain `<li>` with no overflow; `above` over the
+    photograph, which the **rail must use** — `[data-rail]` sets `overflow-x: auto` and
+    the spec computes the other axis to `auto` with it, so a panel leaving the card's box
+    downward is clipped or turns the rail into a vertical scroller (MED-6). Opening upward
+    keeps it inside the 4:5 frame; that frame's height is the budget, so a product with
+    more option groups than fit would clip at the photograph's top edge.
+    One piece per press: no stepper on a card. On a tile
     (`emphasis="disc"`, the default) the trigger is the icon disc and the root spans the
     slot's full width while being `pointer-events-none`, so the panel is the photograph's
     width rather than the disc's and the strip over the photograph still belongs to the
@@ -456,7 +463,18 @@ instead of leaving a stub of empty track — but note what that means: **a set a
 below the step has nothing to scroll, so the controls and the progress rule hide
 themselves and the carousel is a row.** A four-item fallback did exactly that once
 (2026-09-20) and silently deleted the feature; `FALLBACK_PRODUCTS` is eight for
-that reason, not for variety. `product-rail.tsx` adds
+that reason, not for variety.
+
+**What the rail carries** (`load-new-arrivals.ts`): the catalogue's New In first page
+whenever the API can answer at all, **photographed or not**. A real piece with no
+photograph keeps its real name, price, link and Add to Bag over the
+`ProductImagePlaceholder` frame — a catalogue missing its photography, which is true.
+The static set stands in for one condition only, an API that cannot answer
+(unconfigured, `ApiError`, or empty), and it carries no link and no price. The old rule
+fell back below four *photographed* products, which conflated "no photos" with "no
+catalogue": a seeded database has no `product_images` at all, so the rail was **always**
+the static set, publishing invented names and eight hard-coded prices as the shop's own
+(MED-3; one disagreed with the product's own page by 350 EGP). `product-rail.tsx` adds
 the controls, the gold progress hairline and a mouse drag; a drag past 6px turns
 snapping off (`data-dragging`, since a mandatory snap fights a dragged
 `scrollLeft` every frame), re-snaps on release through `snapTarget`, and swallows

@@ -32,6 +32,22 @@ export interface QuickAddProps {
    * place a second weight earns its keep.
    */
   emphasis?: 'disc' | 'solid';
+  /**
+   * Which way the options panel opens. `below` (default) hangs it under the disc, over
+   * the caption and past the card's bottom edge, which is right in a grid cell — a
+   * plain `<li>` with no overflow, so it paints over its neighbours.
+   *
+   * `above` opens it upward over the photograph, for a card inside a **scroller**.
+   * `[data-rail]` sets `overflow-x: auto`, and per the CSS overflow spec a non-visible
+   * value on one axis computes the other to `auto` (the rule's own comment in
+   * `app/globals.css` says so), so a panel that leaves the card's box downward is
+   * clipped — or turns the rail into a vertical scroller. Opening upward keeps it
+   * inside the 4:5 frame, which is inside the card, which is inside the rail's box
+   * (MED-6 in `docs/audits/2026-09-22-shop-cart-fullstack-audit.md`). The frame's
+   * height is the budget: a product with more option groups than fit would clip at
+   * the photograph's top edge.
+   */
+  placement?: 'above' | 'below';
 }
 
 /** One id per surface: a second press replaces the notice rather than stacking toasts. */
@@ -72,7 +88,12 @@ const CELL = [
  * The quantity is one piece per press: the stepper belongs on the product page, and a
  * card that carries one has stopped being a card.
  */
-export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps) {
+export function QuickAdd({
+  product,
+  strings,
+  emphasis = 'disc',
+  placement = 'below',
+}: QuickAddProps) {
   const baseId = useId();
   const panelId = `${baseId}-panel`;
   const actions = useCartActions();
@@ -255,10 +276,12 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
           role="group"
           aria-label={namedLabel}
           className={cn(
-            'pointer-events-auto absolute inset-x-0 top-full z-20 mt-2 border border-border bg-surface p-4',
+            'pointer-events-auto absolute inset-x-0 z-20 border border-border bg-surface p-4',
             // The panel is the one place on a card that sits over its neighbours, so it
             // carries a hairline and the warm surface rather than a shadow.
-            'motion-safe:animate-quick-add'
+            placement === 'above'
+              ? 'bottom-full mb-2 motion-safe:animate-quick-add-up'
+              : 'top-full mt-2 motion-safe:animate-quick-add'
           )}
         >
           <button
