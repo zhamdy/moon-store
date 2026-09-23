@@ -843,6 +843,16 @@ header[data-surface][data-surface-ready] {
   align-self: end;
   z-index: 10;
   padding: 0.75rem;
+  /* The wrapper is full-width by (44px disc + 2 x 0.75rem) and sits above the title
+     link's `after:inset-0` overlay, so hit-testing resolved to it across a ~68px band at
+     the bottom of every photograph - a strip that did nothing, on every listing, the New
+     In grid, the related rail and the homepage rail (MED-5).
+
+     QuickAdd's own root already carries `pointer-events-none` for exactly this reason
+     (see its comment), but that mitigation was written before this wrapper existed and
+     the later corner-disc commits inherited none of it. The disc and the panel take
+     their own events back with `pointer-events-auto`. */
+  pointer-events: none;
 }
 
 /* features/cart/components/quick-add.tsx: the Quick Add panel's entrance. Micro level
