@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import {
   productSchema,
+  productUpdateSchema,
   productStatusSchema,
   variantSchema,
 } from '../../../../validators/productSchema';
@@ -173,14 +174,18 @@ export const productsRequestContracts = {
     method: 'PUT',
     path: '/api/v1/products/{id}',
     operation: 'updateProduct',
-    body: productSchema,
+    body: productUpdateSchema,
     params: pathIdParams(),
     beyondSchema: [
-      'A full replacement, not a merge: the required fields stay required.',
-      'Except `slug`, `name_en`, `description`, `description_en`, `material`, ' +
-        '`material_en`, `care`, `care_en`, `fit` and `fit_en`: absent leaves the stored ' +
-        'value, and `null` clears any of them but `slug`. A slug held by another product is ' +
-        'a 409 with `details[].field` `slug`.',
+      'A replacement, not a merge, for the fields it carries.',
+      'Absent leaves the stored value for `slug`, `name_en`, `description`, ' +
+        '`description_en`, `material`, `material_en`, `care`, `care_en`, `fit`, `fit_en`, ' +
+        '`stock`, `cost_price`, `min_stock`, `barcode` and `distributor_id`; `null` clears ' +
+        'any of them but `slug` and `stock`. A slug held by another product is a 409 with ' +
+        '`details[].field` `slug`.',
+      'Sending `stock` overwrites it absolutely and writes no `stock_adjustments` row, ' +
+        'so an intentional change belongs on `POST /api/v1/products/{id}/adjust-stock`, ' +
+        'which is audited. Omit `stock` from an edit that is not about stock.',
     ],
   }),
 

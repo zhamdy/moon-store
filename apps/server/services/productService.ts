@@ -39,7 +39,16 @@ export interface CreateProductInput {
   min_stock: number;
 }
 
-export type UpdateProductInput = CreateProductInput;
+/**
+ * Update differs from create in what an **absent** field means: these five keep their
+ * stored value rather than being overwritten (HIGH-3 / MED-11). The type says so, so a
+ * caller cannot assume the create shape and quietly reset a product's stock or cost.
+ */
+export type UpdateProductInput = Omit<CreateProductInput, 'stock' | 'cost_price' | 'min_stock'> & {
+  stock?: number;
+  cost_price?: number;
+  min_stock?: number;
+};
 
 export interface BulkUpdateUpdates {
   category_id?: number;
@@ -288,14 +297,23 @@ export async function updateProduct(
     [id]
   );
 
-  // A full replacement, except the storefront fields: a client that predates them must
-  // not wipe them. `slug` absent keeps the stored one; `name_en`, `description`,
-  // `material`, `care`, `fit` and their `_en` twins absent keep the stored value, null
-  // clears it.
+  // A replacement, except where absence has to mean "keep". The storefront text fields
+  // were already like this so a client predating them could not wipe them; `stock`,
+  // `cost_price`, `min_stock`, `barcode` and `distributor_id` join them because absence
+  // was silently destructive there too (HIGH-3 / MED-11): a name edit resurrected stock
+  // sold since the form opened, with no audit row, and a partial body reset a product's
+  // cost basis to the schema default.
   let result;
   try {
     result = await db.query(
-      `UPDATE products SET name=$1, sku=$2, barcode=$3, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10,
+      `UPDATE products SET name=$1, sku=$2,
+         barcode=CASE WHEN $31::boolean THEN $3::text ELSE barcode END,
+         price=$4,
+         cost_price=CASE WHEN $32::boolean THEN $5::numeric ELSE cost_price END,
+         stock=CASE WHEN $33::boolean THEN $6::int ELSE stock END,
+         category=$7, category_id=$8,
+         distributor_id=CASE WHEN $34::boolean THEN $9::int ELSE distributor_id END,
+         min_stock=CASE WHEN $35::boolean THEN $10::int ELSE min_stock END,
          slug=COALESCE($12::text, slug), name_en=CASE WHEN $13::boolean THEN $14::text ELSE name_en END,
          description=CASE WHEN $15::boolean THEN $16::text ELSE description END,
          description_en=CASE WHEN $17::boolean THEN $18::text ELSE description_en END,
@@ -310,14 +328,14 @@ export async function updateProduct(
       [
         name,
         sku,
-        barcode || null,
+        barcode ?? null,
         price,
-        cost_price,
-        stock,
+        cost_price ?? null,
+        stock ?? null,
         categoryText,
         category_id || null,
-        distributor_id || null,
-        min_stock,
+        distributor_id ?? null,
+        min_stock ?? null,
         id,
         slug ?? null,
         name_en !== undefined,
@@ -338,6 +356,11 @@ export async function updateProduct(
         fit || null,
         fit_en !== undefined,
         fit_en || null,
+        barcode !== undefined,
+        cost_price !== undefined,
+        stock !== undefined,
+        distributor_id !== undefined,
+        min_stock !== undefined,
       ]
     );
   } catch (error) {
@@ -350,13 +373,19 @@ export async function updateProduct(
 
   if (oldProduct.rows.length > 0) {
     const old = oldProduct.rows[0];
-    if (old.price !== price) {
+    // MED-15: `old.price !== price` compared node-postgres's NUMERIC **string** ('1950')
+    // against the request's **number** (1950), which is always true, so every product
+    // edit wrote two phantom history rows and any "when did this price change" query was
+    // noise. On pg-mem the comparison is number-vs-number and behaved correctly, so no
+    // unit test caught it — an AD-5 case in the wild. Both sides are coerced now, and a
+    // field the caller omitted did not change at all.
+    if (Number(old.price) !== Number(price)) {
       await db.query(
         'INSERT INTO price_history (product_id, field, old_value, new_value, user_id) VALUES ($1, $2, $3, $4, $5)',
         [id, 'price', old.price, price, userId]
       );
     }
-    if (old.cost_price !== cost_price) {
+    if (cost_price !== undefined && Number(old.cost_price) !== Number(cost_price)) {
       await db.query(
         'INSERT INTO price_history (product_id, field, old_value, new_value, user_id) VALUES ($1, $2, $3, $4, $5)',
         [id, 'cost_price', old.cost_price, cost_price, userId]
