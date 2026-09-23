@@ -132,6 +132,16 @@ export default function Inventory() {
   const categoryId = typeof rawSearch.categoryId === 'number' ? rawSearch.categoryId : undefined;
   const status = typeof rawSearch.status === 'string' ? rawSearch.status : 'all';
   const lowStockFilter = rawSearch.lowStock === true || rawSearch.lowStock === 'true';
+  /**
+   * The server refuses `lowStock=true` with any status but `active` — a documented
+   * cross-field rule, since "low stock" is only meaningful for what is on sale. The
+   * toggle already sets `status: 'active'` when it turns on, and the Status select is
+   * hidden while it is on, but neither guards a URL that carries the pair: a shared link,
+   * a restored history entry or a hand-edited address answered 400 and the page showed no
+   * rows. Resolved here, at the one place the request is built, so no route into that
+   * state can produce an illegal query.
+   */
+  const requestStatus = lowStockFilter ? 'active' : status;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchDraft, setSearchDraft] = useState(searchTerm);
 
@@ -172,7 +182,7 @@ export default function Inventory() {
     sortBy,
     sortOrder,
     categoryId,
-    status,
+    status: requestStatus,
     lowStock: lowStockFilter || undefined,
   });
   const { data: categories } = products.useRead<Category[]>('categories');
@@ -217,7 +227,7 @@ export default function Inventory() {
 
   useEffect(
     () => setRowSelection({}),
-    [page, pageSize, searchTerm, sortBy, sortOrder, categoryId, status, lowStockFilter]
+    [page, pageSize, searchTerm, sortBy, sortOrder, categoryId, requestStatus, lowStockFilter]
   );
 
   // Writes. One save covers create and update: an id in the draft is what makes
