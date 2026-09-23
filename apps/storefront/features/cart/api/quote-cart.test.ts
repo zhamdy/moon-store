@@ -193,4 +193,40 @@ describe('parseCartQuote', () => {
       (q.lines[0]!.product as Record<string, unknown>).image = { url: 5 };
     });
   });
+
+  /**
+   * MED-8: everything above proves the response is well-formed. These prove it adds up.
+   * Without them a server returning unitPrice 2,850 with lineTotal 1 and subtotal 1
+   * rendered as authoritative, and "a wrong price must fail, not render" only ever meant
+   * "a *malformed* price".
+   */
+  it('rejects a line whose total is not unitPrice x quantity', () => {
+    expectInvalid((q) => {
+      q.lines[0]!.lineTotal = 1;
+    });
+    expectInvalid((q) => {
+      q.lines[0]!.lineTotal = 2850; // one piece's worth, for a line of two
+    });
+  });
+
+  it('rejects a subtotal that is not the sum of the lines', () => {
+    expectInvalid((q) => {
+      q.subtotal = 1;
+    });
+  });
+
+  it('accepts a decimal price that adds up, rather than failing on float arithmetic', () => {
+    const quote = validQuote();
+    quote.lines[0]!.unitPrice = 2850.15;
+    quote.lines[0]!.lineTotal = 5700.3;
+    quote.subtotal = 5700.3;
+
+    expect(parseCartQuote(quote, LINES).subtotal).toBe(5700.3);
+  });
+
+  it('still accepts an unavailable line, which is priceless and totals zero', () => {
+    // The null-priced line is skipped by the per-line check but still counts as 0 in the
+    // subtotal, which is what the valid fixture already asserts.
+    expect(parseCartQuote(validQuote(), LINES).lines[1]!.unitPrice).toBeNull();
+  });
 });

@@ -1165,7 +1165,11 @@ the purchase panel's exact `displayedPrice` for a `ready` selection, read throug
 through `apiFetch`: base `NEXT_PUBLIC_API_URL`, `credentials: 'omit'`, no catalog token, no
 `server-only`. The body carries only `slug`, `options`, `quantity` per line; the response is
 validated by hand against the request (line count, index, slug, statuses, numeric fields)
-and anything off throws `INVALID_RESPONSE`. The server side (edge chain, `STOREFRONT_ORIGINS`
+**and the arithmetic** — `lineTotal === unitPrice × quantity` per priced line, and
+`subtotal === Σ lineTotal`, compared in piastres so a decimal price is not judged by float
+equality. Anything off throws `INVALID_RESPONSE`. The arithmetic checks were added by
+MED-8: without them the guard proved a response was well-formed but not that it was
+*right*, so "a wrong price must fail, not render" only ever meant a malformed one. The server side (edge chain, `STOREFRONT_ORIGINS`
 CORS, limiter, `no-store`) is `apps/server/CLAUDE.md` → _Public catalog_. An environment
 without `NEXT_PUBLIC_API_URL` at build, or without the storefront origin in the API's
 `STOREFRONT_ORIGINS`, shows the bag's failed state on every quote.

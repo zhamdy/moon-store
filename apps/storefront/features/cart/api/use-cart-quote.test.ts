@@ -30,7 +30,9 @@ function okQuote(lines: readonly CartLine[]) {
       maxQuantity: 10,
       lineTotal: 100 * line.quantity,
     })),
-    subtotal: 0,
+    // Consistent with the lines above: the parser checks the arithmetic now (MED-8), and
+    // a fixture whose subtotal contradicts its own lines is not a valid quote.
+    subtotal: lines.reduce((sum, line) => sum + 100 * line.quantity, 0),
     itemCount: lines.reduce((sum, line) => sum + line.quantity, 0),
     maxLineQuantity: 10,
   };
