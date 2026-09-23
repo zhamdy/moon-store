@@ -28,6 +28,7 @@ import { usePosData, type PosBundle } from '../hooks/usePosData';
 import { useTransport } from '../../../shared/lib/transport/index';
 import { useTranslation } from '../../../shared/i18n/index';
 import type { Product, ProductVariant } from '../../../shared/types/index';
+import { sellableStock } from '../../../shared/lib/productStock';
 import { assetUrl } from '../../../shared/lib/apiBase';
 import { BUNDLES_PATH, isPostponedPath } from '../../../shared/lib/postponedFeatures';
 
@@ -201,13 +202,8 @@ export default function POS() {
     setVariantProduct(null);
   };
 
-  const getEffectiveStock = (product: Product) => {
-    if (product.has_variants && product.variant_count > 0) return product.variant_stock;
-    return product.stock;
-  };
-
   const getStockColor = (product: Product): 'danger' | 'warning' | 'success' => {
-    const stock = getEffectiveStock(product);
+    const stock = sellableStock(product);
     if (stock === 0) return 'danger';
     if (stock <= product.min_stock) return 'warning';
     return 'success';
@@ -492,7 +488,7 @@ export default function POS() {
                     /* E2E: the card's accessible name concatenates stock badge, category,
                      name and SKU, so an exact role+name query is not usable. */
                     data-testid={`product-card-${product.sku}`}
-                    isPressable={getEffectiveStock(product) > 0}
+                    isPressable={sellableStock(product) > 0}
                     /* `w-full h-full` is load-bearing, not tidying: HeroUI's Card defaults
                      `fullWidth` to false, and `isPressable` renders it as a <button>, which
                      shrinks to its content. The card then stopped short of its grid cell
@@ -501,13 +497,13 @@ export default function POS() {
                      belongs to. An out-of-stock card is not pressable, so it renders as a
                      <div> and stretched anyway: the row's cards were different widths. */
                     className={`relative w-full h-full transition-all border border-border bg-card shadow-sm ${
-                      getEffectiveStock(product) === 0
+                      sellableStock(product) === 0
                         ? 'opacity-60 cursor-not-allowed'
                         : 'hover:border-primary/50'
                     }`}
                     onPress={() => handleProductClick(product)}
                   >
-                    {getEffectiveStock(product) === 0 && (
+                    {sellableStock(product) === 0 && (
                       <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/60">
                         <span className="text-xs font-semibold text-danger uppercase tracking-wider">
                           {t('pos.outOfStock')}
@@ -536,7 +532,7 @@ export default function POS() {
                             </Badge>
                           )}
                           <Badge size="sm" variant={getStockColor(product)}>
-                            {getEffectiveStock(product)} {t('pos.inStock')}
+                            {sellableStock(product)} {t('pos.inStock')}
                           </Badge>
                         </div>
                       </div>

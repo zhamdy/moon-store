@@ -170,6 +170,7 @@
   "inventory.fit": "Fit",
   "inventory.fitEn": "English fit",
   "inventory.price": "Price",
+  "inventory.stockOnVariants": "Managed per variant — use Manage Variants",
   "inventory.stock": "Stock",
   "inventory.categoryCol": "Category",
   "inventory.lowStock": "Low Stock",

@@ -57,6 +57,7 @@ import type {
   ProductImportResult,
 } from '../types';
 import { assetUrl } from '../../../shared/lib/apiBase';
+import { isLowStock, sellableStock } from '../../../shared/lib/productStock';
 import { englishForWrite, slugFailureMessage, slugForWrite, slugFormSchema } from '../lib/slug';
 
 const products = resource<Product>('products');
@@ -483,11 +484,11 @@ export default function Inventory() {
             </div>
           )}
           <span className="font-medium text-foreground">{row.original.name}</span>
-          {row.original.stock === 0 ? (
+          {sellableStock(row.original) === 0 ? (
             <Badge size="sm" variant="danger">
               {t('inventory.critical')}
             </Badge>
-          ) : row.original.stock <= row.original.min_stock ? (
+          ) : isLowStock(row.original) ? (
             <Badge size="sm" variant="warning">
               {t('inventory.lowStock')}
             </Badge>
@@ -518,19 +519,24 @@ export default function Inventory() {
     {
       accessorKey: 'stock',
       header: t('inventory.stock'),
-      cell: ({ row }) => (
-        <span
-          className={`font-data font-semibold ${
-            row.original.stock === 0
-              ? 'text-danger'
-              : row.original.stock <= row.original.min_stock
-                ? 'text-warning'
-                : 'text-foreground'
-          }`}
-        >
-          {row.original.stock}
-        </span>
-      ),
+      // The sellable figure, not `products.stock`: on a variant product that column is
+      // dead state no sale path touches, and this table showed it (HIGH-4).
+      cell: ({ row }) => {
+        const stock = sellableStock(row.original);
+        return (
+          <span
+            className={`font-data font-semibold ${
+              stock === 0
+                ? 'text-danger'
+                : isLowStock(row.original)
+                  ? 'text-warning'
+                  : 'text-foreground'
+            }`}
+          >
+            {stock}
+          </span>
+        );
+      },
     },
     ...(lowStockFilter
       ? [

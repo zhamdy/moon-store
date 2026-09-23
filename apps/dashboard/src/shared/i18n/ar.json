@@ -170,6 +170,7 @@
   "inventory.fit": "القَصّة",
   "inventory.fitEn": "القَصّة بالإنجليزية",
   "inventory.price": "السعر",
+  "inventory.stockOnVariants": "يُدار لكل متغير — استخدمي إدارة المتغيرات",
   "inventory.stock": "المخزون",
   "inventory.categoryCol": "الفئة",
   "inventory.lowStock": "مخزون منخفض",

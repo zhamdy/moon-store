@@ -103,6 +103,11 @@ export default function ProductFormDialog({
     if (slugError) setError('slug', { type: 'server', message: slugError });
   }, [slugError, setError]);
 
+  /** Editing a product whose stock is the sum of its variant rows, not its own column. */
+  const stockLivesOnVariants = Boolean(
+    editingProduct?.has_variants && editingProduct.variant_count > 0
+  );
+
   // Auto-generate SKU when category changes (only for new products)
   useEffect(() => {
     // Only the SKU for the category still selected may land; an earlier pick's answer is dropped.
@@ -280,11 +285,18 @@ export default function ProductFormDialog({
                   variant="bordered"
                   {...register('cost_price')}
                 />
+                {/* A variant product's stock lives on its variant rows: no sale path
+                    reads or writes products.stock once has_variants is set, so a figure
+                    typed here changes nothing a shopper can see or buy. It was a trap -
+                    it looked like restocking (HIGH-4). Manage Variants is where that
+                    product's stock is authored. */}
                 <Input
                   type="number"
                   label={t('inventory.stock')}
                   size="sm"
                   variant="bordered"
+                  isDisabled={stockLivesOnVariants}
+                  description={stockLivesOnVariants ? t('inventory.stockOnVariants') : undefined}
                   {...register('stock')}
                   isInvalid={!!errors.stock}
                   errorMessage={errors.stock?.message}
