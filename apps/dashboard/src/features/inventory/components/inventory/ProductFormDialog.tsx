@@ -35,6 +35,12 @@ interface ProductFormDialogProps {
   onImageRemove: (productId: number) => void;
   /** The server's refusal of the slug (409 or 400), shown on the field itself. */
   slugError?: string | null;
+  /**
+   * A stale-version refusal (`PRODUCT_MODIFIED`). Shown on the dialog rather than as a
+   * toast, because the recovery is to reload and review what changed — the operator must
+   * not lose what they typed while deciding (HIGH-3).
+   */
+  saveConflict?: string | null;
 }
 
 export default function ProductFormDialog({
@@ -49,6 +55,7 @@ export default function ProductFormDialog({
   onImageUpload,
   onImageRemove,
   slugError = null,
+  saveConflict = null,
 }: ProductFormDialogProps) {
   const { t } = useTranslation();
   const transport = useTransport();
@@ -512,6 +519,15 @@ export default function ProductFormDialog({
                 </>
               )}
             </ModalBody>
+            {saveConflict && (
+              <div
+                role="alert"
+                className="mx-6 mb-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground"
+              >
+                {saveConflict}
+              </div>
+            )}
+
             <ModalFooter className="border-t border-border/50">
               <Button variant="flat" size="sm" onPress={() => handleOpenChange(false)}>
                 {t('common.cancel')}

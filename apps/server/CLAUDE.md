@@ -181,6 +181,20 @@ till is confirmed to be sending the header. The observable is that
 matches the day's sale count. Flipping is a config change, not a deploy, so it is
 reversible in seconds.
 
+## Optimistic concurrency on products and collections
+
+Both `PUT /api/v1/products/:id` and `PUT /api/v1/collections/:id` accept an optional
+`expected_updated_at`, take `SELECT ... FOR UPDATE` on the row and refuse a stale write
+with a `409` whose `details[].code` is `PRODUCT_MODIFIED` / `COLLECTION_MODIFIED`. The
+reasoning below is written for collections and applies to both; the product endpoint was
+given the same treatment after the audit measured what its absence cost (HIGH-3): a
+cashier selling between the operator opening the product form and saving it had the sale
+silently overwritten, because the form sends a full row.
+
+The product update runs inside one transaction for the same reason the collections one
+does — `FOR UPDATE` outside a transaction releases at statement end, so the lock would be
+decoration. That also makes its `price_history` writes atomic with the row they describe.
+
 ## Optimistic concurrency on collections
 
 `PUT /api/v1/collections/:id` replaces a collection's **entire** product set — the join

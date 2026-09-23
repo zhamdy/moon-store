@@ -52,6 +52,17 @@ export const productUpdateSchema = productSchema.extend({
   stock: z.number().int().min(0, 'Stock cannot be negative').optional(),
   cost_price: z.number().min(0, 'Cost price cannot be negative').optional(),
   min_stock: z.number().int().min(0).optional(),
+  /**
+   * The `updated_at` the caller read, echoed back so a write composed against a stale
+   * read is refused rather than silently overwriting what it missed (HIGH-3's
+   * lost-update half). Same shape, token and posture as `PUT /collections/:id`'s
+   * `expected_updated_at`.
+   *
+   * Optional on purpose: absent means the caller stakes no claim on the version and the
+   * write behaves exactly as it did before, so an older client keeps working — the
+   * compatibility posture the `Idempotency-Key` and collections rollouts both took.
+   */
+  expected_updated_at: z.string().optional(),
 });
 
 export const productImportSchema = z.array(productSchema);

@@ -139,6 +139,8 @@ export default function Inventory() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
+  /** A stale-version refusal (PRODUCT_MODIFIED); shown on the dialog, not as a toast. */
+  const [saveConflict, setSaveConflict] = useState<string | null>(null);
   const [discontinueId, setDiscontinueId] = useState<number | null>(null);
   const [reactivateId, setReactivateId] = useState<number | null>(null);
   const [adjustStockOpen, setAdjustStockOpen] = useState(false);
@@ -230,7 +232,13 @@ export default function Inventory() {
       setEditingProduct(null);
     },
     // A refused slug belongs on its field, with the dialog and every value left in place.
+    // A stale-version conflict likewise keeps the dialog open: the recovery is to reload
+    // and look at what changed, so the operator must not lose what they typed meanwhile.
     onFailure: (failure) => {
+      if (failure.details.some((detail) => detail.code === 'PRODUCT_MODIFIED')) {
+        setSaveConflict(t('inventory.productChangedElsewhere'));
+        return true;
+      }
       const message = slugFailureMessage(failure);
       if (!message) return;
       setSlugError(message);
@@ -348,6 +356,7 @@ export default function Inventory() {
 
   const onSubmit = (data: ProductFormData) => {
     setSlugError(null);
+    setSaveConflict(null);
     saver.save({
       id: editingProduct?.id ?? null,
       ...data,
@@ -361,6 +370,11 @@ export default function Inventory() {
       fit: englishForWrite(data.fit),
       fit_en: englishForWrite(data.fit_en),
       slug: slugForWrite(data.slug),
+      // The version this edit was composed against, so a change that landed while the
+      // form was open is refused rather than silently overwritten (HIGH-3). It must come
+      // from the record the dialog opened with: re-reading it at submit time would always
+      // match and quietly turn the check off.
+      ...(editingProduct ? { expected_updated_at: editingProduct.updated_at } : {}),
     });
   };
 
@@ -942,6 +956,7 @@ export default function Inventory() {
         onImageUpload={handleImageUpload}
         onImageRemove={handleRemoveImage}
         slugError={slugError}
+        saveConflict={saveConflict}
       />
 
       {/* Discontinue confirmation */}

@@ -193,6 +193,11 @@ export const productsRequestContracts = {
       'Sending `stock` overwrites it absolutely and writes no `stock_adjustments` row, ' +
         'so an intentional change belongs on `POST /api/v1/products/{id}/adjust-stock`, ' +
         'which is audited. Omit `stock` from an edit that is not about stock.',
+      'May carry `expected_updated_at`, the `updated_at` the edit was composed against. ' +
+        'A concurrent change answers 409 with `details[].code` `PRODUCT_MODIFIED`, and ' +
+        'the whole write is refused. Absent stakes no claim on the version and behaves ' +
+        'as before. The token must come from the read the edit was composed against - ' +
+        're-reading it at submit time always matches and quietly turns the check off.',
     ],
   }),
 

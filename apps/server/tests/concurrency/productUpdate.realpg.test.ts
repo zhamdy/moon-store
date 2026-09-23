@@ -108,6 +108,83 @@ describeWithPostgres('PUT /api/v1/products/:id on real PostgreSQL', () => {
     expect((await read()).barcode).toBeNull();
   });
 
+  /**
+   * HIGH-3's lost-update half. The form sends a full row, so a write composed against a
+   * stale read does not merge with what it missed — it overwrites it. Here the token is
+   * the one the operator's read returned, and the cashier's sale lands in between.
+   */
+  it('refuses a write composed against a stale read, changing nothing', async () => {
+    const opened = await harness.pool.query<{ updated_at: Date }>(
+      'SELECT updated_at FROM products WHERE id = $1',
+      [productId]
+    );
+    const token = opened.rows[0].updated_at.toISOString();
+
+    // Someone else edits the product while the form is open.
+    await http.request('PUT', `/api/v1/products/${productId}`, {
+      name: 'غيّره زميل',
+      sku: 'SKU-UPD-1',
+      price: 2500,
+    });
+
+    const stale = await rename({ expected_updated_at: token, price: 9999 });
+
+    expect(stale.status).toBe(409);
+    expect(stale.body.error.details[0]).toMatchObject({
+      field: 'expected_updated_at',
+      code: 'PRODUCT_MODIFIED',
+    });
+    const { rows } = await harness.pool.query<{ name: string; price: string }>(
+      'SELECT name, price FROM products WHERE id = $1',
+      [productId]
+    );
+    expect(rows[0].name).toBe('غيّره زميل');
+    expect(Number(rows[0].price)).toBe(2500);
+  });
+
+  it('accepts a write carrying the current token', async () => {
+    const opened = await harness.pool.query<{ updated_at: Date }>(
+      'SELECT updated_at FROM products WHERE id = $1',
+      [productId]
+    );
+
+    const res = await rename({ expected_updated_at: opened.rows[0].updated_at.toISOString() });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('behaves exactly as before when the caller stakes no claim', async () => {
+    await http.request('PUT', `/api/v1/products/${productId}`, {
+      name: 'تعديل',
+      sku: 'SKU-UPD-1',
+      price: 2500,
+    });
+
+    // No token: an older client keeps working, the compatibility posture the
+    // Idempotency-Key and collections rollouts both took.
+    const res = await rename();
+    expect(res.status).toBe(200);
+  });
+
+  it('rolls the whole write back on a conflict, price_history included', async () => {
+    const opened = await harness.pool.query<{ updated_at: Date }>(
+      'SELECT updated_at FROM products WHERE id = $1',
+      [productId]
+    );
+    const token = opened.rows[0].updated_at.toISOString();
+    await http.request('PUT', `/api/v1/products/${productId}`, {
+      name: 'غيّره زميل',
+      sku: 'SKU-UPD-1',
+      price: 1950,
+    });
+
+    const before = await priceHistoryCount();
+    const stale = await rename({ expected_updated_at: token, price: 4000 });
+
+    expect(stale.status).toBe(409);
+    expect(await priceHistoryCount()).toBe(before);
+  });
+
   /** MED-15: this is the assertion pg-mem cannot make. */
   it('writes no price_history row when neither price changed', async () => {
     const res = await rename({ cost_price: 900 });

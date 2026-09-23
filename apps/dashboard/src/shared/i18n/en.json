@@ -171,6 +171,7 @@
   "inventory.fitEn": "English fit",
   "inventory.price": "Price",
   "inventory.stockOnVariants": "Managed per variant — use Manage Variants",
+  "inventory.productChangedElsewhere": "This product was changed by someone else after you opened it. Reload to see the current values before saving.",
   "inventory.stock": "Stock",
   "inventory.categoryCol": "Category",
   "inventory.lowStock": "Low Stock",

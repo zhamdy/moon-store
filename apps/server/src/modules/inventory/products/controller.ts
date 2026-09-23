@@ -4,6 +4,7 @@ import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import type { Product, Variant } from '../../../../validators/productSchema';
 import { productsService } from './service';
+import { ProductConflictError } from '../../../../services/productService';
 import { productsRepository } from './repository';
 import { z } from 'zod';
 import { success } from '../../../http/responses';
@@ -202,6 +203,17 @@ export class ProductsController {
       revalidateStorefrontInBackground(catalogTagsFor(product));
       res.json(success(product));
     } catch (err: any) {
+      if (err instanceof ProductConflictError) {
+        // Same shape as the collections conflict: the envelope code stays one of the
+        // public seven and the domain code rides in `details[]`, with `field` naming the
+        // request key the client must refresh.
+        next(
+          new PublicError('CONFLICT', err.message, [
+            { field: 'expected_updated_at', code: err.code, message: err.message },
+          ])
+        );
+        return;
+      }
       if (err.type === 'discontinued') {
         next(new PublicError('FORBIDDEN', err.message));
         return;
