@@ -2373,7 +2373,7 @@ unrun goes into *Manual QA gaps* with its reason — never assumed passed.
 | --- | --- |
 | API | `http://localhost:3001`, `tsx watch index.ts` in `apps/server`, `DATABASE_URL` → **`moon_store_audit`**, `MEDIA_LOCAL_ROOT=C:\Users\opggh\.claude\jobs\711044f5\tmp\audit-media` |
 | Storefront | `http://localhost:3000`, `next dev` in `apps/storefront`, `.env.local` with `NEXT_PUBLIC_API_URL`, `CATALOG_SERVER_TOKEN`, `MEDIA_ORIGIN`, `NEXT_PUBLIC_CHECKOUT_ENABLED=true` |
-| Database | `moon_store_audit` — 35 active-listing products, 12 categories, 3 live collections, 10 uploaded images |
+| Database | `moon_store_audit` — 33 active-listing products, 12 categories, 3 live collections, 8 uploaded images |
 
 **Never point this at `moon_store` or `moon_store_sf_smoke`.** `MEDIA_LOCAL_ROOT` must stay on
 the scratch path above, or the API's orphan-media sweep deletes tracked `apps/server/uploads`
@@ -2394,34 +2394,46 @@ images (#170).
 
 **Reference fixtures** (verified against the API on 2026-09-22):
 
+> **Re-verified against the live API on 2026-09-23, before the gate run.** Six values below
+> changed after the matrix was first written, and they are corrected here rather than left to
+> surface as phantom failures. The largest: the original **35 pieces** counted two *audit test
+> products* that were active when the matrix was authored (`audit-u6-dress`,
+> `audit-cost-reset-probe`); both are discontinued now, so the true seeded catalogue is **33**.
+> The seed's own `printed-cotton-kimono` is deliberately seeded `discontinued` and has always
+> been outside the listing. The remaining changes are stock and gallery movements left by the
+> audit's own probes and the fix work's tests.
+
 | Slug | Price | Options | Notes |
 | --- | --- | --- | --- |
 | `silk-midi-dress` | 2,850 EGP | size S/M/L | **S and L sold out, M in stock ×3** — 1 image |
-| `cashmere-pullover` | base 3,200, S overridden **2,750** | size S/M/L | card reads **"From 2,750 EGP"**; S ×4, M sold out, L ×2; no image |
-| `embroidered-evening-gown` | 4,500 EGP | none | **2 images** — the hover-swap fixture |
+| `cashmere-pullover` | base 3,200, S overridden **2,750** | size S/M/L | card reads **"From 2,750 EGP"**; S ×7, M sold out, L ×1; no image |
+| `embroidered-evening-gown` | 4,500 EGP | none | **8 images** — the hover-swap and gallery fixture |
 | `satin-off-shoulder-blouse` | 1,550 EGP | none | **no image** — placeholder fixture |
 | `silk-slip-dress` | 6,750 EGP | size S/M | **entirely sold out** |
 | `cotton-bandana` | 180 EGP | none | cheapest piece |
 
-Counts: `/en/shop` = **35 pieces, 24 per page, 2 pages**; `inStock` only = **29**;
-`priceMin=1000&priceMax=2000` = **11**; `/shop/dresses` = **4**; `/new-in` = **16**;
-`/collections` = 3 (Evening 6, Linen 5, Silk 2).
+Counts: `/en/shop` = **33 pieces, 24 per page, 2 pages**; `inStock` only = **29**;
+`priceMin=1000&priceMax=2000` = **11**; `/shop/dresses` = **4**; `/new-in` = **15**;
+`/collections` = 3 (Evening 6, Linen 5, Silk 6).
+
+The one figure the bag rows turn on is unchanged and re-confirmed: `silk-midi-dress` size M
+at quantity 4 quotes `reduced`, allowed 3, line total **8,550**.
 
 ## Pass A — Full journey, `/en`, 1440 px (single pass)
 
 | # | URL | Width | Locale | Action | Expected | Shot? | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `/en/shop` | 1440 | en | Load with an empty bag | `h1` "Shop", context line "All pieces", count "35 pieces", 24 cards, category row with "All" + 12 names, pagination "Page 1 of 2". Header Bag link shows **no** badge. | Y | |
+| 1 | `/en/shop` | 1440 | en | Load with an empty bag | `h1` "Shop", context line "All pieces", count "33 pieces", 24 cards, category row with "All" + 12 names, pagination "Page 1 of 2". Header Bag link shows **no** badge. | Y | |
 | 2 | `/en/shop` | 1440 | en | Look at the `satin-off-shoulder-blouse` card | Frame is a 4:5 sand rectangle with the no-photograph placeholder, 12px corners, name + 1,550 EGP on one baseline, two lines of description, **an ivory 44px bag disc at the photograph's bottom-left** | Y | |
 | 3 | `/en/shop` | 1440 | en | Hover `embroidered-evening-gown`'s photograph | The second image swaps in, the frame scales ~1.03, the name gains a gold underline. Corners never square off. | N | |
 | 4 | `/en/shop` | 1440 | en | Look at `silk-slip-dress` (page 2, or via price-desc) | "Sold out" badge in ink at the photograph's top-left, price **still shown** (6,750 EGP), photograph **not** greyed, disc still present and inert | Y | |
-| 5 | `/en/shop` | 1440 | en | Sort select → "Price: low to high" | URL becomes `/en/shop?sort=price-asc`, first card is **Cotton Bandana 180 EGP**, still 35 pieces, the grid does not flash a skeleton (old grid dims, then swaps) | N | |
+| 5 | `/en/shop` | 1440 | en | Sort select → "Price: low to high" | URL becomes `/en/shop?sort=price-asc`, first card is **Cotton Bandana 180 EGP**, still 33 pieces, the grid does not flash a skeleton (old grid dims, then swaps) | N | |
 | 6 | `/en/shop?sort=price-asc` | 1440 | en | Ctrl+U, find `<meta name="robots">` | `noindex, follow` — a refined URL is not indexable | Y | |
 | 7 | `/en/shop` | 1440 | en | Sort → "Price: high to low" | First card **Embroidered Evening Gown 4,500 EGP** | N | |
 | 8 | `/en/shop` | 1440 | en | Filter → "In stock only" → "Show results" | URL carries `stock=in`, count reads **29 pieces**, `silk-slip-dress` is gone, an "Active filters" chip row appears with a Clear control | Y | |
 | 9 | `/en/shop` | 1440 | en | Filter → Minimum 1000, Maximum 2000 → Show results | Count reads **11 pieces**; chip reads "1,000–2,000 EGP" | N | |
 | 10 | `/en/shop` | 1440 | en | Filter → Minimum 900, Maximum 100 → Show results | No 500 and no crash: values swapped/floored to the 50-step, a valid listing renders | N | |
-| 11 | `/en/shop` | 1440 | en | "Clear all" | Back to 35 pieces, URL back to `/en/shop` with no query | N | |
+| 11 | `/en/shop` | 1440 | en | "Clear all" | Back to 33 pieces, URL back to `/en/shop` with no query | N | |
 | 12 | `/en/shop?page=2` | 1440 | en | Load | **11 cards**, "Page 2 of 2", Next disabled/absent, canonical in source is `...?page=2`, robots **not** noindex | N | |
 | 13 | `/en/shop?page=9999` | 1440 | en | Load | Empty state "This page is empty" / "This listing has fewer pages than the link expected." / "Go to page 1" — **never a 404, never a blank grid** | Y | |
 | 14 | `/en/shop/kimonos` | 1440 | en | Load (a real category with 0 products) | `h1` "Kimonos", empty state "This edit is being restocked" + "Shop all pieces". **HTTP 200, not 404.** | Y | |
