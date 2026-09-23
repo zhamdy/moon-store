@@ -1,5 +1,5 @@
 import 'server-only';
-import { CATALOG_REVALIDATE, catalogFetch } from '@/lib/api/catalog';
+import { CATALOG_REVALIDATE, catalogFetch, catalogTags } from '@/lib/api/catalog';
 import { CATALOG_ENDPOINTS } from '@/lib/api/endpoints';
 import { ApiError } from '@/lib/api/errors';
 import type { StorePolicies } from '../types/store-policies';
@@ -19,7 +19,8 @@ function invalid(message: string): ApiError {
 export async function getStorePolicies(): Promise<StorePolicies> {
   const { data } = await catalogFetch<unknown>(
     CATALOG_ENDPOINTS.storePolicies,
-    CATALOG_REVALIDATE.entity
+    CATALOG_REVALIDATE.entity,
+    [catalogTags.storePolicies]
   );
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     throw invalid('Store policies response is not an object');

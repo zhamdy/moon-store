@@ -624,8 +624,34 @@ four listings read `searchParams`. `/collections` and `/products/[slug]` read no
 they call `await connection()`; without that they would prerender (at build, or at
 runtime into the full-route cache).
 Catalog fetches go through the Next data cache with `revalidate` 60s for product lists
-and 300s for categories and collections (`CATALOG_REVALIDATE`), so a deactivated
-product can linger up to 60s — fine for browsing, never for checkout.
+and 300s for entities (`CATALOG_REVALIDATE`; the product detail reads on the entity
+lifetime, corrected from `list` in LOW-12).
+
+**The TTL is the backstop, not the mechanism.** Every catalog fetch carries `tags`
+(`catalogTags`), and the API pings `POST /api/revalidate` after a catalog write, so a
+withdrawal or a price correction publishes in well under a second (measured: a PDP 404s
+at +0.6s where it previously never did). This is not an optimisation — a TTL **cannot**
+express a withdrawal. Next writes its data cache only on `res.status === 200`, so once a
+product is deactivated the background revalidation receives the API's 404, the entry is
+never replaced, and the stale purchasable page is served forever: 64 consecutive samples
+over 16 minutes on a production build (HIGH-2). Lowering `revalidate` does not help; the
+entry is stale *and still served*.
+
+The route calls `revalidateTag(tag, { expire: 0 })`, deliberately **not** the
+documented-recommended `'max'`: a profile sets how long stale content may still be
+served, and `max` is a one-year window — the bug, not the fix. `updateTag` has the right
+semantic by default but is Server-Action-only and cannot be used in a Route Handler.
+`proxy.ts`'s matcher excludes `api`, or the ping is answered with a 307 to
+`/en/api/revalidate` and never reaches a handler.
+
+| Variable | Where | Meaning |
+| --- | --- | --- |
+| `REVALIDATE_TOKEN` | storefront, runtime | Comma list (current,next), each >= 32 bytes. Unset: the route refuses everyone, and invalidation is TTL-only. |
+| `STOREFRONT_REVALIDATE_URL` / `STOREFRONT_REVALIDATE_TOKEN` | server | Where to ping and with what. Unset on a POS-only deployment, which skips the ping entirely. |
+
+The tag vocabulary is duplicated by hand as `storefrontTags` in
+`apps/server/src/storefront/revalidate.ts` — neither app may import the other, so the two
+move together (the global string-coupling contract).
 
 **KD-10 invariant — a 404 must be a real 404.** A slug route resolves its entity (the
 category from the cached categories list; the collection by slug) and calls `notFound()`

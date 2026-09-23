@@ -1,5 +1,5 @@
 import 'server-only';
-import { CATALOG_REVALIDATE, catalogFetch } from '@/lib/api/catalog';
+import { CATALOG_REVALIDATE, catalogFetch, catalogTags } from '@/lib/api/catalog';
 import { CATALOG_ENDPOINTS } from '@/lib/api/endpoints';
 import type { CatalogCollection } from '../types/catalog-collection';
 
@@ -7,7 +7,8 @@ import type { CatalogCollection } from '../types/catalog-collection';
 export async function listCatalogCollections(): Promise<CatalogCollection[]> {
   const { data } = await catalogFetch<CatalogCollection[]>(
     CATALOG_ENDPOINTS.collections,
-    CATALOG_REVALIDATE.entity
+    CATALOG_REVALIDATE.entity,
+    [catalogTags.collections]
   );
   return data;
 }

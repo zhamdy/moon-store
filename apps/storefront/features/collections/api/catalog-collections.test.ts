@@ -69,7 +69,10 @@ describe('catalog collections and categories', () => {
       expect(String(vi.mocked(fetch).mock.calls[0][0])).toBe(
         'http://localhost:3001/api/v1/catalog/collections/silk'
       );
-      expect(requestInit().next).toEqual({ revalidate: 300 });
+      expect(requestInit().next).toEqual({
+        revalidate: 300,
+        tags: ['catalog:collections', 'catalog:collection:silk'],
+      });
       // Shared by generateMetadata and the page: a signal would break memoization.
       expect(requestInit().signal).toBeUndefined();
     });
@@ -144,7 +147,7 @@ describe('catalog collections and categories', () => {
       expect(String(vi.mocked(fetch).mock.calls[0][0])).toBe(
         'http://localhost:3001/api/v1/catalog/collections'
       );
-      expect(requestInit().next).toEqual({ revalidate: 300 });
+      expect(requestInit().next).toEqual({ revalidate: 300, tags: ['catalog:collections'] });
       expect(requestInit().signal).toBeUndefined();
     });
   });
@@ -154,7 +157,7 @@ describe('catalog collections and categories', () => {
       vi.mocked(fetch).mockResolvedValue(jsonResponse(200, { data: categories }));
 
       await expect(listCatalogCategories()).resolves.toEqual(categories);
-      expect(requestInit().next).toEqual({ revalidate: 300 });
+      expect(requestInit().next).toEqual({ revalidate: 300, tags: ['catalog:categories'] });
       expect(requestInit().signal).toBeUndefined();
     });
 
