@@ -289,13 +289,17 @@ actual:      the API 404'd at 02:37:31. The PDP was then sampled **74 consecutiv
              `discontinued` at 02:41:55 and still 200 at 02:44:25. The control 404'd within
              1 second, proving the fault is a pre-existing cache entry and not the route's 404
              logic. The *listing* dropped both products correctly (54 s and 52 s).
-             **Caveat, which the sample count does not remove:** all of this was observed under
-             `next dev`, whose caching differs from a production build. A statically generated
-             route takes patch-fetch's `isStaticGeneration && entry.isStale` branch and awaits
-             fresh data, which may bound the window near 60 s. The route carries no
-             `generateStaticParams`, so which branch it takes under `next build && next start`
-             is not decidable from a dev run. Both things are true at once: the staleness is
-             now well evidenced, and the production behaviour is still unproven.
+             **CONFIRMED IN PRODUCTION 2026-09-23 — the dev-mode caveat is now removed.**
+             Re-run against `next build && next start` (the fix plan's PR-5), same disposable
+             database, same 60 s TTL: `printed-silk-scarf` set `inactive` and
+             `wide-leg-trousers` set `discontinued`, each sampled every 15 s for 16 minutes.
+             **64 samples each, 64 served a purchasable 200, zero non-200 — neither ever
+             recovered.** The API 404'd in 4-7 ms, and the control (`natural-pearl-earrings`,
+             withdrawn but never rendered, so no cache entry existed) 404'd in 44 ms. So the
+             `isStaticGeneration && entry.isStale` branch does not bound the window: the fault
+             is the pre-existing entry, exactly as diagnosed, and it is a production defect
+             rather than a development artefact. Transcript:
+             `high2-result.txt` from that run.
 impact:      a withdrawn piece stays shoppable and shareable. Its link keeps working from
              search, social, a saved tab or an email; the shopper configures a size, presses
              Add to Bag, and is only told at the bag that the piece is gone. The price is
@@ -315,9 +319,10 @@ fix:         stop expressing deletion by the absence of a cache entry. Either (a
              is stale and still served.
 blocks:      yes - a commerce launch would ship shoppable pages for withdrawn stock with no
              operator lever to take one down.
-proven-on:   live stack (`next dev`, 74 sampled responses) + real PostgreSQL. **Dev-mode
-             evidence for the production question**: this MUST be re-run against
-             `next build && next start` before the final severity is settled.
+proven-on:   **production build** (`next build && next start`, 128 sampled responses across
+             two products over 16 minutes, 2026-09-23) + real PostgreSQL, corroborated by the
+             original `next dev` run (74 samples over 28 minutes). Severity settled at HIGH,
+             blocking.
 ```
 
 ### HIGH-3 — A name-only product edit silently rewrites `products.stock` with no audit row (lead L1)
