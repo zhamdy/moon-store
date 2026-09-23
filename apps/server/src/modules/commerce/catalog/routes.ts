@@ -27,10 +27,22 @@ function noStore(_req: Request, res: Response, next: NextFunction): void {
   next();
 }
 
+/**
+ * `no-store` on the **path**, not just the method (MED-2). Two halves, both needed:
+ *
+ * - This `router.all` is what *sets* the header for every method. Attached to `post`
+ *   alone it never ran for anything else, and an OPTIONS that `cors()` does not
+ *   short-circuit — no `Origin`, or one the quote's CORS refuses — misses the POST
+ *   handler and is answered by Express's built-in responder with `200 / Allow: POST`.
+ * - `publicCacheOnSuccess` *skips* this path (`middleware/cache.ts`), which is what stops
+ *   the header being rewritten. It decides at `writeHead` on any 2xx regardless of
+ *   method, so setting `no-store` here and nothing else would simply be overwritten — as
+ *   it was, shipping `public, max-age=60` on the pricing endpoint's own URL.
+ */
+router.all('/cart/quote', noStore);
+
 // POST /api/v1/catalog/cart/quote (Public, read-only)
-router.post('/cart/quote', noStore, (req, res, next) =>
-  catalogController.quoteCart(req, res, next)
-);
+router.post('/cart/quote', (req, res, next) => catalogController.quoteCart(req, res, next));
 
 router.use(createCatalogLimiter());
 router.use(publicCacheOnSuccess(CATALOG_CACHE_SECONDS));

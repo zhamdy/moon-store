@@ -455,7 +455,9 @@ test change, deliberately.
   cancelled query (57014) is `503 SERVICE_UNAVAILABLE`, the eighth public code.
 - GET 2xx (and 304) send `Cache-Control: public, max-age=60`; every other status `no-store`
   (`publicCacheOnSuccess`, decided at `writeHead`). It overwrites the header on **any** 2xx
-  regardless of method, which is why the quote route is registered ahead of it.
+  regardless of method, so it **skips the cart-quote path outright** — registering the
+  quote route ahead of it was not enough, because deciding at `writeHead` means it rewrites
+  whatever an earlier middleware set (MED-2).
 
 **Product detail (`/products/:slug`).** All four reads (product, gallery, variants,
 collections) run in one `runCatalogRead`. The rules, pinned in `tests/catalog.test.ts`:
@@ -533,10 +535,17 @@ Pinned in `tests/catalogCartQuote.test.ts`:
   `product_id` or `min_stock`; `maxQuantity` is the only stock-derived number.
 - **Dropped variants are not logged here.** The product page already logs them, and this
   read is uncached and batched, so logging would let one caller multiply log volume.
-- `Cache-Control: no-store` on every status: the route is registered **before**
-  `publicCacheOnSuccess` behind its own `noStore` middleware (CD-22). Set in the controller
-  behind the cache middleware, the header would be rewritten at `writeHead` to
-  `public, max-age=60` on a priced, per-bag response.
+- `Cache-Control: no-store` on every status, in two halves that are both load-bearing
+  (CD-22, corrected by MED-2). `router.all('/cart/quote', noStore)` **sets** it for every
+  method: attached to `post` alone it never ran for anything else, and an `OPTIONS` that
+  `cors()` does not short-circuit (no `Origin`, or one the quote's CORS refuses) misses the
+  POST handler and is answered by Express's built-in per-route responder with
+  `200 / Allow: POST`. `publicCacheOnSuccess` **skips** the path, which is what stops the
+  header being rewritten — it decides at `writeHead`, so ordering alone never protected
+  anything. Before the fix that fallthrough shipped `public, max-age=60` on the pricing
+  endpoint's own URL. `tests/http/catalogCacheHeaders.test.ts` asserts every method and
+  every status, and asserts the skip against the middleware directly rather than against a
+  route arrangement, so reordering the router cannot defeat it (lead L5).
 
 **Indexes were measured, not assumed.** KD-17 planned four listing indexes; EXPLAIN on
 8,000 products used only `idx_products_status_created (status, created_at DESC, id)`, for
