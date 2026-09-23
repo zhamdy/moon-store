@@ -1,7 +1,7 @@
 ---
 title: "fix: Commerce audit remediation (MED-1 → HIGH-1/MED-3 → HIGH-2 → stock truth → uploads → cart hardening)"
 type: fix
-status: draft
+status: completed
 date: 2026-09-22
 ---
 
