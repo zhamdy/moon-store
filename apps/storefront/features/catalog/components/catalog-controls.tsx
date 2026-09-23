@@ -72,6 +72,15 @@ export interface CatalogControlsStrings {
 
 export interface CatalogControlsProps {
   route: CatalogRoute;
+  /**
+   * What the server resolved this URL to. nuqs reads a repeated key's first
+   * *occurrence* while the loader takes its first *valid* value, so the two disagree on
+   * `?sort=best&sort=price-asc`: the grid sorted and this control showed the default
+   * (MED-4). The server's resolution is the authority until the shopper commits a change
+   * here, which also stops the next interaction serializing the default and silently
+   * dropping the filter that was in effect.
+   */
+  resolved: CatalogParams;
   locale: AppLocale;
   currencyLabel: string;
   /** "24 pieces" for the listing these props were rendered with; announced after a change. */
@@ -103,6 +112,7 @@ const PRICE_ERROR_TOAST_ID = 'catalog-price-error';
  */
 export function CatalogControls({
   route,
+  resolved,
   locale,
   currencyLabel,
   resultCountText,
@@ -120,7 +130,10 @@ export function CatalogControls({
   });
   // nuqs updates this state as soon as a commit is made, before the server responds,
   // so the summary and the select reflect the change during the pending transition.
-  const committed = normalizeCatalogParams(query, route);
+  // Until then the server's resolution wins, because only it saw every occurrence of a
+  // repeated key (MED-4).
+  const [touched, setTouched] = useState(false);
+  const committed = normalizeCatalogParams(touched ? query : resolved, route);
   const parts = summaryParts(committed);
 
   const [sheet, dispatch] = useReducer(controlsReducer, INITIAL_CONTROLS_STATE);
@@ -161,6 +174,7 @@ export function CatalogControls({
   }
 
   const commit = (next: CatalogParams) => {
+    setTouched(true);
     void setQuery(next);
   };
 

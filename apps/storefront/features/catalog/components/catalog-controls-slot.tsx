@@ -71,7 +71,7 @@ export async function catalogControlsRenderer({
     sort: t('sort.label'),
   };
 
-  return function renderCatalogControls({ totalItems, priceRange }: CatalogControlsData) {
+  return function renderCatalogControls({ totalItems, priceRange, resolved }: CatalogControlsData) {
     const { min, max } = priceRange;
     const priceHint =
       min !== null && max !== null
@@ -86,6 +86,7 @@ export async function catalogControlsRenderer({
       <Suspense fallback={<div aria-hidden="true" className="ms-auto h-11" />}>
         <CatalogControls
           route={route}
+          resolved={resolved}
           locale={locale}
           currencyLabel={currencyLabel}
           resultCountText={formatResultCount(t, totalItems)}

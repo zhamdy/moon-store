@@ -31,6 +31,14 @@ const RESULT_COUNT_ID = 'catalog-result-count';
 export interface CatalogControlsData {
   totalItems: number;
   priceRange: CatalogPriceRange;
+  /**
+   * What the **server** resolved this URL to. The controls island reads the URL through
+   * nuqs, which takes a repeated key's first *occurrence*, while the loader takes its
+   * first *valid* value — so `?sort=best&sort=price-asc` sorted the grid while the
+   * control showed the default, and the next interaction serialized that default and
+   * silently dropped the filter in effect (MED-4).
+   */
+  resolved: CatalogParams;
 }
 
 export interface ProductGridProps {
@@ -109,7 +117,8 @@ export async function ProductGrid({
         )}
         {/* No wrapper: the island's root is `display: contents`, so its summary,
             Filter and Sort are items of this row and can wrap independently. */}
-        {showControls && renderControls?.({ totalItems: pagination.totalItems, priceRange })}
+        {showControls &&
+          renderControls?.({ totalItems: pagination.totalItems, priceRange, resolved: params })}
       </div>
 
       <h2 id={CATALOG_RESULTS_ID} tabIndex={-1} className="sr-only">
