@@ -35,6 +35,13 @@ export const adjustStockSchema = z.object({
     .int()
     .refine((v) => v !== 0, 'Delta cannot be zero'),
   reason: z.enum(['Manual Adjustment', 'Damaged', 'Stock Count']),
+  /**
+   * The size whose stock moved. Required in practice for a variant product: its stock
+   * lives on the variant rows, and `products.stock` is dead state no sale path reads, so
+   * an adjustment without it corrects nothing a shopper can buy (MED-13). Optional on the
+   * wire so a non-variant product, and every existing caller, is unaffected.
+   */
+  variant_id: z.number().int().positive().optional().nullable(),
 });
 
 /**

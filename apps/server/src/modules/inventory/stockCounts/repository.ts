@@ -48,6 +48,7 @@ export interface IStockCountsRepository {
   createStockAdjustment(
     data: {
       product_id: number;
+      variant_id?: number | null;
       previous_qty: number;
       new_qty: number;
       delta: number;
@@ -258,6 +259,8 @@ export class StockCountsRepository implements IStockCountsRepository {
   async createStockAdjustment(
     data: {
       product_id: number;
+      /** The variant counted, when the line named one; null for a product-level count. */
+      variant_id?: number | null;
       previous_qty: number;
       new_qty: number;
       delta: number;
@@ -267,9 +270,17 @@ export class StockCountsRepository implements IStockCountsRepository {
     queryable?: Queryable
   ): Promise<void> {
     await this.q(queryable).query(
-      `INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [data.product_id, data.previous_qty, data.new_qty, data.delta, data.reason, data.user_id]
+      `INSERT INTO stock_adjustments (product_id, variant_id, previous_qty, new_qty, delta, reason, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        data.product_id,
+        data.variant_id ?? null,
+        data.previous_qty,
+        data.new_qty,
+        data.delta,
+        data.reason,
+        data.user_id,
+      ]
     );
   }
 

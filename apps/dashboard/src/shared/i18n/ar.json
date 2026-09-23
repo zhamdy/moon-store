@@ -257,6 +257,7 @@
   "bulk.discontinueConfirm": "هل أنت متأكد من إيقاف {count} منتجات؟ سيتم إخفاؤها من نقطة البيع.",
   "bulk.discontinueSuccess": "تم إيقاف {count} منتجات",
   "stock.adjustTitle": "تعديل المخزون",
+  "stock.variant": "المتغير",
   "stock.currentStock": "المخزون الحالي",
   "stock.adjustment": "التعديل (+/-)",
   "stock.newStock": "المخزون الجديد",

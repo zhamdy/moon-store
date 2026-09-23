@@ -28,9 +28,10 @@ export class StockAdjustmentsService {
     delta: number,
     reason: string,
     userId: number,
-    client: Queryable
+    client: Queryable,
+    variantId?: number | null
   ): Promise<{ previousQty: number; newQty: number } | null> {
-    const newQty = await this.repo.applyDelta(productId, delta, client);
+    const newQty = await this.repo.applyDelta(productId, delta, client, variantId);
     if (newQty === null) {
       return null;
     }
@@ -39,6 +40,7 @@ export class StockAdjustmentsService {
     await this.repo.record(
       {
         product_id: productId,
+        variant_id: variantId ?? null,
         previous_qty: previousQty,
         new_qty: newQty,
         delta,

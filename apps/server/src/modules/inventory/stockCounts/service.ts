@@ -116,6 +116,9 @@ export class StockCountsService {
           await this.repo.createStockAdjustment(
             {
               product_id: item.product_id,
+              // The line already names the size it counted; without it the ledger cannot
+              // be reconciled for a variant product (MED-14).
+              variant_id: item.variant_id ?? null,
               previous_qty: item.expected_qty,
               new_qty: item.counted_qty!,
               delta: item.variance!,

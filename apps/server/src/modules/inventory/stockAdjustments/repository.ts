@@ -7,10 +7,17 @@ export interface IStockAdjustmentsRepository {
     filters: StockAdjustmentFilters,
     queryable?: Queryable
   ): Promise<{ rows: StockAdjustmentRecord[]; total: number }>;
-  applyDelta(productId: number, delta: number, queryable: Queryable): Promise<number | null>;
+  applyDelta(
+    productId: number,
+    delta: number,
+    queryable: Queryable,
+    variantId?: number | null
+  ): Promise<number | null>;
   record(
     data: {
       product_id: number;
+      /** The variant whose stock moved, when one did; null for a product-level change. */
+      variant_id?: number | null;
       previous_qty: number;
       new_qty: number;
       delta: number;
@@ -68,7 +75,26 @@ export class StockAdjustmentsRepository implements IStockAdjustmentsRepository {
    *
    * @returns the resulting stock, or null when the delta would go below zero.
    */
-  async applyDelta(productId: number, delta: number, queryable: Queryable): Promise<number | null> {
+  async applyDelta(
+    productId: number,
+    delta: number,
+    queryable: Queryable,
+    variantId?: number | null
+  ): Promise<number | null> {
+    // A variant product's stock lives on its variant rows: `products.stock` is dead
+    // state no sale path reads, so an adjustment aimed at a size has to write the
+    // variant row or it corrects nothing a shopper can buy (MED-13). The guard is the
+    // same relative, non-negative one, mirroring what `stockCounts` already does.
+    if (variantId != null) {
+      const res = await queryable.query<{ stock: number }>(
+        `UPDATE product_variants SET stock = stock + $1::int
+          WHERE id = $2 AND product_id = $3 AND stock + $1::int >= 0
+          RETURNING stock`,
+        [delta, variantId, productId]
+      );
+      return res.rows[0] ? Number(res.rows[0].stock) : null;
+    }
+
     const res = await queryable.query<{ stock: number }>(
       `UPDATE products SET stock = stock + $1::int, updated_at = NOW()
         WHERE id = $2 AND stock + $1::int >= 0
@@ -81,6 +107,8 @@ export class StockAdjustmentsRepository implements IStockAdjustmentsRepository {
   async record(
     data: {
       product_id: number;
+      /** The variant whose stock moved, when one did; null for a product-level change. */
+      variant_id?: number | null;
       previous_qty: number;
       new_qty: number;
       delta: number;
@@ -90,9 +118,17 @@ export class StockAdjustmentsRepository implements IStockAdjustmentsRepository {
     queryable: Queryable
   ): Promise<void> {
     await queryable.query(
-      `INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [data.product_id, data.previous_qty, data.new_qty, data.delta, data.reason, data.user_id]
+      `INSERT INTO stock_adjustments (product_id, variant_id, previous_qty, new_qty, delta, reason, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        data.product_id,
+        data.variant_id ?? null,
+        data.previous_qty,
+        data.new_qty,
+        data.delta,
+        data.reason,
+        data.user_id,
+      ]
     );
   }
 }

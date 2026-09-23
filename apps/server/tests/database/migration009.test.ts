@@ -107,7 +107,8 @@ describeWithPostgres('009 legacy production schema repair', () => {
     // 009 that exists today (010 narrows purchase_orders_status_check; 011 drops the two
     // duplicate value columns; 012 adds refund_items; 013 the credit ledger; 014 the
     // storefront catalog columns and product_images; 015 the product descriptions; 016 the
-    // product material, care and fit; 017 the collection_products(product_id) index). This list is deliberately exact rather than a length check -- a migration landing without anyone considering its
+    // product material, care and fit; 017 the collection_products(product_id) index; 018
+    // stock_adjustments.variant_id). This list is deliberately exact rather than a length check -- a migration landing without anyone considering its
     // effect on the legacy upgrade path is the thing worth failing on.
     expect(await runMigrationsUp(pool, dir)).toEqual([
       migration,
@@ -119,6 +120,7 @@ describeWithPostgres('009 legacy production schema repair', () => {
       '015_product_descriptions.sql',
       '016_product_details.sql',
       '017_collection_products_product_index.sql',
+      '018_stock_adjustments_variant.sql',
     ]);
     expect(await runMigrationsUp(pool, dir)).toEqual([]);
 
@@ -128,7 +130,8 @@ describeWithPostgres('009 legacy production schema repair', () => {
     // 009 on top of 011 fails on a column the schema no longer has. That is inherent to
     // replaying an older migration after a newer one removes what it referenced -- the same shape as 009 re-adding its own wider CHECK
     // over 010's narrowed one -- and not a fault in either file.
-    expect(await runMigrationsDown(7, pool, dir)).toEqual([
+    expect(await runMigrationsDown(8, pool, dir)).toEqual([
+      '018_stock_adjustments_variant.sql',
       '017_collection_products_product_index.sql',
       '016_product_details.sql',
       '015_product_descriptions.sql',
@@ -147,6 +150,7 @@ describeWithPostgres('009 legacy production schema repair', () => {
       '015_product_descriptions.sql',
       '016_product_details.sql',
       '017_collection_products_product_index.sql',
+      '018_stock_adjustments_variant.sql',
     ]);
     expect((await pool.query('SELECT favorites FROM users')).rows[0].favorites).toBe('[]');
     expect(

@@ -53,6 +53,32 @@ same object undoes the narrowing — `009` re-adds its own wider list. That is i
 what "replay migration N" means, not a bug in either file, and it is why
 `migration009.test.ts` replays both in order rather than only the one it is named for.
 
+## Stock: which column governs sale
+
+`products.stock` is authoritative **only** while `has_variants = 0`. Once a product has
+variants, its stock lives on `product_variants.stock`: every sale, refund, exchange and
+stock count writes there, and the catalog and cart quote read there. `products.stock` is
+then dead state that nothing reconciles — the seed sets it to `SUM(variants.stock)` once,
+and it drifts from the first variant sale onward (measured: 6 against a real 5 after one
+sale, with per-size sellable 3/0/2).
+
+Consequences, all of them fixed in the audit's remediation and worth not re-breaking:
+
+- `PUT /api/v1/products/:id` writes `products.stock` absolutely and audits nothing, so
+  **`stock` is optional there** and an intentional change belongs on adjust-stock. Absent
+  also keeps `cost_price`, `min_stock`, `barcode` and `distributor_id` (HIGH-3 / MED-11).
+- `POST /api/v1/products/:id/adjust-stock` takes an optional `variant_id`. For a variant
+  product it is required in practice: without it the delta lands on the column no sale
+  path reads. The write is the same guarded relative `stock + $1 >= 0`, against the
+  variant row, and it also refuses a variant belonging to another product (MED-13).
+- `stock_adjustments.variant_id` (018) records which size moved. Nullable, and historic
+  rows are **not** backfilled — which variant an old row meant is unrecoverable, and
+  guessing would manufacture false audit data. Sales and stock counts write it too, so the
+  ledger reconciles per size (MED-14).
+- The dashboard renders `has_variants ? variant_stock : stock` everywhere
+  (`sellableStock` in `apps/dashboard/src/shared/lib/productStock.ts`), and the product
+  form's Stock field is disabled for a variant product.
+
 ## Dormant tables
 
 Fourteen tables belong to features removed from the application but not from the schema.

@@ -146,6 +146,8 @@ export default function Inventory() {
     id: number;
     name: string;
     stock: number;
+    has_variants: number;
+    variant_count: number;
   } | null>(null);
 
   // Bulk state
@@ -658,6 +660,8 @@ export default function Inventory() {
                             id: row.original.id,
                             name: row.original.name,
                             stock: row.original.stock,
+                            has_variants: row.original.has_variants,
+                            variant_count: row.original.variant_count,
                           });
                           setAdjustStockOpen(true);
                         }}
@@ -979,6 +983,7 @@ export default function Inventory() {
         productId={adjustProduct?.id ?? null}
         productName={adjustProduct?.name ?? ''}
         currentStock={adjustProduct?.stock ?? 0}
+        hasVariants={Boolean(adjustProduct?.has_variants && adjustProduct.variant_count > 0)}
       />
 
       {/* Bulk Operation Dialogs */}

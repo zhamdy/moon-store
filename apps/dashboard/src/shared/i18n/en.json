@@ -257,6 +257,7 @@
   "bulk.discontinueConfirm": "Are you sure you want to discontinue {count} products? They will be hidden from POS.",
   "bulk.discontinueSuccess": "{count} products discontinued",
   "stock.adjustTitle": "Adjust Stock",
+  "stock.variant": "Variant",
   "stock.currentStock": "Current Stock",
   "stock.adjustment": "Adjustment (+/-)",
   "stock.newStock": "New stock",

@@ -60,6 +60,8 @@ export interface BulkUpdateUpdates {
 export interface AdjustStockInput {
   delta: number;
   reason: string;
+  /** The variant whose stock moved; absent for a product-level adjustment. */
+  variant_id?: number | null;
 }
 
 export interface AdjustStockResult {
@@ -579,7 +581,7 @@ export async function adjustStock(
   input: AdjustStockInput,
   userId: number
 ): Promise<AdjustStockResult> {
-  const { delta, reason } = input;
+  const { delta, reason, variant_id: variantId } = input;
 
   return withTransaction(async (client) => {
     const prodRes = await client.query<{
@@ -608,14 +610,21 @@ export async function adjustStock(
       delta,
       reason,
       userId,
-      client
+      client,
+      variantId
     );
 
     if (applied === null) {
+      // The guarded write matched nothing: either the delta would go below zero, or the
+      // variant does not belong to this product. Both are the caller's to correct, and
+      // neither wrote anything.
       throw new Error('Stock cannot go below zero');
     }
 
-    if (applied.newQty <= product.min_stock) {
+    // Only for a product-level adjustment: `applied.newQty` is that variant's stock when
+    // one was named, and comparing one size against the product's reorder threshold would
+    // raise a low-stock alert for a product that is well stocked in every other size.
+    if (variantId == null && applied.newQty <= product.min_stock) {
       notifyLowStock(product.name, applied.newQty, productId);
     }
 
