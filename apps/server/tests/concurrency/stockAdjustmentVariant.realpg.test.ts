@@ -128,6 +128,32 @@ describeWithPostgres('stock adjustments carry the variant', () => {
     expect(rows).toHaveLength(0);
   });
 
+  /**
+   * LOW-1: the API already refuses `price: 0` on a variant, but the column had no CHECK,
+   * so an import, a backfill or a restored dump could still introduce one — and a zero is
+   * neither "inherit the product price" (NULL) nor a real price, which is what split the
+   * till's reading from the catalog's. Migration 019 closes the path the schema left open.
+   */
+  it('refuses a zero variant price at the database level, not just at the schema', async () => {
+    await expect(
+      harness.pool.query(
+        `INSERT INTO product_variants (product_id, sku, price, stock, attributes)
+         VALUES ($1, 'SKU-VAR-ZERO', 0, 1, '{"size":"L"}')`,
+        [productId]
+      )
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+
+  it('still allows a NULL price, which is the inherit-the-product-price seam', async () => {
+    await expect(
+      harness.pool.query(
+        `INSERT INTO product_variants (product_id, sku, price, stock, attributes)
+         VALUES ($1, 'SKU-VAR-NULL', NULL, 1, '{"size":"XL"}')`,
+        [productId]
+      )
+    ).resolves.toBeDefined();
+  });
+
   /** The ledger is only reconcilable if the deltas sum to the movement. */
   it('reconciles: the variant deltas sum to the variant stock movement', async () => {
     await adjust({ delta: 3, reason: 'Manual Adjustment', variant_id: variantId });

@@ -139,7 +139,10 @@ export default function VariantManagerDialog({
                         <div className="flex items-center gap-2">
                           <div className="text-end me-2">
                             <p className="text-sm font-semibold text-primary font-data">
-                              {formatCurrency(Number(variant.price || variantsProduct?.price || 0))}
+                              {/* `??`, not `||`: a variant priced at 0 would fall through
+                                  `||` to the product price and show a figure the till
+                                  does not charge (LOW-1). */}
+                              {formatCurrency(Number(variant.price ?? variantsProduct?.price ?? 0))}
                             </p>
                             <Badge size="sm" variant={variant.stock === 0 ? 'danger' : 'success'}>
                               {variant.stock}

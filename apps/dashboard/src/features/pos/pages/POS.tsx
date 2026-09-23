@@ -193,7 +193,9 @@ export default function POS() {
     addItem({
       id: variantProduct.id,
       name: variantProduct.name,
-      price: variant.price || variantProduct.price,
+      // `??`, not `||`: a variant priced at 0 would otherwise be charged at the
+      // product price, which is a till/storefront divergence (LOW-1).
+      price: variant.price ?? variantProduct.price,
       stock: variant.stock,
       variant_id: variant.id,
       variant_attributes: variant.attributes,
