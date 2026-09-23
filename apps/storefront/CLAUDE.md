@@ -1698,6 +1698,29 @@ not a permanent architectural requirement:
   for a specific collision this app hit, not a template — a future package should
   only add it if it actually reproduces the same symptom.
 
+## Component tests (the jsdom opt-in)
+
+The storefront's convention is pure-function-first, and most of it stays that way: the
+default vitest environment is `node`, and a suite that needs a DOM opts in with
+`// @vitest-environment jsdom` at the top of the file. Nothing gains a DOM by accident.
+
+Two suites use it, both because the thing under test *is* the DOM behaviour rather than a
+rule a pure function could hold:
+
+- `features/cart/components/quick-add.test.tsx` — the panel opening, focus moving to the
+  first unanswered group, Escape and outside-pointer closing with focus restored, the
+  sold-out disc staying `aria-disabled` rather than `disabled`, and that one press never
+  adds a default silently. This is the one client island whose behaviour is the contract
+  (→ *Cart* → *Surfaces*), and it had none: three commits rewrote it on a branch with no
+  regression check (MED-7).
+- `features/cart/store/cart-store-cross-tab.test.ts` — the `storage` event, the
+  `key === null` clear, and the subscribe/unsubscribe listener lifecycle, which is where a
+  leak or a missed re-attach would live (MED-9).
+
+`@testing-library/react` and `jsdom` are devDependencies of this app. Adding a third such
+suite is fine; converting the pure suites is not — they are faster and they test the rules
+that actually decide behaviour.
+
 ## Feature slice shape
 
 Six slices exist. `features/checkout` owns the checkout page (form, schema, draft, submit
