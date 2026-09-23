@@ -1065,6 +1065,7 @@ export default function Inventory() {
         variantCostPrice={vm.variantCostPrice}
         setVariantCostPrice={vm.setVariantCostPrice}
         variantStock={vm.variantStock}
+        variantErrors={vm.variantErrors}
         setVariantStock={vm.setVariantStock}
         onOpenEditVariant={vm.openEditVariant}
         onVariantSubmit={vm.handleVariantSubmit}

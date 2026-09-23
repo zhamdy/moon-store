@@ -3,6 +3,9 @@ import toast from 'react-hot-toast';
 import { useTranslation } from '../../../shared/i18n/index';
 import { resource } from '../../../shared/lib/resource';
 import type { Product, ProductVariant } from '../../../shared/types/index';
+import { validateVariantDraft, type VariantField } from '../lib/variantDraft';
+
+type VariantFieldErrors = Partial<Record<VariantField, string>>;
 
 const products = resource<Product>('products');
 
@@ -32,6 +35,7 @@ export function useVariantManagement() {
   const [variantPrice, setVariantPrice] = useState('');
   const [variantCostPrice, setVariantCostPrice] = useState('');
   const [variantStock, setVariantStock] = useState('0');
+  const [variantErrors, setVariantErrors] = useState<VariantFieldErrors>({});
 
   const { data: variants, isLoading: variantsLoading } = products.useRead<ProductVariant[]>(
     `${variantsProduct?.id}/variants`,
@@ -85,24 +89,34 @@ export function useVariantManagement() {
 
   const handleVariantSubmit = () => {
     if (!variantsProduct) return;
-    const attributes: Record<string, string> = {};
-    for (const attr of variantAttrs) {
-      if (attr.key.trim() && attr.value.trim()) {
-        attributes[attr.key.trim()] = attr.value.trim();
+    // Parsed, not coerced: `Number(stock) || 0` turned a typo into a valid request that
+    // created the variant with stock 0 and said nothing (MED-12).
+    const { errors, body } = validateVariantDraft(
+      {
+        sku: variantSku,
+        barcode: variantBarcode,
+        price: variantPrice,
+        costPrice: variantCostPrice,
+        stock: variantStock,
+        attributes: variantAttrs,
+      },
+      {
+        skuRequired: t('variants.skuRequired'),
+        pricePositive: t('variants.pricePositive'),
+        costNonNegative: t('variants.costNonNegative'),
+        stockInteger: t('variants.stockInteger'),
+        attributesRequired: t('variants.attributesRequired'),
       }
-    }
-    if (Object.keys(attributes).length === 0) {
-      toast.error(t('variants.attributes') + ' required');
+    );
+
+    setVariantErrors(errors);
+    if (!body) {
+      // The inline errors are the fix instruction; the toast is the announcement, since
+      // the dialog's fields are not a live region.
+      toast.error(Object.values(errors)[0]!);
       return;
     }
-    const body = {
-      sku: variantSku,
-      barcode: variantBarcode || null,
-      price: variantPrice ? Number(variantPrice) : null,
-      cost_price: variantCostPrice ? Number(variantCostPrice) : 0,
-      stock: Number(variantStock) || 0,
-      attributes,
-    };
+
     const write = editingVariant ? updater : creator;
     write.run({ id: variantsProduct.id, body });
   };
@@ -148,6 +162,7 @@ export function useVariantManagement() {
     variantCostPrice,
     setVariantCostPrice,
     variantStock,
+    variantErrors,
     setVariantStock,
 
     // Data
