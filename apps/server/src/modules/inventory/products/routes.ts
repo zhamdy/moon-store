@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { verifyToken, requireRole } from '../../../../middleware/auth';
 import { uploadRateLimit } from '../../../../middleware/upload';
-import { createImageUpload, validateImageBytes } from '../../../storage/upload';
+import { createImageUpload, imageUploadErrors, validateImageBytes } from '../../../storage/upload';
 import { cacheControl } from '../../../../middleware/cache';
 import { productsController } from './controller';
 
@@ -62,8 +62,12 @@ router.post(
   requireRole('Admin'),
   uploadRateLimit,
   upload.single('image'),
+  // Immediately after multer: its size and type refusals are errors, and without a
+  // handler here they fall through to the shared one as 500s (HIGH-5).
+  imageUploadErrors,
   validateImageBytes,
-  (req, res, next) => productsController.uploadImage(req, res, next)
+  (req: Request, res: Response, next: NextFunction) =>
+    productsController.uploadImage(req, res, next)
 );
 router.delete('/:id/image', verifyToken, requireRole('Admin'), (req, res, next) =>
   productsController.deleteImage(req, res, next)
@@ -80,8 +84,12 @@ router.post(
   requireRole('Admin'),
   uploadRateLimit,
   upload.single('image'),
+  // Immediately after multer: its size and type refusals are errors, and without a
+  // handler here they fall through to the shared one as 500s (HIGH-5).
+  imageUploadErrors,
   validateImageBytes,
-  (req, res, next) => productsController.addGalleryImage(req, res, next)
+  (req: Request, res: Response, next: NextFunction) =>
+    productsController.addGalleryImage(req, res, next)
 );
 router.put('/:id/images/order', verifyToken, requireRole('Admin'), (req, res, next) =>
   productsController.reorderGalleryImages(req, res, next)

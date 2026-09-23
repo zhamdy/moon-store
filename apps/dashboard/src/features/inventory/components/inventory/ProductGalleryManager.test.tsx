@@ -140,9 +140,18 @@ describe('ProductGalleryManager', () => {
     expect(add).toHaveAttribute('aria-describedby', reason.id);
   });
 
-  it('shows an error and leaves the list unchanged when an upload fails', async () => {
+  /**
+   * The server phrases an upload refusal for the operator, so showing it beats the
+   * generic sentence: "too big" and "wrong format" are different problems with different
+   * fixes, and the operator used to be told neither (HIGH-5).
+   */
+  it('shows the server reason and leaves the list unchanged when an upload fails', async () => {
     const { transport, calls } = galleryTransport([image(10, 0), image(11, 1)], {
-      'POST products/1/images': new ApiError('Unsupported file', 400, 'VALIDATION_ERROR'),
+      'POST products/1/images': new ApiError(
+        'Only JPEG, PNG, and WebP images are allowed',
+        400,
+        'VALIDATION_ERROR'
+      ),
     });
     const { container } = renderGallery(transport);
     await screen.findByRole('list', { name: 'Gallery images, in display order' });
@@ -153,10 +162,25 @@ describe('ProductGalleryManager', () => {
     });
 
     expect(
-      await screen.findByText('The image could not be uploaded. The gallery is unchanged.')
+      await screen.findByText('Only JPEG, PNG, and WebP images are allowed')
     ).toBeInTheDocument();
     expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
     expect(screen.getAllByRole('img')).toHaveLength(2);
+  });
+
+  it('shows the size limit when the image is too large', async () => {
+    const { transport } = galleryTransport([image(10, 0)], {
+      'POST products/1/images': new ApiError('Image must be at most 2 MB', 413, 'VALIDATION_ERROR'),
+    });
+    const { container } = renderGallery(transport);
+    await screen.findByRole('list', { name: 'Gallery images, in display order' });
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(['x'], 'huge.png', { type: 'image/png' })] },
+    });
+
+    expect(await screen.findByText('Image must be at most 2 MB')).toBeInTheDocument();
   });
 
   it('names the controls in Arabic too', async () => {

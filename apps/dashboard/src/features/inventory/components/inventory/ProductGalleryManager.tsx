@@ -61,7 +61,13 @@ export default function ProductGalleryManager({
       return t('inventory.galleryStale');
     }
     if (failure.kind === 'forbidden') return t('inventory.galleryForbidden');
-    if (['rateLimited', 'offline', 'network'].includes(failure.kind)) return failure.message;
+    // `validation` included: the server phrases an upload refusal for the operator
+    // ("Image must be at most 2 MB", "Only JPEG, PNG, and WebP images are allowed"), and
+    // those were the two refusals that used to arrive as an untyped 500 and show only
+    // the generic toast, telling nobody the photo was simply too big (HIGH-5).
+    if (['validation', 'rateLimited', 'offline', 'network'].includes(failure.kind)) {
+      return failure.message;
+    }
     return t(fallbackKey);
   };
 
