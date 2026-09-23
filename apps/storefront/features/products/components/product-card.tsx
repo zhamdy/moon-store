@@ -31,7 +31,8 @@ export interface ProductCardProps {
    * The commerce action, composed by the page (`features/cart`'s `QuickAdd`). This slice
    * never imports the cart slice — the product page composes Add to Bag into the purchase
    * panel the same way (CD-11). Omitted, the card is a photograph and a caption, which is
-   * what the homepage's static mock products are: no slug the API knows, nothing to add.
+   * what the homepage's editorial frames are: they name no product, so `href` and `price`
+   * are null and there is nothing to add.
    */
   action?: ReactNode;
   /**
@@ -156,9 +157,13 @@ export function ProductCard({
   const { primary, secondary, badge, description } = product;
   const foreignName = product.name.lang !== locale;
   const lead = emphasis === 'lead';
-  const price = formatPrice(product.price, locale, currencyLabel);
+  // An editorial card has no product behind it: no link, no price (HIGH-1 / MED-3).
+  const href = product.href;
+  const price = product.price === null ? null : formatPrice(product.price, locale, currencyLabel);
   const priceText =
-    product.priceFrom && priceFromLabel ? fillTemplate(priceFromLabel, { price }) : price;
+    price !== null && product.priceFrom && priceFromLabel
+      ? fillTemplate(priceFromLabel, { price })
+      : price;
   const descriptionLang =
     description && description.lang !== locale
       ? { lang: description.lang, dir: 'auto' as const }
@@ -258,12 +263,11 @@ export function ProductCard({
                 : 'type-body-lg leading-[1.375] [:lang(ar)_&]:leading-[1.55]'
             )}
           >
-            {/* The one link on the card: its ::after covers the whole tile, so the
-                photograph and the caption open the product page with no second anchor. */}
-            <Link href={product.href} className="after:absolute after:inset-0 after:content-['']">
-              {/* data-product-name carries the display face and the gold rule
-                  (app/globals.css); the span is inline so the rule is the width of
-                  the name, not the column. */}
+            {/* data-product-name carries the display face and the gold rule
+                (app/globals.css); the span is inline so the rule is the width of
+                the name, not the column. An editorial card renders it bare: with no
+                product behind the caption there is nothing to open. */}
+            {href === null ? (
               <span
                 data-product-name=""
                 lang={foreignName ? product.name.lang : undefined}
@@ -271,20 +275,34 @@ export function ProductCard({
               >
                 {product.name.text}
               </span>
-            </Link>
-          </h3>
-          <p
-            className={cn(
-              'font-medium text-text tabular-nums tracking-[0.02em]',
-              lead
-                ? 'type-body mt-2'
-                : captionLayout === 'stacked'
-                  ? 'type-small mt-2 text-text-secondary'
-                  : 'type-small shrink-0'
+            ) : (
+              /* The one link on the card: its ::after covers the whole tile, so the
+                 photograph and the caption open the product page with no second anchor. */
+              <Link href={href} className="after:absolute after:inset-0 after:content-['']">
+                <span
+                  data-product-name=""
+                  lang={foreignName ? product.name.lang : undefined}
+                  dir={foreignName ? 'auto' : undefined}
+                >
+                  {product.name.text}
+                </span>
+              </Link>
             )}
-          >
-            {priceText}
-          </p>
+          </h3>
+          {priceText !== null && (
+            <p
+              className={cn(
+                'font-medium text-text tabular-nums tracking-[0.02em]',
+                lead
+                  ? 'type-body mt-2'
+                  : captionLayout === 'stacked'
+                    ? 'type-small mt-2 text-text-secondary'
+                    : 'type-small shrink-0'
+              )}
+            >
+              {priceText}
+            </p>
+          )}
         </div>
 
         {/* The product's own copy, clamped — two lines on a tile, three on the lead card,
@@ -325,10 +343,10 @@ export function ProductCard({
             ]
           )}
         >
-          {lead && detailsLabel ? (
+          {lead && detailsLabel && href !== null ? (
             <>
               <div className="min-w-0 grow basis-48">{action}</div>
-              <EditorialLink href={product.href} className="shrink-0">
+              <EditorialLink href={href} className="shrink-0">
                 {detailsLabel}
               </EditorialLink>
             </>

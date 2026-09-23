@@ -17,8 +17,12 @@ export type ProductCardBadge = 'new' | 'soldOut';
 
 /** What `ProductCard` renders (KD-13); it never sees a data source. */
 export interface ProductCardModel {
-  /** Locale-less; `@/i18n/navigation`'s `Link` adds the prefix. */
-  href: string;
+  /**
+   * Locale-less; `@/i18n/navigation`'s `Link` adds the prefix. **`null` for an
+   * editorial card**, which names no product and must publish no product link: only a
+   * catalog DTO carries a slug the catalogue actually serves (HIGH-1).
+   */
+  href: string | null;
   name: LocalizedText;
   /**
    * The product's own stored description, or null. Never written in the storefront and
@@ -26,8 +30,12 @@ export interface ProductCardModel {
    * reads is the opening of the real copy, not a sentence this app invented.
    */
   description: LocalizedText | null;
-  /** Whole EGP. The lowest variant price when `priceFrom`, else the exact one. */
-  price: number;
+  /**
+   * Whole EGP. The lowest variant price when `priceFrom`, else the exact one. **`null`
+   * for an editorial card**: a figure with no product behind it is a price the store
+   * does not charge (MED-3).
+   */
+  price: number | null;
   /** Variants differ in price, so the card shows "From {price}" (the product page's rule). */
   priceFrom: boolean;
   primary: ImageSource | null;
@@ -40,18 +48,22 @@ export function productHref(slug: string): string {
   return `/products/${slug}`;
 }
 
+/**
+ * An editorial photograph and its caption. It carries **no href, no price and no
+ * badge**: the mock names no product, so a link, a figure or a "New" flag would each
+ * be a commerce claim the catalogue cannot honour. `HomeProductMock` has no slug, so
+ * there is no product href to build here even by mistake.
+ */
 export function fromHomeMock(mock: HomeProductMock, locale: AppLocale): ProductCardModel {
   return {
-    href: productHref(mock.slug),
+    href: null,
     name: { text: mock.name[locale], lang: locale },
-    // A mock carries no copy and no variants: the card shows a name and a price, and
-    // the caller composes no Add to Bag for it (the slug names no real product).
     description: null,
-    price: mock.price,
+    price: null,
     priceFrom: false,
     primary: { kind: 'static', slot: mock.images.a },
     secondary: { kind: 'static', slot: mock.images.b },
-    badge: mock.isNew ? 'new' : null,
+    badge: null,
   };
 }
 

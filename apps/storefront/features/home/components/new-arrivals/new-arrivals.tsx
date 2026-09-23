@@ -35,11 +35,13 @@ export async function NewArrivals({ locale }: { locale: AppLocale }) {
   const quickAddStrings = await getQuickAddStrings(locale);
 
   const dtos = await loadNewArrivals();
-  // Only catalog products carry an Add to Bag: a mock's slug names nothing the API
-  // knows, so the fallback rail is photographs and captions (see `fromHomeMock`).
+  // Only catalog products carry an Add to Bag, a link or a price: an editorial frame
+  // names no product, so the fallback rail is photographs and captions alone
+  // (see `fromHomeMock`). Sourcing this rail from the catalogue whenever the API can
+  // answer at all is MED-3, still open.
   const products: { key: string; model: ProductCardModel; dto?: CatalogProduct }[] = dtos
     ? dtos.map((dto) => ({ key: dto.slug, model: fromCatalogDto(dto, locale), dto }))
-    : FALLBACK_PRODUCTS.map((mock) => ({ key: mock.slug, model: fromHomeMock(mock, locale) }));
+    : FALLBACK_PRODUCTS.map((mock) => ({ key: mock.id, model: fromHomeMock(mock, locale) }));
 
   const badgeLabels = { new: tp('new'), soldOut: tp('soldOut') };
   const currencyLabel = tp('currency');

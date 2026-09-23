@@ -50,11 +50,13 @@ const SMALL_STAGGER = [
  * "Curated by Moon" eyebrow above them and it was removed the same day (owner decision,
  * 2026-09-21), so the 2026-09-14 no-eyebrows rule holds across the whole page again.
  *
- * The five pieces are static mocks from `features/products/data/home-products.ts`, and
- * two of their slugs and one of their prices do not match the seeded catalogue - see
- * the repository CLAUDE.md's Learnings entry. Their cards therefore carry no Add to Bag
- * (a mock's slug names nothing the API knows) and no description, which is the honest
- * state rather than a gap to fill with invented copy.
+ * **The five frames are editorial photography, not catalogue entries**
+ * (`features/products/data/home-products.ts`). They carry no link, no price, no badge,
+ * no description and no Add to Bag, because they name no product: the earlier mocks
+ * were written to mirror the seed's vocabulary and drifted from it, so three of this
+ * section's five tiles published a product link that 404'd on every deploy (HIGH-1 in
+ * `docs/audits/2026-09-22-shop-cart-fullstack-audit.md`). A photograph and a caption is
+ * the honest state; real commerce data on this page comes from the catalog DTO.
  */
 export async function MoonSelection({ locale }: { locale: AppLocale }) {
   const t = await getTranslations('home.selection');
@@ -107,12 +109,12 @@ export async function MoonSelection({ locale }: { locale: AppLocale }) {
               />
             );
             return index === 0 ? (
-              <div key={product.slug} className="col-span-2 row-span-2">
+              <div key={product.id} className="col-span-2 row-span-2">
                 {card}
               </div>
             ) : (
               <Reveal
-                key={product.slug}
+                key={product.id}
                 className={SMALL_STAGGER[(index - 1) % SMALL_STAGGER.length]}
               >
                 {card}

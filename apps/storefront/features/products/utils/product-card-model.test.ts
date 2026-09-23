@@ -110,28 +110,24 @@ describe('fromCatalogDto', () => {
 });
 
 describe('fromHomeMock', () => {
-  it('preserves the static slots, price and isNew as the new badge', () => {
+  // HIGH-1: an editorial frame names no product, so it may make no commerce claim —
+  // no link to a page that may not exist, no price the store does not charge, no badge.
+  it('preserves the static slots and makes no commerce claim', () => {
     const [mock] = newArrivals;
     expect(fromHomeMock(mock, 'en')).toEqual({
-      href: `/products/${mock.slug}`,
+      href: null,
       name: { text: mock.name.en, lang: 'en' },
       description: null,
       priceFrom: false,
-      price: mock.price,
+      price: null,
       primary: { kind: 'static', slot: mock.images.a },
       secondary: { kind: 'static', slot: mock.images.b },
-      badge: 'new',
+      badge: null,
     });
   });
 
-  it('names the product in the page locale, so lang always matches it', () => {
+  it('names the frame in the page locale, so lang always matches it', () => {
     const [mock] = curatedEdit;
     expect(fromHomeMock(mock, 'ar').name).toEqual({ text: mock.name.ar, lang: 'ar' });
-  });
-
-  it('gives no badge to a mock that is not new', () => {
-    const [mock] = curatedEdit;
-    expect(mock.isNew).toBeFalsy();
-    expect(fromHomeMock(mock, 'en').badge).toBeNull();
   });
 });

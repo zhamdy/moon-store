@@ -695,6 +695,16 @@ products are seeded without images, so a fresh dev database shows the no-image s
 One badge at most, and sold out wins over new (it changes what the shopper can do);
 sold out never greys the photograph and the price stays.
 
+**Only a catalog DTO may make a commerce claim.** `href` and `price` are nullable, and
+`fromHomeMock` returns null for both plus no badge: the static set is editorial
+photography that names no product, so a link, a figure or a "New" flag would each be a
+claim the catalogue cannot honour. It has no `slug` at all, which is what makes the
+claim impossible rather than merely absent — the homepage published five dead product
+links for as long as it did (HIGH-1) because a mock set was allowed to look like a
+catalogue. `features/home/data/commerce-hrefs.test.ts` holds that contract: category and
+collection links name a `REQUIRED_CATALOG_KEYS` key the seed is proven to serve, and a
+**product** href may only come from a DTO.
+
 **The editorial commerce tile** (owner brief, 2026-09-20, superseding the caption-only
 tile of the same morning). A photograph, a caption that says enough to choose by, and
 one action — nothing else. No wishlist, no rating, no icon strip, no second badge row,
