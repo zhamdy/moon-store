@@ -250,13 +250,17 @@ Server Components by default (R21/R22). `'use client'` is limited to nineteen en
    Takes children only.
 6. `components/motion/parallax.tsx` — `scroll()` from `motion` driving a WAAPI
    animation from `motion/mini`. Takes children only.
-7. `features/catalog/components/catalog-controls.tsx` — the catalog utility row's
-   filter summary, Filter button and Headless UI filter sheet, and sort select, written
-   to the URL with nuqs (`shallow: false`, `history: 'push'`). Strings arrive resolved
-   from `catalog-controls-slot.tsx` (`catalogControlsRenderer`); the few values it
-   formats itself use `{name}` templates through `fillTemplate` (`lib/utils/fill-template.ts`), not ICU. Its root is
-   `display: contents` so its controls wrap as items of the utility row. Pure rules
-   live in `catalog-controls-state.ts`, unit-tested.
+7. `features/catalog/components/catalog-controls.tsx` — the listing's filters and sort,
+   written to the URL with nuqs (`shallow: false`, `history: 'push'`). Rendered **twice**
+   by `ProductGrid` ("Atelier", 2026-09-26): `layout="toolbar"` (the count, the Filter
+   button and Headless UI sheet below 1024, Sort, the active-filter summary) and
+   `layout="index"` (the index column's inline availability and price, from 1024). Each
+   instance has its own URL hook, transition and live region; one file, one boundary.
+   Strings arrive resolved from `catalog-controls-slot.tsx` (`catalogControlsRenderer`);
+   the few values it formats itself use `{name}` templates through `fillTemplate`
+   (`lib/utils/fill-template.ts`), not ICU. The toolbar's root is `display: contents`, so
+   its bar is a direct child of the rack column and can stick. Pure rules live in
+   `catalog-controls-state.ts`, unit-tested.
 8. `app/[locale]/(catalog)/error.tsx` — every catalog route's error boundary. Next
    requires an error boundary to be a client component, so it cannot take resolved
    strings as props; see the one namespace exception below.
@@ -385,9 +389,9 @@ throw past the boundary it serves. Widening that object, or a second client
 small leaf instead of converting an entire Server Component tree.
 
 `NavLink` takes an explicit `current?: boolean` rather than reading the pathname, so it
-needs no client boundary. The catalog's `CategoryNav` is the first caller that passes
-`true` (the page it is rendered on knows its own slug). The header and footer still pass
-`false`: `aria-current` there needs the segment passed down, deferred.
+needs no client boundary. The header and footer pass `false`: `aria-current` there needs
+the segment passed down, deferred. The catalog's `CategoryNav` no longer uses it (its
+links are `.category-link`), but follows the same rule: the page knows its own slug.
 
 ## Motion
 
@@ -718,8 +722,9 @@ production build means no remote image loads (visibly, rather than an open allow
 non-http(s) value fails the build. `dangerouslyAllowLocalIP` is on outside production
 only, because Next 16 refuses localhost upstreams as an SSRF guard. Remote images get no
 blur placeholder (no `blurDataURL`); they load over the frame's `bg-surface-soft`. Only
-the first row is eager (the widest, 4; high priority for the first 2), with `sizes`
-derived from `grid-layout.ts`, the same table as the grid classes. Collections and
+the first row is eager (the widest, 3; high priority for the first 2), with `sizes`
+derived from `grid-layout.ts`, the same table as the grid classes (it subtracts the
+index column from 1024). Collections and
 products are seeded without images, so a fresh dev database shows the no-image states.
 
 ### Product card model
@@ -814,18 +819,39 @@ catalog routes. Filters never replay entrances: `decideInitialRevealState` only 
 back a grid entirely below the fold, and the Suspense boundary is unkeyed, so a filter
 transition re-renders the same grid in place.
 
-### Filter UX
+### Filter UX — "Atelier" (owner decision 2026-09-26)
 
-Quiet, not a SaaS panel (KD-15). Under the intro: the category row (horizontal scroll
-with an inline-end fade at every width; empty categories hidden unless current), then
-one utility row — result count at the start; filter summary, Filter button and Sort at
-the end — which wraps rather than overflows and is **not sticky** in v1. Filter opens a
-Headless UI sheet (bottom sheet below 768, side sheet from the inline end at 768+):
-availability and a price range with `inputMode="numeric"` text inputs, staged and
-applied together. Active filters show as a text summary with per-filter remove buttons,
-not chips. Sort is a native `<select>` that commits on change. While a transition runs,
-the old grid dims (`[data-catalog]:has([data-catalog-controls][data-pending])` in
-`globals.css`) and the new count is announced through a polite live region.
+Chosen from three directions drawn in Claude Design (Atelier, Shop the Film, Index);
+quiet, not a SaaS panel (KD-15). The listing has two columns from 1024
+(`CATALOG_LAYOUT_CLASS`: 240px + 40, then 264px + 48 from 1280) and stacks below:
+
+- **The index column** (`CATALOG_INDEX_CLASS`, sticky under the header, scrolling on its
+  own when taller than the viewport): the categories (`CategoryNav`, Shop All and category
+  pages only) as a labelled list with each category's `productCount`, the current one
+  marked by a Bronze inline-start rule and weight; then **the filters inline**, never
+  behind a button: "In stock only" applies on a tick (`toggleStock`), the price range is
+  typed and applied with its own "Apply price" button or Enter (`applyPrice`, the sheet's
+  validation), and Clear all appears once a filter is on. The price fields follow the URL,
+  so a removal elsewhere resets them. Categories are in the shop's order
+  (`utils/category-order.ts`), not the API's; unknown slugs follow, in API order.
+- **The rack**: the toolbar, then the grid (2 columns at 1024, 3 from 1280; never 4 beside
+  the column), pagination and the closing link. From 1024 the toolbar is the count and a
+  bordered Sort; below 1024 it is **a sticky bar** under the header — Filter (the sheet,
+  with "(n)" when filters are on) and Sort, half and half — with the count and the
+  active-filter summary on the line under it.
+- **Below 1024** the categories are a row of pill chips above the rack
+  (`.category-link` is a chip there), scrolling with an inline-end fade.
+
+The sheet (bottom below 768, side from the inline end at 768+) holds availability and the
+price range, staged and applied together; it is the only way to filter below 1024. Active
+filters show as a text summary with per-filter remove buttons, not chips; removing the
+last one moves focus to Filter, or to Sort from 1024 where Filter is not drawn. Sort is a
+native `<select>` laid transparently over a label of its own (`.select-overlay`), so it is
+as wide as the chosen option; it commits on change. The page size is the API's fixed 24.
+While a transition runs, the old grid dims (`[data-catalog]:has([data-catalog-controls]
+[data-pending])` in `globals.css`, whichever instance committed) and the new count is
+announced through that instance's polite live region. Collection pages and New In use the
+same listing with the index column holding only the filters.
 
 ### Pagination and empty states
 
@@ -868,10 +894,8 @@ column of text rows. No live collection: the catalog empty state.
 
 ### Open for the screenshot review (AD-12)
 
-- Phones: the grid shifts down by one line when filters are active (the summary wraps
-  onto its own line in the utility row).
-- Sort may wrap to its own line at 320.
-- Whether phones below 1024 need a compact sticky Filter/Sort row.
+- The index column's own scroll at 1024×768 and 1440×900 (the categories and both
+  filters are taller than the viewport); a keyboard user tabbing into it.
 - The client error screen (API stopped, uncached URL) has not been seen after hydration.
 
 ## Product detail

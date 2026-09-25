@@ -137,6 +137,30 @@ export function applyStaged(
   );
 }
 
+/**
+ * The index column's availability box ("Atelier", 2026-09-26): it applies on its own,
+ * so a tick is one commit. The price range is left as it is.
+ */
+export function toggleStock(
+  current: CatalogParams,
+  inStock: boolean,
+  route: CatalogRoute
+): CatalogParams {
+  return commitPatch(current, { stock: inStock ? 'in' : null }, route);
+}
+
+/**
+ * The index column's "Apply price": the staged bounds with the committed availability,
+ * or `null` when the staged values are invalid. The same validation as the sheet.
+ */
+export function applyPrice(
+  current: CatalogParams,
+  staged: Pick<StagedFilters, 'min' | 'max'>,
+  route: CatalogRoute
+): CatalogParams | null {
+  return applyStaged(current, { ...staged, inStock: current.stock === 'in' }, route);
+}
+
 /** "Clear all" / "Clear": every filter removed, sort kept (it is not a filter). */
 export function clearAllFilters(current: CatalogParams, route: CatalogRoute): CatalogParams {
   return commitPatch(current, { stock: null, min: null, max: null }, route);

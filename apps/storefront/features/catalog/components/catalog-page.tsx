@@ -28,8 +28,10 @@ export interface CatalogPageProps {
 }
 
 /**
- * The one listing composition (Unit 12), driven by `catalogRouteConfig`: intro,
- * category nav where enabled, then the grid streamed inside `<Suspense>`.
+ * The one listing composition (Unit 12), driven by `catalogRouteConfig`: the intro,
+ * then the "Atelier" listing (owner decision 2026-09-26) streamed inside `<Suspense>`:
+ * the index column (category nav where enabled, then the inline filters) beside the
+ * rack from 1024, the category chips above it below.
  *
  * KD-10 invariants a caller must keep: the page resolves its entity and calls
  * `notFound()` *before* rendering this, so a 404 is sent before anything streams; no
@@ -60,6 +62,18 @@ export async function CatalogPage({ route, params, locale, intro, categories }: 
   }
 
   const shopRoute = route.kind === 'all' || route.kind === 'category';
+  // Rendered once, outside the Suspense boundary's data: the grid and its skeleton both
+  // place this same node at the top of the index column.
+  const indexNav =
+    config.categoryNav && categories ? (
+      <CategoryNav
+        categories={categories}
+        activeSlug={route.kind === 'category' ? route.slug : null}
+        locale={locale}
+        label={t('categoryNav.label')}
+        allLabel={t('categoryNav.all')}
+      />
+    ) : undefined;
 
   return (
     <>
@@ -69,21 +83,13 @@ export async function CatalogPage({ route, params, locale, intro, categories }: 
         headings={catalogIntroHeadings(page, await introLabels(), locale)}
         {...introRest}
       />
-      {config.categoryNav && categories && (
-        <CategoryNav
-          categories={categories}
-          activeSlug={route.kind === 'category' ? route.slug : null}
-          locale={locale}
-          label={t('categoryNav.label')}
-          allLabel={t('categoryNav.all')}
-        />
-      )}
-      <Suspense fallback={<ProductGridSkeleton loadingLabel={t('loading')} />}>
+      <Suspense fallback={<ProductGridSkeleton loadingLabel={t('loading')} indexNav={indexNav} />}>
         <ProductGrid
           route={route}
           params={params}
           locale={locale}
           renderControls={renderControls}
+          indexNav={indexNav}
           endLink={
             config.endLink
               ? { href: config.endLink.href, label: t(`wayfinding.${config.endLink.labelKey}`) }

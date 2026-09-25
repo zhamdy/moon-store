@@ -11,9 +11,9 @@ describe('catalog grid layout', () => {
   it('derives sizes from columns, gaps, gutters and the container cap', () => {
     expect(CATALOG_GRID_SIZES).toBe(
       [
-        '(min-width: 1440px) 310px',
-        '(min-width: 1280px) calc(25vw - 42px)',
-        '(min-width: 1024px) calc(33.33vw - 48px)',
+        '(min-width: 1440px) 317.33px',
+        '(min-width: 1280px) calc(33.33vw - 152px)',
+        '(min-width: 1024px) calc(50vw - 200px)',
         '(min-width: 768px) calc(50vw - 42px)',
         'calc(50vw - 26px)',
       ].join(', ')
@@ -21,12 +21,11 @@ describe('catalog grid layout', () => {
   });
 
   it('loads the widest first row eagerly, with high priority only on the always-first-row cards', () => {
-    expect(CATALOG_EAGER_COUNT).toBe(4);
+    expect(CATALOG_EAGER_COUNT).toBe(3);
     expect(catalogImageLoading(0)).toEqual({ loading: 'eager', fetchPriority: 'high' });
     expect(catalogImageLoading(1)).toEqual({ loading: 'eager', fetchPriority: 'high' });
     expect(catalogImageLoading(2)).toEqual({ loading: 'eager' });
-    expect(catalogImageLoading(3)).toEqual({ loading: 'eager' });
-    expect(catalogImageLoading(4)).toEqual({});
+    expect(catalogImageLoading(3)).toEqual({});
   });
 
   it('staggers the first eight cards only', () => {

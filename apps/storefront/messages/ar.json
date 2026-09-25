@@ -147,6 +147,7 @@
       "priceMaxError": "أدخلي مبلغًا أصغر",
       "clearAll": "مسح الكل",
       "apply": "عرض النتائج",
+      "applyPrice": "طبّقي السعر",
       "summaryLabel": "الفلاتر المفعّلة",
       "remove": "إزالة: {filter}",
       "clear": "مسح",

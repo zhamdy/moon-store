@@ -147,6 +147,7 @@
       "priceMaxError": "Enter a smaller amount",
       "clearAll": "Clear all",
       "apply": "Show results",
+      "applyPrice": "Apply price",
       "summaryLabel": "Active filters",
       "remove": "Remove: {filter}",
       "clear": "Clear",
