@@ -12,6 +12,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react';
+import { Pause, Play } from 'lucide-react';
 import { useLocale } from 'next-intl';
 import { getDirection } from '@/i18n/routing';
 import { cn } from '@/lib/utils/cn';
@@ -42,6 +43,8 @@ export interface HeroCarouselSlide {
 export interface HeroCarouselProps {
   slides: HeroCarouselSlide[];
   tabListLabel: string;
+  /** `home.hero.pause` / `home.hero.play`, resolved on the server. */
+  playbackLabels: { pause: string; play: string };
 }
 
 const INTERVAL_MS = 7000;
@@ -80,10 +83,14 @@ function subscribeReducedMotion(onChange: () => void) {
  * collection you are on, and how long it stays.
  *
  * Autoplay never starts before hydration or under reduced motion (read live, so
- * turning the setting on mid-session stops it). There is deliberately no pause
- * button (user decision): hovering pauses rotation until the pointer leaves, and
- * keyboard focus inside the carousel, a tab click, an arrow key or a swipe stops it
- * for the rest of the visit — that interaction is the WCAG 2.2.2 stop mechanism.
+ * turning the setting on mid-session stops it). Hovering pauses rotation until the
+ * pointer leaves, and keyboard focus inside the carousel, a tab click, an arrow key
+ * or a swipe stops it for the rest of the visit. **Since homepage Phase 2
+ * (2026-09-25) there is also a visible Pause / Play button** beside a `01 / 04`
+ * counter at the index row's inline start: the Claude Design direction drew one, and
+ * it is the plain WCAG 2.2.2 mechanism for a touch user who never focuses anything.
+ * It is only rendered while autoplay is possible (hydrated, no reduced motion), so the
+ * server HTML and a reduced-motion visit show no control that could do nothing.
  * The live region is `off` while rotating and `polite` once stopped.
  *
  * A client leaf: slide content arrives server-rendered as children, and every
@@ -100,7 +107,7 @@ function subscribeReducedMotion(onChange: () => void) {
  * slide's is added while rotating, and a slide that is hovered, focused or shown
  * keeps its photograph from then on (`slideMediaVisible`).
  */
-export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
+export function HeroCarousel({ slides, tabListLabel, playbackLabels }: HeroCarouselProps) {
   const rtl = getDirection(useLocale()) === 'rtl';
   const hydrated = useSyncExternalStore(
     subscribeNever,
@@ -265,56 +272,83 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
               {/* Four short names fit at 375 but not always at 320, and never with a
                   longer collection name — the row scrolls rather than wrapping, which
                   would put one name on a line of its own under the rule. */}
-              <div data-hero-index="" className="overflow-x-auto">
-                <div
-                  role="tablist"
-                  aria-label={tabListLabel}
-                  className="flex min-w-max items-center gap-6 sm:gap-8 lg:min-w-0 lg:w-full lg:justify-end lg:gap-12"
-                >
-                  {slides.map((slide, index) => {
-                    const selected = index === active;
-                    return (
-                      <button
-                        key={slide.key}
-                        ref={(element) => {
-                          tabRefs.current[index] = element;
-                        }}
-                        type="button"
-                        role="tab"
-                        id={`hero-tab-${slide.key}`}
-                        aria-selected={selected}
-                        aria-controls={`hero-slide-${slide.key}`}
-                        tabIndex={selected ? 0 : -1}
-                        data-hero-tab=""
-                        onClick={() => {
-                          goTo(index);
-                          setStopped(true);
-                        }}
-                        onKeyDown={onTabKeyDown}
-                        onPointerEnter={() => prime(index)}
-                        onFocus={() => prime(index - 1, index, index + 1)}
-                        className="group relative flex min-h-11 shrink-0 items-center whitespace-nowrap"
-                      >
-                        <span
-                          className={cn(
-                            'type-caption uppercase tracking-[0.2em] rtl:tracking-normal transition-colors duration-fast',
-                            selected ? 'text-text' : 'text-text-secondary/60 group-hover:text-text'
-                          )}
+              <div className="flex items-center gap-4 sm:gap-6">
+                {hydrated && !reducedMotion && (
+                  <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+                    <button
+                      type="button"
+                      aria-label={stopped ? playbackLabels.play : playbackLabels.pause}
+                      onClick={() => setStopped((value) => !value)}
+                      className="flex size-(--size-tap) cursor-pointer items-center justify-center rounded-pill border border-text/40 text-text transition-colors duration-fast ease-ui hover:border-text"
+                    >
+                      {stopped ? (
+                        <Play aria-hidden="true" size={14} strokeWidth={1.5} fill="currentColor" />
+                      ) : (
+                        <Pause aria-hidden="true" size={14} strokeWidth={1.5} fill="currentColor" />
+                      )}
+                    </button>
+                    <span
+                      aria-hidden="true"
+                      className="type-caption hidden tabular-nums text-brand sm:inline"
+                      dir="ltr"
+                    >
+                      {String(active + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
+                    </span>
+                  </div>
+                )}
+                <div data-hero-index="" className="min-w-0 flex-1 overflow-x-auto">
+                  <div
+                    role="tablist"
+                    aria-label={tabListLabel}
+                    className="flex min-w-max items-center gap-6 sm:gap-8 lg:min-w-0 lg:w-full lg:justify-end lg:gap-12"
+                  >
+                    {slides.map((slide, index) => {
+                      const selected = index === active;
+                      return (
+                        <button
+                          key={slide.key}
+                          ref={(element) => {
+                            tabRefs.current[index] = element;
+                          }}
+                          type="button"
+                          role="tab"
+                          id={`hero-tab-${slide.key}`}
+                          aria-selected={selected}
+                          aria-controls={`hero-slide-${slide.key}`}
+                          tabIndex={selected ? 0 : -1}
+                          data-hero-tab=""
+                          onClick={() => {
+                            goTo(index);
+                            setStopped(true);
+                          }}
+                          onKeyDown={onTabKeyDown}
+                          onPointerEnter={() => prime(index)}
+                          onFocus={() => prime(index - 1, index, index + 1)}
+                          className="group relative flex min-h-11 shrink-0 items-center whitespace-nowrap"
                         >
-                          {slide.tabLabel}
-                        </span>
-                        {/* The current collection's rule. Brightness marks it too, so
+                          <span
+                            className={cn(
+                              'type-ui transition-colors duration-fast',
+                              selected
+                                ? 'text-text'
+                                : 'text-text-secondary/60 group-hover:text-text'
+                            )}
+                          >
+                            {slide.tabLabel}
+                          </span>
+                          {/* The current collection's rule. Brightness marks it too, so
                             this is emphasis, not the only signal. */}
-                        <span
-                          aria-hidden="true"
-                          className={cn(
-                            'pointer-events-none absolute inset-x-0 bottom-2 h-px origin-left rtl:origin-right bg-metallic transition-transform duration-base ease-editorial',
-                            selected ? 'scale-x-100' : 'scale-x-0'
-                          )}
-                        />
-                      </button>
-                    );
-                  })}
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              'pointer-events-none absolute inset-x-0 bottom-2 h-px origin-left rtl:origin-right bg-gold transition-transform duration-base ease-editorial',
+                              selected ? 'scale-x-100' : 'scale-x-0'
+                            )}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -327,7 +361,7 @@ export function HeroCarousel({ slides, tabListLabel }: HeroCarouselProps) {
               key={active}
               data-hero-progress=""
               onAnimationEnd={onProgressEnd}
-              className="block h-full w-full bg-luxury"
+              className="block h-full w-full bg-gold"
             />
           </span>
         </nav>

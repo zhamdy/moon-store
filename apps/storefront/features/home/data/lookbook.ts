@@ -1,7 +1,10 @@
 import type { Messages } from 'next-intl';
 import type { EditorialSlot } from '@/lib/editorial/slots';
 
-export type LookbookAltKey = Exclude<keyof Messages['home']['lookbook'], 'heading'>;
+export type LookbookAltKey = Exclude<
+  keyof Messages['home']['lookbook'],
+  'heading' | 'eyebrow' | 'lead'
+>;
 
 export interface LookbookItem {
   slot: EditorialSlot;

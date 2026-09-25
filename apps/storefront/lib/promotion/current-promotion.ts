@@ -33,9 +33,9 @@ export interface Promotion {
  * field in the bag, so whatever this announces has to be true at the till.
  *
  * Ending the promotion: drop `<PromotionBanner />` from `app/[locale]/page.tsx` and
- * `<PromotionBar />` from `features/catalog/components/catalog-page.tsx`.
- * `features/home/components/campaign/` is still here and still translated, so rendering
- * `<Campaign />` in the homepage slot puts the editorial pause back.
+ * `<PromotionBar />` from `features/catalog/components/catalog-page.tsx`. The old
+ * editorial pause (`features/home/components/campaign/`, "Dressed for the night.") was
+ * deleted in homepage Phase 2 (plan D2); it is in the history before that commit.
  */
 export const currentPromotion: Promotion = {
   image: 'campaign',

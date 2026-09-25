@@ -1,7 +1,10 @@
 import { getImageProps } from 'next/image';
 import { getTranslations } from 'next-intl/server';
 import { HEADER_BOUNDARY_ATTR } from '@/components/layout/header/header-boundary';
+import { buttonClassName } from '@/components/ui/button';
 import { EditorialLink } from '@/components/ui/editorial-link';
+import { Eyebrow } from '@/components/ui/section-header';
+import { Link } from '@/i18n/navigation';
 import { editorialImages } from '@/lib/editorial/images';
 import { cn } from '@/lib/utils/cn';
 import { heroSlides, type HeroSlide } from '../../data/hero-slides';
@@ -57,6 +60,7 @@ export async function Hero() {
           t(`slides.${slide.key}.body`),
         ].join(' ')}
         cta={t(`slides.${slide.key}.cta`)}
+        secondaryCta={t('newArrivals')}
       />
     ),
   }));
@@ -67,12 +71,16 @@ export async function Hero() {
       data-surface="ink"
       aria-labelledby="hero-heading"
       aria-roledescription="carousel"
-      className="relative -mt-(--header-h) h-svh min-h-[100svh] overflow-hidden bg-dark-surface text-text"
+      className="relative -mt-(--header-h) h-svh min-h-[100svh] overflow-hidden bg-bg text-text"
     >
       <h1 id="hero-heading" className="sr-only">
         {t('heading')}
       </h1>
-      <HeroCarousel slides={slides} tabListLabel={t('tabList')} />
+      <HeroCarousel
+        slides={slides}
+        tabListLabel={t('tabList')}
+        playbackLabels={{ pause: t('pause'), play: t('play') }}
+      />
     </section>
   );
 }
@@ -93,6 +101,8 @@ interface HeroSlidePanelProps {
   /** `title1`, `title2` and `body` space-joined: the slide's one prose paragraph. */
   description: string;
   cta: string;
+  /** `home.hero.newArrivals`: the quieter second way in, the same on every slide. */
+  secondaryCta: string;
 }
 
 /**
@@ -138,12 +148,12 @@ function HeroSlideMedia({ slide, lead, imageAlt }: HeroSlideMediaProps) {
       {/* Header band: enough to carry the ivory logo and nav, no more */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-36 bg-linear-to-b from-scrim/70 to-transparent"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-36 bg-linear-to-b from-bg/60 to-transparent"
       />
       {/* Campaign floor: the one scrim the masthead and the collection index stand on */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[92%] lg:h-[88%] bg-linear-to-t from-dark-surface/95 from-0% via-dark-surface/78 via-48% to-transparent to-100%"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[92%] lg:h-[88%] bg-linear-to-t from-bg/95 from-0% via-bg/78 via-48% to-transparent to-100%"
       />
     </div>
   );
@@ -151,51 +161,43 @@ function HeroSlideMedia({ slide, lead, imageAlt }: HeroSlideMediaProps) {
 
 /**
  * Editorial Anchor: a campaign masthead standing on the floor of the photograph.
- * Four elements deep (owner decision, 2026-09-20), and the redesign the same day
- * changed what each one weighs rather than adding a fifth:
+ * Homepage Phase 2 (2026-09-25, the Claude Design direction):
  *
+ * - The eyebrow is the design system's `Eyebrow` — a gold rule and the season label in
+ *   the surface accent (Champagne on Espresso). The rule is what carries the role in
+ *   Arabic, where there is no uppercase.
  * - The collection name is the page's largest type, `type-display md:type-display-xl`
- *   — the one sanctioned two-`type-*` pairing (CLAUDE.md → *Token and utility
- *   vocabulary*). It is no longer held inside the paragraph's measure: only the
- *   paragraph is, at 38ch, so a long name is never broken to fit prose.
- * - The eyebrow is gold, not secondary ivory. It is the only place colour marks a
- *   role here, and it separates the season label from the prose under the name
- *   instead of repeating that tone one size down.
- * - The link's rule is drawn at rest (`underline="always"`) and goes gold with the
- *   text. A hero CTA whose affordance appears only when a pointer arrives is not
- *   one on a touch screen.
+ *   (the one sanctioned two-`type-*` pairing), now in **sentence case**: the design
+ *   system uppercases eyebrows and control labels only (plan D5).
+ * - Two ways in: the collection as an Ivory button (the primary action inverts on a
+ *   dark surface) and "Shop new arrivals" as an underlined editorial link.
  *
- * What it still does not render, and why: the `01 / 04` counter (the index below
- * marks the current slide and each tabpanel's `aria-label` carries "1 of 4"), the
- * Warm Satin Gold divider (size already separates the two lines), and an italic
- * subtitle split from the body — they are one paragraph, never italic, because
- * Tajawal ships no italic face and Arabic would get a synthesized oblique.
- *
- * `uppercase` on the H2 stays for its effect on Latin; Arabic has no case, so it is a
- * no-op there rather than a second style to maintain. The eyebrow's tracking is reset
- * under `rtl:` — letter-spacing pulls a connected Arabic word apart.
+ * The line mask under the name carries more padding in Arabic: Amiri's marks sit
+ * lower than Instrument Serif's descenders, and 0.12em clipped them.
  */
-function HeroSlidePanel({ slide, collectionName, eyebrow, description, cta }: HeroSlidePanelProps) {
+function HeroSlidePanel({
+  slide,
+  collectionName,
+  eyebrow,
+  description,
+  cta,
+  secondaryCta,
+}: HeroSlidePanelProps) {
   return (
     <div className="max-w-full">
-      {/* Eyebrow: the season label, gold, on its own quiet line above the name */}
-      <p
-        data-enter="fade"
-        className="type-caption uppercase tracking-[0.22em] rtl:tracking-normal text-metallic [--entrance-delay:120ms]"
-      >
-        {eyebrow}
-      </p>
+      <div data-enter="fade" className="[--entrance-delay:120ms]">
+        <Eyebrow>{eyebrow}</Eyebrow>
+      </div>
 
-      {/* The statement: the collection name, the largest type on the page */}
-      <h2 className="mt-3 sm:mt-4 type-display md:type-display-xl font-normal text-text uppercase">
-        <span className="-mb-[0.12em] block overflow-hidden pb-[0.12em]">
+      <h2 className="mt-4 sm:mt-5 type-display md:type-display-xl text-text">
+        <span className="-mb-[0.12em] block overflow-hidden pb-[0.12em] rtl:-mb-[0.3em] rtl:pb-[0.3em]">
           <span data-enter="line" className="block [--entrance-delay:240ms]">
             {collectionName}
           </span>
         </span>
       </h2>
 
-      {/* One upright paragraph: subtitle and body, never italic (see the note above) */}
+      {/* One upright paragraph: subtitle and body, never italic (Tajawal has none) */}
       <p
         data-enter="fade"
         className="type-body-lg text-text-secondary mt-4 sm:mt-5 max-w-[38ch] line-clamp-3 sm:line-clamp-none [--entrance-delay:420ms]"
@@ -203,14 +205,15 @@ function HeroSlidePanel({ slide, collectionName, eyebrow, description, cta }: He
         {description}
       </p>
 
-      {/* Call to action */}
-      <div data-enter="fade" className="mt-6 lg:mt-8 [--entrance-delay:560ms]">
-        <EditorialLink
-          href={slide.href}
-          underline="always"
-          className="text-text hover:text-metallic focus-visible:text-metallic transition-colors duration-fast"
-        >
+      <div
+        data-enter="fade"
+        className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-2 lg:mt-8 [--entrance-delay:560ms]"
+      >
+        <Link href={slide.href} className={buttonClassName({ variant: 'primary' })}>
           {cta}
+        </Link>
+        <EditorialLink href="/new-in" underline="always">
+          {secondaryCta}
         </EditorialLink>
       </div>
     </div>
