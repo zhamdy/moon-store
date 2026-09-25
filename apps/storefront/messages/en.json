@@ -36,7 +36,8 @@
     "addToBagLabel": "Add to Bag, {name}",
     "chooseOptions": "Choose options, {name}",
     "closeOptions": "Close the options",
-    "viewDetails": "View details"
+    "viewDetails": "View details",
+    "sizes": "{count, plural, one {# size} other {# sizes}}"
   },
   "categories": {
     "dresses": "Dresses",

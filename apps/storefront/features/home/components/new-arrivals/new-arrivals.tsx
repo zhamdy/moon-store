@@ -106,7 +106,7 @@ export async function NewArrivals({ locale }: { locale: AppLocale }) {
                   badgeLabels={badgeLabels}
                   priceFromLabel={priceFromLabel}
                   sizes={RAIL_CARD_SIZES}
-                  captionLayout="stacked"
+                  meta={model.sizeCount ? tp('sizes', { count: model.sizeCount }) : undefined}
                   action={
                     dto && (
                       <QuickAdd

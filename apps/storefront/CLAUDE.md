@@ -791,7 +791,7 @@ products are seeded without images, so a fresh dev database shows the no-image s
 
 `ProductCard` never sees a data source: it renders a `ProductCardModel` built by
 `fromHomeMock` (static registry slots, blur kept) or `fromCatalogDto` (remote URLs).
-One badge at most, and sold out wins over new (it changes what the shopper can do);
+One status at most (the model still calls it `badge`), and sold out wins over new (it changes what the shopper can do);
 sold out never greys the photograph and the price stays.
 
 **Only a catalog DTO may make a commerce claim.** `href` and `price` are nullable, and
@@ -804,56 +804,49 @@ catalogue. `features/home/data/commerce-hrefs.test.ts` holds that contract: cate
 collection links name a `REQUIRED_CATALOG_KEYS` key the seed is proven to serve, and a
 **product** href may only come from a DTO.
 
-**The editorial commerce tile** (owner brief, 2026-09-20, superseding the caption-only
-tile of the same morning). A photograph, a caption that says enough to choose by, and
-one action — nothing else. No wishlist, no rating, no icon strip, no second badge row,
-and no "View details" link: the title already opens the product page, and a second
-anchor would double every card's tab stops to reach it while competing with the one
-action.
+**The editorial commerce tile — card A, "Atelier"** (owner decision 2026-09-25, chosen
+from three directions drawn in Claude Design; supersedes the 2026-09-20 tile with the badge
+on the photograph and the description under every name). A photograph, a caption that says
+enough to choose by, and one action — nothing else. No wishlist, no rating, no icon strip,
+no badge on the photograph, and no "View details" link on a tile: the title already opens
+the product page, and a second anchor would double every card's tab stops.
 
-- **Frame**: a **4:5** photograph on `bg-surface-soft` with `rounded-media` (square since 2026-09-25), no
-  border, no shadow, no plate. The 2026-09-20 bare-3:4 pass is reverted: pale garments
-  on an ivory page have no edge of their own, so the radius and the sand surface are
-  what draw the tile, and the `data-motion="image"` wipe matches the frame with no
-  `--radius-media` override. The editorial assets are authored at 4:5.
-- **Badge**: printed on the photograph again (top inline start), the shared `Badge`
-  on its Ivory plate (`onImage`, design system 2026-09-25): a dot plus the word, uppercase
-  and tracked in English only: an Ink word with a Gold dot for New, Garnet for Sold out. It is last inside the frame, and the caption below is what the link names, so
-  the reading order stays "&lt;name&gt;, &lt;price&gt;".
-- **Caption**: name and price on one baseline, then the description. The name is
-  `type-body-lg`, weight 500, **full ink**, in the display face (set on
-  `[data-product-name]`), `min-w-0` and `text-balance`; the price is `type-small`,
-  weight 500, full ink, `tabular-nums`, `shrink-0` at the inline end — quieter than the
-  name, never hard to find. `priceFrom` (the product page's own `displayedPrice` rule,
-  not a second one) turns it into "From {price}" when variants differ; the caller passes
-  `product.priceFrom` as `priceFromLabel`.
-- **Description**: the product's _own_ stored copy (`localizedDescription` over the
-  listing DTO's `description`/`descriptionEn`, added to the API on 2026-09-20), secondary
-  ink, `type-small`, clamped to two lines whose height is reserved (`min-h-[2.72rem]`, the
-  rem value rather than `2lh`), so a row stays level and the buttons line up. Nothing is
-  written here and nothing is truncated server-side. A mock carries none, and a product
-  with no copy simply has no line.
+- **Frame**: a **4:5** photograph on `bg-surface-media` (the Stone packshot mat) with
+  `rounded-media`, no border, no shadow, no plate, nothing printed on it but the action.
+  The `data-motion="image"` wipe matches the frame with no `--radius-media` override.
+- **Name**: `type-product-title`, `line-clamp-2`, full ink, in the **UI face** at weight
+  500 (set on `[data-product-name]` in `app/globals.css`; Tajawal in Arabic through the
+  locale font switch). Only a lead card's English name keeps the display face
+  (`[data-emphasis='lead']`).
+- **Price row**: the price (`type-price`, `tabular-nums`) then the status on the same
+  row, wrapping under it on a narrow tile (`flex-wrap`). `priceFrom` (the product page's
+  own `displayedPrice` rule) turns it into "From {price}"; the caller passes
+  `product.priceFrom` as `priceFromLabel`. One status at most, sold out winning over new:
+  **New** is a `type-supporting` ink word after a 7px `bg-metallic` dot; **Sold out** is
+  `StatusText tone="danger"`. Sold out never greys the photograph and the price stays.
+- **Meta line**: optional `meta` string under the price, `type-caption`, secondary ink —
+  today the size count (`sizeCount` on the model, from the DTO's `size` option; the
+  `products.sizes` ICU plural, with Arabic's six forms). The caller composes it
+  (`ProductGrid`, `NewArrivals`); the related row passes none, which is its compact
+  caption. A mock has no `sizeCount` and a product with no size option says nothing.
+  **Low stock ("Only 2 left") was drawn and left out**: the catalog DTO exposes only
+  `inStock`, and the card never invents a claim the API cannot back.
+- **No description on a tile.** The product's own copy is read on the lead card only.
 - **Action**: the `action` slot, composed by the page (`features/cart`'s `QuickAdd`).
-  **A 44px ivory disc with a bag glyph at the photograph's bottom inline start** (owner
-  decision, 2026-09-21, replacing the full-width worded button under the caption: a
-  labelled block on every tile is the row of buttons this card was drawn to avoid, and
-  it cost the caption a line). It shares the reading-start column with the badge and
-  mirrors to the right in Arabic on its own — the inline axis is logical throughout.
-  **It is always visible**: a hover reveal was built and rejected the same day (it loses
-  the tile's one affordance on a desktop and cannot exist on a touch screen), so the
-  card's hover states stay what they were.
-  It is placed into the photograph's grid row (`[data-card-action='overlay']` in
-  `app/globals.css`) rather than positioned absolutely: no measured offset, DOM order
-  untouched (the name is still read and tabbed first), and the element stays outside the
-  frame's `overflow: hidden`, so the panel opens past the photograph's edge. **The
-  photograph and the caption carry `row-start-1` / `row-start-2` for that**: grid
-  auto-placement skips a cell an explicitly-placed item holds, and without them the
-  photograph took row 2 and the disc sat above the card. It is the only shadow on the
-  card (`--shadow-overlay`, the toasts' token), which is what keeps ivory legible on a
-  pale photograph, and it is named only to a screen reader (`addToBagLabel` /
-  `chooseOptions` / `soldOut`). Sold out keeps the disc focusable and inert in disabled
-  ink; the badge is what says the word. Neither skeleton reserves an action row any
-  more. The lead card keeps a worded, filled action in flow (`QuickAdd emphasis="solid"`).
+  **A 44px ivory disc with a plus glyph at the photograph's bottom inline end** (card A;
+  the 2026-09-21 disc sat at the inline start with a bag glyph). It mirrors to the left in
+  Arabic on its own — the inline axis is logical throughout. **It is always visible** (a
+  hover reveal was built and rejected on 2026-09-21: it loses the tile's one affordance on
+  desktop and cannot exist on touch). **A sold-out tile renders no action at all**; the
+  status says why. A lead card keeps its worded action whatever the stock.
+  It is placed into the photograph's grid cell (`[data-card-action='overlay']`) rather
+  than positioned absolutely: no measured offset, DOM order untouched (the name is still
+  read and tabbed first), and it stays outside the frame's `overflow: hidden`, so the
+  panel opens past the photograph's edge. **The photograph, the overlay and the caption
+  carry explicit `col-start-1` and `row-start-1` / `row-start-2`**: auto-placement skips
+  a cell an explicitly-placed item holds, which once put the disc above the card and once
+  made an implicit second column. It is the only shadow on the card (`--shadow-overlay`),
+  and it is named only to a screen reader (`addToBagLabel` / `chooseOptions`).
 
 **Two registers, one component** (owner brief, 2026-09-20). `emphasis="supporting"` is
 the tile above, the one every listing uses. `emphasis="lead"` is the art-directed card
@@ -870,9 +863,9 @@ a single link. The action sits above that overlay on `z-10`, which is what keeps
 `<button>` out of an `<a>`: nesting them is invalid and the button would be unreachable.
 Any future control on the card goes in the same layer.
 
-Both skeletons (`ProductGridSkeleton`, `RelatedProductsSkeleton`) mirror the 4:5 frame,
-the metadata row, the two clamped description lines and the 48px action — they are the
-card's reserved height, so they move with it. No photograph shows the frame with a small,
+Both skeletons mirror the card's reserved height, so they move with it:
+`ProductGridSkeleton` draws the 4:5 frame and three caption bars (name, price row, meta),
+`RelatedProductsSkeleton` the frame and two (no meta). No photograph shows the frame with a small,
 faint brand mark, deliberately unlike the flat skeleton. Text in another language than
 the page carries `lang` and `dir="auto"`. The hover image is `display: none` on touch and
 below 768 (`.hover-alt-image`), so it is never downloaded there.

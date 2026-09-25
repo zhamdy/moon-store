@@ -36,7 +36,8 @@
     "addToBagLabel": "أضيفي {name} إلى الحقيبة",
     "chooseOptions": "اختاري المواصفات، {name}",
     "closeOptions": "إغلاق المواصفات",
-    "viewDetails": "عرض التفاصيل"
+    "viewDetails": "عرض التفاصيل",
+    "sizes": "{count, plural, zero {# مقاس} one {مقاس واحد} two {مقاسان} few {# مقاسات} many {# مقاسًا} other {# مقاس}}"
   },
   "categories": {
     "dresses": "فساتين",

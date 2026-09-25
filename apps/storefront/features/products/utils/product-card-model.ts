@@ -42,6 +42,13 @@ export interface ProductCardModel {
   secondary: ImageSource | null;
   /** One badge at most (guideline §11). */
   badge: ProductCardBadge | null;
+  /**
+   * How many sizes the product is offered in (its `size` option's values), for the
+   * card's quiet meta line ("4 sizes"). `null` when there is no size option — a bag or
+   * a one-size piece says nothing rather than something invented — and on an editorial
+   * card, which names no product.
+   */
+  sizeCount: number | null;
 }
 
 export function productHref(slug: string): string {
@@ -64,7 +71,14 @@ export function fromHomeMock(mock: HomeProductMock, locale: AppLocale): ProductC
     primary: { kind: 'static', slot: mock.images.a },
     secondary: { kind: 'static', slot: mock.images.b },
     badge: null,
+    sizeCount: null,
   };
+}
+
+/** The listing's own options, never re-derived: the server normalises the `size` key. */
+function sizeCountOf(dto: CatalogProduct): number | null {
+  const size = dto.options.find((option) => option.key === 'size');
+  return size && size.values.length > 0 ? size.values.length : null;
 }
 
 function remote(image: { url: string } | undefined): ImageSource | null {
@@ -85,5 +99,6 @@ export function fromCatalogDto(dto: CatalogProduct, locale: AppLocale): ProductC
     secondary: remote(dto.images[1]),
     // Sold out wins: it is the fact that changes what the shopper can do.
     badge: !dto.inStock ? 'soldOut' : dto.isNew ? 'new' : null,
+    sizeCount: sizeCountOf(dto),
   };
 }

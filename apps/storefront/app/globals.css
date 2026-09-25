@@ -1384,15 +1384,12 @@ header[data-surface][data-surface-ready] {
    rather than on the element because the palette belongs to the token layer;
    --rule-accent is the seam a surface could re-point, as --surface-* does. */
 [data-product-name] {
-  /* The display face, not the body face (2026-09-20): a garment's name set in Instrument Serif
-     (Tajawal in Arabic, below) is the card's one piece of character, and it costs nothing
-     - no element, no data, no chrome. Declared here rather than as a `font-display`
-     utility beside `type-body`, which sets a family of its own and would leave the
-     winner to utility order. */
-  font-family: var(--font-display);
-  /* Instrument Serif ships one weight; a heavier weight from the card's h3 would be
-     synthesised. */
-  font-weight: 400;
+  /* Card A (design system 2026-09-25): a listing's name is interface text in both
+     locales - Hanken / Tajawal at the caption's weight, never the display face, which
+     stays for the lead card below. Declared here rather than as a utility beside
+     `type-product-title`, which would leave the winner to utility order. */
+  font-family: var(--font-ui);
+  font-weight: 500;
   background-image: linear-gradient(var(--rule-accent), var(--rule-accent));
   background-repeat: no-repeat;
   background-position: left bottom;
@@ -1404,12 +1401,12 @@ header[data-surface][data-surface-ready] {
   background-position: right bottom;
 }
 
-/* Arabic product names are commerce text, not display: Tajawal at the caption's
-   weight, never Amiri (design system: no display face on prices, forms or names in
-   a dense listing). */
-:lang(ar) [data-product-name] {
-  font-family: var(--font-ui);
-  font-weight: 500;
+/* The lead card introduces one piece: its name keeps the display face in English
+   (Instrument Serif ships one weight, so a heavier one would be synthesised). Arabic stays
+   Tajawal: Amiri is never a product name. */
+[data-product-card][data-emphasis='lead'] [data-product-name]:not(:lang(ar)) {
+  font-family: var(--font-display);
+  font-weight: 400;
 }
 
 /* Keyed on the card, not on Tailwind's `group` marker: the rule belongs to this
@@ -1427,12 +1424,13 @@ header[data-surface][data-surface-ready] {
 }
 
 /* product-card.tsx: the tile's one action (features/cart's QuickAdd) - a 44px disc at
-   the photograph's bottom inline start, under the badge. It is placed into the
+   the photograph's bottom inline end (card A, 2026-09-25; it was the inline start under
+   the badge plate, which the new card no longer prints on the photograph). It is placed into the
    photograph's own grid row rather than positioned absolutely: the overlap needs no
    measured offset, it leaves DOM order alone (the name is still read and tabbed first)
    and it keeps the element outside the frame's `overflow: hidden`, so the Quick Add
    panel can open past the photograph's edge. The inline axis is logical throughout, so
-   the disc mirrors to the right in Arabic on its own.
+   the disc mirrors to the left in Arabic on its own.
 
    It is always visible (owner decision, 2026-09-21, replacing a hover reveal): the tile
    has exactly one affordance, and hiding it behind a pointer both loses it on a desktop

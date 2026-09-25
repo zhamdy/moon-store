@@ -35,6 +35,7 @@ describe('fromCatalogDto', () => {
       primary: { kind: 'remote', url: 'https://media.example.com/a.jpg' },
       secondary: { kind: 'remote', url: 'https://media.example.com/b.jpg' },
       badge: null,
+      sizeCount: null,
     });
   });
 
@@ -95,6 +96,23 @@ describe('fromCatalogDto', () => {
     expect(level).toMatchObject({ price: 2850, priceFrom: false });
   });
 
+  it('counts the size option for the meta line, and says nothing without one', () => {
+    const sized = dto({
+      options: [
+        { key: 'colour', label: 'Colour', values: ['Ivory', 'Black'] },
+        { key: 'size', label: 'Size', values: ['S', 'M', 'L', 'XL'] },
+      ],
+    });
+    expect(fromCatalogDto(sized, 'en').sizeCount).toBe(4);
+    expect(
+      fromCatalogDto(
+        dto({ options: [{ key: 'colour', label: 'Colour', values: ['Ivory'] }] }),
+        'en'
+      ).sizeCount
+    ).toBeNull();
+    expect(fromCatalogDto(dto(), 'en').sizeCount).toBeNull();
+  });
+
   it('falls back to the Arabic description on an English page, and says so through lang', () => {
     expect(fromCatalogDto(dto({ descriptionEn: null }), 'en').description).toEqual({
       text: 'قصّة انسيابية من الحرير الطبيعي',
@@ -123,6 +141,7 @@ describe('fromHomeMock', () => {
       primary: { kind: 'static', slot: mock.images.a },
       secondary: { kind: 'static', slot: mock.images.b },
       badge: null,
+      sizeCount: null,
     });
   });
 

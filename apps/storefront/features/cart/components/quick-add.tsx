@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CircleAlert, ShoppingBag, X } from 'lucide-react';
+import { CircleAlert, Plus, ShoppingBag, X } from 'lucide-react';
 import { dismissToast, showToast } from '@/components/feedback/show-toast';
 import { Button } from '@/components/ui/button';
 import { BAG_HREF } from '@/components/layout/navigation-items';
@@ -224,7 +224,7 @@ export function QuickAdd({
     <div
       ref={rootRef}
       data-quick-add=""
-      className={cn('relative z-10', disc && 'pointer-events-none flex justify-start')}
+      className={cn('relative z-10', disc && 'pointer-events-none flex justify-end')}
     >
       <Button
         ref={triggerRef}
@@ -240,7 +240,7 @@ export function QuickAdd({
         // ink-on-ivory to ivory-on-ink under a pointer. The overlay shadow is the token
         // the toasts use — the one thing on this card that floats over something else,
         // and what keeps an ivory disc legible on a pale photograph. Sold out keeps the
-        // disc focusable and inert in disabled ink; the badge on the photograph is what
+        // disc focusable and inert in disabled ink; the card's status line is what
         // says the word.
         className={cn(
           disc
@@ -255,7 +255,7 @@ export function QuickAdd({
         )}
       >
         {disc ? (
-          <ShoppingBag size={18} strokeWidth={1.5} aria-hidden="true" />
+          <Plus size={18} strokeWidth={1.5} aria-hidden="true" />
         ) : press === 'soldOut' ? (
           strings.soldOut
         ) : (

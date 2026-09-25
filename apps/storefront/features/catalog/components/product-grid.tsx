@@ -138,6 +138,7 @@ export async function ProductGrid({
           >
             {items.map((dto, index) => {
               const stagger = catalogStagger(index);
+              const model = fromCatalogDto(dto, locale);
               return (
                 <li
                   key={dto.slug}
@@ -148,7 +149,8 @@ export async function ProductGrid({
                   }
                 >
                   <ProductCard
-                    product={fromCatalogDto(dto, locale)}
+                    product={model}
+                    meta={model.sizeCount ? tp('sizes', { count: model.sizeCount }) : undefined}
                     locale={locale}
                     currencyLabel={currencyLabel}
                     badgeLabels={badgeLabels}
