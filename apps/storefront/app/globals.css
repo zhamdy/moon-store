@@ -927,7 +927,7 @@
   [data-surface='dark'],
   [data-surface='navy'],
   [data-surface='overlay'],
-  body:has([data-header-boundary]) header[data-surface='auto'] {
+  body:has([data-header-boundary]) header[data-surface='auto']:not(:has([data-nav-open])) {
     --focus-ring-color: var(--color-champagne);
   }
 }
@@ -935,13 +935,15 @@
 /* ============================================================
    Surfaces. One attribute drives colours, the accent, the primary action and the
    focus ring.
-   `overlay`: the header over a hero — transparent, ivory text.
+   `overlay`: the header over a hero — transparent, ivory text. Not while a desktop nav
+   panel is open (`[data-nav-open]`, DesktopNav): the bar then reads solid over the
+   panel it opened, as the header B design draws it.
    `ink` / `dark`: Espresso, the warm intimate editorial ground, ivory text.
    `navy`: Midnight, the one nocturnal moment, ivory text.
    `sand`: Sand, the quiet tonal band, ink text.
    ============================================================ */
 [data-surface='overlay'],
-body:has([data-header-boundary]) header[data-surface='auto'] {
+body:has([data-header-boundary]) header[data-surface='auto']:not(:has([data-nav-open])) {
   --surface-bg: transparent;
   --surface-text: var(--color-ivory);
   --surface-text-secondary: var(--color-sand);
@@ -998,7 +1000,7 @@ header[data-surface] {
   box-shadow: var(--shadow-sticky);
 }
 
-body:has([data-header-boundary]) header[data-surface='auto'] {
+body:has([data-header-boundary]) header[data-surface='auto']:not(:has([data-nav-open])) {
   box-shadow: none;
 }
 

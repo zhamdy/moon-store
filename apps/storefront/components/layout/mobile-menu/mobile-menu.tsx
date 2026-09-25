@@ -1,46 +1,70 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useState, type MouseEvent, type ReactNode } from 'react';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
-import { X } from 'lucide-react';
+import { ArrowRight, Globe, Minus, Plus, X } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/brand-logo';
-import { NavLink } from '../nav-link';
+import { Link, usePathname } from '@/i18n/navigation';
 import { LocaleSwitcher, type LocaleSwitcherProps } from '../locale-switcher';
 import type { NavItem } from '../navigation-items';
 
 export interface MobileMenuProps {
   menuLabel: string;
+  /** The close button's accessible name (`navigation.closeMenu`). */
   closeLabel: string;
+  /** The close button's visible word (`navigation.close`). */
+  closeText: string;
   primaryLabel: string;
   items: Array<NavItem & { label: string }>;
   localeSwitcher: LocaleSwitcherProps;
+  /**
+   * Server-rendered sections (`features/collections/components/header-panels.tsx`):
+   * `shop` opens under Shop, `collections` under Collections (`null`: Collections is a
+   * plain link), `featured` is the card under the list (`null`: none).
+   */
+  sections: { shop: ReactNode; collections: ReactNode | null; featured: ReactNode | null };
 }
 
-/** Link entrance stagger, the design system's `stagger` step, applied by CSS, not state. */
-const LINK_STAGGER_MS = 70;
-const LINK_STAGGER_OFFSET_MS = 120;
+/** The sections an item opens, by key; an item without one is a link row. */
+type SectionKey = 'shop' | 'collections';
+const isSectionKey = (key: string): key is SectionKey => key === 'shop' || key === 'collections';
 
 /**
- * The mobile menu: a composed Espresso page rather than a drawer of links (design system,
- * 2026-09-25). Numbered serif links, a gold hairline, and the language switch at the foot.
- * Headless UI's Dialog owns the focus trap, Escape and focus restoration. Receives
- * translated strings as props rather than the message catalogue — see
- * apps/storefront/CLAUDE.md.
+ * The mobile menu (header direction B, 2026-09-26: "Menu B"). An Ivory sheet rather than
+ * the Espresso page it replaces: the menu is where a phone shopper chooses a category, so
+ * it is set in the commerce register. Shop opens in place on its categories (open by
+ * default), Collections on the live collections, New In is a link row, the featured
+ * collection sits under the list as one card, and the language switch is at the foot.
  *
- * The primary links are set in `type-section-title` (the menu's typography exception,
- * passed through `NavLink`'s `typography` prop) and enter with a CSS stagger: the Dialog
- * mounts its panel on open, so the keyframe simply plays each time. Reduced motion
- * collapses it globally.
+ * Shop and Collections are native `<details>` disclosures: keyboard, screen-reader state
+ * and the open/closed toggle are the browser's, with no state here. Headless UI's Dialog
+ * owns the focus trap, Escape and focus restoration. Any link clicked inside the sheet
+ * closes it, and so does a route change. Receives translated strings and server-rendered
+ * sections as props, never the message catalogue (apps/storefront/CLAUDE.md).
  */
 export function MobileMenu({
   menuLabel,
   closeLabel,
+  closeText,
   primaryLabel,
   items,
   localeSwitcher,
+  sections,
 }: MobileMenuProps) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const [lastPath, setLastPath] = useState(pathname);
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setOpen(false);
+  }
   const close = () => setOpen(false);
+
+  const onSheetClick = (event: MouseEvent<HTMLDivElement>) => {
+    if ((event.target as Element).closest('a')) {
+      close();
+    }
+  };
 
   return (
     <>
@@ -68,63 +92,79 @@ export function MobileMenu({
         <div className="fixed inset-0 flex">
           <DialogPanel
             transition
-            // Espresso: every NavLink inside reads ivory, the accent Champagne, and the
-            // focus ring Champagne, through the surface tokens.
-            data-surface="ink"
+            onClick={onSheetClick}
             className="flex h-full w-full flex-col overflow-y-auto bg-bg text-text transition duration-base ease-sheet data-closed:opacity-0 data-closed:-translate-x-4 rtl:data-closed:translate-x-4"
           >
             <DialogTitle className="sr-only">{menuLabel}</DialogTitle>
 
-            <div className="flex h-(--header-h) shrink-0 items-center justify-between px-(--page-gutter)">
+            <div className="grid h-(--header-h) shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-border px-(--page-gutter)">
               <button
                 type="button"
                 onClick={close}
-                className="type-ui -ms-2.5 flex h-(--size-tap) cursor-pointer items-center gap-2.5 px-2.5"
+                aria-label={closeLabel}
+                className="type-ui -ms-2.5 flex h-(--size-tap) cursor-pointer items-center gap-2.5 justify-self-start px-2.5"
               >
                 <X size={20} strokeWidth={1.5} aria-hidden="true" />
-                {closeLabel}
+                <span aria-hidden="true">{closeText}</span>
               </button>
               <BrandLogo variant="mark" height={40} className="h-10 w-auto" />
-              <span aria-hidden="true" className="w-(--size-tap)" />
+              <span aria-hidden="true" />
             </div>
 
-            <nav
-              aria-label={primaryLabel}
-              className="flex flex-col gap-1 px-(--page-gutter) pt-10 pb-8"
-            >
-              {items.map((item, index) => (
-                <div
-                  key={item.key}
-                  className="entrance-fade-up flex items-baseline gap-4"
-                  style={
-                    {
-                      '--entrance-delay': `${LINK_STAGGER_OFFSET_MS + index * LINK_STAGGER_MS}ms`,
-                    } as CSSProperties
-                  }
-                >
-                  <span
-                    aria-hidden="true"
-                    className="w-7 shrink-0 font-display text-base text-brand italic tabular-nums"
-                    lang="en"
+            <nav aria-label={primaryLabel} className="px-(--page-gutter) pt-2">
+              {items.map((item) => {
+                const section = isSectionKey(item.key) ? sections[item.key] : null;
+                if (!section) {
+                  return (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      className="type-page-title flex min-h-18 items-center justify-between border-b border-border"
+                    >
+                      {item.label}
+                      <ArrowRight
+                        aria-hidden="true"
+                        size={20}
+                        strokeWidth={1.5}
+                        className="rtl:rotate-180"
+                      />
+                    </Link>
+                  );
+                }
+                return (
+                  <details
+                    key={item.key}
+                    open={item.key === 'shop'}
+                    className="group border-b border-border"
                   >
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <NavLink
-                    href={item.href}
-                    onClick={close}
-                    typography="type-section-title"
-                    className="py-2"
-                  >
-                    {item.label}
-                  </NavLink>
-                </div>
-              ))}
+                    <summary className="type-page-title flex min-h-18 cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+                      {item.label}
+                      <Plus
+                        aria-hidden="true"
+                        size={20}
+                        strokeWidth={1.5}
+                        className="group-open:hidden"
+                      />
+                      <Minus
+                        aria-hidden="true"
+                        size={20}
+                        strokeWidth={1.5}
+                        className="hidden group-open:block"
+                      />
+                    </summary>
+                    {section}
+                  </details>
+                );
+              })}
             </nav>
 
-            {/* The lower band: one gold hairline, then the language switch. */}
-            <div className="mt-auto px-(--page-gutter) pb-8">
-              <div className="mb-5 h-px bg-metallic/60" aria-hidden="true" />
-              <div className="flex min-h-(--size-tap) items-center">
+            {sections.featured && (
+              <div className="px-(--page-gutter) pt-6">{sections.featured}</div>
+            )}
+
+            <div className="mt-auto px-(--page-gutter) pt-8 pb-8">
+              <div className="flex min-h-(--size-tap) items-center gap-3 border-t border-border pt-3">
+                <Globe aria-hidden="true" size={18} strokeWidth={1.5} className="shrink-0" />
                 <LocaleSwitcher {...localeSwitcher} />
               </div>
             </div>

@@ -38,8 +38,9 @@ const warmDrawer = () => {
 };
 
 /**
- * The header Bag action (the fifteenth client boundary): the same 44px icon link to `/bag`
- * the header always rendered, plus the count badge and the lazy drawer host (CD-12, CD-19).
+ * The header Bag action (the fifteenth client boundary): the 44px link to `/bag` — an icon
+ * and a count badge below 1024, the icon, the word and "(2)" from 1024 — and the lazy drawer
+ * host (CD-12, CD-19).
  * An unmodified primary click off `/bag` opens the drawer, the only way it opens; a modified
  * click, a click before hydration or a click on `/bag` navigates. Bag messages are toasts.
  *
@@ -88,16 +89,23 @@ export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTrig
         onClick={onClick}
         onPointerEnter={warmDrawer}
         onFocus={warmDrawer}
-        className="relative flex h-11 w-11 items-center justify-center transition-opacity duration-fast ease-ui hover:opacity-70"
+        className="relative flex h-11 min-w-11 items-center justify-center gap-2 transition-colors duration-fast ease-ui hover:text-brand lg:px-2"
       >
         <ShoppingBag size={20} strokeWidth={1.5} aria-hidden="true" />
+        {/* From 1024 the Bag is a word and its count, "Bag (2)" (header direction B,
+            2026-09-26); the link's accessible name is still `label.ariaLabel`, which
+            starts with the same word. */}
+        <span aria-hidden="true" className="type-ui hidden whitespace-nowrap lg:inline">
+          {strings.label}
+          {label.badgeText !== null && <bdi className="tabular-nums"> ({label.badgeText})</bdi>}
+        </span>
         {label.badgeText !== null && (
-          // A filled disc in the header's text colour with the action's contrast colour
-          // for the figure, both through the --surface-* variables: an ink disc with an
-          // ivory figure when solid, an ivory disc with an ink figure over the hero.
+          // Below 1024: a filled disc in the header's text colour with the action's
+          // contrast colour for the figure, both through the --surface-* variables: an
+          // ink disc with an ivory figure when solid, an ivory disc over the hero.
           <span
             aria-hidden="true"
-            className="absolute -end-0.5 top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-pill bg-text px-1 font-ui text-[0.6875rem] leading-none font-semibold text-on-action tabular-nums"
+            className="absolute -end-0.5 top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-pill bg-text px-1 font-ui text-[0.6875rem] leading-none font-semibold text-on-action tabular-nums lg:hidden"
           >
             {label.badgeText}
           </span>

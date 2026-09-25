@@ -13,7 +13,15 @@
     "menu": "Menu",
     "closeMenu": "Close menu",
     "primaryLabel": "Primary",
-    "footerLabel": "Footer"
+    "footerLabel": "Footer",
+    "categoriesHeading": "Categories",
+    "collectionsHeading": "Collections",
+    "allPieces": "All pieces",
+    "allCollections": "All collections",
+    "newInTitle": "The newest pieces",
+    "newInBody": "From the last thirty days.",
+    "featured": "Featured",
+    "close": "Close"
   },
   "common": {
     "brandName": "Moon Fashion",

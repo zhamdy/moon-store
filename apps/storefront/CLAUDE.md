@@ -120,14 +120,14 @@ fonts already use (`--font-display: var(--font-display-active)`): `--surface-bg`
 into `--color-bg` / `--color-text` / `--color-text-secondary` / `--color-border`, and a
 surface overrides the `--surface-*` variables:
 
-| `data-surface` | Where                                                                        | Effect                                                                                                                  |
-| -------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `ink` / `dark` | the footer, the hero, the Silk Edit, the lead category tile, the mobile menu | Espresso bg, ivory text, on-dark-muted secondary, Champagne accent and focus ring, the primary action inverted to Ivory |
-| `navy`         | the one nocturnal moment: the homepage campaign slot (Phase 2)               | Midnight bg, otherwise as `ink`                                                                                         |
-| `sand`         | quiet tonal bands: the editorial strip, the homepage benefits                | Sand bg, muted-deep secondary, bronze-deep accent                                                                       |
-| `overlay`      | resolved on the header (see below)                                           | transparent bg and border, ivory text, Champagne focus ring                                                             |
-| `auto`         | what the header renders from the server                                      | overlay when the page has a header boundary, solid otherwise                                                            |
-| `solid`        | written by `HeaderShell` as soon as the page scrolls                         | the defaults                                                                                                            |
+| `data-surface` | Where                                                          | Effect                                                                                                                  |
+| -------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ink` / `dark` | the footer, the hero, the Silk Edit, the lead category tile    | Espresso bg, ivory text, on-dark-muted secondary, Champagne accent and focus ring, the primary action inverted to Ivory |
+| `navy`         | the one nocturnal moment: the homepage campaign slot (Phase 2) | Midnight bg, otherwise as `ink`                                                                                         |
+| `sand`         | quiet tonal bands: the editorial strip, the homepage benefits  | Sand bg, muted-deep secondary, bronze-deep accent                                                                       |
+| `overlay`      | resolved on the header (see below)                             | transparent bg and border, ivory text, Champagne focus ring                                                             |
+| `auto`         | what the header renders from the server                        | overlay when the page has a header boundary, solid otherwise                                                            |
+| `solid`        | written by `HeaderShell` as soon as the page scrolls           | the defaults                                                                                                            |
 
 Components keep reading `text-text` / `bg-bg` / `border-border` and never set colours
 per surface. Never override a raw palette variable in scope (it would also recolour
@@ -168,6 +168,34 @@ The header holds exactly: Shop, New In, Collections (a Menu button with the word
 1024), the mark, the language toggle and the Bag. The Search and Account icons were
 removed (their routes do not exist); they return with their features.
 
+**Header direction B** (owner decision 2026-09-26, chosen from the Claude Design header
+study over a refined bar and a centred masthead):
+
+- **Shop and Collections open panels** on desktop (`DesktopNav`, below): Shop shows the
+  five homepage categories and All pieces, the live collections (thumbnail, name, season ·
+  year) and a New In card on the unused `moment` photograph; Collections shows the live
+  collections as cards and All collections. New In stays a plain link. The panels' content
+  is server-rendered in `features/collections/components/header-panels.tsx` and composed
+  by `app/[locale]/layout.tsx` into `Header`'s `nav` prop, the way it composes the Bag, so
+  `components/layout` still imports no feature slice. The collections come from
+  `loadNavCollections` (the public listing, featured first, at most four, on the entity
+  revalidate); `null` — no API at build, an `ApiError`, none live — drops every
+  collections block and makes Collections a plain link. A collection with no image
+  borrows its lookbook stand-in (`collectionFallbackSlot`), as on the index.
+- **While a panel is open the header is solid** even over a hero:
+  `[data-nav-open]` on the nav root excludes the header from the overlay surface rule
+  (`...header[data-surface='auto']:not(:has([data-nav-open]))`), and a backdrop dims the
+  page under the bar.
+- **The language toggle is a globe and the other language's name** (`العربية` / `English`,
+  the short `ع` / `EN` below 1024). The globe is decorative; the name carries `lang`.
+- **The Bag reads "Bag (2)" from 1024** (the icon, the word, the count); below 1024 it
+  keeps the icon and the count disc. Its accessible name is unchanged.
+- **The mobile menu is an Ivory sheet** ("Menu B"): Shop opens in place on the
+  categories with thumbnails (open by default), Collections on the live collections,
+  New In is a link row, the featured collection is one card under the list, and the
+  language switch (with the globe) is at the foot. Shop and Collections are native
+  `<details>`; any link inside closes the sheet, as does a route change.
+
 ## Locale and RTL rules
 
 - `i18n/routing.ts` is the one source of truth for locales (`en`, `ar`), the default
@@ -204,11 +232,12 @@ removed (their routes do not exist); they return with their features.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to twenty entries
-(twenty-one files):
+Server Components by default (R21/R22). `'use client'` is limited to twenty-one entries
+(twenty-two files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
+   Its Shop and Collections sections arrive server-rendered as `ReactNode`s (`sections`).
 3. `components/layout/locale-switcher.tsx` — needs `usePathname` to preserve the
    current path across a locale switch. Exports both `LocaleSwitcher` (the
    both-locales list in the mobile menu) and `LocaleToggle` (the
@@ -267,8 +296,8 @@ fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     landed pieces. An add raises a toast with View bag (`useRouter` push to `/bag`) and
     never opens the drawer. The intent and the toast descriptor (`addToBagToast`) are
     `utils/add-to-bag-action.ts`, unit-tested.
-15. `features/cart/components/bag-trigger.tsx` — the header Bag link, its count badge and
-    the lazy drawer host. Composed by `app/[locale]/layout.tsx` into `Header`'s `bag`
+15. `features/cart/components/bag-trigger.tsx` — the header Bag link ("Bag (2)" from 1024,
+    the icon and a count badge below), and the lazy drawer host. Composed by `app/[locale]/layout.tsx` into `Header`'s `bag`
     slot, with the trigger's and the drawer's strings resolved there. The label and ARIA
     state are `utils/bag-trigger-label.ts`, unit-tested.
 16. `features/cart/components/bag-view.tsx` — the `/bag` review island; its messages are
@@ -322,6 +351,16 @@ fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     slot's full width while being `pointer-events-none`, so the panel is the photograph's
     width rather than the disc's and the strip over the photograph still belongs to the
     card link; the disc and the panel take their own events back.
+
+21. `components/layout/header/desktop-nav.tsx` — the desktop primary navigation (header
+    direction B, 2026-09-26): which panel is open. Shop and Collections are disclosure
+    buttons (the WAI-ARIA disclosure pattern, not a `menu`) whose panels arrive
+    server-rendered as `ReactNode`s, each right after its trigger so Tab moves into it and
+    positioned against the sticky header so it runs the full width under the bar; New In
+    is a link. Click, Enter or Space toggle (a click on a hover-opened panel keeps it);
+    a mouse opens after 90ms of hover and closes 220ms after leaving the nav and panel;
+    Escape (focus back to the trigger), an outside pointer, focus leaving, a link click
+    and a route change close. `desktop-nav-state.ts` holds the toggle rule, unit-tested.
 
 `components/motion/text-reveal.tsx` is deliberately _not_ a boundary: it only splits a
 heading into masked word spans on the server.
@@ -1888,12 +1927,12 @@ caching/revalidation/dynamic strategy; nothing here requires any route to stay s
 
 ## Mobile menu typography exception
 
-The mobile menu is a composed Espresso panel (`data-surface="ink"`, design system
-2026-09-25): numbered links at `type-section-title`, not the `type-ui` every other nav
-link uses, passed through `NavLink`'s `typography` prop rather than via `className`; a
-gold hairline; the language switch at the foot. The Account link it carried is gone with
-the header's Account icon. The footer's shop links use
-the same prop for `type-body`. See that prop's doc comment for why: `tailwind-merge`
+The mobile menu (header direction B, 2026-09-26) is an Ivory sheet whose top-level rows
+— Shop, New In, Collections — are set at `type-page-title`, not the `type-ui` every other
+nav link uses; the rows are its own markup (`<details>` summaries and one link), so no
+`NavLink` is involved. The Espresso page with numbered `type-section-title` links it
+replaces used `NavLink`'s `typography` prop; the footer's shop links still use that prop
+for `type-body`. See that prop's doc comment for why: `tailwind-merge`
 doesn't know about the custom `type-*` utilities, so two of them on one element would
 both apply and the CSS source order — not the component prop — would decide which wins.
 

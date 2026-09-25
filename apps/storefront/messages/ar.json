@@ -13,7 +13,15 @@
     "menu": "القائمة",
     "closeMenu": "إغلاق القائمة",
     "primaryLabel": "الرئيسية",
-    "footerLabel": "التذييل"
+    "footerLabel": "التذييل",
+    "categoriesHeading": "الفئات",
+    "collectionsHeading": "المجموعات",
+    "allPieces": "كل القطع",
+    "allCollections": "كل المجموعات",
+    "newInTitle": "أحدث القطع",
+    "newInBody": "من آخر ثلاثين يومًا.",
+    "featured": "مجموعة مميزة",
+    "close": "إغلاق"
   },
   "common": {
     "brandName": "مون فاشون",

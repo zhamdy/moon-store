@@ -10,6 +10,14 @@ import { Header } from '@/components/layout/header/header';
 import { Footer } from '@/components/layout/footer/footer';
 import { AppToaster } from '@/components/feedback/app-toaster';
 import { BagTrigger } from '@/features/cart/components/bag-trigger';
+import { loadNavCollections } from '@/features/collections/api/load-nav-collections';
+import {
+  CollectionsPanel,
+  MenuCollectionsSection,
+  MenuFeatured,
+  MenuShopSection,
+  ShopPanel,
+} from '@/features/collections/components/header-panels';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
 import { getBagDrawerStrings, getBagTriggerStrings } from '@/features/cart/utils/bag-strings';
 import { resolveSiteUrl } from '@/lib/site-url';
@@ -67,10 +75,11 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
   // Resolved strings only (never the catalogue): the drawer's ride in the trigger's props, so
   // the lazy chunk needs no second server round trip when it first opens.
-  const [bagTriggerStrings, bagDrawerStrings, tToaster] = await Promise.all([
+  const [bagTriggerStrings, bagDrawerStrings, tToaster, navCollections] = await Promise.all([
     getBagTriggerStrings(locale),
     getBagDrawerStrings(locale),
     getTranslations({ locale, namespace: 'toaster' }),
+    loadNavCollections(),
   ]);
 
   return (
@@ -84,6 +93,17 @@ export default async function LocaleLayout({
           <AppProviders>
             <SkipLink />
             <Header
+              nav={{
+                shopPanel: <ShopPanel locale={locale} collections={navCollections} />,
+                collectionsPanel: navCollections && (
+                  <CollectionsPanel locale={locale} collections={navCollections} />
+                ),
+                menuShop: <MenuShopSection />,
+                menuCollections: navCollections && (
+                  <MenuCollectionsSection locale={locale} collections={navCollections} />
+                ),
+                menuFeatured: <MenuFeatured locale={locale} collections={navCollections} />,
+              }}
               bag={
                 <BagTrigger
                   strings={bagTriggerStrings}
