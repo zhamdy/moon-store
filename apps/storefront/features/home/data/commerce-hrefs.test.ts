@@ -5,6 +5,7 @@ import { curatedEdit, newArrivals } from '@/features/products/data/home-products
 import type { CatalogProduct } from '@/features/products/types/catalog-product';
 import { fromCatalogDto, fromHomeMock } from '@/features/products/utils/product-card-model';
 import { heroSlides } from './hero-slides';
+import { collectionHref, homeCollections } from './home-collections';
 import { promoBanner } from './promo-banner';
 
 const categories = new Set<string>(REQUIRED_CATALOG_KEYS.categories);
@@ -14,6 +15,8 @@ const hrefs: readonly [source: string, href: string][] = [
   ...homeCategories.map((tile) => [`category ${tile.key}`, tile.href] as [string, string]),
   ...heroSlides.map((slide) => [`hero ${slide.key}`, slide.href] as [string, string]),
   ['promo banner', promoBanner.href],
+  ['featured collection', collectionHref(homeCollections.featured)],
+  ['moon selection', collectionHref(homeCollections.selection)],
 ];
 
 /** Null when the href is neither `/shop/<key>` nor `/collections/<key>` with a known key. */

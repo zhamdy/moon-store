@@ -99,17 +99,22 @@ export async function PromoBanner() {
 
       {/* The fabric detail, straddling the seam from 1024. */}
       <div
-        data-motion="image"
-        className="absolute bottom-[12%] start-[calc(40%-6.5rem)] z-10 hidden aspect-4/5 w-52 overflow-hidden bg-bg outline-[12px] outline-solid outline-bg [--motion-offset:200ms] lg:block xl:w-56"
+        data-motion="fade"
+        className="absolute bottom-[12%] start-[calc(40%-7.25rem)] z-10 hidden w-58 bg-bg p-3 [--motion-offset:200ms] lg:block xl:w-62"
       >
-        <Image
-          src={editorialImages[promoBanner.detail].src}
-          alt={t('detailAlt')}
-          fill
-          sizes="224px"
-          placeholder="blur"
-          className="object-cover"
-        />
+        <div
+          data-motion="image"
+          className="relative isolate aspect-4/5 overflow-hidden bg-bg [--motion-offset:200ms]"
+        >
+          <Image
+            src={editorialImages[promoBanner.detail].src}
+            alt={t('detailAlt')}
+            fill
+            sizes="224px"
+            placeholder="blur"
+            className="object-cover"
+          />
+        </div>
       </div>
     </Reveal>
   );

@@ -1,134 +1,121 @@
 import Image from 'next/image';
 import { getTranslations } from 'next-intl/server';
-import { EditorialLink } from '@/components/ui/editorial-link';
 import { Parallax } from '@/components/motion/parallax';
 import { Reveal } from '@/components/motion/reveal';
 import { TextReveal } from '@/components/motion/text-reveal';
+import { buttonClassName } from '@/components/ui/button';
 import { Container } from '@/components/ui/container';
+import { Eyebrow } from '@/components/ui/section-header';
+import { Link } from '@/i18n/navigation';
 import { editorialImages } from '@/lib/editorial/images';
 import { currentPromotion } from '@/lib/promotion/current-promotion';
 
 /**
- * 07 - The running promotion, on the homepage, in the slot the campaign pause and then
- * the sale announcement held (user decisions, 2026-09-21). One full-bleed night
- * photograph, the offer at display size, the conditions under it and one way into the
- * shop. Its whole job is to tell a shopper what is on right now and where to spend it.
- *
- * It differs from the sale announcement it replaces in two ways, both deliberate: the
- * offer is **named** rather than implied ("Buy one, get one free", not "The Sale"), and
- * it **has a destination**. A named offer that applies across the catalogue makes
- * `/shop` the honest target; the reasoning, and what a narrower target would cost, is
- * on `currentPromotion.href`.
- *
+ * 07 - The running promotion, in the homepage's campaign slot (user decisions,
+ * 2026-09-21; kept in homepage Phase 2, plan D2). Its whole job is to tell a shopper
+ * what is on right now and where to spend it: the offer is **named** ("Buy one, get
+ * one free") and it **has a destination** (`currentPromotion.href`, reasoned there).
  * Everything it says lives in the `promotion` namespace in both catalogues; the slot,
  * crop and destination live in `lib/promotion/current-promotion.ts`, which the shop
- * bar reads too — the two surfaces can never announce different offers.
+ * bar reads too, so the two surfaces can never announce different offers.
+ *
+ * **Phase 2 (2026-09-25, the Claude Design board): the page's one nocturnal moment.**
+ * On Midnight (`data-surface="navy"`, plan D6) so it is never read as a twin of the
+ * Silk Edit's Espresso four sections earlier. The photograph runs full-bleed across the
+ * top and fades into the Midnight ground; the offer's eyebrow and oversized title
+ * (`type-display` / `type-display-xl`) rise across that edge from 1024, and the body,
+ * the conditions and an Ivory button sit in the right-hand columns below. Below 1024
+ * nothing covers the photograph: it fades out and the copy follows on Midnight.
  *
  * Composition follows the photograph, which is never mirrored: the figure stands in
- * the right third, so the copy is on the **physical left in both languages** at every
- * width, and each layout gets a straight gradient on that side only — a wash fading
- * inward from 768, a band rising from the floor below it. Straight, never diagonal,
- * and never a card.
+ * the right half, so the title block stays on the **physical left in both languages**
+ * (the grid is laid out `direction: ltr` and each block restores the page direction),
+ * and the wash that carries it is physical too.
  *
- * Two mechanics this page has been bitten by, both load-bearing:
- *
- * - The frame carries an explicit `w-full` beside its `md:max-h-[40rem]` cap. Once
- *   `max-height` binds, a box with an `aspect-ratio` holds the ratio by shrinking its
- *   **width**, and the photograph stops short of the viewport edge (CLAUDE.md →
- *   Learnings, 2026-09-21).
- * - Both copy measures are absolute, never `ch`. They sit on a wrapper, which inherits
- *   the body font at 16px, so a `ch` here would resolve in Inter rather than in the
- *   display face the headline is set in.
- *
- * `sizes` is height-driven below 768: a 21:9 source covering a tall portrait frame
- * needs about 2.33x the frame's height in pixel width, so a width-only `100vw` would
- * hand the browser an image far too small and the crop would soften.
+ * `w-full` beside the height cap is load-bearing (CLAUDE.md → Learnings, 2026-09-21),
+ * and `sizes` is height-driven below 768, where a wide source covers a tall frame.
  */
 export async function PromotionBanner() {
   const t = await getTranslations('promotion');
 
   return (
-    <section aria-labelledby="promotion-title" data-surface="dark" className="bg-dark-surface">
-      <Reveal className="relative isolate" amount={0.35}>
-        <Parallax
-          travel={0.06}
-          className="relative z-0 h-[80svh] min-h-[32rem] w-full md:h-auto md:aspect-[21/9] md:max-h-[40rem]"
-        >
+    <section
+      aria-labelledby="promotion-title"
+      data-surface="navy"
+      className="relative isolate overflow-hidden bg-bg pb-16 text-text md:pb-20 lg:pb-28"
+    >
+      <Reveal amount={0.25}>
+        <div className="relative">
+          <Parallax travel={0.06} className="relative h-[27.5rem] w-full md:h-[34rem] lg:h-[40rem]">
+            <div
+              data-motion-zoom=""
+              className="absolute inset-0 [--motion-duration:2000ms] [--motion-zoom:1.05]"
+            >
+              <Image
+                src={editorialImages[currentPromotion.image].src}
+                alt={t('imageAlt')}
+                fill
+                sizes="(min-width: 768px) 100vw, max(100vw, 120svh)"
+                placeholder="blur"
+                className={`object-cover ${currentPromotion.imageClassName}`}
+              />
+            </div>
+          </Parallax>
+          {/* 1024+: a wash from the physical left, where the title rises. */}
           <div
-            data-motion-zoom=""
-            className="absolute inset-0 [--motion-duration:1800ms] [--motion-zoom:1.05]"
-          >
-            <Image
-              src={editorialImages[currentPromotion.image].src}
-              alt={t('imageAlt')}
-              fill
-              sizes="(min-width: 768px) 100vw, max(100vw, 190svh)"
-              placeholder="blur"
-              className={`object-cover ${currentPromotion.imageClassName}`}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-2/3 bg-linear-to-r from-bg/85 from-0% via-bg/40 via-60% to-transparent lg:block"
+          />
+          {/* Every width: the photograph fades into the Midnight ground. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2/5 bg-linear-to-t from-bg to-transparent"
+          />
+        </div>
+
+        <Container
+          as="div"
+          className="relative z-20 grid-editorial gap-y-6 pt-4 lg:-mt-80 lg:pt-0 rtl:[direction:ltr]"
+        >
+          <div className="col-span-4 md:col-span-8 lg:col-span-8 rtl:[direction:rtl] lg:rtl:text-left">
+            <div
+              data-motion="fade"
+              className="[--motion-offset:180ms] lg:rtl:flex lg:rtl:justify-end"
+            >
+              <Eyebrow>{t('eyebrow')}</Eyebrow>
+            </div>
+            <TextReveal
+              as="h2"
+              id="promotion-title"
+              text={t('title')}
+              offset={320}
+              step={120}
+              duration={1000}
+              className="type-display lg:type-display-xl mt-5 max-w-[12ch] text-text lg:mt-6 lg:rtl:ms-auto lg:rtl:max-w-[14ch]"
             />
           </div>
-        </Parallax>
-
-        {/* Below 768: a band rising from the floor the copy stands on. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 bg-linear-to-t from-dark-surface/94 from-0% via-dark-surface/64 via-46% to-transparent to-84% md:hidden"
-        />
-        {/* 768+: a wash fading inward from the copy edge, the figure's side untouched.
-            Physical, so it does not mirror under RTL. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-3/5 bg-linear-to-r from-dark-surface/90 from-0% via-dark-surface/50 via-45% to-transparent md:block"
-        />
-
-        <div className="absolute inset-0 z-20 flex items-end">
-          <Container as="div" className="w-full pb-12 md:pb-16">
-            {/* Under RTL, margin-inline-start: auto keeps the block on the physical left. */}
-            <div className="max-w-[20rem] md:max-w-[30rem] rtl:ms-auto">
-              <div
-                aria-hidden="true"
-                data-motion="fade"
-                className="h-px w-10 bg-metallic [--motion-offset:180ms]"
-              />
-
-              <TextReveal
-                as="h2"
-                id="promotion-title"
-                text={t('title')}
-                offset={380}
-                step={100}
-                duration={1000}
-                className="mt-6 type-h1 md:type-display text-balance text-text"
-              />
-
-              <p
-                data-motion="rise"
-                className="type-body-lg mt-5 text-text-secondary [--motion-offset:720ms] [--motion-rise:24px]"
+          <div className="col-span-4 md:col-span-6 lg:col-span-4 lg:col-start-9 lg:row-start-2 lg:mt-4 rtl:[direction:rtl]">
+            <p data-motion="fade" className="type-body-lg text-text [--motion-offset:760ms]">
+              {t('body')}
+            </p>
+            {/* The conditions read as small print on purpose: they qualify the offer,
+                they do not sell it. */}
+            <p
+              data-motion="fade"
+              className="type-caption mt-4 text-text-secondary [--motion-offset:860ms]"
+            >
+              {t('terms')}
+            </p>
+            <div data-motion="fade" className="mt-8 [--motion-offset:960ms]">
+              <Link
+                href={currentPromotion.href}
+                className={buttonClassName({ variant: 'primary', className: 'w-full md:w-auto' })}
               >
-                {t('body')}
-              </p>
-
-              {/* The conditions read as small print on purpose: they qualify the offer,
-                  they do not sell it. */}
-              <p
-                data-motion="fade"
-                className="type-caption mt-4 max-w-[26rem] normal-case tracking-normal text-text-secondary [--motion-offset:860ms]"
-              >
-                {t('terms')}
-              </p>
-
-              <div data-motion="rise" className="mt-8 [--motion-offset:980ms] [--motion-rise:12px]">
-                <EditorialLink
-                  href={currentPromotion.href}
-                  underline="always"
-                  className="min-h-11 gap-4 pb-2 uppercase tracking-[0.12em] rtl:tracking-normal"
-                >
-                  {t('cta')}
-                </EditorialLink>
-              </div>
+                {t('cta')}
+              </Link>
             </div>
-          </Container>
-        </div>
+          </div>
+        </Container>
       </Reveal>
     </section>
   );
