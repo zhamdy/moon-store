@@ -5,11 +5,11 @@ editing, data tables, navigation, dialogs and authentication.
 
 ## What is enforced automatically
 
-| Gate | Where | What it catches |
-| --- | --- | --- |
-| `eslint-plugin-jsx-a11y` | `apps/dashboard/eslint.config.mjs`, runs in `npm run lint` | Static markup errors: missing alt text, invalid ARIA, labels not tied to controls. |
-| axe (`@axe-core/playwright`) | `e2e/specs/a11y.spec.ts`, tagged `@smoke` so it runs on every PR | Computed violations on real rendered pages: names, contrast, ARIA relationships, nested interactive controls. |
-| Keyboard and focus assertions | same file | Focus entering a dialog, staying in it, and returning to the trigger; adding to the cart without a pointer. |
+| Gate                          | Where                                                            | What it catches                                                                                               |
+| ----------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `eslint-plugin-jsx-a11y`      | `apps/dashboard/eslint.config.mjs`, runs in `npm run lint`       | Static markup errors: missing alt text, invalid ARIA, labels not tied to controls.                            |
+| axe (`@axe-core/playwright`)  | `e2e/specs/a11y.spec.ts`, tagged `@smoke` so it runs on every PR | Computed violations on real rendered pages: names, contrast, ARIA relationships, nested interactive controls. |
+| Keyboard and focus assertions | same file                                                        | Focus entering a dialog, staying in it, and returning to the trigger; adding to the cart without a pointer.   |
 
 The axe gate **blocks on `serious` and `critical` only**, which is the issue's
 "newly introduced high-impact violations". `moderate` and `minor` findings are printed in
@@ -21,11 +21,11 @@ sense. That is why both exist, and why the list below exists as well.
 
 ## Known gaps
 
-**Storefront editorial strip has no stop mechanism (WCAG 2.2.2, open).** The homepage
-marquee moves for more than five seconds. It pauses on hover and stops under reduced
-motion, but its visible pause toggle was removed by owner decision (2026-09-14), so a
-keyboard or touch user without the reduced-motion setting cannot stop it. Closing the gap
-means restoring the CSS-only toggle described in `apps/storefront/CLAUDE.md` → *Motion* §5.
+**Storefront editorial strip stop mechanism (WCAG 2.2.2) — closed 2026-09-25.** The
+homepage marquee has a visible Pause / Play control again (homepage Phase 2, plan D7): a
+native checkbox named "Pause motion" whose label is the visible pill, pausing the marquee
+and the in-frame pan with no JS. The hero carousel gained a visible Pause / Play button in
+the same phase. Verified by keyboard in the Phase 2 QA; there is no automated check.
 
 **Storefront bag has no automated keyboard, focus or announcement check (open).** The
 storefront has no DOM or browser harness and is not axe-scanned by `e2e/`. The bag's rules
@@ -62,14 +62,14 @@ the answer was no, but not for the reason the question assumed.
 Measured in Chromium against the same HeroUI versions this app ships, with the listbox
 open:
 
-| | closed | open |
-| --- | --- | --- |
-| combobox named by `aria-label` | `combobox "Select Customer"` | name intact, but `ignored: true`, `ariaHiddenSubtree` |
-| its ancestor | — | `aria-hidden="true"` on the wrapper the modal is portaled into |
-| `getByRole('combobox', { name })` | 1 match | **0 matches** |
+|                                   | closed                       | open                                                           |
+| --------------------------------- | ---------------------------- | -------------------------------------------------------------- |
+| combobox named by `aria-label`    | `combobox "Select Customer"` | name intact, but `ignored: true`, `ariaHiddenSubtree`          |
+| its ancestor                      | —                            | `aria-hidden="true"` on the wrapper the modal is portaled into |
+| `getByRole('combobox', { name })` | 1 match                      | **0 matches**                                                  |
 
 The name never went anywhere: it is an attribute, and no amount of hiding empties it. The
-*element* did. **HeroUI's `usePopover` calls `ariaHideOutside([popover])` unconditionally**
+_element_ did. **HeroUI's `usePopover` calls `ariaHideOutside([popover])` unconditionally**
 whenever a popover opens — it never consults `isNonModal`, which defaults to `true` in that
 same hook, and which react-aria's own equivalent guards on. Everything not containing the
 popover is hidden, and from inside a modal that is the dialog, every field in it, and the
@@ -78,7 +78,7 @@ choosing from a control that is not in the tree.
 
 `useExposedWhileListboxOpen` in the delivery slice drops that `aria-hidden` from the field's
 ancestors while the listbox is open, and leaves react-aria's own hiding
-(`ariaHideOutside([input, popover])`, which correctly hides the *siblings*) alone. The
+(`ariaHideOutside([input, popover])`, which correctly hides the _siblings_) alone. The
 signal it works is the E2E spec: it locates the picker by role and name throughout, with no
 `data-testid` indirection.
 
@@ -86,7 +86,7 @@ Two things measured on the way that did **not** match what #111 recorded, and ar
 rediscovering. HeroUI's `label` prop does emit an `aria-labelledby` pointing at an id that
 does not exist — but Chromium skips a wholly dangling reference and falls back to
 `aria-label`, so the name computed correctly all along. On `Input` the same prop names the
-field *twice* (`"Customer Name Customer Name"`), because its reference list includes both
+field _twice_ (`"Customer Name Customer Name"`), because its reference list includes both
 the label and the input itself. Neither is a missing name; both are still markup worth
 keeping out.
 
@@ -226,35 +226,35 @@ navigation shell.
    popup hint off `/bag` and as the current page on `/bag`; its count is never announced on
    its own. **Stepper:** each is a group named "Quantity, {name}"; the buttons are named
    "Decrease/Increase quantity, {name}", stay focusable when unavailable, and at the limit
-   + carries the description "Only {count} available" (stock) or the up-to-10 notice.
-   Decrease is unavailable at 1. Sold-out and unavailable lines have both unavailable and
-   Remove available. **Remove:** after the row fades, focus is on the next line's name (else
-   the previous one, else the "Your bag is empty" heading), never on `body`, and "{name}
-   removed from your bag" is spoken from a toast with Undo. On `/bag`, Alt+T then Tab reaches
-   Undo, and pressing it puts the line back in its place with its quantity. **In the open
-   drawer:** Remove a line with Enter; focus lands on the next line's name. Press Alt+T
-   within 4s: focus leaves the drawer for the toast (the toast stops its timer). Tab once:
-   the "Undo" action (Tab again: Dismiss). Press Enter: the line is back in place with its
-   quantity, the toast closes, and focus returns to the line name that held it before Alt+T,
-   still inside the drawer; Tab and Shift+Tab stay in the drawer again. While the drawer
-   is open, Shift+Tab from a toast and a screen reader's browse mode must not reach the skip
-   link, the page content or the footer (the drawer makes them inert). Undo by pointer
-   works too. Try two removals in quick succession: two toasts. **Navigation close:** open
-   the drawer from the header Bag link, Tab to a line name (or View bag) and press Enter:
-   the drawer slides out and, once it has gone (~300ms), focus is on the page's main region
-   (the next Tab reaches the first link of the new page), not on the header Bag link. Open it
-   again and press Escape (then the X, then Continue shopping): each time focus returns to
-   the header Bag link.
-   **Toasts**, each spoken once, never repeated on reopening, never two for one event with the
-   drawer open over `/bag`:
+   - carries the description "Only {count} available" (stock) or the up-to-10 notice.
+     Decrease is unavailable at 1. Sold-out and unavailable lines have both unavailable and
+     Remove available. **Remove:** after the row fades, focus is on the next line's name (else
+     the previous one, else the "Your bag is empty" heading), never on `body`, and "{name}
+     removed from your bag" is spoken from a toast with Undo. On `/bag`, Alt+T then Tab reaches
+     Undo, and pressing it puts the line back in its place with its quantity. **In the open
+     drawer:** Remove a line with Enter; focus lands on the next line's name. Press Alt+T
+     within 4s: focus leaves the drawer for the toast (the toast stops its timer). Tab once:
+     the "Undo" action (Tab again: Dismiss). Press Enter: the line is back in place with its
+     quantity, the toast closes, and focus returns to the line name that held it before Alt+T,
+     still inside the drawer; Tab and Shift+Tab stay in the drawer again. While the drawer
+     is open, Shift+Tab from a toast and a screen reader's browse mode must not reach the skip
+     link, the page content or the footer (the drawer makes them inert). Undo by pointer
+     works too. Try two removals in quick succession: two toasts. **Navigation close:** open
+     the drawer from the header Bag link, Tab to a line name (or View bag) and press Enter:
+     the drawer slides out and, once it has gone (~300ms), focus is on the page's main region
+     (the next Tab reaches the first link of the new page), not on the header Bag link. Open it
+     again and press Escape (then the X, then Continue shopping): each time focus returns to
+     the header Bag link.
+     **Toasts**, each spoken once, never repeated on reopening, never two for one event with the
+     drawer open over `/bag`:
 
-   | Action | Expected |
-   | --- | --- |
-   | Change a quantity (several quick presses) | One "{name}, quantity {n}. Subtotal {subtotal}" toast after the update, replacing any earlier one for that line |
-   | Open a bag whose quote has a sold-out, limited or re-priced line | An info toast "Your bag was updated" plus the counts |
-   | Stop the API, open the bag | An error toast "We couldn't update your bag" once; Try again reachable in the toast (Alt+T) and in the bag |
-   | Share on a desktop without Web Share | "Link copied" toast; with the clipboard blocked, "Couldn't copy the link" |
-   | Filter sheet: min above max, leave the field | The price error spoken once from a toast; the garnet text stays under the inputs |
+   | Action                                                           | Expected                                                                                                        |
+   | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+   | Change a quantity (several quick presses)                        | One "{name}, quantity {n}. Subtotal {subtotal}" toast after the update, replacing any earlier one for that line |
+   | Open a bag whose quote has a sold-out, limited or re-priced line | An info toast "Your bag was updated" plus the counts                                                            |
+   | Stop the API, open the bag                                       | An error toast "We couldn't update your bag" once; Try again reachable in the toast (Alt+T) and in the bag      |
+   | Share on a desktop without Web Share                             | "Link copied" toast; with the clipboard blocked, "Couldn't copy the link"                                       |
+   | Filter sheet: min above max, leave the field                     | The price error spoken once from a toast; the garnet text stays under the inputs                                |
 
    **`/bag`:** Tab order runs lines then the summary; the subtotal reads "Updating" while a
    change is pending; the page never announces or shows "Your bag is empty" for a non-empty
@@ -263,6 +263,7 @@ navigation shell.
    left (bottom right in EN) and spans the width at 320. **Reduced motion:** the drawer
    appears without sliding, a removed row disappears without fading, toasts appear and leave
    without sliding or scaling, and focus still moves.
+
 9. **Storefront checkout, keyboard and screen reader.** Also not axe-scanned. Needs a build or
    dev server with Checkout enabled. In EN and AR, with `silk-midi-dress` in the bag. **Entry:**
    on `/bag`, Tab reaches Checkout after the summary figures; with a sold-out line

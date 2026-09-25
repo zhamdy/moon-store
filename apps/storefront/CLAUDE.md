@@ -120,14 +120,14 @@ fonts already use (`--font-display: var(--font-display-active)`): `--surface-bg`
 into `--color-bg` / `--color-text` / `--color-text-secondary` / `--color-border`, and a
 surface overrides the `--surface-*` variables:
 
-| `data-surface` | Where                                                                 | Effect                                                                                                                  |
-| -------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `ink` / `dark` | the footer, the hero, the promo banner, the campaign, the mobile menu | Espresso bg, ivory text, on-dark-muted secondary, Champagne accent and focus ring, the primary action inverted to Ivory |
-| `navy`         | the one nocturnal moment                                              | Midnight bg, otherwise as `ink`                                                                                         |
-| `sand`         | quiet tonal bands                                                     | Sand bg, muted-deep secondary, bronze-deep accent                                                                       |
-| `overlay`      | resolved on the header (see below)                                    | transparent bg and border, ivory text, Champagne focus ring                                                             |
-| `auto`         | what the header renders from the server                               | overlay when the page has a header boundary, solid otherwise                                                            |
-| `solid`        | written by `HeaderShell` as soon as the page scrolls                  | the defaults                                                                                                            |
+| `data-surface` | Where                                                                        | Effect                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ink` / `dark` | the footer, the hero, the Silk Edit, the lead category tile, the mobile menu | Espresso bg, ivory text, on-dark-muted secondary, Champagne accent and focus ring, the primary action inverted to Ivory |
+| `navy`         | the one nocturnal moment: the homepage campaign slot (Phase 2)               | Midnight bg, otherwise as `ink`                                                                                         |
+| `sand`         | quiet tonal bands: the editorial strip, the homepage benefits                | Sand bg, muted-deep secondary, bronze-deep accent                                                                       |
+| `overlay`      | resolved on the header (see below)                                           | transparent bg and border, ivory text, Champagne focus ring                                                             |
+| `auto`         | what the header renders from the server                                      | overlay when the page has a header boundary, solid otherwise                                                            |
+| `solid`        | written by `HeaderShell` as soon as the page scrolls                         | the defaults                                                                                                            |
 
 Components keep reading `text-text` / `bg-bg` / `border-border` and never set colours
 per surface. Never override a raw palette variable in scope (it would also recolour
@@ -423,23 +423,38 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    separate faster image layer floating over the words was tried and rejected by the
    user (2026-09-14) as clutter; depth comes instead from each photograph drifting
    inside its own over-scaled frame (`[data-strip-pan]`, pure CSS, out of step per
-   image). Hover pauses both; reduced motion stops both. The strip has **no pause
-   control** (user decision, 2026-09-14): the CSS-only pause toggle added in the
-   freeze plan was removed, so keyboard and touch users cannot stop the motion. That
-   is an open WCAG 2.2.2 gap recorded in `docs/ACCESSIBILITY.md` → _Known gaps_; if an
-   accessibility review asks for it back, restore it from commit history (a native
-   checkbox, `role="switch"`, outside the tracks, pausing via
-   `[data-strip]:has([data-strip-toggle]:checked)`, no client boundary).
+   image). Hover pauses both; reduced motion stops both. **The strip has a visible
+   Pause / Play control again** (homepage Phase 2, plan D7, 2026-09-25), closing the WCAG
+   2.2.2 gap the 2026-09-14 removal left open: a visually hidden native checkbox
+   (`data-strip-toggle`, named "Pause motion") whose `<label>` is drawn as a pill at the
+   band's inline end over a fade, pausing both animations through
+   `[data-strip]:has([data-strip-toggle]:checked)`. CSS only, no client boundary; the
+   label wears the focus ring (`[data-strip-toggle]:focus-visible + label`); hidden under
+   reduced motion, where nothing moves.
 
-**No eyebrows: the eyebrow is the title, the title is the description** (owner
-decision, 2026-09-14). No section renders a label above its heading. The Moon Selection
-briefly did (owner brief, 2026-09-21) and the eyebrow was removed the same day, so the
-rule holds across the whole page; that section keeps its own header rather than
-`SectionHeading` only because its `h2` runs at `type-h1 lg:type-display`, over a gold
-hairline, with a `type-body-lg` description under it. The `eyebrow`
-message keys keep their names and copy but render as the heading element the old title
-used, at the old title's `type-*` size and with its entrance; the old `title` copy
-renders as a `<p>` under it:
+**Eyebrows, since homepage Phase 2** (plan D1, 2026-09-25, superseding the 2026-09-14
+"no eyebrows" rule for the homepage): the design system's `Eyebrow` (a gold rule and a
+`type-eyebrow` label in the surface accent) opens the **editorial** sections only — the
+hero slides, the Silk Edit, the campaign slot and the Lookbook. Commerce sections (New
+Arrivals, categories, The Moon Selection, benefits) never carry one. Every homepage
+section header except the hero's and the three signature titles is the design-system
+`SectionHeader` with `motion="calm"` (or `"editorial"` on the Lookbook); the home-local
+`SectionHeading` is deleted. What each renders:
+
+| Where               | Heading                                                                                                                                                         | Around it                                                                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hero slides         | the collection name, `h2` `type-display md:type-display-xl`, **sentence case** (D5), one line mask at 240ms (0.3em of mask padding in Arabic for Amiri's marks) | `Eyebrow` at 120ms; one `type-body-lg` paragraph at 420ms; an Ivory primary button (the collection) and an `EditorialLink` "Shop new arrivals" at 560ms |
+| New Arrivals        | `h2` `type-page-title` "New arrivals", rise 16px                                                                                                                | `type-body` lead only with a real catalogue; "View all" and the outline `IconButton`s at the inline end                                                 |
+| Silk Edit           | `TextReveal` `h2` `type-display`                                                                                                                                | `Eyebrow`; `type-body-lg`; an Ivory button; a `type-caption` fabric line from 1024                                                                      |
+| Featured collection | `TextReveal` `h2` `type-section-title`, under a 48px gold rule                                                                                                  | `type-body-lg`; "Discover the collection" → `/collections/evening`                                                                                      |
+| Shop by category    | `SectionHeader` `type-page-title` ("Shop by category")                                                                                                          | lead "Find your piece"; "All pieces" → `/shop`                                                                                                          |
+| Campaign slot       | `TextReveal` `h2` `type-display lg:type-display-xl`                                                                                                             | `Eyebrow` "The season's offer"; `type-body-lg`; `type-caption` terms; an Ivory button                                                                   |
+| The Moon Selection  | `SectionHeader layout="split" size="section"`                                                                                                                   | lead and "Explore the selection" in columns 9-12                                                                                                        |
+| Benefits            | visible `h2` `type-title` in the first column                                                                                                                   | three `h3` `type-product-title` items                                                                                                                   |
+| Lookbook            | `SectionHeader layout="split" size="display"` ("Lookbook")                                                                                                      | `Eyebrow` "Worn by Moon", one lead line; no link (no lookbook route)                                                                                    |
+
+The table below is the pre-Phase 2 record for the rest of the storefront (the catalog
+`PageIntro` row still holds):
 
 | Where                                     | Heading                                                                                                                                                                                                                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -469,14 +484,15 @@ pointer is not one on a touch screen. A collection card's season · year now sit
 its name, not above it. The label wipe (`data-motion="wipe"`, `data-enter="wipe"`) is
 gone with the eyebrows; don't reintroduce it as a heading device.
 
-**Signature vs commerce entrances** (AD-11, 2026-09-14). The word-masked `TextReveal`
-belongs to the signature moments only: the promo banner, the featured collection and
-the campaign. `SectionHeading` (Categories) raises its title
-once and fades its description, and the catalog's `PageIntro` (an `h1`, not a
-`SectionHeading`) uses the same entrance. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
-settle) is for one feature card per section, like The Moon Selection's first card and
-the first `CategoryTile`. Adding the word mask back to a commerce heading repeats the same entrance
-down the page.
+**Signature vs commerce entrances** (AD-11, 2026-09-14; homepage Phase 2). The
+word-masked `TextReveal` belongs to the signature moments only: the Silk Edit, the
+featured collection and the campaign slot. Commerce headers (`SectionHeader
+motion="calm"`: New Arrivals, categories, The Moon Selection) raise the title 16px once
+and fade the lead and link, and the catalog's `PageIntro` uses the same entrance.
+`ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06 settle) is for
+one feature card per section, like The Moon Selection's lead card, and the lead
+`CategoryTile` always wipes. Adding the word mask back to a commerce heading repeats the
+same entrance down the page.
 
 **Reveal and hover never share an element.** A `transition-*` utility replaces the
 element's whole `transition-property`, so a hover transition on an element carrying
@@ -489,12 +505,13 @@ never collide with the reveal's `transform`.
 re-attaches when it or the breakpoint changes); `HeroCarousel` subscribes to it, so
 turning the setting on mid-session stops autoplay immediately.
 
-The hero has **no pause button** (user decision, 2026-09-13). WCAG 2.2.2 still needs a
-way to stop content that moves for more than five seconds, and the carousel's is
-interaction: clicking a tab, an arrow key, a swipe or any keyboard focus inside the hero
-stops rotation for the rest of the visit, and hovering pauses it. That is less
-discoverable than a visible control; if an accessibility review asks for one, it goes
-back as the first control before the tablist, per the WAI-ARIA carousel pattern.
+The hero has **a visible Pause / Play button** again (homepage Phase 2, 2026-09-25,
+superseding the 2026-09-13 decision): the first control before the tablist, per the
+WAI-ARIA carousel pattern, beside an `aria-hidden` `01 / 04` counter. It toggles the same
+`stopped` state interaction sets (a tab click, an arrow key, a swipe, keyboard focus
+inside the hero), so Play resumes rotation; hovering still pauses it. It renders only
+while autoplay is possible (hydrated, no reduced motion), so neither the server HTML nor
+a reduced-motion visit shows a control that could do nothing.
 Rotation also pauses whenever the hero scrolls out of view, the same way hovering
 does (one `IntersectionObserver` inside the existing `hero-carousel.tsx` island,
 no new client boundary): the progress fill freezes and resumes from where it
@@ -504,7 +521,7 @@ survives leaving and re-entering the viewport. The state union (`idle | running
 unit-tested. The global reduced-motion rule zeroes animation and
 transition _delays_ as well as durations — with `fill-mode: both`, a zero-duration
 animation would otherwise hold its `from` state for the whole stagger. Embla is
-installed but unused: CSS scroll-snap gives the category and lookbook rails — and
+installed but unused: CSS scroll-snap gives the lookbook rail — and
 the New Arrivals carousel — swipe, keyboard and RTL for free.
 
 **Product rail** — `[data-rail]` in `app/globals.css` is the one carousel
@@ -589,19 +606,16 @@ Every homepage image is a static import behind one registry, swappable by file d
   padding changes.
   The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
   other slides are `hero-<collection>-desktop` / `-mobile`.
-- The promo banner and the campaign put their copy on the photograph's empty side, on the
-  **physical** side in both languages, each with a scrim on that side only. Neither
-  photograph is ever mirrored. The banner chooses its layout by shape: the 16:9 crop with
-  the copy on the left only on landscape screens at least 768px wide and 4:3
-  (`banner-wide`, a custom variant in `app/globals.css`), otherwise a full-height background with the
-  copy over a bottom scrim. The section stays explicitly full width on desktop
-  even when its height reaches the cap. Both banner crops name the one
-  `silk-edit-campaign` slot, with the portrait positioned at 82% horizontally; the
-  older `moment` / `moment-wide` slots keep their own files and no section renders them.
-  Mobile image sizes account for the wide source covering a 90svh, minimum 40rem frame.
-  The campaign line is physical-left at **every** width (`rtl:ms-auto`): on phones the
-  figure stands in the right half of the 4:5 window, so an Arabic line at the reading
-  start sat on her.
+- **The Silk Edit (promo banner) no longer puts copy on its photograph** (homepage Phase 2,
+  2026-09-25): from 1024 it is a split — the copy in the inline-start two fifths on
+  Espresso, the photograph (`silk-edit-campaign`, `object-[80%_center]`) filling the rest to
+  the viewport edge, and a 4:5 `strip-01` fabric detail straddling the seam; below 1024 the
+  photograph sits above the copy. The split mirrors in Arabic; the photograph itself is
+  never flipped. The `banner-wide` custom variant is gone with the overlay.
+  The campaign slot's title block is physical-left at 1024+ in both languages (its grid is
+  `direction: ltr`, each block restores the page direction) because the figure stands in
+  the right half; below 1024 its copy sits under the photograph and covers nothing.
+  The older `moment` / `moment-wide` slots keep their own files and no section renders them.
 - No dominant editorial image or garment repeats across the hero, promo banner,
   featured collection, campaign or lookbook (user requirement, 2026-09-14). Product-card
   photography may repeat a garment where the merchandising story calls for it.
@@ -1688,11 +1702,15 @@ Browser-only; no storefront DOM or browser harness exists.
   Customer Care column is omitted until Shipping/Returns/Contact pages are planned. No
   FAQ, Blog, About, Newsletter or policy text anywhere.
 - §12·08 is **The Moon Selection** (owner brief, 2026-09-21), renamed from The Edit.
-  Copy is `home.selection` (title, description, link — no eyebrow). Its **grid is the
-  original one**: a 2x2 `ProductCard` feature plus four standard cards. An asymmetric
-  editorial spread sharing nothing with `ProductCard` was built against the brief and
-  the owner preferred the cards after seeing it; the spread is in the history at
-  `cebe648` rather than deleted. Its heading is the section's own, not `SectionHeading`.
+  **Since homepage Phase 2 (owner decision D3, 2026-09-25) it shows real catalogue
+  pieces**: the first five of `homeCollections.selection` (`evening`,
+  `features/home/data/home-collections.ts`) in the collection's curated order, read by
+  `loadSelection` through the ordinary listing (the same first page `/collections/evening`
+  asks for; no API change), with prices, links and Quick Add. The feature is a `lead`
+  `ProductCard` in columns 1-6, the other four tiles in two stepped columns. **With nothing
+  to show the section is not rendered** — no API at build, an `ApiError`, or an empty or
+  unreleased collection — and there is no static fallback. The editorial mocks it used to
+  render (`curatedEdit`) are now only the New Arrivals outage fallback.
 - The footer carries social links and contact details (user decision, 2026-09-14), and
   no language switcher. They come only from `lib/brand/contact.ts` and render only when
   real values are filled in there; `contact.test.ts` fails the build on a malformed

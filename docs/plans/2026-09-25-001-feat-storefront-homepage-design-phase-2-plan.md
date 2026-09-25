@@ -1,7 +1,7 @@
 ---
 title: 'feat: Storefront Design Phase 2 — Homepage'
 type: feat
-status: active
+status: completed
 date: 2026-09-25
 ---
 
@@ -358,3 +358,31 @@ Units U7, U9, U10, U12 (and U4 for D7) wait on their decisions; U0–U6, U8, U11
 - Design system artifact (2026-09-25) README: colour, typography, imagery, motion, RTL rules
 - `docs/plans/2026-09-14-001-feat-storefront-homepage-polish-freeze-plan.md` (previous freeze decisions)
 - `docs/ACCESSIBILITY.md` → Known gaps (marquee)
+
+## Outcome (2026-09-26)
+
+Implemented on `zhamdy/storefront-homepage-phase-2` (local only), on top of product card A
+(cherry-picked from `zhamdy/storefront-product-card`), following the Claude Design canvas
+(desktop, mobile, Arabic and tablet boards; the "B" alternates were not used).
+
+Owner decisions as built: D1 eyebrows on the editorial sections only (hero, Silk Edit,
+campaign, Lookbook); D2 the promotion stays in slot 07 and the dead campaign component and
+`home.campaign` keys are deleted (the `moment` slots stay, they own files); D3 the Moon
+Selection reads the `evening` collection and hides when it cannot; D4 Featured on Ivory;
+D5 sentence-case hero names; D6 the campaign slot on Midnight; D7 the strip's CSS-only
+Pause/Play control is back; D8 a visible Lookbook header.
+
+Where the build departs from this plan, following the design canvas instead: the hero also
+gained a visible Pause/Play button and a `01 / 04` counter; the Silk Edit became a split
+with no copy on the photograph at any width (rather than a start-aligned overlay); Shop by
+category became a lead tile plus an index of rows (rather than 2 + 3 tiles); the campaign
+title is `type-display-xl` at 1024+. Left out from the canvas: the index numbers on the
+Moon Selection tiles (they would need a new `ProductCard` prop) and the italic gold
+"free." in the campaign title (the title is one translated string).
+
+QA: typecheck, lint, 788 unit tests; `next build` keeps `/en` and `/ar` SSG; eager JS on
+`/en` 255,978 B gzip -9 (+588 B against 255,390); zero horizontal overflow at 1440, 1024,
+768, 640, 390 and 320 in both locales; reduced motion leaves 0 pending reveals and 0
+running animations; one `h1`; with the API down the Selection is not rendered and New
+Arrivals falls back to its unpriced frames; keyboard reaches and operates the strip toggle
+(focus ring on its label) and the hero Pause/Play.
