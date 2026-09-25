@@ -11,6 +11,8 @@ import { shouldFocusMainAfterDrawerUnmount } from '../utils/drawer-close-focus';
 import { selectPlural } from '../utils/plural-templates';
 import { BagFigure, CartLine } from './cart-line';
 import { useBagController } from './use-bag-controller';
+import { buttonClassName } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export interface BagDrawerProps {
   strings: BagDrawerStrings;
@@ -20,9 +22,8 @@ export interface BagDrawerProps {
 }
 
 const TEXT_ACTION =
-  'type-small inline-flex min-h-11 cursor-pointer items-center text-text underline decoration-text-secondary decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:decoration-text';
-const PRIMARY_LINK =
-  'inline-flex min-h-12 w-full items-center justify-center rounded-sm bg-action px-7 font-body font-medium text-on-action transition-colors duration-fast ease-ui hover:bg-action-hover active:bg-action-hover';
+  'type-supporting inline-flex min-h-(--size-tap) cursor-pointer items-center text-text underline decoration-text-secondary decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:decoration-text';
+const PRIMARY_LINK = buttonClassName({ block: true });
 
 /**
  * Closes for a navigation (a line name, View bag, the empty state's link, or any pathname
@@ -134,14 +135,14 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
       <AfterTrapUnmount onUnmount={afterTrapUnmount} />
       <DialogBackdrop
         transition
-        className="fixed inset-0 bg-scrim transition-opacity duration-base ease-ui data-closed:opacity-0"
+        className="fixed inset-0 bg-overlay transition-opacity duration-base ease-sheet data-closed:opacity-0"
       />
 
       {/* From the inline end at every width: the same side as the Bag icon, full height. */}
       <div className="fixed inset-0 flex justify-end">
         <DialogPanel
           transition
-          className="flex h-full w-full max-w-[26rem] flex-col bg-bg text-text transition duration-base ease-ui data-closed:translate-x-full rtl:data-closed:-translate-x-full"
+          className="flex h-full w-full max-w-[28.75rem] flex-col bg-surface text-text shadow-(--shadow-overlay) transition duration-base ease-sheet data-closed:translate-x-full rtl:data-closed:-translate-x-full"
         >
           <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border py-2.5 ps-5 pe-3 md:ps-8 md:pe-5">
             <div className="min-w-0 py-2">
@@ -189,14 +190,17 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
             )}
 
             {view.kind === 'empty' && (
-              <div className="flex flex-col items-start gap-4 py-12">
-                <h3 ref={emptyHeading} tabIndex={-1} className="type-body-lg focus:outline-none">
-                  {strings.status.emptyTitle}
-                </h3>
-                <Link href={shopHref} onClick={navigate} className={TEXT_ACTION}>
-                  {strings.status.emptyAction}
-                </Link>
-              </div>
+              <EmptyState
+                titleAs="h3"
+                titleRef={emptyHeading}
+                titleFocusable
+                title={strings.status.emptyTitle}
+                actions={
+                  <Link href={shopHref} onClick={navigate} className={TEXT_ACTION}>
+                    {strings.status.emptyAction}
+                  </Link>
+                }
+              />
             )}
 
             {rows && (
@@ -243,7 +247,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
               )}
               {/* Reserved for Checkout (CD-17): nothing renders here in this phase. */}
               <div data-checkout-action="" className="empty:hidden" />
-              <Link href={BAG_HREF} onClick={navigate} data-surface="ink" className={PRIMARY_LINK}>
+              <Link href={BAG_HREF} onClick={navigate} className={PRIMARY_LINK}>
                 {strings.viewBag}
               </Link>
               <div className="flex justify-center">

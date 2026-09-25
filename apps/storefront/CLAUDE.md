@@ -17,28 +17,61 @@ it, and off in production builds until a commerce strategy exists (see _Checkout
 
 ## Design guideline
 
-The visual source of truth is `docs/design/moon-fashion-website-design-guideline.md`
-(moved out of `public/` so it isn't publicly served). The original logo artwork is
+The visual source of truth is the **Moon Fashion storefront design system** (Claude Design
+artifact, approved 2026-09-25), which supersedes
+`docs/design/moon-fashion-website-design-guideline.md` wherever they disagree. Phase 1
+(foundations and shared primitives) is implemented; page compositions still follow their
+own plans until their phase. The original logo artwork is
 `docs/design/brand/moon-fashion-logo-original.png`.
 
 ## Token and utility vocabulary
 
-Semantic Moon utilities (`bg-bg`, `bg-surface`, `bg-surface-soft`, `text-text`,
-`text-text-secondary`, `border-border`, `bg-brand`/`text-brand-dark`, `bg-action`/
-`text-on-action`, `bg-disabled`/`text-disabled`/`border-disabled`, `text-error` for
-validation messages only, always beside an icon and text so colour never carries the
-meaning alone) and the `type-*`
-typography utilities (`type-display-xl` … `type-caption`, `type-label`) are the
-preferred API — components never reference `--moon-*` custom properties directly.
+Three tiers in `app/globals.css`: the ten approved **brand** colours (canonical, never
+edited), **derived** tints a contrast rule needs (`bronze-deep`, `stone`, `muted-deep`,
+`on-dark-muted`, `control-border`, `disabled-ink` — never new hues), and the **semantic**
+`@theme inline` names components use. Semantic utilities: `bg-bg`, `bg-surface`,
+`bg-surface-soft` (Sand), `bg-surface-media` (the Stone packshot mat), `text-text`,
+`text-text-secondary`, `border-border` (decorative hairline), `border-control` (an input's
+boundary, 3.5:1), `bg-brand`/`text-brand`/`text-brand-dark` = `bg-accent`/`text-accent`
+(Bronze, re-pointed per surface), `bg-action`/`text-on-action` (the primary action: **Ink**
+on light grounds, Ivory with Ink text on dark ones), `bg-disabled-surface`/
+`text-on-disabled` (a disabled filled control), `text-disabled`/`border-disabled` (a
+disabled outline), `bg-overlay` (behind drawers and sheets), and the semantic-only status
+colours `text-danger` (`text-error` is its legacy alias; write `danger`), `text-success`, `text-notice` /
+`bg-notice-surface` — always beside an icon and text so colour never carries the meaning
+alone. Layout, sizing and motion tokens: `--container-max|wide|editorial`, `--measure`,
+`--page-gutter`, `--section-space` (`section-y`) and `--section-space-commerce`
+(`section-y-commerce`, ×0.72), `--size-tap` (44) / `--size-control` (52) /
+`--size-control-sm` / `--size-control-lg`, `--z-sticky|header|overlay|drawer|toast`,
+`aspect-product|portrait|campaign|cinema|landscape`, `rounded-control` (2px),
+`duration-fast|base|slow|cinematic`, `ease-ui|editorial|sheet`.
+
+The `type-*` utilities are the typography API (listed with their roles at the top of the
+Typography block in `globals.css`): `type-display-xl`, `type-display`,
+`type-section-title`, `type-page-title`, `type-title`, `type-eyebrow`, `type-body-lg`,
+`type-body`, `type-supporting`, `type-product-title`, `type-price`, `type-field-label`,
+`type-ui`, `type-label`, `type-caption`. The older `type-h1`…`type-h4` and `type-small` keep
+working and resolve to the new scale (`type-h1` = section title, `type-h2` = page title,
+`type-h3` = title, `type-small` = supporting). Every step sets its Arabic size, leading and
+weight explicitly. Components never reference raw palette custom properties directly.
+
+Shared primitives live in `components/ui/`: `Button` (+ `buttonClassName` for a link that
+must look like one; `primary | accent | secondary | brand | quiet`, `sm | md | lg`,
+`loading`), `IconButton`, `EditorialLink`, `Container` (`page | wide | editorial`),
+`SectionHeader` / `Eyebrow`, `field.tsx` (`FieldLabel`, `FieldHint`, `FieldError`,
+`Input`, `Select`, `Textarea`, `Choice`), `Badge`, `StatusText`, `Notice`, `EmptyState`.
+Control classes shared by features: `.field-frame` / `.field-input` / `.field-control`,
+`.choice`, `.option-cell` (size cells; `data-unavailable`), `.stepper`.
 Default Tailwind utilities (`text-white`, `bg-black`, `rounded-sm`, …) remain
 available and are sometimes the right choice, but reach for the semantic name first;
 raw palette values belong only inside the token layer (`app/globals.css`).
 
-Tailwind's own built-in `stone-*` palette is a trap here: the guideline's `--moon-
-stone-*` tokens are **not** exposed as `stone-*` utilities (that name is already
-Tailwind's own grey scale, a different, coincidentally similar colour). Any state
-that needs a `--moon-stone-*` value gets its own semantic name instead — see
-`--color-disabled` in `app/globals.css`.
+Tailwind's own built-in `stone-*` palette is a trap here: the design system's Stone
+(`--color-stone` in the token layer, the packshot mat) is **not** exposed as a `stone-*`
+utility (that name is already Tailwind's own grey scale, a different, coincidentally
+similar colour). Components reach it as `bg-surface-media`; any other state that needs a
+raw palette value gets its own semantic name — see `--color-disabled` in
+`app/globals.css`.
 
 `type-*` names are deliberately outside the `text-*` group so `tailwind-merge`
 never needs configuring: `type-h1 text-text` is two unrelated utilities, not a
@@ -50,10 +83,17 @@ responsive variant on the same element (`type-display md:type-display-xl`, the h
 title), where Tailwind emits the variant after the base utility and the winner is
 deterministic.
 
-### Media radius (owner decision, 2026-09-14)
+### Media radius
 
-One token pair in `app/globals.css`'s `@theme inline`: `--radius-media` (12px, the
-`rounded-media` utility) and `--radius-media-sm` (8px, `rounded-media-sm`). Never a raw
+**Superseded (design system, 2026-09-25; owner-approved override): the architecture is
+square.** This is the current rule, not an experiment: do **not** restore the 2026-09-14
+rounded frames. `--radius-media` and `--radius-media-sm` are `0px`; the names, and every
+rule below about which element carries them, stay so the frames keep one token-driven
+switch — never a per-component `rounded-none` or a raw radius. Controls take `rounded-control` (2px); `rounded-pill` is only for round
+marks. The rest of this section is the 2026-09-14 record.
+
+One token pair in `app/globals.css`'s `@theme inline`: `--radius-media` (was 12px, the
+`rounded-media` utility) and `--radius-media-sm` (was 8px, `rounded-media-sm`). Never a raw
 `rounded-[12px]`. `rounded-media`: the product card image frame, category tiles, the
 collections index photographs, the collection intro image, the featured collection's
 two frames, lookbook images, the editorial strip photographs, the gallery frame and its
@@ -80,15 +120,17 @@ fonts already use (`--font-display: var(--font-display-active)`): `--surface-bg`
 into `--color-bg` / `--color-text` / `--color-text-secondary` / `--color-border`, and a
 surface overrides the `--surface-*` variables:
 
-| `data-surface` | Where                                                                  | Effect                                                       |
-| -------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `ink`          | the footer, the hero, the promo banner, the campaign, primary `Button` | ink bg, ivory text, stone-600 hairline, ivory focus ring     |
-| `overlay`      | resolved on the header (see below)                                     | transparent bg and border, ivory text, ivory focus ring      |
-| `auto`         | what the header renders from the server                                | overlay when the page has a header boundary, solid otherwise |
-| `solid`        | written by `HeaderShell` as soon as the page scrolls                   | the defaults                                                 |
+| `data-surface` | Where                                                                 | Effect                                                                                                                  |
+| -------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ink` / `dark` | the footer, the hero, the promo banner, the campaign, the mobile menu | Espresso bg, ivory text, on-dark-muted secondary, Champagne accent and focus ring, the primary action inverted to Ivory |
+| `navy`         | the one nocturnal moment                                              | Midnight bg, otherwise as `ink`                                                                                         |
+| `sand`         | quiet tonal bands                                                     | Sand bg, muted-deep secondary, bronze-deep accent                                                                       |
+| `overlay`      | resolved on the header (see below)                                    | transparent bg and border, ivory text, Champagne focus ring                                                             |
+| `auto`         | what the header renders from the server                               | overlay when the page has a header boundary, solid otherwise                                                            |
+| `solid`        | written by `HeaderShell` as soon as the page scrolls                  | the defaults                                                                                                            |
 
 Components keep reading `text-text` / `bg-bg` / `border-border` and never set colours
-per surface. Never override raw `--moon-*` in scope (it would also recolour
+per surface. Never override a raw palette variable in scope (it would also recolour
 `--color-action`), and never move colours out of `@theme inline` for one feature.
 
 ### The header boundary
@@ -117,8 +159,14 @@ mode here. Browsers without `:has()` get a solid header over the scrimmed hero.
 
 The gold logo is never recoloured for the overlay surface: the hero is dusk-toned so
 gold and ivory read on it, and contrast is code-guaranteed by scrims, not by the image
-(see _Image pipeline_). A stacked lockup at 52px is the known cost of "no new logo
-composition"; a brand-approved horizontal lockup is the unblock, still deferred.
+(see _Image pipeline_). The header shows the **crescent mark alone** at every width (40px,
+48px from 1024; design system 2026-09-25) — the stacked lockup was unreadable at header
+height — and the footer carries the full lockup. Solid, the header has a hairline lower
+edge (`--shadow-sticky`); over a hero it has none.
+
+The header holds exactly: Shop, New In, Collections (a Menu button with the word below
+1024), the mark, the language toggle and the Bag. The Search and Account icons were
+removed (their routes do not exist); they return with their features.
 
 ## Locale and RTL rules
 
@@ -135,17 +183,24 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
   in it (a file extension-shaped slug, for instance) would silently bypass locale
   handling — the root layout's `hasLocale` guard is defence in depth against that, but
   the matcher is the thing to fix if it happens.
-- Faces (user decision, 2026-09-13, superseding the guideline's Bodoni Moda / Manrope
-  and Noto Serif Arabic / IBM Plex Sans Arabic): English display **Lora**, English
-  body/UI **Inter**; Arabic **Tajawal** for both roles (`app/fonts.ts`). Tajawal is not
-  a variable font, so its weights are listed there. The guideline's typography chapter
-  is stale against this decision. The `type-*` line-heights under `:lang(ar)` were
-  tuned for a Naskh face; Tajawal's shorter ascenders may allow tightening them after
-  the screenshot review.
-- `app/fonts.ts` calls all three font loaders in one module, so `next/font` preloads
-  every face on every locale's render, not just the active family — confirmed in the
-  built HTML. The Arabic face opts out with `preload: false` since `en` is the default
-  locale; don't add a fourth family here without rechecking preload output.
+- Faces (design system, 2026-09-25, superseding the 2026-09-13 Lora / Inter / Tajawal
+  decision): English display **Instrument Serif**, English UI/body **Hanken Grotesk**;
+  Arabic display **Amiri**, Arabic UI/body **Tajawal** (`app/fonts.ts`). Amiri is for
+  editorial display only — never prices, forms, filters, product names in a listing or
+  small controls; `--font-ui` (`font-ui`, and every interface `type-*` step) is Hanken /
+  Tajawal in both locales, and `[data-product-name]` switches to it in Arabic. Arabic has
+  no italic: `<em>` is upright, and in a display heading it takes the accent colour.
+- The faces are **self-hosted** with `next/font/local` (`assets/fonts/`, SIL OFL, licences
+  beside the files), so `next build` fetches nothing from Google Fonts. The Latin faces
+  carry only the Latin subset and the Arabic faces only the Arabic subset: on `/ar`, Latin
+  letters and digits (prices, sizes, phone numbers) fall through to Hanken / Instrument, so
+  numerals look the same in both locales. The Latin faces keep next/font's size-adjusted
+  fallback; the Arabic ones set `adjustFontFallback: false` so their variable ends at the
+  family name and the Latin face after it in the stack is reached. `app/[locale]/layout.tsx`
+  puts the Latin variables on both locales and the Arabic ones on `/ar` only.
+- Preload (confirmed in the built HTML): the five Latin files (~84 KB) on every page; the
+  Arabic faces `preload: false` (Amiri is ~100 KB a weight). Don't add a family here
+  without rechecking preload output.
 
 ## Client boundary rule
 
@@ -293,7 +348,7 @@ cost ~9 KB gz for the parallax. Measure the eager chunks of `.next/server/app/en
 after touching anything under `components/motion/` before trusting a size claim.
 
 Client islands receive translated strings as props, never the message catalogue —
-`MobileMenu`'s props are `menuLabel`/`closeLabel`/`primaryLabel`/`accountLabel`, a
+`MobileMenu`'s props are `menuLabel`/`closeLabel`/`primaryLabel`, a
 resolved `items` array and `localeSwitcher`; `LocaleSwitcher`'s are `groupLabel` and
 `labels: Record<AppLocale, string>`, resolved on the server by
 `components/layout/locale-labels.ts` — not a namespace object. The layout's
@@ -471,7 +526,7 @@ photograph keeps its real name, price, link and Add to Bag over the
 `ProductImagePlaceholder` frame — a catalogue missing its photography, which is true.
 The static set stands in for one condition only, an API that cannot answer
 (unconfigured, `ApiError`, or empty), and it carries no link and no price. The old rule
-fell back below four *photographed* products, which conflated "no photos" with "no
+fell back below four _photographed_ products, which conflated "no photos" with "no
 catalogue": a seeded database has no `product_images` at all, so the rail was **always**
 the static set, publishing invented names and eight hard-coded prices as the shop's own
 (MED-3; one disagreed with the product's own page by 350 EGP). `product-rail.tsx` adds
@@ -635,7 +690,7 @@ express a withdrawal. Next writes its data cache only on `res.status === 200`, s
 product is deactivated the background revalidation receives the API's 404, the entry is
 never replaced, and the stale purchasable page is served forever: 64 consecutive samples
 over 16 minutes on a production build (HIGH-2). Lowering `revalidate` does not help; the
-entry is stale *and still served*.
+entry is stale _and still served_.
 
 The route calls `revalidateTag(tag, { expire: 0 })`, deliberately **not** the
 documented-recommended `'max'`: a profile sets how long stale content may still be
@@ -644,10 +699,10 @@ semantic by default but is Server-Action-only and cannot be used in a Route Hand
 `proxy.ts`'s matcher excludes `api`, or the ping is answered with a 307 to
 `/en/api/revalidate` and never reaches a handler.
 
-| Variable | Where | Meaning |
-| --- | --- | --- |
-| `REVALIDATE_TOKEN` | storefront, runtime | Comma list (current,next), each >= 32 bytes. Unset: the route refuses everyone, and invalidation is TTL-only. |
-| `STOREFRONT_REVALIDATE_URL` / `STOREFRONT_REVALIDATE_TOKEN` | server | Where to ping and with what. Unset on a POS-only deployment, which skips the ping entirely. |
+| Variable                                                    | Where               | Meaning                                                                                                       |
+| ----------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `REVALIDATE_TOKEN`                                          | storefront, runtime | Comma list (current,next), each >= 32 bytes. Unset: the route refuses everyone, and invalidation is TTL-only. |
+| `STOREFRONT_REVALIDATE_URL` / `STOREFRONT_REVALIDATE_TOKEN` | server              | Where to ping and with what. Unset on a POS-only deployment, which skips the ping entirely.                   |
 
 The tag vocabulary is duplicated by hand as `storefrontTags` in
 `apps/server/src/storefront/revalidate.ts` — neither app may import the other, so the two
@@ -756,14 +811,14 @@ and no "View details" link: the title already opens the product page, and a seco
 anchor would double every card's tab stops to reach it while competing with the one
 action.
 
-- **Frame**: a **4:5** photograph on `bg-surface-soft` with `rounded-media` (12px), no
+- **Frame**: a **4:5** photograph on `bg-surface-soft` with `rounded-media` (square since 2026-09-25), no
   border, no shadow, no plate. The 2026-09-20 bare-3:4 pass is reverted: pale garments
   on an ivory page have no edge of their own, so the radius and the sand surface are
   what draw the tile, and the `data-motion="image"` wipe matches the frame with no
   `--radius-media` override. The editorial assets are authored at 4:5.
-- **Badge**: printed on the photograph again (top inline start), `type-caption`,
-  uppercase, tracked `0.22em` (untracked in Arabic), bronze for New and ink for Sold
-  out. It is last inside the frame, and the caption below is what the link names, so
+- **Badge**: printed on the photograph again (top inline start), the shared `Badge`
+  on its Ivory plate (`onImage`, design system 2026-09-25): a dot plus the word, uppercase
+  and tracked in English only: an Ink word with a Gold dot for New, Garnet for Sold out. It is last inside the frame, and the caption below is what the link names, so
   the reading order stays "&lt;name&gt;, &lt;price&gt;".
 - **Caption**: name and price on one baseline, then the description. The name is
   `type-body-lg`, weight 500, **full ink**, in the display face (set on
@@ -1169,7 +1224,7 @@ validated by hand against the request (line count, index, slug, statuses, numeri
 `subtotal === Σ lineTotal`, compared in piastres so a decimal price is not judged by float
 equality. Anything off throws `INVALID_RESPONSE`. The arithmetic checks were added by
 MED-8: without them the guard proved a response was well-formed but not that it was
-*right*, so "a wrong price must fail, not render" only ever meant a malformed one. The server side (edge chain, `STOREFRONT_ORIGINS`
+_right_, so "a wrong price must fail, not render" only ever meant a malformed one. The server side (edge chain, `STOREFRONT_ORIGINS`
 CORS, limiter, `no-store`) is `apps/server/CLAUDE.md` → _Public catalog_. An environment
 without `NEXT_PUBLIC_API_URL` at build, or without the storefront origin in the API's
 `STOREFRONT_ORIGINS`, shows the bag's failed state on every quote.
@@ -1230,7 +1285,7 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   "You can add up to 10 of this piece"; `full` (30 lines) is an error "Your bag is full…" and
   adds nothing. `needsSelection` keeps the button enabled: a press focuses the first
   unselected option's radio, shows "Choose a {option}" under that option's legend
-  (`text-error` garnet with `CircleAlert`, legend turns ink; owner feedback 2026-09-15: the
+  (`text-danger` garnet with `CircleAlert`, legend turns ink; owner feedback 2026-09-15: the
   grey status-line prompt was hard to see, and errors read as red) and raises the same text
   as an error toast; choosing a value dismisses it. The inline prompt is not a live region
   (the toast announces it) and keeps `min-h-6` reserved, so the cells and Add to Bag never
@@ -1340,7 +1395,7 @@ pausing on hover and focus. `unstyled` + semantic utilities, an ink pill (owner 
 2026-09-15): `rounded-media`, `bg-action text-on-action`, no border,
 `shadow-(--shadow-overlay)` (a floating surface), `type-small`, 16px lucide icon at the
 inline start (`CircleCheck` success and `Info` info in the text colour; `CircleAlert` error
-in `text-error` on a small `bg-surface` badge, since garnet fails contrast on ink), the
+in `text-danger` on a small `bg-surface` badge, since garnet fails contrast on ink), the
 action an underlined 44px text button, a 44px close button named "Dismiss". The toast sets
 `--focus-ring-color` to its text colour so the focus ring stays visible on ink. Durations: success/info 4s, error 7s (`TOAST_DURATION_MS`). Reduced motion: Sonner's
 own `prefers-reduced-motion` rule removes its transitions, and the global rule zeroes the
@@ -1704,14 +1759,14 @@ The storefront's convention is pure-function-first, and most of it stays that wa
 default vitest environment is `node`, and a suite that needs a DOM opts in with
 `// @vitest-environment jsdom` at the top of the file. Nothing gains a DOM by accident.
 
-Two suites use it, both because the thing under test *is* the DOM behaviour rather than a
+Two suites use it, both because the thing under test _is_ the DOM behaviour rather than a
 rule a pure function could hold:
 
 - `features/cart/components/quick-add.test.tsx` — the panel opening, focus moving to the
   first unanswered group, Escape and outside-pointer closing with focus restored, the
   sold-out disc staying `aria-disabled` rather than `disabled`, and that one press never
   adds a default silently. This is the one client island whose behaviour is the contract
-  (→ *Cart* → *Surfaces*), and it had none: three commits rewrote it on a branch with no
+  (→ _Cart_ → _Surfaces_), and it had none: three commits rewrote it on a branch with no
   regression check (MED-7).
 - `features/cart/store/cart-store-cross-tab.test.ts` — the `storage` event, the
   `key === null` clear, and the subscribe/unsubscribe listener lifecycle, which is where a
@@ -1822,9 +1877,11 @@ caching/revalidation/dynamic strategy; nothing here requires any route to stay s
 
 ## Mobile menu typography exception
 
-The mobile menu's primary links render at `type-h2`, not the `type-label` every other
-nav link uses — a deliberate editorial choice (guideline §5 exception), passed through
-`NavLink`'s `typography` prop rather than via `className`. The footer's shop links use
+The mobile menu is a composed Espresso panel (`data-surface="ink"`, design system
+2026-09-25): numbered links at `type-section-title`, not the `type-ui` every other nav
+link uses, passed through `NavLink`'s `typography` prop rather than via `className`; a
+gold hairline; the language switch at the foot. The Account link it carried is gone with
+the header's Account icon. The footer's shop links use
 the same prop for `type-body`. See that prop's doc comment for why: `tailwind-merge`
 doesn't know about the custom `type-*` utilities, so two of them on one element would
 both apply and the CSS source order — not the component prop — would decide which wins.

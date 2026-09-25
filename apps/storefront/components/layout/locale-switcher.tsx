@@ -28,7 +28,7 @@ export function LocaleSwitcher({ labels, groupLabel }: LocaleSwitcherProps) {
 
         if (loc === locale) {
           return (
-            <span key={loc} aria-current="true" className="type-label text-text">
+            <span key={loc} aria-current="true" className="type-ui text-text">
               {label}
             </span>
           );
@@ -40,7 +40,7 @@ export function LocaleSwitcher({ labels, groupLabel }: LocaleSwitcherProps) {
             href={pathname}
             locale={loc}
             lang={loc}
-            className="type-label text-text-secondary transition-colors duration-fast ease-ui hover:text-text"
+            className="type-ui text-text-secondary transition-colors duration-fast ease-ui hover:text-text"
           >
             {label}
           </Link>
@@ -80,7 +80,7 @@ export function LocaleToggle({ labels, shortLabels, className }: LocaleTogglePro
       lang={target}
       aria-label={labels[target]}
       className={cn(
-        'type-label flex h-11 min-w-11 items-center justify-center px-2 text-text',
+        'type-ui flex h-(--size-tap) min-w-(--size-tap) items-center justify-center px-2 text-text',
         'transition-opacity duration-fast ease-ui hover:opacity-70',
         className
       )}

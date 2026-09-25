@@ -366,15 +366,15 @@ export function CatalogControls({
       >
         <DialogBackdrop
           transition
-          className="fixed inset-0 bg-scrim transition-opacity duration-base ease-ui data-closed:opacity-0"
+          className="fixed inset-0 bg-overlay transition-opacity duration-base ease-sheet data-closed:opacity-0"
         />
 
         <div className="fixed inset-0 flex items-end md:items-stretch md:justify-end">
           <DialogPanel
             transition
             className={cn(
-              'flex max-h-[85dvh] w-full flex-col bg-bg text-text md:h-full md:max-h-none md:w-[26rem]',
-              'transition duration-base ease-ui data-closed:opacity-0',
+              'flex max-h-[85dvh] w-full flex-col bg-surface text-text shadow-(--shadow-overlay) md:h-full md:max-h-none md:w-[26rem]',
+              'transition duration-base ease-sheet data-closed:opacity-0',
               // Bottom sheet rises from below; the side sheet slides in from the inline end.
               'data-closed:translate-y-6 md:data-closed:translate-x-8 md:data-closed:translate-y-0 rtl:md:data-closed:-translate-x-8'
             )}
@@ -401,14 +401,14 @@ export function CatalogControls({
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-8 md:px-8">
               <fieldset>
                 <legend className="type-label text-text">{strings.availability}</legend>
-                <label className="type-body mt-3 flex min-h-11 cursor-pointer items-center gap-3">
+                <label className="type-body mt-3 flex min-h-(--size-tap) cursor-pointer items-center gap-3">
                   <input
                     type="checkbox"
                     checked={sheet.staged.inStock}
                     onChange={(event) =>
                       dispatch({ type: 'stage', patch: { inStock: event.target.checked } })
                     }
-                    className="size-5 shrink-0 cursor-pointer accent-action"
+                    className="choice"
                   />
                   {strings.inStockOnly}
                 </label>
@@ -424,17 +424,19 @@ export function CatalogControls({
                 <div className="clear-both grid grid-cols-2 gap-3 pt-5">
                   {(['min', 'max'] as const).map((field) => (
                     <div key={field}>
-                      <label htmlFor={`${ids}-${field}`} className="type-small text-text-secondary">
+                      <label
+                        htmlFor={`${ids}-${field}`}
+                        className="type-field-label text-text-secondary"
+                      >
                         {strings[field]}
                       </label>
                       <div
-                        className={cn(
-                          'mt-2 flex min-h-12 items-center rounded-sm border bg-bg',
-                          'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-(--focus-ring-color)',
+                        className="field-frame mt-2"
+                        data-invalid={
                           (field === 'min' ? showMinError : showMaxError) || showOrderError
-                            ? 'border-text'
-                            : 'border-border'
-                        )}
+                            ? ''
+                            : undefined
+                        }
                       >
                         <input
                           id={`${ids}-${field}`}
@@ -459,9 +461,9 @@ export function CatalogControls({
                           onKeyDown={(event) => {
                             if (event.key === 'Enter') applyFromSheet();
                           }}
-                          className="type-body min-w-0 flex-1 bg-transparent py-2 ps-3 tabular-nums placeholder:text-text-secondary focus:outline-none"
+                          className="field-input tabular-nums"
                         />
-                        <span className="type-small shrink-0 ps-2 pe-3 text-text-secondary">
+                        <span className="type-supporting shrink-0 pe-4 text-text-secondary">
                           {currencyLabel}
                         </span>
                       </div>
@@ -471,7 +473,10 @@ export function CatalogControls({
                 {/* Height reserved; not a live region, since the error toast announces it. */}
                 <div className="min-h-6 pt-3">
                   {errorText && (
-                    <p id={errorId} className="type-small flex items-start gap-2 text-error">
+                    <p
+                      id={errorId}
+                      className="type-supporting flex items-start gap-2 font-medium text-danger"
+                    >
                       <CircleAlert
                         size={16}
                         strokeWidth={1.5}

@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonClassName } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import { CHECKOUT_ENTRY_ENABLED, CHECKOUT_HREF } from '../constants';
@@ -10,8 +10,9 @@ import {
 } from '../utils/checkout-entry-model';
 import type { CheckoutReadiness } from '../utils/checkout-readiness';
 
-const PRIMARY_LINK =
-  'inline-flex min-h-12 w-full items-center justify-center rounded-sm bg-action px-7 font-body font-medium text-on-action transition-colors duration-fast ease-ui hover:bg-action-hover active:bg-action-hover';
+// The link carries the Button family's classes (components/ui/button.tsx), so the enabled
+// link and the disabled button are the same control in two states.
+const PRIMARY_LINK = buttonClassName({ block: true });
 
 export interface CheckoutEntryProps {
   readiness: CheckoutReadiness;
@@ -35,19 +36,15 @@ export function CheckoutEntry({ readiness, strings, locale }: CheckoutEntryProps
   return (
     <div className="pt-6">
       {model.kind === 'link' ? (
-        <Link href={CHECKOUT_HREF} data-surface="ink" className={PRIMARY_LINK}>
+        <Link href={CHECKOUT_HREF} className={PRIMARY_LINK}>
           {strings.action}
         </Link>
       ) : (
-        <Button
-          aria-disabled
-          aria-describedby={reasonId}
-          className="w-full aria-disabled:cursor-not-allowed aria-disabled:bg-disabled aria-disabled:hover:bg-disabled"
-        >
+        <Button aria-disabled aria-describedby={reasonId} block>
           {strings.action}
         </Button>
       )}
-      <p id={reasonId} className="type-small mt-2 min-h-lh text-text-secondary">
+      <p id={reasonId} className="type-supporting mt-2 min-h-lh text-text-secondary">
         {model.kind === 'unavailable' ? checkoutEntryReasonText(model.reason, strings, locale) : ''}
       </p>
     </div>

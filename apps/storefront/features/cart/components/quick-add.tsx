@@ -56,12 +56,8 @@ const CHOOSE_TOAST_ID = 'quick-add-choose';
 // The option cell, the product page's (`purchase-panel.tsx`): a visually hidden radio
 // whose label draws the state and the focus ring, 44px so a thumb can hit it. Sold-out
 // values stay enabled and findable — dashed, struck through and named to a screen reader.
-const CELL = [
-  'relative flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-media-sm border border-border px-3',
-  'transition-colors duration-fast ease-ui',
-  'hover:border-text has-checked:border-text has-checked:shadow-[inset_0_0_0_1px_var(--color-text)]',
-  'has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-solid has-focus-visible:outline-(--focus-ring-color)',
-].join(' ');
+// `.option-cell` (app/globals.css): the product page's size cell, shared.
+const CELL = 'option-cell';
 
 /**
  * Add to Bag on a product card, with Quick Add (the twentieth client boundary; owner
@@ -306,7 +302,7 @@ export function QuickAdd({
                 aria-describedby={prompted ? promptId : undefined}
                 className={optionIndex === 0 ? 'min-w-0' : 'mt-4 min-w-0'}
               >
-                <legend className="type-label pe-8 text-text-secondary">
+                <legend className="type-field-label pe-8 text-text-secondary">
                   <span dir={staff ? 'auto' : undefined}>
                     {chosen === null
                       ? fillTemplate(strings.chooseOption, { option: legend })
@@ -324,7 +320,8 @@ export function QuickAdd({
                     return (
                       <label
                         key={value}
-                        className={available ? CELL : `${CELL} border-dashed bg-surface-soft`}
+                        data-unavailable={available ? undefined : ''}
+                        className={CELL}
                       >
                         <input
                           type="radio"
@@ -363,7 +360,7 @@ export function QuickAdd({
                 {prompted && (
                   <p
                     id={promptId}
-                    className="type-caption mt-2 flex items-start gap-1.5 font-medium text-error"
+                    className="type-caption mt-2 flex items-start gap-1.5 font-medium text-danger"
                   >
                     <CircleAlert
                       size={14}

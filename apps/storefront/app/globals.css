@@ -6,83 +6,114 @@
 @custom-variant banner-wide (@media (min-width: 768px) and (min-aspect-ratio: 4/3));
 
 /* ============================================================
-   Tokens — guideline §4 (color), §6 (grid/spacing), §7 (shape),
-   §13/§19 (motion). Components read the semantic mapping below
-   (via @theme inline), never --moon-* directly.
+   Tokens — the Moon Fashion storefront design system (Claude Design artifact
+   "Moon Fashion", 2026-09-25), mapped onto the existing Tailwind v4 layer.
+   Three tiers, and components only ever read the last one:
+
+   1. Brand palette  the ten approved colours, canonical and unchanged.
+   2. Derived        tints of those ten that a contrast rule needs (never new hues).
+   3. Semantic       `@theme inline` names (`bg-bg`, `text-text`, `bg-action`, ...),
+                     routed through the `--surface-*` indirection below so a
+                     `data-surface` can re-point them.
+
+   Status colours (`danger`, `success`, `notice`) are semantic only: they always
+   travel with a word or an icon and are never brand colours.
    ============================================================ */
 :root {
-  /* Approved Logo-First Brand Palette */
+  /* 1. Brand palette (approved, logo-first). */
   --color-ivory: #faf8f4;
   --color-ink: #1b1917;
-
   --color-bronze: #7a5b34;
-  --color-bronze-dark: #634726;
-
   --color-gold: #b79564;
   --color-champagne: #d4b688;
-
   --color-espresso: #201a17;
   --color-midnight-navy: #161b26;
   --color-sand: #e8ddd0;
-
   --color-warm-surface: #fffdf9;
   --color-muted-text: #6f675f;
 
-  /* Legacy brand aliases for backward compatibility */
-  --moon-ink: var(--color-ink);
-  --moon-charcoal: var(--color-espresso);
-  --moon-ivory: var(--color-ivory);
-  --moon-cream: var(--color-sand);
-  --moon-white: var(--color-warm-surface);
-  --moon-gold: var(--color-gold);
-  --moon-gold-light: var(--color-champagne);
-  --moon-gold-soft: #eee3d2;
-  --moon-gold-dark: var(--color-bronze);
-  --moon-stone-100: #f1eeea;
-  --moon-stone-200: var(--color-sand);
-  --moon-stone-400: #aaa39c;
-  --moon-stone-600: var(--color-muted-text);
-  --moon-garnet: #9b2c2c;
+  /* 2. Derived. Each exists because a contrast pair needs it (ratios against the
+     ground named, WCAG 2.2):
+     bronze-deep    hover/pressed of Bronze; text on Sand 6.4:1, on Ivory 8.0:1
+     stone          the packshot mat and quiet commerce panels (muted-text 4.8:1)
+     muted-deep     secondary text on Sand, where muted-text is 4.1:1 and fails
+     on-dark-muted  secondary text on Espresso (7.8:1) and Midnight (7.8:1)
+     control-border input, select, size-cell and stepper boundary, 3.5:1 on Ivory
+     disabled-ink   the struck-through/disabled mark on outlines (decorative) */
+  --color-bronze-deep: #634726;
+  --color-stone: #f1eeea;
+  --color-muted-deep: #5a534c;
+  --color-on-dark-muted: #b8ad9f;
+  --color-control-border: #8c837a;
+  --color-disabled-ink: #aaa39c;
 
-  /* Layout (guideline §6). Container tracks the 12-column desktop grid's
-     max width; gutters and section spacing step up by breakpoint below. */
+  /* Layout. The 12-column desktop grid's width; gutters and section spacing step up
+     by breakpoint below. The ≥1440 gutter (64px) stays wider than the design
+     system's 48px: `grid-layout.ts` and `gallery-layout.ts` mirror these values in
+     every image `sizes` string, and the extra 16px only shows past 1440. */
   --container-max: 1440px;
+  --container-wide: 1680px;
+  --container-editorial: 1120px;
+  --measure: 34em;
   --page-gutter: 20px;
   --section-space: 80px;
+  /* Commerce pages are calmer and denser than editorial chapters: 0.72x. */
+  --section-space-commerce: calc(var(--section-space) * 0.72);
 
-  /* Header flow slot (guideline §8: 72–84px desktop). The header is sticky and
-     keeps this slot; the homepage hero pulls up beneath it by the same amount. */
+  /* Header flow slot. The header is sticky and keeps this slot; the homepage hero
+     pulls up beneath it by the same amount. */
   --header-h: 64px;
+
+  /* Sizing. 44px is the floor for anything tappable; controls are taller. */
+  --size-tap: 44px;
+  --size-control: 52px;
+  --size-control-sm: 44px;
+  --size-control-lg: 60px;
+
+  /* Layers. The Headless UI dialogs keep their own z-50 wrappers; these name the
+     storefront's own stacking so a new overlay has a number to pick. */
+  --z-sticky: 30;
+  --z-header: 40;
+  --z-overlay: 60;
+  --z-drawer: 70;
+  --z-toast: 80;
 
   /* Surface indirection. Semantic colours are declared `@theme inline`, so
      `text-text` compiles to the *value* below and a scoped `--color-text`
      override would be inert. Mirroring --font-display-active: components keep
-     reading text-text / bg-bg / border-border, and a surface ([data-surface=
-     'overlay' | 'ink' | 'dark' | 'navy' | 'sand']) overrides these --surface-* variables instead. */
+     reading text-text / bg-bg / border-border / bg-action, and a surface
+     ([data-surface='overlay' | 'ink' | 'dark' | 'navy' | 'sand']) overrides these
+     --surface-* variables instead. */
   --surface-bg: var(--color-ivory);
   --surface-text: var(--color-ink);
   --surface-text-secondary: var(--color-muted-text);
   --surface-border: color-mix(in srgb, var(--color-ink) 12%, transparent);
+  --surface-control: var(--color-control-border);
+  --surface-accent: var(--color-bronze);
+  --surface-accent-hover: var(--color-bronze-deep);
+  /* The primary action. Ink on light grounds; on dark grounds it inverts to Ivory
+     with Ink text, so a primary action is never an ink block on Espresso. */
+  --surface-action: var(--color-ink);
+  --surface-action-hover: var(--color-bronze-deep);
+  --surface-on-action: var(--color-ivory);
 
-  /* Motion (guideline §13/§19). Mapped to Tailwind's --duration- and --ease-
-     theme keys below, under distinct names so that mapping isn't a
-     self-reference. */
+  /* Motion. Durations and easing; the reveal machinery below reads these. */
   --motion-fast: 180ms;
-  --motion-base: 300ms;
-  --motion-slow: 650ms;
+  --motion-base: 320ms;
+  --motion-slow: 700ms;
+  --motion-cinematic: 1400ms;
 
-  /* Shape (guideline §7). Tailwind's default --radius-xs (2px) and
-     --radius-sm (4px) already match the guideline; only md/lg need
-     overriding (Tailwind ships 6px/8px, the guideline wants 8px/12px) —
-     done directly in @theme below, since guideline §19 uses the same
-     token names Tailwind already defines. */
+  /* Shadows are for floating surfaces only (drawers, sheets, toasts, the card's
+     action disc); sections separate by tone and hairline. */
+  --shadow-overlay: 0 24px 64px -16px rgb(27 25 23 / 0.32);
+  /* The solid header's lower edge: a hairline drawn as a shadow so it adds no height. */
+  --shadow-sticky: 0 1px 0 0 color-mix(in srgb, var(--color-ink) 12%, transparent);
 
-  /* Used only by the mobile menu surface (guideline §7: shadows are for
-     floating/overlay surfaces, not general UI). */
-  --shadow-overlay: 0 16px 48px -12px rgb(27 25 23 / 0.28);
-
-  /* a11y: default brand bronze ring on light surfaces; switched on dark/editorial surfaces. */
+  /* Focus. A 2px solid ring, 3px out: Bronze on light grounds (5.9:1 on Ivory),
+     Champagne on dark grounds and photography (8.9:1 on Espresso). */
   --focus-ring-color: var(--color-bronze);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 3px;
 
   /* The gold hairline drawn as an accent rather than as a surface: the product
      name's hover rule and the product rail's progress thumb. Semantic, so a
@@ -91,15 +122,20 @@
 
   /* Locale font switch goes through this indirection, never through
      --font-display/--font-body directly — see app/[locale]/layout.tsx and
-     apps/storefront/CLAUDE.md. */
-  --font-display-active: var(--font-lora);
-  --font-body-active: var(--font-inter);
+     apps/storefront/CLAUDE.md. English: Instrument Serif / Hanken Grotesk. */
+  --font-display-active: var(--font-instrument-serif), 'Times New Roman', serif;
+  --font-body-active: var(--font-hanken-grotesk), 'Helvetica Neue', Arial, sans-serif;
+  /* The interface face whatever the locale's display face is: prices, forms, filters,
+     labels and product names never render in a display face in Arabic. */
+  --font-ui-active: var(--font-body-active);
 }
 
-/* Tajawal carries both roles in Arabic (app/fonts.ts). */
+/* Arabic: Amiri for editorial display, Tajawal for UI and body. Neither file carries
+   Latin glyphs, so Latin letters and digits fall through to the English faces named
+   next in each stack (app/fonts.ts). */
 :lang(ar) {
-  --font-display-active: var(--font-tajawal);
-  --font-body-active: var(--font-tajawal);
+  --font-display-active: var(--font-amiri), var(--font-instrument-serif), serif;
+  --font-body-active: var(--font-tajawal), var(--font-hanken-grotesk), Arial, sans-serif;
 }
 
 @media (min-width: 768px) {
@@ -124,6 +160,8 @@
 }
 
 @theme inline {
+  /* Brand palette, exposed as utilities (`bg-ivory`, `text-bronze`, ...) for the rare
+     place a component needs the literal brand colour; reach for the semantic name first. */
   --color-ivory: #faf8f4;
   --color-ink: #1b1917;
   --color-bronze: #7a5b34;
@@ -135,70 +173,102 @@
   --color-warm-surface: #fffdf9;
   --color-muted-text: #6f675f;
 
+  /* Surfaces. */
   --color-bg: var(--surface-bg);
   --color-surface: var(--color-warm-surface);
   --color-surface-soft: var(--color-sand);
   --color-surface-alt: var(--color-sand);
+  /* The packshot mat and the quiet commerce panels (checkout summary). Named apart
+     from Tailwind's own `stone-*` grey scale, which `stone` would shadow. */
+  --color-surface-media: var(--color-stone);
+  --color-dark-surface: var(--color-espresso);
+  --color-editorial-secondary: var(--color-midnight-navy);
 
+  /* Text. */
   --color-text: var(--surface-text);
   --color-text-secondary: var(--surface-text-secondary);
   --color-text-muted: var(--surface-text-secondary);
   --color-text-inverse: var(--color-ivory);
 
-  --color-brand: var(--color-bronze);
-  --color-brand-dark: #634726;
-  --color-brand-contrast: var(--color-ivory);
-  --color-brand-soft: color-mix(in srgb, var(--color-bronze) 14%, var(--color-warm-surface));
+  /* Lines. `border` is the decorative hairline; `control` bounds an input. */
+  --color-border: var(--surface-border);
+  --color-control: var(--surface-control);
 
+  /* Accent (Bronze). `brand` is kept as the accent's established name. */
+  --color-brand: var(--surface-accent);
+  --color-brand-dark: var(--surface-accent-hover);
+  --color-brand-contrast: var(--color-ivory);
+  --color-accent: var(--surface-accent);
+  --color-accent-hover: var(--surface-accent-hover);
+
+  /* Jewellery details: hairlines, dots, numerals. Never text on light grounds. */
   --color-metallic: var(--color-gold);
   --color-metallic-highlight: var(--color-champagne);
   --color-luxury: var(--color-gold);
 
-  --color-dark-surface: var(--color-espresso);
-  --color-editorial-secondary: var(--color-midnight-navy);
+  /* Actions. */
+  --color-action: var(--surface-action);
+  --color-action-hover: var(--surface-action-hover);
+  --color-on-action: var(--surface-on-action);
 
-  --color-border: var(--surface-border);
-
-  --color-action: var(--color-bronze);
-  --color-action-hover: #634726;
-  --color-on-action: var(--color-ivory);
-
+  /* Readability over photography: always a directional gradient toward the copy. */
   --color-scrim: rgb(22 27 38 / 0.5);
   /* Behind display text set directly on photography (the promo banner). */
   --color-scrim-strong: rgb(22 27 38 / 0.8);
+  --color-image-shade: rgb(20 16 14 / 0.45);
+  /* Behind drawers and sheets. */
+  --color-overlay: rgb(20 16 14 / 0.8);
 
-  /* Named apart from Tailwind's own built-in `stone-*` palette, which these
-     utility names would otherwise silently shadow with a different, coincidentally
-     similar grey — see Button's disabled state. */
-  --color-disabled: #aaa39c;
+  /* Disabled. A filled control goes Sand with muted-deep text; an outline goes to
+     the decorative disabled ink. Always paired with a reason nearby. */
+  --color-disabled: var(--color-disabled-ink);
+  --color-disabled-surface: var(--color-sand);
+  --color-on-disabled: var(--color-muted-deep);
 
-  /* Validation messages only, always with an icon and text (never colour alone). */
-  --color-error: #9b2c2c;
+  /* Status — semantic only, always with an icon and text (never colour alone).
+     danger 7.1:1 and success 7.6:1 on Ivory; they differ in lightness as well as hue. */
+  --color-danger: #9b2c2c;
+  /* The pre-2026-09-25 name, kept so `text-error` keeps compiling; use `danger`. */
+  --color-error: var(--color-danger);
+  --color-success: #3e5641;
+  /* Notices (limited stock, price updated, "your bag was updated"): Bronze text
+     on a Sand band. */
+  --color-notice: var(--color-bronze-deep);
+  --color-notice-surface: var(--color-sand);
 
   --font-display: var(--font-display-active);
   --font-body: var(--font-body-active);
+  --font-ui: var(--font-ui-active);
 
-  /* Overrides Tailwind's default 6px/8px (guideline §7 wants 8px/12px).
-     --radius-xs and --radius-sm are left untouched: Tailwind's defaults
-     (2px/4px) already match. */
+  /* Radius. The architecture is square: photography, cards, sections, drawers, the
+     header (design system, 2026-09-25, superseding the 12px media radius of
+     2026-09-14 — `rounded-media` / `rounded-media-sm` stay as names so the frames
+     keep one switch). Controls take `rounded-control` (2px). `rounded-pill` is only
+     for truly round marks: the bag count, dots, the card's action disc. */
+  --radius-media: 0px;
+  --radius-media-sm: 0px;
+  --radius-control: 2px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-pill: 999px;
-  /* Media radius (owner decision, 2026-09-14): every image frame and card, the
-     skeleton frames that stand in for them and the size cells take `rounded-media`;
-     thumbnails and images under ~96px take `rounded-media-sm`. Buttons, inputs,
-     chips, the header and the footer stay square. The frame carrying the radius is
-     the one that clips (`overflow: hidden`), so zoom, hover swaps and parallax
-     over-scale stay inside the shape. */
-  --radius-media: 12px;
-  --radius-media-sm: 8px;
+
+  /* Image ratios: `aspect-product`, `aspect-portrait`, ... Photography is cropped to
+     these, never letterboxed, and never mirrored for RTL. */
+  --aspect-product: 4 / 5;
+  --aspect-portrait: 3 / 4;
+  --aspect-campaign: 16 / 9;
+  --aspect-cinema: 21 / 9;
+  --aspect-landscape: 3 / 2;
 
   --ease-ui: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-editorial: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Drawers, sheets and crossfades: symmetric in and out. */
+  --ease-sheet: cubic-bezier(0.65, 0, 0.35, 1);
 
   --duration-fast: var(--motion-fast);
   --duration-base: var(--motion-base);
   --duration-slow: var(--motion-slow);
+  --duration-cinematic: var(--motion-cinematic);
 }
 
 /* ============================================================
@@ -213,6 +283,7 @@
     background-color: var(--color-bg);
     color: var(--color-text);
     font-family: var(--font-body);
+    font-kerning: normal;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -224,6 +295,20 @@
   h5,
   h6 {
     font-family: var(--font-display);
+    font-weight: 400;
+  }
+
+  /* Arabic has no italic: Amiri and Tajawal ship none, and a synthesised oblique is
+     never acceptable. An emphasised word stays upright, and in a display heading it
+     takes the accent colour instead — the Arabic counterpart of the English italic. */
+  :lang(ar) :is(em, i) {
+    font-style: normal;
+  }
+
+  :lang(ar)
+    :is(.type-display-xl, .type-display, .type-section-title, .type-h1, .type-page-title, .type-h2)
+    em {
+    color: var(--color-brand);
   }
 
   /* Logical properties throughout: the shell mirrors under [dir="rtl"] with
@@ -234,139 +319,613 @@
 }
 
 /* ============================================================
-   Typography — guideline §5. Composite `type-*` utilities (never
-   `text-<size>`) so colour, set separately via `text-*`, never fights
-   tailwind-merge's grouping. Display/heading steps use font-display; the
-   rest use font-body. Fluid sizes are clamped between the guideline's
-   mobile and desktop ranges (§5), scaled across the 400–1440px viewport
-   range.
+   Typography. Composite `type-*` utilities (never `text-<size>`) so colour, set
+   separately via `text-*`, never fights tailwind-merge's grouping.
+
+   Display steps use the locale's display face (Instrument Serif / Amiri); every
+   other step uses the interface face (Hanken Grotesk / Tajawal). Arabic is set
+   explicitly, never inherited: Amiri runs ~0.8x the English size with open
+   leading (its marks sit high and low) and bold at the small steps; Tajawal runs
+   one pixel larger than Hanken for the same colour on the page. Arabic is never
+   uppercased or letter-spaced (both break its joining).
+
+   Fluid sizes clamp between the mobile and desktop values across 390–1440px.
+
+   Semantic names are the API:
+     type-display-xl     the homepage hero only
+     type-display        campaign overlays, collection chapters
+     type-section-title  editorial section titles
+     type-page-title     page titles (Shop, Bag, Checkout) and commerce sections
+     type-title          anchor product name, drawer titles, empty-state titles
+     type-eyebrow        uppercase label above a title (English), weight in Arabic
+     type-body-lg        editorial lead paragraphs
+     type-body           default body
+     type-supporting     secondary copy: meta lines, hints, descriptions
+     type-product-title  product names in grids, rails and bag rows
+     type-price          prices (tabular figures)
+     type-field-label    form labels and option legends (sentence case)
+     type-ui             navigation, triggers, tabs (sentence case)
+     type-label          button and control labels (uppercase in English)
+     type-caption        captions, counters, legal lines — never an action
+
+   Legacy steps keep their names and now resolve to the new scale:
+     type-h1 = section title, type-h2 = page title, type-h3 = title,
+     type-h4 = a small serif step (22px), type-small = supporting.
    ============================================================ */
 @utility type-display-xl {
   font-family: var(--font-display);
-  font-size: clamp(4rem, 4.62vw + 2.85rem, 7rem);
-  line-height: 1.02;
-  letter-spacing: -0.01em;
+  font-weight: 400;
+  font-size: clamp(4.5rem, 5.33vw + 3.2rem, 8rem);
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 
   :lang(ar) & {
-    line-height: 1.25;
+    font-size: clamp(3.625rem, 4.38vw + 2.56rem, 6.5rem);
+    line-height: 1.28;
+    letter-spacing: 0;
   }
 }
 
 @utility type-display {
   font-family: var(--font-display);
-  font-size: clamp(3rem, 3.08vw + 2.23rem, 5rem);
-  line-height: 1.05;
-  letter-spacing: -0.01em;
+  font-weight: 400;
+  font-size: clamp(3.5rem, 3.05vw + 2.76rem, 5.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
 
   :lang(ar) & {
-    line-height: 1.3;
+    font-size: clamp(2.875rem, 2.48vw + 2.27rem, 4.5rem);
+    line-height: 1.32;
+    letter-spacing: 0;
+  }
+}
+
+@utility type-section-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.75rem, 1.52vw + 2.38rem, 3.75rem);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+
+  :lang(ar) & {
+    font-size: clamp(2.25rem, 1.33vw + 1.93rem, 3.125rem);
+    line-height: 1.38;
+    letter-spacing: 0;
   }
 }
 
 @utility type-h1 {
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 2.31vw + 1.92rem, 4rem);
-  line-height: 1.08;
+  font-weight: 400;
+  font-size: clamp(2.75rem, 1.52vw + 2.38rem, 3.75rem);
+  line-height: 1;
   letter-spacing: -0.01em;
+  text-wrap: balance;
 
   :lang(ar) & {
-    line-height: 1.35;
+    font-size: clamp(2.25rem, 1.33vw + 1.93rem, 3.125rem);
+    line-height: 1.38;
+    letter-spacing: 0;
+  }
+}
+
+@utility type-page-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.125rem, 0.57vw + 1.99rem, 2.5rem);
+  line-height: 1.06;
+  text-wrap: balance;
+
+  :lang(ar) & {
+    font-size: clamp(1.75rem, 0.57vw + 1.61rem, 2.125rem);
+    line-height: 1.45;
+    font-weight: 700;
   }
 }
 
 @utility type-h2 {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 1.92vw + 1.52rem, 3.25rem);
-  line-height: 1.1;
+  font-weight: 400;
+  font-size: clamp(2.125rem, 0.57vw + 1.99rem, 2.5rem);
+  line-height: 1.06;
+  text-wrap: balance;
 
   :lang(ar) & {
-    line-height: 1.4;
+    font-size: clamp(1.75rem, 0.57vw + 1.61rem, 2.125rem);
+    line-height: 1.45;
+    font-weight: 700;
+  }
+}
+
+@utility type-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.625rem, 0.19vw + 1.58rem, 1.75rem);
+  line-height: 1.15;
+
+  :lang(ar) & {
+    font-size: clamp(1.375rem, 0.38vw + 1.28rem, 1.625rem);
+    line-height: 1.5;
+    font-weight: 700;
   }
 }
 
 @utility type-h3 {
   font-family: var(--font-display);
-  font-size: clamp(1.5rem, 1.15vw + 1.21rem, 2.25rem);
-  line-height: 1.12;
+  font-weight: 400;
+  font-size: clamp(1.625rem, 0.19vw + 1.58rem, 1.75rem);
+  line-height: 1.15;
 
   :lang(ar) & {
-    line-height: 1.4;
+    font-size: clamp(1.375rem, 0.38vw + 1.28rem, 1.625rem);
+    line-height: 1.5;
+    font-weight: 700;
   }
 }
 
 @utility type-h4 {
   font-family: var(--font-display);
-  font-size: clamp(1.25rem, 0.58vw + 1.11rem, 1.625rem);
-  line-height: 1.15;
+  font-weight: 400;
+  font-size: 1.375rem;
+  line-height: 1.2;
 
   :lang(ar) & {
-    line-height: 1.45;
+    font-size: 1.25rem;
+    line-height: 1.6;
+    font-weight: 700;
+  }
+}
+
+@utility type-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+
+  :lang(ar) & {
+    font-size: 0.875rem;
+    line-height: 1.375rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
   }
 }
 
 @utility type-body-lg {
   font-family: var(--font-body);
-  font-size: clamp(1.0625rem, 0.29vw + 0.99rem, 1.25rem);
-  line-height: 1.6;
+  font-size: 1.125rem;
+  line-height: 1.875rem;
+
+  /* Fluid in Arabic as the pre-2026-09-25 step was (17px on a phone): a fixed 19px
+     pushed two-line product names on the 2-up phone grid to three. */
+  :lang(ar) & {
+    font-size: clamp(1.0625rem, 0.29vw + 0.99rem, 1.1875rem);
+    line-height: 1.75;
+  }
 }
 
 @utility type-body {
   font-family: var(--font-body);
   font-size: 1rem;
-  line-height: 1.6;
+  line-height: 1.625rem;
+
+  :lang(ar) & {
+    font-size: 1.0625rem;
+    line-height: 1.875rem;
+  }
+}
+
+@utility type-supporting {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+
+  :lang(ar) & {
+    font-size: 0.9375rem;
+    line-height: 1.625rem;
+  }
 }
 
 @utility type-small {
   font-family: var(--font-body);
   font-size: 0.875rem;
-  line-height: 1.55;
+  line-height: 1.375rem;
+
+  :lang(ar) & {
+    font-size: 0.9375rem;
+    line-height: 1.625rem;
+  }
 }
 
-@utility type-caption {
-  font-family: var(--font-body);
-  font-size: 0.75rem;
-  line-height: 1.5;
+@utility type-product-title {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  font-weight: 500;
+
+  :lang(ar) & {
+    font-size: 1rem;
+    line-height: 1.625rem;
+  }
+}
+
+@utility type-price {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+
+  :lang(ar) & {
+    font-size: 1rem;
+    line-height: 1.625rem;
+  }
+}
+
+@utility type-field-label {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+
+  :lang(ar) & {
+    font-size: 0.9375rem;
+    line-height: 1.5rem;
+  }
+}
+
+@utility type-ui {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+
+  :lang(ar) & {
+    font-size: 1rem;
+    line-height: 1.5rem;
+    letter-spacing: 0;
+  }
 }
 
 @utility type-label {
-  font-family: var(--font-body);
+  font-family: var(--font-ui);
   font-size: 0.8125rem;
-  line-height: 1.4;
-  font-weight: 500;
+  line-height: 1rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 
   :lang(ar) & {
+    font-size: 1rem;
+    line-height: 1.375rem;
+    font-weight: 500;
     text-transform: none;
     letter-spacing: 0;
   }
 }
 
+@utility type-caption {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+
+  :lang(ar) & {
+    font-size: 0.8125rem;
+    line-height: 1.375rem;
+  }
+}
+
 /* ============================================================
-   Layout — guideline §6.
+   Layout. Containers are the `Container` component (components/ui/container.tsx);
+   these are the rhythm and grid utilities.
    ============================================================ */
 @utility section-y {
   padding-block: var(--section-space);
 }
 
+/* Commerce pages and sections: calmer and denser than an editorial chapter. */
+@utility section-y-commerce {
+  padding-block: var(--section-space-commerce);
+}
+
+/* 4 / 8 / 12 columns with 16 / 24 / 24px gaps. An empty column in an editorial
+   split is a pause, not a gap to fill. */
 @utility grid-editorial {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
+  column-gap: 16px;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    column-gap: 24px;
+  }
 
   @media (min-width: 1024px) {
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 32px;
+    column-gap: 24px;
+  }
+}
+
+/* Reading measure for body copy: 34em in English, 30em in Arabic. */
+@utility measure {
+  max-inline-size: var(--measure);
+
+  :lang(ar) & {
+    max-inline-size: 30em;
   }
 }
 
 /* ============================================================
-   Accessibility — guideline §18.
+   Controls — forms, options and the quantity stepper. Shared class names rather
+   than per-component strings, so a checkout field, a filter-sheet price input and a
+   size cell are one family. Presentation only: state lives in the components.
+
+   .field-frame    the bordered 52px box around an input (and an affix such as a
+                   currency label). Carries hover, focus-within and invalid.
+   .field-control  a standalone input, select or textarea with the same box.
+   .field-input    the bare input inside a .field-frame.
+   .choice         a native checkbox or radio, restyled (20px, 2px corners).
+   .option-cell    a size/option radio drawn as a cell: ink fill when chosen, a
+                   diagonal strike and dashed edge when unavailable.
+   .stepper        the quantity stepper's frame.
+   ============================================================ */
+@layer components {
+  .field-frame,
+  .field-control {
+    display: flex;
+    align-items: center;
+    min-block-size: var(--size-control);
+    border: 1px solid var(--color-control);
+    border-radius: var(--radius-control);
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    transition:
+      border-color var(--motion-fast) var(--ease-ui),
+      box-shadow var(--motion-fast) var(--ease-ui);
+  }
+
+  .field-control {
+    inline-size: 100%;
+    padding-inline: 16px;
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  :lang(ar) .field-control {
+    font-size: 1.0625rem;
+  }
+
+  textarea.field-control {
+    min-block-size: calc(var(--size-control) * 2.5);
+    padding-block: 14px;
+    resize: vertical;
+  }
+
+  select.field-control {
+    appearance: none;
+    cursor: pointer;
+    padding-inline-end: 44px;
+    background-image:
+      linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+      calc(100% - 22px) 52%,
+      calc(100% - 17px) 52%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+  }
+
+  [dir='rtl'] select.field-control {
+    background-position:
+      17px 52%,
+      22px 52%;
+  }
+
+  @media (hover: hover) {
+    .field-frame:hover,
+    .field-control:hover {
+      border-color: var(--color-ink);
+    }
+  }
+
+  /* One ring, on the box: the input inside never draws its own. */
+  .field-frame:focus-within,
+  .field-control:focus-visible {
+    border-color: var(--color-ink);
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: 2px;
+  }
+
+  .field-frame[data-invalid],
+  .field-control[aria-invalid='true'] {
+    border-color: var(--color-danger);
+    box-shadow: inset 0 0 0 1px var(--color-danger);
+  }
+
+  .field-input {
+    min-inline-size: 0;
+    flex: 1 1 0%;
+    align-self: stretch;
+    padding-inline: 16px;
+    background: transparent;
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  :lang(ar) .field-input {
+    font-size: 1.0625rem;
+  }
+
+  .field-input:focus,
+  .field-input:focus-visible {
+    outline: none;
+  }
+
+  .field-input::placeholder,
+  .field-control::placeholder {
+    color: var(--color-muted-text);
+  }
+
+  .choice {
+    appearance: none;
+    display: inline-grid;
+    place-content: center;
+    flex: none;
+    inline-size: 20px;
+    block-size: 20px;
+    margin: 0;
+    border: 1px solid var(--color-control);
+    border-radius: var(--radius-control);
+    background-color: var(--color-surface);
+    cursor: pointer;
+    transition:
+      background-color var(--motion-fast) var(--ease-ui),
+      border-color var(--motion-fast) var(--ease-ui);
+  }
+
+  .choice[type='radio'] {
+    border-radius: var(--radius-pill);
+  }
+
+  .choice:checked {
+    background-color: var(--color-ink);
+    border-color: var(--color-ink);
+  }
+
+  .choice[type='checkbox']:checked::after {
+    content: '';
+    inline-size: 10px;
+    block-size: 5px;
+    border: solid var(--color-ivory);
+    border-width: 0 0 1.5px 1.5px;
+    transform: translateY(-1px) rotate(-45deg);
+  }
+
+  .choice[type='radio']:checked::after {
+    content: '';
+    inline-size: 8px;
+    block-size: 8px;
+    border-radius: var(--radius-pill);
+    background-color: var(--color-ivory);
+  }
+
+  .choice:disabled {
+    cursor: not-allowed;
+    background-color: var(--color-disabled-surface);
+    border-color: var(--color-disabled);
+  }
+
+  .option-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-block-size: 48px;
+    min-inline-size: 56px;
+    padding-inline: 14px;
+    border: 1px solid var(--color-control);
+    border-radius: var(--radius-control);
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    transition:
+      background-color var(--motion-fast) var(--ease-ui),
+      color var(--motion-fast) var(--ease-ui),
+      border-color var(--motion-fast) var(--ease-ui);
+  }
+
+  @media (hover: hover) {
+    .option-cell:hover {
+      border-color: var(--color-text);
+    }
+  }
+
+  .option-cell:has(:checked) {
+    background-color: var(--color-action);
+    border-color: var(--color-action);
+    color: var(--color-on-action);
+  }
+
+  .option-cell:has(:focus-visible) {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  /* Unavailable stays visible and selectable (the state is announced in words): a
+     dashed hairline edge and one diagonal stroke, never colour alone. */
+  .option-cell[data-unavailable] {
+    border-style: dashed;
+    border-color: var(--color-control);
+    background-image: linear-gradient(
+      to top right,
+      transparent calc(50% - 0.5px),
+      var(--color-disabled) 50%,
+      transparent calc(50% + 0.5px)
+    );
+  }
+
+  .option-cell[data-unavailable]:has(:checked) {
+    background-color: var(--color-surface-soft);
+    border-style: solid;
+    border-color: var(--color-text);
+    color: var(--color-text);
+  }
+
+  .stepper {
+    display: inline-flex;
+    inline-size: max-content;
+    justify-self: start;
+    align-items: center;
+    border: 1px solid var(--color-control);
+    border-radius: var(--radius-control);
+  }
+}
+
+/* Button's busy state (components/ui/button.tsx): one hairline sweeping across the
+   hidden label. Under reduced motion it stays drawn and still. */
+[data-button-progress] {
+  position: absolute;
+  inset-inline: 24%;
+  inset-block-start: 50%;
+  block-size: 1px;
+  background-color: currentColor;
+  transform-origin: left center;
+  animation: moon-button-progress 1.1s var(--ease-sheet) infinite;
+}
+
+[dir='rtl'] [data-button-progress] {
+  transform-origin: right center;
+}
+
+@keyframes moon-button-progress {
+  0% {
+    transform: scaleX(0);
+  }
+  60% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+/* ============================================================
+   Accessibility.
    ============================================================ */
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--focus-ring-color);
-    outline-offset: 3px;
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
   }
 
   [data-surface='ink'],
@@ -374,45 +933,78 @@
   [data-surface='navy'],
   [data-surface='overlay'],
   body:has([data-header-boundary]) header[data-surface='auto'] {
-    --focus-ring-color: var(--color-ivory);
+    --focus-ring-color: var(--color-champagne);
   }
 }
 
 /* ============================================================
-   Surfaces. One attribute drives colours and the focus ring.
+   Surfaces. One attribute drives colours, the accent, the primary action and the
+   focus ring.
    `overlay`: the header over a hero — transparent, ivory text.
-   `ink` / `dark`: espresso cinematic dark ground, ivory text.
-   `navy`: midnight navy nocturnal editorial ground, ivory text.
-   `sand`: sand warm neutral ground, ink text.
+   `ink` / `dark`: Espresso, the warm intimate editorial ground, ivory text.
+   `navy`: Midnight, the one nocturnal moment, ivory text.
+   `sand`: Sand, the quiet tonal band, ink text.
    ============================================================ */
 [data-surface='overlay'],
 body:has([data-header-boundary]) header[data-surface='auto'] {
   --surface-bg: transparent;
   --surface-text: var(--color-ivory);
-  --surface-text-secondary: color-mix(in srgb, var(--color-ivory) 75%, transparent);
+  --surface-text-secondary: var(--color-sand);
   --surface-border: transparent;
+  --surface-control: var(--color-on-dark-muted);
+  --surface-accent: var(--color-champagne);
+  --surface-accent-hover: var(--color-ivory);
+  --surface-action: var(--color-ivory);
+  --surface-action-hover: var(--color-champagne);
+  --surface-on-action: var(--color-ink);
 }
 
 [data-surface='ink'],
 [data-surface='dark'] {
   --surface-bg: var(--color-espresso);
   --surface-text: var(--color-ivory);
-  --surface-text-secondary: color-mix(in srgb, var(--color-ivory) 70%, transparent);
-  --surface-border: color-mix(in srgb, var(--color-ivory) 16%, transparent);
+  --surface-text-secondary: var(--color-on-dark-muted);
+  --surface-border: color-mix(in srgb, var(--color-ivory) 18%, transparent);
+  --surface-control: var(--color-on-dark-muted);
+  --surface-accent: var(--color-champagne);
+  --surface-accent-hover: var(--color-ivory);
+  --surface-action: var(--color-ivory);
+  --surface-action-hover: var(--color-champagne);
+  --surface-on-action: var(--color-ink);
 }
 
 [data-surface='navy'] {
   --surface-bg: var(--color-midnight-navy);
   --surface-text: var(--color-ivory);
-  --surface-text-secondary: color-mix(in srgb, var(--color-ivory) 75%, transparent);
+  --surface-text-secondary: var(--color-on-dark-muted);
   --surface-border: color-mix(in srgb, var(--color-ivory) 18%, transparent);
+  --surface-control: var(--color-on-dark-muted);
+  --surface-accent: var(--color-champagne);
+  --surface-accent-hover: var(--color-ivory);
+  --surface-action: var(--color-ivory);
+  --surface-action-hover: var(--color-champagne);
+  --surface-on-action: var(--color-ink);
 }
 
+/* Sand: muted-text is 4.1:1 here and fails, so secondary text is muted-deep, and the
+   accent deepens to bronze-deep (6.4:1). */
 [data-surface='sand'] {
   --surface-bg: var(--color-sand);
   --surface-text: var(--color-ink);
-  --surface-text-secondary: var(--color-muted-text);
+  --surface-text-secondary: var(--color-muted-deep);
   --surface-border: color-mix(in srgb, var(--color-ink) 14%, transparent);
+  --surface-accent: var(--color-bronze-deep);
+  --surface-accent-hover: var(--color-ink);
+}
+
+/* The solid header over the page: a hairline edge, no shadow. Over a hero (the
+   overlay surface) it has none. */
+header[data-surface] {
+  box-shadow: var(--shadow-sticky);
+}
+
+body:has([data-header-boundary]) header[data-surface='auto'] {
+  box-shadow: none;
 }
 
 /* The surface change is a cut until HeaderShell's first observation, then a
@@ -421,7 +1013,8 @@ header[data-surface][data-surface-ready] {
   transition:
     background-color var(--motion-fast) var(--ease-ui),
     color var(--motion-fast) var(--ease-ui),
-    border-color var(--motion-fast) var(--ease-ui);
+    border-color var(--motion-fast) var(--ease-ui),
+    box-shadow var(--motion-fast) var(--ease-ui);
 }
 
 .skip-link {
@@ -449,7 +1042,7 @@ header[data-surface][data-surface-ready] {
 /* Motion distances shrink on phones: one multiplier, so a per-element
    --motion-rise stays proportional instead of being overridden at a breakpoint. */
 :root {
-  --motion-step: 80ms;
+  --motion-step: 70ms;
   --motion-rise: 56px;
   --motion-distance-scale: 0.6;
 }
@@ -791,12 +1384,15 @@ header[data-surface][data-surface-ready] {
    rather than on the element because the palette belongs to the token layer;
    --rule-accent is the seam a surface could re-point, as --surface-* does. */
 [data-product-name] {
-  /* The display face, not the body face (2026-09-20): a garment's name set in Lora
-     (Tajawal in Arabic) is the card's one piece of character, and it costs nothing
+  /* The display face, not the body face (2026-09-20): a garment's name set in Instrument Serif
+     (Tajawal in Arabic, below) is the card's one piece of character, and it costs nothing
      - no element, no data, no chrome. Declared here rather than as a `font-display`
      utility beside `type-body`, which sets a family of its own and would leave the
      winner to utility order. */
   font-family: var(--font-display);
+  /* Instrument Serif ships one weight; a heavier weight from the card's h3 would be
+     synthesised. */
+  font-weight: 400;
   background-image: linear-gradient(var(--rule-accent), var(--rule-accent));
   background-repeat: no-repeat;
   background-position: left bottom;
@@ -806,6 +1402,14 @@ header[data-surface][data-surface-ready] {
 
 [dir='rtl'] [data-product-name] {
   background-position: right bottom;
+}
+
+/* Arabic product names are commerce text, not display: Tajawal at the caption's
+   weight, never Amiri (design system: no display face on prices, forms or names in
+   a dense listing). */
+:lang(ar) [data-product-name] {
+  font-family: var(--font-ui);
+  font-weight: 500;
 }
 
 /* Keyed on the card, not on Tailwind's `group` marker: the rule belongs to this

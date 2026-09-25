@@ -14,6 +14,7 @@ import {
   type Selection,
 } from '../utils/variant-selection';
 import { PurchaseSelectionContext, type PurchaseSelection } from './purchase-selection-context';
+import { StatusText } from '@/components/ui/status';
 
 /** Every string arrives resolved on the server; templates keep `{name}` placeholders. */
 export interface PurchasePanelStrings {
@@ -42,12 +43,10 @@ export interface PurchasePanelProps {
 
 // The radio is visually hidden, so the cell draws its focus ring; the scroll margin keeps a
 // focused cell clear of the sticky header (WCAG 2.2 focus not obscured).
-const CELL = [
-  'relative flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-media-sm border border-border px-3',
-  'scroll-mt-[calc(var(--header-h)+1.5rem)] transition-colors duration-fast ease-ui',
-  'hover:border-text has-checked:border-text has-checked:shadow-[inset_0_0_0_1px_var(--color-text)]',
-  'has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-solid has-focus-visible:outline-(--focus-ring-color)',
-].join(' ');
+// `.option-cell` (app/globals.css): the design system's size cell — Ink fill when chosen, a
+// dashed edge and one diagonal stroke when unavailable (`data-unavailable`), focus ring on
+// the cell. The scroll margin keeps a focused cell clear of the sticky header.
+const CELL = 'option-cell scroll-mt-[calc(var(--header-h)+1.5rem)]';
 
 /** One id: repeated presses replace the "Choose a {option}" toast rather than stacking it. */
 const CHOOSE_OPTION_TOAST_ID = 'choose-option';
@@ -99,19 +98,17 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
       <div ref={rootRef} data-purchase-panel data-readiness={readiness.kind}>
         {/* Mounted with the first render so later changes are announced. */}
         <div aria-live="polite" aria-atomic="true">
-          <p className="type-body-lg tabular-nums">
+          <p className="type-body-lg font-medium tabular-nums">
             {price.kind === 'from'
               ? fillTemplate(strings.priceFrom, { price: formatted })
               : formatted}
           </p>
           {/* Height reserved for the badge, so choosing a sold-out size never shifts the layout. */}
-          <p className="type-small mt-2 flex min-h-7 items-center text-text-secondary">
+          <p className="mt-2 flex min-h-7 items-center">
             {status === 'inStock' ? (
-              strings.inStock
+              <StatusText tone="success">{strings.inStock}</StatusText>
             ) : status === 'soldOut' ? (
-              <span className="type-caption rounded-media-sm bg-action px-2 py-1 font-medium tracking-[0.08em] uppercase text-on-action">
-                {strings.soldOut}
-              </span>
+              <StatusText tone="danger">{strings.soldOut}</StatusText>
             ) : null}
           </p>
         </div>
@@ -130,7 +127,7 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
               className="mt-8 min-w-0"
             >
               <legend
-                className={`type-label transition-colors duration-fast ease-ui ${prompted ? 'text-text' : 'text-text-secondary'}`}
+                className={`type-field-label transition-colors duration-fast ease-ui ${prompted ? 'text-text' : 'text-text-secondary'}`}
               >
                 <span dir={legend.staff ? 'auto' : undefined}>
                   {chosen === null
@@ -144,7 +141,7 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
                 {prompted && (
                   <p
                     id={promptId}
-                    className="type-small flex items-start gap-2 font-medium text-error"
+                    className="type-small flex items-start gap-2 font-medium text-danger"
                   >
                     <CircleAlert
                       size={16}
@@ -162,7 +159,8 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
                   return (
                     <label
                       key={value}
-                      className={available ? CELL : `${CELL} border-dashed bg-surface-soft`}
+                      data-unavailable={available ? undefined : ''}
+                      className={CELL}
                     >
                       <input
                         type="radio"

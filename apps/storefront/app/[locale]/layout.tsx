@@ -13,13 +13,16 @@ import { BagTrigger } from '@/features/cart/components/bag-trigger';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
 import { getBagDrawerStrings, getBagTriggerStrings } from '@/features/cart/utils/bag-strings';
 import { resolveSiteUrl } from '@/lib/site-url';
-import { lora, inter, tajawal } from '../fonts';
+import { amiri, hankenGrotesk, instrumentSerif, tajawal } from '../fonts';
 import '../globals.css';
 
 // Keyed by locale so a locale added to i18n/routing.ts fails to compile until mapped.
+// Arabic pages also carry the Latin faces: the Arabic files hold no Latin glyphs, so
+// digits and Latin words on /ar fall through to them (app/fonts.ts).
+const latinFonts = `${instrumentSerif.variable} ${hankenGrotesk.variable}`;
 const fontVariables: Record<AppLocale, string> = {
-  en: `${lora.variable} ${inter.variable}`,
-  ar: tajawal.variable,
+  en: latinFonts,
+  ar: `${latinFonts} ${amiri.variable} ${tajawal.variable}`,
 };
 
 export function generateStaticParams() {

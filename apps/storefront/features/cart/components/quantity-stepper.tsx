@@ -17,8 +17,8 @@ export interface QuantityStepperProps {
   labels: QuantityStepperLabels;
   onStep(delta: 1 | -1): void;
   /**
-   * `line` (default): the bag's 44px cells. `action`: 48px cells, matching `Button`'s
-   * `min-h-12` beside Add to Bag on the product page.
+   * `line` (default): a 44px control for the bag. `action`: a 52px control, level with
+   * `Button`'s default `--size-control` beside Add to Bag on the product page.
    */
   size?: 'line' | 'action';
 }
@@ -26,7 +26,9 @@ export interface QuantityStepperProps {
 const STEP_BUTTON =
   'flex cursor-pointer items-center justify-center text-text transition-colors duration-fast ease-ui hover:bg-surface-soft aria-disabled:cursor-not-allowed aria-disabled:text-disabled aria-disabled:hover:bg-transparent';
 
-const STEP_SIZE = { line: 'h-11 w-11', action: 'h-12 w-12' } as const;
+// `line`: 42px cells inside the 1px frame, a 44px control. `action`: 50px cells, a 52px
+// control level with `Button`'s default height beside Add to Bag.
+const STEP_SIZE = { line: 'h-[42px] w-11', action: 'h-[50px] w-12' } as const;
 
 function StepButton({
   label,
@@ -75,11 +77,7 @@ export function QuantityStepper({
   const limitId = `${useId()}-limit`;
 
   return (
-    <div
-      role="group"
-      aria-label={labels.group}
-      className="inline-flex items-center rounded-sm border border-border"
-    >
+    <div role="group" aria-label={labels.group} className="stepper">
       <StepButton
         label={labels.decrease}
         disabled={control.decrementDisabled}
@@ -88,7 +86,7 @@ export function QuantityStepper({
       >
         <Minus size={16} strokeWidth={1.5} aria-hidden="true" />
       </StepButton>
-      <span className="type-small min-w-8 text-center tabular-nums">{value}</span>
+      <span className="type-price min-w-9 text-center font-medium">{value}</span>
       <StepButton
         label={labels.increase}
         disabled={control.incrementDisabled}

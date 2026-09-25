@@ -92,11 +92,12 @@ export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTrig
       >
         <ShoppingBag size={20} strokeWidth={1.5} aria-hidden="true" />
         {label.badgeText !== null && (
-          // `bg-bg text-text` read through the header's --surface-* variables: ink on ivory
-          // when solid, ivory on transparent over the hero.
+          // A filled disc in the header's text colour with the action's contrast colour
+          // for the figure, both through the --surface-* variables: an ink disc with an
+          // ivory figure when solid, an ivory disc with an ink figure over the hero.
           <span
             aria-hidden="true"
-            className="type-caption absolute -end-0.5 top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center bg-bg px-1 text-text tabular-nums"
+            className="absolute -end-0.5 top-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-pill bg-text px-1 font-ui text-[0.6875rem] leading-none font-semibold text-on-action tabular-nums"
           >
             {label.badgeText}
           </span>

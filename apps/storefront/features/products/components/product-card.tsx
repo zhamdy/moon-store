@@ -9,6 +9,7 @@ import { fillTemplate } from '@/lib/utils/fill-template';
 import type { ImageSource, ProductCardBadge, ProductCardModel } from '../utils/product-card-model';
 import { formatPrice } from '../utils/price';
 import { ProductImagePlaceholder } from './product-image-placeholder';
+import { Badge } from '@/components/ui/badge';
 
 /** Card width in the homepage's 4-up desktop grid / 2-up below. */
 export const CATALOG_CARD_SIZES = '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, 46vw';
@@ -183,7 +184,7 @@ export function ProductCard({
     >
       <div
         data-motion={reveal === 'image' ? 'image' : undefined}
-        // `rounded-media` (12px), the site-wide media radius, so the
+        // `rounded-media` (the site-wide media radius, 0 since the 2026-09-25 system), so the
         // `data-motion="image"` wipe — whose clip-path insets carry
         // `round var(--radius-media)` — matches the frame without an override.
         // `row-start-1` (and the caption's `row-start-2`) because the action is placed
@@ -227,13 +228,10 @@ export function ProductCard({
         {/* Printed on the photograph. Last inside the frame, and the caption below is
             what the link names, so the reading order stays "<name>, <price>". */}
         {badge && (
-          <p
-            className={cn(
-              'type-caption absolute start-3 top-3 uppercase tracking-[0.22em] rtl:tracking-normal lg:start-4 lg:top-4',
-              badge === 'soldOut' ? 'text-text' : 'text-brand'
-            )}
-          >
-            {badgeLabels[badge]}
+          <p className="absolute start-3 top-3 lg:start-4 lg:top-4">
+            <Badge tone={badge === 'soldOut' ? 'soldOut' : 'new'} onImage>
+              {badgeLabels[badge]}
+            </Badge>
           </p>
         )}
       </div>
@@ -292,12 +290,12 @@ export function ProductCard({
           {priceText !== null && (
             <p
               className={cn(
-                'font-medium text-text tabular-nums tracking-[0.02em]',
+                'font-medium text-text tabular-nums',
                 lead
                   ? 'type-body mt-2'
                   : captionLayout === 'stacked'
-                    ? 'type-small mt-2 text-text-secondary'
-                    : 'type-small shrink-0'
+                    ? 'type-price mt-2 text-text-secondary'
+                    : 'type-price shrink-0'
               )}
             >
               {priceText}
