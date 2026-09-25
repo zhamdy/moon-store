@@ -15,70 +15,57 @@ const benefitIcons: Record<BenefitKey, { icon: LucideIcon; mirrorInRtl?: boolean
   payment: { icon: ShieldCheck },
 };
 
-/** 0, 120 and 240ms: the calmest stagger on the page. */
-const ITEM_STAGGER = ['', '[--motion-stagger:1]', '[--motion-stagger:2]'];
-
 /**
- * 09 - Shopping benefits, kept restrained: a full-width cream band, three items
- * separated by fine rules, a small line icon, a title and one line each. No
- * boxes, no rounded cards, no shadows. The rules run between columns from 768 and
- * between rows below it; they are logical borders, so they sit correctly in RTL.
+ * 09 - Shopping benefits (homepage Phase 2, 2026-09-25: the Claude Design board). A
+ * quiet Sand band: the heading, now visible, in the first of four columns from 1024,
+ * then the three items, each opened by an inline-start hairline (a logical border, so
+ * it sits correctly in RTL). Below 1024 the heading comes first and the items stack
+ * between hairlines. A small line icon in the text colour (no Bronze), the title in
+ * the UI face, one line of supporting copy. No boxes, no cards, no shadows.
  *
- * Motion is equally quiet: the three items rise 32px one after another and each
- * icon fades in just after its text. No bounce, no scale.
+ * Still: one fade for the whole row, nothing else moves (the calm register).
  *
- * Nothing is interactive, so there is no hover state. The list is a `<ul>`, each
- * title an `h3` under the screen-reader-only `h2`, and the icons are decorative
- * (`aria-hidden`) because the titles say the same thing. The wording is generic on
- * purpose and still awaits confirmation against the real delivery, returns and
- * payment policy (see `features/home/data/benefits.ts`).
+ * Nothing is interactive, so there is no hover state. Each title is an `h3` under the
+ * section's `h2`; the icons are decorative (`aria-hidden`). The wording is generic on
+ * purpose and still awaits confirmation against the real delivery and payment policy
+ * (see `features/home/data/benefits.ts`).
  */
 export async function Benefits() {
   const t = await getTranslations('home.benefits');
 
   return (
-    <section
-      aria-labelledby="benefits-title"
-      data-surface="sand"
-      className="bg-surface-alt text-text"
-    >
-      <Container as="div" className="py-16 lg:py-20">
-        <h2 id="benefits-title" className="sr-only">
-          {t('heading')}
-        </h2>
+    <section aria-labelledby="benefits-title" data-surface="sand" className="bg-bg text-text">
+      <Container as="div" className="section-y-commerce">
         <Reveal
-          as="ul"
-          amount={0.2}
-          className="grid divide-y divide-border/60 [--motion-rise:32px] [--motion-step:120ms] md:grid-cols-3 md:divide-x md:divide-y-0 md:divide-border/60"
+          effect="fade"
+          amount={0.3}
+          className="grid gap-y-8 lg:grid-cols-4 lg:items-center lg:gap-x-6"
         >
-          {benefits.map((key, index) => {
-            const { icon: Icon, mirrorInRtl } = benefitIcons[key];
-            return (
-              <li
-                key={key}
-                data-motion="rise"
-                className={cn(
-                  'flex flex-col items-center px-6 py-8 text-center first:pt-0 last:pb-0 md:py-2 md:first:pt-2 md:last:pb-2 lg:px-10',
-                  ITEM_STAGGER[index % ITEM_STAGGER.length]
-                )}
-              >
-                <Icon
-                  size={26}
-                  strokeWidth={1.25}
-                  aria-hidden="true"
-                  data-motion="fade"
-                  className={cn(
-                    'text-brand [--motion-offset:200ms]',
-                    mirrorInRtl && 'rtl:-scale-x-100'
-                  )}
-                />
-                <h3 className="type-h4 mt-5 font-display text-text">{t(`${key}.title`)}</h3>
-                <p className="type-small mt-2 max-w-[30ch] text-text-secondary">
-                  {t(`${key}.body`)}
-                </p>
-              </li>
-            );
-          })}
+          <h2 id="benefits-title" className="type-title">
+            {t('heading')}
+          </h2>
+          <ul role="list" className="grid md:grid-cols-3 lg:col-span-3">
+            {benefits.map((key) => {
+              const { icon: Icon, mirrorInRtl } = benefitIcons[key];
+              return (
+                <li
+                  key={key}
+                  className="grid content-start gap-2.5 border-t border-border py-6 first:border-t-0 first:pt-0 md:border-s md:border-t-0 md:px-6 md:py-2 md:first:border-s md:first:pt-2 lg:px-10"
+                >
+                  <Icon
+                    size={20}
+                    strokeWidth={1.3}
+                    aria-hidden="true"
+                    className={cn('text-text', mirrorInRtl && 'rtl:-scale-x-100')}
+                  />
+                  <h3 className="type-product-title text-text">{t(`${key}.title`)}</h3>
+                  <p className="type-supporting max-w-[34ch] text-text-secondary">
+                    {t(`${key}.body`)}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
         </Reveal>
       </Container>
     </section>

@@ -1,126 +1,131 @@
+import type { CSSProperties } from 'react';
 import { getTranslations } from 'next-intl/server';
 import type { AppLocale } from '@/i18n/routing';
 import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
 import { EditorialLink } from '@/components/ui/editorial-link';
-import {
-  CATALOG_CARD_SIZES,
-  LARGE_CARD_SIZES,
-  ProductCard,
-} from '@/features/products/components/product-card';
-import { curatedEdit } from '@/features/products/data/home-products';
-import { fromHomeMock } from '@/features/products/utils/product-card-model';
+import { SectionHeader } from '@/components/ui/section-header';
+import { QuickAdd } from '@/features/cart/components/quick-add';
+import { getQuickAddStrings } from '@/features/cart/utils/bag-strings';
+import { toQuickAddModel } from '@/features/cart/utils/quick-add-model';
+import { ProductCard } from '@/features/products/components/product-card';
+import type { CatalogProduct } from '@/features/products/types/catalog-product';
+import { fromCatalogDto } from '@/features/products/utils/product-card-model';
+import { loadSelection } from '../../api/load-selection';
+import { collectionHref, homeCollections } from '../../data/home-collections';
 
 const HEADING_ID = 'moon-selection-title';
 
-/**
- * The small cards' stagger steps (120ms each here): after the feature card and
- * the heading, beside the feature from 1024, in rows of two below it.
- */
-const SMALL_STAGGER = [
-  'lg:[--motion-stagger:4]',
-  '[--motion-stagger:1] lg:[--motion-stagger:5]',
-  'lg:[--motion-stagger:6]',
-  '[--motion-stagger:1] lg:[--motion-stagger:7]',
-];
+const FEATURE_SIZES = '(min-width: 1440px) 660px, (min-width: 1024px) 48vw, 100vw';
+const TILE_SIZES = '(min-width: 1440px) 320px, (min-width: 1024px) 23vw, 46vw';
 
 /**
- * 08 - The Moon Selection ("one featured item + smaller products", no duplicate
- * treatment of the New Arrivals grid). The first product takes a 2x2 cell; four
- * standard cards fill the rest of the 4x2 desktop grid exactly. On two columns the
- * large card spans both, then the four sit 2x2.
+ * 08 - The Moon Selection (homepage Phase 2, 2026-09-25: the Claude Design board and
+ * owner decision D3). **Real catalogue pieces now**, the first five of the selection
+ * collection (`homeCollections.selection`, today `evening`) in its curated order, with
+ * real prices, links and Quick Add — the editorial frames it used to show named no
+ * product and read as a broken product grid (plan finding 12). With nothing to show
+ * (no API at build, an empty or unreleased collection) the section is not rendered at
+ * all: there is no static fallback (see `loadSelection`).
  *
- * Calmer than New Arrivals: shorter rise, longer step. One Reveal plays the feature
- * image first (the section's one editorial beat, `reveal="image"`) and the heading
- * after it; each small card has its own nested Reveal, so on a phone the rows below
- * play when they arrive.
+ * Composition, from 1024 on twelve columns: the feature piece as the lead card in 1-6
+ * (the display-face name, the product's own copy, a worded action and a details link);
+ * two tiles stacked in 7-9, dropped 2.5rem; two more in 10-12, dropped 8.75rem, so the
+ * three columns step down like a spread. Below 1024 the feature runs full width and the
+ * four sit two by two, the second column dropped. The header is the design system's
+ * split `SectionHeader` (title in 1-7, lead and link in 9-12).
  *
- * **The grid is the section's original structure, kept on purpose** (owner decision,
- * 2026-09-21). An asymmetric spread was built against the redesign brief - five
- * hand-placed frames at four different crops, sharing nothing with `ProductCard` - and
- * the owner preferred this one after seeing it. What survived that pass is the copy and
- * the heading; the composition went back. If a spread is ever wanted again it is in the
- * history at `cebe648`, not deleted work to redo from scratch.
- *
- * **The heading is this section's own, not `SectionHeading`.** It runs the title at
- * `type-h1 lg:type-display` over a gold hairline, where that shared component sets
- * `type-h2` - the brief asked for a significantly stronger heading block, and widening
- * `SectionHeading` would have handed that size to every commerce section on the page.
- * It is still two levels, title and description: the brief's first pass named a
- * "Curated by Moon" eyebrow above them and it was removed the same day (owner decision,
- * 2026-09-21), so the 2026-09-14 no-eyebrows rule holds across the whole page again.
- *
- * **The five frames are editorial photography, not catalogue entries**
- * (`features/products/data/home-products.ts`). They carry no link, no price, no badge,
- * no description and no Add to Bag, because they name no product: the earlier mocks
- * were written to mirror the seed's vocabulary and drifted from it, so three of this
- * section's five tiles published a product link that 404'd on every deploy (HIGH-1 in
- * `docs/audits/2026-09-22-shop-cart-fullstack-audit.md`). A photograph and a caption is
- * the honest state; real commerce data on this page comes from the catalog DTO.
+ * Commerce register, calm motion: the header rises, the feature's photograph is the
+ * section's one image wipe, the tiles fade-rise with the offset column 140ms later.
+ * Prices and actions never animate on their own.
  */
 export async function MoonSelection({ locale }: { locale: AppLocale }) {
+  const dtos = await loadSelection();
+  if (!dtos) {
+    return null;
+  }
+
   const t = await getTranslations('home.selection');
   const tp = await getTranslations('products');
+  const tpr = await getTranslations('product');
+  const quickAddStrings = await getQuickAddStrings(locale);
+  const [feature, ...rest] = dtos;
+  const columns = [rest.filter((_, i) => i % 2 === 0), rest.filter((_, i) => i % 2 === 1)];
+
+  const common = {
+    locale,
+    currencyLabel: tp('currency'),
+    badgeLabels: { new: tp('new'), soldOut: tp('soldOut') },
+    priceFromLabel: tpr.raw('priceFrom') as string,
+  };
+
+  const tile = (dto: CatalogProduct) => {
+    const model = fromCatalogDto(dto, locale);
+    return (
+      <ProductCard
+        {...common}
+        product={model}
+        sizes={TILE_SIZES}
+        meta={model.sizeCount ? tp('sizes', { count: model.sizeCount }) : undefined}
+        action={<QuickAdd product={toQuickAddModel(dto, locale)} strings={quickAddStrings} />}
+      />
+    );
+  };
 
   return (
     <Container as="section" aria-labelledby={HEADING_ID} className="section-y">
-      <Reveal className="[--motion-rise:40px] [--motion-step:120ms]">
-        <header className="flex flex-wrap items-end justify-between gap-x-12 gap-y-6">
-          <div className="lg:max-w-[46rem]">
-            {/* The section's opening mark, in the eyebrow's place: a gold hairline says
-                a chapter starts here and costs no words in either language. */}
-            <span
-              aria-hidden="true"
-              data-motion="fade"
-              className="block h-px w-10 bg-metallic [--motion-offset:370ms]"
-            />
-            <h2
-              id={HEADING_ID}
-              data-motion="rise"
-              className="type-h1 mt-6 text-balance lg:type-display [--motion-offset:470ms] [--motion-rise:24px]"
-            >
-              {t('title')}
-            </h2>
-            {/* `ch` is right here and wrong on a display heading: this paragraph is set
-                in the body face at its own size, which is what `ch` resolves against. */}
-            <p
-              data-motion="fade"
-              className="type-body-lg mt-5 max-w-[52ch] text-text-secondary [--motion-offset:610ms]"
-            >
-              {t('description')}
-            </p>
-          </div>
-          <div data-motion="fade" className="mb-1 [--motion-offset:750ms]">
-            <EditorialLink href="/shop" tone="brand">
+      <Reveal className="[--motion-rise:24px] [--motion-step:140ms]">
+        <SectionHeader
+          id={HEADING_ID}
+          layout="split"
+          size="section"
+          motion="calm"
+          title={t('title')}
+          lead={t('description')}
+          action={
+            <EditorialLink href={collectionHref(homeCollections.selection)} underline="always">
               {t('link')}
             </EditorialLink>
+          }
+        />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-12 md:gap-x-6 lg:grid-cols-12 lg:gap-x-6">
+          <div className="col-span-2 lg:col-span-6">
+            <ProductCard
+              {...common}
+              product={fromCatalogDto(feature, locale)}
+              emphasis="lead"
+              reveal="image"
+              sizes={FEATURE_SIZES}
+              detailsLabel={tp('viewDetails')}
+              action={
+                <QuickAdd
+                  product={toQuickAddModel(feature, locale)}
+                  strings={quickAddStrings}
+                  emphasis="solid"
+                />
+              }
+            />
           </div>
-        </header>
-        <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-10 lg:mt-14 lg:grid-cols-4 lg:gap-x-8">
-          {curatedEdit.map((product, index) => {
-            const card = (
-              <ProductCard
-                product={fromHomeMock(product, locale)}
-                locale={locale}
-                currencyLabel={tp('currency')}
-                badgeLabels={{ new: tp('new'), soldOut: tp('soldOut') }}
-                sizes={index === 0 ? LARGE_CARD_SIZES : CATALOG_CARD_SIZES}
-                reveal={index === 0 ? 'image' : 'rise'}
-              />
-            );
-            return index === 0 ? (
-              <div key={product.id} className="col-span-2 row-span-2">
-                {card}
-              </div>
-            ) : (
-              <Reveal
-                key={product.id}
-                className={SMALL_STAGGER[(index - 1) % SMALL_STAGGER.length]}
+          {columns.map((column, index) =>
+            column.length > 0 ? (
+              <ul
+                key={index}
+                role="list"
+                className={
+                  index === 0
+                    ? 'col-span-1 grid content-start gap-y-12 lg:col-span-3 lg:mt-10 lg:gap-y-14'
+                    : 'col-span-1 mt-10 grid content-start gap-y-12 lg:col-span-3 lg:mt-35 lg:gap-y-14'
+                }
               >
-                {card}
-              </Reveal>
-            );
-          })}
+                {column.map((dto) => (
+                  // The card carries its own `rise`; the item only sets the stagger step.
+                  <li key={dto.slug} style={{ '--motion-stagger': index + 1 } as CSSProperties}>
+                    {tile(dto)}
+                  </li>
+                ))}
+              </ul>
+            ) : null
+          )}
         </div>
       </Reveal>
     </Container>

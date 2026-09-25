@@ -38,7 +38,7 @@ export const NEW_ARRIVALS_LIMIT = 8;
  * API), so the read is skipped instead of caught. Asked through the one authority
  * on the base URL, never by re-reading the environment here.
  */
-function apiConfigured(): boolean {
+export function apiConfigured(): boolean {
   try {
     return resolveApiBaseUrl() !== '';
   } catch {
