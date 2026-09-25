@@ -1,10 +1,5 @@
 @import 'tailwindcss';
 
-/* The promo banner's wide layout (16:9 crop, copy on the physical left). By shape,
-   not only width: on a portrait tablet the 16:9 crop zooms onto the figure and the
-   copy lands on her, so those get the 4:5 crop with the copy at the bottom. */
-@custom-variant banner-wide (@media (min-width: 768px) and (min-aspect-ratio: 4/3));
-
 /* ============================================================
    Tokens — the Moon Fashion storefront design system (Claude Design artifact
    "Moon Fashion", 2026-09-25), mapped onto the existing Tailwind v4 layer.
@@ -1361,8 +1356,15 @@ header[data-surface][data-surface-ready] {
 }
 
 .marquee:hover :is(.marquee-track, [data-strip-pan]),
-.marquee:focus-within :is(.marquee-track, [data-strip-pan]) {
+.marquee:focus-within :is(.marquee-track, [data-strip-pan]),
+[data-strip]:has([data-strip-toggle]:checked) :is(.marquee-track, [data-strip-pan]) {
   animation-play-state: paused;
+}
+
+/* The strip's Pause control is a visually hidden checkbox; its label wears the ring. */
+[data-strip-toggle]:focus-visible + label {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /* product-card.tsx: the alternate (hover) image only exists where hover exists.
@@ -1885,7 +1887,8 @@ header[data-surface][data-surface-ready] {
   }
 
   .marquee-track[aria-hidden='true'],
-  [data-marquee-copy] {
+  [data-marquee-copy],
+  [data-strip-control] {
     display: none;
   }
 }

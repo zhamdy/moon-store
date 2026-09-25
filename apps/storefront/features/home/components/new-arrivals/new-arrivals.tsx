@@ -55,26 +55,26 @@ export async function NewArrivals({ locale }: { locale: AppLocale }) {
   const priceFromLabel = tpr.raw('priceFrom') as string;
 
   return (
-    <Container as="section" aria-labelledby={HEADING_ID} className="py-16 md:py-20 lg:py-24">
-      <Reveal className="[--motion-rise:48px]">
+    <Container as="section" aria-labelledby={HEADING_ID} className="section-y-commerce">
+      <Reveal className="[--motion-rise:24px] [--motion-step:70ms]">
         <ProductRail
           count={products.length}
           labels={{ previous: t('previous'), next: t('next') }}
           heading={
-            <div>
+            <div className="grid gap-3">
               <h2
                 id={HEADING_ID}
                 data-motion="rise"
-                className="type-h2 text-balance [--motion-offset:160ms] [--motion-rise:24px]"
+                className="type-page-title [--motion-offset:60ms] [--motion-rise:16px]"
               >
-                {t('eyebrow')}
+                {t('title')}
               </h2>
               {/* Only with a real catalog behind it: the line names the thirty-day
                   window the API's `new` scope actually applies. */}
               {dtos && (
                 <p
                   data-motion="fade"
-                  className="type-small mt-3 max-w-[48ch] text-text-secondary [--motion-offset:320ms]"
+                  className="type-body measure text-text-secondary [--motion-offset:180ms]"
                 >
                   {t('lead')}
                 </p>
@@ -82,8 +82,8 @@ export async function NewArrivals({ locale }: { locale: AppLocale }) {
             </div>
           }
           viewAll={
-            <div data-motion="fade" className="[--motion-offset:450ms]">
-              <EditorialLink href="/new-in" tone="brand">
+            <div data-motion="fade" className="[--motion-offset:280ms]">
+              <EditorialLink href="/new-in" underline="always">
                 {t('link')}
               </EditorialLink>
             </div>

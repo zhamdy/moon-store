@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { IconButton } from '@/components/ui/icon-button';
 import { useLocale } from 'next-intl';
 import { getDirection } from '@/i18n/routing';
 import { railEdges, railStep, snapTarget, type RailEdges } from './rail-scroll';
@@ -58,13 +59,6 @@ const AT_REST: RailEdges = {
   thumb: 0,
 };
 
-const CONTROL_CLASS = [
-  'flex size-11 shrink-0 items-center justify-center rounded-full border border-border',
-  'text-text transition-colors duration-fast ease-ui',
-  'hover:border-text hover:bg-text hover:text-bg',
-  'disabled:border-disabled disabled:bg-transparent disabled:text-disabled',
-].join(' ');
-
 /**
  * The New Arrivals carousel. A client leaf over a CSS scroll-snap rail
  * (`[data-rail]` in app/globals.css), the same tooling the category and lookbook
@@ -85,7 +79,7 @@ const CONTROL_CLASS = [
  *
  * Direction: `railStep` re-signs the travel for RTL, where the end of a scroller
  * is a negative `scrollLeft`; everything else works on the absolute distance. The
- * chevrons rotate with `rtl:` so "previous" always points back along the reading
+ * chevrons mirror (`IconButton directional`) so "previous" always points back along the reading
  * direction.
  *
  * Mouse drag: mandatory snapping fights a dragged `scrollLeft` frame by frame, so
@@ -212,28 +206,31 @@ export function ProductRail({ heading, viewAll, labels, count, children }: Produ
     rail.scrollTo({ left: rtl ? -target : target, behavior: scrollBehavior() });
   };
 
+  // The design system's rail control (`IconButton variant="outline"`, homepage Phase 2);
+  // `directional` mirrors the chevron under RTL so "previous" points back along the
+  // reading direction.
   const controls = edges.scrollable && (
     <div className="flex items-center gap-2">
-      <button
-        type="button"
+      <IconButton
+        variant="outline"
+        directional
         aria-label={labels.previous}
         aria-controls={railId}
         disabled={edges.atStart}
         onClick={() => go(-1)}
-        className={CONTROL_CLASS}
       >
-        <ChevronLeft aria-hidden="true" size={18} className="rtl:rotate-180" />
-      </button>
-      <button
-        type="button"
+        <ChevronLeft aria-hidden="true" size={18} strokeWidth={1.5} />
+      </IconButton>
+      <IconButton
+        variant="outline"
+        directional
         aria-label={labels.next}
         aria-controls={railId}
         disabled={edges.atEnd}
         onClick={() => go(1)}
-        className={CONTROL_CLASS}
       >
-        <ChevronRight aria-hidden="true" size={18} className="rtl:rotate-180" />
-      </button>
+        <ChevronRight aria-hidden="true" size={18} strokeWidth={1.5} />
+      </IconButton>
     </div>
   );
 

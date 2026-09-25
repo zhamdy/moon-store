@@ -6,9 +6,9 @@ export interface PromoBannerData {
    * the locale prefix, so this must never carry one itself.
    */
   href: string;
-  /** Shown on landscape screens at least 768px wide and 4:3 (`banner-wide`). */
+  /** The photograph's source from 1024, where it fills the split's inline-end column. */
   wide: EditorialSlot;
-  /** Shown on phones and portrait tablets. May be the same slot as `wide`. */
+  /** The source below 1024, where the photograph sits above the copy. May equal `wide`. */
   portrait: EditorialSlot;
   /**
    * `object-position` for the portrait crop. Written as a full class name so
@@ -16,11 +16,17 @@ export interface PromoBannerData {
    */
   portraitImageClassName: string;
   /**
-   * `object-position` for the wide crop. Carries its own `banner-wide:` variant
-   * (app/globals.css) for the same reason: concatenating a variant and a value at
-   * runtime never appears in source as one token, so Tailwind would not generate it.
+   * `object-position` for the split's crop from 1024. Carries its own `lg:` variant for
+   * the same reason: a variant concatenated at runtime never appears in source as one
+   * token, so Tailwind would not generate it.
    */
   wideImageClassName: string;
+  /**
+   * The small 4:5 detail set into the split from 1024 (homepage Phase 2): a close
+   * crop of the fabric the section is named for. Decorative context, so it has its
+   * own alt (`home.banner.detailAlt`).
+   */
+  detail: EditorialSlot;
 }
 
 /**
@@ -38,5 +44,6 @@ export const promoBanner: PromoBannerData = {
   wide: 'silk-edit-campaign',
   portrait: 'silk-edit-campaign',
   portraitImageClassName: 'object-[82%_center]',
-  wideImageClassName: 'banner-wide:object-center',
+  wideImageClassName: 'lg:object-[80%_center]',
+  detail: 'strip-01',
 };
