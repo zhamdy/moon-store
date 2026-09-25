@@ -8,7 +8,7 @@ contracts load on demand, when you work in the tree they govern.
 
 Run `pnpm install` at the repository root first. The workspace contains
 `apps/dashboard`, `apps/server`, and `apps/storefront` (a Next.js storefront: a
-prerendered homepage whose New Arrivals carousel reads the public catalog and falls
+prerendered "Shop the Film" homepage whose credits and New in grid read the public catalog, falling
 back to a static set without one, plus Shop, category, New In, Collections and product
 detail pages rendered from the server's public catalog API, and a guest bag (Add to Bag, a header drawer and `/bag`)
 priced by the server's cart quote; a Checkout base UI that collects contact and delivery

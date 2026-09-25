@@ -983,6 +983,23 @@ body:has([data-header-boundary]) header[data-surface='auto']:not(:has([data-nav-
   --surface-on-action: var(--color-ink);
 }
 
+/* Ivory: the page's own values again, for a light island set on a dark surface — the
+   film's credits row puts Quick Add (a disc and an options panel drawn for light
+   grounds) on Espresso (homepage "Shop the Film", 2026-09-26). */
+[data-surface='ivory'] {
+  --surface-bg: var(--color-ivory);
+  --surface-text: var(--color-ink);
+  --surface-text-secondary: var(--color-muted-text);
+  --surface-border: color-mix(in srgb, var(--color-ink) 12%, transparent);
+  --surface-control: var(--color-control-border);
+  --surface-accent: var(--color-bronze);
+  --surface-accent-hover: var(--color-bronze-deep);
+  --surface-action: var(--color-ink);
+  --surface-action-hover: var(--color-bronze-deep);
+  --surface-on-action: var(--color-ivory);
+  --focus-ring-color: var(--color-bronze);
+}
+
 /* Sand: muted-text is 4.1:1 here and fails, so secondary text is muted-deep, and the
    accent deepens to bronze-deep (6.4:1). */
 [data-surface='sand'] {
@@ -1032,8 +1049,8 @@ header[data-surface][data-surface-ready] {
 }
 
 /* ============================================================
-   Motion — guideline §12 (hero sequence), §13 (reveal, parallax,
-   marquee). Four ideas, reused everywhere; three of them need no JS.
+   Motion — guideline §13 (reveal, parallax). The homepage's opening frame
+   uses the shared entrance utilities; nothing here rotates or loops.
    ============================================================ */
 
 /* Motion distances shrink on phones: one multiplier, so a per-element
@@ -1050,8 +1067,8 @@ header[data-surface][data-surface-ready] {
   }
 }
 
-/* (1) Entrance. Keyframes for the hero (played from the server HTML, keyed on the
-   active slide) and the mobile menu. Nothing here waits on hydration. */
+/* (1) Entrance. Keyframes for the homepage's opening frame and the mobile menu,
+   played from the server HTML. Nothing here waits on hydration. */
 @keyframes moon-fade-up {
   from {
     opacity: 0;
@@ -1060,31 +1077,6 @@ header[data-surface][data-surface-ready] {
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-@keyframes moon-fade-out {
-  to {
-    opacity: 0;
-  }
-}
-
-/* Line masks need an overflow-hidden parent. */
-@keyframes moon-line-reveal {
-  from {
-    transform: translateY(110%);
-  }
-  to {
-    transform: none;
-  }
-}
-
-@keyframes moon-line-exit {
-  from {
-    transform: none;
-  }
-  to {
-    transform: translateY(-110%);
   }
 }
 
@@ -1097,13 +1089,9 @@ header[data-surface][data-surface-ready] {
   }
 }
 
-@keyframes moon-image-out {
-  from {
-    transform: none;
-  }
-  to {
-    transform: scale(1.04);
-  }
+/* The opening frame's photograph settles 1.08 -> 1 as the page opens. */
+@utility entrance-settle {
+  animation: moon-image-in 1500ms var(--ease-editorial) 120ms both;
 }
 
 @utility entrance-fade-up {
@@ -1216,116 +1204,6 @@ header[data-surface][data-surface-ready] {
   }
 }
 
-/* Hero slides - features/home/components/hero/. Keyed on the carousel's
-   data-active / data-leaving, so the first slide's entrance plays on first paint
-   from the server HTML and every change replays it.
-
-   Load and change share one sequence: the image settles 1.08 -> 1 from 120ms,
-   the gold eyebrow fades up at 120ms, the collection name rises through its mask
-   at 240ms, the description at 420ms, the link at 560ms. The outgoing slide fades
-   over 1s while its image drifts 1 -> 1.04 and its name leaves upward through the
-   same mask, so old and new names cross in place. Visibility is delayed on the
-   way out so the fade can run. */
-[data-hero-slide] {
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 1000ms var(--ease-editorial),
-    visibility 0s linear 1000ms;
-}
-
-[data-hero-slide][data-active] {
-  opacity: 1;
-  visibility: visible;
-  transition: opacity 1000ms var(--ease-editorial);
-}
-
-[data-hero-slide][data-active] [data-hero-image] {
-  animation: moon-image-in 1500ms var(--ease-editorial) 120ms both;
-}
-
-[data-hero-slide][data-leaving] [data-hero-image] {
-  animation: moon-image-out 1000ms var(--ease-editorial) both;
-}
-
-[data-hero-slide][data-active] [data-enter='fade'] {
-  --enter-rise: 32px;
-  animation: moon-fade-up 800ms var(--ease-editorial) both;
-  animation-delay: var(--entrance-delay, 0ms);
-}
-
-[data-hero-slide][data-active] [data-enter='line'] {
-  animation: moon-line-reveal 1000ms var(--ease-editorial) both;
-  animation-delay: var(--entrance-delay, 0ms);
-}
-
-[data-hero-slide][data-leaving] [data-enter='line'] {
-  /* Deliberately its own curve, not --ease-editorial/--ease-ui: an accelerating
-     ease-in exit (the title picks up speed on its way out) reads as the outgoing
-     slide being overtaken by the incoming one. Moving it onto the shared
-     entrance easing would slow that hand-off, not just make the tokens
-     consistent. */
-  animation: moon-line-exit 650ms cubic-bezier(0.7, 0, 0.84, 0) both;
-}
-
-[data-hero-slide][data-leaving] [data-enter='fade'] {
-  animation: moon-fade-out 400ms var(--ease-ui) both;
-}
-
-/* The collection index settles last on load. */
-[data-hero-tabs] {
-  --enter-rise: 16px;
-  animation: moon-fade-up 900ms var(--ease-editorial) 750ms both;
-}
-
-/* The index row scrolls sideways when four names do not fit (320px, or a longer
-   collection name); the scrollbar itself would cut the hairline it sits under. */
-[data-hero-index] {
-  scrollbar-width: none;
-}
-
-[data-hero-index]::-webkit-scrollbar {
-  display: none;
-}
-
-/* Rotation progress: one line at the hero's bottom edge, not one bar per tab.
-   While rotating it fills 0 -> 100% over --hero-interval and its animationend
-   advances the slide, so pausing the animation pauses the timer. React keys the
-   fill on the active index, so a slide change remounts it and the fill restarts.
-   Once stopped it refills quickly on every manual change. Before hydration
-   (idle) it is empty. */
-[data-hero-progress] {
-  transform: scaleX(0);
-  transform-origin: left;
-}
-
-[dir='rtl'] [data-hero-progress] {
-  transform-origin: right;
-}
-
-[data-carousel-state='stopped'] [data-hero-progress] {
-  transform: scaleX(1);
-  animation: moon-hero-progress 700ms var(--ease-editorial) both;
-}
-
-[data-carousel-state='running'] [data-hero-progress],
-[data-carousel-state='paused'] [data-hero-progress] {
-  animation: moon-hero-progress var(--hero-interval) linear both;
-}
-
-[data-carousel-state='paused'] [data-hero-progress] {
-  animation-play-state: paused;
-}
-
-@keyframes moon-hero-progress {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
 /* (3) Parallax - components/motion/parallax.tsx. In layer mode the image inside
    the frame is over-scaled by the travel so the frame edge is never exposed, and
    JS moves it. Element mode needs no CSS: JS moves the whole element through the
@@ -1335,38 +1213,97 @@ header[data-surface][data-surface-ready] {
   will-change: transform;
 }
 
-/* (4) Marquee - features/home/components/editorial-strip/marquee.tsx. The track
-   renders twice; translating by one track plus the gap puts the copy exactly
-   where the original was, so the loop is seamless. RTL travels the other way.
-   Tracks are content-sized, never stretched (a stretched track leaves its spare
-   width at the seam as one oversized gap); the component repeats the content
-   inside each track instead, and duration scales with that repeat so speed is
-   --marquee-set per set. */
-.marquee {
-  --marquee-duration: calc(var(--marquee-set, 48s) * var(--marquee-repeat, 1));
-  display: flex;
-  gap: var(--marquee-gap, 40px);
-  overflow: hidden;
+/* Homepage category panels ("Shop the Film", 2026-09-26): stacked 96px rows below
+   1024; from it one row of five, the first open, and whichever the pointer or focus is
+   on opens instead. CSS only — see features/home/components/category-panels. */
+[data-panels] {
+  display: grid;
+  gap: 0.5rem;
+}
+[data-panel] {
+  block-size: 6rem;
+}
+@media (min-width: 1024px) {
+  [data-panels] {
+    display: flex;
+    gap: 0.5rem;
+    block-size: clamp(30rem, 72svh, 42rem);
+  }
+  [data-panel] {
+    block-size: auto;
+    flex: 1 1 0;
+    min-inline-size: 0;
+    transition: flex-grow var(--duration-slow) var(--ease-editorial);
+  }
+  [data-panel]:first-child,
+  [data-panels]:has([data-panel]:hover, [data-panel]:focus-within)
+    [data-panel]:is(:hover, :focus-within) {
+    flex-grow: 5;
+  }
+  [data-panels]:has([data-panel]:hover, [data-panel]:focus-within)
+    [data-panel]:not(:hover, :focus-within) {
+    flex-grow: 1;
+  }
+  [data-panel-full],
+  [data-panel-spine] {
+    transition: opacity var(--duration-base) var(--ease-ui);
+  }
+  [data-panel] [data-panel-full] {
+    opacity: 0;
+  }
+  [data-panel]:first-child [data-panel-spine],
+  [data-panels]:has([data-panel]:hover, [data-panel]:focus-within)
+    [data-panel]:is(:hover, :focus-within)
+    [data-panel-spine] {
+    opacity: 0;
+  }
+  [data-panel]:first-child [data-panel-full],
+  [data-panels]:has([data-panel]:hover, [data-panel]:focus-within)
+    [data-panel]:is(:hover, :focus-within)
+    [data-panel-full] {
+    opacity: 1;
+  }
+  [data-panels]:has([data-panel]:hover, [data-panel]:focus-within)
+    [data-panel]:not(:hover, :focus-within)
+    [data-panel-full] {
+    opacity: 0;
+  }
+  [data-panels]:has([data-panel]:hover, [data-panel]:focus-within)
+    [data-panel]:not(:hover, :focus-within)
+    [data-panel-spine] {
+    opacity: 1;
+  }
 }
 
-.marquee-track {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--marquee-gap, 40px);
-  animation: moon-marquee var(--marquee-duration) linear infinite;
-}
+/* Category chips (homepage "Shop the Film"): pill links into the shop, 44px tall. */
+@layer components {
+  .chip {
+    display: inline-flex;
+    min-height: var(--size-tap);
+    align-items: center;
+    white-space: nowrap;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding-inline: 1.125rem;
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text);
+    transition:
+      background-color var(--motion-fast) var(--ease-ui),
+      border-color var(--motion-fast) var(--ease-ui),
+      color var(--motion-fast) var(--ease-ui);
+  }
 
-.marquee:hover :is(.marquee-track, [data-strip-pan]),
-.marquee:focus-within :is(.marquee-track, [data-strip-pan]),
-[data-strip]:has([data-strip-toggle]:checked) :is(.marquee-track, [data-strip-pan]) {
-  animation-play-state: paused;
-}
+  .chip:hover {
+    border-color: var(--color-text);
+  }
 
-/* The strip's Pause control is a visually hidden checkbox; its label wears the ring. */
-[data-strip-toggle]:focus-visible + label {
-  outline: var(--focus-ring-width) solid var(--focus-ring-color);
-  outline-offset: var(--focus-ring-offset);
+  .chip-current {
+    border-color: var(--color-action);
+    background: var(--color-action);
+    color: var(--color-on-action);
+  }
 }
 
 /* product-card.tsx: the alternate (hover) image only exists where hover exists.
@@ -1486,93 +1423,6 @@ header[data-surface][data-surface-ready] {
 
 @utility animate-quick-add-up {
   animation: quick-add-in-up var(--motion-fast, 180ms) var(--ease-ui) both;
-}
-
-/* ============================================================
-   Product rail - features/home/components/new-arrivals/. The New Arrivals
-   carousel is a CSS scroll-snap scroller, the tooling the category and lookbook
-   rails already use: the browser owns the scrolling, the snapping, touch swipe
-   and the reading direction, and `product-rail.tsx` adds only the controls, the
-   progress rule and a mouse drag. Embla stays unused.
-
-   The card count is fractional on purpose, so part of the next card is always in
-   view and the row reads as something to browse sideways. The rail pulls out by
-   one gutter and pads itself back, so its `100%` is exactly the container's
-   content column and a card's width is honest at every viewport - including past
-   --container-max, where the column stops growing.
-   ============================================================ */
-@layer components {
-  [data-rail] {
-    --rail-gap: 12px;
-    /* Leave the next photograph visible as the swipe affordance. */
-    --rail-visible: min(1.2, var(--rail-count, 99));
-    --rail-card: calc((100% - (var(--rail-visible) - 1) * var(--rail-gap)) / var(--rail-visible));
-    display: flex;
-    gap: var(--rail-gap);
-    margin-inline: calc(var(--page-gutter) * -1);
-    padding-inline: var(--page-gutter);
-    /* overflow-x forces a matching computed overflow-y (CSS overflow spec),
-       which would otherwise clip each card's focus ring on the block edges. */
-    padding-block: 6px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scroll-padding-inline: var(--page-gutter);
-    scrollbar-width: none;
-    overscroll-behavior-x: contain;
-  }
-
-  [data-rail]::-webkit-scrollbar {
-    display: none;
-  }
-
-  [data-rail] > * {
-    flex: none;
-    scroll-snap-align: start;
-    inline-size: var(--rail-card);
-  }
-
-  /* A mandatory snap fights a dragged scrollLeft frame by frame, so the drag
-     turns it off; the island puts the rail back on a card boundary on release. */
-  [data-rail][data-dragging] {
-    scroll-snap-type: none;
-    cursor: grabbing;
-    user-select: none;
-  }
-
-  @media (min-width: 768px) {
-    [data-rail] {
-      --rail-gap: 24px;
-      --rail-visible: min(2.2, var(--rail-count, 99));
-    }
-  }
-
-  @media (min-width: 1024px) {
-    [data-rail] {
-      --rail-visible: min(3.2, var(--rail-count, 99));
-      /* Preserve the compact portrait scale on wide desktop screens. */
-      --rail-card: min(
-        355px,
-        calc((100% - (var(--rail-visible) - 1) * var(--rail-gap)) / var(--rail-visible))
-      );
-    }
-  }
-
-  /* How much of the row is in view, and where it sits: a hairline under the rail
-     with a gold thumb, the same language as the hero's rotation line. Both
-     values are set by the island as unitless numbers; --rail-thumb is 0 until
-     the first measurement, which draws nothing. */
-  [data-rail-progress] {
-    block-size: 1px;
-    background-color: var(--color-border);
-  }
-
-  [data-rail-progress] > span {
-    display: block;
-    block-size: 1px;
-    background-color: var(--rule-accent);
-    inline-size: calc(var(--rail-thumb, 0) * 100%);
-    margin-inline-start: calc(var(--rail-progress, 0) * (100% - var(--rail-thumb, 0) * 100%));
-  }
 }
 
 /* ============================================================
@@ -1805,48 +1655,10 @@ header[data-surface][data-surface-ready] {
   }
 }
 
-/* Editorial strip depth: each detail photograph drifts sideways inside its frame
-   on its own slow cycle, over-scaled so no edge shows, so the images move at a
-   different speed from the words without leaving the line. `ease-in-out` is
-   deliberate, not --ease-editorial/--ease-ui: it alternates infinitely (`alternate`),
-   so it needs to decelerate into and accelerate out of both endpoints
-   symmetrically, which is what makes the drift read as a pendulum rather than a
-   one-way entrance. */
-[data-strip-pan] {
-  transform: scale(1.18);
-  animation: moon-strip-pan 9s ease-in-out infinite alternate;
-  animation-delay: var(--pan-delay, 0s);
-}
-
-@keyframes moon-strip-pan {
-  from {
-    transform: translateX(-7%) scale(1.18);
-  }
-  to {
-    transform: translateX(7%) scale(1.18);
-  }
-}
-
-[dir='rtl'] .marquee-track {
-  animation-name: moon-marquee-rtl;
-}
-
-@keyframes moon-marquee {
-  to {
-    transform: translateX(calc(-100% - var(--marquee-gap, 40px)));
-  }
-}
-
-@keyframes moon-marquee-rtl {
-  to {
-    transform: translateX(calc(100% + var(--marquee-gap, 40px)));
-  }
-}
-
 /* ============================================================
    Reduced motion - guideline section 15. Reveal never marks anything pending,
-   Parallax never attaches, the carousel never rotates; this block removes the
-   rest: every duration and delay, the parallax over-scale and the marquee loop.
+   Parallax never attaches; this block removes the
+   rest: every duration and delay and the parallax over-scale.
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -1868,30 +1680,10 @@ header[data-surface][data-surface-ready] {
     will-change: auto;
   }
 
-  /* Static strip: the content once, scrolling naturally. */
-  .marquee {
-    overflow-x: auto;
-  }
-
-  .marquee-track,
-  [data-strip-pan] {
-    animation: none;
-  }
-
-  [data-strip-pan] {
-    transform: none;
-  }
-
   /* Placeholders show at once and hold still; revealed content does not fade. */
   [data-bag-placeholder],
   [data-bag-reveal] {
     animation: none;
-  }
-
-  .marquee-track[aria-hidden='true'],
-  [data-marquee-copy],
-  [data-strip-control] {
-    display: none;
   }
 }
 

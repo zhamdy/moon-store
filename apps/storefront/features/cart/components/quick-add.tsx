@@ -38,11 +38,10 @@ export interface QuickAddProps {
    * plain `<li>` with no overflow, so it paints over its neighbours.
    *
    * `above` opens it upward over the photograph, for a card inside a **scroller**.
-   * `[data-rail]` sets `overflow-x: auto`, and per the CSS overflow spec a non-visible
-   * value on one axis computes the other to `auto` (the rule's own comment in
-   * `app/globals.css` says so), so a panel that leaves the card's box downward is
+   * A scroller sets `overflow-x: auto`, and per the CSS overflow spec a non-visible
+   * value on one axis computes the other to `auto`, so a panel that leaves the card's box downward is
    * clipped — or turns the rail into a vertical scroller. Opening upward keeps it
-   * inside the 4:5 frame, which is inside the card, which is inside the rail's box
+   * inside the 4:5 frame, which is inside the card, which is inside the scroller's box
    * (MED-6 in `docs/audits/2026-09-22-shop-cart-fullstack-audit.md`). The frame's
    * height is the budget: a product with more option groups than fit would clip at
    * the photograph's top edge.

@@ -2,26 +2,25 @@ import { hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
-import { Hero } from '@/features/home/components/hero/hero';
-import { EditorialStrip } from '@/features/home/components/editorial-strip/editorial-strip';
-import { NewArrivals } from '@/features/home/components/new-arrivals/new-arrivals';
-import { PromoBanner } from '@/features/home/components/promo-banner/promo-banner';
-import { FeaturedCollection } from '@/features/home/components/featured-collection/featured-collection';
-import { CategoryGrid } from '@/features/home/components/category-grid/category-grid';
 import { PromotionBanner } from '@/components/promotion/promotion-banner';
-import { MoonSelection } from '@/features/home/components/moon-selection/moon-selection';
-import { Benefits } from '@/features/home/components/benefits/benefits';
-import { Lookbook } from '@/features/home/components/lookbook/lookbook';
+import { loadFilmCredits } from '@/features/home/api/load-film-credits';
+import { loadNewArrivals } from '@/features/home/api/load-new-arrivals';
+import { CategoryPanels } from '@/features/home/components/category-panels/category-panels';
+import { FilmHero } from '@/features/home/components/film-hero/film-hero';
+import { Looks } from '@/features/home/components/looks/looks';
+import { NewIn } from '@/features/home/components/new-in/new-in';
 
 /**
- * The homepage composes the guideline §12 sections in order, minus Newsletter
- * (§12·11, excluded by the brief). Each section owns its container/bleed and
- * background decision; the page only sequences them.
+ * The homepage, "Shop the Film" (owner decision 2026-09-26, concept C of the Claude Design
+ * redesign): cinema that sells. Five sections — the film's opening frame with its
+ * credits, the shop with a scene cut into it, the categories as panels, the offer as an
+ * intermission, and the closing looks. Each section owns its container and surface; the
+ * page only sequences them and reads the catalogue once for each of the two that need it.
  *
- * Still prerendered for both locales: nothing here reads request data. New
- * Arrivals reads the catalog (2026-09-20) on the listing's own 60s revalidate,
- * and falls back to the static set when there is no API to read — so the page
- * keeps rendering, and keeps building, without one.
+ * Still prerendered for both locales: nothing here reads request data. Both reads go
+ * through the listing's data cache, and each degrades on its own when there is no API —
+ * the credits disappear, the shop falls back to editorial frames — so the page keeps
+ * rendering, and keeps building, without one.
  */
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -31,18 +30,15 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   }
   setRequestLocale(locale);
 
+  const [credits, arrivals] = await Promise.all([loadFilmCredits(), loadNewArrivals()]);
+
   return (
     <>
-      <Hero />
-      <EditorialStrip />
-      <NewArrivals locale={locale} />
-      <PromoBanner />
-      <FeaturedCollection />
-      <CategoryGrid />
+      <FilmHero locale={locale} credits={credits} />
+      <NewIn locale={locale} products={arrivals} />
+      <CategoryPanels />
       <PromotionBanner />
-      <MoonSelection locale={locale} />
-      <Benefits />
-      <Lookbook />
+      <Looks />
     </>
   );
 }

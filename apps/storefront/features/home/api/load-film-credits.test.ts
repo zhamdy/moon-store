@@ -3,7 +3,7 @@ import { listCatalogProducts } from '@/features/products/api/list-catalog-produc
 import type { CatalogProduct, CatalogProductPage } from '@/features/products/types/catalog-product';
 import { resolveApiBaseUrl } from '@/lib/api/client';
 import { ApiError } from '@/lib/api/errors';
-import { SELECTION_LIMIT, loadSelection } from './load-selection';
+import { CREDITS_LIMIT, loadFilmCredits } from './load-film-credits';
 
 vi.mock('@/features/products/api/list-catalog-products', () => ({
   listCatalogProducts: vi.fn(),
@@ -50,13 +50,13 @@ function page(items: CatalogProduct[]): CatalogProductPage {
   };
 }
 
-describe('loadSelection', () => {
+describe('loadFilmCredits', () => {
   it('reads the selection collection in its curated order', async () => {
     baseUrl.mockReturnValue('http://api.test');
     const items = [product('a'), product('b')];
     list.mockResolvedValue(page(items));
 
-    await expect(loadSelection()).resolves.toEqual(items);
+    await expect(loadFilmCredits()).resolves.toEqual(items);
     expect(list).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: { kind: 'collection', slug: 'evening' },
@@ -66,36 +66,36 @@ describe('loadSelection', () => {
     );
   });
 
-  it(`takes the first ${SELECTION_LIMIT}: one feature and four beside it`, async () => {
+  it(`takes the first ${CREDITS_LIMIT}: the credits row`, async () => {
     baseUrl.mockReturnValue('http://api.test');
     list.mockResolvedValue(page(Array.from({ length: 8 }, (_, i) => product(`p-${i}`))));
 
-    await expect(loadSelection()).resolves.toHaveLength(SELECTION_LIMIT);
+    await expect(loadFilmCredits()).resolves.toHaveLength(CREDITS_LIMIT);
   });
 
-  // No static fallback: null hides the section.
-  it('hides the section when the API is not configured, without calling it', async () => {
+  // No static fallback: null hides the row.
+  it('hides the row when the API is not configured, without calling it', async () => {
     baseUrl.mockImplementation(() => {
       throw new Error('API_URL was not set');
     });
 
-    await expect(loadSelection()).resolves.toBeNull();
+    await expect(loadFilmCredits()).resolves.toBeNull();
     expect(list).not.toHaveBeenCalled();
   });
 
-  it('hides the section when the collection is empty', async () => {
+  it('hides the row when the collection is empty', async () => {
     baseUrl.mockReturnValue('http://api.test');
     list.mockResolvedValue(page([]));
 
-    await expect(loadSelection()).resolves.toBeNull();
+    await expect(loadFilmCredits()).resolves.toBeNull();
   });
 
-  it('hides the section on an ApiError (a missing collection is a 404), logged once', async () => {
+  it('hides the row on an ApiError (a missing collection is a 404), logged once', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     baseUrl.mockReturnValue('http://api.test');
     list.mockRejectedValue(new ApiError({ status: 404, code: 'NOT_FOUND', message: 'gone' }));
 
-    await expect(loadSelection()).resolves.toBeNull();
+    await expect(loadFilmCredits()).resolves.toBeNull();
     expect(log).toHaveBeenCalledOnce();
   });
 
@@ -104,6 +104,6 @@ describe('loadSelection', () => {
     const bug = new TypeError('boom');
     list.mockRejectedValue(bug);
 
-    await expect(loadSelection()).rejects.toBe(bug);
+    await expect(loadFilmCredits()).rejects.toBe(bug);
   });
 });

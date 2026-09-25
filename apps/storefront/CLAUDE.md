@@ -96,7 +96,7 @@ One token pair in `app/globals.css`'s `@theme inline`: `--radius-media` (was 12p
 `rounded-media` utility) and `--radius-media-sm` (was 8px, `rounded-media-sm`). Never a raw
 `rounded-[12px]`. `rounded-media`: the product card image frame, category tiles, the
 collections index photographs, the collection intro image, the featured collection's
-two frames, lookbook images, the editorial strip photographs, the gallery frame and its
+two frames, lookbook images, the gallery frame and its
 no-image frame, the product page's gallery fallback and both skeleton frames.
 `rounded-media-sm`: gallery thumbnails (the inner photograph is concentric,
 `radius - 4px`) and the purchase panel's 44px size cells, where 12px read as pills. Full-bleed photographs stay square: the hero, the promo
@@ -120,14 +120,15 @@ fonts already use (`--font-display: var(--font-display-active)`): `--surface-bg`
 into `--color-bg` / `--color-text` / `--color-text-secondary` / `--color-border`, and a
 surface overrides the `--surface-*` variables:
 
-| `data-surface` | Where                                                          | Effect                                                                                                                  |
-| -------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `ink` / `dark` | the footer, the hero, the Silk Edit, the lead category tile    | Espresso bg, ivory text, on-dark-muted secondary, Champagne accent and focus ring, the primary action inverted to Ivory |
-| `navy`         | the one nocturnal moment: the homepage campaign slot (Phase 2) | Midnight bg, otherwise as `ink`                                                                                         |
-| `sand`         | quiet tonal bands: the editorial strip, the homepage benefits  | Sand bg, muted-deep secondary, bronze-deep accent                                                                       |
-| `overlay`      | resolved on the header (see below)                             | transparent bg and border, ivory text, Champagne focus ring                                                             |
-| `auto`         | what the header renders from the server                        | overlay when the page has a header boundary, solid otherwise                                                            |
-| `solid`        | written by `HeaderShell` as soon as the page scrolls           | the defaults                                                                                                            |
+| `data-surface` | Where                                                         | Effect                                                                                                                  |
+| -------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ink` / `dark` | the footer, the opening frame, the scene tile, the panels     | Espresso bg, ivory text, on-dark-muted secondary, Champagne accent and focus ring, the primary action inverted to Ivory |
+| `navy`         | the one nocturnal moment: the homepage's offer                | Midnight bg, otherwise as `ink`                                                                                         |
+| `sand`         | quiet tonal bands (none on the homepage since 2026-09-26)     | Sand bg, muted-deep secondary, bronze-deep accent                                                                       |
+| `ivory`        | a light island on a dark surface: the film credits' Quick Add | the page defaults again (Ivory bg, ink text, Ink action), Bronze focus ring                                             |
+| `overlay`      | resolved on the header (see below)                            | transparent bg and border, ivory text, Champagne focus ring                                                             |
+| `auto`         | what the header renders from the server                       | overlay when the page has a header boundary, solid otherwise                                                            |
+| `solid`        | written by `HeaderShell` as soon as the page scrolls          | the defaults                                                                                                            |
 
 Components keep reading `text-text` / `bg-bg` / `border-border` and never set colours
 per surface. Never override a raw palette variable in scope (it would also recolour
@@ -232,8 +233,8 @@ study over a refined bar and a centred masthead):
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to twenty-one entries
-(twenty-two files):
+Server Components by default (R21/R22). `'use client'` is limited to nineteen entries
+(twenty files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -249,46 +250,43 @@ Server Components by default (R21/R22). `'use client'` is limited to twenty-one 
    Takes children only.
 6. `components/motion/parallax.tsx` — `scroll()` from `motion` driving a WAAPI
    animation from `motion/mini`. Takes children only.
-7. `features/home/components/hero/hero-carousel.tsx` — which hero slide is active,
-   autoplay, tabs, swipe. Slide content arrives server-rendered as `ReactNode`s and
-   every string arrives resolved; it renders no image itself.
-8. `features/catalog/components/catalog-controls.tsx` — the catalog utility row's
+7. `features/catalog/components/catalog-controls.tsx` — the catalog utility row's
    filter summary, Filter button and Headless UI filter sheet, and sort select, written
    to the URL with nuqs (`shallow: false`, `history: 'push'`). Strings arrive resolved
    from `catalog-controls-slot.tsx` (`catalogControlsRenderer`); the few values it
    formats itself use `{name}` templates through `fillTemplate` (`lib/utils/fill-template.ts`), not ICU. Its root is
    `display: contents` so its controls wrap as items of the utility row. Pure rules
    live in `catalog-controls-state.ts`, unit-tested.
-9. `app/[locale]/(catalog)/error.tsx` — every catalog route's error boundary. Next
+8. `app/[locale]/(catalog)/error.tsx` — every catalog route's error boundary. Next
    requires an error boundary to be a client component, so it cannot take resolved
    strings as props; see the one namespace exception below.
-10. `features/products/components/purchase-panel.tsx` — the product page's option
-    radios, live price and availability (PD-11, owner decision PD-E): the selection
-    drives price and per-value availability, which CSS cannot compute, and Cart needs an
-    island here anyway. Takes the DTO's `price`/`inStock`/`options`/`variants`, resolved
-    strings and a pre-formatted price map from `purchase-panel-slot.tsx`; the rules are
-    `utils/variant-selection.ts`, unit-tested. It renders the page-composed `action` slot
-    inside `PurchaseSelectionContext` (CD-11), which is how Add to Bag (14) reads
-    `purchaseReadiness`; `data-readiness` still exposes it.
-11. `features/products/components/product-gallery-viewer.tsx` — the product gallery's
+9. `features/products/components/purchase-panel.tsx` — the product page's option
+   radios, live price and availability (PD-11, owner decision PD-E): the selection
+   drives price and per-value availability, which CSS cannot compute, and Cart needs an
+   island here anyway. Takes the DTO's `price`/`inStock`/`options`/`variants`, resolved
+   strings and a pre-formatted price map from `purchase-panel-slot.tsx`; the rules are
+   `utils/variant-selection.ts`, unit-tested. It renders the page-composed `action` slot
+   inside `PurchaseSelectionContext` (CD-11), which is how Add to Bag (13) reads
+   `purchaseReadiness`; `data-readiness` still exposes it.
+10. `features/products/components/product-gallery-viewer.tsx` — the product gallery's
     thumbnail tabs and zoom in place (owner decision 2026-09-14): which image is active
     and the pointer-following zoom origin cannot be CSS. Takes resolved `label`/`alt`/
     `thumbLabel` strings, `dir`, and plain `{ url, sizes, zoomSizes, loading,
 fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     rule are `utils/gallery-layout.ts`, unit-tested.
-12. `features/products/components/product-tabs.tsx` — the product details tabs (ED-4):
+11. `features/products/components/product-tabs.tsx` — the product details tabs (ED-4):
     owns only which tab is active. Takes `tabs: { id, label, panelHasFocusable }[]`, the
     tablist `label`, `dir` and `panels: Record<id, ReactNode>` rendered on the server by
     `product-details-tabs.tsx`; the keyboard rule is `utils/tab-keys.ts` (`tabKeyTarget`,
     shared with the gallery), unit-tested.
-13. `features/products/components/share-button.tsx` — the share row's native share
+12. `features/products/components/share-button.tsx` — the share row's native share
     button (owner decision 2026-09-15): `navigator.share` and the clipboard exist only in
     the browser, and Instagram, TikTok and Messenger have no web share URL. Takes `url`,
     `title` and resolved `labels: { share, copied, copyFailed }` from `product-share.tsx`;
     reads `navigator` only on click, and reports the copy result as a toast (no region of
     its own). The decision is `utils/share-action.ts` (`shareAction`, `isShareAbort`),
     unit-tested.
-14. `features/cart/components/add-to-bag-button.tsx` — Add to Bag in the purchase panel's
+13. `features/cart/components/add-to-bag-button.tsx` — Add to Bag in the purchase panel's
     action slot (see _Cart_). Takes `slug`, the page's localized `name` and resolved
     `strings`; reads readiness through `usePurchaseSelection()`. Owns the quantity beside the
     button (owner decision 2026-09-15, replacing "one piece per press"): the bag's
@@ -296,41 +294,25 @@ fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     landed pieces. An add raises a toast with View bag (`useRouter` push to `/bag`) and
     never opens the drawer. The intent and the toast descriptor (`addToBagToast`) are
     `utils/add-to-bag-action.ts`, unit-tested.
-15. `features/cart/components/bag-trigger.tsx` — the header Bag link ("Bag (2)" from 1024,
+14. `features/cart/components/bag-trigger.tsx` — the header Bag link ("Bag (2)" from 1024,
     the icon and a count badge below), and the lazy drawer host. Composed by `app/[locale]/layout.tsx` into `Header`'s `bag`
     slot, with the trigger's and the drawer's strings resolved there. The label and ARIA
     state are `utils/bag-trigger-label.ts`, unit-tested.
-16. `features/cart/components/bag-view.tsx` — the `/bag` review island; its messages are
+15. `features/cart/components/bag-view.tsx` — the `/bag` review island; its messages are
     toasts.
-17. `components/feedback/app-toaster.tsx` — the one Sonner `<Toaster>` (owner decision
+16. `components/feedback/app-toaster.tsx` — the one Sonner `<Toaster>` (owner decision
     2026-09-15), mounted by `app/[locale]/layout.tsx` after the footer as a direct child of
     `<body>`. Takes resolved `label` / `closeLabel` (`toaster.*`) and `dir`. Lazy: it imports
     no `sonner`, renders nothing on the server and the first client render, and mounts the
     real `Toaster` when the browser is idle or the first toast asks. See _Cart_ → _Toasts_.
-18. `features/checkout/components/checkout-view.tsx` — the checkout page island: TanStack Form
+17. `features/checkout/components/checkout-view.tsx` — the checkout page island: TanStack Form
     state, the submit machine, the order summary and the cart notice (see _Checkout_). Takes
     resolved `CheckoutPageStrings` (the bag's included), `locale`, `shopHref`, `bagHref` and
     `deliveryMethods` from `app/[locale]/checkout/page.tsx`, and reads the bag through
     `useBagController`. Its rules are `features/checkout/utils/*` and
     `features/cart/utils/checkout-readiness.ts`, unit-tested.
 
-19. `features/home/components/new-arrivals/product-rail.tsx` — the New Arrivals
-    composition: the masthead/rail grid, the controls, their disabled edges, the
-    progress rule and the mouse drag.
-    Everything else about that rail is CSS scroll-snap (`[data-rail]` in
-    `app/globals.css`): the scrolling, the snapping, touch swipe, the reading
-    direction and the cards' keyboard order are the browser's. Takes the heading
-    block, the "View all" link and the cards server-rendered as `ReactNode`s and the
-    two control labels as resolved strings, the `HeroCarousel` contract; it renders no
-    product and resolves no message. From 1024 it lays the masthead (title, rule, lead
-    line, View all, controls, progress) in a column of its own and the rail beside it,
-    bleeding off the page's inline end (`data-rail-inset`); below that the masthead is
-    above a full-bleed rail with the rule under it. Its released-drag pitch is measured
-    across the **last two** items, since the rail opens with a wider lead card. **It never autoplays** (brief, 2026-09-20), so
-    unlike the hero it needs no WCAG 2.2.2 stop mechanism. Its rules are
-    `rail-scroll.ts` (`railEdges`, `railStep`, `snapTarget`), unit-tested.
-
-20. `features/cart/components/quick-add.tsx` — Add to Bag and Quick Add on a product
+18. `features/cart/components/quick-add.tsx` — Add to Bag and Quick Add on a product
     card (owner brief, 2026-09-20). Takes a pure `QuickAddModel` (`utils/quick-add-model.ts`)
     and resolved `QuickAddStrings` (`getQuickAddStrings`), and owns only its selection, its
     panel's open state and the "choose a size" prompt. Every rule it applies already existed:
@@ -338,21 +320,19 @@ fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     for the press and the acknowledgement, the one `cart-store` `add` for the write. Its own
     rule, `quickAddPress`, is the card-level one — add, open the panel, or sold out — and is
     unit-tested. The panel is `absolute`, so opening one card's options never reflows the
-    grid or the rail; Escape and an outside pointer close it and return focus to the
-    button. `placement` decides which way it opens: `below` (default) under the button,
-    right for a grid cell, which is a plain `<li>` with no overflow; `above` over the
-    photograph, which the **rail must use** — `[data-rail]` sets `overflow-x: auto` and
-    the spec computes the other axis to `auto` with it, so a panel leaving the card's box
-    downward is clipped or turns the rail into a vertical scroller (MED-6). Opening upward
-    keeps it inside the 4:5 frame; that frame's height is the budget, so a product with
-    more option groups than fit would clip at the photograph's top edge.
+    grid; Escape and an outside pointer close it and return focus to the button.
+    `placement` decides which way it opens: `below` (default) under the button, right for
+    a grid cell, which is a plain `<li>` with no overflow; `above` over what sits above it
+    (the homepage credits use it). **Never put it inside a scroller**: `overflow-x: auto`
+    computes the other axis to `auto`, so the panel is clipped or turns the scroller
+    vertical (MED-6) — which is why the credits are a grid, not a rail.
     One piece per press: no stepper on a card. On a tile
     (`emphasis="disc"`, the default) the trigger is the icon disc and the root spans the
     slot's full width while being `pointer-events-none`, so the panel is the photograph's
     width rather than the disc's and the strip over the photograph still belongs to the
     card link; the disc and the panel take their own events back.
 
-21. `components/layout/header/desktop-nav.tsx` — the desktop primary navigation (header
+19. `components/layout/header/desktop-nav.tsx` — the desktop primary navigation (header
     direction B, 2026-09-26): which panel is open. Shop and Collections are disclosure
     buttons (the WAI-ARIA disclosure pattern, not a `menu`) whose panels arrive
     server-rendered as `ReactNode`s, each right after its trigger so Tab moves into it and
@@ -367,7 +347,7 @@ heading into masked word spans on the server.
 
 **Client-bundled, but not boundaries** (no directive; only boundary islands import them):
 `features/cart/components/bag-drawer.tsx` (a lazy chunk, ~10.6 KB gz, reached only from
-15), `cart-line.tsx`, `quantity-stepper.tsx`, `bag-summary.tsx`, `use-bag-controller.ts`
+14), `cart-line.tsx`, `quantity-stepper.tsx`, `bag-summary.tsx`, `use-bag-controller.ts`
 (shared by the drawer and the page), `load-drawer.ts`, `components/feedback/show-toast.ts`
 (the one `toast()` caller and the one `import('sonner')`; pure modules import only its
 `ToastTone` type; its queue and gate are the pure `toast-queue.ts`, unit-tested), and
@@ -378,7 +358,7 @@ Component must never import it: `createContext` does not exist in the react-serv
 The checkout island's children are client-bundled the same way: `checkout-summary.tsx`,
 `checkout-cart-notice.tsx`, `text-field.tsx`, `governorate-field.tsx`,
 `delivery-method-section.tsx` and `use-media-query.ts`, plus the Bag page's
-`features/cart/components/checkout-entry.tsx` (reached only from 16).
+`features/cart/components/checkout-entry.tsx` (reached only from 15).
 
 **Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
 `useInView` import put the whole engine (~46 KB gz across two chunks) into the eager
@@ -400,7 +380,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding a nineteenth
+`useTranslations`, is a new decision, not a precedent. Before adding a twentieth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
@@ -411,23 +391,17 @@ needs no client boundary. The catalog's `CategoryNav` is the first caller that p
 
 ## Motion
 
-Three levels, set in the 2026-09-14 motion pass: **signature** (hero, editorial strip,
-featured collection, campaign, promo banner), **section** (headings, product grids,
-categories, The Moon Selection, benefits) and **micro** (hover and link states,
-180–400ms).
-Transform, opacity and clip-path only; nothing hijacks scroll, pins, bounces or blocks
-interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-ui`).
+Three levels, set in the 2026-09-14 motion pass and kept by the "Shop the Film" homepage
+(2026-09-26): **signature** (the opening frame, the scene tile, the category panels),
+**section** (headings, product grids, the credits, the looks) and **micro** (hover and link
+states, 180–400ms). Transform, opacity, clip-path and one `flex-grow`
+(the category panels) only; nothing hijacks scroll, pins, bounces, rotates on a timer or
+blocks interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-ui`).
 
-1. **Hero** — CSS keyed on the carousel's `data-active` / `data-leaving`, so the first
-   slide plays from the server HTML with no JS. Sequence on load and on every change:
-   image 1.08 → 1 from 120ms, the eyebrow at 120ms, the masked collection name (one
-   mask) at 240ms, the description fade-up at 420ms, link at 560ms; the collection index
-   settles at 750ms on load. The outgoing slide fades over 1s while its image drifts to
-   1.04, its name exits upward through the same mask and the eyebrow, description and
-   link fade out. Rotation shows as **one** progress line at the hero's bottom edge, not
-   one bar per name (2026-09-20): empty before hydration (`idle`), filling over 7s while
-   rotating, refilling quickly on each manual change once stopped. React keys it on the
-   active index, so a slide change remounts it and the fill restarts from zero.
+1. **Opening frame** — `film-hero.tsx` plays from the server HTML with no JS: the
+   photograph settles 1.08 → 1 (`entrance-settle`, from 120ms) and the copy block fades
+   up once (`entrance-fade-up`). One photograph, no carousel, so there is nothing to
+   pause and no WCAG 2.2.2 control.
 2. **Scroll reveal** — `<Reveal>` is a _trigger_, not an effect. The server HTML is the
    visible state; on mount `decideInitialRevealState` (`reveal-policy.ts`, unit-tested)
    marks only elements entirely below the fold as `pending`, never under reduced motion,
@@ -455,42 +429,23 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    from `scroll()`'s progress callback (see the component comment for why the animation
    form of `scroll()` is avoided). The layer over-scale is CSS and collapses under
    reduced motion.
-5. **Marquee** — `<Marquee duration gap>` (a Server Component in the home
-   slice): pure CSS, two content-sized tracks (never stretched: the spare space would
-   pile up at the seam), each repeating the content so a track outruns any viewport.
-   The strip keeps words and details alternating in one track (34s per set). A
-   separate faster image layer floating over the words was tried and rejected by the
-   user (2026-09-14) as clutter; depth comes instead from each photograph drifting
-   inside its own over-scaled frame (`[data-strip-pan]`, pure CSS, out of step per
-   image). Hover pauses both; reduced motion stops both. **The strip has a visible
-   Pause / Play control again** (homepage Phase 2, plan D7, 2026-09-25), closing the WCAG
-   2.2.2 gap the 2026-09-14 removal left open: a visually hidden native checkbox
-   (`data-strip-toggle`, named "Pause motion") whose `<label>` is drawn as a pill at the
-   band's inline end over a fade, pausing both animations through
-   `[data-strip]:has([data-strip-toggle]:checked)`. CSS only, no client boundary; the
-   label wears the focus ring (`[data-strip-toggle]:focus-visible + label`); hidden under
-   reduced motion, where nothing moves.
+5. **Category panels** — `[data-panels]` in `app/globals.css`, pure CSS: from 1024 the
+   open panel's `flex-grow` moves to whichever panel is hovered or holds focus (a
+   `:has()` on the row), and the name swaps between the spine and the full caption with
+   an opacity fade. Reduced motion keeps the behaviour and drops the transitions.
 
-**Eyebrows, since homepage Phase 2** (plan D1, 2026-09-25, superseding the 2026-09-14
-"no eyebrows" rule for the homepage): the design system's `Eyebrow` (a gold rule and a
-`type-eyebrow` label in the surface accent) opens the **editorial** sections only — the
-hero slides, the Silk Edit, the campaign slot and the Lookbook. Commerce sections (New
-Arrivals, categories, The Moon Selection, benefits) never carry one. Every homepage
-section header except the hero's and the three signature titles is the design-system
-`SectionHeader` with `motion="calm"` (or `"editorial"` on the Lookbook); the home-local
-`SectionHeading` is deleted. What each renders:
+**Eyebrows on the homepage** ("Shop the Film", 2026-09-26): the design system's
+`Eyebrow` opens the **editorial** moments only — the opening frame ("Now showing ·
+Evening"), the scene tile in New In, and the offer. Commerce headers (New in, Shop by
+category) never carry one. What each section renders:
 
-| Where               | Heading                                                                                                                                                         | Around it                                                                                                                                               |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Hero slides         | the collection name, `h2` `type-display md:type-display-xl`, **sentence case** (D5), one line mask at 240ms (0.3em of mask padding in Arabic for Amiri's marks) | `Eyebrow` at 120ms; one `type-body-lg` paragraph at 420ms; an Ivory primary button (the collection) and an `EditorialLink` "Shop new arrivals" at 560ms |
-| New Arrivals        | `h2` `type-page-title` "New arrivals", rise 16px                                                                                                                | `type-body` lead only with a real catalogue; "View all" and the outline `IconButton`s at the inline end                                                 |
-| Silk Edit           | `TextReveal` `h2` `type-display`                                                                                                                                | `Eyebrow`; `type-body-lg`; an Ivory button; a `type-caption` fabric line from 1024                                                                      |
-| Featured collection | `TextReveal` `h2` `type-section-title`, under a 48px gold rule                                                                                                  | `type-body-lg`; "Discover the collection" → `/collections/evening`                                                                                      |
-| Shop by category    | `SectionHeader` `type-page-title` ("Shop by category")                                                                                                          | lead "Find your piece"; "All pieces" → `/shop`                                                                                                          |
-| Campaign slot       | `TextReveal` `h2` `type-display lg:type-display-xl`                                                                                                             | `Eyebrow` "The season's offer"; `type-body-lg`; `type-caption` terms; an Ivory button                                                                   |
-| The Moon Selection  | `SectionHeader layout="split" size="section"`                                                                                                                   | lead and "Explore the selection" in columns 9-12                                                                                                        |
-| Benefits            | visible `h2` `type-title` in the first column                                                                                                                   | three `h3` `type-product-title` items                                                                                                                   |
-| Lookbook            | `SectionHeader layout="split" size="display"` ("Lookbook")                                                                                                      | `Eyebrow` "Worn by Moon", one lead line; no link (no lookbook route)                                                                                    |
+| Where            | Heading                               | Around it                                                                                                                                          |
+| ---------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Opening frame    | `h1` `type-display-xl`, sentence case | `Eyebrow`; an Ivory primary button (the Evening collection) and `EditorialLink underline="always"` "New arrivals"; the credits (`h2` `type-label`) |
+| New in           | `h2` `type-page-title`, rise 16px     | category chips (`.chip`, links into the shop) and "View all"; the scene tile (Eyebrow, `type-display` title, underlined cue)                       |
+| Shop by category | `h2` `type-page-title`, rise 16px     | five panels, each named by its category (`type-display` open, a vertical `type-title` spine collapsed)                                             |
+| The offer        | `h2` `type-display`, rise             | `Eyebrow`; `type-body-lg`; `type-caption` terms; an Ivory button                                                                                   |
+| Looks            | `h2` `type-display`, rise             | three photographs, each a link to its collection with a `type-title` caption                                                                       |
 
 The table below is the pre-Phase 2 record for the rest of the storefront (the catalog
 `PageIntro` row still holds):
@@ -523,15 +478,11 @@ pointer is not one on a touch screen. A collection card's season · year now sit
 its name, not above it. The label wipe (`data-motion="wipe"`, `data-enter="wipe"`) is
 gone with the eyebrows; don't reintroduce it as a heading device.
 
-**Signature vs commerce entrances** (AD-11, 2026-09-14; homepage Phase 2). The
-word-masked `TextReveal` belongs to the signature moments only: the Silk Edit, the
-featured collection and the campaign slot. Commerce headers (`SectionHeader
-motion="calm"`: New Arrivals, categories, The Moon Selection) raise the title 16px once
-and fade the lead and link, and the catalog's `PageIntro` uses the same entrance.
-`ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06 settle) is for
-one feature card per section, like The Moon Selection's lead card, and the lead
-`CategoryTile` always wipes. Adding the word mask back to a commerce heading repeats the
-same entrance down the page.
+**Signature vs commerce entrances** (AD-11, 2026-09-14). The homepage's commerce headers
+(New in, Shop by category) raise the title 16px once, and the catalog's `PageIntro` uses
+the same entrance; `TextReveal` is available for a signature title and currently unused on
+the homepage. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
+settle) is for one feature card per section at most.
 
 **Reveal and hover never share an element.** A `transition-*` utility replaces the
 element's whole `transition-property`, so a hover transition on an element carrying
@@ -541,55 +492,15 @@ Tailwind's hover utilities use the separate `scale` / `translate` properties, so
 never collide with the reveal's `transform`.
 
 `Reveal` and `Parallax` read `prefers-reduced-motion` at mount (`Parallax` also
-re-attaches when it or the breakpoint changes); `HeroCarousel` subscribes to it, so
-turning the setting on mid-session stops autoplay immediately.
+re-attaches when it or the breakpoint changes).
 
-The hero has **a visible Pause / Play button** again (homepage Phase 2, 2026-09-25,
-superseding the 2026-09-13 decision): the first control before the tablist, per the
-WAI-ARIA carousel pattern, beside an `aria-hidden` `01 / 04` counter. It toggles the same
-`stopped` state interaction sets (a tab click, an arrow key, a swipe, keyboard focus
-inside the hero), so Play resumes rotation; hovering still pauses it. It renders only
-while autoplay is possible (hydrated, no reduced motion), so neither the server HTML nor
-a reduced-motion visit shows a control that could do nothing.
-Rotation also pauses whenever the hero scrolls out of view, the same way hovering
-does (one `IntersectionObserver` inside the existing `hero-carousel.tsx` island,
-no new client boundary): the progress fill freezes and resumes from where it
-left off, the slide never changes while away, and "stopped by interaction"
-survives leaving and re-entering the viewport. The state union (`idle | running
-| paused | stopped`) is a pure `carouselState()` in `hero-carousel-state.ts`,
-unit-tested. The global reduced-motion rule zeroes animation and
-transition _delays_ as well as durations — with `fill-mode: both`, a zero-duration
-animation would otherwise hold its `from` state for the whole stagger. Embla is
-installed but unused: CSS scroll-snap gives the lookbook rail — and
-the New Arrivals carousel — swipe, keyboard and RTL for free.
-
-**Product rail** — `[data-rail]` in `app/globals.css` is the one carousel
-geometry: a scroll-snap scroller that pulls out by one gutter and pads itself back,
-so its `100%` is the container's content column and `--rail-visible` (1.25 / 2.8 /
-4.2 at 0 / 768 / 1024) is an honest fractional card count at every width, past
-`--container-max` included. The fraction is the point: part of the next card is
-always in view, which is what says the row goes on sideways. `--rail-visible` is
-`min(step, var(--rail-count))`, so a set shorter than the step fills the column
-instead of leaving a stub of empty track — but note what that means: **a set at or
-below the step has nothing to scroll, so the controls and the progress rule hide
-themselves and the carousel is a row.** A four-item fallback did exactly that once
-(2026-09-20) and silently deleted the feature; `FALLBACK_PRODUCTS` is eight for
-that reason, not for variety.
-
-**What the rail carries** (`load-new-arrivals.ts`): the catalogue's New In first page
-whenever the API can answer at all, **photographed or not**. A real piece with no
-photograph keeps its real name, price, link and Add to Bag over the
-`ProductImagePlaceholder` frame — a catalogue missing its photography, which is true.
-The static set stands in for one condition only, an API that cannot answer
-(unconfigured, `ApiError`, or empty), and it carries no link and no price. The old rule
-fell back below four _photographed_ products, which conflated "no photos" with "no
-catalogue": a seeded database has no `product_images` at all, so the rail was **always**
-the static set, publishing invented names and eight hard-coded prices as the shop's own
-(MED-3; one disagreed with the product's own page by 350 EGP). `product-rail.tsx` adds
-the controls, the gold progress hairline and a mouse drag; a drag past 6px turns
-snapping off (`data-dragging`, since a mandatory snap fights a dragged
-`scrollLeft` every frame), re-snaps on release through `snapTarget`, and swallows
-the click it would otherwise end in.
+**What New in carries** (`load-new-arrivals.ts`): the catalogue's New In first page
+whenever the API can answer at all, **photographed or not** — a real piece with no
+photograph keeps its name, price, link and Add to Bag over the `ProductImagePlaceholder`
+frame. The static set stands in for one condition only, an API that cannot answer
+(unconfigured, `ApiError`, or empty), and it carries no link, price or action (MED-3). The
+old New Arrivals rail and its `[data-rail]` geometry were removed with the 2026-09-26
+redesign; the homepage has no carousel.
 
 ## Image pipeline
 
@@ -610,51 +521,22 @@ Every homepage image is a static import behind one registry, swappable by file d
 - `docs/design/editorial-image-brief.md` lists every slot's ratio, minimum pixels,
   art direction and generation prompt, and the zones that must stay dark. Real
   photography lands by replacing files at the same paths — no code change.
-- Each hero slide has two crops, a 16:10 `wide` and a 4:5 `portrait`, through
+- **The opening frame** (`film-hero.tsx`) has two crops, the 16:10 `hero-desktop` and the
+  4:5 `hero-mobile` (`filmFrame` in `features/home/data/home-collections.ts`), through
   `getImageProps()` × 2 into one `<picture>` (no blur — incompatible with `<picture>`).
   The crop is chosen by **shape**, `(min-aspect-ratio: 3/2)`, not by width: a 1024×768
-  laptop or a portrait tablet gets the portrait crop, whose empty floor sits under the
-  copy, because the wide crop's empty sides are too narrow there. The first slide is the
-  page's only eager image (`loading="eager"`, `fetchPriority="high"`); the other slides
-  are lazy and `fetchPriority="low"`, so put the strongest photograph first in
-  `features/home/data/hero-slides.ts`. Lazy is not enough on its own: hidden slides stay
-  laid out in the viewport to cross-fade, so the carousel renders a slide's picture only
-  when `slideMediaVisible` (`hero-carousel-state.ts`, unit-tested) allows it — the active
-  and leaving slides, the next one while rotating, and any slide shown, hovered or
-  focused. The freeze capture measured all four photographs downloading before any
-  interaction without it. Everything else is a single lazy import with
-  `placeholder="blur"` and an honest `sizes`.
-- Hero photographs keep the figure in the middle of the frame with empty floor below. That
-  composition was for the split stage, where the copy sat on the floor; the hero is now
-  full-bleed (`sizes: '125vw'`) with the copy overlaid and bottom-anchored at every width, so
-  each slide crops the floor back with a zoom in `hero-slides.ts`'s `imageClassName`
-  (`object-*` + a matching `origin-*` + `scale-125`). `scale-*` is Tailwind's standalone
-  `scale` property, so it multiplies with the entrance keyframes' `transform: scale(1.08)`
-  rather than replacing it. **`sizes` must stay at or above the largest slide zoom** or the
-  optimizer picks a source that is then upsampled. The masthead is `max-w-[42rem]`
-  (`xl:max-w-[52rem]`) at the inline start in both locales — wide enough that a collection
-  name at `type-display-xl` is never broken to fit prose, with only the paragraph held to a
-  38ch measure. The photograph is still never mirrored, and contrast comes from the scrims,
-  not the image. **Two scrims, both horizontal bands** (2026-09-20): a header band on top and
-  one floor gradient (`h-[92%] lg:h-[88%]`, 0.95 → 0.78 at 48% → transparent) the masthead and
-  the collection index stand on. The 52%-wide inline-start wash at 0.95 is gone — it divided
-  the frame into a lit half and a dark half, which is what made the hero read as a banner with
-  a panel rather than a campaign. The floor's stops are tuned against the masthead's height
-  (its top edge sits ~300px above the floor on phones, ~410px on desktop, landing near the
-  `via` stop at about 0.75 alpha); re-check them if the type scale or the hero's bottom
-  padding changes.
-  The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
-  other slides are `hero-<collection>-desktop` / `-mobile`.
-- **The Silk Edit (promo banner) no longer puts copy on its photograph** (homepage Phase 2,
-  2026-09-25): from 1024 it is a split — the copy in the inline-start two fifths on
-  Espresso, the photograph (`silk-edit-campaign`, `object-[80%_center]`) filling the rest to
-  the viewport edge, and a 4:5 `strip-01` fabric detail straddling the seam; below 1024 the
-  photograph sits above the copy. The split mirrors in Arabic; the photograph itself is
-  never flipped. The `banner-wide` custom variant is gone with the overlay.
-  The campaign slot's title block is physical-left at 1024+ in both languages (its grid is
-  `direction: ltr`, each block restores the page direction) because the figure stands in
-  the right half; below 1024 its copy sits under the photograph and covers nothing.
-  The older `moment` / `moment-wide` slots keep their own files and no section renders them.
+  laptop or a portrait tablet gets the portrait crop. It is the page's only eager image
+  (`loading="eager"`, `fetchPriority="high"`). Everything else is a single lazy import
+  with `placeholder="blur"` and an honest `sizes`. The copy stands on the frame's floor
+  over one bottom gradient plus a header band; the photograph is never mirrored, and
+  contrast comes from the scrims, not the image.
+- **The offer** (`components/promotion/promotion-banner.tsx`) is a split: the photograph
+  (`campaign`) on the physical right in both languages from 1024 (its grid is
+  `direction: ltr`, the copy restores the page direction), above the copy below 1024.
+- **The scene tile** in New in uses `silk-edit-campaign`; **the category panels** the five
+  `category-*` slots with `alt=""` (the link names the category); **the looks**
+  `lookbook-03`, `-01`, `-05`. The `hero-<collection>-*`, `strip-*`, `lookbook-02`/`-04`,
+  `moment` and `featured-*` slots keep their files and no homepage section renders them.
 - No dominant editorial image or garment repeats across the hero, promo banner,
   featured collection, campaign or lookbook (user requirement, 2026-09-14). Product-card
   photography may repeat a garment where the merchandising story calls for it.
@@ -880,7 +762,7 @@ the product page, and a second anchor would double every card's tab stops.
 - **Meta line**: optional `meta` string under the price, `type-caption`, secondary ink —
   today the size count (`sizeCount` on the model, from the DTO's `size` option; the
   `products.sizes` ICU plural, with Arabic's six forms). The caller composes it
-  (`ProductGrid`, `NewArrivals`); the related row passes none, which is its compact
+  (`ProductGrid`, the homepage's `NewIn`); the related row passes none, which is its compact
   caption. A mock has no `sizeCount` and a product with no size option says nothing.
   **Low stock ("Only 2 left") was drawn and left out**: the catalog DTO exposes only
   `inStock`, and the card never invents a claim the API cannot back.
@@ -1105,7 +987,7 @@ Bag consumes it; see _Cart_). POS now agrees on the NULL variant price (PD-C, fi
 
 The Bella template's gallery (owner decision 2026-09-14, replacing the PD-10 rail/grid).
 `product-gallery.tsx` (Server Component) resolves strings and the model; the island
-`product-gallery-viewer.tsx` (the eleventh boundary) renders a thumbnail column beside
+`product-gallery-viewer.tsx` (the tenth boundary) renders a thumbnail column beside
 one 4:5 large image. Thumbnails sit at the large image's inline start from 992 and its
 inline end below (`row-reverse`), so in Arabic they are on the right from 992 and the
 left below; photographs are never mirrored. Thumbs are 72px from 992, 88px at 768-991
@@ -1124,7 +1006,7 @@ the step table every `sizes` string is derived from.
 - **Downloads.** The first large image is the page's only eager _high-priority_ image
   (`loading="eager"` + `fetchPriority="high"`; React also emits its head preload). A large pane mounts
   only once shown and stays mounted but `hidden`: lazy alone would not stop hidden panes
-  laid out in the frame from downloading (the hero's `slideMediaVisible` lesson). A new
+  laid out in the frame from downloading (the lesson of the old hero carousel). A new
   pane fades in over the previous one (300ms, `--ease-ui`). Thumbnails are
   `fetchPriority="low"`, `sizes` 64/80px; the first `GALLERY_EAGER_THUMBS` (3) are eager
   and the rest lazy (`galleryThumbLoading`, unit-tested). Switching thumbnails while zoomed
@@ -1140,7 +1022,7 @@ the step table every `sizes` string is derived from.
 
 ### Purchase panel
 
-The tenth client boundary (see _Client boundary rule_). Native radios in a `fieldset` per
+The ninth client boundary (see _Client boundary rule_). Native radios in a `fieldset` per
 option; sold-out and unavailable values stay enabled, struck through in `text-text-secondary`
 (not `text-disabled`, ~2.3:1 and hard to see) inside a dashed `bg-surface-soft` cell, with
 visually hidden "sold out" text — never `disabled`, never colour alone. Price and status share one polite
@@ -1197,12 +1079,12 @@ noun are "Bag" (`/bag`); the domain, API, store, types and slice say `cart` (CD-
 
 | Where                     | What                                                                                                                                                                                                                                                                                                                   |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product page              | `AddToBagButton` (boundary 14) in `PurchasePanel`'s `action` slot, composed by `products/[slug]/page.tsx` (CD-11)                                                                                                                                                                                                      |
-| Every product card        | `QuickAdd` (boundary 20) in `ProductCard`'s `action` slot, composed by `ProductGrid`, `RelatedProducts` and `NewArrivals` — never by `features/products`                                                                                                                                                               |
-| Every page                | `BagTrigger` (boundary 15) in `Header`'s `bag` slot, composed by `app/[locale]/layout.tsx`; `Header` imports no feature slice                                                                                                                                                                                          |
+| Product page              | `AddToBagButton` (boundary 13) in `PurchasePanel`'s `action` slot, composed by `products/[slug]/page.tsx` (CD-11)                                                                                                                                                                                                      |
+| Every product card        | `QuickAdd` (boundary 18) in `ProductCard`'s `action` slot, composed by `ProductGrid`, `RelatedProducts`, the homepage's `NewIn` and the film credits — never by `features/products`                                                                                                                                    |
+| Every page                | `BagTrigger` (boundary 14) in `Header`'s `bag` slot, composed by `app/[locale]/layout.tsx`; `Header` imports no feature slice                                                                                                                                                                                          |
 | Drawer                    | `bag-drawer.tsx`, lazy, mounted by the trigger                                                                                                                                                                                                                                                                         |
-| `/bag`                    | `app/[locale]/bag/page.tsx` (server shell: `h1`) + `BagView` (boundary 16)                                                                                                                                                                                                                                             |
-| Every page                | `AppToaster` (boundary 17) in the locale layout; every bag message is a toast                                                                                                                                                                                                                                          |
+| `/bag`                    | `app/[locale]/bag/page.tsx` (server shell: `h1`) + `BagView` (boundary 15)                                                                                                                                                                                                                                             |
+| Every page                | `AppToaster` (boundary 16) in the locale layout; every bag message is a toast                                                                                                                                                                                                                                          |
 | Shared by drawer and page | `use-bag-controller.ts`, `cart-line.tsx`, `quantity-stepper.tsx`                                                                                                                                                                                                                                                       |
 | Pure, unit-tested         | `utils/cart-lines.ts`, `cart-storage.ts`, `reconcile.ts`, `bag-view-model.ts`, `quantity-control.ts`, `add-to-bag-action.ts`, `quick-add-model.ts`, `bag-trigger-label.ts`, `plural-templates.ts`, `drawer-close-focus.ts`; `schemas/persisted-cart.ts`; `api/quote-cart.ts`, `api/use-cart-quote.ts` (its pure parts) |
 
@@ -1415,7 +1297,7 @@ sticky mobile purchase bar) and PD-7 (no JSON-LD `Product`) stand.
    toast is the announcement; the inline text is visual, is no longer a live region, and
    stays associated through `aria-describedby`.
 
-**The toaster.** `AppToaster` (boundary 17), one per page, a direct child of `<body>`. Headless
+**The toaster.** `AppToaster` (boundary 16), one per page, a direct child of `<body>`. Headless
 UI's `Dialog` marks only the subtree that owns it inert (`header` for the drawer, `main` for
 the filter sheet), so toasts stay visible, announced and clickable over a dialog. Sonner's
 `<section>` is the one polite live region (`aria-live="polite"`, always mounted), named
@@ -1628,7 +1510,7 @@ quote key ignores stock and price: a second sell-out under the same lines is ann
 
 `app/[locale]/checkout/page.tsx`: static per locale, `noindex, nofollow`, outside `(catalog)`,
 no `loading.tsx` (`app/checkout-route.test.ts`). The normal header and footer, a "Back to bag"
-link, the rising `h1`, then `CheckoutView` (boundary 18). Before the bag hydrates: one reserved
+link, the rising `h1`, then `CheckoutView` (boundary 17). Before the bag hydrates: one reserved
 busy region, no fields. An empty bag: the Bag's empty state, no form. Otherwise a 12-column grid
 from 1024 (form 7, summary 4, sticky at the inline end); below, the summary comes first. The
 summary is first in source order at every width, so from 1024 Tab reaches Edit bag before the
@@ -1733,23 +1615,22 @@ Browser-only; no storefront DOM or browser harness exists.
 ## Guideline overrides and copy decisions
 
 - §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the
-  brief; §12·04's editorial brand moment is replaced by a promo banner for a new collection or
-  an offer (user decision, 2026-09-14; copy in `home.banner`, href/slots/crop in
-  `features/home/data/promo-banner.ts`, and offer
-  terms only ever from the business), and its "Explore the story →" is dropped (an
+  brief; §12·04's editorial brand moment is replaced by the running offer (user decision,
+  2026-09-14; copy in `promotion`, destination and crop in `lib/promotion/current-promotion.ts`,
+  offer terms only ever from the business), and its "Explore the story →" is dropped (an
   About-shaped destination); §12·12's
   Customer Care column is omitted until Shipping/Returns/Contact pages are planned. No
   FAQ, Blog, About, Newsletter or policy text anywhere.
-- §12·08 is **The Moon Selection** (owner brief, 2026-09-21), renamed from The Edit.
-  **Since homepage Phase 2 (owner decision D3, 2026-09-25) it shows real catalogue
-  pieces**: the first five of `homeCollections.selection` (`evening`,
-  `features/home/data/home-collections.ts`) in the collection's curated order, read by
-  `loadSelection` through the ordinary listing (the same first page `/collections/evening`
-  asks for; no API change), with prices, links and Quick Add. The feature is a `lead`
-  `ProductCard` in columns 1-6, the other four tiles in two stepped columns. **With nothing
-  to show the section is not rendered** — no API at build, an `ApiError`, or an empty or
-  unreleased collection — and there is no static fallback. The editorial mocks it used to
-  render (`curatedEdit`) are now only the New Arrivals outage fallback.
+- **The homepage is "Shop the Film"** (owner decision 2026-09-26, concept C of three
+  drawn in Claude Design; a full redesign, not an enhancement): the opening frame with its
+  **credits** (the first four of `homeCollections.film`, `evening`, in curated order, read
+  by `loadFilmCredits`; hidden with no API, no static fallback), New in with the Silk Edit
+  cut in as a scene tile, the category panels, the offer, and three looks. **A look links
+  to its collection, never to a named product** — the pieces in a styled photograph are
+  not catalogue items the page can honestly link (HIGH-1). Removed by that decision: the
+  hero carousel, the editorial strip, the Silk Edit banner (now the scene tile), the
+  featured collection, The Moon Selection (its collection now feeds the credits), the
+  benefits band (its copy was a launch blocker) and the lookbook mosaic.
 - The footer carries social links and contact details (user decision, 2026-09-14), and
   no language switcher. They come only from `lib/brand/contact.ts` and render only when
   real values are filled in there; `contact.test.ts` fails the build on a malformed
@@ -1766,14 +1647,6 @@ Browser-only; no storefront DOM or browser harness exists.
   one-line change there.
 - The mock products carry `{ en, ar }` names purely so the English homepage reads; the
   real `products.name` is one Arabic string. The type is `HomeProductMock`, not `Product`.
-- Shopping benefits copy (`home.benefits.*`) is generic on purpose, and all three are
-  launch blockers (`features/home/data/benefits.ts`). `delivery` (B-1) and `payment`
-  (B-3) await the real policy and provider assurances. `returns` (B-2) is
-  **neutralised**: until the business confirms whether returns or exchanges exist, the key
-  keeps its name but its copy is about fabric quality and its icon is a neutral gem, so
-  the tile promises no service. No coverage area, speed, return period, fee or "no
-  questions asked" claim may be added until a policy exists. Visually the section is a cream band
-  with fine rules and small line icons: no boxes, rounded cards or shadows.
 - Arabic homepage copy was reworked for natural, concise phrasing rather than
   word-for-word translation (2026-09-14). The storefront addresses the reader in **one
   register, feminine singular** (`اكتشفي`, `تسوّقي`, `تابعي`, `تبحثين`), including the
@@ -1858,8 +1731,7 @@ features/<slice>/
 
 `app/` composes routes and layout; `features/` implements. A component used by two or
 more slices moves to `components/` (or a new `shared/`, if that need actually arrives)
-rather than being imported cross-slice. `Marquee` lives in the home slice because the
-editorial strip is its only consumer; it moves to `components/` if the Shop task reuses it.
+rather than being imported cross-slice.
 
 ## API client and the DTO rule
 

@@ -4,19 +4,16 @@ import { REQUIRED_CATALOG_KEYS } from '@/features/collections/data/required-cata
 import { curatedEdit, newArrivals } from '@/features/products/data/home-products';
 import type { CatalogProduct } from '@/features/products/types/catalog-product';
 import { fromCatalogDto, fromHomeMock } from '@/features/products/utils/product-card-model';
-import { heroSlides } from './hero-slides';
-import { collectionHref, homeCollections } from './home-collections';
-import { promoBanner } from './promo-banner';
+import { collectionHref, homeCollections, looks } from './home-collections';
 
 const categories = new Set<string>(REQUIRED_CATALOG_KEYS.categories);
 const collections = new Set<string>(REQUIRED_CATALOG_KEYS.collections);
 
 const hrefs: readonly [source: string, href: string][] = [
   ...homeCategories.map((tile) => [`category ${tile.key}`, tile.href] as [string, string]),
-  ...heroSlides.map((slide) => [`hero ${slide.key}`, slide.href] as [string, string]),
-  ['promo banner', promoBanner.href],
-  ['featured collection', collectionHref(homeCollections.featured)],
-  ['moon selection', collectionHref(homeCollections.selection)],
+  ['film', collectionHref(homeCollections.film)],
+  ['scene', collectionHref(homeCollections.scene)],
+  ...looks.map((look) => [`look ${look.key}`, collectionHref(look.collection)] as [string, string]),
 ];
 
 /** Null when the href is neither `/shop/<key>` nor `/collections/<key>` with a known key. */

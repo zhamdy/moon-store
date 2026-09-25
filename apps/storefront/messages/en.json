@@ -55,124 +55,45 @@
     "abayas": "Abayas"
   },
   "home": {
-    "hero": {
-      "heading": "New collections at Moon Fashion",
-      "tabList": "Collections",
-      "slideOf": "{index} of {total}",
-      "slides": {
-        "evening": {
-          "tab": "Evening",
-          "eyebrow": "New collection",
-          "title1": "Moonlight,",
-          "title2": "redefined.",
-          "body": "A refined wardrobe for modern femininity.",
-          "cta": "Explore Evening",
-          "imageAlt": "A woman in a long-sleeved black velvet gown against a softly lit charcoal wall"
-        },
-        "linen": {
-          "tab": "Linen",
-          "eyebrow": "Summer collection",
-          "title1": "Light that",
-          "title2": "moves with you.",
-          "body": "Washed linen and open weaves for long, warm days.",
-          "cta": "Explore Linen",
-          "imageAlt": "A woman in an ivory linen dress walking through a sunlit stone courtyard"
-        },
-        "abaya": {
-          "tab": "Abaya",
-          "eyebrow": "Signature collection",
-          "title1": "Quiet",
-          "title2": "presence.",
-          "body": "Fluid abayas in silk crepe and soft chiffon.",
-          "cta": "Explore Abayas",
-          "imageAlt": "A woman in a flowing black abaya over a brown dress walking through a sandstone arcade"
-        },
-        "knitwear": {
-          "tab": "Knitwear",
-          "eyebrow": "Autumn collection",
-          "title1": "Soft,",
-          "title2": "by design.",
-          "body": "Cashmere and wool in the warm tones of the season.",
-          "cta": "Explore Knitwear",
-          "imageAlt": "A woman in a cream cashmere sweater and brown trousers seated on a wooden bench"
-        }
-      },
-      "newArrivals": "Shop new arrivals",
-      "pause": "Pause slideshow",
-      "play": "Play slideshow"
-    },
-    "strip": {
-      "heading": "Collections",
-      "words": {
-        "evening": "Evening",
-        "linen": "Linen",
-        "knit": "Knit",
-        "abaya": "Abaya"
-      },
-      "pauseMotion": "Pause motion",
-      "pause": "Pause",
-      "play": "Play"
-    },
-    "newArrivals": {
-      "eyebrow": "Just in",
-      "title": "New arrivals",
-      "link": "View all",
-      "previous": "Previous products",
-      "next": "Next products",
-      "lead": "The newest pieces, from the last thirty days."
-    },
-    "banner": {
-      "eyebrow": "New collection",
-      "title": "The Silk Edit",
-      "body": "Fluid blouses and soft tailoring in ivory and warm brown.",
+    "film": {
+      "eyebrow": "Now showing · Evening",
+      "title": "Dressed for the night.",
       "cta": "Shop the collection",
-      "imageAlt": "A woman in a flowing ivory silk blouse and warm brown tailored trousers beside a sunlit limestone wall",
-      "details": "Silk · Ivory · Warm brown",
-      "detailAlt": "Ivory silk satin falling in soft folds"
+      "secondary": "New arrivals",
+      "credits": "The credits",
+      "imageAlt": "A woman in a long-sleeved black velvet gown against a softly lit charcoal wall"
     },
-    "featured": {
-      "eyebrow": "Featured collection",
-      "title": "The Evening Edit",
-      "body": "Silk, velvet and hand embroidery for the hours after dark.",
-      "link": "Discover the collection",
-      "largeAlt": "A woman in a champagne satin evening gown seated on lamplit limestone steps",
-      "smallAlt": "Hands holding a black velvet clutch with a gold clasp against champagne satin"
+    "shop": {
+      "title": "New in",
+      "all": "All",
+      "chipsLabel": "Categories",
+      "viewAll": "View all"
     },
-    "categories": {
-      "eyebrow": "Shop by category",
-      "title": "Find your piece",
-      "link": "All pieces",
-      "shopCategory": "Shop {category}"
+    "scene": {
+      "eyebrow": "A scene from the film",
+      "title": "The Silk Edit",
+      "cta": "Shop the scene",
+      "imageAlt": "A woman in a flowing ivory silk blouse and warm brown tailored trousers beside a sunlit limestone wall"
     },
-    "selection": {
-      "title": "The Moon Selection",
-      "description": "A considered selection of standout pieces, chosen for their silhouette, texture, and timeless appeal.",
-      "link": "Explore the selection"
+    "panels": {
+      "title": "Shop by category",
+      "cta": "Shop {category}"
     },
-    "benefits": {
-      "heading": "Shopping with Moon",
-      "delivery": {
-        "title": "Delivery",
-        "body": "Every order is carefully packed and delivered to your address."
+    "looks": {
+      "title": "Looks",
+      "cta": "Shop the collection",
+      "evening": {
+        "title": "Camel over satin",
+        "imageAlt": "Half-length portrait of a woman in a camel coat draped over a dark satin cowl-neck dress, leaning in a carved doorway"
       },
-      "returns": {
-        "title": "Considered fabrics",
-        "body": "Silk, linen, cashmere and wool, chosen for how they feel and wear."
+      "linen": {
+        "title": "Linen, worn loose",
+        "imageAlt": "A woman in a sleeveless linen waistcoat, black top and black trousers, leaning against a sunlit terracotta wall beside a green door"
       },
-      "payment": {
-        "title": "Secure payment",
-        "body": "Your payment details are kept protected."
+      "silk": {
+        "title": "Wool on silk",
+        "imageAlt": "Close-up of a brown wool jacket collar resting on folds of ivory silk"
       }
-    },
-    "lookbook": {
-      "heading": "Lookbook",
-      "alt1": "A woman in a sleeveless linen waistcoat, black top and black trousers, leaning against a sunlit terracotta wall beside a green door",
-      "alt2": "Close-up of black leather slingback kitten heels on a sandstone step",
-      "alt3": "Half-length portrait of a woman in a camel coat draped over a dark satin cowl-neck dress, leaning in a carved doorway",
-      "alt4": "A woman walking along a curved stone corridor in a black blazer, brown ribbed knit and wide black trousers",
-      "alt5": "Close-up of a brown wool jacket collar resting on folds of ivory silk",
-      "eyebrow": "Worn by Moon",
-      "lead": "Silk, linen and wool, photographed in the light they were made for."
     }
   },
   "promotion": {
