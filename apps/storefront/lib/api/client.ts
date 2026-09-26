@@ -78,6 +78,45 @@ function isSuccessBody<T>(value: unknown): value is ApiFetchResult<T> {
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
 
+/**
+ * Every server read's wall-clock deadline, enforced by racing the call rather than by a
+ * signal. Only a signal opts a fetch out of Next's per-render memoization, so a race
+ * keeps the shared entity reads (category, collection, store policies) shared while
+ * still bounding them: before it, an API that accepted the connection and never
+ * answered held such a request open indefinitely (found through the 2026-09-26 build
+ * failure; see apps/storefront/CLAUDE.md → Catalog → Rendering and caching). It bounds
+ * the render, not the socket: a raced-out request is left to finish on its own — if it
+ * ever does, Next writes the cache — and never surfaces as a late rejection.
+ */
+export const SERVER_DEADLINE_MS = 15_000;
+
+class DeadlineElapsed extends Error {
+  constructor() {
+    super('The request deadline elapsed.');
+    this.name = 'DeadlineElapsed';
+  }
+}
+
+function createDeadline(ms: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const elapsed = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new DeadlineElapsed()), ms);
+  });
+  // Nothing may be racing it when it fires (the call already settled and cleared it, or
+  // is between steps), so it must never be an unhandled rejection.
+  elapsed.catch(() => {});
+  return {
+    race<T>(work: Promise<T>): Promise<T> {
+      // The losing side keeps running; its own rejection is not this call's concern.
+      work.catch(() => {});
+      return Promise.race([work, elapsed]);
+    },
+    clear() {
+      clearTimeout(timer);
+    },
+  };
+}
+
 export interface ApiFetchOptions {
   method?: string;
   body?: Record<string, unknown>;
@@ -86,7 +125,8 @@ export interface ApiFetchOptions {
   signal?: AbortSignal;
   /**
    * Aborts the request (fetch and body read) after this long. Defaults to 10s in the
-   * browser; unset on the server, where a signal would opt out of fetch memoization.
+   * browser; unset on the server, where a signal would opt out of fetch memoization —
+   * there the call is still bounded by `SERVER_DEADLINE_MS`, without a signal.
    */
   timeoutMs?: number;
   cache?: RequestCache;
@@ -109,8 +149,9 @@ export async function apiFetch<T>(
 
   // Without a deadline a hung API holds a query open indefinitely, so the browser always
   // gets one. On the server any fetch carrying a signal opts out of Next's per-render
-  // memoization, so a default deadline there would silently double every shared GET —
-  // server callers opt in with timeoutMs (or bring their own signal).
+  // memoization, so a default *signal* there would silently double every shared GET —
+  // server callers opt in with timeoutMs (or bring their own signal). The wall-clock
+  // deadline below bounds every call either way (see SERVER_DEADLINE_MS).
   const isBrowser = typeof window !== 'undefined';
   const timeoutMs = options.timeoutMs ?? (isBrowser ? DEFAULT_TIMEOUT_MS : undefined);
   const timeoutSignal = timeoutMs === undefined ? undefined : AbortSignal.timeout(timeoutMs);
@@ -118,12 +159,13 @@ export async function apiFetch<T>(
     options.signal && timeoutSignal
       ? AbortSignal.any([options.signal, timeoutSignal])
       : (options.signal ?? timeoutSignal);
+  const deadline = createDeadline(timeoutMs ?? SERVER_DEADLINE_MS);
 
   // A caller's own abort is intent, not failure: it propagates unchanged so callers
   // (React Query's cancellation included) can recognise their AbortError.
   const abortFailure = (cause: unknown): unknown => {
     if (options.signal?.aborted) return cause;
-    if (timeoutSignal?.aborted) {
+    if (timeoutSignal?.aborted || cause instanceof DeadlineElapsed) {
       return new ApiError({
         status: 0,
         code: 'TIMEOUT',
@@ -134,17 +176,40 @@ export async function apiFetch<T>(
     return undefined;
   };
 
+  try {
+    return await performFetch<T>(
+      url,
+      { ...options, headers, body, signal },
+      deadline,
+      abortFailure
+    );
+  } finally {
+    deadline.clear();
+  }
+}
+
+async function performFetch<T>(
+  url: string,
+  options: Omit<ApiFetchOptions, 'headers' | 'body'> & {
+    headers: Record<string, string>;
+    body?: string;
+  },
+  deadline: ReturnType<typeof createDeadline>,
+  abortFailure: (cause: unknown) => unknown
+): Promise<ApiFetchResult<T>> {
   let response: Response;
   try {
-    response = await fetch(url, {
-      method: options.method ?? 'GET',
-      headers,
-      body,
-      credentials: options.credentials ?? 'omit',
-      signal,
-      cache: options.cache,
-      next: options.next,
-    });
+    response = await deadline.race(
+      fetch(url, {
+        method: options.method ?? 'GET',
+        headers: options.headers,
+        body: options.body,
+        credentials: options.credentials ?? 'omit',
+        signal: options.signal,
+        cache: options.cache,
+        next: options.next,
+      })
+    );
   } catch (cause) {
     throw (
       abortFailure(cause) ??
@@ -163,7 +228,7 @@ export async function apiFetch<T>(
 
   let payload: unknown;
   try {
-    payload = await response.json();
+    payload = await deadline.race(response.json());
   } catch (cause) {
     const aborted = abortFailure(cause);
     if (aborted !== undefined) throw aborted;

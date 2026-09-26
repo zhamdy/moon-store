@@ -180,8 +180,9 @@ study over a refined bar and a centred masthead):
   by `app/[locale]/layout.tsx` into `Header`'s `nav` prop, the way it composes the Bag, so
   `components/layout` still imports no feature slice. The collections come from
   `loadNavCollections` (the public listing, featured first, at most four, on the entity
-  revalidate); `null` — no API at build, an `ApiError`, none live — drops every
-  collections block and makes Collections a plain link. A collection with no image
+  revalidate, with a 5s deadline because it runs on every page — see _Catalog_ →
+  _Rendering and caching_); `null` — no API at build, an `ApiError` or a timeout, none
+  live — drops every collections block and makes Collections a plain link. A collection with no image
   borrows its lookbook stand-in (`collectionFallbackSlot`), as on the index.
 - **While a panel is open the header is solid** even over a hero:
   `[data-nav-open]` on the nav root excludes the header from the overlay surface rule
@@ -613,10 +614,30 @@ data-cache entry.
 
 ### Rendering and caching
 
-The six catalog routes are dynamic (`ƒ`); nothing calls the API at `next build`. The
-four listings read `searchParams`. `/collections` and `/products/[slug]` read none, so
+The six catalog routes are dynamic (`ƒ`); no catalog *page* calls the API at `next build`.
+The four listings read `searchParams`. `/collections` and `/products/[slug]` read none, so
 they call `await connection()`; without that they would prerender (at build, or at
-runtime into the full-route cache).
+runtime into the full-route cache). **The locale layout does call it at build**: the
+header's `loadNavCollections` runs on every page, the prerendered ones included, and Next
+still executes each dynamic page's render once at build, layout and all. It passes
+`NAV_COLLECTIONS_TIMEOUT_MS` (5s): with no deadline, an API that accepted connections
+and never answered held every catalog page open past Next's 60s static-generation limit
+and failed the Vercel build (2026-09-26). Reproduce with a stub that listens on 3001 and
+never responds; a stopped API proves nothing (the refusal is instant), which is why CI
+never saw it.
+
+**A local or self-hosted build has a second trap no deadline can end.** `next dev` and
+`next build` write the data cache to `.next/cache/fetch-cache`, and a later `next build`
+reads it back. On a stale entry, Next refetches in the foreground **with the caller's
+signal stripped** (`patch-fetch`: "don't pass through signal when revalidating"), keeps
+that fetch in its pending revalidations, and waits for it after the render. The client's
+`SERVER_DEADLINE_MS` race lets the page render (the reads log `TIMEOUT` and fall back),
+but the export still waits for the socket, so the page fails at 60s anyway. Vercel is not
+exposed: its export worker sets `flushToDisk: !hasNextSupport`, so it never reads fetch
+entries from disk. A Docker build that caches `.next/cache`, or a machine that ran `next
+dev` against the API, is. If a production build hangs on a page whose reads have already
+logged `TIMEOUT`, empty `.next/cache/fetch-cache` before building; the entries are
+60–300s TTL and always stale by the next build, so nothing is lost.
 Catalog fetches go through the Next data cache with `revalidate` 60s for product lists
 and 300s for entities (`CATALOG_REVALIDATE`; the product detail reads on the entity
 lifetime, corrected from `list` in LOW-12).
@@ -688,10 +709,12 @@ never call either fetch. `catalogFetch` sends `X-Catalog-Server-Token` from
 shopper's read arrives from the Next server's one IP; see `apps/server/CLAUDE.md` →
 _The catalog limiter_). It passes no credentials. Entity reads (category, collection)
 pass no `timeoutMs`: they are shared by `generateMetadata` and the page, and a signal
-would break per-render memoization, so each would hit the API. The product list is the
-one exception, `timeoutMs: 15_000` (`CATALOG_LIST_TIMEOUT_MS`): only ProductGrid fetches
-it, once per render, so the deadline costs no memoization, and its `TIMEOUT` ApiError
-reaches the `(catalog)` error boundary.
+would break per-render memoization, so each would hit the API. They are still bounded by
+the client's `SERVER_DEADLINE_MS` race (see _API client and the DTO rule_). The product
+list passes `timeoutMs: 15_000` (`CATALOG_LIST_TIMEOUT_MS`): only ProductGrid fetches it,
+once per render, so cancelling the socket costs no memoization, and its `TIMEOUT` ApiError
+reaches the `(catalog)` error boundary. The header's `loadNavCollections` passes 5s for
+the same reason (see _Rendering and caching_).
 
 - `lib/api/catalog.ts` and **every** `features/*/api/*` file import `server-only` (except
   the bag's browser quote client, `features/cart/api/quote-cart.ts` and `use-cart-quote.ts`,
@@ -1769,9 +1792,17 @@ for the exact contract (204 handling, error shapes, network failures).
 
 The 10s default timeout (`TIMEOUT`) applies **in the browser only**. On the server,
 Next excludes any `fetch` carrying a `signal` from per-render memoization, so a default
-deadline would make every GET shared between a layout and its page hit the API twice.
-Server callers that need a deadline pass `timeoutMs`, knowingly giving up memoization
-for that call.
+signal would make every GET shared between a layout and its page hit the API twice.
+Server callers that need the socket actually cancelled pass `timeoutMs`, knowingly giving
+up memoization for that call. **Every server call is still bounded** by
+`SERVER_DEADLINE_MS` (15s), enforced by racing the fetch and the body read rather than by
+a signal, so the shared reads stay shared: before it, a category, collection or
+store-policies read against an API that accepted the connection and never answered held
+the request open indefinitely. A raced-out request keeps running on its own and never
+surfaces late. It bounds the *render*, not the socket; where Next itself waits on a
+socket after the render (a stale on-disk fetch entry at build, see _Catalog_ →
+_Rendering and caching_), only cancelling the fetch would help, and Next strips the
+signal on that path.
 
 Types added under `lib/api/endpoints.ts` or a future `features/*/types/` model the
 API's response DTOs. They must never be the server's repository or database types —

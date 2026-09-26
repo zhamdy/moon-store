@@ -314,3 +314,13 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   host the lazy Bag drawer. `React.lazy` + `Suspense` loads the same chunk at no eager cost.
   Measure the eager chunks of `.next/server/app/en.html` before and after any lazy-loading
   change; the method is in `apps/storefront/CLAUDE.md` → *Cart* (2026-09-15)
+- A storefront `next build` failing pages with "took more than 60 seconds" is a server
+  fetch meeting an API that accepts connections and never answers, not a slow build. The
+  header's collections read in the locale layout had no deadline and broke the Vercel
+  preview build; CI never saw it because a stopped API refuses instantly. Reproduce with
+  a stub on 3001 that never responds. Locally there is a second trap: a stale
+  `.next/cache/fetch-cache` entry makes Next refetch with the signal **stripped** and
+  wait for that socket after the render, so the page fails even once every read has
+  logged `TIMEOUT`; empty that directory before the build. Vercel never reads it
+  (`flushToDisk: !hasNextSupport`). Details in `apps/storefront/CLAUDE.md` → *Catalog*
+  → *Rendering and caching* (2026-09-26)
