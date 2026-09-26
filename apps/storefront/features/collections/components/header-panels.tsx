@@ -11,8 +11,8 @@ import { editorialImages } from '@/lib/editorial/images';
 import { cn } from '@/lib/utils/cn';
 import { homeCategories } from '../data/home-categories';
 import type { CatalogCollection } from '../types/catalog-collection';
-import { collectionFallbackSlot } from '../utils/collection-image';
-import { collectionMeta } from '../utils/collection-index-layout';
+import { collectionFrame } from '../utils/collection-frame';
+import { collectionMeta } from '../utils/collection-meta';
 
 /**
  * The header's navigation content (header direction B, 2026-09-26), rendered on the
@@ -24,23 +24,28 @@ import { collectionMeta } from '../utils/collection-index-layout';
  * Categories are the homepage's five (`homeCategories`, held to real catalogue keys by
  * `commerce-hrefs.test.ts`); collections are the live ones from `loadNavCollections`,
  * featured first, and `null` drops every collections block rather than inventing one. A
- * collection with no image of its own borrows its editorial lookbook crop, the same
- * stand-in the collections index uses (`collectionFallbackSlot`).
+ * collection with no image of its own shows the portrait crop of the same stand-in its
+ * chapter on the collections index shows (`collectionFrame`).
  */
 
 const NEW_IN_HREF = '/new-in';
 const ALL_PIECES_HREF = '/shop';
 const ALL_COLLECTIONS_HREF = '/collections';
-/** The New In card's photograph: the one editorial slot no homepage section renders. */
-const NEW_IN_IMAGE = 'moment';
+/**
+ * The New In card's photograph: an editorial slot nothing else in the panels shows
+ * (`moment` became the Silk collection's portrait stand-in, 2026-09-26).
+ */
+const NEW_IN_IMAGE = 'lookbook-04';
 
 interface NavProps {
   locale: AppLocale;
   collections: CatalogCollection[] | null;
 }
 
-function collectionImage(collection: CatalogCollection) {
-  return collection.imageUrl ?? editorialImages[collectionFallbackSlot(collection.slug)].src;
+/** Its photograph in the frame's shape: the 4:5 thumbnails take the portrait crop. */
+function collectionImage(collection: CatalogCollection, crop: 'portrait' | 'wide' = 'portrait') {
+  const frame = collectionFrame(collection);
+  return frame.kind === 'remote' ? frame.url : editorialImages[frame[crop]].src;
 }
 
 function CollectionName({
@@ -198,7 +203,7 @@ export async function CollectionsPanel({
               <Link href={`/collections/${collection.slug}`} className="group grid gap-4">
                 <span className="relative block aspect-4/3 overflow-hidden rounded-media bg-surface-media">
                   <Image
-                    src={collectionImage(collection)}
+                    src={collectionImage(collection, 'wide')}
                     alt=""
                     fill
                     sizes="(min-width: 1440px) 310px, 22vw"

@@ -123,7 +123,7 @@ surface overrides the `--surface-*` variables:
 | `data-surface` | Where                                                         | Effect                                                                                                                  |
 | -------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `ink` / `dark` | the footer, the opening frame, the scene tile, the panels     | Espresso bg, ivory text, on-dark-muted secondary, Champagne accent and focus ring, the primary action inverted to Ivory |
-| `navy`         | the one nocturnal moment: the homepage's offer                | Midnight bg, otherwise as `ink`                                                                                         |
+| `navy`         | the offer; the featured collection's chapter and header       | Midnight bg, otherwise as `ink`                                                                                         |
 | `sand`         | quiet tonal bands (none on the homepage since 2026-09-26)     | Sand bg, muted-deep secondary, bronze-deep accent                                                                       |
 | `ivory`        | a light island on a dark surface: the film credits' Quick Add | the page defaults again (Ivory bg, ink text, Ink action), Bronze focus ring                                             |
 | `overlay`      | resolved on the header (see below)                            | transparent bg and border, ivory text, Champagne focus ring                                                             |
@@ -183,7 +183,9 @@ study over a refined bar and a centred masthead):
   revalidate, with a 5s deadline because it runs on every page — see _Catalog_ →
   _Rendering and caching_); `null` — no API at build, an `ApiError` or a timeout, none
   live — drops every collections block and makes Collections a plain link. A collection with no image
-  borrows its lookbook stand-in (`collectionFallbackSlot`), as on the index.
+  shows the stand-in its chapter on the index shows (`collectionFrame`: the portrait crop in
+  a 4:5 thumbnail, the wide crop in the Collections panel's 4:3 cards). The New In card is
+  on `lookbook-04` (it was `moment`, now the Silk collection's portrait stand-in).
 - **While a panel is open the header is solid** even over a hero:
   `[data-nav-open]` on the nav root excludes the header from the overlay surface rule
   (`...header[data-surface='auto']:not(:has([data-nav-open]))`), and a backdrop dims the
@@ -540,8 +542,15 @@ Every homepage image is a static import behind one registry, swappable by file d
   `direction: ltr`, the copy restores the page direction), above the copy below 1024.
 - **The scene tile** in New in uses `silk-edit-campaign`; **the category panels** the five
   `category-*` slots with `alt=""` (the link names the category); **the looks**
-  `lookbook-03`, `-01`, `-05`. The `hero-<collection>-*`, `strip-*`, `lookbook-02`/`-04`,
-  `moment` and `featured-*` slots keep their files and no homepage section renders them.
+  `lookbook-03`, `-01`, `-05`. The `hero-abaya-*`, `hero-knitwear-*`, `strip-*`,
+  `lookbook-02`, `moment-wide` and `featured-*` slots keep their files and nothing renders
+  them.
+- **Each seeded collection's photograph** (`features/collections/data/collection-frames.ts`,
+  "Chapters", 2026-09-26): Evening `hero-desktop` / `hero-mobile` (the film's frame, so
+  `filmFrame` now reads it from there), Linen `hero-linen-desktop` / `-mobile`, Silk
+  `silk-edit-campaign` / `moment` (so `sceneSlot` is Silk's wide crop). The collections index,
+  the collection pages and the header panels show them until a collection is given an image
+  of its own; see _Catalog_ → _Collections index_.
 - No dominant editorial image or garment repeats across the hero, promo banner,
   featured collection, campaign or lookbook (user requirement, 2026-09-14). Product-card
   photography may repeat a garment where the merchandising story calls for it.
@@ -584,8 +593,8 @@ layout exists only for the error strings (see _Client boundary rule_).
 `features/catalog/utils/catalog-route.ts` → `catalogRouteConfig` is the single source
 of what each listing route is: API scope, default sort, allowed sorts in display order
 (`curated` only on a collection, and its default there), whether the category row shows
-(Shop All and category pages) and the end-of-listing link (New In → "Shop by category",
-collection → "Explore collections"). A per-route difference goes in that table, never in
+(Shop All and category pages) and the end-of-listing link (New In → "Shop by category"; a
+collection page has none, because the page ends on More collections instead). A per-route difference goes in that table, never in
 a page branch. The intro's `h1` and its linked context line (the only breadcrumb) are
 not in the table: `catalogIntroHeadings` decides them, since a category or collection
 `h1` is the entity's name (#200, owner, 2026-09-15).
@@ -874,7 +883,8 @@ as wide as the chosen option; it commits on change. The page size is the API's f
 While a transition runs, the old grid dims (`[data-catalog]:has([data-catalog-controls]
 [data-pending])` in `globals.css`, whichever instance committed) and the new count is
 announced through that instance's polite live region. Collection pages and New In use the
-same listing with the index column holding only the filters.
+same listing with the index column holding only the filters; a collection page puts its
+chapter above it instead of the intro (see _Collections index_).
 
 ### Pagination and empty states
 
@@ -888,41 +898,74 @@ panel that takes the grid's place, at least 22rem tall (30rem from 1024), so the
 collapses beside the index column; with no toolbar above it, its top lines up with the
 column's (owner feedback 2026-09-26: start-aligned, it floated in the rack's corner).
 
-### Collections index
+### Collections index and collection pages — "Chapters" (owner decision 2026-09-26)
 
-The page opens on a full-bleed photograph pulled under the header
-(`HEADER_BOUNDARY_ATTR`, `data-surface="dark"`), with the `h1` and the description
-centred over it and nothing else — no eyebrow, no jump link (owner decision,
-2026-09-21).
+Chosen from three directions drawn in Claude Design (Chapters, Now Showing, Contents); it
+replaces the 2026-09-21 index (a full-bleed photograph pulled under the header, then a
+feature card and a 3-up grid of 2:1 cards) and the collection page's text intro.
 
-Below it, composed by count, not a uniform grid (`collectionIndexLayout`): the first
-featured collection (else the first) is the opening card at the full container width,
-21:9 from 768 (3:2 below); the rest keep server order in one grid, 2-up from 768 and
-**3-up from 1024**, each a shallow **2:1 landscape band** at every width (owner,
-2026-09-21: portrait tiles belong to products, and the directory should scan rather than
-fill the screen), with the tile's own type and padding a step down from the
-feature's — a directory tile, not a second feature (owner decision, 2026-09-21: the 2-up
-cards were too large). The grid's reveal stagger restarts per row, so a late card never
-waits on the whole grid. **Every card is a photograph
-with its name, season · year and an Explore cue standing on the floor of it** (owner
-decision, 2026-09-21), over the same `from-scrim-strong` gradient the category tiles
-use, with copy in ivory through `data-surface="ink"`. The whole card is the one `Link`,
-named by its `h2`; the Explore row is `aria-hidden`, so a collection is a single tab
-stop. The photograph-above-caption card and the image-less typographic row are gone, and
-with them the layout's `text` block kind.
+**The index** (`collections/page.tsx`) has a solid header and a short typographic intro:
+the `h1` (`type-display`), the description and "3 collections". Then **one chapter per
+live collection** in the server's order (`CollectionChapter`, `features/catalog`), each its
+own `section` named by its `h2`:
 
-A collection with no image of its own borrows an editorial lookbook crop, picked
-deterministically from its slug (`collectionFallbackSlot`, unit-tested). It is a
-**stand-in, not a claim**: the crop does not depict that collection, its alt text is
-empty, and giving the collection a real image in the dashboard replaces it. Seeded
-collections carry no image, so without it a fresh database would show one card and a
-column of text rows. No live collection: the catalog empty state.
+- **The photograph** beside the text from 1024 (six columns; seven from 1280, where the
+  text takes four), alternating sides from the inline start, above the text below 1024.
+  Its crop is by width (`CollectionFrameImage` art `chapter`): 4:5 on phones, the wide
+  crop across the tablet's full-width frame, 4:5 again at 1024–1279, wide from 1280. The
+  frame is a second, pointer-only link (`aria-hidden`, `tabIndex=-1`).
+- **The text**: the numeral ("01", Bronze, Champagne on Midnight), the name
+  (`type-section-title`), season · year, the description, then **the credits**: the first
+  four pieces in curated order (three below 768), each a link to the piece with its price
+  ("From" when variants differ) and, when sold out, the word, which is garnet on Ivory and
+  secondary ink on Midnight, where garnet fails. "+ n more pieces" follows when the
+  collection has more. Then Explore {name} and the facts line ("6 pieces ·
+  1,800–5,500 EGP", the range in `<bdi dir="ltr">`; `CollectionFacts`).
+- **Midnight once**: the first featured collection's chapter is `data-surface="navy"`, as
+  the design system reserves Midnight for the Evening chapter; its frame is full-bleed below
+  768. No featured collection, no Midnight. Two Ivory chapters in a row get a hairline.
+  The rules are the pure `collectionChapters` (`utils/collection-chapters.ts`,
+  unit-tested).
+- **Data**: the collections list (a failure is the catalog error screen, as before), then
+  each collection's listing page 1 in parallel (`loadCollectionPieces`): the same request as
+  the collection page's own first page, so they share one data-cache entry and a chapter
+  can never list what its page does not. A failed read (`ApiError`, logged) empties that
+  chapter's credits and range and keeps the chapter.
+
+**A collection page** (`collections/[slug]/page.tsx`) opens on its chapter
+(`CollectionChapterHeader`, passed to `CatalogPage` as `header`): the name as the `h1`
+(`type-display`), the linked "Collections" line (`catalogIntroHeadings`), season · year and
+the description beside the photograph (art `header`: 4:5, the wide crop only across the
+tablet's full-width frame), Midnight when the collection is featured and the page's Ivory
+otherwise. It states no count or range: the listing under it does, and there they follow
+the filters. The Atelier listing follows unchanged, then **More collections**
+(`MoreCollections`, `CatalogPage`'s `after` slot, in its own Suspense boundary): the other
+live collections as 16:10 cards with numeral, name, season and count, and All collections.
+It replaces the listing's end link, and renders nothing when there is no other collection
+or its read fails (logged).
+
+**Photographs.** `collectionFrame` (`features/collections/utils/collection-frame.ts`,
+unit-tested) decides, in order: the collection's own `imageUrl`; the frame the image brief
+art-directed for a seeded collection (`collectionFrames`, keyed by
+`REQUIRED_CATALOG_KEYS.collections`, so a key the seed does not serve fails typecheck);
+else one lookbook crop for both shapes (`collectionFallbackSlot`). The last two are
+**stand-ins, not claims**: alt stays empty, and giving the collection an image in the
+dashboard replaces them. Portrait crops are pinned to the top, where the brief keeps the
+figure; on Midnight the frame's mat is Midnight too, so a frame centred on a fractional
+pixel never shows a light hairline.
+
+Motion is the commerce entrance: numerals and names rise, the lines fade, the index
+frames wipe open with the 1.06 settle (one per chapter), a page header's photograph fades.
+No parallax. No live collection: the catalog empty state.
 
 ### Open for the screenshot review (AD-12)
 
 - The index column's own scroll at 1024×768 and 1440×900 (the categories and both
   filters are taller than the viewport); a keyboard user tabbing into it.
 - The client error screen (API stopped, uncached URL) has not been seen after hydration.
+- Chapters: one collection's listing failing while the others answer (unit-tested only),
+  a long Arabic collection or piece name in a credit row at 1024, and the season string,
+  which the API stores in one language and the Arabic page shows as written.
 
 ## Product detail
 
@@ -1757,7 +1800,8 @@ strings) and `products` (price, names, the image placeholder); `cart` **never im
 `checkout`**, which is why checkout readiness and the Bag entry live in the cart slice. `features/home` composes the homepage from static, typed mock data
 and imports from `products` and `collections`. `features/catalog` is the listing
 composition slice (URL state, route table, intro, category row, grid, controls,
-pagination, empty states, and the product page's related row) and imports from both.
+pagination, empty states, the product page's related row, and the collections index's
+chapters and a collection page's header and More collections) and imports from both.
 `products` and `collections` own their catalog API functions and DTOs and still do not
 import each other; the one reverse edge is `products/api/list-catalog-products.ts` taking
 `CatalogProductQuery` from `features/catalog/search-params.ts` (a dependency-free

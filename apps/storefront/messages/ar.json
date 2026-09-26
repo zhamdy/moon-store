@@ -181,13 +181,17 @@
       "page": "الصفحة {page}"
     },
     "wayfinding": {
-      "exploreCollections": "اكتشفي كل المجموعات",
       "shopByCategory": "تسوّقي حسب الفئة"
     },
     "collections": {
       "explore": "اكتشفي",
       "description": "خزانة مختارة بعناية، مجموعة تلو الأخرى. اكتشفي القطع التي تروي كل حكاية.",
-      "directory": "مختارات المجموعات"
+      "count": "{count, plural, zero {لا توجد مجموعات} one {مجموعة واحدة} two {مجموعتان} few {# مجموعات} many {# مجموعة} other {# مجموعة}}",
+      "credits": "في هذه المجموعة",
+      "more": "{count, plural, one {وقطعة أخرى} two {وقطعتان أخريان} few {و# قطع أخرى} many {و# قطعة أخرى} other {و# قطعة أخرى}}",
+      "exploreName": "اكتشفي {name}",
+      "moreTitle": "مجموعات أخرى",
+      "all": "كل المجموعات"
     },
     "empty": {
       "catalog": {
