@@ -9,6 +9,7 @@ import {
 import {
   INITIAL_CONTROLS_STATE,
   activeFilterCount,
+  applyPrice,
   applyStaged,
   clearAllFilters,
   controlsReducer,
@@ -17,6 +18,7 @@ import {
   removeSummaryPart,
   stagedFromParams,
   summaryParts,
+  toggleStock,
   validateStaged,
   type ControlsState,
 } from './catalog-controls-state';
@@ -146,6 +148,34 @@ describe('committing from the summary', () => {
     expect(focusAfterRemoval(['stock', 'price'], 'stock')).toBe('price');
     expect(focusAfterRemoval(['stock', 'price'], 'price')).toBe('filter');
     expect(focusAfterRemoval(['price'], 'price')).toBe('filter');
+  });
+});
+
+describe('the index column (inline filters)', () => {
+  it('a tick applies availability alone, keeps the price and sort, and resets page', () => {
+    const current = params({ min: 500, sort: 'price-asc', page: 3 });
+    expect(toggleStock(current, true, SHOP)).toEqual(
+      params({ stock: 'in', min: 500, sort: 'price-asc', page: 1 })
+    );
+    expect(toggleStock(params({ stock: 'in', page: 2 }), false, SHOP)).toEqual(params({}));
+  });
+
+  it('"Apply price" commits the snapped bounds and keeps the committed availability', () => {
+    const current = params({ stock: 'in', page: 4 });
+    expect(applyPrice(current, { min: '520', max: '2990' }, SHOP)).toEqual(
+      params({ stock: 'in', min: 500, max: 3000, page: 1 })
+    );
+  });
+
+  it('"Apply price" with empty fields clears the range', () => {
+    expect(applyPrice(params({ min: 500, max: 3000 }), { min: '', max: '' }, SHOP)).toEqual(
+      params({})
+    );
+  });
+
+  it('"Apply price" refuses invalid or crossed bounds', () => {
+    expect(applyPrice(params({}), { min: 'abc', max: '' }, SHOP)).toBeNull();
+    expect(applyPrice(params({}), { min: '3000', max: '500' }, SHOP)).toBeNull();
   });
 });
 

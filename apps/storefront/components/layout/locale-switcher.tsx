@@ -1,5 +1,6 @@
 'use client';
 
+import { Globe } from 'lucide-react';
 import { useLocale } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
 import { routing, type AppLocale } from '@/i18n/routing';
@@ -28,7 +29,7 @@ export function LocaleSwitcher({ labels, groupLabel }: LocaleSwitcherProps) {
 
         if (loc === locale) {
           return (
-            <span key={loc} aria-current="true" className="type-label text-text">
+            <span key={loc} aria-current="true" className="type-ui text-text">
               {label}
             </span>
           );
@@ -40,7 +41,7 @@ export function LocaleSwitcher({ labels, groupLabel }: LocaleSwitcherProps) {
             href={pathname}
             locale={loc}
             lang={loc}
-            className="type-label text-text-secondary transition-colors duration-fast ease-ui hover:text-text"
+            className="type-ui text-text-secondary transition-colors duration-fast ease-ui hover:text-text"
           >
             {label}
           </Link>
@@ -64,9 +65,10 @@ export interface LocaleToggleProps {
  * boundary rather than adding one. Written for the two locales `routing.ts`
  * defines today — with a third, the header needs LocaleSwitcher's list instead.
  *
- * The visible text is the target language in its own script (`العربية` on /en,
- * `English` on /ar), shortened below 1024px; `lang` on the link makes screen
- * readers pronounce it correctly.
+ * A globe glyph, then the target language in its own script (`العربية` on /en,
+ * `English` on /ar), shortened below 1024px (header direction B, 2026-09-26: the globe
+ * says "language" before the word is read, in either script). The glyph is decorative;
+ * `lang` on the link makes screen readers pronounce the name correctly.
  */
 export function LocaleToggle({ labels, shortLabels, className }: LocaleToggleProps) {
   const pathname = usePathname();
@@ -80,11 +82,12 @@ export function LocaleToggle({ labels, shortLabels, className }: LocaleTogglePro
       lang={target}
       aria-label={labels[target]}
       className={cn(
-        'type-label flex h-11 min-w-11 items-center justify-center px-2 text-text',
-        'transition-opacity duration-fast ease-ui hover:opacity-70',
+        'type-ui flex h-(--size-tap) min-w-(--size-tap) items-center justify-center gap-2 px-2 text-text',
+        'transition-colors duration-fast ease-ui hover:text-brand',
         className
       )}
     >
+      <Globe aria-hidden="true" size={18} strokeWidth={1.5} className="shrink-0" />
       <span className="lg:hidden">{shortLabels[target]}</span>
       <span className="hidden lg:inline">{labels[target]}</span>
     </Link>

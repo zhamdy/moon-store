@@ -17,28 +17,61 @@ it, and off in production builds until a commerce strategy exists (see _Checkout
 
 ## Design guideline
 
-The visual source of truth is `docs/design/moon-fashion-website-design-guideline.md`
-(moved out of `public/` so it isn't publicly served). The original logo artwork is
+The visual source of truth is the **Moon Fashion storefront design system** (Claude Design
+artifact, approved 2026-09-25), which supersedes
+`docs/design/moon-fashion-website-design-guideline.md` wherever they disagree. Phase 1
+(foundations and shared primitives) is implemented; page compositions still follow their
+own plans until their phase. The original logo artwork is
 `docs/design/brand/moon-fashion-logo-original.png`.
 
 ## Token and utility vocabulary
 
-Semantic Moon utilities (`bg-bg`, `bg-surface`, `bg-surface-soft`, `text-text`,
-`text-text-secondary`, `border-border`, `bg-brand`/`text-brand-dark`, `bg-action`/
-`text-on-action`, `bg-disabled`/`text-disabled`/`border-disabled`, `text-error` for
-validation messages only, always beside an icon and text so colour never carries the
-meaning alone) and the `type-*`
-typography utilities (`type-display-xl` … `type-caption`, `type-label`) are the
-preferred API — components never reference `--moon-*` custom properties directly.
+Three tiers in `app/globals.css`: the ten approved **brand** colours (canonical, never
+edited), **derived** tints a contrast rule needs (`bronze-deep`, `stone`, `muted-deep`,
+`on-dark-muted`, `control-border`, `disabled-ink` — never new hues), and the **semantic**
+`@theme inline` names components use. Semantic utilities: `bg-bg`, `bg-surface`,
+`bg-surface-soft` (Sand), `bg-surface-media` (the Stone packshot mat), `text-text`,
+`text-text-secondary`, `border-border` (decorative hairline), `border-control` (an input's
+boundary, 3.5:1), `bg-brand`/`text-brand`/`text-brand-dark` = `bg-accent`/`text-accent`
+(Bronze, re-pointed per surface), `bg-action`/`text-on-action` (the primary action: **Ink**
+on light grounds, Ivory with Ink text on dark ones), `bg-disabled-surface`/
+`text-on-disabled` (a disabled filled control), `text-disabled`/`border-disabled` (a
+disabled outline), `bg-overlay` (behind drawers and sheets), and the semantic-only status
+colours `text-danger` (`text-error` is its legacy alias; write `danger`), `text-success`, `text-notice` /
+`bg-notice-surface` — always beside an icon and text so colour never carries the meaning
+alone. Layout, sizing and motion tokens: `--container-max|wide|editorial`, `--measure`,
+`--page-gutter`, `--section-space` (`section-y`) and `--section-space-commerce`
+(`section-y-commerce`, ×0.72), `--size-tap` (44) / `--size-control` (52) /
+`--size-control-sm` / `--size-control-lg`, `--z-sticky|header|overlay|drawer|toast`,
+`aspect-product|portrait|campaign|cinema|landscape`, `rounded-control` (2px),
+`duration-fast|base|slow|cinematic`, `ease-ui|editorial|sheet`.
+
+The `type-*` utilities are the typography API (listed with their roles at the top of the
+Typography block in `globals.css`): `type-display-xl`, `type-display`,
+`type-section-title`, `type-page-title`, `type-title`, `type-eyebrow`, `type-body-lg`,
+`type-body`, `type-supporting`, `type-product-title`, `type-price`, `type-field-label`,
+`type-ui`, `type-label`, `type-caption`. The older `type-h1`…`type-h4` and `type-small` keep
+working and resolve to the new scale (`type-h1` = section title, `type-h2` = page title,
+`type-h3` = title, `type-small` = supporting). Every step sets its Arabic size, leading and
+weight explicitly. Components never reference raw palette custom properties directly.
+
+Shared primitives live in `components/ui/`: `Button` (+ `buttonClassName` for a link that
+must look like one; `primary | accent | secondary | brand | quiet`, `sm | md | lg`,
+`loading`), `IconButton`, `EditorialLink`, `Container` (`page | wide | editorial`),
+`SectionHeader` / `Eyebrow`, `field.tsx` (`FieldLabel`, `FieldHint`, `FieldError`,
+`Input`, `Select`, `Textarea`, `Choice`), `Badge`, `StatusText`, `Notice`, `EmptyState`.
+Control classes shared by features: `.field-frame` / `.field-input` / `.field-control`,
+`.choice`, `.option-cell` (size cells; `data-unavailable`), `.stepper`.
 Default Tailwind utilities (`text-white`, `bg-black`, `rounded-sm`, …) remain
 available and are sometimes the right choice, but reach for the semantic name first;
 raw palette values belong only inside the token layer (`app/globals.css`).
 
-Tailwind's own built-in `stone-*` palette is a trap here: the guideline's `--moon-
-stone-*` tokens are **not** exposed as `stone-*` utilities (that name is already
-Tailwind's own grey scale, a different, coincidentally similar colour). Any state
-that needs a `--moon-stone-*` value gets its own semantic name instead — see
-`--color-disabled` in `app/globals.css`.
+Tailwind's own built-in `stone-*` palette is a trap here: the design system's Stone
+(`--color-stone` in the token layer, the packshot mat) is **not** exposed as a `stone-*`
+utility (that name is already Tailwind's own grey scale, a different, coincidentally
+similar colour). Components reach it as `bg-surface-media`; any other state that needs a
+raw palette value gets its own semantic name — see `--color-disabled` in
+`app/globals.css`.
 
 `type-*` names are deliberately outside the `text-*` group so `tailwind-merge`
 never needs configuring: `type-h1 text-text` is two unrelated utilities, not a
@@ -50,13 +83,20 @@ responsive variant on the same element (`type-display md:type-display-xl`, the h
 title), where Tailwind emits the variant after the base utility and the winner is
 deterministic.
 
-### Media radius (owner decision, 2026-09-14)
+### Media radius
 
-One token pair in `app/globals.css`'s `@theme inline`: `--radius-media` (12px, the
-`rounded-media` utility) and `--radius-media-sm` (8px, `rounded-media-sm`). Never a raw
+**Superseded (design system, 2026-09-25; owner-approved override): the architecture is
+square.** This is the current rule, not an experiment: do **not** restore the 2026-09-14
+rounded frames. `--radius-media` and `--radius-media-sm` are `0px`; the names, and every
+rule below about which element carries them, stay so the frames keep one token-driven
+switch — never a per-component `rounded-none` or a raw radius. Controls take `rounded-control` (2px); `rounded-pill` is only for round
+marks. The rest of this section is the 2026-09-14 record.
+
+One token pair in `app/globals.css`'s `@theme inline`: `--radius-media` (was 12px, the
+`rounded-media` utility) and `--radius-media-sm` (was 8px, `rounded-media-sm`). Never a raw
 `rounded-[12px]`. `rounded-media`: the product card image frame, category tiles, the
 collections index photographs, the collection intro image, the featured collection's
-two frames, lookbook images, the editorial strip photographs, the gallery frame and its
+two frames, lookbook images, the gallery frame and its
 no-image frame, the product page's gallery fallback and both skeleton frames.
 `rounded-media-sm`: gallery thumbnails (the inner photograph is concentric,
 `radius - 4px`) and the purchase panel's 44px size cells, where 12px read as pills. Full-bleed photographs stay square: the hero, the promo
@@ -80,15 +120,18 @@ fonts already use (`--font-display: var(--font-display-active)`): `--surface-bg`
 into `--color-bg` / `--color-text` / `--color-text-secondary` / `--color-border`, and a
 surface overrides the `--surface-*` variables:
 
-| `data-surface` | Where                                                                  | Effect                                                       |
-| -------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `ink`          | the footer, the hero, the promo banner, the campaign, primary `Button` | ink bg, ivory text, stone-600 hairline, ivory focus ring     |
-| `overlay`      | resolved on the header (see below)                                     | transparent bg and border, ivory text, ivory focus ring      |
-| `auto`         | what the header renders from the server                                | overlay when the page has a header boundary, solid otherwise |
-| `solid`        | written by `HeaderShell` as soon as the page scrolls                   | the defaults                                                 |
+| `data-surface` | Where                                                         | Effect                                                                                                                  |
+| -------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ink` / `dark` | the footer, the opening frame, the scene tile, the panels     | Espresso bg, ivory text, on-dark-muted secondary, Champagne accent and focus ring, the primary action inverted to Ivory |
+| `navy`         | the one nocturnal moment: the homepage's offer                | Midnight bg, otherwise as `ink`                                                                                         |
+| `sand`         | quiet tonal bands (none on the homepage since 2026-09-26)     | Sand bg, muted-deep secondary, bronze-deep accent                                                                       |
+| `ivory`        | a light island on a dark surface: the film credits' Quick Add | the page defaults again (Ivory bg, ink text, Ink action), Bronze focus ring                                             |
+| `overlay`      | resolved on the header (see below)                            | transparent bg and border, ivory text, Champagne focus ring                                                             |
+| `auto`         | what the header renders from the server                       | overlay when the page has a header boundary, solid otherwise                                                            |
+| `solid`        | written by `HeaderShell` as soon as the page scrolls          | the defaults                                                                                                            |
 
 Components keep reading `text-text` / `bg-bg` / `border-border` and never set colours
-per surface. Never override raw `--moon-*` in scope (it would also recolour
+per surface. Never override a raw palette variable in scope (it would also recolour
 `--color-action`), and never move colours out of `@theme inline` for one feature.
 
 ### The header boundary
@@ -117,8 +160,42 @@ mode here. Browsers without `:has()` get a solid header over the scrimmed hero.
 
 The gold logo is never recoloured for the overlay surface: the hero is dusk-toned so
 gold and ivory read on it, and contrast is code-guaranteed by scrims, not by the image
-(see _Image pipeline_). A stacked lockup at 52px is the known cost of "no new logo
-composition"; a brand-approved horizontal lockup is the unblock, still deferred.
+(see _Image pipeline_). The header shows the **crescent mark alone** at every width (40px,
+48px from 1024; design system 2026-09-25) — the stacked lockup was unreadable at header
+height — and the footer carries the full lockup. Solid, the header has a hairline lower
+edge (`--shadow-sticky`); over a hero it has none.
+
+The header holds exactly: Shop, New In, Collections (a Menu button with the word below
+1024), the mark, the language toggle and the Bag. The Search and Account icons were
+removed (their routes do not exist); they return with their features.
+
+**Header direction B** (owner decision 2026-09-26, chosen from the Claude Design header
+study over a refined bar and a centred masthead):
+
+- **Shop and Collections open panels** on desktop (`DesktopNav`, below): Shop shows the
+  five homepage categories and All pieces, the live collections (thumbnail, name, season ·
+  year) and a New In card on the unused `moment` photograph; Collections shows the live
+  collections as cards and All collections. New In stays a plain link. The panels' content
+  is server-rendered in `features/collections/components/header-panels.tsx` and composed
+  by `app/[locale]/layout.tsx` into `Header`'s `nav` prop, the way it composes the Bag, so
+  `components/layout` still imports no feature slice. The collections come from
+  `loadNavCollections` (the public listing, featured first, at most four, on the entity
+  revalidate); `null` — no API at build, an `ApiError`, none live — drops every
+  collections block and makes Collections a plain link. A collection with no image
+  borrows its lookbook stand-in (`collectionFallbackSlot`), as on the index.
+- **While a panel is open the header is solid** even over a hero:
+  `[data-nav-open]` on the nav root excludes the header from the overlay surface rule
+  (`...header[data-surface='auto']:not(:has([data-nav-open]))`), and a backdrop dims the
+  page under the bar.
+- **The language toggle is a globe and the other language's name** (`العربية` / `English`,
+  the short `ع` / `EN` below 1024). The globe is decorative; the name carries `lang`.
+- **The Bag reads "Bag (2)" from 1024** (the icon, the word, the count); below 1024 it
+  keeps the icon and the count disc. Its accessible name is unchanged.
+- **The mobile menu is an Ivory sheet** ("Menu B"): Shop opens in place on the
+  categories with thumbnails (open by default), Collections on the live collections,
+  New In is a link row, the featured collection is one card under the list, and the
+  language switch (with the globe) is at the foot. Shop and Collections are native
+  `<details>`; any link inside closes the sheet, as does a route change.
 
 ## Locale and RTL rules
 
@@ -135,25 +212,33 @@ composition"; a brand-approved horizontal lockup is the unblock, still deferred.
   in it (a file extension-shaped slug, for instance) would silently bypass locale
   handling — the root layout's `hasLocale` guard is defence in depth against that, but
   the matcher is the thing to fix if it happens.
-- Faces (user decision, 2026-09-13, superseding the guideline's Bodoni Moda / Manrope
-  and Noto Serif Arabic / IBM Plex Sans Arabic): English display **Lora**, English
-  body/UI **Inter**; Arabic **Tajawal** for both roles (`app/fonts.ts`). Tajawal is not
-  a variable font, so its weights are listed there. The guideline's typography chapter
-  is stale against this decision. The `type-*` line-heights under `:lang(ar)` were
-  tuned for a Naskh face; Tajawal's shorter ascenders may allow tightening them after
-  the screenshot review.
-- `app/fonts.ts` calls all three font loaders in one module, so `next/font` preloads
-  every face on every locale's render, not just the active family — confirmed in the
-  built HTML. The Arabic face opts out with `preload: false` since `en` is the default
-  locale; don't add a fourth family here without rechecking preload output.
+- Faces (design system, 2026-09-25, superseding the 2026-09-13 Lora / Inter / Tajawal
+  decision): English display **Instrument Serif**, English UI/body **Hanken Grotesk**;
+  Arabic display **Amiri**, Arabic UI/body **Tajawal** (`app/fonts.ts`). Amiri is for
+  editorial display only — never prices, forms, filters, product names in a listing or
+  small controls; `--font-ui` (`font-ui`, and every interface `type-*` step) is Hanken /
+  Tajawal in both locales, and `[data-product-name]` switches to it in Arabic. Arabic has
+  no italic: `<em>` is upright, and in a display heading it takes the accent colour.
+- The faces are **self-hosted** with `next/font/local` (`assets/fonts/`, SIL OFL, licences
+  beside the files), so `next build` fetches nothing from Google Fonts. The Latin faces
+  carry only the Latin subset and the Arabic faces only the Arabic subset: on `/ar`, Latin
+  letters and digits (prices, sizes, phone numbers) fall through to Hanken / Instrument, so
+  numerals look the same in both locales. The Latin faces keep next/font's size-adjusted
+  fallback; the Arabic ones set `adjustFontFallback: false` so their variable ends at the
+  family name and the Latin face after it in the stack is reached. `app/[locale]/layout.tsx`
+  puts the Latin variables on both locales and the Arabic ones on `/ar` only.
+- Preload (confirmed in the built HTML): the five Latin files (~84 KB) on every page; the
+  Arabic faces `preload: false` (Amiri is ~100 KB a weight). Don't add a family here
+  without rechecking preload output.
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to twenty entries
-(twenty-one files):
+Server Components by default (R21/R22). `'use client'` is limited to nineteen entries
+(twenty files):
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
+   Its Shop and Collections sections arrive server-rendered as `ReactNode`s (`sections`).
 3. `components/layout/locale-switcher.tsx` — needs `usePathname` to preserve the
    current path across a locale switch. Exports both `LocaleSwitcher` (the
    both-locales list in the mobile menu) and `LocaleToggle` (the
@@ -165,46 +250,47 @@ Server Components by default (R21/R22). `'use client'` is limited to twenty entr
    Takes children only.
 6. `components/motion/parallax.tsx` — `scroll()` from `motion` driving a WAAPI
    animation from `motion/mini`. Takes children only.
-7. `features/home/components/hero/hero-carousel.tsx` — which hero slide is active,
-   autoplay, tabs, swipe. Slide content arrives server-rendered as `ReactNode`s and
-   every string arrives resolved; it renders no image itself.
-8. `features/catalog/components/catalog-controls.tsx` — the catalog utility row's
-   filter summary, Filter button and Headless UI filter sheet, and sort select, written
-   to the URL with nuqs (`shallow: false`, `history: 'push'`). Strings arrive resolved
-   from `catalog-controls-slot.tsx` (`catalogControlsRenderer`); the few values it
-   formats itself use `{name}` templates through `fillTemplate` (`lib/utils/fill-template.ts`), not ICU. Its root is
-   `display: contents` so its controls wrap as items of the utility row. Pure rules
-   live in `catalog-controls-state.ts`, unit-tested.
-9. `app/[locale]/(catalog)/error.tsx` — every catalog route's error boundary. Next
+7. `features/catalog/components/catalog-controls.tsx` — the listing's filters and sort,
+   written to the URL with nuqs (`shallow: false`, `history: 'push'`). Rendered **twice**
+   by `ProductGrid` ("Atelier", 2026-09-26): `layout="toolbar"` (the count, the Filter
+   button and Headless UI sheet below 1024, Sort, the active-filter summary) and
+   `layout="index"` (the index column's inline availability and price, from 1024). Each
+   instance has its own URL hook, transition and live region; one file, one boundary.
+   Strings arrive resolved from `catalog-controls-slot.tsx` (`catalogControlsRenderer`);
+   the few values it formats itself use `{name}` templates through `fillTemplate`
+   (`lib/utils/fill-template.ts`), not ICU. The toolbar's root is `display: contents`, so
+   its bar is a direct child of the rack column and can stick. Pure rules live in
+   `catalog-controls-state.ts`, unit-tested.
+8. `app/[locale]/(catalog)/error.tsx` — every catalog route's error boundary. Next
    requires an error boundary to be a client component, so it cannot take resolved
    strings as props; see the one namespace exception below.
-10. `features/products/components/purchase-panel.tsx` — the product page's option
-    radios, live price and availability (PD-11, owner decision PD-E): the selection
-    drives price and per-value availability, which CSS cannot compute, and Cart needs an
-    island here anyway. Takes the DTO's `price`/`inStock`/`options`/`variants`, resolved
-    strings and a pre-formatted price map from `purchase-panel-slot.tsx`; the rules are
-    `utils/variant-selection.ts`, unit-tested. It renders the page-composed `action` slot
-    inside `PurchaseSelectionContext` (CD-11), which is how Add to Bag (14) reads
-    `purchaseReadiness`; `data-readiness` still exposes it.
-11. `features/products/components/product-gallery-viewer.tsx` — the product gallery's
+9. `features/products/components/purchase-panel.tsx` — the product page's option
+   radios, live price and availability (PD-11, owner decision PD-E): the selection
+   drives price and per-value availability, which CSS cannot compute, and Cart needs an
+   island here anyway. Takes the DTO's `price`/`inStock`/`options`/`variants`, resolved
+   strings and a pre-formatted price map from `purchase-panel-slot.tsx`; the rules are
+   `utils/variant-selection.ts`, unit-tested. It renders the page-composed `action` slot
+   inside `PurchaseSelectionContext` (CD-11), which is how Add to Bag (13) reads
+   `purchaseReadiness`; `data-readiness` still exposes it.
+10. `features/products/components/product-gallery-viewer.tsx` — the product gallery's
     thumbnail tabs and zoom in place (owner decision 2026-09-14): which image is active
     and the pointer-following zoom origin cannot be CSS. Takes resolved `label`/`alt`/
     `thumbLabel` strings, `dir`, and plain `{ url, sizes, zoomSizes, loading,
 fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     rule are `utils/gallery-layout.ts`, unit-tested.
-12. `features/products/components/product-tabs.tsx` — the product details tabs (ED-4):
+11. `features/products/components/product-tabs.tsx` — the product details tabs (ED-4):
     owns only which tab is active. Takes `tabs: { id, label, panelHasFocusable }[]`, the
     tablist `label`, `dir` and `panels: Record<id, ReactNode>` rendered on the server by
     `product-details-tabs.tsx`; the keyboard rule is `utils/tab-keys.ts` (`tabKeyTarget`,
     shared with the gallery), unit-tested.
-13. `features/products/components/share-button.tsx` — the share row's native share
+12. `features/products/components/share-button.tsx` — the share row's native share
     button (owner decision 2026-09-15): `navigator.share` and the clipboard exist only in
     the browser, and Instagram, TikTok and Messenger have no web share URL. Takes `url`,
     `title` and resolved `labels: { share, copied, copyFailed }` from `product-share.tsx`;
     reads `navigator` only on click, and reports the copy result as a toast (no region of
     its own). The decision is `utils/share-action.ts` (`shareAction`, `isShareAbort`),
     unit-tested.
-14. `features/cart/components/add-to-bag-button.tsx` — Add to Bag in the purchase panel's
+13. `features/cart/components/add-to-bag-button.tsx` — Add to Bag in the purchase panel's
     action slot (see _Cart_). Takes `slug`, the page's localized `name` and resolved
     `strings`; reads readiness through `usePurchaseSelection()`. Owns the quantity beside the
     button (owner decision 2026-09-15, replacing "one piece per press"): the bag's
@@ -212,61 +298,60 @@ fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     landed pieces. An add raises a toast with View bag (`useRouter` push to `/bag`) and
     never opens the drawer. The intent and the toast descriptor (`addToBagToast`) are
     `utils/add-to-bag-action.ts`, unit-tested.
-15. `features/cart/components/bag-trigger.tsx` — the header Bag link, its count badge and
-    the lazy drawer host. Composed by `app/[locale]/layout.tsx` into `Header`'s `bag`
+14. `features/cart/components/bag-trigger.tsx` — the header Bag link ("Bag (2)" from 1024,
+    the icon and a count badge below), and the lazy drawer host. Composed by `app/[locale]/layout.tsx` into `Header`'s `bag`
     slot, with the trigger's and the drawer's strings resolved there. The label and ARIA
     state are `utils/bag-trigger-label.ts`, unit-tested.
-16. `features/cart/components/bag-view.tsx` — the `/bag` review island; its messages are
+15. `features/cart/components/bag-view.tsx` — the `/bag` review island; its messages are
     toasts.
-17. `components/feedback/app-toaster.tsx` — the one Sonner `<Toaster>` (owner decision
+16. `components/feedback/app-toaster.tsx` — the one Sonner `<Toaster>` (owner decision
     2026-09-15), mounted by `app/[locale]/layout.tsx` after the footer as a direct child of
     `<body>`. Takes resolved `label` / `closeLabel` (`toaster.*`) and `dir`. Lazy: it imports
     no `sonner`, renders nothing on the server and the first client render, and mounts the
     real `Toaster` when the browser is idle or the first toast asks. See _Cart_ → _Toasts_.
-18. `features/checkout/components/checkout-view.tsx` — the checkout page island: TanStack Form
+17. `features/checkout/components/checkout-view.tsx` — the checkout page island: TanStack Form
     state, the submit machine, the order summary and the cart notice (see _Checkout_). Takes
     resolved `CheckoutPageStrings` (the bag's included), `locale`, `shopHref`, `bagHref` and
     `deliveryMethods` from `app/[locale]/checkout/page.tsx`, and reads the bag through
     `useBagController`. Its rules are `features/checkout/utils/*` and
     `features/cart/utils/checkout-readiness.ts`, unit-tested.
 
-19. `features/home/components/new-arrivals/product-rail.tsx` — the New Arrivals
-    composition: the masthead/rail grid, the controls, their disabled edges, the
-    progress rule and the mouse drag.
-    Everything else about that rail is CSS scroll-snap (`[data-rail]` in
-    `app/globals.css`): the scrolling, the snapping, touch swipe, the reading
-    direction and the cards' keyboard order are the browser's. Takes the heading
-    block, the "View all" link and the cards server-rendered as `ReactNode`s and the
-    two control labels as resolved strings, the `HeroCarousel` contract; it renders no
-    product and resolves no message. From 1024 it lays the masthead (title, rule, lead
-    line, View all, controls, progress) in a column of its own and the rail beside it,
-    bleeding off the page's inline end (`data-rail-inset`); below that the masthead is
-    above a full-bleed rail with the rule under it. Its released-drag pitch is measured
-    across the **last two** items, since the rail opens with a wider lead card. **It never autoplays** (brief, 2026-09-20), so
-    unlike the hero it needs no WCAG 2.2.2 stop mechanism. Its rules are
-    `rail-scroll.ts` (`railEdges`, `railStep`, `snapTarget`), unit-tested.
-
-20. `features/cart/components/quick-add.tsx` — Add to Bag and Quick Add on a product
+18. `features/cart/components/quick-add.tsx` — Add to Bag and Quick Add on a product
     card (owner brief, 2026-09-20). Takes a pure `QuickAddModel` (`utils/quick-add-model.ts`)
     and resolved `QuickAddStrings` (`getQuickAddStrings`), and owns only its selection, its
     panel's open state and the "choose a size" prompt. Every rule it applies already existed:
     `variant-selection.ts` for availability and readiness, `addToBagIntent`/`addToBagToast`
     for the press and the acknowledgement, the one `cart-store` `add` for the write. Its own
     rule, `quickAddPress`, is the card-level one — add, open the panel, or sold out — and is
-    unit-tested. The panel is `absolute` under the button, so opening one card's options
-    never reflows the grid or the rail; Escape and an outside pointer close it and return
-    focus to the button. One piece per press: no stepper on a card. On a tile
+    unit-tested. The panel is `absolute`, so opening one card's options never reflows the
+    grid; Escape and an outside pointer close it and return focus to the button.
+    `placement` decides which way it opens: `below` (default) under the button, right for
+    a grid cell, which is a plain `<li>` with no overflow; `above` over what sits above it
+    (the homepage credits use it). **Never put it inside a scroller**: `overflow-x: auto`
+    computes the other axis to `auto`, so the panel is clipped or turns the scroller
+    vertical (MED-6) — which is why the credits are a grid, not a rail.
+    One piece per press: no stepper on a card. On a tile
     (`emphasis="disc"`, the default) the trigger is the icon disc and the root spans the
     slot's full width while being `pointer-events-none`, so the panel is the photograph's
     width rather than the disc's and the strip over the photograph still belongs to the
     card link; the disc and the panel take their own events back.
+
+19. `components/layout/header/desktop-nav.tsx` — the desktop primary navigation (header
+    direction B, 2026-09-26): which panel is open. Shop and Collections are disclosure
+    buttons (the WAI-ARIA disclosure pattern, not a `menu`) whose panels arrive
+    server-rendered as `ReactNode`s, each right after its trigger so Tab moves into it and
+    positioned against the sticky header so it runs the full width under the bar; New In
+    is a link. Click, Enter or Space toggle (a click on a hover-opened panel keeps it);
+    a mouse opens after 90ms of hover and closes 220ms after leaving the nav and panel;
+    Escape (focus back to the trigger), an outside pointer, focus leaving, a link click
+    and a route change close. `desktop-nav-state.ts` holds the toggle rule, unit-tested.
 
 `components/motion/text-reveal.tsx` is deliberately _not_ a boundary: it only splits a
 heading into masked word spans on the server.
 
 **Client-bundled, but not boundaries** (no directive; only boundary islands import them):
 `features/cart/components/bag-drawer.tsx` (a lazy chunk, ~10.6 KB gz, reached only from
-15), `cart-line.tsx`, `quantity-stepper.tsx`, `bag-summary.tsx`, `use-bag-controller.ts`
+14), `cart-line.tsx`, `quantity-stepper.tsx`, `bag-summary.tsx`, `use-bag-controller.ts`
 (shared by the drawer and the page), `load-drawer.ts`, `components/feedback/show-toast.ts`
 (the one `toast()` caller and the one `import('sonner')`; pure modules import only its
 `ToastTone` type; its queue and gate are the pure `toast-queue.ts`, unit-tested), and
@@ -277,7 +362,7 @@ Component must never import it: `createContext` does not exist in the react-serv
 The checkout island's children are client-bundled the same way: `checkout-summary.tsx`,
 `checkout-cart-notice.tsx`, `text-field.tsx`, `governorate-field.tsx`,
 `delivery-method-section.tsx` and `use-media-query.ts`, plus the Bag page's
-`features/cart/components/checkout-entry.tsx` (reached only from 16).
+`features/cart/components/checkout-entry.tsx` (reached only from 15).
 
 **Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
 `useInView` import put the whole engine (~46 KB gz across two chunks) into the eager
@@ -286,7 +371,7 @@ cost ~9 KB gz for the parallax. Measure the eager chunks of `.next/server/app/en
 after touching anything under `components/motion/` before trusting a size claim.
 
 Client islands receive translated strings as props, never the message catalogue —
-`MobileMenu`'s props are `menuLabel`/`closeLabel`/`primaryLabel`/`accountLabel`, a
+`MobileMenu`'s props are `menuLabel`/`closeLabel`/`primaryLabel`, a
 resolved `items` array and `localeSwitcher`; `LocaleSwitcher`'s are `groupLabel` and
 `labels: Record<AppLocale, string>`, resolved on the server by
 `components/layout/locale-labels.ts` — not a namespace object. The layout's
@@ -299,34 +384,28 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding a nineteenth
+`useTranslations`, is a new decision, not a precedent. Before adding a twentieth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
 `NavLink` takes an explicit `current?: boolean` rather than reading the pathname, so it
-needs no client boundary. The catalog's `CategoryNav` is the first caller that passes
-`true` (the page it is rendered on knows its own slug). The header and footer still pass
-`false`: `aria-current` there needs the segment passed down, deferred.
+needs no client boundary. The header and footer pass `false`: `aria-current` there needs
+the segment passed down, deferred. The catalog's `CategoryNav` no longer uses it (its
+links are `.category-link`), but follows the same rule: the page knows its own slug.
 
 ## Motion
 
-Three levels, set in the 2026-09-14 motion pass: **signature** (hero, editorial strip,
-featured collection, campaign, promo banner), **section** (headings, product grids,
-categories, The Moon Selection, benefits) and **micro** (hover and link states,
-180–400ms).
-Transform, opacity and clip-path only; nothing hijacks scroll, pins, bounces or blocks
-interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-ui`).
+Three levels, set in the 2026-09-14 motion pass and kept by the "Shop the Film" homepage
+(2026-09-26): **signature** (the opening frame, the scene tile, the category panels),
+**section** (headings, product grids, the credits, the looks) and **micro** (hover and link
+states, 180–400ms). Transform, opacity, clip-path and one `flex-grow`
+(the category panels) only; nothing hijacks scroll, pins, bounces, rotates on a timer or
+blocks interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-ui`).
 
-1. **Hero** — CSS keyed on the carousel's `data-active` / `data-leaving`, so the first
-   slide plays from the server HTML with no JS. Sequence on load and on every change:
-   image 1.08 → 1 from 120ms, the eyebrow at 120ms, the masked collection name (one
-   mask) at 240ms, the description fade-up at 420ms, link at 560ms; the collection index
-   settles at 750ms on load. The outgoing slide fades over 1s while its image drifts to
-   1.04, its name exits upward through the same mask and the eyebrow, description and
-   link fade out. Rotation shows as **one** progress line at the hero's bottom edge, not
-   one bar per name (2026-09-20): empty before hydration (`idle`), filling over 7s while
-   rotating, refilling quickly on each manual change once stopped. React keys it on the
-   active index, so a slide change remounts it and the fill restarts from zero.
+1. **Opening frame** — `film-hero.tsx` plays from the server HTML with no JS: the
+   photograph settles 1.08 → 1 (`entrance-settle`, from 120ms) and the copy block fades
+   up once (`entrance-fade-up`). One photograph, no carousel, so there is nothing to
+   pause and no WCAG 2.2.2 control.
 2. **Scroll reveal** — `<Reveal>` is a _trigger_, not an effect. The server HTML is the
    visible state; on mount `decideInitialRevealState` (`reveal-policy.ts`, unit-tested)
    marks only elements entirely below the fold as `pending`, never under reduced motion,
@@ -354,30 +433,26 @@ interaction. One easing for entrances (`--ease-editorial`), one for UI (`--ease-
    from `scroll()`'s progress callback (see the component comment for why the animation
    form of `scroll()` is avoided). The layer over-scale is CSS and collapses under
    reduced motion.
-5. **Marquee** — `<Marquee duration gap>` (a Server Component in the home
-   slice): pure CSS, two content-sized tracks (never stretched: the spare space would
-   pile up at the seam), each repeating the content so a track outruns any viewport.
-   The strip keeps words and details alternating in one track (34s per set). A
-   separate faster image layer floating over the words was tried and rejected by the
-   user (2026-09-14) as clutter; depth comes instead from each photograph drifting
-   inside its own over-scaled frame (`[data-strip-pan]`, pure CSS, out of step per
-   image). Hover pauses both; reduced motion stops both. The strip has **no pause
-   control** (user decision, 2026-09-14): the CSS-only pause toggle added in the
-   freeze plan was removed, so keyboard and touch users cannot stop the motion. That
-   is an open WCAG 2.2.2 gap recorded in `docs/ACCESSIBILITY.md` → _Known gaps_; if an
-   accessibility review asks for it back, restore it from commit history (a native
-   checkbox, `role="switch"`, outside the tracks, pausing via
-   `[data-strip]:has([data-strip-toggle]:checked)`, no client boundary).
+5. **Category panels** — `[data-panels]` in `app/globals.css`, pure CSS: from 1024 the
+   open panel's `flex-grow` moves to whichever panel is hovered or holds focus (a
+   `:has()` on the row), and the name swaps between the spine and the full caption with
+   an opacity fade. Reduced motion keeps the behaviour and drops the transitions.
 
-**No eyebrows: the eyebrow is the title, the title is the description** (owner
-decision, 2026-09-14). No section renders a label above its heading. The Moon Selection
-briefly did (owner brief, 2026-09-21) and the eyebrow was removed the same day, so the
-rule holds across the whole page; that section keeps its own header rather than
-`SectionHeading` only because its `h2` runs at `type-h1 lg:type-display`, over a gold
-hairline, with a `type-body-lg` description under it. The `eyebrow`
-message keys keep their names and copy but render as the heading element the old title
-used, at the old title's `type-*` size and with its entrance; the old `title` copy
-renders as a `<p>` under it:
+**Eyebrows on the homepage** ("Shop the Film", 2026-09-26): the design system's
+`Eyebrow` opens the **editorial** moments only — the opening frame ("Now showing ·
+Evening"), the scene tile in New In, and the offer. Commerce headers (New in, Shop by
+category) never carry one. What each section renders:
+
+| Where            | Heading                               | Around it                                                                                                                                          |
+| ---------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Opening frame    | `h1` `type-display-xl`, sentence case | `Eyebrow`; an Ivory primary button (the Evening collection) and `EditorialLink underline="always"` "New arrivals"; the credits (`h2` `type-label`) |
+| New in           | `h2` `type-page-title`, rise 16px     | category chips (`.chip`, links into the shop) and "View all"; the scene tile (Eyebrow, `type-display` title, underlined cue)                       |
+| Shop by category | `h2` `type-page-title`, rise 16px     | five panels, each named by its category (`type-display` open, a vertical `type-title` spine collapsed)                                             |
+| The offer        | `h2` `type-display`, rise             | `Eyebrow`; `type-body-lg`; `type-caption` terms; an Ivory button                                                                                   |
+| Looks            | `h2` `type-display`, rise             | three photographs, each a link to its collection with a `type-title` caption                                                                       |
+
+The table below is the pre-Phase 2 record for the rest of the storefront (the catalog
+`PageIntro` row still holds):
 
 | Where                                     | Heading                                                                                                                                                                                                                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -407,14 +482,11 @@ pointer is not one on a touch screen. A collection card's season · year now sit
 its name, not above it. The label wipe (`data-motion="wipe"`, `data-enter="wipe"`) is
 gone with the eyebrows; don't reintroduce it as a heading device.
 
-**Signature vs commerce entrances** (AD-11, 2026-09-14). The word-masked `TextReveal`
-belongs to the signature moments only: the promo banner, the featured collection and
-the campaign. `SectionHeading` (Categories) raises its title
-once and fades its description, and the catalog's `PageIntro` (an `h1`, not a
-`SectionHeading`) uses the same entrance. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
-settle) is for one feature card per section, like The Moon Selection's first card and
-the first `CategoryTile`. Adding the word mask back to a commerce heading repeats the same entrance
-down the page.
+**Signature vs commerce entrances** (AD-11, 2026-09-14). The homepage's commerce headers
+(New in, Shop by category) raise the title 16px once, and the catalog's `PageIntro` uses
+the same entrance; `TextReveal` is available for a signature title and currently unused on
+the homepage. `ProductCard` rises by default; `reveal="image"` (the image wipe and 1.06
+settle) is for one feature card per section at most.
 
 **Reveal and hover never share an element.** A `transition-*` utility replaces the
 element's whole `transition-property`, so a hover transition on an element carrying
@@ -424,43 +496,15 @@ Tailwind's hover utilities use the separate `scale` / `translate` properties, so
 never collide with the reveal's `transform`.
 
 `Reveal` and `Parallax` read `prefers-reduced-motion` at mount (`Parallax` also
-re-attaches when it or the breakpoint changes); `HeroCarousel` subscribes to it, so
-turning the setting on mid-session stops autoplay immediately.
+re-attaches when it or the breakpoint changes).
 
-The hero has **no pause button** (user decision, 2026-09-13). WCAG 2.2.2 still needs a
-way to stop content that moves for more than five seconds, and the carousel's is
-interaction: clicking a tab, an arrow key, a swipe or any keyboard focus inside the hero
-stops rotation for the rest of the visit, and hovering pauses it. That is less
-discoverable than a visible control; if an accessibility review asks for one, it goes
-back as the first control before the tablist, per the WAI-ARIA carousel pattern.
-Rotation also pauses whenever the hero scrolls out of view, the same way hovering
-does (one `IntersectionObserver` inside the existing `hero-carousel.tsx` island,
-no new client boundary): the progress fill freezes and resumes from where it
-left off, the slide never changes while away, and "stopped by interaction"
-survives leaving and re-entering the viewport. The state union (`idle | running
-| paused | stopped`) is a pure `carouselState()` in `hero-carousel-state.ts`,
-unit-tested. The global reduced-motion rule zeroes animation and
-transition _delays_ as well as durations — with `fill-mode: both`, a zero-duration
-animation would otherwise hold its `from` state for the whole stagger. Embla is
-installed but unused: CSS scroll-snap gives the category and lookbook rails — and
-the New Arrivals carousel — swipe, keyboard and RTL for free.
-
-**Product rail** — `[data-rail]` in `app/globals.css` is the one carousel
-geometry: a scroll-snap scroller that pulls out by one gutter and pads itself back,
-so its `100%` is the container's content column and `--rail-visible` (1.25 / 2.8 /
-4.2 at 0 / 768 / 1024) is an honest fractional card count at every width, past
-`--container-max` included. The fraction is the point: part of the next card is
-always in view, which is what says the row goes on sideways. `--rail-visible` is
-`min(step, var(--rail-count))`, so a set shorter than the step fills the column
-instead of leaving a stub of empty track — but note what that means: **a set at or
-below the step has nothing to scroll, so the controls and the progress rule hide
-themselves and the carousel is a row.** A four-item fallback did exactly that once
-(2026-09-20) and silently deleted the feature; `FALLBACK_PRODUCTS` is eight for
-that reason, not for variety. `product-rail.tsx` adds
-the controls, the gold progress hairline and a mouse drag; a drag past 6px turns
-snapping off (`data-dragging`, since a mandatory snap fights a dragged
-`scrollLeft` every frame), re-snaps on release through `snapTarget`, and swallows
-the click it would otherwise end in.
+**What New in carries** (`load-new-arrivals.ts`): the catalogue's New In first page
+whenever the API can answer at all, **photographed or not** — a real piece with no
+photograph keeps its name, price, link and Add to Bag over the `ProductImagePlaceholder`
+frame. The static set stands in for one condition only, an API that cannot answer
+(unconfigured, `ApiError`, or empty), and it carries no link, price or action (MED-3). The
+old New Arrivals rail and its `[data-rail]` geometry were removed with the 2026-09-26
+redesign; the homepage has no carousel.
 
 ## Image pipeline
 
@@ -481,53 +525,22 @@ Every homepage image is a static import behind one registry, swappable by file d
 - `docs/design/editorial-image-brief.md` lists every slot's ratio, minimum pixels,
   art direction and generation prompt, and the zones that must stay dark. Real
   photography lands by replacing files at the same paths — no code change.
-- Each hero slide has two crops, a 16:10 `wide` and a 4:5 `portrait`, through
+- **The opening frame** (`film-hero.tsx`) has two crops, the 16:10 `hero-desktop` and the
+  4:5 `hero-mobile` (`filmFrame` in `features/home/data/home-collections.ts`), through
   `getImageProps()` × 2 into one `<picture>` (no blur — incompatible with `<picture>`).
   The crop is chosen by **shape**, `(min-aspect-ratio: 3/2)`, not by width: a 1024×768
-  laptop or a portrait tablet gets the portrait crop, whose empty floor sits under the
-  copy, because the wide crop's empty sides are too narrow there. The first slide is the
-  page's only eager image (`loading="eager"`, `fetchPriority="high"`); the other slides
-  are lazy and `fetchPriority="low"`, so put the strongest photograph first in
-  `features/home/data/hero-slides.ts`. Lazy is not enough on its own: hidden slides stay
-  laid out in the viewport to cross-fade, so the carousel renders a slide's picture only
-  when `slideMediaVisible` (`hero-carousel-state.ts`, unit-tested) allows it — the active
-  and leaving slides, the next one while rotating, and any slide shown, hovered or
-  focused. The freeze capture measured all four photographs downloading before any
-  interaction without it. Everything else is a single lazy import with
-  `placeholder="blur"` and an honest `sizes`.
-- Hero photographs keep the figure in the middle of the frame with empty floor below. That
-  composition was for the split stage, where the copy sat on the floor; the hero is now
-  full-bleed (`sizes: '125vw'`) with the copy overlaid and bottom-anchored at every width, so
-  each slide crops the floor back with a zoom in `hero-slides.ts`'s `imageClassName`
-  (`object-*` + a matching `origin-*` + `scale-125`). `scale-*` is Tailwind's standalone
-  `scale` property, so it multiplies with the entrance keyframes' `transform: scale(1.08)`
-  rather than replacing it. **`sizes` must stay at or above the largest slide zoom** or the
-  optimizer picks a source that is then upsampled. The masthead is `max-w-[42rem]`
-  (`xl:max-w-[52rem]`) at the inline start in both locales — wide enough that a collection
-  name at `type-display-xl` is never broken to fit prose, with only the paragraph held to a
-  38ch measure. The photograph is still never mirrored, and contrast comes from the scrims,
-  not the image. **Two scrims, both horizontal bands** (2026-09-20): a header band on top and
-  one floor gradient (`h-[92%] lg:h-[88%]`, 0.95 → 0.78 at 48% → transparent) the masthead and
-  the collection index stand on. The 52%-wide inline-start wash at 0.95 is gone — it divided
-  the frame into a lit half and a dark half, which is what made the hero read as a banner with
-  a panel rather than a campaign. The floor's stops are tuned against the masthead's height
-  (its top edge sits ~300px above the floor on phones, ~410px on desktop, landing near the
-  `via` stop at about 0.75 alpha); re-check them if the type scale or the hero's bottom
-  padding changes.
-  The Evening slide keeps the original `hero-desktop` / `hero-mobile` file names; the
-  other slides are `hero-<collection>-desktop` / `-mobile`.
-- The promo banner and the campaign put their copy on the photograph's empty side, on the
-  **physical** side in both languages, each with a scrim on that side only. Neither
-  photograph is ever mirrored. The banner chooses its layout by shape: the 16:9 crop with
-  the copy on the left only on landscape screens at least 768px wide and 4:3
-  (`banner-wide`, a custom variant in `app/globals.css`), otherwise a full-height background with the
-  copy over a bottom scrim. The section stays explicitly full width on desktop
-  even when its height reaches the cap. Both banner slots use
-  `silk-edit-campaign.png`, with the portrait positioned at 82% horizontally.
-  Mobile image sizes account for the wide source covering a 90svh, minimum 40rem frame.
-  The campaign line is physical-left at **every** width (`rtl:ms-auto`): on phones the
-  figure stands in the right half of the 4:5 window, so an Arabic line at the reading
-  start sat on her.
+  laptop or a portrait tablet gets the portrait crop. It is the page's only eager image
+  (`loading="eager"`, `fetchPriority="high"`). Everything else is a single lazy import
+  with `placeholder="blur"` and an honest `sizes`. The copy stands on the frame's floor
+  over one bottom gradient plus a header band; the photograph is never mirrored, and
+  contrast comes from the scrims, not the image.
+- **The offer** (`components/promotion/promotion-banner.tsx`) is a split: the photograph
+  (`campaign`) on the physical right in both languages from 1024 (its grid is
+  `direction: ltr`, the copy restores the page direction), above the copy below 1024.
+- **The scene tile** in New in uses `silk-edit-campaign`; **the category panels** the five
+  `category-*` slots with `alt=""` (the link names the category); **the looks**
+  `lookbook-03`, `-01`, `-05`. The `hero-<collection>-*`, `strip-*`, `lookbook-02`/`-04`,
+  `moment` and `featured-*` slots keep their files and no homepage section renders them.
 - No dominant editorial image or garment repeats across the hero, promo banner,
   featured collection, campaign or lookbook (user requirement, 2026-09-14). Product-card
   photography may repeat a garment where the merchandising story calls for it.
@@ -605,8 +618,34 @@ four listings read `searchParams`. `/collections` and `/products/[slug]` read no
 they call `await connection()`; without that they would prerender (at build, or at
 runtime into the full-route cache).
 Catalog fetches go through the Next data cache with `revalidate` 60s for product lists
-and 300s for categories and collections (`CATALOG_REVALIDATE`), so a deactivated
-product can linger up to 60s — fine for browsing, never for checkout.
+and 300s for entities (`CATALOG_REVALIDATE`; the product detail reads on the entity
+lifetime, corrected from `list` in LOW-12).
+
+**The TTL is the backstop, not the mechanism.** Every catalog fetch carries `tags`
+(`catalogTags`), and the API pings `POST /api/revalidate` after a catalog write, so a
+withdrawal or a price correction publishes in well under a second (measured: a PDP 404s
+at +0.6s where it previously never did). This is not an optimisation — a TTL **cannot**
+express a withdrawal. Next writes its data cache only on `res.status === 200`, so once a
+product is deactivated the background revalidation receives the API's 404, the entry is
+never replaced, and the stale purchasable page is served forever: 64 consecutive samples
+over 16 minutes on a production build (HIGH-2). Lowering `revalidate` does not help; the
+entry is stale _and still served_.
+
+The route calls `revalidateTag(tag, { expire: 0 })`, deliberately **not** the
+documented-recommended `'max'`: a profile sets how long stale content may still be
+served, and `max` is a one-year window — the bug, not the fix. `updateTag` has the right
+semantic by default but is Server-Action-only and cannot be used in a Route Handler.
+`proxy.ts`'s matcher excludes `api`, or the ping is answered with a 307 to
+`/en/api/revalidate` and never reaches a handler.
+
+| Variable                                                    | Where               | Meaning                                                                                                       |
+| ----------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `REVALIDATE_TOKEN`                                          | storefront, runtime | Comma list (current,next), each >= 32 bytes. Unset: the route refuses everyone, and invalidation is TTL-only. |
+| `STOREFRONT_REVALIDATE_URL` / `STOREFRONT_REVALIDATE_TOKEN` | server              | Where to ping and with what. Unset on a POS-only deployment, which skips the ping entirely.                   |
+
+The tag vocabulary is duplicated by hand as `storefrontTags` in
+`apps/server/src/storefront/revalidate.ts` — neither app may import the other, so the two
+move together (the global string-coupling contract).
 
 **KD-10 invariant — a 404 must be a real 404.** A slug route resolves its entity (the
 category from the cached categories list; the collection by slug) and calls `notFound()`
@@ -683,67 +722,71 @@ production build means no remote image loads (visibly, rather than an open allow
 non-http(s) value fails the build. `dangerouslyAllowLocalIP` is on outside production
 only, because Next 16 refuses localhost upstreams as an SSRF guard. Remote images get no
 blur placeholder (no `blurDataURL`); they load over the frame's `bg-surface-soft`. Only
-the first row is eager (the widest, 4; high priority for the first 2), with `sizes`
-derived from `grid-layout.ts`, the same table as the grid classes. Collections and
+the first row is eager (the widest, 3; high priority for the first 2), with `sizes`
+derived from `grid-layout.ts`, the same table as the grid classes (it subtracts the
+index column from 1024). Collections and
 products are seeded without images, so a fresh dev database shows the no-image states.
 
 ### Product card model
 
 `ProductCard` never sees a data source: it renders a `ProductCardModel` built by
 `fromHomeMock` (static registry slots, blur kept) or `fromCatalogDto` (remote URLs).
-One badge at most, and sold out wins over new (it changes what the shopper can do);
+One status at most (the model still calls it `badge`), and sold out wins over new (it changes what the shopper can do);
 sold out never greys the photograph and the price stays.
 
-**The editorial commerce tile** (owner brief, 2026-09-20, superseding the caption-only
-tile of the same morning). A photograph, a caption that says enough to choose by, and
-one action — nothing else. No wishlist, no rating, no icon strip, no second badge row,
-and no "View details" link: the title already opens the product page, and a second
-anchor would double every card's tab stops to reach it while competing with the one
-action.
+**Only a catalog DTO may make a commerce claim.** `href` and `price` are nullable, and
+`fromHomeMock` returns null for both plus no badge: the static set is editorial
+photography that names no product, so a link, a figure or a "New" flag would each be a
+claim the catalogue cannot honour. It has no `slug` at all, which is what makes the
+claim impossible rather than merely absent — the homepage published five dead product
+links for as long as it did (HIGH-1) because a mock set was allowed to look like a
+catalogue. `features/home/data/commerce-hrefs.test.ts` holds that contract: category and
+collection links name a `REQUIRED_CATALOG_KEYS` key the seed is proven to serve, and a
+**product** href may only come from a DTO.
 
-- **Frame**: a **4:5** photograph on `bg-surface-soft` with `rounded-media` (12px), no
-  border, no shadow, no plate. The 2026-09-20 bare-3:4 pass is reverted: pale garments
-  on an ivory page have no edge of their own, so the radius and the sand surface are
-  what draw the tile, and the `data-motion="image"` wipe matches the frame with no
-  `--radius-media` override. The editorial assets are authored at 4:5.
-- **Badge**: printed on the photograph again (top inline start), `type-caption`,
-  uppercase, tracked `0.22em` (untracked in Arabic), bronze for New and ink for Sold
-  out. It is last inside the frame, and the caption below is what the link names, so
-  the reading order stays "&lt;name&gt;, &lt;price&gt;".
-- **Caption**: name and price on one baseline, then the description. The name is
-  `type-body-lg`, weight 500, **full ink**, in the display face (set on
-  `[data-product-name]`), `min-w-0` and `text-balance`; the price is `type-small`,
-  weight 500, full ink, `tabular-nums`, `shrink-0` at the inline end — quieter than the
-  name, never hard to find. `priceFrom` (the product page's own `displayedPrice` rule,
-  not a second one) turns it into "From {price}" when variants differ; the caller passes
-  `product.priceFrom` as `priceFromLabel`.
-- **Description**: the product's _own_ stored copy (`localizedDescription` over the
-  listing DTO's `description`/`descriptionEn`, added to the API on 2026-09-20), secondary
-  ink, `type-small`, clamped to two lines whose height is reserved (`min-h-[2.72rem]`, the
-  rem value rather than `2lh`), so a row stays level and the buttons line up. Nothing is
-  written here and nothing is truncated server-side. A mock carries none, and a product
-  with no copy simply has no line.
+**The editorial commerce tile — card A, "Atelier"** (owner decision 2026-09-25, chosen
+from three directions drawn in Claude Design; supersedes the 2026-09-20 tile with the badge
+on the photograph and the description under every name). A photograph, a caption that says
+enough to choose by, and one action — nothing else. No wishlist, no rating, no icon strip,
+no badge on the photograph, and no "View details" link on a tile: the title already opens
+the product page, and a second anchor would double every card's tab stops.
+
+- **Frame**: a **4:5** photograph on `bg-surface-media` (the Stone packshot mat) with
+  `rounded-media`, no border, no shadow, no plate, nothing printed on it but the action.
+  The `data-motion="image"` wipe matches the frame with no `--radius-media` override.
+- **Name**: `type-product-title`, `line-clamp-2`, full ink, in the **UI face** at weight
+  500 (set on `[data-product-name]` in `app/globals.css`; Tajawal in Arabic through the
+  locale font switch). Only a lead card's English name keeps the display face
+  (`[data-emphasis='lead']`).
+- **Price row**: the price (`type-price`, `tabular-nums`) then the status on the same
+  row, wrapping under it on a narrow tile (`flex-wrap`). `priceFrom` (the product page's
+  own `displayedPrice` rule) turns it into "From {price}"; the caller passes
+  `product.priceFrom` as `priceFromLabel`. One status at most, sold out winning over new:
+  **New** is a `type-supporting` ink word after a 7px `bg-metallic` dot; **Sold out** is
+  `StatusText tone="danger"`. Sold out never greys the photograph and the price stays.
+- **Meta line**: optional `meta` string under the price, `type-caption`, secondary ink —
+  today the size count (`sizeCount` on the model, from the DTO's `size` option; the
+  `products.sizes` ICU plural, with Arabic's six forms). The caller composes it
+  (`ProductGrid`, the homepage's `NewIn`); the related row passes none, which is its compact
+  caption. A mock has no `sizeCount` and a product with no size option says nothing.
+  **Low stock ("Only 2 left") was drawn and left out**: the catalog DTO exposes only
+  `inStock`, and the card never invents a claim the API cannot back.
+- **No description on a tile.** The product's own copy is read on the lead card only.
 - **Action**: the `action` slot, composed by the page (`features/cart`'s `QuickAdd`).
-  **A 44px ivory disc with a bag glyph at the photograph's bottom inline start** (owner
-  decision, 2026-09-21, replacing the full-width worded button under the caption: a
-  labelled block on every tile is the row of buttons this card was drawn to avoid, and
-  it cost the caption a line). It shares the reading-start column with the badge and
-  mirrors to the right in Arabic on its own — the inline axis is logical throughout.
-  **It is always visible**: a hover reveal was built and rejected the same day (it loses
-  the tile's one affordance on a desktop and cannot exist on a touch screen), so the
-  card's hover states stay what they were.
-  It is placed into the photograph's grid row (`[data-card-action='overlay']` in
-  `app/globals.css`) rather than positioned absolutely: no measured offset, DOM order
-  untouched (the name is still read and tabbed first), and the element stays outside the
-  frame's `overflow: hidden`, so the panel opens past the photograph's edge. **The
-  photograph and the caption carry `row-start-1` / `row-start-2` for that**: grid
-  auto-placement skips a cell an explicitly-placed item holds, and without them the
-  photograph took row 2 and the disc sat above the card. It is the only shadow on the
-  card (`--shadow-overlay`, the toasts' token), which is what keeps ivory legible on a
-  pale photograph, and it is named only to a screen reader (`addToBagLabel` /
-  `chooseOptions` / `soldOut`). Sold out keeps the disc focusable and inert in disabled
-  ink; the badge is what says the word. Neither skeleton reserves an action row any
-  more. The lead card keeps a worded, filled action in flow (`QuickAdd emphasis="solid"`).
+  **A 44px ivory disc with a plus glyph at the photograph's bottom inline end** (card A;
+  the 2026-09-21 disc sat at the inline start with a bag glyph). It mirrors to the left in
+  Arabic on its own — the inline axis is logical throughout. **It is always visible** (a
+  hover reveal was built and rejected on 2026-09-21: it loses the tile's one affordance on
+  desktop and cannot exist on touch). **A sold-out tile renders no action at all**; the
+  status says why. A lead card keeps its worded action whatever the stock.
+  It is placed into the photograph's grid cell (`[data-card-action='overlay']`) rather
+  than positioned absolutely: no measured offset, DOM order untouched (the name is still
+  read and tabbed first), and it stays outside the frame's `overflow: hidden`, so the
+  panel opens past the photograph's edge. **The photograph, the overlay and the caption
+  carry explicit `col-start-1` and `row-start-1` / `row-start-2`**: auto-placement skips
+  a cell an explicitly-placed item holds, which once put the disc above the card and once
+  made an implicit second column. It is the only shadow on the card (`--shadow-overlay`),
+  and it is named only to a screen reader (`addToBagLabel` / `chooseOptions`).
 
 **Two registers, one component** (owner brief, 2026-09-20). `emphasis="supporting"` is
 the tile above, the one every listing uses. `emphasis="lead"` is the art-directed card
@@ -760,9 +803,9 @@ a single link. The action sits above that overlay on `z-10`, which is what keeps
 `<button>` out of an `<a>`: nesting them is invalid and the button would be unreachable.
 Any future control on the card goes in the same layer.
 
-Both skeletons (`ProductGridSkeleton`, `RelatedProductsSkeleton`) mirror the 4:5 frame,
-the metadata row, the two clamped description lines and the 48px action — they are the
-card's reserved height, so they move with it. No photograph shows the frame with a small,
+Both skeletons mirror the card's reserved height, so they move with it:
+`ProductGridSkeleton` draws the 4:5 frame and three caption bars (name, price row, meta),
+`RelatedProductsSkeleton` the frame and two (no meta). No photograph shows the frame with a small,
 faint brand mark, deliberately unlike the flat skeleton. Text in another language than
 the page carries `lang` and `dir="auto"`. The hover image is `display: none` on touch and
 below 768 (`.hover-alt-image`), so it is never downloaded there.
@@ -776,18 +819,39 @@ catalog routes. Filters never replay entrances: `decideInitialRevealState` only 
 back a grid entirely below the fold, and the Suspense boundary is unkeyed, so a filter
 transition re-renders the same grid in place.
 
-### Filter UX
+### Filter UX — "Atelier" (owner decision 2026-09-26)
 
-Quiet, not a SaaS panel (KD-15). Under the intro: the category row (horizontal scroll
-with an inline-end fade at every width; empty categories hidden unless current), then
-one utility row — result count at the start; filter summary, Filter button and Sort at
-the end — which wraps rather than overflows and is **not sticky** in v1. Filter opens a
-Headless UI sheet (bottom sheet below 768, side sheet from the inline end at 768+):
-availability and a price range with `inputMode="numeric"` text inputs, staged and
-applied together. Active filters show as a text summary with per-filter remove buttons,
-not chips. Sort is a native `<select>` that commits on change. While a transition runs,
-the old grid dims (`[data-catalog]:has([data-catalog-controls][data-pending])` in
-`globals.css`) and the new count is announced through a polite live region.
+Chosen from three directions drawn in Claude Design (Atelier, Shop the Film, Index);
+quiet, not a SaaS panel (KD-15). The listing has two columns from 1024
+(`CATALOG_LAYOUT_CLASS`: 240px + 40, then 264px + 48 from 1280) and stacks below:
+
+- **The index column** (`CATALOG_INDEX_CLASS`, sticky under the header, scrolling on its
+  own when taller than the viewport): the categories (`CategoryNav`, Shop All and category
+  pages only) as a labelled list with each category's `productCount`, the current one
+  marked by a Bronze inline-start rule and weight; then **the filters inline**, never
+  behind a button: "In stock only" applies on a tick (`toggleStock`), the price range is
+  typed and applied with its own "Apply price" button or Enter (`applyPrice`, the sheet's
+  validation), and Clear all appears once a filter is on. The price fields follow the URL,
+  so a removal elsewhere resets them. Categories are in the shop's order
+  (`utils/category-order.ts`), not the API's; unknown slugs follow, in API order.
+- **The rack**: the toolbar, then the grid (2 columns at 1024, 3 from 1280; never 4 beside
+  the column), pagination and the closing link. From 1024 the toolbar is the count and a
+  bordered Sort; below 1024 it is **a sticky bar** under the header — Filter (the sheet,
+  with "(n)" when filters are on) and Sort, half and half — with the count and the
+  active-filter summary on the line under it.
+- **Below 1024** the categories are a row of pill chips above the rack
+  (`.category-link` is a chip there), scrolling with an inline-end fade.
+
+The sheet (bottom below 768, side from the inline end at 768+) holds availability and the
+price range, staged and applied together; it is the only way to filter below 1024. Active
+filters show as a text summary with per-filter remove buttons, not chips; removing the
+last one moves focus to Filter, or to Sort from 1024 where Filter is not drawn. Sort is a
+native `<select>` laid transparently over a label of its own (`.select-overlay`), so it is
+as wide as the chosen option; it commits on change. The page size is the API's fixed 24.
+While a transition runs, the old grid dims (`[data-catalog]:has([data-catalog-controls]
+[data-pending])` in `globals.css`, whichever instance committed) and the new count is
+announced through that instance's polite live region. Collection pages and New In use the
+same listing with the index column holding only the filters.
 
 ### Pagination and empty states
 
@@ -796,7 +860,10 @@ Numbered, server-rendered links (R14); previous/next omitted at the ends; below 
 visually hidden `h2` (`tabIndex=-1`, `scroll-margin-top` clears the sticky header), so
 the jump lands on the first row. Empty states (`catalogEmptyVariant`), one action each:
 nothing live, filters match nothing (clear filters, sort kept), past the last page (page
-1, filters kept), an empty category or collection (to `/shop`).
+1, filters kept), an empty category or collection (to `/shop`). Each is centred in a Stone
+panel that takes the grid's place, at least 22rem tall (30rem from 1024), so the rack never
+collapses beside the index column; with no toolbar above it, its top lines up with the
+column's (owner feedback 2026-09-26: start-aligned, it floated in the rack's corner).
 
 ### Collections index
 
@@ -830,10 +897,8 @@ column of text rows. No live collection: the catalog empty state.
 
 ### Open for the screenshot review (AD-12)
 
-- Phones: the grid shifts down by one line when filters are active (the summary wraps
-  onto its own line in the utility row).
-- Sort may wrap to its own line at 320.
-- Whether phones below 1024 need a compact sticky Filter/Sort row.
+- The index column's own scroll at 1024×768 and 1440×900 (the categories and both
+  filters are taller than the viewport); a keyboard user tabbing into it.
 - The client error screen (API stopped, uncached URL) has not been seen after hydration.
 
 ## Product detail
@@ -949,7 +1014,7 @@ Bag consumes it; see _Cart_). POS now agrees on the NULL variant price (PD-C, fi
 
 The Bella template's gallery (owner decision 2026-09-14, replacing the PD-10 rail/grid).
 `product-gallery.tsx` (Server Component) resolves strings and the model; the island
-`product-gallery-viewer.tsx` (the eleventh boundary) renders a thumbnail column beside
+`product-gallery-viewer.tsx` (the tenth boundary) renders a thumbnail column beside
 one 4:5 large image. Thumbnails sit at the large image's inline start from 992 and its
 inline end below (`row-reverse`), so in Arabic they are on the right from 992 and the
 left below; photographs are never mirrored. Thumbs are 72px from 992, 88px at 768-991
@@ -968,7 +1033,7 @@ the step table every `sizes` string is derived from.
 - **Downloads.** The first large image is the page's only eager _high-priority_ image
   (`loading="eager"` + `fetchPriority="high"`; React also emits its head preload). A large pane mounts
   only once shown and stays mounted but `hidden`: lazy alone would not stop hidden panes
-  laid out in the frame from downloading (the hero's `slideMediaVisible` lesson). A new
+  laid out in the frame from downloading (the lesson of the old hero carousel). A new
   pane fades in over the previous one (300ms, `--ease-ui`). Thumbnails are
   `fetchPriority="low"`, `sizes` 64/80px; the first `GALLERY_EAGER_THUMBS` (3) are eager
   and the rest lazy (`galleryThumbLoading`, unit-tested). Switching thumbnails while zoomed
@@ -984,7 +1049,7 @@ the step table every `sizes` string is derived from.
 
 ### Purchase panel
 
-The tenth client boundary (see _Client boundary rule_). Native radios in a `fieldset` per
+The ninth client boundary (see _Client boundary rule_). Native radios in a `fieldset` per
 option; sold-out and unavailable values stay enabled, struck through in `text-text-secondary`
 (not `text-disabled`, ~2.3:1 and hard to see) inside a dashed `bg-surface-soft` cell, with
 visually hidden "sold out" text — never `disabled`, never colour alone. Price and status share one polite
@@ -1041,12 +1106,12 @@ noun are "Bag" (`/bag`); the domain, API, store, types and slice say `cart` (CD-
 
 | Where                     | What                                                                                                                                                                                                                                                                                                                   |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product page              | `AddToBagButton` (boundary 14) in `PurchasePanel`'s `action` slot, composed by `products/[slug]/page.tsx` (CD-11)                                                                                                                                                                                                      |
-| Every product card        | `QuickAdd` (boundary 20) in `ProductCard`'s `action` slot, composed by `ProductGrid`, `RelatedProducts` and `NewArrivals` — never by `features/products`                                                                                                                                                               |
-| Every page                | `BagTrigger` (boundary 15) in `Header`'s `bag` slot, composed by `app/[locale]/layout.tsx`; `Header` imports no feature slice                                                                                                                                                                                          |
+| Product page              | `AddToBagButton` (boundary 13) in `PurchasePanel`'s `action` slot, composed by `products/[slug]/page.tsx` (CD-11)                                                                                                                                                                                                      |
+| Every product card        | `QuickAdd` (boundary 18) in `ProductCard`'s `action` slot, composed by `ProductGrid`, `RelatedProducts`, the homepage's `NewIn` and the film credits — never by `features/products`                                                                                                                                    |
+| Every page                | `BagTrigger` (boundary 14) in `Header`'s `bag` slot, composed by `app/[locale]/layout.tsx`; `Header` imports no feature slice                                                                                                                                                                                          |
 | Drawer                    | `bag-drawer.tsx`, lazy, mounted by the trigger                                                                                                                                                                                                                                                                         |
-| `/bag`                    | `app/[locale]/bag/page.tsx` (server shell: `h1`) + `BagView` (boundary 16)                                                                                                                                                                                                                                             |
-| Every page                | `AppToaster` (boundary 17) in the locale layout; every bag message is a toast                                                                                                                                                                                                                                          |
+| `/bag`                    | `app/[locale]/bag/page.tsx` (server shell: `h1`) + `BagView` (boundary 15)                                                                                                                                                                                                                                             |
+| Every page                | `AppToaster` (boundary 16) in the locale layout; every bag message is a toast                                                                                                                                                                                                                                          |
 | Shared by drawer and page | `use-bag-controller.ts`, `cart-line.tsx`, `quantity-stepper.tsx`                                                                                                                                                                                                                                                       |
 | Pure, unit-tested         | `utils/cart-lines.ts`, `cart-storage.ts`, `reconcile.ts`, `bag-view-model.ts`, `quantity-control.ts`, `add-to-bag-action.ts`, `quick-add-model.ts`, `bag-trigger-label.ts`, `plural-templates.ts`, `drawer-close-focus.ts`; `schemas/persisted-cart.ts`; `api/quote-cart.ts`, `api/use-cart-quote.ts` (its pure parts) |
 
@@ -1110,7 +1175,11 @@ the purchase panel's exact `displayedPrice` for a `ready` selection, read throug
 through `apiFetch`: base `NEXT_PUBLIC_API_URL`, `credentials: 'omit'`, no catalog token, no
 `server-only`. The body carries only `slug`, `options`, `quantity` per line; the response is
 validated by hand against the request (line count, index, slug, statuses, numeric fields)
-and anything off throws `INVALID_RESPONSE`. The server side (edge chain, `STOREFRONT_ORIGINS`
+**and the arithmetic** — `lineTotal === unitPrice × quantity` per priced line, and
+`subtotal === Σ lineTotal`, compared in piastres so a decimal price is not judged by float
+equality. Anything off throws `INVALID_RESPONSE`. The arithmetic checks were added by
+MED-8: without them the guard proved a response was well-formed but not that it was
+_right_, so "a wrong price must fail, not render" only ever meant a malformed one. The server side (edge chain, `STOREFRONT_ORIGINS`
 CORS, limiter, `no-store`) is `apps/server/CLAUDE.md` → _Public catalog_. An environment
 without `NEXT_PUBLIC_API_URL` at build, or without the storefront origin in the API's
 `STOREFRONT_ORIGINS`, shows the bag's failed state on every quote.
@@ -1171,7 +1240,7 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   "You can add up to 10 of this piece"; `full` (30 lines) is an error "Your bag is full…" and
   adds nothing. `needsSelection` keeps the button enabled: a press focuses the first
   unselected option's radio, shows "Choose a {option}" under that option's legend
-  (`text-error` garnet with `CircleAlert`, legend turns ink; owner feedback 2026-09-15: the
+  (`text-danger` garnet with `CircleAlert`, legend turns ink; owner feedback 2026-09-15: the
   grey status-line prompt was hard to see, and errors read as red) and raises the same text
   as an error toast; choosing a value dismisses it. The inline prompt is not a live region
   (the toast announces it) and keeps `min-h-6` reserved, so the cells and Add to Bag never
@@ -1255,7 +1324,7 @@ sticky mobile purchase bar) and PD-7 (no JSON-LD `Product`) stand.
    toast is the announcement; the inline text is visual, is no longer a live region, and
    stays associated through `aria-describedby`.
 
-**The toaster.** `AppToaster` (boundary 17), one per page, a direct child of `<body>`. Headless
+**The toaster.** `AppToaster` (boundary 16), one per page, a direct child of `<body>`. Headless
 UI's `Dialog` marks only the subtree that owns it inert (`header` for the drawer, `main` for
 the filter sheet), so toasts stay visible, announced and clickable over a dialog. Sonner's
 `<section>` is the one polite live region (`aria-live="polite"`, always mounted), named
@@ -1281,7 +1350,7 @@ pausing on hover and focus. `unstyled` + semantic utilities, an ink pill (owner 
 2026-09-15): `rounded-media`, `bg-action text-on-action`, no border,
 `shadow-(--shadow-overlay)` (a floating surface), `type-small`, 16px lucide icon at the
 inline start (`CircleCheck` success and `Info` info in the text colour; `CircleAlert` error
-in `text-error` on a small `bg-surface` badge, since garnet fails contrast on ink), the
+in `text-danger` on a small `bg-surface` badge, since garnet fails contrast on ink), the
 action an underlined 44px text button, a 44px close button named "Dismiss". The toast sets
 `--focus-ring-color` to its text colour so the focus ring stays visible on ink. Durations: success/info 4s, error 7s (`TOAST_DURATION_MS`). Reduced motion: Sonner's
 own `prefers-reduced-motion` rule removes its transitions, and the global rule zeroes the
@@ -1468,7 +1537,7 @@ quote key ignores stock and price: a second sell-out under the same lines is ann
 
 `app/[locale]/checkout/page.tsx`: static per locale, `noindex, nofollow`, outside `(catalog)`,
 no `loading.tsx` (`app/checkout-route.test.ts`). The normal header and footer, a "Back to bag"
-link, the rising `h1`, then `CheckoutView` (boundary 18). Before the bag hydrates: one reserved
+link, the rising `h1`, then `CheckoutView` (boundary 17). Before the bag hydrates: one reserved
 busy region, no fields. An empty bag: the Bag's empty state, no form. Otherwise a 12-column grid
 from 1024 (form 7, summary 4, sticky at the inline end); below, the summary comes first. The
 summary is first in source order at every width, so from 1024 Tab reaches Edit bag before the
@@ -1573,19 +1642,22 @@ Browser-only; no storefront DOM or browser harness exists.
 ## Guideline overrides and copy decisions
 
 - §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the
-  brief; §12·04's editorial brand moment is replaced by a promo banner for a new collection or
-  an offer (user decision, 2026-09-14; copy in `home.banner`, href/slots/crop in
-  `features/home/data/promo-banner.ts`, and offer
-  terms only ever from the business), and its "Explore the story →" is dropped (an
+  brief; §12·04's editorial brand moment is replaced by the running offer (user decision,
+  2026-09-14; copy in `promotion`, destination and crop in `lib/promotion/current-promotion.ts`,
+  offer terms only ever from the business), and its "Explore the story →" is dropped (an
   About-shaped destination); §12·12's
   Customer Care column is omitted until Shipping/Returns/Contact pages are planned. No
   FAQ, Blog, About, Newsletter or policy text anywhere.
-- §12·08 is **The Moon Selection** (owner brief, 2026-09-21), renamed from The Edit.
-  Copy is `home.selection` (title, description, link — no eyebrow). Its **grid is the
-  original one**: a 2x2 `ProductCard` feature plus four standard cards. An asymmetric
-  editorial spread sharing nothing with `ProductCard` was built against the brief and
-  the owner preferred the cards after seeing it; the spread is in the history at
-  `cebe648` rather than deleted. Its heading is the section's own, not `SectionHeading`.
+- **The homepage is "Shop the Film"** (owner decision 2026-09-26, concept C of three
+  drawn in Claude Design; a full redesign, not an enhancement): the opening frame with its
+  **credits** (the first four of `homeCollections.film`, `evening`, in curated order, read
+  by `loadFilmCredits`; hidden with no API, no static fallback), New in with the Silk Edit
+  cut in as a scene tile, the category panels, the offer, and three looks. **A look links
+  to its collection, never to a named product** — the pieces in a styled photograph are
+  not catalogue items the page can honestly link (HIGH-1). Removed by that decision: the
+  hero carousel, the editorial strip, the Silk Edit banner (now the scene tile), the
+  featured collection, The Moon Selection (its collection now feeds the credits), the
+  benefits band (its copy was a launch blocker) and the lookbook mosaic.
 - The footer carries social links and contact details (user decision, 2026-09-14), and
   no language switcher. They come only from `lib/brand/contact.ts` and render only when
   real values are filled in there; `contact.test.ts` fails the build on a malformed
@@ -1602,14 +1674,6 @@ Browser-only; no storefront DOM or browser harness exists.
   one-line change there.
 - The mock products carry `{ en, ar }` names purely so the English homepage reads; the
   real `products.name` is one Arabic string. The type is `HomeProductMock`, not `Product`.
-- Shopping benefits copy (`home.benefits.*`) is generic on purpose, and all three are
-  launch blockers (`features/home/data/benefits.ts`). `delivery` (B-1) and `payment`
-  (B-3) await the real policy and provider assurances. `returns` (B-2) is
-  **neutralised**: until the business confirms whether returns or exchanges exist, the key
-  keeps its name but its copy is about fabric quality and its icon is a neutral gem, so
-  the tile promises no service. No coverage area, speed, return period, fee or "no
-  questions asked" claim may be added until a policy exists. Visually the section is a cream band
-  with fine rules and small line icons: no boxes, rounded cards or shadows.
 - Arabic homepage copy was reworked for natural, concise phrasing rather than
   word-for-word translation (2026-09-14). The storefront addresses the reader in **one
   register, feminine singular** (`اكتشفي`, `تسوّقي`, `تابعي`, `تبحثين`), including the
@@ -1638,6 +1702,29 @@ not a permanent architectural requirement:
 - **Do not copy this `paths` block into another package automatically.** It's a fix
   for a specific collision this app hit, not a template — a future package should
   only add it if it actually reproduces the same symptom.
+
+## Component tests (the jsdom opt-in)
+
+The storefront's convention is pure-function-first, and most of it stays that way: the
+default vitest environment is `node`, and a suite that needs a DOM opts in with
+`// @vitest-environment jsdom` at the top of the file. Nothing gains a DOM by accident.
+
+Two suites use it, both because the thing under test _is_ the DOM behaviour rather than a
+rule a pure function could hold:
+
+- `features/cart/components/quick-add.test.tsx` — the panel opening, focus moving to the
+  first unanswered group, Escape and outside-pointer closing with focus restored, the
+  sold-out disc staying `aria-disabled` rather than `disabled`, and that one press never
+  adds a default silently. This is the one client island whose behaviour is the contract
+  (→ _Cart_ → _Surfaces_), and it had none: three commits rewrote it on a branch with no
+  regression check (MED-7).
+- `features/cart/store/cart-store-cross-tab.test.ts` — the `storage` event, the
+  `key === null` clear, and the subscribe/unsubscribe listener lifecycle, which is where a
+  leak or a missed re-attach would live (MED-9).
+
+`@testing-library/react` and `jsdom` are devDependencies of this app. Adding a third such
+suite is fine; converting the pure suites is not — they are faster and they test the rules
+that actually decide behaviour.
 
 ## Feature slice shape
 
@@ -1671,8 +1758,7 @@ features/<slice>/
 
 `app/` composes routes and layout; `features/` implements. A component used by two or
 more slices moves to `components/` (or a new `shared/`, if that need actually arrives)
-rather than being imported cross-slice. `Marquee` lives in the home slice because the
-editorial strip is its only consumer; it moves to `components/` if the Shop task reuses it.
+rather than being imported cross-slice.
 
 ## API client and the DTO rule
 
@@ -1740,10 +1826,12 @@ caching/revalidation/dynamic strategy; nothing here requires any route to stay s
 
 ## Mobile menu typography exception
 
-The mobile menu's primary links render at `type-h2`, not the `type-label` every other
-nav link uses — a deliberate editorial choice (guideline §5 exception), passed through
-`NavLink`'s `typography` prop rather than via `className`. The footer's shop links use
-the same prop for `type-body`. See that prop's doc comment for why: `tailwind-merge`
+The mobile menu (header direction B, 2026-09-26) is an Ivory sheet whose top-level rows
+— Shop, New In, Collections — are set at `type-page-title`, not the `type-ui` every other
+nav link uses; the rows are its own markup (`<details>` summaries and one link), so no
+`NavLink` is involved. The Espresso page with numbered `type-section-title` links it
+replaces used `NavLink`'s `typography` prop; the footer's shop links still use that prop
+for `type-body`. See that prop's doc comment for why: `tailwind-merge`
 doesn't know about the custom `type-*` utilities, so two of them on one element would
 both apply and the CSS source order — not the component prop — would decide which wins.
 

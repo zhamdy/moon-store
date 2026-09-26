@@ -5,37 +5,48 @@ import { curatedEdit, newArrivals } from './home-products';
 
 const all = [...newArrivals, ...curatedEdit];
 
-describe('homepage product mocks', () => {
-  it('have unique slugs across both datasets', () => {
-    const slugs = all.map((product) => product.slug);
-    expect(new Set(slugs).size).toBe(slugs.length);
+describe('homepage editorial frames', () => {
+  it('have unique ids across both datasets', () => {
+    const ids = all.map((product) => product.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('reference only catalog slots the registry defines', () => {
     const known = new Set<string>(catalogSlots);
     for (const product of all) {
-      expect(known.has(product.images.a), `${product.slug} a`).toBe(true);
-      expect(known.has(product.images.b), `${product.slug} b`).toBe(true);
+      expect(known.has(product.images.a), `${product.id} a`).toBe(true);
+      expect(known.has(product.images.b), `${product.id} b`).toBe(true);
       expect(product.images.a).not.toBe(product.images.b);
     }
   });
 
-  it('have positive whole-EGP prices and a name in both locales', () => {
+  it('have a name in both locales', () => {
     for (const product of all) {
-      expect(Number.isInteger(product.price), product.slug).toBe(true);
-      expect(product.price).toBeGreaterThan(0);
-      expect(product.name.en.trim()).not.toBe('');
-      expect(product.name.ar.trim()).not.toBe('');
+      expect(product.name.en.trim(), product.id).not.toBe('');
+      expect(product.name.ar.trim(), product.id).not.toBe('');
     }
   });
 
-  it('map to product pages with their static slots and new badges intact', () => {
+  /**
+   * HIGH-1: these frames published nine product links, five of which 404'd. They carry
+   * no product identity now, so a card built from one can make no commerce claim — no
+   * link, no price, no badge. The `id` is for React lists and must never reach a URL.
+   */
+  it('map to editorial cards that make no commerce claim', () => {
     for (const product of all) {
       const model = fromHomeMock(product, 'en');
-      expect(model.href).toBe(`/products/${product.slug}`);
+      expect(model.href, `${product.id} href`).toBeNull();
+      expect(model.price, `${product.id} price`).toBeNull();
+      expect(model.badge, `${product.id} badge`).toBeNull();
       expect(model.primary).toEqual({ kind: 'static', slot: product.images.a });
       expect(model.secondary).toEqual({ kind: 'static', slot: product.images.b });
-      expect(model.badge).toBe(product.isNew ? 'new' : null);
+    }
+  });
+
+  it('carry no product identity a href could be built from', () => {
+    for (const product of all) {
+      expect(product, product.id).not.toHaveProperty('slug');
+      expect(product, product.id).not.toHaveProperty('price');
     }
   });
 

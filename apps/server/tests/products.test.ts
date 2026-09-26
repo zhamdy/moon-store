@@ -295,6 +295,71 @@ describe('storefront fields on the product write paths (HTTP boundary)', () => {
     expect(renamed.body.data).toMatchObject({ slug: 'slip-dress', name_en: null });
   });
 
+  /**
+   * HIGH-3 / MED-11. `stock` used to be required on update, so no caller could edit a
+   * name without also asserting an absolute stock: a form opened before a sale and saved
+   * after it silently resurrected the sold unit, unaudited. `cost_price` and `min_stock`
+   * carried schema defaults that overwrote stored data on a partial body, and `barcode`
+   * and `distributor_id` were written as `x || null`, so omitting them cleared them.
+   *
+   * Tested at the HTTP boundary on purpose: Zod decides what reaches the service, so a
+   * service-level test proves nothing about what the wire accepts (the `bundle_id`
+   * lesson, root CLAUDE.md).
+   */
+  it('keeps stock, cost_price, min_stock, barcode and distributor_id when a PUT omits them', async () => {
+    const created = await create({
+      barcode: '6221002001',
+      cost_price: 444,
+      min_stock: 9,
+      stock: 30,
+    });
+    const id = created.body.data.id;
+
+    // A cashier sells one between the form opening and the operator saving.
+    await testPool.query('UPDATE products SET stock = stock - 1 WHERE id = $1', [id]);
+
+    const renamed = await http.request('PUT', `/api/v1/products/${id}`, {
+      name: ARABIC_NAME,
+      sku: 'MN-DR-001',
+      price: 1250,
+    });
+
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.data).toMatchObject({
+      stock: 29,
+      min_stock: 9,
+      barcode: '6221002001',
+    });
+    // NUMERIC by value, not representation: pg-mem returns a JS number where
+    // node-postgres returns a string (root CLAUDE.md -> Learnings).
+    expect(Number(renamed.body.data.cost_price)).toBe(444);
+  });
+
+  it('still writes stock when a PUT sends it, so the field is kept, not ignored', async () => {
+    const created = await create({ stock: 30 });
+    const id = created.body.data.id;
+
+    const written = await http.request('PUT', `/api/v1/products/${id}`, {
+      name: ARABIC_NAME,
+      sku: 'MN-DR-001',
+      price: 1250,
+      stock: 12,
+    });
+
+    expect(written.status).toBe(200);
+    expect(written.body.data).toMatchObject({ stock: 12 });
+  });
+
+  it('accepts a PUT with no stock, which used to be a 400', async () => {
+    const created = await create();
+    const res = await http.request('PUT', `/api/v1/products/${created.body.data.id}`, {
+      name: ARABIC_NAME,
+      sku: 'MN-DR-001',
+      price: 1250,
+    });
+    expect(res.status).toBe(200);
+  });
+
   it('persists description and description_en on create and update, both visible on the admin GET', async () => {
     const created = await create({
       description: 'فستان حريري',

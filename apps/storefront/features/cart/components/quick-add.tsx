@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CircleAlert, ShoppingBag, X } from 'lucide-react';
+import { CircleAlert, Plus, ShoppingBag, X } from 'lucide-react';
 import { dismissToast, showToast } from '@/components/feedback/show-toast';
 import { Button } from '@/components/ui/button';
 import { BAG_HREF } from '@/components/layout/navigation-items';
@@ -32,6 +32,21 @@ export interface QuickAddProps {
    * place a second weight earns its keep.
    */
   emphasis?: 'disc' | 'solid';
+  /**
+   * Which way the options panel opens. `below` (default) hangs it under the disc, over
+   * the caption and past the card's bottom edge, which is right in a grid cell — a
+   * plain `<li>` with no overflow, so it paints over its neighbours.
+   *
+   * `above` opens it upward over the photograph, for a card inside a **scroller**.
+   * A scroller sets `overflow-x: auto`, and per the CSS overflow spec a non-visible
+   * value on one axis computes the other to `auto`, so a panel that leaves the card's box downward is
+   * clipped — or turns the rail into a vertical scroller. Opening upward keeps it
+   * inside the 4:5 frame, which is inside the card, which is inside the scroller's box
+   * (MED-6 in `docs/audits/2026-09-22-shop-cart-fullstack-audit.md`). The frame's
+   * height is the budget: a product with more option groups than fit would clip at
+   * the photograph's top edge.
+   */
+  placement?: 'above' | 'below';
 }
 
 /** One id per surface: a second press replaces the notice rather than stacking toasts. */
@@ -40,12 +55,8 @@ const CHOOSE_TOAST_ID = 'quick-add-choose';
 // The option cell, the product page's (`purchase-panel.tsx`): a visually hidden radio
 // whose label draws the state and the focus ring, 44px so a thumb can hit it. Sold-out
 // values stay enabled and findable — dashed, struck through and named to a screen reader.
-const CELL = [
-  'relative flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-media-sm border border-border px-3',
-  'transition-colors duration-fast ease-ui',
-  'hover:border-text has-checked:border-text has-checked:shadow-[inset_0_0_0_1px_var(--color-text)]',
-  'has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-solid has-focus-visible:outline-(--focus-ring-color)',
-].join(' ');
+// `.option-cell` (app/globals.css): the product page's size cell, shared.
+const CELL = 'option-cell';
 
 /**
  * Add to Bag on a product card, with Quick Add (the twentieth client boundary; owner
@@ -72,7 +83,12 @@ const CELL = [
  * The quantity is one piece per press: the stepper belongs on the product page, and a
  * card that carries one has stopped being a card.
  */
-export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps) {
+export function QuickAdd({
+  product,
+  strings,
+  emphasis = 'disc',
+  placement = 'below',
+}: QuickAddProps) {
   const baseId = useId();
   const panelId = `${baseId}-panel`;
   const actions = useCartActions();
@@ -207,7 +223,7 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
     <div
       ref={rootRef}
       data-quick-add=""
-      className={cn('relative z-10', disc && 'pointer-events-none flex justify-start')}
+      className={cn('relative z-10', disc && 'pointer-events-none flex justify-end')}
     >
       <Button
         ref={triggerRef}
@@ -223,7 +239,7 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
         // ink-on-ivory to ivory-on-ink under a pointer. The overlay shadow is the token
         // the toasts use — the one thing on this card that floats over something else,
         // and what keeps an ivory disc legible on a pale photograph. Sold out keeps the
-        // disc focusable and inert in disabled ink; the badge on the photograph is what
+        // disc focusable and inert in disabled ink; the card's status line is what
         // says the word.
         className={cn(
           disc
@@ -238,7 +254,7 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
         )}
       >
         {disc ? (
-          <ShoppingBag size={18} strokeWidth={1.5} aria-hidden="true" />
+          <Plus size={18} strokeWidth={1.5} aria-hidden="true" />
         ) : press === 'soldOut' ? (
           strings.soldOut
         ) : (
@@ -255,10 +271,12 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
           role="group"
           aria-label={namedLabel}
           className={cn(
-            'pointer-events-auto absolute inset-x-0 top-full z-20 mt-2 border border-border bg-surface p-4',
+            'pointer-events-auto absolute inset-x-0 z-20 border border-border bg-surface p-4',
             // The panel is the one place on a card that sits over its neighbours, so it
             // carries a hairline and the warm surface rather than a shadow.
-            'motion-safe:animate-quick-add'
+            placement === 'above'
+              ? 'bottom-full mb-2 motion-safe:animate-quick-add-up'
+              : 'top-full mt-2 motion-safe:animate-quick-add'
           )}
         >
           <button
@@ -283,7 +301,7 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
                 aria-describedby={prompted ? promptId : undefined}
                 className={optionIndex === 0 ? 'min-w-0' : 'mt-4 min-w-0'}
               >
-                <legend className="type-label pe-8 text-text-secondary">
+                <legend className="type-field-label pe-8 text-text-secondary">
                   <span dir={staff ? 'auto' : undefined}>
                     {chosen === null
                       ? fillTemplate(strings.chooseOption, { option: legend })
@@ -301,7 +319,8 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
                     return (
                       <label
                         key={value}
-                        className={available ? CELL : `${CELL} border-dashed bg-surface-soft`}
+                        data-unavailable={available ? undefined : ''}
+                        className={CELL}
                       >
                         <input
                           type="radio"
@@ -340,7 +359,7 @@ export function QuickAdd({ product, strings, emphasis = 'disc' }: QuickAddProps)
                 {prompted && (
                   <p
                     id={promptId}
-                    className="type-caption mt-2 flex items-start gap-1.5 font-medium text-error"
+                    className="type-caption mt-2 flex items-start gap-1.5 font-medium text-danger"
                   >
                     <CircleAlert
                       size={14}

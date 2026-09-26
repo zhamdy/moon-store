@@ -37,7 +37,7 @@ describe('getStorePolicies', () => {
       RequestInit & { next?: unknown },
     ];
     expect(String(url)).toBe('http://localhost:3001/api/v1/catalog/store-policies');
-    expect(init.next).toEqual({ revalidate: 300 });
+    expect(init.next).toEqual({ revalidate: 300, tags: ['catalog:store-policies'] });
     expect(init.signal).toBeUndefined();
   });
 

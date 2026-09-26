@@ -13,15 +13,21 @@ export interface CatalogGridStep {
   columnGap: number;
   /** `--page-gutter` at this width, in px. */
   gutter: number;
+  /** The filter column beside the grid plus its gap, in px; 0 where there is none. */
+  aside?: number;
 }
 
 export const CATALOG_CONTAINER_MAX = 1440;
 
-/** Ordered widest first, as `sizes` media conditions are matched. */
+/**
+ * Ordered widest first, as `sizes` media conditions are matched. From 1024 the grid
+ * shares the row with the Atelier column (`CATALOG_LAYOUT_CLASS`): 240px + a 40px gap,
+ * then 264px + 48px from 1280, so the grid is 2 then 3 columns, never 4.
+ */
 export const CATALOG_GRID_STEPS: readonly CatalogGridStep[] = [
-  { minWidth: 1440, columns: 4, columnGap: 24, gutter: 64 },
-  { minWidth: 1280, columns: 4, columnGap: 24, gutter: 48 },
-  { minWidth: 1024, columns: 3, columnGap: 24, gutter: 48 },
+  { minWidth: 1440, columns: 3, columnGap: 24, gutter: 64, aside: 312 },
+  { minWidth: 1280, columns: 3, columnGap: 24, gutter: 48, aside: 312 },
+  { minWidth: 1024, columns: 2, columnGap: 24, gutter: 48, aside: 280 },
   { minWidth: 768, columns: 2, columnGap: 20, gutter: 32 },
   { minWidth: 0, columns: 2, columnGap: 12, gutter: 20 },
 ];
@@ -32,13 +38,13 @@ function round(value: number): number {
 
 /**
  * One card's rendered width per step: the content box (viewport, or the capped
- * container, minus both gutters) less the gaps, split across the columns. Past the
+ * container, minus both gutters and the filter column) less the gaps, split across the columns. Past the
  * container cap the width is a constant, so that step is an exact px value.
  */
 export function catalogGridSizes(steps: readonly CatalogGridStep[] = CATALOG_GRID_STEPS): string {
   return steps
-    .map(({ minWidth, columns, columnGap, gutter }) => {
-      const fixed = 2 * gutter + (columns - 1) * columnGap;
+    .map(({ minWidth, columns, columnGap, gutter, aside = 0 }) => {
+      const fixed = 2 * gutter + aside + (columns - 1) * columnGap;
       const width =
         minWidth >= CATALOG_CONTAINER_MAX
           ? `${round((CATALOG_CONTAINER_MAX - fixed) / columns)}px`
@@ -65,9 +71,9 @@ export interface CatalogImageLoading {
 }
 
 /**
- * Only the first row loads eagerly (R20). The first row is 2, 3 or 4 cards wide
- * depending on the viewport, so the widest row (4) is eager: on two-column
- * layouts cards 3 and 4 sit at the fold, where lazy loading would only delay them.
+ * Only the first row loads eagerly (R20). The first row is 2 or 3 cards wide
+ * depending on the viewport, so the widest row (3) is eager: on two-column
+ * layouts card 3 sits at the fold, where lazy loading would only delay it.
  * High fetch priority goes only to the cards in the first row at every width.
  */
 export function catalogImageLoading(index: number): CatalogImageLoading {
@@ -83,15 +89,27 @@ export function catalogStagger(index: number): number | null {
 
 /**
  * The grid's classes, shared by the grid and its skeleton so both have the same
- * geometry: 2 / 2 / 3 / 4 columns at 0 / 768 / 1024 / 1280 with the column gaps
+ * geometry: 2 / 2 / 2 / 3 columns at 0 / 768 / 1024 / 1280 with the column gaps
  * above and row gaps of 32 / 48 / 56 / 64px.
  */
 export const CATALOG_GRID_CLASS =
-  'grid grid-cols-2 gap-x-3 gap-y-8 md:gap-x-5 md:gap-y-12 lg:grid-cols-3 lg:gap-x-6 lg:gap-y-14 xl:grid-cols-4 xl:gap-y-16';
+  'grid grid-cols-2 gap-x-3 gap-y-8 md:gap-x-5 md:gap-y-12 lg:gap-x-6 lg:gap-y-14 xl:grid-cols-3 xl:gap-y-16';
 
-/** The utility row: result count at the start, the controls slot at the end. Height reserved. */
-export const CATALOG_TOOLBAR_CLASS =
-  'flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-border py-3';
+/**
+ * The listing's two columns from 1024 ("Atelier", 2026-09-26): the index (categories
+ * and filters) at the inline start, the rack beside it. Below 1024 they stack, and the
+ * index shows only its category chips. The widths mirror `aside` in the steps above.
+ */
+export const CATALOG_LAYOUT_CLASS =
+  'lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-x-10 xl:grid-cols-[16.5rem_minmax(0,1fr)] xl:gap-x-12';
+
+/**
+ * The index column: sticky under the header from 1024, scrolling on its own when it is
+ * taller than the viewport. The 6px inline padding (pulled back with a negative margin)
+ * keeps the links' focus rings inside the scroll box, which clips everything else.
+ */
+export const CATALOG_INDEX_CLASS =
+  'lg:sticky lg:top-[calc(var(--header-h)+1.5rem)] lg:-mx-1.5 lg:max-h-[calc(100svh-var(--header-h)-3rem)] lg:overflow-y-auto lg:overscroll-contain lg:px-1.5 lg:pt-1 lg:pb-8 lg:[scrollbar-width:thin]';
 
 /** The product page's related row: 4 up from 1024, 2 up below, the catalog gaps and gutters. */
 export const RELATED_GRID_STEPS: readonly CatalogGridStep[] = [

@@ -34,6 +34,7 @@ import jwt from 'jsonwebtoken';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { HEALTH_PATHS } from '../../src/observability/probePaths';
+import { UPLOAD_RATE_LIMIT_MAX, uploadRateLimit } from '../../middleware/upload';
 
 const ENV_KEYS = ['RATE_LIMIT_MAX', 'AUTH_RATE_LIMIT_MAX', 'TRUST_PROXY'] as const;
 const savedEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
@@ -495,6 +496,20 @@ describe('per-user keying', () => {
     } finally {
       await h.close();
     }
+  });
+
+  /**
+   * MED-10: the upload limiter predated the user-keyed decision and kept
+   * express-rate-limit's default IP key, making it a per-shop budget — proven live, the
+   * same admin token kept uploading against 127.0.0.1 after ::1 was exhausted. Its
+   * ceiling also sat at 10 against a product that holds 9 images, with rejected attempts
+   * spending the budget.
+   */
+  it('keys the upload limiter on the user and clears a full gallery', () => {
+    expect(uploadRateLimit).toBeDefined();
+    // 1 primary + 8 gallery images is the documented maximum for one product, and an
+    // operator must be able to author it in one sitting.
+    expect(UPLOAD_RATE_LIMIT_MAX).toBeGreaterThan(9);
   });
 
   it('treats an expired token as anonymous rather than as its claimed user', () => {

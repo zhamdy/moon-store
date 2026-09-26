@@ -39,7 +39,34 @@ export interface CreateProductInput {
   min_stock: number;
 }
 
-export type UpdateProductInput = CreateProductInput;
+/**
+ * Update differs from create in what an **absent** field means: these five keep their
+ * stored value rather than being overwritten (HIGH-3 / MED-11). The type says so, so a
+ * caller cannot assume the create shape and quietly reset a product's stock or cost.
+ */
+/** Stable, documented code for a product write refused because the row moved. */
+export const PRODUCT_MODIFIED_CODE = 'PRODUCT_MODIFIED';
+
+/**
+ * Renders `products.updated_at` as the version token a client echoes back. Deliberately
+ * `toISOString()`, the same call `res.json()` makes when it serializes the row, so the
+ * token compared here is byte-identical to the one the client was given rather than two
+ * formats kept in agreement. Millisecond resolution for the reason
+ * `collectionVersionToken` documents at length: a JS `Date` holds milliseconds while
+ * `timestamptz` holds microseconds, so the finer digits are gone before any client sees
+ * them.
+ */
+export function productVersionToken(updatedAt: Date): string {
+  return updatedAt.toISOString();
+}
+
+export type UpdateProductInput = Omit<CreateProductInput, 'stock' | 'cost_price' | 'min_stock'> & {
+  stock?: number;
+  cost_price?: number;
+  min_stock?: number;
+  /** The version the edit was composed against; absent stakes no claim on it. */
+  expected_updated_at?: string;
+};
 
 export interface BulkUpdateUpdates {
   category_id?: number;
@@ -51,6 +78,8 @@ export interface BulkUpdateUpdates {
 export interface AdjustStockInput {
   delta: number;
   reason: string;
+  /** The variant whose stock moved; absent for a product-level adjustment. */
+  variant_id?: number | null;
 }
 
 export interface AdjustStockResult {
@@ -237,139 +266,201 @@ export async function createProduct(data: CreateProductInput): Promise<Record<st
 }
 
 /**
+ * Thrown when a product write carries a version token that is no longer current.
+ *
+ * Deliberately carries no "current" token, for the reason `CollectionConflictError`
+ * documents: the recovery for a conflict is *review* — re-read, see what changed, decide
+ * — and handing back a fresh token would make blind resubmission the easiest thing to do,
+ * which is the silent overwrite the refusal exists to prevent.
+ */
+export class ProductConflictError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string = PRODUCT_MODIFIED_CODE,
+    public readonly statusCode: number = 409
+  ) {
+    super(message);
+    this.name = 'ProductConflictError';
+  }
+}
+
+/**
  * Update an existing product. Tracks price history changes.
+ *
+ * `expected_updated_at` closes the lost-update window HIGH-3 measured: between the
+ * operator opening the form and saving it, a cashier can sell the product, and a
+ * full-replacement write composed against the stale read overwrites what it missed. The
+ * check takes `FOR UPDATE` on the row first — the lock is what makes check-then-write
+ * atomic, exactly as `PUT /collections/:id` does; a bare comparison would still let the
+ * loser of a race write from stale data.
  */
 export async function updateProduct(
   id: string | number,
   data: UpdateProductInput,
   userId: number
 ): Promise<Record<string, any> | null> {
-  const existing = await db.query<{ status: string }>('SELECT status FROM products WHERE id = $1', [
-    id,
-  ]);
-  if (existing.rows.length > 0 && existing.rows[0].status === 'discontinued') {
-    const err = new Error('Cannot edit a discontinued product. Reactivate it first.');
-    (err as any).type = 'discontinued';
-    throw err;
-  }
+  return withTransaction(async (client) => {
+    if (data.expected_updated_at !== undefined) {
+      const locked = await client.query<{ updated_at: Date }>(
+        'SELECT updated_at FROM products WHERE id = $1 FOR UPDATE',
+        [id]
+      );
+      const current = locked.rows[0];
+      if (current && productVersionToken(current.updated_at) !== data.expected_updated_at) {
+        throw new ProductConflictError(
+          'This product was changed by someone else after you opened it. Reload to see the current values before saving.'
+        );
+      }
+    }
 
-  const {
-    name,
-    sku,
-    slug,
-    name_en,
-    description,
-    description_en,
-    material,
-    material_en,
-    care,
-    care_en,
-    fit,
-    fit_en,
-    barcode,
-    price,
-    cost_price,
-    stock,
-    category,
-    category_id,
-    distributor_id,
-    min_stock,
-  } = data;
-
-  let categoryText = category || null;
-  if (category_id && !categoryText) {
-    categoryText = await resolveCategoryText(db, category_id);
-  }
-
-  if (slug) await assertSlugAvailable(db, 'products', slug, { column: 'id', value: Number(id) });
-
-  const oldProduct = await db.query<{ price: number; cost_price: number }>(
-    'SELECT price, cost_price FROM products WHERE id = $1',
-    [id]
-  );
-
-  // A full replacement, except the storefront fields: a client that predates them must
-  // not wipe them. `slug` absent keeps the stored one; `name_en`, `description`,
-  // `material`, `care`, `fit` and their `_en` twins absent keep the stored value, null
-  // clears it.
-  let result;
-  try {
-    result = await db.query(
-      `UPDATE products SET name=$1, sku=$2, barcode=$3, price=$4, cost_price=$5, stock=$6, category=$7, category_id=$8, distributor_id=$9, min_stock=$10,
-         slug=COALESCE($12::text, slug), name_en=CASE WHEN $13::boolean THEN $14::text ELSE name_en END,
-         description=CASE WHEN $15::boolean THEN $16::text ELSE description END,
-         description_en=CASE WHEN $17::boolean THEN $18::text ELSE description_en END,
-         material=CASE WHEN $19::boolean THEN $20::text ELSE material END,
-         material_en=CASE WHEN $21::boolean THEN $22::text ELSE material_en END,
-         care=CASE WHEN $23::boolean THEN $24::text ELSE care END,
-         care_en=CASE WHEN $25::boolean THEN $26::text ELSE care_en END,
-         fit=CASE WHEN $27::boolean THEN $28::text ELSE fit END,
-         fit_en=CASE WHEN $29::boolean THEN $30::text ELSE fit_en END,
-         updated_at=NOW()
-       WHERE id=$11 RETURNING *`,
-      [
-        name,
-        sku,
-        barcode || null,
-        price,
-        cost_price,
-        stock,
-        categoryText,
-        category_id || null,
-        distributor_id || null,
-        min_stock,
-        id,
-        slug ?? null,
-        name_en !== undefined,
-        name_en || null,
-        description !== undefined,
-        description || null,
-        description_en !== undefined,
-        description_en || null,
-        material !== undefined,
-        material || null,
-        material_en !== undefined,
-        material_en || null,
-        care !== undefined,
-        care || null,
-        care_en !== undefined,
-        care_en || null,
-        fit !== undefined,
-        fit || null,
-        fit_en !== undefined,
-        fit_en || null,
-      ]
+    const existing = await client.query<{ status: string }>(
+      'SELECT status FROM products WHERE id = $1',
+      [id]
     );
-  } catch (error) {
-    rethrowSlugViolation(error, 'products');
-  }
-
-  if (result.rows.length === 0) {
-    return null;
-  }
-
-  if (oldProduct.rows.length > 0) {
-    const old = oldProduct.rows[0];
-    if (old.price !== price) {
-      await db.query(
-        'INSERT INTO price_history (product_id, field, old_value, new_value, user_id) VALUES ($1, $2, $3, $4, $5)',
-        [id, 'price', old.price, price, userId]
-      );
+    if (existing.rows.length > 0 && existing.rows[0].status === 'discontinued') {
+      const err = new Error('Cannot edit a discontinued product. Reactivate it first.');
+      (err as any).type = 'discontinued';
+      throw err;
     }
-    if (old.cost_price !== cost_price) {
-      await db.query(
-        'INSERT INTO price_history (product_id, field, old_value, new_value, user_id) VALUES ($1, $2, $3, $4, $5)',
-        [id, 'cost_price', old.cost_price, cost_price, userId]
-      );
+
+    const {
+      name,
+      sku,
+      slug,
+      name_en,
+      description,
+      description_en,
+      material,
+      material_en,
+      care,
+      care_en,
+      fit,
+      fit_en,
+      barcode,
+      price,
+      cost_price,
+      stock,
+      category,
+      category_id,
+      distributor_id,
+      min_stock,
+    } = data;
+
+    let categoryText = category || null;
+    if (category_id && !categoryText) {
+      categoryText = await resolveCategoryText(db, category_id);
     }
-  }
 
-  const updated = result.rows[0] as Record<string, any>;
-  if (updated.stock <= updated.min_stock) {
-    notifyLowStock(updated.name, updated.stock, updated.id);
-  }
+    if (slug) await assertSlugAvailable(db, 'products', slug, { column: 'id', value: Number(id) });
 
-  return result.rows[0];
+    const oldProduct = await client.query<{ price: number; cost_price: number }>(
+      'SELECT price, cost_price FROM products WHERE id = $1',
+      [id]
+    );
+
+    // A replacement, except where absence has to mean "keep". The storefront text fields
+    // were already like this so a client predating them could not wipe them; `stock`,
+    // `cost_price`, `min_stock`, `barcode` and `distributor_id` join them because absence
+    // was silently destructive there too (HIGH-3 / MED-11): a name edit resurrected stock
+    // sold since the form opened, with no audit row, and a partial body reset a product's
+    // cost basis to the schema default.
+    let result;
+    try {
+      result = await client.query(
+        `UPDATE products SET name=$1, sku=$2,
+           barcode=CASE WHEN $31::boolean THEN $3::text ELSE barcode END,
+           price=$4,
+           cost_price=CASE WHEN $32::boolean THEN $5::numeric ELSE cost_price END,
+           stock=CASE WHEN $33::boolean THEN $6::int ELSE stock END,
+           category=$7, category_id=$8,
+           distributor_id=CASE WHEN $34::boolean THEN $9::int ELSE distributor_id END,
+           min_stock=CASE WHEN $35::boolean THEN $10::int ELSE min_stock END,
+           slug=COALESCE($12::text, slug), name_en=CASE WHEN $13::boolean THEN $14::text ELSE name_en END,
+           description=CASE WHEN $15::boolean THEN $16::text ELSE description END,
+           description_en=CASE WHEN $17::boolean THEN $18::text ELSE description_en END,
+           material=CASE WHEN $19::boolean THEN $20::text ELSE material END,
+           material_en=CASE WHEN $21::boolean THEN $22::text ELSE material_en END,
+           care=CASE WHEN $23::boolean THEN $24::text ELSE care END,
+           care_en=CASE WHEN $25::boolean THEN $26::text ELSE care_en END,
+           fit=CASE WHEN $27::boolean THEN $28::text ELSE fit END,
+           fit_en=CASE WHEN $29::boolean THEN $30::text ELSE fit_en END,
+           updated_at=NOW()
+         WHERE id=$11 RETURNING *`,
+        [
+          name,
+          sku,
+          barcode ?? null,
+          price,
+          cost_price ?? null,
+          stock ?? null,
+          categoryText,
+          category_id || null,
+          distributor_id ?? null,
+          min_stock ?? null,
+          id,
+          slug ?? null,
+          name_en !== undefined,
+          name_en || null,
+          description !== undefined,
+          description || null,
+          description_en !== undefined,
+          description_en || null,
+          material !== undefined,
+          material || null,
+          material_en !== undefined,
+          material_en || null,
+          care !== undefined,
+          care || null,
+          care_en !== undefined,
+          care_en || null,
+          fit !== undefined,
+          fit || null,
+          fit_en !== undefined,
+          fit_en || null,
+          barcode !== undefined,
+          cost_price !== undefined,
+          stock !== undefined,
+          distributor_id !== undefined,
+          min_stock !== undefined,
+        ]
+      );
+    } catch (error) {
+      rethrowSlugViolation(error, 'products');
+    }
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    if (oldProduct.rows.length > 0) {
+      const old = oldProduct.rows[0];
+      // MED-15: `old.price !== price` compared node-postgres's NUMERIC **string** ('1950')
+      // against the request's **number** (1950), which is always true, so every product
+      // edit wrote two phantom history rows and any "when did this price change" query was
+      // noise. On pg-mem the comparison is number-vs-number and behaved correctly, so no
+      // unit test caught it — an AD-5 case in the wild. Both sides are coerced now, and a
+      // field the caller omitted did not change at all.
+      if (Number(old.price) !== Number(price)) {
+        await client.query(
+          'INSERT INTO price_history (product_id, field, old_value, new_value, user_id) VALUES ($1, $2, $3, $4, $5)',
+          [id, 'price', old.price, price, userId]
+        );
+      }
+      if (cost_price !== undefined && Number(old.cost_price) !== Number(cost_price)) {
+        await client.query(
+          'INSERT INTO price_history (product_id, field, old_value, new_value, user_id) VALUES ($1, $2, $3, $4, $5)',
+          [id, 'cost_price', old.cost_price, cost_price, userId]
+        );
+      }
+    }
+
+    const updated = result.rows[0] as Record<string, any>;
+    if (updated.stock <= updated.min_stock) {
+      notifyLowStock(updated.name, updated.stock, updated.id);
+    }
+
+    return updated;
+  });
 }
 
 /**
@@ -550,7 +641,7 @@ export async function adjustStock(
   input: AdjustStockInput,
   userId: number
 ): Promise<AdjustStockResult> {
-  const { delta, reason } = input;
+  const { delta, reason, variant_id: variantId } = input;
 
   return withTransaction(async (client) => {
     const prodRes = await client.query<{
@@ -579,14 +670,21 @@ export async function adjustStock(
       delta,
       reason,
       userId,
-      client
+      client,
+      variantId
     );
 
     if (applied === null) {
+      // The guarded write matched nothing: either the delta would go below zero, or the
+      // variant does not belong to this product. Both are the caller's to correct, and
+      // neither wrote anything.
       throw new Error('Stock cannot go below zero');
     }
 
-    if (applied.newQty <= product.min_stock) {
+    // Only for a product-level adjustment: `applied.newQty` is that variant's stock when
+    // one was named, and comparing one size against the product's reorder threshold would
+    // raise a low-stock alert for a product that is well stocked in every other size.
+    if (variantId == null && applied.newQty <= product.min_stock) {
       notifyLowStock(product.name, applied.newQty, productId);
     }
 

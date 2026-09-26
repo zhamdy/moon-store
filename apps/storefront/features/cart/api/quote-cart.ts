@@ -136,8 +136,32 @@ export function parseCartQuote(data: unknown, requested: readonly CartLine[]): C
     throw invalid('The cart quote had a non-integer maxLineQuantity.');
   }
 
+  const lines = data.lines.map((line, index) => parseLine(line, index, requested[index]!));
+
+  // The arithmetic, not just the shape (MED-8). Everything above proves the response is
+  // well-formed; without these a server returning unitPrice 2,750 with lineTotal 1 and
+  // subtotal 1 would render as authoritative, and the contract sentence "a wrong price
+  // must fail, not render" would only ever have meant "a *malformed* price".
+  //
+  // Money is compared in piastres. Prices are whole EGP today, but a float comparison
+  // that is right only because the values happen to be integers is a trap for the first
+  // decimal price, and an over-strict guard turns a rounding difference into an empty
+  // bag - the failure mode is worse than the bug.
+  for (const line of lines) {
+    if (line.unitPrice === null) continue;
+    const expected = Math.round(line.unitPrice * 100) * line.quantity;
+    if (Math.round(line.lineTotal * 100) !== expected) {
+      throw invalid(`Line ${line.index} did not add up: unitPrice x quantity != lineTotal.`);
+    }
+  }
+
+  const summed = lines.reduce((total, line) => total + Math.round(line.lineTotal * 100), 0);
+  if (Math.round(data.subtotal * 100) !== summed) {
+    throw invalid('The cart quote subtotal did not match the sum of its lines.');
+  }
+
   return {
-    lines: data.lines.map((line, index) => parseLine(line, index, requested[index]!)),
+    lines,
     subtotal: data.subtotal,
     itemCount: data.itemCount,
     maxLineQuantity: data.maxLineQuantity,

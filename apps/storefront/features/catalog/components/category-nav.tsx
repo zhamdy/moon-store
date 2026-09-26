@@ -1,9 +1,11 @@
-import { NavLink } from '@/components/layout/nav-link';
-import { Container } from '@/components/ui/container';
+import { getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { CatalogCategory } from '@/features/collections/types/catalog-category';
 import { localizedName } from '@/features/products/utils/localized-name';
 import { catalogPath } from '../utils/catalog-path';
+import { orderCategories } from '../utils/category-order';
+import { formatResultCount } from '../utils/result-count';
 
 export interface CategoryNavProps {
   categories: CatalogCategory[];
@@ -16,45 +18,66 @@ export interface CategoryNavProps {
 }
 
 /**
- * Row 1 under the intro (KD-15), Shop All and category pages only: text links in
- * `type-label`, `aria-current="page"` on the active one. It scrolls horizontally
- * at every width with proximity scroll-snap and an inline-end fade
- * (`[data-category-row]` in app/globals.css). Bleeds to the viewport edge below
- * 768 like the homepage category rail. No hairline of its own: the utility row
- * below draws the one rule between the two rows.
+ * The categories, Shop All and category pages only ("Atelier", owner decision
+ * 2026-09-26). One list, two shapes (`.category-link` in app/globals.css):
  *
+ * - **Below 1024**, a row of pill chips under the intro that scrolls sideways, bleeding
+ *   to the viewport edge, with an inline-end fade (`[data-category-row]`).
+ * - **From 1024**, the top of the index column beside the grid: a labelled list, one
+ *   44px row per category with its piece count at the inline end, the current one
+ *   marked by a Bronze rule at the inline start and weight — never colour alone.
+ *
+ * The count is the catalogue's own `productCount` (active pieces in that category);
+ * "All" carries none, because the categories' counts need not add up to the shop's
+ * total. Each count is visible as a numeral and read as "4 pieces".
+ *
+ * Categories are listed in the shop's order (`orderCategories`), not the API's.
  * Categories with no active products are left out unless they are the current
  * page: a link that always lands on an empty state is a dead end in navigation,
  * while the page itself still resolves (R2).
- *
- * Each link's hit area is extended to 44px tall with a `before:` box, because
- * padding would move `NavLink`'s underline away from the text.
  */
-export function CategoryNav({ categories, activeSlug, locale, label, allLabel }: CategoryNavProps) {
-  const visible = categories.filter((c) => c.productCount > 0 || c.slug === activeSlug);
-  const hitArea =
-    "whitespace-nowrap before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']";
+export async function CategoryNav({
+  categories,
+  activeSlug,
+  locale,
+  label,
+  allLabel,
+}: CategoryNavProps) {
+  const t = await getTranslations('catalog');
+  const visible = orderCategories(categories).filter(
+    (c) => c.productCount > 0 || c.slug === activeSlug
+  );
 
   return (
-    <Container as="nav" aria-label={label}>
+    <nav aria-label={label}>
+      <p
+        aria-hidden="true"
+        className="type-label hidden border-b border-border pb-3 text-text-secondary lg:block"
+      >
+        {label}
+      </p>
       <ul
         role="list"
         data-category-row
-        className="-mx-(--page-gutter) flex snap-x gap-x-7 overflow-x-auto py-3 ps-(--page-gutter) pe-16 scroll-ps-(--page-gutter) md:mx-0 md:gap-x-9 md:ps-0 md:scroll-ps-0"
+        className="-mx-(--page-gutter) flex snap-x gap-2 overflow-x-auto px-(--page-gutter) pe-14 scroll-ps-(--page-gutter) lg:mx-0 lg:mt-2 lg:flex-col lg:gap-0 lg:overflow-visible lg:px-0"
       >
         <li className="shrink-0 snap-start">
-          <NavLink href="/shop" current={activeSlug === null} className={hitArea}>
+          <Link
+            href="/shop"
+            aria-current={activeSlug === null ? 'page' : undefined}
+            className="category-link"
+          >
             {allLabel}
-          </NavLink>
+          </Link>
         </li>
         {visible.map((category) => {
           const name = localizedName(category, locale);
           return (
             <li key={category.slug} className="shrink-0 snap-start">
-              <NavLink
+              <Link
                 href={catalogPath({ kind: 'category', slug: category.slug })}
-                current={category.slug === activeSlug}
-                className={hitArea}
+                aria-current={category.slug === activeSlug ? 'page' : undefined}
+                className="category-link"
               >
                 {name.lang === locale ? (
                   name.text
@@ -63,11 +86,18 @@ export function CategoryNav({ categories, activeSlug, locale, label, allLabel }:
                     {name.text}
                   </span>
                 )}
-              </NavLink>
+                <span
+                  aria-hidden="true"
+                  className="type-supporting hidden text-text-secondary tabular-nums lg:inline"
+                >
+                  {category.productCount}
+                </span>
+                <span className="sr-only">{`, ${formatResultCount(t, category.productCount)}`}</span>
+              </Link>
             </li>
           );
         })}
       </ul>
-    </Container>
+    </nav>
   );
 }

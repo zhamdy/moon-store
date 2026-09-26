@@ -31,7 +31,8 @@ function langProps(text: LocalizedText, locale: AppLocale) {
  * The catalog page intro (KD-16): calm and typographic, no hero. No eyebrow (owner
  * decision, 2026-09-14): the page's own name is the `h1` in the display face (#200,
  * 2026-09-15), the context line under it, then optional metadata and description and
- * 64-96px of air before the category/utility rows.
+ * 24-40px of air before the listing: since the "Atelier" listing (2026-09-26) the
+ * index column and the toolbar start right under it, so the intro stays short.
  *
  * Motion is the commerce entrance (AD-11): the title rises once and the lines under
  * it fade; no word mask. The optional image band only fades, with no parallax, scrim
@@ -92,7 +93,7 @@ export function PageIntro({ locale, headings, meta, description, image }: PageIn
   );
 
   return (
-    <Container as="header" className="pt-10 pb-16 md:pt-14 md:pb-20 lg:pt-16 lg:pb-24">
+    <Container as="header" className="pt-8 pb-6 md:pt-12 md:pb-8 lg:pt-14 lg:pb-10">
       {image ? (
         <Reveal className="grid gap-y-8 md:gap-y-10 lg:grid-cols-12 lg:items-end lg:gap-x-8">
           <div

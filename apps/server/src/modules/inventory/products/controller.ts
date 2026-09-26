@@ -4,6 +4,7 @@ import { AuthRequest } from '../../../../middleware/auth';
 import { logAuditFromReq } from '../../../../middleware/auditLogger';
 import type { Product, Variant } from '../../../../validators/productSchema';
 import { productsService } from './service';
+import { ProductConflictError } from '../../../../services/productService';
 import { productsRepository } from './repository';
 import { z } from 'zod';
 import { success } from '../../../http/responses';
@@ -12,6 +13,7 @@ import { PublicError } from '../../../http/errors';
 import { normalizeProductListQuery, toProductIds } from './types';
 import { getStorage, productImageKey } from '../../../storage';
 import { isUniqueViolation } from '../../../database/constraintErrors';
+import { revalidateStorefrontInBackground, storefrontTags } from '../../../storefront/revalidate';
 import {
   productsRequestContracts,
   type AdjustStockBody,
@@ -24,6 +26,18 @@ import {
 
 /** Parsed through the contracts, so the document and the validators cannot differ (#102). */
 const contracts = productsRequestContracts;
+
+/**
+ * Which storefront cache tags a write to this product invalidates: its own page, and
+ * every listing, since a withdrawal or a price change alters what a list contains
+ * whatever scope it was fetched under. A product with no slug reaches no storefront
+ * page, so only the lists are dropped.
+ */
+function catalogTagsFor(product: { slug?: string | null } | null): string[] {
+  const tags: string[] = [storefrontTags.products];
+  if (product?.slug) tags.push(storefrontTags.product(product.slug));
+  return tags;
+}
 
 export class ProductsController {
   async getProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -184,8 +198,22 @@ export class ProductsController {
       }
 
       logAuditFromReq(req, 'update', 'product', id);
+      // A price or name edit is the MED-16 case: correctable on demand rather than only
+      // after the TTL.
+      revalidateStorefrontInBackground(catalogTagsFor(product));
       res.json(success(product));
     } catch (err: any) {
+      if (err instanceof ProductConflictError) {
+        // Same shape as the collections conflict: the envelope code stays one of the
+        // public seven and the domain code rides in `details[]`, with `field` naming the
+        // request key the client must refresh.
+        next(
+          new PublicError('CONFLICT', err.message, [
+            { field: 'expected_updated_at', code: err.code, message: err.message },
+          ])
+        );
+        return;
+      }
       if (err.type === 'discontinued') {
         next(new PublicError('FORBIDDEN', err.message));
         return;
@@ -211,6 +239,9 @@ export class ProductsController {
       }
 
       logAuditFromReq(req, 'status_change', 'product', id, { status });
+      // The storefront cannot discover a withdrawal on its own: its data cache keeps an
+      // entry only on a 200, so the 404 this write causes never replaces one (HIGH-2).
+      revalidateStorefrontInBackground(catalogTagsFor(product));
       res.json(success(product));
     } catch (err) {
       next(err);
@@ -225,6 +256,7 @@ export class ProductsController {
         throw new PublicError('NOT_FOUND', 'Product not found');
       }
       logAuditFromReq(req, 'discontinue', 'product', id);
+      revalidateStorefrontInBackground(catalogTagsFor(product));
       res.status(204).send();
     } catch (err) {
       next(err);

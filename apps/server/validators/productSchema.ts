@@ -29,6 +29,42 @@ export const productSchema = z.object({
   status: z.enum(['active', 'inactive', 'discontinued']).default('active').optional(),
 });
 
+/**
+ * The update body. Create and update disagree about what an **absent** field means, and
+ * sharing one schema made absence destructive on update (HIGH-3 / MED-11 in
+ * `docs/audits/2026-09-22-shop-cart-fullstack-audit.md`):
+ *
+ * - `stock` was required, so no caller could edit a name without also asserting an
+ *   absolute stock. A form opened before a sale and saved after it silently resurrected
+ *   the sold unit, with no `stock_adjustments` row — every edit was a lost-update window
+ *   on inventory. Absent now keeps the stored value; an intentional change belongs on
+ *   the audited adjust-stock path.
+ * - `cost_price` and `min_stock` carried `.default()`, which is right on create and on
+ *   update silently overwrote stored data with the default: a partial body reset a
+ *   product's cost basis to 0, making every margin on it read as 100%.
+ * - `barcode` and `distributor_id` were written as `x || null`, so omitting them cleared
+ *   them; a wiped barcode makes the till's lookup 404.
+ *
+ * Everything else keeps full-replacement semantics, which the published contract has
+ * always described.
+ */
+export const productUpdateSchema = productSchema.extend({
+  stock: z.number().int().min(0, 'Stock cannot be negative').optional(),
+  cost_price: z.number().min(0, 'Cost price cannot be negative').optional(),
+  min_stock: z.number().int().min(0).optional(),
+  /**
+   * The `updated_at` the caller read, echoed back so a write composed against a stale
+   * read is refused rather than silently overwriting what it missed (HIGH-3's
+   * lost-update half). Same shape, token and posture as `PUT /collections/:id`'s
+   * `expected_updated_at`.
+   *
+   * Optional on purpose: absent means the caller stakes no claim on the version and the
+   * write behaves exactly as it did before, so an older client keeps working — the
+   * compatibility posture the `Idempotency-Key` and collections rollouts both took.
+   */
+  expected_updated_at: z.string().optional(),
+});
+
 export const productImportSchema = z.array(productSchema);
 
 export const variantSchema = z.object({

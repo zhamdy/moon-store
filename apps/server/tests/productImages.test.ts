@@ -116,6 +116,49 @@ describe('product gallery images', () => {
     expect(await storedKeys()).toEqual([]);
   });
 
+  /**
+   * HIGH-6: the two configuration-level refusals - the size limit and the extension
+   * allowlist - were asserted as *multer configuration* (`storage.test.ts`) rather than
+   * as HTTP responses, so nobody noticed both answered 500 INTERNAL_ERROR against a
+   * contract that publishes 400. The one refusal asserted end to end was the magic-byte
+   * check below, which is the one implemented as ordinary middleware and worked.
+   *
+   * Test the boundary, not the configuration (root CLAUDE.md -> Learnings).
+   */
+  it('refuses an oversized image with a typed error naming the limit, writing nothing', async () => {
+    // Over the route's 2 MB ceiling; the PNG header keeps it a real image, so the only
+    // thing being tested is the size refusal.
+    const oversized = Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024, 0x7f)]);
+
+    const res = await admin.upload('/api/v1/products/1/images', 'image', 'huge.png', oversized);
+
+    expect(res.status).toBe(413);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.message).toMatch(/2 MB/);
+    expect(await orderOf(1)).toEqual([]);
+    expect(await storedKeys()).toEqual([]);
+  });
+
+  it('refuses a disallowed file type with a typed error naming the formats, writing nothing', async () => {
+    const res = await admin.upload('/api/v1/products/1/images', 'image', 'animated.gif', PNG);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.message).toMatch(/JPEG, PNG, and WebP/);
+    expect(await orderOf(1)).toEqual([]);
+    expect(await storedKeys()).toEqual([]);
+  });
+
+  it('refuses an oversized image on the primary-image route too', async () => {
+    const oversized = Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024, 0x7f)]);
+
+    const res = await admin.upload('/api/v1/products/1/image', 'image', 'huge.png', oversized);
+
+    expect(res.status).toBe(413);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(await storedKeys()).toEqual([]);
+  });
+
   it('rejects bytes that are not an image with 400, writing nothing', async () => {
     const res = await admin.upload(
       '/api/v1/products/1/images',

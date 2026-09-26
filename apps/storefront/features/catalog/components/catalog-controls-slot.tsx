@@ -25,9 +25,9 @@ export interface CatalogControlsRendererOptions {
 /**
  * Server side of the controls island: resolves every string once, then returns the
  * `renderControls` function `ProductGrid` calls with the listing's total and price
- * range. The island sits in `<Suspense>` because nuqs reads search params; the
- * fallback is an empty 44px box, and the utility row's reserved height keeps the
- * grid still either way.
+ * range, once per layout (the toolbar and the index column). The island sits in
+ * `<Suspense>` because nuqs reads search params; the fallback reserves the toolbar's
+ * or the index column's height, so the grid stays still either way.
  *
  * ```tsx
  * const renderControls = await catalogControlsRenderer({ route, locale });
@@ -60,6 +60,7 @@ export async function catalogControlsRenderer({
     priceMaxError: t('filters.priceMaxError'),
     clearAll: t('filters.clearAll'),
     apply: t('filters.apply'),
+    applyPrice: t('filters.applyPrice'),
     summaryLabel: t('filters.summaryLabel'),
     remove: t.raw('filters.remove') as string,
     clear: t('filters.clear'),
@@ -71,7 +72,13 @@ export async function catalogControlsRenderer({
     sort: t('sort.label'),
   };
 
-  return function renderCatalogControls({ totalItems, priceRange }: CatalogControlsData) {
+  return function renderCatalogControls({
+    layout,
+    countId,
+    totalItems,
+    priceRange,
+    resolved,
+  }: CatalogControlsData) {
     const { min, max } = priceRange;
     const priceHint =
       min !== null && max !== null
@@ -83,9 +90,23 @@ export async function catalogControlsRenderer({
         : null;
 
     return (
-      <Suspense fallback={<div aria-hidden="true" className="ms-auto h-11" />}>
+      <Suspense
+        fallback={
+          <div
+            aria-hidden="true"
+            className={
+              layout === 'toolbar'
+                ? '-mx-(--page-gutter) h-(--size-control) border-y border-border lg:mx-0 lg:h-16 lg:border-t-0'
+                : 'h-80'
+            }
+          />
+        }
+      >
         <CatalogControls
+          layout={layout}
+          countId={countId}
           route={route}
+          resolved={resolved}
           locale={locale}
           currencyLabel={currencyLabel}
           resultCountText={formatResultCount(t, totalItems)}

@@ -1,6 +1,11 @@
 import 'server-only';
 import { cache } from 'react';
-import { CATALOG_LIST_TIMEOUT_MS, CATALOG_REVALIDATE, catalogFetch } from '@/lib/api/catalog';
+import {
+  CATALOG_LIST_TIMEOUT_MS,
+  CATALOG_REVALIDATE,
+  catalogFetch,
+  catalogTags,
+} from '@/lib/api/catalog';
 import { CATALOG_ENDPOINTS } from '@/lib/api/endpoints';
 import { ApiError, isApiError } from '@/lib/api/errors';
 import type {
@@ -105,7 +110,11 @@ export const getCatalogProduct = cache(
     try {
       ({ data } = await catalogFetch<unknown>(
         CATALOG_ENDPOINTS.product(slug),
-        CATALOG_REVALIDATE.list,
+        // A product is an entity, and LOW-12: this read had the list's 60s lifetime
+        // under a constant named for the entity's 300s, mis-budgeting its own
+        // staleness by 5x. The tag is what makes a withdrawal immediate either way.
+        CATALOG_REVALIDATE.entity,
+        [catalogTags.products, catalogTags.product(slug)],
         { timeoutMs: CATALOG_LIST_TIMEOUT_MS }
       ));
     } catch (error) {

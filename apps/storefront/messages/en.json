@@ -13,7 +13,15 @@
     "menu": "Menu",
     "closeMenu": "Close menu",
     "primaryLabel": "Primary",
-    "footerLabel": "Footer"
+    "footerLabel": "Footer",
+    "categoriesHeading": "Categories",
+    "collectionsHeading": "Collections",
+    "allPieces": "All pieces",
+    "allCollections": "All collections",
+    "newInTitle": "The newest pieces",
+    "newInBody": "From the last thirty days.",
+    "featured": "Featured",
+    "close": "Close"
   },
   "common": {
     "brandName": "Moon Fashion",
@@ -36,7 +44,8 @@
     "addToBagLabel": "Add to Bag, {name}",
     "chooseOptions": "Choose options, {name}",
     "closeOptions": "Close the options",
-    "viewDetails": "View details"
+    "viewDetails": "View details",
+    "sizes": "{count, plural, one {# size} other {# sizes}}"
   },
   "categories": {
     "dresses": "Dresses",
@@ -46,116 +55,45 @@
     "abayas": "Abayas"
   },
   "home": {
-    "hero": {
-      "heading": "New collections at Moon Fashion",
-      "tabList": "Collections",
-      "slideOf": "{index} of {total}",
-      "slides": {
-        "evening": {
-          "tab": "Evening",
-          "eyebrow": "New collection",
-          "title1": "Moonlight,",
-          "title2": "redefined.",
-          "body": "A refined wardrobe for modern femininity.",
-          "cta": "Explore Evening",
-          "imageAlt": "A woman in a long-sleeved black velvet gown against a softly lit charcoal wall"
-        },
-        "linen": {
-          "tab": "Linen",
-          "eyebrow": "Summer collection",
-          "title1": "Light that",
-          "title2": "moves with you.",
-          "body": "Washed linen and open weaves for long, warm days.",
-          "cta": "Explore Linen",
-          "imageAlt": "A woman in an ivory linen dress walking through a sunlit stone courtyard"
-        },
-        "abaya": {
-          "tab": "Abaya",
-          "eyebrow": "Signature collection",
-          "title1": "Quiet",
-          "title2": "presence.",
-          "body": "Fluid abayas in silk crepe and soft chiffon.",
-          "cta": "Explore Abayas",
-          "imageAlt": "A woman in a flowing black abaya over a brown dress walking through a sandstone arcade"
-        },
-        "knitwear": {
-          "tab": "Knitwear",
-          "eyebrow": "Autumn collection",
-          "title1": "Soft,",
-          "title2": "by design.",
-          "body": "Cashmere and wool in the warm tones of the season.",
-          "cta": "Explore Knitwear",
-          "imageAlt": "A woman in a cream cashmere sweater and brown trousers seated on a wooden bench"
-        }
-      }
-    },
-    "strip": {
-      "heading": "Collections",
-      "words": {
-        "evening": "Evening",
-        "linen": "Linen",
-        "knit": "Knit",
-        "abaya": "Abaya"
-      }
-    },
-    "newArrivals": {
-      "eyebrow": "Just in",
-      "title": "New Arrivals",
-      "link": "View all",
-      "previous": "Previous products",
-      "next": "Next products",
-      "lead": "The newest pieces, from the last thirty days."
-    },
-    "banner": {
-      "eyebrow": "New collection",
-      "title": "The Silk Edit",
-      "body": "Fluid blouses and soft tailoring in ivory and warm brown.",
+    "film": {
+      "eyebrow": "Now showing · Evening",
+      "title": "Dressed for the night.",
       "cta": "Shop the collection",
+      "secondary": "New arrivals",
+      "credits": "The credits",
+      "imageAlt": "A woman in a long-sleeved black velvet gown against a softly lit charcoal wall"
+    },
+    "shop": {
+      "title": "New in",
+      "all": "All",
+      "chipsLabel": "Categories",
+      "viewAll": "View all"
+    },
+    "scene": {
+      "eyebrow": "A scene from the film",
+      "title": "The Silk Edit",
+      "cta": "Shop the scene",
       "imageAlt": "A woman in a flowing ivory silk blouse and warm brown tailored trousers beside a sunlit limestone wall"
     },
-    "featured": {
-      "eyebrow": "Featured collection",
-      "title": "The Evening Edit",
-      "body": "Silk, velvet and hand embroidery for the hours after dark.",
-      "link": "Discover",
-      "largeAlt": "A woman in a champagne satin evening gown seated on lamplit limestone steps",
-      "smallAlt": "Hands holding a black velvet clutch with a gold clasp against champagne satin"
+    "panels": {
+      "title": "Shop by category",
+      "cta": "Shop {category}"
     },
-    "categories": {
-      "eyebrow": "Shop by category",
-      "title": "Find your piece"
-    },
-    "campaign": {
-      "line": "Dressed for the night.",
-      "imageAlt": "A woman in a flowing umber silk dress walking through a limestone colonnade at dusk"
-    },
-    "selection": {
-      "title": "The Moon Selection",
-      "description": "A considered selection of standout pieces, chosen for their silhouette, texture, and timeless appeal.",
-      "link": "Explore the selection"
-    },
-    "benefits": {
-      "heading": "Shopping with Moon",
-      "delivery": {
-        "title": "Delivery",
-        "body": "Every order is carefully packed and delivered to your address."
+    "looks": {
+      "title": "Looks",
+      "cta": "Shop the collection",
+      "evening": {
+        "title": "Camel over satin",
+        "imageAlt": "Half-length portrait of a woman in a camel coat draped over a dark satin cowl-neck dress, leaning in a carved doorway"
       },
-      "returns": {
-        "title": "Considered fabrics",
-        "body": "Silk, linen, cashmere and wool, chosen for how they feel and wear."
+      "linen": {
+        "title": "Linen, worn loose",
+        "imageAlt": "A woman in a sleeveless linen waistcoat, black top and black trousers, leaning against a sunlit terracotta wall beside a green door"
       },
-      "payment": {
-        "title": "Secure payment",
-        "body": "Your payment details are kept protected."
+      "silk": {
+        "title": "Wool on silk",
+        "imageAlt": "Close-up of a brown wool jacket collar resting on folds of ivory silk"
       }
-    },
-    "lookbook": {
-      "heading": "Lookbook",
-      "alt1": "A woman in a sleeveless linen waistcoat, black top and black trousers, leaning against a sunlit terracotta wall beside a green door",
-      "alt2": "Close-up of black leather slingback kitten heels on a sandstone step",
-      "alt3": "Half-length portrait of a woman in a camel coat draped over a dark satin cowl-neck dress, leaning in a carved doorway",
-      "alt4": "A woman walking along a curved stone corridor in a black blazer, brown ribbed knit and wide black trousers",
-      "alt5": "Close-up of a brown wool jacket collar resting on folds of ivory silk"
     }
   },
   "promotion": {
@@ -163,7 +101,8 @@
     "body": "Take two pieces from the shop and the second is on us.",
     "terms": "On selected pieces. The lower-priced piece is free. While stocks last.",
     "cta": "Shop the offer",
-    "imageAlt": "A woman in a flowing umber silk dress walking through a limestone colonnade at dusk"
+    "imageAlt": "A woman in a flowing umber silk dress walking through a limestone colonnade at dusk",
+    "eyebrow": "The season's offer"
   },
   "footer": {
     "tagline": "Luxury fashion, edited for the modern wardrobe.",
@@ -208,6 +147,7 @@
       "priceMaxError": "Enter a smaller amount",
       "clearAll": "Clear all",
       "apply": "Show results",
+      "applyPrice": "Apply price",
       "summaryLabel": "Active filters",
       "remove": "Remove: {filter}",
       "clear": "Clear",

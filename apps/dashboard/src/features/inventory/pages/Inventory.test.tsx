@@ -188,6 +188,41 @@ describe('Inventory bulk operations', () => {
     expect(await screen.findByText('Deficit')).toBeInTheDocument();
   }, 20000);
 
+  /**
+   * The server refuses `lowStock=true` with any status but `active` — a documented
+   * cross-field rule. The toggle sets `status: 'active'` and the Status select is hidden
+   * while Low Stock is on, so the illegal pair cannot be *clicked* into existence; but a
+   * shared link, a restored history entry or a hand-edited address carried it straight to
+   * the API, which answered 400 and left the page with no rows and no explanation.
+   */
+  it('never asks for lowStock with a non-active status, even from a URL carrying both', async () => {
+    const transport = transportWithProducts();
+
+    renderWithRouter(
+      <TransportProvider transport={transport}>
+        <Inventory />
+      </TransportProvider>,
+      {
+        queryClient: new QueryClient({
+          defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+        }),
+        initialRoute: '/inventory?lowStock=true&status=all',
+        authState: {
+          isAuthenticated: true,
+          user: { id: 1, name: 'Admin', email: 'admin@moon.com', role: 'Admin' },
+        },
+      }
+    );
+
+    await waitFor(() => expect(transport.calls().length).toBeGreaterThan(0));
+    const listCalls = transport.calls().filter((call) => call.path === 'products');
+    expect(listCalls.length).toBeGreaterThan(0);
+    for (const call of listCalls) {
+      const params = call.params as Record<string, unknown> | undefined;
+      if (params?.lowStock) expect(params.status).toBe('active');
+    }
+  }, 20000);
+
   it('exports the selected products through the lazily loaded export chunk', async () => {
     const exportToExcel = vi.fn();
     vi.mocked(loadExportUtils).mockResolvedValue({ exportToExcel } as unknown as ExportUtils);

@@ -29,8 +29,9 @@ const socialIcons: Record<SocialNetwork, SocialIcon> = {
 };
 
 /**
- * A deep-ink close (guideline §12·12 "ivory or deep ink"): the gold logo reads
- * best on ink. The lockup with a one-line tagline and the social links, the three
+ * An Espresso close (design system 2026-09-25): the gold lockup reads best there.
+ * Column headings are Champagne eyebrows (the surface's accent), links ivory, secondary
+ * lines on-dark-muted, one hairline above the copyright. The lockup with a one-line tagline and the social links, the three
  * shop links, the contact details, and a copyright line under the only gold in the
  * footer, a hairline. `data-surface="ink"` swaps the text/bg/border tokens and the
  * focus ring.
@@ -57,7 +58,7 @@ export async function Footer() {
         <div className="grid-editorial gap-y-12">
           <div className="col-span-4">
             <Link href="/" aria-label={t('common.brandName')} className="inline-block">
-              <BrandLogo variant="logo" height={120} />
+              <BrandLogo variant="logo" height={128} className="h-28 w-auto lg:h-32" />
             </Link>
             <p className="type-body mt-8 max-w-xs text-text-secondary">{t('footer.tagline')}</p>
 
@@ -87,7 +88,7 @@ export async function Footer() {
             aria-label={t('navigation.footerLabel')}
             className="col-span-2 lg:col-span-3 lg:col-start-7"
           >
-            <h2 className="type-label font-body text-text-secondary">{t('footer.shopLabel')}</h2>
+            <h2 className="type-eyebrow text-brand">{t('footer.shopLabel')}</h2>
             <ul className="mt-6 flex flex-col gap-4">
               {primaryNavItems.map((item) => (
                 <li key={item.key}>
@@ -101,9 +102,7 @@ export async function Footer() {
 
           {showContact && (
             <div className="col-span-2 lg:col-span-3 lg:col-start-10">
-              <h2 className="type-label font-body text-text-secondary">
-                {t('footer.contactLabel')}
-              </h2>
+              <h2 className="type-eyebrow text-brand">{t('footer.contactLabel')}</h2>
               <address className="type-body mt-6 flex flex-col gap-4 not-italic">
                 {e164 && (
                   <a
@@ -131,7 +130,7 @@ export async function Footer() {
           )}
         </div>
 
-        <div className="mt-20 border-t border-metallic-highlight/40 pt-6 lg:mt-28">
+        <div className="mt-20 border-t border-border pt-6 lg:mt-24">
           <p className="type-caption text-text-secondary">{t('footer.rights', { year })}</p>
         </div>
       </Container>

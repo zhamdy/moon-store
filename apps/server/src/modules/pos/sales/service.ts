@@ -845,6 +845,9 @@ export class SalesService {
         await this.repo.createStockAdjustment(
           {
             product_id: item.product_id,
+            // Which size left the shelf. Without it a variant sale's audit row is
+            // indistinguishable from any other size's (MED-14).
+            variant_id: item.variant_id ?? null,
             // Derived from RETURNING, so the audit trail records what actually happened
             // rather than what the earlier read predicted.
             previous_qty: newStock + item.quantity,

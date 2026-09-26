@@ -31,6 +31,8 @@ interface VariantManagerDialogProps {
   variantCostPrice: string;
   setVariantCostPrice: (value: string) => void;
   variantStock: string;
+  /** Per-field refusals from `validateVariantDraft`; empty until a submit is attempted. */
+  variantErrors: Partial<Record<'sku' | 'price' | 'costPrice' | 'stock' | 'attributes', string>>;
   setVariantStock: (value: string) => void;
 
   // Actions
@@ -66,6 +68,7 @@ export default function VariantManagerDialog({
   variantCostPrice,
   setVariantCostPrice,
   variantStock,
+  variantErrors,
   setVariantStock,
   onOpenEditVariant,
   onVariantSubmit,
@@ -139,7 +142,10 @@ export default function VariantManagerDialog({
                         <div className="flex items-center gap-2">
                           <div className="text-end me-2">
                             <p className="text-sm font-semibold text-primary font-data">
-                              {formatCurrency(Number(variant.price || variantsProduct?.price || 0))}
+                              {/* `??`, not `||`: a variant priced at 0 would fall through
+                                  `||` to the product price and show a figure the till
+                                  does not charge (LOW-1). */}
+                              {formatCurrency(Number(variant.price ?? variantsProduct?.price ?? 0))}
                             </p>
                             <Badge size="sm" variant={variant.stock === 0 ? 'danger' : 'success'}>
                               {variant.stock}
@@ -190,6 +196,8 @@ export default function VariantManagerDialog({
                         value={variantSku}
                         onValueChange={setVariantSku}
                         placeholder="SKU"
+                        isInvalid={Boolean(variantErrors.sku)}
+                        errorMessage={variantErrors.sku}
                       />
                       <Input
                         label={t('variants.barcode')}
@@ -208,6 +216,8 @@ export default function VariantManagerDialog({
                         value={variantPrice}
                         onValueChange={setVariantPrice}
                         placeholder={t('variants.price')}
+                        isInvalid={Boolean(variantErrors.price)}
+                        errorMessage={variantErrors.price}
                       />
                       <Input
                         type="number"
@@ -217,6 +227,8 @@ export default function VariantManagerDialog({
                         variant="bordered"
                         value={variantCostPrice}
                         onValueChange={setVariantCostPrice}
+                        isInvalid={Boolean(variantErrors.costPrice)}
+                        errorMessage={variantErrors.costPrice}
                       />
                       <Input
                         type="number"
@@ -225,6 +237,8 @@ export default function VariantManagerDialog({
                         variant="bordered"
                         value={variantStock}
                         onValueChange={setVariantStock}
+                        isInvalid={Boolean(variantErrors.stock)}
+                        errorMessage={variantErrors.stock}
                       />
                     </div>
                     {/* Attributes */}

@@ -18,6 +18,8 @@ import path from 'path';
 import { errorResponse } from '../http/errors';
 
 export const DEFAULT_MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+/** The ceiling as the operator-facing message states it. */
+export const MAX_UPLOAD_MB = DEFAULT_MAX_UPLOAD_BYTES / (1024 * 1024);
 
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type AllowedImageType = (typeof ALLOWED_IMAGE_TYPES)[number];
@@ -59,6 +61,9 @@ export function detectImageType(buffer: Buffer): AllowedImageType | null {
   return null;
 }
 
+/** Shared by the fileFilter and the handler that maps its error, so they cannot drift. */
+export const FILE_FILTER_MESSAGE = 'Only JPEG, PNG, and WebP images are allowed';
+
 export interface ImageUploadOptions {
   maxSize?: number;
   allowedTypes?: readonly AllowedImageType[];
@@ -77,10 +82,58 @@ export function createImageUpload(options: ImageUploadOptions = {}) {
       if (allowedExts.includes(ext)) {
         cb(null, true);
       } else {
-        cb(new Error('Only JPEG, PNG, and WebP images are allowed'));
+        cb(new Error(FILE_FILTER_MESSAGE));
       }
     },
   });
+}
+
+/**
+ * Answers multer's own two refusals — the `fileSize` limit and the `fileFilter` callback
+ * — in the same shape `validateImageBytes` uses two lines below.
+ *
+ * Without it they reach the shared handler as ordinary errors and become
+ * `500 INTERNAL_ERROR`, against a published contract that says "At most 2 MB, JPEG, PNG
+ * or WebP". Measured: a 4.3 MB PNG and a `.gif` both 500'd on both image routes, while
+ * the magic-byte paths — ordinary middleware, which answer for themselves — correctly
+ * 400'd (HIGH-5 in `docs/audits/2026-09-22-shop-cart-fullstack-audit.md`). A photo
+ * straight off a phone is 3-5 MB, so this was the single most likely upload an operator
+ * could attempt, and it answered "Internal server error" while booking a spurious 500 in
+ * error monitoring, where genuine faults are supposed to live.
+ *
+ * Mounted immediately after `upload.single(...)`, because Express routes a 4-argument
+ * handler only for errors raised upstream of it.
+ */
+export function imageUploadErrors(
+  err: unknown,
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (err instanceof multer.MulterError) {
+    // 413 rather than 400: the request is well-formed and simply too large, which is what
+    // the shopper-facing quote path already answers for an oversized body.
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      res
+        .status(413)
+        .json(errorResponse('VALIDATION_ERROR', `Image must be at most ${MAX_UPLOAD_MB} MB`));
+      return;
+    }
+    if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+      res.status(400).json(errorResponse('VALIDATION_ERROR', 'Send exactly one image file'));
+      return;
+    }
+    res.status(400).json(errorResponse('VALIDATION_ERROR', 'The uploaded file was rejected'));
+    return;
+  }
+
+  // The fileFilter callback's own Error, which multer forwards verbatim.
+  if (err instanceof Error && err.message === FILE_FILTER_MESSAGE) {
+    res.status(400).json(errorResponse('VALIDATION_ERROR', FILE_FILTER_MESSAGE));
+    return;
+  }
+
+  next(err);
 }
 
 /**

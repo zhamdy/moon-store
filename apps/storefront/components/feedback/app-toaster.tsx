@@ -96,7 +96,7 @@ export function AppToaster({ label, closeLabel, dir }: AppToasterProps) {
         info: <Info {...ICON} />,
         // Garnet fails contrast on ink, so the error icon sits on a small light badge.
         error: (
-          <span className="flex rounded-full bg-surface p-0.5 text-error">
+          <span className="flex rounded-full bg-surface p-0.5 text-danger">
             <CircleAlert size={14} strokeWidth={2} aria-hidden="true" />
           </span>
         ),

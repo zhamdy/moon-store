@@ -75,6 +75,29 @@ describe('loadCatalogParams', () => {
     expect(loadCatalogParams({ page: ['x', '3'] }, SHOP).page).toBe(3);
   });
 
+  /**
+   * MED-4. The loader resolves a repeated key to its first *valid* value; nuqs, which the
+   * controls island reads the URL through, takes the first *occurrence*. Those differ
+   * exactly here, which is why the island is handed the server's resolution rather than
+   * re-deriving it: the grid sorted while the control showed the default, and the next
+   * interaction serialized that default and dropped the filter that was in effect.
+   *
+   * This pins the values the two sides must agree on. Which `<option>` carries `selected`
+   * is client-side and belongs to the browser pass, since the storefront has no DOM
+   * harness yet (MED-7).
+   */
+  it.each([
+    ['sort=best&sort=price-asc', 'sort', 'price-asc'],
+    ['min=abc&min=1000', 'min', 1000],
+    ['stock=xx&stock=in', 'stock', 'in'],
+    ['page=x&page=3', 'page', 3],
+  ])(
+    'resolves %s to the first valid value, which the island must be given',
+    (query, key, value) => {
+      expect(loadCatalogParams(query, SHOP)[key as 'sort']).toBe(value);
+    }
+  );
+
   it('snaps price bounds to 50 EGP steps, min down and max up', () => {
     expect(loadCatalogParams('min=1234&max=2980', SHOP)).toMatchObject({ min: 1200, max: 3000 });
     expect(loadCatalogParams('min=1250&max=1250', SHOP)).toMatchObject({ min: 1250, max: 1250 });

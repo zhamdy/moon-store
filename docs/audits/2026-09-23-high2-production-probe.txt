@@ -1,0 +1,57 @@
+[06:05:39] logged in
+[06:05:39] warm printed-silk-scarf -> 200
+[06:05:39] warm wide-leg-trousers -> 200
+[06:05:39] warm again printed-silk-scarf -> 200
+[06:05:39] warm again wide-leg-trousers -> 200
+[06:05:39] withdraw printed-silk-scarf -> inactive : HTTP 200
+[06:05:39] withdraw wide-leg-trousers -> discontinued : HTTP 200
+[06:05:39] withdraw natural-pearl-earrings -> inactive : HTTP 200
+[06:05:39] API printed-silk-scarf -> 404 (7ms)
+[06:05:39] API wide-leg-trousers -> 404 (4ms)
+[06:05:39] API natural-pearl-earrings -> 404 (3ms)
+[06:05:39] CONTROL (never rendered) natural-pearl-earrings -> 404 after 44ms
+[06:05:39]   +0s printed-silk-scarf: 1 samples, 1 x 200, 0 x non-200
+[06:05:39]   +0s wide-leg-trousers: 1 samples, 1 x 200, 0 x non-200
+[06:05:54]   +15s printed-silk-scarf: 2 samples, 2 x 200, 0 x non-200
+[06:05:54]   +15s wide-leg-trousers: 2 samples, 2 x 200, 0 x non-200
+[06:06:40]   +60s printed-silk-scarf: 5 samples, 5 x 200, 0 x non-200
+[06:06:40]   +60s wide-leg-trousers: 5 samples, 5 x 200, 0 x non-200
+[06:06:55]   +75s printed-silk-scarf: 6 samples, 6 x 200, 0 x non-200
+[06:06:55]   +75s wide-leg-trousers: 6 samples, 6 x 200, 0 x non-200
+[06:07:40]   +121s printed-silk-scarf: 9 samples, 9 x 200, 0 x non-200
+[06:07:40]   +121s wide-leg-trousers: 9 samples, 9 x 200, 0 x non-200
+[06:08:40]   +181s printed-silk-scarf: 13 samples, 13 x 200, 0 x non-200
+[06:08:40]   +181s wide-leg-trousers: 13 samples, 13 x 200, 0 x non-200
+[06:09:40]   +241s printed-silk-scarf: 17 samples, 17 x 200, 0 x non-200
+[06:09:40]   +241s wide-leg-trousers: 17 samples, 17 x 200, 0 x non-200
+[06:10:40]   +301s printed-silk-scarf: 21 samples, 21 x 200, 0 x non-200
+[06:10:40]   +301s wide-leg-trousers: 21 samples, 21 x 200, 0 x non-200
+[06:11:41]   +361s printed-silk-scarf: 25 samples, 25 x 200, 0 x non-200
+[06:11:41]   +361s wide-leg-trousers: 25 samples, 25 x 200, 0 x non-200
+[06:12:41]   +422s printed-silk-scarf: 29 samples, 29 x 200, 0 x non-200
+[06:12:41]   +422s wide-leg-trousers: 29 samples, 29 x 200, 0 x non-200
+[06:13:41]   +482s printed-silk-scarf: 33 samples, 33 x 200, 0 x non-200
+[06:13:41]   +482s wide-leg-trousers: 33 samples, 33 x 200, 0 x non-200
+[06:14:41]   +542s printed-silk-scarf: 37 samples, 37 x 200, 0 x non-200
+[06:14:41]   +542s wide-leg-trousers: 37 samples, 37 x 200, 0 x non-200
+[06:15:41]   +602s printed-silk-scarf: 41 samples, 41 x 200, 0 x non-200
+[06:15:41]   +602s wide-leg-trousers: 41 samples, 41 x 200, 0 x non-200
+[06:16:42]   +662s printed-silk-scarf: 45 samples, 45 x 200, 0 x non-200
+[06:16:42]   +662s wide-leg-trousers: 45 samples, 45 x 200, 0 x non-200
+[06:17:42]   +723s printed-silk-scarf: 49 samples, 49 x 200, 0 x non-200
+[06:17:42]   +723s wide-leg-trousers: 49 samples, 49 x 200, 0 x non-200
+[06:18:42]   +783s printed-silk-scarf: 53 samples, 53 x 200, 0 x non-200
+[06:18:42]   +783s wide-leg-trousers: 53 samples, 53 x 200, 0 x non-200
+[06:19:42]   +843s printed-silk-scarf: 57 samples, 57 x 200, 0 x non-200
+[06:19:42]   +843s wide-leg-trousers: 57 samples, 57 x 200, 0 x non-200
+[06:20:43]   +903s printed-silk-scarf: 61 samples, 61 x 200, 0 x non-200
+[06:20:43]   +903s wide-leg-trousers: 61 samples, 61 x 200, 0 x non-200
+[06:21:43] --- RESULT ---
+[06:21:43] printed-silk-scarf: 64 samples over 16 min, 64 served 200, 0 non-200 -> NEVER RECOVERED (reproduces)
+[06:21:43] wide-leg-trousers: 64 samples over 16 min, 64 served 200, 0 non-200 -> NEVER RECOVERED (reproduces)
+[06:21:43] restore printed-silk-scarf -> active : HTTP 401
+[06:21:43] restore wide-leg-trousers -> active : HTTP 401
+[06:21:43] restore natural-pearl-earrings -> active : HTTP 401
+[note] The three restores above returned 401: the admin access token expired during the
+16-minute run. All three products were restored to active immediately afterwards with a
+fresh token (verified by SELECT: ids 10, 14, 24 all active).

@@ -35,6 +35,7 @@ describe('fromCatalogDto', () => {
       primary: { kind: 'remote', url: 'https://media.example.com/a.jpg' },
       secondary: { kind: 'remote', url: 'https://media.example.com/b.jpg' },
       badge: null,
+      sizeCount: null,
     });
   });
 
@@ -95,6 +96,23 @@ describe('fromCatalogDto', () => {
     expect(level).toMatchObject({ price: 2850, priceFrom: false });
   });
 
+  it('counts the size option for the meta line, and says nothing without one', () => {
+    const sized = dto({
+      options: [
+        { key: 'colour', label: 'Colour', values: ['Ivory', 'Black'] },
+        { key: 'size', label: 'Size', values: ['S', 'M', 'L', 'XL'] },
+      ],
+    });
+    expect(fromCatalogDto(sized, 'en').sizeCount).toBe(4);
+    expect(
+      fromCatalogDto(
+        dto({ options: [{ key: 'colour', label: 'Colour', values: ['Ivory'] }] }),
+        'en'
+      ).sizeCount
+    ).toBeNull();
+    expect(fromCatalogDto(dto(), 'en').sizeCount).toBeNull();
+  });
+
   it('falls back to the Arabic description on an English page, and says so through lang', () => {
     expect(fromCatalogDto(dto({ descriptionEn: null }), 'en').description).toEqual({
       text: 'قصّة انسيابية من الحرير الطبيعي',
@@ -110,28 +128,25 @@ describe('fromCatalogDto', () => {
 });
 
 describe('fromHomeMock', () => {
-  it('preserves the static slots, price and isNew as the new badge', () => {
+  // HIGH-1: an editorial frame names no product, so it may make no commerce claim —
+  // no link to a page that may not exist, no price the store does not charge, no badge.
+  it('preserves the static slots and makes no commerce claim', () => {
     const [mock] = newArrivals;
     expect(fromHomeMock(mock, 'en')).toEqual({
-      href: `/products/${mock.slug}`,
+      href: null,
       name: { text: mock.name.en, lang: 'en' },
       description: null,
       priceFrom: false,
-      price: mock.price,
+      price: null,
       primary: { kind: 'static', slot: mock.images.a },
       secondary: { kind: 'static', slot: mock.images.b },
-      badge: 'new',
+      badge: null,
+      sizeCount: null,
     });
   });
 
-  it('names the product in the page locale, so lang always matches it', () => {
+  it('names the frame in the page locale, so lang always matches it', () => {
     const [mock] = curatedEdit;
     expect(fromHomeMock(mock, 'ar').name).toEqual({ text: mock.name.ar, lang: 'ar' });
-  });
-
-  it('gives no badge to a mock that is not new', () => {
-    const [mock] = curatedEdit;
-    expect(mock.isNew).toBeFalsy();
-    expect(fromHomeMock(mock, 'en').badge).toBeNull();
   });
 });

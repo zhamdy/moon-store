@@ -725,8 +725,17 @@ export class SalesRepository implements ISalesRepository {
 
   async createStockAdjustment(data: Record<string, any>, queryable: Queryable): Promise<void> {
     await queryable.query(
-      'INSERT INTO stock_adjustments (product_id, previous_qty, new_qty, delta, reason, user_id) VALUES ($1, $2, $3, $4, $5, $6)',
-      [data.product_id, data.previous_qty, data.new_qty, data.delta, data.reason, data.user_id]
+      `INSERT INTO stock_adjustments (product_id, variant_id, previous_qty, new_qty, delta, reason, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        data.product_id,
+        data.variant_id ?? null,
+        data.previous_qty,
+        data.new_qty,
+        data.delta,
+        data.reason,
+        data.user_id,
+      ]
     );
   }
 

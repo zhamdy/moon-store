@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { errorResponse } from '../src/http/errors';
+import { rateLimitKey } from '../src/http/rateLimits';
 
 function validateMagicBytes(buffer: Buffer): string | null {
   // JPEG: starts with FF D8 FF
@@ -133,11 +134,32 @@ export function validateMagic(req: Request, res: Response, next: NextFunction): 
   }
 }
 
-// Rate limiter for upload endpoints (10 uploads per 15 minutes)
+/**
+ * Upload budget, keyed on the **authenticated user** like the global limiter.
+ *
+ * It predated that decision and kept express-rate-limit's default IP key, which made it
+ * a per-shop budget: several admins behind one shop router shared it, and proven live,
+ * the same token kept uploading against 127.0.0.1 after ::1 was exhausted (MED-10 in
+ * `docs/audits/2026-09-22-shop-cart-fullstack-audit.md`). The reasoning is the one in
+ * `apps/server/CLAUDE.md` -> *Rate-limit bucketing*; this limiter simply never received it.
+ *
+ * The ceiling was 10 against a product that holds 1 primary + 8 gallery images, and
+ * *rejected* attempts spend the budget too — so two mistyped files, or two phone photos
+ * over the size limit, locked an operator out mid-product for 15 minutes. A limit should
+ * bound abuse, not ordinary authoring of one product, so it is now comfortably above a
+ * full gallery while still far below anything a person does by hand.
+ */
+export const UPLOAD_RATE_LIMIT_MAX = 60;
+const UPLOAD_RATE_WINDOW_MINUTES = 15;
+
 export const uploadRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: errorResponse('RATE_LIMITED', 'Too many uploads. Please try again later.'),
+  windowMs: UPLOAD_RATE_WINDOW_MINUTES * 60 * 1000,
+  max: UPLOAD_RATE_LIMIT_MAX,
+  keyGenerator: rateLimitKey,
+  message: errorResponse(
+    'RATE_LIMITED',
+    `Too many uploads. Please try again in ${UPLOAD_RATE_WINDOW_MINUTES} minutes.`
+  ),
   standardHeaders: true,
   legacyHeaders: false,
 });

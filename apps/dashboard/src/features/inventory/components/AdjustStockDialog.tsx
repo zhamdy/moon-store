@@ -13,7 +13,7 @@ import {
 } from '@heroui/react';
 import { resource } from '../../../shared/lib/resource';
 import { useTranslation } from '../../../shared/i18n/index';
-import type { Product } from '../../../shared/types/index';
+import type { Product, ProductVariant } from '../../../shared/types/index';
 
 const products = resource<Product>('products');
 
@@ -23,6 +23,22 @@ interface AdjustStockDialogProps {
   productId: number | null;
   productName: string;
   currentStock: number;
+  /**
+   * A variant product's stock lives on its variant rows, so the adjustment has to name
+   * one: `products.stock` is dead state no sale path reads, and an adjustment without a
+   * variant would correct nothing a shopper can buy (MED-13).
+   */
+  hasVariants?: boolean;
+}
+
+/** "S / Red", from whatever attributes the variant carries. */
+function variantLabel(variant: ProductVariant): string {
+  const attrs =
+    typeof variant.attributes === 'string'
+      ? (JSON.parse(variant.attributes || '{}') as Record<string, string>)
+      : ((variant.attributes ?? {}) as Record<string, string>);
+  const values = Object.values(attrs).filter(Boolean);
+  return values.length > 0 ? values.join(' / ') : variant.sku;
 }
 
 type AdjustReason = 'Manual Adjustment' | 'Damaged' | 'Stock Count';
@@ -33,15 +49,27 @@ export default function AdjustStockDialog({
   productId,
   productName,
   currentStock,
+  hasVariants = false,
 }: AdjustStockDialogProps) {
   const { t } = useTranslation();
 
   const [delta, setDelta] = useState(0);
   const [reason, setReason] = useState<AdjustReason>('Manual Adjustment');
+  const [variantId, setVariantId] = useState<number | null>(null);
+
+  const { data: variants } = products.useRead<ProductVariant[]>(
+    `${productId}/variants`,
+    undefined,
+    hasVariants && productId !== null && open
+  );
+  const selectedVariant = variants?.find((v) => v.id === variantId) ?? null;
+  // The figure being adjusted: the chosen size's stock, not the product column.
+  const baseStock = hasVariants ? (selectedVariant?.stock ?? 0) : currentStock;
 
   const resetForm = () => {
     setDelta(0);
     setReason('Manual Adjustment');
+    setVariantId(null);
   };
 
   const adjuster = products.useAction('adjust-stock', {
@@ -55,10 +83,14 @@ export default function AdjustStockDialog({
 
   const handleSubmit = () => {
     if (delta === 0 || productId === null) return;
-    adjuster.run({ id: productId, body: { delta, reason } });
+    if (hasVariants && variantId === null) return;
+    adjuster.run({
+      id: productId,
+      body: hasVariants ? { delta, reason, variant_id: variantId } : { delta, reason },
+    });
   };
 
-  const newStock = currentStock + delta;
+  const newStock = baseStock + delta;
 
   return (
     <Modal
@@ -88,9 +120,26 @@ export default function AdjustStockDialog({
             </ModalHeader>
 
             <ModalBody className="py-4 space-y-4">
+              {hasVariants && (
+                <Select
+                  label={t('stock.variant')}
+                  size="sm"
+                  variant="bordered"
+                  selectedKeys={variantId === null ? [] : [String(variantId)]}
+                  onChange={(e) => setVariantId(e.target.value ? Number(e.target.value) : null)}
+                  isRequired
+                >
+                  {(variants ?? []).map((variant) => (
+                    <SelectItem key={String(variant.id)} textValue={variantLabel(variant)}>
+                      {variantLabel(variant)} ({variant.stock})
+                    </SelectItem>
+                  ))}
+                </Select>
+              )}
+
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
                 <span className="text-sm text-foreground">{t('stock.currentStock')}</span>
-                <span className="text-lg font-semibold font-data">{currentStock}</span>
+                <span className="text-lg font-semibold font-data">{baseStock}</span>
               </div>
 
               <div className="space-y-1">
@@ -149,7 +198,7 @@ export default function AdjustStockDialog({
                 color="primary"
                 size="sm"
                 onPress={handleSubmit}
-                disabled={delta === 0 || newStock < 0}
+                disabled={delta === 0 || newStock < 0 || (hasVariants && variantId === null)}
                 isLoading={adjuster.isRunning}
               >
                 {adjuster.isRunning ? t('common.loading') : t('stock.adjustSubmit')}

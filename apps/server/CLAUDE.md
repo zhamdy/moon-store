@@ -53,6 +53,32 @@ same object undoes the narrowing — `009` re-adds its own wider list. That is i
 what "replay migration N" means, not a bug in either file, and it is why
 `migration009.test.ts` replays both in order rather than only the one it is named for.
 
+## Stock: which column governs sale
+
+`products.stock` is authoritative **only** while `has_variants = 0`. Once a product has
+variants, its stock lives on `product_variants.stock`: every sale, refund, exchange and
+stock count writes there, and the catalog and cart quote read there. `products.stock` is
+then dead state that nothing reconciles — the seed sets it to `SUM(variants.stock)` once,
+and it drifts from the first variant sale onward (measured: 6 against a real 5 after one
+sale, with per-size sellable 3/0/2).
+
+Consequences, all of them fixed in the audit's remediation and worth not re-breaking:
+
+- `PUT /api/v1/products/:id` writes `products.stock` absolutely and audits nothing, so
+  **`stock` is optional there** and an intentional change belongs on adjust-stock. Absent
+  also keeps `cost_price`, `min_stock`, `barcode` and `distributor_id` (HIGH-3 / MED-11).
+- `POST /api/v1/products/:id/adjust-stock` takes an optional `variant_id`. For a variant
+  product it is required in practice: without it the delta lands on the column no sale
+  path reads. The write is the same guarded relative `stock + $1 >= 0`, against the
+  variant row, and it also refuses a variant belonging to another product (MED-13).
+- `stock_adjustments.variant_id` (018) records which size moved. Nullable, and historic
+  rows are **not** backfilled — which variant an old row meant is unrecoverable, and
+  guessing would manufacture false audit data. Sales and stock counts write it too, so the
+  ledger reconciles per size (MED-14).
+- The dashboard renders `has_variants ? variant_stock : stock` everywhere
+  (`sellableStock` in `apps/dashboard/src/shared/lib/productStock.ts`), and the product
+  form's Stock field is disabled for a variant product.
+
 ## Dormant tables
 
 Fourteen tables belong to features removed from the application but not from the schema.
@@ -154,6 +180,20 @@ till is confirmed to be sending the header. The observable is that
 `SELECT COUNT(*) FROM idempotency_keys WHERE created_at > NOW() - INTERVAL '1 day'`
 matches the day's sale count. Flipping is a config change, not a deploy, so it is
 reversible in seconds.
+
+## Optimistic concurrency on products and collections
+
+Both `PUT /api/v1/products/:id` and `PUT /api/v1/collections/:id` accept an optional
+`expected_updated_at`, take `SELECT ... FOR UPDATE` on the row and refuse a stale write
+with a `409` whose `details[].code` is `PRODUCT_MODIFIED` / `COLLECTION_MODIFIED`. The
+reasoning below is written for collections and applies to both; the product endpoint was
+given the same treatment after the audit measured what its absence cost (HIGH-3): a
+cashier selling between the operator opening the product form and saving it had the sale
+silently overwritten, because the form sends a full row.
+
+The product update runs inside one transaction for the same reason the collections one
+does — `FOR UPDATE` outside a transaction releases at statement end, so the lock would be
+decoration. That also makes its `price_history` writes atomic with the row they describe.
 
 ## Optimistic concurrency on collections
 
@@ -455,7 +495,9 @@ test change, deliberately.
   cancelled query (57014) is `503 SERVICE_UNAVAILABLE`, the eighth public code.
 - GET 2xx (and 304) send `Cache-Control: public, max-age=60`; every other status `no-store`
   (`publicCacheOnSuccess`, decided at `writeHead`). It overwrites the header on **any** 2xx
-  regardless of method, which is why the quote route is registered ahead of it.
+  regardless of method, so it **skips the cart-quote path outright** — registering the
+  quote route ahead of it was not enough, because deciding at `writeHead` means it rewrites
+  whatever an earlier middleware set (MED-2).
 
 **Product detail (`/products/:slug`).** All four reads (product, gallery, variants,
 collections) run in one `runCatalogRead`. The rules, pinned in `tests/catalog.test.ts`:
@@ -533,10 +575,17 @@ Pinned in `tests/catalogCartQuote.test.ts`:
   `product_id` or `min_stock`; `maxQuantity` is the only stock-derived number.
 - **Dropped variants are not logged here.** The product page already logs them, and this
   read is uncached and batched, so logging would let one caller multiply log volume.
-- `Cache-Control: no-store` on every status: the route is registered **before**
-  `publicCacheOnSuccess` behind its own `noStore` middleware (CD-22). Set in the controller
-  behind the cache middleware, the header would be rewritten at `writeHead` to
-  `public, max-age=60` on a priced, per-bag response.
+- `Cache-Control: no-store` on every status, in two halves that are both load-bearing
+  (CD-22, corrected by MED-2). `router.all('/cart/quote', noStore)` **sets** it for every
+  method: attached to `post` alone it never ran for anything else, and an `OPTIONS` that
+  `cors()` does not short-circuit (no `Origin`, or one the quote's CORS refuses) misses the
+  POST handler and is answered by Express's built-in per-route responder with
+  `200 / Allow: POST`. `publicCacheOnSuccess` **skips** the path, which is what stops the
+  header being rewritten — it decides at `writeHead`, so ordering alone never protected
+  anything. Before the fix that fallthrough shipped `public, max-age=60` on the pricing
+  endpoint's own URL. `tests/http/catalogCacheHeaders.test.ts` asserts every method and
+  every status, and asserts the skip against the middleware directly rather than against a
+  route arrangement, so reordering the router cannot defeat it (lead L5).
 
 **Indexes were measured, not assumed.** KD-17 planned four listing indexes; EXPLAIN on
 8,000 products used only `idx_products_status_created (status, created_at DESC, id)`, for

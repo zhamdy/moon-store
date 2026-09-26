@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { verifyToken, requireRole } from '../../../../middleware/auth';
 import { uploadRateLimit } from '../../../../middleware/upload';
-import { createImageUpload, validateImageBytes } from '../../../storage/upload';
+import { createImageUpload, imageUploadErrors, validateImageBytes } from '../../../storage/upload';
 import { collectionsController } from './controller';
 
 // Same intake as the product image route: memory-backed, 2 MB, magic bytes checked.
@@ -40,8 +40,12 @@ router.post(
   requireRole('Admin'),
   uploadRateLimit,
   upload.single('image'),
+  // Immediately after multer: its size and type refusals are errors, and without a
+  // handler here they fall through to the shared one as 500s (HIGH-5).
+  imageUploadErrors,
   validateImageBytes,
-  (req, res, next) => collectionsController.uploadImage(req, res, next)
+  (req: Request, res: Response, next: NextFunction) =>
+    collectionsController.uploadImage(req, res, next)
 );
 
 // DELETE /api/v1/collections/:id/image

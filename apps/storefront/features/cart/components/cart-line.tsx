@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
+import { StatusText } from '@/components/ui/status';
 import { ProductImagePlaceholder } from '@/features/products/components/product-image-placeholder';
 import { langProps } from '@/features/products/utils/localized-name';
 import { formatPrice } from '@/features/products/utils/price';
@@ -15,8 +16,16 @@ import {
   stepperCommitValue,
   stepperLimitText,
 } from '../utils/bag-view-model';
-import type { BagRow } from '../utils/reconcile';
+import type { BagNotice, BagRow } from '../utils/reconcile';
 import { QuantityStepper } from './quantity-stepper';
+
+const NOTICE_TONE: Record<BagNotice['kind'], 'notice' | 'danger'> = {
+  quantityLimited: 'notice',
+  priceUpdated: 'notice',
+  soldOut: 'danger',
+  variantUnavailable: 'danger',
+  productUnavailable: 'danger',
+};
 
 export type CartLineVariant = 'drawer' | 'page';
 
@@ -201,9 +210,13 @@ export function CartLine({
     </>
   );
   const notices = row.notices.length > 0 && (
-    <ul className="type-small mt-2 space-y-0.5 text-text">
+    <ul className="mt-2 space-y-1">
       {row.notices.map((notice) => (
-        <li key={notice.kind}>{noticeText(notice, strings)}</li>
+        <li key={notice.kind}>
+          {/* Stock and price changes are a notice (bronze); a piece that can no longer be
+              bought is danger. A dot and the words, never colour alone. */}
+          <StatusText tone={NOTICE_TONE[notice.kind]}>{noticeText(notice, strings)}</StatusText>
+        </li>
       ))}
     </ul>
   );
@@ -227,7 +240,7 @@ export function CartLine({
       onClick={() => onRemove(row, displayName)}
       aria-label={fillTemplate(strings.removeLabel, { name: displayName })}
       className={cn(
-        'type-small inline-flex min-h-11 cursor-pointer items-center text-text underline decoration-text-secondary decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:decoration-text',
+        'type-supporting inline-flex min-h-(--size-tap) cursor-pointer items-center text-text-secondary underline decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:text-danger',
         className
       )}
     >

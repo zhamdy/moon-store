@@ -57,6 +57,7 @@ import type {
   ProductImportResult,
 } from '../types';
 import { assetUrl } from '../../../shared/lib/apiBase';
+import { isLowStock, sellableStock } from '../../../shared/lib/productStock';
 import { englishForWrite, slugFailureMessage, slugForWrite, slugFormSchema } from '../lib/slug';
 
 const products = resource<Product>('products');
@@ -131,6 +132,16 @@ export default function Inventory() {
   const categoryId = typeof rawSearch.categoryId === 'number' ? rawSearch.categoryId : undefined;
   const status = typeof rawSearch.status === 'string' ? rawSearch.status : 'all';
   const lowStockFilter = rawSearch.lowStock === true || rawSearch.lowStock === 'true';
+  /**
+   * The server refuses `lowStock=true` with any status but `active` — a documented
+   * cross-field rule, since "low stock" is only meaningful for what is on sale. The
+   * toggle already sets `status: 'active'` when it turns on, and the Status select is
+   * hidden while it is on, but neither guards a URL that carries the pair: a shared link,
+   * a restored history entry or a hand-edited address answered 400 and the page showed no
+   * rows. Resolved here, at the one place the request is built, so no route into that
+   * state can produce an illegal query.
+   */
+  const requestStatus = lowStockFilter ? 'active' : status;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchDraft, setSearchDraft] = useState(searchTerm);
 
@@ -138,6 +149,8 @@ export default function Inventory() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
+  /** A stale-version refusal (PRODUCT_MODIFIED); shown on the dialog, not as a toast. */
+  const [saveConflict, setSaveConflict] = useState<string | null>(null);
   const [discontinueId, setDiscontinueId] = useState<number | null>(null);
   const [reactivateId, setReactivateId] = useState<number | null>(null);
   const [adjustStockOpen, setAdjustStockOpen] = useState(false);
@@ -145,6 +158,8 @@ export default function Inventory() {
     id: number;
     name: string;
     stock: number;
+    has_variants: number;
+    variant_count: number;
   } | null>(null);
 
   // Bulk state
@@ -167,7 +182,7 @@ export default function Inventory() {
     sortBy,
     sortOrder,
     categoryId,
-    status,
+    status: requestStatus,
     lowStock: lowStockFilter || undefined,
   });
   const { data: categories } = products.useRead<Category[]>('categories');
@@ -212,7 +227,7 @@ export default function Inventory() {
 
   useEffect(
     () => setRowSelection({}),
-    [page, pageSize, searchTerm, sortBy, sortOrder, categoryId, status, lowStockFilter]
+    [page, pageSize, searchTerm, sortBy, sortOrder, categoryId, requestStatus, lowStockFilter]
   );
 
   // Writes. One save covers create and update: an id in the draft is what makes
@@ -227,7 +242,13 @@ export default function Inventory() {
       setEditingProduct(null);
     },
     // A refused slug belongs on its field, with the dialog and every value left in place.
+    // A stale-version conflict likewise keeps the dialog open: the recovery is to reload
+    // and look at what changed, so the operator must not lose what they typed meanwhile.
     onFailure: (failure) => {
+      if (failure.details.some((detail) => detail.code === 'PRODUCT_MODIFIED')) {
+        setSaveConflict(t('inventory.productChangedElsewhere'));
+        return true;
+      }
       const message = slugFailureMessage(failure);
       if (!message) return;
       setSlugError(message);
@@ -345,6 +366,7 @@ export default function Inventory() {
 
   const onSubmit = (data: ProductFormData) => {
     setSlugError(null);
+    setSaveConflict(null);
     saver.save({
       id: editingProduct?.id ?? null,
       ...data,
@@ -358,6 +380,11 @@ export default function Inventory() {
       fit: englishForWrite(data.fit),
       fit_en: englishForWrite(data.fit_en),
       slug: slugForWrite(data.slug),
+      // The version this edit was composed against, so a change that landed while the
+      // form was open is refused rather than silently overwritten (HIGH-3). It must come
+      // from the record the dialog opened with: re-reading it at submit time would always
+      // match and quietly turn the check off.
+      ...(editingProduct ? { expected_updated_at: editingProduct.updated_at } : {}),
     });
   };
 
@@ -483,11 +510,11 @@ export default function Inventory() {
             </div>
           )}
           <span className="font-medium text-foreground">{row.original.name}</span>
-          {row.original.stock === 0 ? (
+          {sellableStock(row.original) === 0 ? (
             <Badge size="sm" variant="danger">
               {t('inventory.critical')}
             </Badge>
-          ) : row.original.stock <= row.original.min_stock ? (
+          ) : isLowStock(row.original) ? (
             <Badge size="sm" variant="warning">
               {t('inventory.lowStock')}
             </Badge>
@@ -518,19 +545,24 @@ export default function Inventory() {
     {
       accessorKey: 'stock',
       header: t('inventory.stock'),
-      cell: ({ row }) => (
-        <span
-          className={`font-data font-semibold ${
-            row.original.stock === 0
-              ? 'text-danger'
-              : row.original.stock <= row.original.min_stock
-                ? 'text-warning'
-                : 'text-foreground'
-          }`}
-        >
-          {row.original.stock}
-        </span>
-      ),
+      // The sellable figure, not `products.stock`: on a variant product that column is
+      // dead state no sale path touches, and this table showed it (HIGH-4).
+      cell: ({ row }) => {
+        const stock = sellableStock(row.original);
+        return (
+          <span
+            className={`font-data font-semibold ${
+              stock === 0
+                ? 'text-danger'
+                : isLowStock(row.original)
+                  ? 'text-warning'
+                  : 'text-foreground'
+            }`}
+          >
+            {stock}
+          </span>
+        );
+      },
     },
     ...(lowStockFilter
       ? [
@@ -652,6 +684,8 @@ export default function Inventory() {
                             id: row.original.id,
                             name: row.original.name,
                             stock: row.original.stock,
+                            has_variants: row.original.has_variants,
+                            variant_count: row.original.variant_count,
                           });
                           setAdjustStockOpen(true);
                         }}
@@ -932,6 +966,7 @@ export default function Inventory() {
         onImageUpload={handleImageUpload}
         onImageRemove={handleRemoveImage}
         slugError={slugError}
+        saveConflict={saveConflict}
       />
 
       {/* Discontinue confirmation */}
@@ -973,6 +1008,7 @@ export default function Inventory() {
         productId={adjustProduct?.id ?? null}
         productName={adjustProduct?.name ?? ''}
         currentStock={adjustProduct?.stock ?? 0}
+        hasVariants={Boolean(adjustProduct?.has_variants && adjustProduct.variant_count > 0)}
       />
 
       {/* Bulk Operation Dialogs */}
@@ -1039,6 +1075,7 @@ export default function Inventory() {
         variantCostPrice={vm.variantCostPrice}
         setVariantCostPrice={vm.setVariantCostPrice}
         variantStock={vm.variantStock}
+        variantErrors={vm.variantErrors}
         setVariantStock={vm.setVariantStock}
         onOpenEditVariant={vm.openEditVariant}
         onVariantSubmit={vm.handleVariantSubmit}

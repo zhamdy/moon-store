@@ -112,13 +112,9 @@ export function RelatedProductsSkeleton() {
         {Array.from({ length: RELATED_LIMIT }, (_, index) => (
           <li key={index}>
             <div className="aspect-4/5 rounded-media bg-surface-soft" />
-            {/* The card's caption and its action, at the card's own heights: name and
-              price on one baseline, two clamped description lines, a 48px button. */}
-            <div className="mt-3 flex items-baseline justify-between gap-3">
-              <span className="block h-[1.7rem] w-3/5 bg-surface-soft" />
-              <span className="block h-[1.36rem] w-20 bg-surface-soft" />
-            </div>
-            <span className="mt-1.5 block h-[2.72rem] bg-surface-soft" />
+            {/* Card A's compact caption at its own line heights: name, price. */}
+            <span className="mt-3.5 block h-[1.375rem] w-3/5 bg-surface-soft" />
+            <span className="mt-1 block h-[1.375rem] w-24 bg-surface-soft" />
           </li>
         ))}
       </ul>

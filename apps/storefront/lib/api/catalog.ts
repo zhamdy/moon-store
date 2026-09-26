@@ -9,6 +9,26 @@ export const CATALOG_REVALIDATE = {
 
 export const CATALOG_SERVER_TOKEN_HEADER = 'X-Catalog-Server-Token';
 
+/**
+ * Cache tags for on-demand invalidation. The TTL alone cannot express a withdrawal:
+ * Next writes its data cache only on `res.status === 200`, so once a product is
+ * deactivated the revalidation receives the API's 404, the entry is never replaced,
+ * and the stale 200 is served **indefinitely** — measured at 64 consecutive samples
+ * over 16 minutes on a production build (HIGH-2). Deletion cannot be expressed by the
+ * absence of a cache entry; it has to be pushed.
+ *
+ * `products` is every list (a withdrawal changes what a listing contains, whichever
+ * scope it was fetched under), and the entity tags are per slug.
+ */
+export const catalogTags = {
+  products: 'catalog:products',
+  product: (slug: string) => `catalog:product:${slug}`,
+  categories: 'catalog:categories',
+  collections: 'catalog:collections',
+  collection: (slug: string) => `catalog:collection:${slug}`,
+  storePolicies: 'catalog:store-policies',
+} as const;
+
 export interface CatalogFetchOptions {
   /**
    * Only for a request fetched once per render. Any signal opts the fetch out of
@@ -32,12 +52,13 @@ export const CATALOG_LIST_TIMEOUT_MS = 15_000;
 export function catalogFetch<T>(
   path: string,
   revalidate: number,
+  tags: string[],
   options: CatalogFetchOptions = {}
 ): Promise<ApiFetchResult<T>> {
   const token = process.env.CATALOG_SERVER_TOKEN;
   return apiFetch<T>(path, {
     headers: token ? { [CATALOG_SERVER_TOKEN_HEADER]: token } : undefined,
-    next: { revalidate },
+    next: { revalidate, tags },
     timeoutMs: options.timeoutMs,
   });
 }

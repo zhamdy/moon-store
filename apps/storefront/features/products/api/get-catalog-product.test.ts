@@ -57,14 +57,19 @@ describe('getCatalogProduct', () => {
     vi.unstubAllEnvs();
   });
 
-  it('returns the product, fetched with a 60s revalidate and a deadline', async () => {
+  it('returns the product, fetched with the entity revalidate, its tags and a deadline', async () => {
     vi.mocked(fetch).mockResolvedValue(jsonResponse(200, { data: product }));
 
     await expect(getCatalogProduct('silk-dress')).resolves.toEqual(product);
     expect(String(vi.mocked(fetch).mock.calls[0][0])).toBe(
       'http://localhost:3001/api/v1/catalog/products/silk-dress'
     );
-    expect(requestInit().next).toEqual({ revalidate: 60 });
+    // 300, not 60: this read had the list's lifetime under the entity's name (LOW-12).
+    // The tags are what make a withdrawal immediate rather than eventual (HIGH-2).
+    expect(requestInit().next).toEqual({
+      revalidate: 300,
+      tags: ['catalog:products', 'catalog:product:silk-dress'],
+    });
     expect(requestInit().signal).toBeInstanceOf(AbortSignal);
   });
 

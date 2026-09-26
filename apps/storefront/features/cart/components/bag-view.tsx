@@ -1,6 +1,8 @@
 'use client';
 
 import { Link } from '@/i18n/navigation';
+import { buttonClassName } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { AppLocale } from '@/i18n/routing';
 import type { BagPageStrings } from '../utils/bag-strings';
 import { checkoutReadiness } from '../utils/checkout-readiness';
@@ -51,14 +53,17 @@ export function BagView({ strings, locale, shopHref }: BagViewProps) {
 
   if (cart.hydrated && view.kind === 'empty') {
     return (
-      <div className="flex flex-col items-start gap-4 border-t border-border pt-10">
-        <h2 ref={emptyHeading} tabIndex={-1} className="type-h4 focus:outline-none">
-          {strings.status.emptyTitle}
-        </h2>
-        <Link href={shopHref} className={TEXT_ACTION}>
-          {strings.status.emptyAction}
-        </Link>
-      </div>
+      <EmptyState
+        className="border-t border-border"
+        titleRef={emptyHeading}
+        titleFocusable
+        title={strings.status.emptyTitle}
+        actions={
+          <Link href={shopHref} className={buttonClassName()}>
+            {strings.status.emptyAction}
+          </Link>
+        }
+      />
     );
   }
 

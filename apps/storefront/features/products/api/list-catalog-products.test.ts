@@ -126,7 +126,7 @@ describe('listCatalogProducts', () => {
     expect(requestedUrl()).toBe(
       'http://localhost:3001/api/v1/catalog/products?collection=silk&sort=curated&page=2'
     );
-    expect(requestInit().next).toEqual({ revalidate: 60 });
+    expect(requestInit().next).toEqual({ revalidate: 60, tags: ['catalog:products'] });
     expect(requestInit().credentials).toBe('omit');
   });
 
