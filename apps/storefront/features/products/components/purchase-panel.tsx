@@ -9,6 +9,7 @@ import {
   displayedPrice,
   initialSelection,
   purchaseReadiness,
+  unavailableValues,
   valueAvailable,
   type PurchaseProduct,
   type Selection,
@@ -28,6 +29,8 @@ export interface PurchasePanelStrings {
   valueSoldOut: string;
   /** "Choose a {option}" (`{option}`: the localized legend) */
   chooseOption: string;
+  /** The note beside a legend, `{values}` a list: "{values} is sold out" / "… are sold out". */
+  soldOutNote: { one: string; other: string };
 }
 
 export interface PurchasePanelProps {
@@ -37,6 +40,10 @@ export interface PurchasePanelProps {
   /** `String(amount)` to the server-formatted price: the product price and every variant price. */
   prices: Record<string, string>;
   strings: PurchasePanelStrings;
+  /** The page's locale, for the list in the sold-out note (`Intl.ListFormat`). */
+  locale: string;
+  /** The description's lead paragraph, server-rendered, under the price. */
+  lead?: ReactNode;
   /** The purchase action, composed by the page; it reads the selection through context. */
   action?: ReactNode;
 }
@@ -58,7 +65,15 @@ const CHOOSE_OPTION_TOAST_ID = 'choose-option';
  * `variant-selection.ts`; `data-readiness` exposes the Cart contract (PD-B), and the
  * `action` slot receives it through `PurchaseSelectionContext` (CD-11).
  */
-export function PurchasePanel({ product, legends, prices, strings, action }: PurchasePanelProps) {
+export function PurchasePanel({
+  product,
+  legends,
+  prices,
+  strings,
+  locale,
+  lead,
+  action,
+}: PurchasePanelProps) {
   const baseId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<Selection>(() => initialSelection(product.options));
@@ -88,6 +103,11 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
     showToast({ tone: 'error', message: text, id: CHOOSE_OPTION_TOAST_ID });
   }, [readiness, product.options, legends, strings.chooseOption]);
 
+  const list = useMemo(
+    () => new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }),
+    [locale]
+  );
+
   const context = useMemo<PurchaseSelection>(
     () => ({ readiness, unitPrice, focusFirstUnselected }),
     [readiness, unitPrice, focusFirstUnselected]
@@ -96,15 +116,16 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
   return (
     <PurchaseSelectionContext value={context}>
       <div ref={rootRef} data-purchase-panel data-readiness={readiness.kind}>
-        {/* Mounted with the first render so later changes are announced. */}
+        {/* Mounted with the first render so later changes are announced. The status sits
+            beside the price, so nothing is reserved for it and nothing moves when it
+            appears. */}
         <div aria-live="polite" aria-atomic="true">
-          <p className="type-body-lg font-medium tabular-nums">
-            {price.kind === 'from'
-              ? fillTemplate(strings.priceFrom, { price: formatted })
-              : formatted}
-          </p>
-          {/* Height reserved for the badge, so choosing a sold-out size never shifts the layout. */}
-          <p className="mt-2 flex min-h-7 items-center">
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="type-body-lg font-medium tabular-nums">
+              {price.kind === 'from'
+                ? fillTemplate(strings.priceFrom, { price: formatted })
+                : formatted}
+            </span>
             {status === 'inStock' ? (
               <StatusText tone="success">{strings.inStock}</StatusText>
             ) : status === 'soldOut' ? (
@@ -113,31 +134,46 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
           </p>
         </div>
 
+        {lead && <div className="mt-4">{lead}</div>}
+
         {product.options.map((option, optionIndex) => {
           const legend = legends[option.key] ?? { text: option.label, staff: true };
           const chosen = selection[option.key] ?? null;
           const name = `${baseId}-option-${optionIndex}`;
           const promptId = `${name}-prompt`;
           const prompted = prompt?.key === option.key;
+          const soldOut = unavailableValues(option, selection, product.variants);
           return (
             <fieldset
               key={option.key}
               data-option-index={optionIndex}
               aria-describedby={prompted ? promptId : undefined}
-              className="mt-8 min-w-0"
+              className="mt-7 min-w-0"
             >
-              <legend
-                className={`type-field-label transition-colors duration-fast ease-ui ${prompted ? 'text-text' : 'text-text-secondary'}`}
-              >
-                <span dir={legend.staff ? 'auto' : undefined}>
+              {/* Floated so it lays out as a block row: the note sits at its inline end. */}
+              <legend className="float-start flex w-full flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <span
+                  dir={legend.staff ? 'auto' : undefined}
+                  className={`type-field-label transition-colors duration-fast ease-ui ${prompted ? 'text-text' : 'text-text-secondary'}`}
+                >
                   {chosen === null
                     ? legend.text
                     : fillTemplate(strings.selected, { option: legend.text, value: chosen })}
                 </span>
+                {/* Hidden from the group's name: every cell already says "sold out". */}
+                {soldOut.length > 0 && (
+                  <span aria-hidden="true" className="type-supporting text-text-secondary">
+                    {fillTemplate(
+                      soldOut.length === 1 ? strings.soldOutNote.one : strings.soldOutNote.other,
+                      { values: list.format(soldOut) }
+                    )}
+                  </span>
+                )}
               </legend>
-              {/* Height reserved so the cells and Add to Bag never move under a second tap.
-                  Not a live region: the error toast announces it, once. */}
-              <div className="min-h-6 pt-2">
+              {/* Height reserved for one line of the prompt (22px, 26px in Arabic) and its
+                  6px of air, so the cells and Add to Bag never move when it appears. Not a
+                  live region: the error toast announces it, once. */}
+              <div className="clear-both min-h-7 pt-1.5 [&:lang(ar)]:min-h-8">
                 {prompted && (
                   <p
                     id={promptId}
@@ -153,7 +189,7 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
                   </p>
                 )}
               </div>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-1 flex flex-wrap gap-2">
                 {option.values.map((value) => {
                   const available = valueAvailable(option.key, value, selection, product.variants);
                   return (
@@ -201,7 +237,7 @@ export function PurchasePanel({ product, legends, prices, strings, action }: Pur
         })}
 
         {action && (
-          <div data-product-action className="mt-8">
+          <div data-product-action className="mt-6">
             {action}
           </div>
         )}

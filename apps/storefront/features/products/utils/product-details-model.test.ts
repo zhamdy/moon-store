@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CatalogProductDetail } from '../types/catalog-product-detail';
 import type { StorePolicies } from '../types/store-policies';
-import {
-  productDetailsTabs,
-  productLead,
-  splitParagraphs,
-  tabHasFocusableContent,
-  type DetailsTab,
-} from './product-details-model';
+import { productInfo, productLead, splitParagraphs } from './product-details-model';
 
 const BARE: CatalogProductDetail = {
   slug: 'gown',
@@ -59,12 +53,6 @@ const POLICIES: StorePolicies = {
   returnsEn: null,
 };
 
-const ids = (tabs: DetailsTab[]) => tabs.map((tab) => tab.id);
-
-function tab<Id extends DetailsTab['id']>(tabs: DetailsTab[], id: Id) {
-  return tabs.find((candidate) => candidate.id === id) as Extract<DetailsTab, { id: Id }>;
-}
-
 describe('splitParagraphs and productLead', () => {
   it('splits on blank lines and keeps single breaks', () => {
     expect(splitParagraphs(FULL.descriptionEn!)).toEqual(['First line\nsame paragraph', 'Second']);
@@ -81,36 +69,17 @@ describe('splitParagraphs and productLead', () => {
   });
 });
 
-describe('productDetailsTabs', () => {
-  it('renders all three tabs in order when everything exists', () => {
-    expect(ids(productDetailsTabs(FULL, POLICIES, 'en'))).toEqual([
-      'description',
-      'details',
-      'shipping',
-    ]);
-  });
-
-  it('has no tabs for a bare product with no policies', () => {
-    expect(productDetailsTabs(BARE, null, 'en')).toEqual([]);
+describe('productInfo', () => {
+  it('is empty for a bare product with no policies', () => {
+    expect(productInfo(BARE, null, 'en')).toEqual({ rows: [], more: null, shipping: [] });
     expect(
-      productDetailsTabs(
-        BARE,
-        { delivery: ' ', deliveryEn: null, returns: null, returnsEn: '' },
-        'en'
-      )
-    ).toEqual([]);
+      productInfo(BARE, { delivery: ' ', deliveryEn: null, returns: null, returnsEn: '' }, 'en')
+    ).toEqual({ rows: [], more: null, shipping: [] });
   });
 
-  it('can be a single tab', () => {
-    expect(ids(productDetailsTabs({ ...BARE, description: 'وصف' }, null, 'ar'))).toEqual([
-      'description',
-    ]);
-    expect(ids(productDetailsTabs(BARE, POLICIES, 'ar'))).toEqual(['shipping']);
-  });
-
-  it('builds the details rows in order, omitting empty ones', () => {
-    const details = tab(productDetailsTabs(FULL, null, 'en'), 'details');
-    expect(details.rows.map((row) => row.id)).toEqual([
+  it('builds the facts rows in order, omitting empty ones', () => {
+    const { rows } = productInfo(FULL, null, 'en');
+    expect(rows.map((row) => row.id)).toEqual([
       'material',
       'care',
       'fit',
@@ -118,12 +87,12 @@ describe('productDetailsTabs', () => {
       'collection',
       'sizes',
     ]);
-    expect(details.rows[1]).toEqual({
+    expect(rows[1]).toEqual({
       id: 'care',
       kind: 'text',
       value: { text: 'تنظيف جاف', lang: 'ar' },
     });
-    expect(details.rows[4]).toMatchObject({
+    expect(rows[4]).toMatchObject({
       links: [
         { slug: 'silk', name: { text: 'Silk', lang: 'en' } },
         { slug: 'evening', name: { text: 'سهرة', lang: 'ar' } },
@@ -132,40 +101,39 @@ describe('productDetailsTabs', () => {
   });
 
   it('takes sizes only from the size option', () => {
-    const details = tab(productDetailsTabs(FULL, null, 'en'), 'details');
-    expect(details.rows.at(-1)).toEqual({ id: 'sizes', kind: 'values', values: ['S', 'M', 'L'] });
-
-    const colourOnly = productDetailsTabs(
+    expect(productInfo(FULL, null, 'en').rows.at(-1)).toEqual({
+      id: 'sizes',
+      kind: 'values',
+      values: ['S', 'M', 'L'],
+    });
+    const colourOnly = productInfo(
       { ...BARE, material: 'قطن', options: [FULL.options[0]] },
       null,
       'en'
     );
-    expect(tab(colourOnly, 'details').rows.map((row) => row.id)).toEqual(['material']);
+    expect(colourOnly.rows.map((row) => row.id)).toEqual(['material']);
+  });
+
+  it('folds only the paragraphs after the lead, so the description is said once', () => {
+    expect(productInfo(FULL, null, 'en').more).toEqual({ lang: 'en', paragraphs: ['Second'] });
+    expect(productInfo(FULL, null, 'ar').more).toEqual({ lang: 'ar', paragraphs: ['وصف ثان'] });
+    expect(productInfo({ ...BARE, descriptionEn: 'One paragraph' }, null, 'en').more).toBeNull();
   });
 
   it('never shows English copy on an Arabic page', () => {
-    const tabs = productDetailsTabs(
-      { ...BARE, materialEn: 'Silk', descriptionEn: 'English only' },
-      { delivery: null, deliveryEn: 'English', returns: null, returnsEn: null },
-      'ar'
-    );
-    expect(tabs).toEqual([]);
+    expect(
+      productInfo(
+        { ...BARE, materialEn: 'Silk', descriptionEn: 'English only\n\nMore' },
+        { delivery: null, deliveryEn: 'English', returns: null, returnsEn: null },
+        'ar'
+      )
+    ).toEqual({ rows: [], more: null, shipping: [] });
   });
 
   it('builds shipping sections from the localized policies', () => {
-    const shipping = tab(productDetailsTabs(BARE, POLICIES, 'en'), 'shipping');
-    expect(shipping.sections).toEqual([
+    expect(productInfo(BARE, POLICIES, 'en').shipping).toEqual([
       { id: 'delivery', lang: 'en', paragraphs: ['Delivery copy'] },
       { id: 'returns', lang: 'ar', paragraphs: ['إرجاع'] },
     ]);
-  });
-});
-
-describe('tabHasFocusableContent', () => {
-  it('is true only for a details panel with links', () => {
-    const tabs = productDetailsTabs(FULL, POLICIES, 'en');
-    expect(tabs.map(tabHasFocusableContent)).toEqual([false, true, false]);
-    const textOnly = productDetailsTabs({ ...BARE, fit: 'واسع' }, null, 'ar');
-    expect(tabHasFocusableContent(textOnly[0])).toBe(false);
   });
 });

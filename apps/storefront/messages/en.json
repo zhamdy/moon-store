@@ -184,7 +184,6 @@
       "shopByCategory": "Shop by category"
     },
     "collections": {
-      "explore": "Explore",
       "description": "A considered wardrobe, one collection at a time. Discover the pieces that bring each story together.",
       "count": "{count, plural, one {# collection} other {# collections}}",
       "credits": "In this collection",
@@ -245,17 +244,19 @@
       "size": "Size",
       "color": "Colour",
       "selected": "{option}: {value}",
-      "valueSoldOut": "{value}, sold out"
+      "valueSoldOut": "{value}, sold out",
+      "soldOutNote": {
+        "one": "{values} is sold out",
+        "other": "{values} are sold out"
+      }
     },
     "gallery": {
       "label": "Product images",
       "imageAlt": "{name}, image {n} of {count}",
       "thumbLabel": "Image {n} of {count}"
     },
-    "partOf": "Part of {collection}",
     "related": {
-      "heading": "Related products",
-      "description": "More pieces from {name}"
+      "heading": "More from {name}"
     },
     "breadcrumb": {
       "label": "Breadcrumb",
@@ -263,9 +264,6 @@
       "shop": "Shop"
     },
     "details": {
-      "label": "Product information",
-      "description": "Description",
-      "details": "Details",
       "shipping": "Shipping & returns",
       "material": "Material",
       "care": "Care",
@@ -274,7 +272,8 @@
       "collection": "Collection",
       "sizes": "Sizes",
       "delivery": "Delivery",
-      "returns": "Returns"
+      "returns": "Returns",
+      "more": "More about this piece"
     },
     "share": {
       "label": "Share it:",

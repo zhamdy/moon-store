@@ -6,6 +6,7 @@ import {
   initialSelection,
   purchaseReadiness,
   selectedVariant,
+  unavailableValues,
   valueAvailable,
   type PurchaseProduct,
   type Selection,
@@ -160,6 +161,36 @@ describe('two options with a missing combination', () => {
       kind: 'ready',
       options: { size: 'M', color: 'Black' },
     });
+  });
+});
+
+describe('unavailableValues', () => {
+  it('lists the sold-out values in display order', () => {
+    expect(unavailableValues(sizeOption, { size: null }, knit.variants)).toEqual(['M']);
+    const onlyM = [
+      variant({ size: 'S' }, false),
+      variant({ size: 'M' }),
+      variant({ size: 'L' }, false),
+    ];
+    expect(unavailableValues(sizeOption, { size: 'M' }, onlyM)).toEqual(['S', 'L']);
+  });
+
+  it('follows the other choice, as the cells do', () => {
+    const [size, color] = twoOptions.options;
+    expect(unavailableValues(size!, { size: null, color: 'Black' }, twoOptions.variants)).toEqual([
+      'S',
+    ]);
+    expect(unavailableValues(color!, { size: 'M', color: null }, twoOptions.variants)).toEqual([
+      'Ivory',
+    ]);
+    expect(unavailableValues(color!, { size: null, color: null }, twoOptions.variants)).toEqual([]);
+  });
+
+  it('is empty when every value is available, and when none is', () => {
+    const allIn = [variant({ size: 'S' }), variant({ size: 'M' }), variant({ size: 'L' })];
+    expect(unavailableValues(sizeOption, { size: null }, allIn)).toEqual([]);
+    const allOut = allIn.map((v) => ({ ...v, inStock: false }));
+    expect(unavailableValues(sizeOption, { size: null }, allOut)).toEqual([]);
   });
 });
 

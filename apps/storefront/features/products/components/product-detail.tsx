@@ -2,57 +2,49 @@ import type { ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
 import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
-import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
 import type { CatalogProductDetail } from '../types/catalog-product-detail';
-import { langProps, localizedName, localizedText } from '../utils/localized-name';
+import { langProps, localizedName } from '../utils/localized-name';
 import { formatPrice } from '../utils/price';
-import { productLead } from '../utils/product-details-model';
+import { ProductImagePlaceholder } from './product-image-placeholder';
 
 export interface ProductDetailProps {
   locale: AppLocale;
   product: CatalogProductDetail;
-  /** Listing hrefs built by the page, so this slice never imports `features/catalog`. */
-  hrefs: { category: string | null; collections: Record<string, string> };
   /** The breadcrumb row above the split. */
   breadcrumb?: ReactNode;
-  /** The image column (Unit 5). Omitted: an empty 4:5 frame holds its place. */
+  /** The image column. Omitted: an empty 4:5 frame holds its place. */
   gallery?: ReactNode;
-  /** Price, availability and options (Unit 6). Omitted: the static price and status. */
+  /** Price, lead, options and the action. Omitted: the static price and status. */
   purchase?: ReactNode;
+  /** The facts list and the folds under the action (`ProductInfo`). */
+  details?: ReactNode;
   /** The share row, last in the info column. */
   share?: ReactNode;
-  /** The details tabs, full container width under the split. */
-  details?: ReactNode;
-  /** The related row under the product (Unit 7), in its own Suspense. */
+  /** "More from {collection}" under the product, in its own Suspense. */
   related?: ReactNode;
 }
 
-const LINK_HOVER =
-  'underline-offset-4 transition-colors duration-fast ease-ui hover:text-text hover:underline';
-
 /**
- * The product page layout: breadcrumb, then a 50/50 split from 1024 with a sticky info
- * column (PD-15), one column below, then the details tabs and the related row. The
- * gallery column carries no Reveal, since it holds the LCP image.
+ * The product page layout ("In its chapter", owner decision 2026-09-26): breadcrumb, then
+ * the page's twelve columns from 1024, the gallery on six and the info column on five
+ * (from the eighth, so one column of air separates them), sticky under the header (PD-15);
+ * one column below. The info column reads name, then the purchase slot (price and status,
+ * the lead, options, Add to Bag), then the facts list and folds, then share, so the
+ * description is said once and nothing sits between the price and the sizes. The row of
+ * the collection's pieces follows the Container.
  *
- * The info column holds only what decides a purchase: name (no eyebrow), a short
- * lead (the description's first paragraph; the full text is the Description tab), the
- * purchase slot, a glance at material and fit (the full list is the Details tab) and
- * "Part of" links. Add to Bag is not placed here: the page composes it into the purchase
- * panel's `action` slot, where `[data-product-action]` renders after the options so the
- * action reads the panel's selection (CD-11). Hover lives on the links, the entrance on
- * their parents.
+ * The gallery column carries no Reveal, since it holds the LCP image. Add to Bag is not
+ * placed here: the page composes it into the purchase panel's `action` slot (CD-11).
  */
 export async function ProductDetail({
   locale,
   product,
-  hrefs,
   breadcrumb,
   gallery,
   purchase,
-  share,
   details,
+  share,
   related,
 }: ProductDetailProps) {
   const [t, tp] = await Promise.all([
@@ -60,112 +52,46 @@ export async function ProductDetail({
     getTranslations({ locale, namespace: 'products' }),
   ]);
   const name = localizedName(product, locale);
-  const lead = productLead(product, locale);
-  const facts = [
-    {
-      key: 'material' as const,
-      value: localizedText(product.material, product.materialEn, locale),
-    },
-    { key: 'fit' as const, value: localizedText(product.fit, product.fitEn, locale) },
-  ].flatMap(({ key, value }) => (value ? [{ key, value }] : []));
-  // Only the collection name is the link, so the template is split around its placeholder.
-  const [partOfBefore = '', partOfAfter = ''] = (t.raw('partOf') as string).split('{collection}');
 
   return (
     <>
-      <Container className="pt-6 pb-16 md:pt-8 lg:pb-24">
-        {breadcrumb && <div className="mb-6 lg:mb-8">{breadcrumb}</div>}
+      <Container className="pt-5 pb-16 md:pt-8 lg:pb-24">
+        {breadcrumb && <div className="mb-5 lg:mb-8">{breadcrumb}</div>}
 
-        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-16">
-          <div>
+        <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-6">
+          <div className="lg:col-span-6">
             {gallery ?? (
-              <div aria-hidden className="aspect-4/5 w-full rounded-media bg-surface-soft" />
+              <div className="relative -mx-(--page-gutter) aspect-4/5 bg-surface-media md:mx-0">
+                <ProductImagePlaceholder />
+              </div>
             )}
           </div>
 
-          <Reveal className="mt-8 max-w-[30rem] lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:mt-0">
+          <Reveal className="mt-7 lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:col-span-5 lg:col-start-8 lg:mt-0 lg:pt-2">
             <h1
               {...langProps(name, locale)}
               data-motion="rise"
-              className="type-h2 text-balance [--motion-rise:24px]"
+              className="type-page-title text-balance [--motion-rise:24px]"
             >
               {name.text}
             </h1>
 
-            {lead && (
-              <p
-                {...langProps(lead, locale)}
-                data-motion="fade"
-                className="type-body mt-4 max-w-[34rem] whitespace-pre-line text-text-secondary [--motion-offset:200ms]"
-              >
-                {lead.text}
-              </p>
-            )}
-
-            <div data-product-purchase className="mt-6">
+            <div data-product-purchase className="mt-4">
               {purchase ?? (
-                <>
-                  <p className="type-body-lg tabular-nums">
-                    {formatPrice(product.price, locale, tp('currency'))}
-                  </p>
-                  <p className="type-small mt-2 text-text-secondary">
+                <p className="type-body-lg font-medium tabular-nums">
+                  {formatPrice(product.price, locale, tp('currency'))}
+                  <span className="type-supporting ms-4 text-text-secondary">
                     {product.inStock ? t('availability.inStock') : t('availability.soldOut')}
-                  </p>
-                </>
+                  </span>
+                </p>
               )}
             </div>
 
-            {facts.length > 0 && (
-              <dl className="type-small mt-8 space-y-2 border-t border-border pt-6">
-                {facts.map(({ key, value }) => (
-                  <div key={key} className="grid grid-cols-[7rem_1fr] gap-x-4">
-                    <dt className="text-text-secondary">{t(`details.${key}`)}</dt>
-                    <dd {...langProps(value, locale)} className="text-text">
-                      {value.text}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
+            {details && <div className="mt-8">{details}</div>}
 
-            {product.collections.length > 0 && (
-              <ul className="type-small mt-8 space-y-2 text-text-secondary">
-                {product.collections.map((collection) => {
-                  const collectionName = localizedName(collection, locale);
-                  return (
-                    <li key={collection.slug}>
-                      {partOfBefore}
-                      <Link
-                        href={hrefs.collections[collection.slug]}
-                        {...langProps(collectionName, locale)}
-                        className={`underline ${LINK_HOVER}`}
-                      >
-                        {collectionName.text}
-                      </Link>
-                      {partOfAfter}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-
-            {share && (
-              <div
-                className={
-                  // The facts list opens with its own hairline; a second one straight after
-                  // it would read as a double rule, so the row takes one only otherwise.
-                  facts.length > 0 && product.collections.length === 0
-                    ? 'mt-8'
-                    : 'mt-8 border-t border-border pt-6'
-                }
-              >
-                {share}
-              </div>
-            )}
+            {share && <div className={details ? 'mt-3' : 'mt-8'}>{share}</div>}
           </Reveal>
         </div>
-
-        {details && <div className="mt-16 lg:mt-24">{details}</div>}
       </Container>
       {related}
     </>

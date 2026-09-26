@@ -46,6 +46,22 @@ export function valueAvailable(
   );
 }
 
+/**
+ * The option's values that cannot be bought with the rest of the selection, in display
+ * order, for the note beside its legend ("S and L are sold out"). Empty when every value
+ * can be bought *or* none can: with none, the product's own status already says so.
+ */
+export function unavailableValues(
+  option: CatalogProductOption,
+  selection: Selection,
+  variants: CatalogProductVariant[]
+): string[] {
+  const unavailable = option.values.filter(
+    (value) => !valueAvailable(option.key, value, selection, variants)
+  );
+  return unavailable.length < option.values.length ? unavailable : [];
+}
+
 function unselectedKeys(selection: Selection, product: PurchaseProduct): string[] {
   return product.options.map((option) => option.key).filter((key) => selection[key] == null);
 }

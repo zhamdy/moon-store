@@ -1,28 +1,30 @@
 import { tabKeyTarget } from './tab-keys';
 
 /**
- * The product gallery's geometry and rules (PD-10, owner decision 2026-09-14: the Bella
- * template's gallery), in one table so the `[data-gallery*]` rules in `app/globals.css`
- * and each image's `sizes` read the same numbers. A thumbnail column beside one large
- * image: at its inline start from 992, at its inline end below. Gutters, the 64px page
- * column gap and the container cap mirror `--page-gutter`, `ProductDetail`'s `lg:gap-x-16`
- * and `--container-max`; a change there must change this table.
+ * The product gallery's geometry and rules ("In its chapter", owner decision 2026-09-26,
+ * replacing the 2026-09-14 thumbnail column): one 4:5 frame the full width of its column,
+ * with a row of thumbnails under it. The step table is what the `[data-gallery*]` rules in
+ * `app/globals.css` and each image's `sizes` both read. Gutters, the 24px grid gap and the
+ * container cap mirror `--page-gutter`, `ProductDetail`'s 12-column grid and
+ * `--container-max`; a change there must change this table.
  */
 export interface GalleryStep {
   /** Viewport width the step starts at, in px. */
   minWidth: number;
   /** `--page-gutter` at this width, in px. */
   gutter: number;
-  /** From 1024 the gallery is half the Container's content box; below, all of it. */
-  columns: 'split' | 'full';
-  /** The square thumbnail button, border and padding included, in px. */
+  /**
+   * `split`: six of the page's twelve columns (from 1024). `full`: the Container's content
+   * box. `bleed`: the viewport, edge to edge (phones).
+   */
+  columns: 'split' | 'full' | 'bleed';
+  /** A thumbnail button's width, border and padding included, in px; it is 4:5. */
   thumb: number;
 }
 
 export const GALLERY_CONTAINER_MAX = 1440;
-const PAGE_COLUMN_GAP = 64;
-/** Between the thumbnail column and the large image, in px. */
-export const GALLERY_THUMB_GAP = 16;
+/** `ProductDetail`'s column gap (`lg:gap-x-6`); the gallery spans six columns, five gaps. */
+const PAGE_GRID_GAP = 24;
 /** A thumbnail's 1px border plus 3px padding, on each side, in px. */
 export const GALLERY_THUMB_INSET = 4;
 /** Zoom in place magnifies the large image this many times. */
@@ -34,9 +36,8 @@ export const GALLERY_ZOOM_QUERY = '(hover: hover) and (pointer: fine) and (min-w
 export const GALLERY_STEPS: readonly GalleryStep[] = [
   { minWidth: 1440, gutter: 64, columns: 'split', thumb: 72 },
   { minWidth: 1024, gutter: 48, columns: 'split', thumb: 72 },
-  { minWidth: 992, gutter: 32, columns: 'full', thumb: 72 },
-  { minWidth: 768, gutter: 32, columns: 'full', thumb: 88 },
-  { minWidth: 0, gutter: 20, columns: 'full', thumb: 72 },
+  { minWidth: 768, gutter: 32, columns: 'full', thumb: 72 },
+  { minWidth: 0, gutter: 20, columns: 'bleed', thumb: 64 },
 ];
 
 function round(value: number): number {
@@ -51,13 +52,13 @@ function length(vw: number, px: number): string {
 }
 
 /**
- * The gallery column: half of the (capped) content box less half the column gap, or all
- * of it. From 1024 the frame is also capped by the viewport height (`app/globals.css`);
- * this describes the uncapped column, a slight overestimate on short, wide screens.
+ * The gallery column: six of twelve columns of the (capped) content box, which is half of
+ * it less half a grid gap; all of it; or the whole viewport.
  */
 function columnWidth(step: GalleryStep): [vw: number, px: number] {
+  if (step.columns === 'bleed') return [100, 0];
   if (step.columns === 'full') return [100, -2 * step.gutter];
-  const fixed = -step.gutter - PAGE_COLUMN_GAP / 2;
+  const fixed = -step.gutter - PAGE_GRID_GAP / 2;
   return step.minWidth >= GALLERY_CONTAINER_MAX
     ? [0, GALLERY_CONTAINER_MAX / 2 + fixed]
     : [50, fixed];
@@ -71,27 +72,22 @@ function stepsToSizes(steps: readonly GalleryStep[], width: (step: GalleryStep) 
     .join(', ');
 }
 
-/**
- * The large image's rendered width: the gallery column, less the thumbnail column and
- * its gap when there are thumbnails, times `scale` for the zoom image.
- */
+/** The large image's rendered width, the gallery column, times `scale` for the zoom image. */
 export function galleryImageSizes(
-  withThumbs: boolean,
   scale = 1,
   steps: readonly GalleryStep[] = GALLERY_STEPS
 ): string {
   return stepsToSizes(steps, (step) => {
     const [vw, px] = columnWidth(step);
-    const thumbs = withThumbs ? step.thumb + GALLERY_THUMB_GAP : 0;
-    return length(vw * scale, (px - thumbs) * scale);
+    return length(vw * scale, px * scale);
   });
 }
 
 /**
- * Thumbnails that load eagerly (at low priority): the ones in view beside the large image
- * on first paint at the smallest frame. The rest of the column loads lazily.
+ * Thumbnails that load eagerly (at low priority): the ones the row shows at 320px without
+ * scrolling (four 64px buttons and their 6px gaps). The rest of the row loads lazily.
  */
-export const GALLERY_EAGER_THUMBS = 3;
+export const GALLERY_EAGER_THUMBS = 4;
 
 export function galleryThumbLoading(index: number): 'eager' | 'lazy' {
   return index < GALLERY_EAGER_THUMBS ? 'eager' : 'lazy';
@@ -116,7 +112,7 @@ export interface GalleryImageModel {
 
 export type GalleryModel =
   | { kind: 'empty' }
-  /** One image: no thumbnail column, zoom still applies. */
+  /** One image: no thumbnail row, zoom still applies. */
   | { kind: 'single'; images: [GalleryImageModel] }
   | { kind: 'thumbs'; count: number; thumbSizes: string; images: GalleryImageModel[] };
 
@@ -128,9 +124,8 @@ export function galleryLayout(images: readonly { url: string }[]): GalleryModel 
   const count = images.length;
   if (count === 0) return { kind: 'empty' };
 
-  const withThumbs = count > 1;
-  const sizes = galleryImageSizes(withThumbs);
-  const zoomSizes = galleryImageSizes(withThumbs, GALLERY_ZOOM_SCALE);
+  const sizes = galleryImageSizes();
+  const zoomSizes = galleryImageSizes(GALLERY_ZOOM_SCALE);
   const models = images.map(
     (image, index): GalleryImageModel => ({
       url: image.url,
@@ -141,16 +136,16 @@ export function galleryLayout(images: readonly { url: string }[]): GalleryModel 
     })
   );
 
-  if (!withThumbs) return { kind: 'single', images: [models[0]] };
+  if (count === 1) return { kind: 'single', images: [models[0]] };
   return { kind: 'thumbs', count, thumbSizes: galleryThumbSizes(), images: models };
 }
 
-/** The gallery tablist is vertical; the rule itself is `tabKeyTarget`. */
+/** The gallery tablist is a horizontal row; the rule itself is `tabKeyTarget`. */
 export function galleryKeyTarget(
   key: string,
   index: number,
   count: number,
   dir: 'ltr' | 'rtl'
 ): number | null {
-  return tabKeyTarget(key, index, count, dir, 'vertical');
+  return tabKeyTarget(key, index, count, dir, 'horizontal');
 }

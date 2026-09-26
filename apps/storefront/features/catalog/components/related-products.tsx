@@ -9,7 +9,7 @@ import { getQuickAddStrings } from '@/features/cart/utils/bag-strings';
 import { toQuickAddModel } from '@/features/cart/utils/quick-add-model';
 import { ProductCard } from '@/features/products/components/product-card';
 import type { CatalogProductDetail } from '@/features/products/types/catalog-product-detail';
-import { localizedName } from '@/features/products/utils/localized-name';
+import { langProps, localizedName } from '@/features/products/utils/localized-name';
 import { fromCatalogDto } from '@/features/products/utils/product-card-model';
 import { loadRelatedProducts } from '../api/load-related-products';
 import { catalogPath } from '../utils/catalog-path';
@@ -26,10 +26,11 @@ export interface RelatedProductsProps {
 }
 
 /**
- * "Related products" under the product (PD-13), with a line naming the collection or
- * category it draws from, streamed in its own `<Suspense>`. Renders nothing, heading
- * included, when the scope lists nothing but this product or the read fails with an
- * `ApiError`. One Reveal on the list; cards rise (the catalog motion level).
+ * "More from {collection}" under the product ("In its chapter", owner decision 2026-09-26;
+ * the scope is PD-13's, so a piece in no collection reads "More from {category}"), up to
+ * four cards and "Explore {name}", streamed in its own `<Suspense>`. Renders nothing,
+ * heading included, when the scope lists nothing but this product or the read fails with
+ * an `ApiError`. One Reveal on the list; cards rise (the catalog motion level).
  */
 export async function RelatedProducts({ locale, product }: RelatedProductsProps) {
   const related = await loadRelatedProducts(product);
@@ -41,8 +42,18 @@ export async function RelatedProducts({ locale, product }: RelatedProductsProps)
     getTranslations({ locale, namespace: 'products' }),
   ]);
   const name = localizedName(related.scope.entity, locale);
-  // Only the scope name may need its own `lang`, so the template is split around it.
-  const [before = '', after = ''] = (t.raw('related.description') as string).split('{name}');
+  // Only the scope name may need its own `lang`, so each template is split around it.
+  const named = (template: string) => {
+    const [before = '', after = ''] = template.split('{name}');
+    // One span, so a flex parent (the link) sees one item and keeps the spaces.
+    return (
+      <span>
+        {before}
+        <span {...langProps(name, locale)}>{name.text}</span>
+        {after}
+      </span>
+    );
+  };
   const badgeLabels = { new: tp('new'), soldOut: tp('soldOut') };
   const currencyLabel = tp('currency');
   const priceFromLabel = t.raw('priceFrom') as string;
@@ -50,21 +61,14 @@ export async function RelatedProducts({ locale, product }: RelatedProductsProps)
 
   return (
     <Container as="section" aria-labelledby={HEADING_ID} className={SECTION_CLASS}>
-      <div className={`flex flex-wrap items-end justify-between gap-x-8 gap-y-4 ${RULE_CLASS}`}>
-        <div>
-          <h2 id={HEADING_ID} className="type-h2 text-balance">
-            {t('related.heading')}
-          </h2>
-          <p className="type-body mt-2 text-text-secondary">
-            {before}
-            <span {...(name.lang === locale ? {} : { lang: name.lang, dir: 'auto' as const })}>
-              {name.text}
-            </span>
-            {after}
-          </p>
-        </div>
-        <EditorialLink href={catalogPath(relatedRoute(related.scope))} className="mb-1">
-          {tc('collections.explore')}
+      <div
+        className={`flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 ${RULE_CLASS}`}
+      >
+        <h2 id={HEADING_ID} className="type-page-title text-balance">
+          {named(t.raw('related.heading') as string)}
+        </h2>
+        <EditorialLink href={catalogPath(relatedRoute(related.scope))}>
+          {named(tc.raw('collections.exploreName') as string)}
         </EditorialLink>
       </div>
 

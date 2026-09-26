@@ -12,16 +12,17 @@ export interface ProductGalleryProps {
 }
 
 /**
- * The product photographs (PD-10, owner decision 2026-09-14): resolves every string and
- * the `sizes` model on the server and hands plain values to `ProductGalleryViewer`, the
- * client island that owns thumbnail selection and zoom. The first image is the LCP, so
- * nothing here reveals. No image: the brand-mark frame `ProductCard` also uses.
+ * The product photographs ("In its chapter", 2026-09-26): resolves every string and the
+ * `sizes` model on the server and hands plain values to `ProductGalleryViewer`, the client
+ * island that owns thumbnail selection and zoom. The first image is the LCP, so nothing
+ * here reveals. No image: the brand-mark frame `ProductCard` also uses, on the Stone mat
+ * and edge to edge on a phone, as the gallery's own frame is.
  */
 export async function ProductGallery({ locale, product }: ProductGalleryProps) {
   const model = galleryLayout(product.images);
   if (model.kind === 'empty') {
     return (
-      <div className="relative aspect-4/5 overflow-hidden rounded-media bg-surface-soft">
+      <div className="relative -mx-(--page-gutter) aspect-4/5 overflow-hidden rounded-media bg-surface-media md:mx-0">
         <ProductImagePlaceholder />
       </div>
     );
