@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiFetch } from './client';
+import { SERVER_DEADLINE_MS, apiFetch } from './client';
 import { ApiError } from './errors';
 
 function jsonResponse(status: number, body: unknown, init?: ResponseInit) {
@@ -220,6 +220,74 @@ describe('apiFetch', () => {
       await expect(
         apiFetch('/x', { signal: controller.signal, timeoutMs: 5 })
       ).rejects.toMatchObject({ code: 'TIMEOUT', status: 0 });
+    });
+
+    // Next strips the signal when it refetches a stale data-cache entry, so a fetch can
+    // hang with no way to abort it. The server deadline is a race, not a signal.
+    describe('the server deadline', () => {
+      // A fetch that never settles and ignores any signal it is given.
+      function deafFetch() {
+        vi.mocked(fetch).mockImplementation(() => new Promise<Response>(() => {}));
+      }
+
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('bounds a server read that passes no signal, keeping memoization', async () => {
+        deafFetch();
+
+        const pending = apiFetch('/x').catch((error: unknown) => error);
+        await vi.advanceTimersByTimeAsync(SERVER_DEADLINE_MS);
+        const caught = await pending;
+
+        expect(caught).toBeInstanceOf(ApiError);
+        expect(caught).toMatchObject({ code: 'TIMEOUT', status: 0 });
+        const [, init] = vi.mocked(fetch).mock.calls[0];
+        expect(init?.signal).toBeUndefined();
+      });
+
+      it('holds when the fetch ignores an explicit timeoutMs signal', async () => {
+        deafFetch();
+
+        const pending = apiFetch('/x', { timeoutMs: 5_000 }).catch((error: unknown) => error);
+        await vi.advanceTimersByTimeAsync(5_000);
+
+        await expect(pending).resolves.toMatchObject({ code: 'TIMEOUT', status: 0 });
+      });
+
+      it('does not fire before the deadline', async () => {
+        deafFetch();
+        let settled = false;
+        const pending = apiFetch('/x').then(
+          () => (settled = true),
+          () => (settled = true)
+        );
+
+        await vi.advanceTimersByTimeAsync(SERVER_DEADLINE_MS - 1);
+        expect(settled).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(1);
+        await pending;
+        expect(settled).toBe(true);
+      });
+
+      it('bounds the body read too', async () => {
+        vi.mocked(fetch).mockResolvedValue({
+          status: 200,
+          ok: true,
+          json: () => new Promise<never>(() => {}),
+        } as unknown as Response);
+
+        const pending = apiFetch('/x').catch((error: unknown) => error);
+        await vi.advanceTimersByTimeAsync(SERVER_DEADLINE_MS);
+
+        await expect(pending).resolves.toMatchObject({ code: 'TIMEOUT', status: 0 });
+      });
     });
   });
 

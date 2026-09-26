@@ -3,7 +3,11 @@ import { resolveApiBaseUrl } from '@/lib/api/client';
 import { ApiError } from '@/lib/api/errors';
 import type { CatalogCollection } from '../types/catalog-collection';
 import { listCatalogCollections } from './list-catalog-collections';
-import { NAV_COLLECTIONS_LIMIT, loadNavCollections } from './load-nav-collections';
+import {
+  NAV_COLLECTIONS_LIMIT,
+  NAV_COLLECTIONS_TIMEOUT_MS,
+  loadNavCollections,
+} from './load-nav-collections';
 
 vi.mock('./list-catalog-collections', () => ({ listCatalogCollections: vi.fn() }));
 vi.mock('@/lib/api/client', () => ({ resolveApiBaseUrl: vi.fn() }));
@@ -37,6 +41,26 @@ describe('loadNavCollections', () => {
     list.mockResolvedValue(items);
 
     await expect(loadNavCollections()).resolves.toEqual(items.slice(0, NAV_COLLECTIONS_LIMIT));
+  });
+
+  // The layout awaits this on every page, prerendered ones included: an API that accepts
+  // the connection and never answers must not hold the page (or `next build`) open.
+  it('reads with a deadline', async () => {
+    baseUrl.mockReturnValue('http://api.test');
+    list.mockResolvedValue([collection('a')]);
+
+    await loadNavCollections();
+    expect(list).toHaveBeenCalledWith({ timeoutMs: NAV_COLLECTIONS_TIMEOUT_MS });
+  });
+
+  it('is null when the read times out, logged once', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    baseUrl.mockReturnValue('http://api.test');
+    list.mockRejectedValue(new ApiError({ status: 0, code: 'TIMEOUT', message: 'timed out' }));
+
+    await expect(loadNavCollections()).resolves.toBeNull();
+    expect(log).toHaveBeenCalledOnce();
+    expect(log.mock.calls[0][0]).toContain('TIMEOUT');
   });
 
   it('is null without an API, without calling it', async () => {

@@ -150,6 +150,16 @@ describe('catalog collections and categories', () => {
       expect(requestInit().next).toEqual({ revalidate: 300, tags: ['catalog:collections'] });
       expect(requestInit().signal).toBeUndefined();
     });
+
+    // The header's read (every page, prerendered ones included) passes a deadline; the
+    // index page's read above stays signal-free so it shares one memoized fetch.
+    it('carries a deadline only when asked', async () => {
+      vi.mocked(fetch).mockResolvedValue(jsonResponse(200, { data: [collection] }));
+
+      await listCatalogCollections({ timeoutMs: 5_000 });
+      expect(requestInit().signal).toBeInstanceOf(AbortSignal);
+      expect(requestInit().signal?.aborted).toBe(false);
+    });
   });
 
   describe('categories', () => {
