@@ -1,21 +1,18 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
-import { editorialImages } from '@/lib/editorial/images';
 import { connection } from 'next/server';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
-import { HEADER_BOUNDARY_ATTR } from '@/components/layout/header/header-boundary';
+import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
+import { loadCollectionPieces } from '@/features/catalog/api/load-collection-pieces';
 import { CatalogEmpty } from '@/features/catalog/components/catalog-empty';
+import { CollectionChapter } from '@/features/catalog/components/collection-chapter';
 import { DEFAULT_CATALOG_PARAMS } from '@/features/catalog/search-params';
 import { buildCatalogMetadata } from '@/features/catalog/utils/catalog-metadata';
-import { catalogPath } from '@/features/catalog/utils/catalog-path';
+import { collectionChapters } from '@/features/catalog/utils/collection-chapters';
 import { listCatalogCollections } from '@/features/collections/api/list-catalog-collections';
-import { CollectionIndex } from '@/features/collections/components/collection-index';
-import { collectionMeta } from '@/features/collections/utils/collection-index-layout';
-import { localizedName } from '@/features/products/utils/localized-name';
 
 export async function generateMetadata({
   params,
@@ -33,7 +30,15 @@ export async function generateMetadata({
   });
 }
 
-/** R4: the live collections, composed by count; no product grid, so nothing streams. */
+/**
+ * R4, as "Chapters" (owner decision 2026-09-26, chosen from three directions drawn in
+ * Claude Design; it replaces the full-bleed photograph and the card grid of 2026-09-21).
+ * A short typographic intro under the solid header, then one chapter per live collection
+ * in the server's order: its photograph, season, description, its first pieces with their
+ * prices, and how many there are (`CollectionChapter`). The collections list failing is
+ * the catalog error screen, as before; one collection's pieces failing only empties that
+ * chapter's credits (`loadCollectionPieces`).
+ */
 export default async function CollectionsPage({ params }: PageProps<'/[locale]/collections'>) {
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
@@ -42,85 +47,52 @@ export default async function CollectionsPage({ params }: PageProps<'/[locale]/c
   // Reads no searchParams, so without this it would prerender and call the API at build (KD-9).
   await connection();
   const collections = await listCatalogCollections();
+  // One listing per collection, in parallel: each is the collection page's own page 1 and
+  // shares its data-cache entry, so a chapter never lists what its page does not.
+  const pieces = await Promise.all(collections.map((c) => loadCollectionPieces(c.slug)));
+  const chapters = collectionChapters(collections, pieces);
   const t = await getTranslations('catalog');
 
   return (
     <>
-      {/*
-        The page opens on the photograph itself, full-bleed to all four edges and
-        pulled under the header by `--header-h` (the boundary attribute makes the
-        header transparent at the top of the scroll, as the homepage hero does).
-        Centred title and description over it, and nothing else: the eyebrow, the
-        split two-column panel and the jump link were removed (owner decision,
-        2026-09-21) — the directory begins one screen down, so a link to it was
-        naming the scroll the visitor was already making.
-      */}
-      <header
-        {...{ [HEADER_BOUNDARY_ATTR]: '' }}
-        data-surface="dark"
-        className="relative -mt-(--header-h) flex min-h-[clamp(34rem,88svh,56rem)] items-center overflow-hidden bg-dark-surface"
-      >
-        <div className="absolute inset-0">
-          <Image
-            src={editorialImages['lookbook-01'].src}
-            alt=""
-            fill
-            preload
-            sizes="100vw"
-            className="object-cover object-top"
-          />
-          {/* Header band: enough to carry the ivory logo and nav over the crop */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-linear-to-b from-scrim/70 to-transparent"
-          />
-          {/* One even wash so the centred copy clears contrast wherever it lands */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-dark-surface/55"
-          />
+      <Container as="header" className="pt-10 pb-10 md:pt-14 md:pb-12 lg:pt-16 lg:pb-14">
+        <Reveal className="flex flex-wrap items-end justify-between gap-x-12 gap-y-4">
+          <div>
+            <h1
+              data-motion="rise"
+              className="type-display [--motion-offset:120ms] [--motion-rise:24px]"
+            >
+              {t('intro.collectionsTitle')}
+            </h1>
+            <p
+              data-motion="fade"
+              className="type-body-lg mt-4 max-w-[34rem] text-pretty text-text-secondary [--motion-offset:240ms]"
+            >
+              {t('collections.description')}
+            </p>
+          </div>
+          {chapters.length > 0 && (
+            <p
+              data-motion="fade"
+              className="type-label pb-1.5 text-text-secondary tabular-nums [--motion-offset:300ms]"
+            >
+              {t('collections.count', { count: chapters.length })}
+            </p>
+          )}
+        </Reveal>
+      </Container>
+
+      {chapters.length > 0 ? (
+        <div>
+          {chapters.map((chapter, index) => (
+            <CollectionChapter
+              key={chapter.collection.slug}
+              chapter={chapter}
+              locale={locale}
+              priority={index === 0}
+            />
+          ))}
         </div>
-        <Container
-          as="div"
-          className="relative flex w-full flex-col items-center pt-(--header-h) text-center"
-        >
-          <h1 className="font-display text-[clamp(3rem,6.5vw,7rem)] leading-[1.1] tracking-tight text-text">
-            {t('intro.collectionsTitle')}
-          </h1>
-          <p className="mt-6 max-w-[46ch] text-pretty type-body-lg text-text-secondary">
-            {t('collections.description')}
-          </p>
-        </Container>
-      </header>
-      {collections.length > 0 ? (
-        /*
-          The directory's own heading ("The collection edit") is visually gone
-          (owner decision, 2026-09-21): the hero above already says what the page
-          is, and a label over a grid of named cards said it a second time. It
-          stays as the section's visually hidden accessible name, so the landmark
-          is still named and the `#collection-directory` anchor still lands here.
-        */
-        <section
-          id="collection-directory"
-          aria-labelledby="collection-directory-heading"
-          className="scroll-mt-28 pt-12 md:pt-20"
-        >
-          <h2 id="collection-directory-heading" className="sr-only">
-            {t('collections.directory')}
-          </h2>
-          <CollectionIndex
-            locale={locale}
-            exploreLabel={t('collections.explore')}
-            collections={collections.map((collection) => ({
-              slug: collection.slug,
-              href: catalogPath({ kind: 'collection', slug: collection.slug }),
-              name: localizedName(collection, locale),
-              meta: collectionMeta(collection),
-              imageUrl: collection.imageUrl,
-              isFeatured: collection.isFeatured,
-            }))}
-          />
-        </section>
       ) : (
         <Container as="section" className="pb-(--section-space)">
           <CatalogEmpty

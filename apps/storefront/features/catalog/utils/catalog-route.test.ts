@@ -55,15 +55,13 @@ describe('catalogRouteConfig', () => {
     }
   });
 
-  it('closes New In and a collection with one editorial link, and nothing else', () => {
+  it('closes New In with one editorial link, and nothing else', () => {
     expect(catalogRouteConfig(NEW_IN).endLink).toEqual({
       labelKey: 'shopByCategory',
       href: '/shop',
     });
-    expect(catalogRouteConfig(SILK).endLink).toEqual({
-      labelKey: 'exploreCollections',
-      href: '/collections',
-    });
+    // A collection page ends on More collections, which the page composes itself.
+    expect(catalogRouteConfig(SILK).endLink).toBeNull();
     expect(catalogRouteConfig(SHOP).endLink).toBeNull();
     expect(catalogRouteConfig(DRESSES).endLink).toBeNull();
   });

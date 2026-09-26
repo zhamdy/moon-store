@@ -14,7 +14,7 @@ export interface CatalogRouteConfig {
   /** Row 1 under the intro (KD-15): Shop All and category pages only. */
   categoryNav: boolean;
   /** The end-of-listing editorial link (KD-16): a `catalog.wayfinding.*` key. */
-  endLink: { labelKey: 'exploreCollections' | 'shopByCategory'; href: string } | null;
+  endLink: { labelKey: 'shopByCategory'; href: string } | null;
 }
 
 const LISTING_SORTS = ['newest', 'price-asc', 'price-desc'] as const;
@@ -47,7 +47,9 @@ const CATALOG_ROUTES: Record<CatalogRoute['kind'], CatalogRouteConfig> = {
     defaultSort: 'curated',
     sorts: ['curated', ...LISTING_SORTS],
     categoryNav: false,
-    endLink: { labelKey: 'exploreCollections', href: '/collections' },
+    // More collections (`MoreCollections`, composed by the page after the listing) is the
+    // way on, with its own link to every collection ("Chapters", 2026-09-26).
+    endLink: null,
   },
 };
 

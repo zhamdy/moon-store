@@ -1,3 +1,4 @@
+import { collectionFrames } from '@/features/collections/data/collection-frames';
 import type { EditorialSlot } from '@/lib/editorial/slots';
 
 /**
@@ -19,14 +20,15 @@ export const homeCollections = {
 
 export const collectionHref = (slug: string) => `/collections/${slug}`;
 
-export const filmFrame = {
-  /** Wide crop (16:10), used when the viewport is at least 3:2. */
-  wide: 'hero-desktop',
-  /** Portrait crop (4:5), phones and tablets. */
-  portrait: 'hero-mobile',
-} as const satisfies Record<string, EditorialSlot>;
+/**
+ * The film is the Evening collection, so its opening frame is Evening's own photograph:
+ * the 16:10 crop when the viewport is at least 3:2, the 4:5 crop below (`collectionFrames`,
+ * which the collections index and the Evening page read too).
+ */
+export const filmFrame = collectionFrames[homeCollections.film];
 
-export const sceneSlot: EditorialSlot = 'silk-edit-campaign';
+/** The Silk Edit: the Silk collection's own wide frame, cut into the New in grid. */
+export const sceneSlot: EditorialSlot = collectionFrames[homeCollections.scene].wide;
 
 export interface Look {
   key: 'evening' | 'linen' | 'silk';

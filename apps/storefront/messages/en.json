@@ -181,13 +181,17 @@
       "page": "Page {page}"
     },
     "wayfinding": {
-      "exploreCollections": "Explore all collections",
       "shopByCategory": "Shop by category"
     },
     "collections": {
       "explore": "Explore",
       "description": "A considered wardrobe, one collection at a time. Discover the pieces that bring each story together.",
-      "directory": "The collection edit"
+      "count": "{count, plural, one {# collection} other {# collections}}",
+      "credits": "In this collection",
+      "more": "{count, plural, one {+ # more piece} other {+ # more pieces}}",
+      "exploreName": "Explore {name}",
+      "moreTitle": "More collections",
+      "all": "All collections"
     },
     "empty": {
       "catalog": {

@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
 import { PromotionBar } from '@/components/promotion/promotion-bar';
 import type { AppLocale } from '@/i18n/routing';
@@ -23,6 +23,13 @@ export interface CatalogPageProps {
    * `name` is the category's or collection's localized name, required on those routes.
    */
   intro: Omit<PageIntroProps, 'locale' | 'headings'> & { name?: LocalizedText };
+  /**
+   * Replaces `PageIntro` with the page's own header (a collection's chapter,
+   * `CollectionChapterHeader`), which takes its headings from `catalogIntroHeadings` too.
+   */
+  header?: ReactNode;
+  /** Rendered after the listing's Suspense boundary (a collection page's More collections). */
+  after?: ReactNode;
   /** Needed where the route table turns category nav on. */
   categories?: CatalogCategory[];
 }
@@ -48,7 +55,15 @@ export interface CatalogPageProps {
  * shop, and its `shopRoute` test is the whole rule. Ending the promotion is one line
  * here plus one in `app/[locale]/page.tsx`; see `lib/promotion/current-promotion.ts`.
  */
-export async function CatalogPage({ route, params, locale, intro, categories }: CatalogPageProps) {
+export async function CatalogPage({
+  route,
+  params,
+  locale,
+  intro,
+  header,
+  after,
+  categories,
+}: CatalogPageProps) {
   const config = catalogRouteConfig(route);
   const t = await getTranslations('catalog');
   const renderControls = await catalogControlsRenderer({ route, locale, sorts: config.sorts });
@@ -78,11 +93,13 @@ export async function CatalogPage({ route, params, locale, intro, categories }: 
   return (
     <>
       {shopRoute && <PromotionBar />}
-      <PageIntro
-        locale={locale}
-        headings={catalogIntroHeadings(page, await introLabels(), locale)}
-        {...introRest}
-      />
+      {header ?? (
+        <PageIntro
+          locale={locale}
+          headings={catalogIntroHeadings(page, await introLabels(), locale)}
+          {...introRest}
+        />
+      )}
       <Suspense fallback={<ProductGridSkeleton loadingLabel={t('loading')} indexNav={indexNav} />}>
         <ProductGrid
           route={route}
@@ -97,6 +114,7 @@ export async function CatalogPage({ route, params, locale, intro, categories }: 
           }
         />
       </Suspense>
+      {after}
     </>
   );
 }
