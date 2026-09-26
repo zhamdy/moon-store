@@ -147,7 +147,7 @@ export async function ProductGrid({
         </h2>
 
         {variant ? (
-          <CatalogEmpty variant={variant} route={route} params={params} />
+          <CatalogEmpty variant={variant} route={route} params={params} flush={!showControls} />
         ) : (
           <>
             <Reveal

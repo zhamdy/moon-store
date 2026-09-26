@@ -860,7 +860,10 @@ Numbered, server-rendered links (R14); previous/next omitted at the ends; below 
 visually hidden `h2` (`tabIndex=-1`, `scroll-margin-top` clears the sticky header), so
 the jump lands on the first row. Empty states (`catalogEmptyVariant`), one action each:
 nothing live, filters match nothing (clear filters, sort kept), past the last page (page
-1, filters kept), an empty category or collection (to `/shop`).
+1, filters kept), an empty category or collection (to `/shop`). Each is centred in a Stone
+panel that takes the grid's place, at least 22rem tall (30rem from 1024), so the rack never
+collapses beside the index column; with no toolbar above it, its top lines up with the
+column's (owner feedback 2026-09-26: start-aligned, it floated in the rack's corner).
 
 ### Collections index
 
