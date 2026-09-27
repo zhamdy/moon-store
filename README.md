@@ -296,7 +296,7 @@ cd apps/server && npm test
 The project includes a [`render.yaml`](render.yaml) for one-click deployment to [Render](https://render.com):
 
 - **API**: Node.js web service running `npm run migrate && npm run start`; seed demo data only in development.
-- **Database**: Neon (project `round-frog-89454563`, branch `production`). Set the API's
+- **Database**: Neon (project `rapid-river-71535967`, aws-us-west-2, branch `production`). Set the API's
   `DATABASE_URL` to the branch's direct connection string (`neon cs production`); `pg`
   honours its `sslmode`. `npm run seed` refuses any non-local host unless `FORCE_SEED=true`.
 - **Client**: Deploy the `apps/dashboard/` build output to any static host (Vercel, Netlify, Render Static)

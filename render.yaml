@@ -9,11 +9,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Neon project round-frog-89454563, branch `production`: the direct (non -pooler)
-      # connection string, set in the Render dashboard. The free Render database below
-      # expired on 2026-09-21; it stays declared until its data is exported or declared
-      # disposable, so removing it here cannot delete it. The start command runs
-      # `migrate` on every boot; nothing here ever seeds.
+      # Neon project rapid-river-71535967 (aws-us-west-2, beside this service in Oregon),
+      # branch `production`: the direct (non -pooler) connection string, set in the
+      # Render dashboard. The free Render database below expired on 2026-09-21 and its
+      # data was declared disposable (2026-09-27); it stays declared so nothing here can
+      # delete it. The start command runs `migrate` on every boot; nothing here ever seeds.
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
