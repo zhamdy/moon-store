@@ -9,6 +9,8 @@ import { BAG_HREF } from '@/components/layout/navigation-items';
 import { Container } from '@/components/ui/container';
 import { CHECKOUT_ENABLED } from '@/features/cart/utils/checkout-availability';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
+import { CategoryDirectory } from '@/features/catalog/components/category-directory';
+import { loadCategoryCounts } from '@/features/collections/api/load-category-counts';
 import { CheckoutView } from '@/features/checkout/components/checkout-view';
 import {
   getCheckoutMetadataStrings,
@@ -45,7 +47,10 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
     notFound();
   }
   setRequestLocale(locale);
-  const strings = await getCheckoutPageStrings(locale);
+  const [strings, counts] = await Promise.all([
+    getCheckoutPageStrings(locale),
+    loadCategoryCounts(),
+  ]);
 
   return (
     <Container className="pt-6 pb-20 md:pt-8 md:pb-24 lg:pt-10 lg:pb-32">
@@ -64,6 +69,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
         shopHref={catalogPath({ kind: 'all' })}
         bagHref={BAG_HREF}
         deliveryMethods={[]}
+        emptyDirectory={<CategoryDirectory counts={counts} variant="tiles" />}
       />
     </Container>
   );

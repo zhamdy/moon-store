@@ -1,11 +1,12 @@
 'use client';
 
 import { useForm } from '@tanstack/react-form';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Button, buttonClassName } from '@/components/ui/button';
 import { showToast } from '@/components/feedback/show-toast';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
+import { BagEmpty } from '@/features/cart/components/bag-empty';
 import { useBagController } from '@/features/cart/components/use-bag-controller';
 import type { CartLine } from '@/features/cart/utils/cart-lines';
 import {
@@ -83,6 +84,8 @@ export interface CheckoutViewProps {
   bagHref: string;
   /** Empty until delivery rules exist (CO-18). */
   deliveryMethods: readonly DeliveryMethodOption[];
+  /** The empty bag's category photographs ("Directory"), server-rendered by the page. */
+  emptyDirectory?: ReactNode;
 }
 
 /**
@@ -97,6 +100,7 @@ export function CheckoutView({
   shopHref,
   bagHref,
   deliveryMethods,
+  emptyDirectory,
 }: CheckoutViewProps) {
   const { cart, view, fetch, refresh, onRetry, emptyHeading } = useBagController({
     active: true,
@@ -126,14 +130,17 @@ export function CheckoutView({
 
   if (empty) {
     return (
-      <div className="flex flex-col items-start gap-4 border-t border-border pt-10">
-        <h2 ref={emptyHeading} tabIndex={-1} className="type-h4 focus:outline-none">
-          {strings.bag.status.emptyTitle}
-        </h2>
-        <Link href={shopHref} className={TEXT_ACTION}>
-          {strings.bag.status.emptyAction}
-        </Link>
-      </div>
+      <BagEmpty
+        headingRef={emptyHeading}
+        title={strings.bag.status.emptyTitle}
+        body={strings.bag.status.emptyBody}
+        directory={emptyDirectory}
+        action={
+          <Link href={shopHref} className={buttonClassName({ className: 'w-full sm:w-auto' })}>
+            {strings.bag.status.emptyAction}
+          </Link>
+        }
+      />
     );
   }
 

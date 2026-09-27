@@ -10,7 +10,10 @@ import { Header } from '@/components/layout/header/header';
 import { Footer } from '@/components/layout/footer/footer';
 import { AppToaster } from '@/components/feedback/app-toaster';
 import { BagTrigger } from '@/features/cart/components/bag-trigger';
+import { loadCategoryCounts } from '@/features/collections/api/load-category-counts';
 import { loadNavCollections } from '@/features/collections/api/load-nav-collections';
+import { FooterDirectory } from '@/features/collections/components/footer-directory';
+import { CategoryDirectory } from '@/features/catalog/components/category-directory';
 import {
   CollectionsPanel,
   MenuCollectionsSection,
@@ -75,12 +78,14 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
   // Resolved strings only (never the catalogue): the drawer's ride in the trigger's props, so
   // the lazy chunk needs no second server round trip when it first opens.
-  const [bagTriggerStrings, bagDrawerStrings, tToaster, navCollections] = await Promise.all([
-    getBagTriggerStrings(locale),
-    getBagDrawerStrings(locale),
-    getTranslations({ locale, namespace: 'toaster' }),
-    loadNavCollections(),
-  ]);
+  const [bagTriggerStrings, bagDrawerStrings, tToaster, navCollections, categoryCounts] =
+    await Promise.all([
+      getBagTriggerStrings(locale),
+      getBagDrawerStrings(locale),
+      getTranslations({ locale, namespace: 'toaster' }),
+      loadNavCollections(),
+      loadCategoryCounts(),
+    ]);
 
   return (
     <html lang={locale} dir={getDirection(locale)} className={fontVariables[locale]}>
@@ -110,13 +115,14 @@ export default async function LocaleLayout({
                   drawerStrings={bagDrawerStrings}
                   shopHref={catalogPath({ kind: 'all' })}
                   locale={locale}
+                  emptyDirectory={<CategoryDirectory counts={categoryCounts} variant="rows" />}
                 />
               }
             />
             <main id="main-content" tabIndex={-1}>
               {children}
             </main>
-            <Footer />
+            <Footer directory={<FooterDirectory locale={locale} collections={navCollections} />} />
             {/* A direct child of <body> (the providers render no element): a dialog makes
                 only its own subtree inert, so toasts stay operable over the drawer. */}
             <AppToaster

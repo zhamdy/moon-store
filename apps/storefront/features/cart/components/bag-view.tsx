@@ -3,12 +3,12 @@
 import type { ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { buttonClassName } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
 import type { AppLocale } from '@/i18n/routing';
 import type { BagPageStrings } from '../utils/bag-strings';
 import { storedPieceCount } from '../utils/bag-view-model';
 import { checkoutReadiness } from '../utils/checkout-readiness';
 import { selectPlural } from '../utils/plural-templates';
+import { BagEmpty } from './bag-empty';
 import { BagSummary } from './bag-summary';
 import { CartLine } from './cart-line';
 import { CheckoutEntry } from './checkout-entry';
@@ -21,6 +21,11 @@ export interface BagViewProps {
   locale: AppLocale;
   /** `catalogPath({ kind: 'all' })`, resolved on the server. */
   shopHref: string;
+  /**
+   * The empty bag's category photographs ("Directory", 2026-09-27), server-rendered by the
+   * page (`CategoryDirectory variant="tiles"`).
+   */
+  emptyDirectory?: ReactNode;
 }
 
 const TEXT_ACTION =
@@ -39,7 +44,7 @@ const TEXT_ACTION =
  * never flashes the empty state. The count appears once the bag has hydrated, inline beside
  * the title, so nothing moves.
  */
-export function BagView({ heading, strings, locale, shopHref }: BagViewProps) {
+export function BagView({ heading, strings, locale, shopHref, emptyDirectory }: BagViewProps) {
   const {
     cart,
     view,
@@ -74,13 +79,13 @@ export function BagView({ heading, strings, locale, shopHref }: BagViewProps) {
     return (
       <>
         {title}
-        <EmptyState
-          className="border-t border-border"
-          titleRef={emptyHeading}
-          titleFocusable
+        <BagEmpty
+          headingRef={emptyHeading}
           title={strings.status.emptyTitle}
-          actions={
-            <Link href={shopHref} className={buttonClassName()}>
+          body={strings.status.emptyBody}
+          directory={emptyDirectory}
+          action={
+            <Link href={shopHref} className={buttonClassName({ className: 'w-full sm:w-auto' })}>
               {strings.status.emptyAction}
             </Link>
           }

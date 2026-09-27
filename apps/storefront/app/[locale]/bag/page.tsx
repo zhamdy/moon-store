@@ -7,6 +7,8 @@ import { Container } from '@/components/ui/container';
 import { BagView } from '@/features/cart/components/bag-view';
 import { getBagMetadataStrings, getBagPageStrings } from '@/features/cart/utils/bag-strings';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
+import { CategoryDirectory } from '@/features/catalog/components/category-directory';
+import { loadCategoryCounts } from '@/features/collections/api/load-category-counts';
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -42,7 +44,7 @@ export default async function BagPage({ params }: { params: Promise<{ locale: st
     notFound();
   }
   setRequestLocale(locale);
-  const strings = await getBagPageStrings(locale);
+  const [strings, counts] = await Promise.all([getBagPageStrings(locale), loadCategoryCounts()]);
 
   return (
     <Container className="pt-8 pb-20 md:pt-12 md:pb-24 lg:pt-14 lg:pb-28">
@@ -51,6 +53,7 @@ export default async function BagPage({ params }: { params: Promise<{ locale: st
         strings={strings}
         locale={locale}
         shopHref={catalogPath({ kind: 'all' })}
+        emptyDirectory={<CategoryDirectory counts={counts} variant="tiles" />}
       />
     </Container>
   );

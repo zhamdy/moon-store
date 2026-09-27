@@ -366,7 +366,8 @@ Component must never import it: `createContext` does not exist in the react-serv
 The checkout island's children are client-bundled the same way: `checkout-summary.tsx`,
 `checkout-cart-notice.tsx`, `text-field.tsx`, `governorate-field.tsx`,
 `delivery-method-section.tsx`, `step-heading.tsx` and `use-media-query.ts`, plus the Bag page's
-`features/cart/components/checkout-entry.tsx` (reached only from 15).
+`features/cart/components/checkout-entry.tsx` (reached only from 15) and `bag-empty.tsx` (the
+empty bag, shared by 15 and 17).
 
 **Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
 `useInView` import put the whole engine (~46 KB gz across two chunks) into the eager
@@ -1759,6 +1760,73 @@ Browser-only; no storefront DOM or browser harness exists.
 - The notice's inline-start rule; the outcome row; the Bag entry's reason line in Arabic at 320.
 - Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → _Manual scenarios_ 9.
 
+## Wayfinding — "Directory" (owner decision 2026-09-27)
+
+Chosen from three directions drawn in Claude Design (Still room, Directory, Night frame) for
+the screens outside the six pages: a dead end hands the shopper the shop's own map.
+
+- **`CategoryDirectory`** (`features/catalog/components/category-directory.tsx`, a Server
+  Component): the five homepage categories (`homeCategories`) with the photographs the
+  header's Shop panel shows and the catalogue's piece count per category. `variant="tiles"`
+  is five photographs in a row from 768 and hairline rows with a 48px thumbnail below it;
+  `variant="rows"` is the rows at every width (the drawer). `withHeading` draws the
+  "Shop by category" label and a New In link; without it the `nav` is named by
+  `aria-label`. The count is `aria-hidden` beside an sr-only ", 4 pieces".
+- **Counts**: `loadCategoryCounts` (`features/collections/api/load-category-counts.ts`,
+  unit-tested) reads `listCatalogCategories` with a 5s deadline, like the header's
+  collections, because the layout awaits it on every page and at build. `null` (no API, an
+  `ApiError`, a timeout) shows the categories without counts; a count is never invented. On
+  the prerendered pages the counts are the build's until a catalog write's tag revalidation
+  refreshes them, as the header's collections are.
+- **404** (`app/[locale]/not-found.tsx`, every unknown URL and missing product, category or
+  collection): "404" in Bronze, the `type-page-title` `h1`, the line, Shop all pieces (Ink
+  button) and Back to home on four columns; the directory with its heading on seven from the
+  sixth. Stacked below 1024.
+- **The catalog error screen** (`(catalog)/error.tsx`) is the 404's left column with Try again
+  and Back to home: a client boundary with only `catalog.error` to read, and the catalogue has
+  just failed, so no categories.
+- **The empty bag** on `/bag` and `/checkout` is `BagEmpty` (`features/cart/components/
+bag-empty.tsx`): the title, "Start with a category." (`bag.empty.body`), the directory
+  (`emptyDirectory`, server-rendered by the page and passed to `BagView` / `CheckoutView`)
+  and Continue shopping. The heading keeps the controller's focus hand-off.
+- **The empty drawer**: the same title and line, the directory's rows (`emptyDirectory`,
+  composed by the layout into `BagTrigger`, which passes it to the lazy drawer), and a
+  full-width Continue shopping in the footer. A click on a category link closes the drawer
+  for navigation even when it names the page already open, so focus lands on `main`.
+- **The footer**: the brand column, then `FooterDirectory` (`features/collections/
+components/footer-directory.tsx`, composed by the layout into `Footer`'s `directory` prop so
+  `components/layout` imports no feature slice): **Shop** (All pieces, New In, the five
+  categories) and **Collections** (the layout's `loadNavCollections` read, each with season ·
+  year, then All collections; `null` drops the column); then Contact, the number never
+  breaking. Two columns on a phone, four at 768, twelve from 1024.
+
+## Site-wide QA pass (2026-09-27)
+
+After the six pages and the wayfinding screens, every page (home, Shop, a category, New In,
+Collections, a collection, a product, the bag full and empty, checkout, the 404) was checked
+in EN and AR at 1440, 1024, 768, 390 and 320 against the dev seed:
+
+- **No horizontal scroll** at any of those widths, and **no console errors or warnings**,
+  including through Filter, Sort, Quick Add, Add to Bag, the drawer, the bag stepper and an
+  empty Continue on checkout.
+- **axe** (`axe-core` 4.13, WCAG 2.0/2.1/2.2 A and AA plus best practice) found **no
+  violations** at 1440 (EN) and 390 (EN and AR). Its colour-contrast "needs review" items are
+  text over photographs, where the scrims decide; they stay a manual check.
+- **All 95 internal links** those pages publish answer 200, and every page has its own
+  title, description and (for the listings, collections and products) a self canonical; the
+  bag and checkout stay `noindex, nofollow`.
+- Eager JS (the _Cart_ → _Bundle budget_ method): `/en` 244,994 B, `/en/bag` 255,326 B,
+  `/en/checkout` 283,987 B; the bag and checkout's +1.5 KB over their 2026-09-15 figures is the
+  wayfinding directory in their empty state.
+
+Fixed in the pass: the Arabic header read "الحقيبة(3)" (the space sat inside the `<bdi>`); the
+404's tab said only "Moon Fashion"; and the header, footer, wayfinding and homepage panels
+listed Abayas last while the Shop page lists it third (`homeCategories` now follows
+`CATEGORY_ORDER`, held by a test). Left as they are, for the owner: page titles are three
+sizes by kind (the listings' `type-h1`, 60px; the collections' `type-display`; and
+`type-page-title`, 40px, on the product, bag, checkout and 404), and a collection's season is
+shown as the dashboard stores it, in one language.
+
 ## Guideline overrides and copy decisions
 
 - §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the
@@ -1779,7 +1847,8 @@ Browser-only; no storefront DOM or browser harness exists.
   featured collection, The Moon Selection (its collection now feeds the credits), the
   benefits band (its copy was a launch blocker) and the lookbook mosaic.
 - The footer carries social links and contact details (user decision, 2026-09-14), and
-  no language switcher. They come only from `lib/brand/contact.ts` and render only when
+  no language switcher (kept when "Directory" gave it the Shop and Collections columns,
+  2026-09-27; see _Wayfinding_). They come only from `lib/brand/contact.ts` and render only when
   real values are filled in there; `contact.test.ts` fails the build on a malformed
   number, a one-locale address or a non-https link. Never copy the server seed's demo
   `phone` / `address` settings into it. **It currently holds placeholder values** (user
