@@ -148,18 +148,18 @@ export function createApp(): express.Express {
   );
 
   app.use(
+    exceptCartQuote((req, res, next) => {
+      if (isAllowedApiOrigin(req.get('Origin'), allowedOrigins)) return next();
+      res.status(403).json(errorResponse('FORBIDDEN', 'Origin not allowed'));
+    })
+  );
+
+  app.use(
     exceptCartQuote(
       cors({
-        origin: function (
-          origin: string | undefined,
-          callback: (err: Error | null, allow?: boolean) => void
-        ) {
-          if (isAllowedApiOrigin(origin, allowedOrigins)) {
-            callback(null, true);
-          } else {
-            callback(new Error(`Origin ${origin} not allowed by CORS`));
-          }
-        },
+        // The guard above has already rejected unlisted origins. Keep this exact match
+        // here as well so a future middleware reorder cannot widen credentialed CORS.
+        origin: (origin, callback) => callback(null, isAllowedApiOrigin(origin, allowedOrigins)),
         credentials: true,
       })
     )
