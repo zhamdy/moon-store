@@ -68,6 +68,8 @@ Chunk size warning (>500KB) is expected for SPA bundle — safe to ignore.
 
 ## Learnings
 
+- Denied API origins receive a JSON 403 before credentialed CORS runs. Allowed and origin-free requests remain supported; the cart quote keeps its separate CORS policy. (2026-09-27)
+
 - Baseline 001 was edited after deployment; applied filenames do not prove schema compatibility. Add forward migrations and test upgrades from the legacy schema, not only fresh databases. Migration 009 repairs the September production export. (2026-09-05)
 
 - Applications live under `apps/`; root contracts stay under `contracts/`. E2E is independently npm-managed. The server still starts through tsx; `build:server` only compiles its existing tsconfig. (2026-09-13)
