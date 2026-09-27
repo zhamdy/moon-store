@@ -1800,6 +1800,33 @@ components/footer-directory.tsx`, composed by the layout into `Footer`'s `direct
   year, then All collections; `null` drops the column); then Contact, the number never
   breaking. Two columns on a phone, four at 768, twelve from 1024.
 
+## Site-wide QA pass (2026-09-27)
+
+After the six pages and the wayfinding screens, every page (home, Shop, a category, New In,
+Collections, a collection, a product, the bag full and empty, checkout, the 404) was checked
+in EN and AR at 1440, 1024, 768, 390 and 320 against the dev seed:
+
+- **No horizontal scroll** at any of those widths, and **no console errors or warnings**,
+  including through Filter, Sort, Quick Add, Add to Bag, the drawer, the bag stepper and an
+  empty Continue on checkout.
+- **axe** (`axe-core` 4.13, WCAG 2.0/2.1/2.2 A and AA plus best practice) found **no
+  violations** at 1440 (EN) and 390 (EN and AR). Its colour-contrast "needs review" items are
+  text over photographs, where the scrims decide; they stay a manual check.
+- **All 95 internal links** those pages publish answer 200, and every page has its own
+  title, description and (for the listings, collections and products) a self canonical; the
+  bag and checkout stay `noindex, nofollow`.
+- Eager JS (the _Cart_ → _Bundle budget_ method): `/en` 244,994 B, `/en/bag` 255,326 B,
+  `/en/checkout` 283,987 B; the bag and checkout's +1.5 KB over their 2026-09-15 figures is the
+  wayfinding directory in their empty state.
+
+Fixed in the pass: the Arabic header read "الحقيبة(3)" (the space sat inside the `<bdi>`); the
+404's tab said only "Moon Fashion"; and the header, footer, wayfinding and homepage panels
+listed Abayas last while the Shop page lists it third (`homeCategories` now follows
+`CATEGORY_ORDER`, held by a test). Left as they are, for the owner: page titles are three
+sizes by kind (the listings' `type-h1`, 60px; the collections' `type-display`; and
+`type-page-title`, 40px, on the product, bag, checkout and 404), and a collection's season is
+shown as the dashboard stores it, in one language.
+
 ## Guideline overrides and copy decisions
 
 - §12·11 Newsletter and §12·12's "newsletter if not already above" are excluded by the

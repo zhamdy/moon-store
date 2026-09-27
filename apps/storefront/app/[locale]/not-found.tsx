@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 import { buttonClassName } from '@/components/ui/button';
 import { Container } from '@/components/ui/container';
@@ -5,6 +6,12 @@ import { EditorialLink } from '@/components/ui/editorial-link';
 import { CategoryDirectory } from '@/features/catalog/components/category-directory';
 import { loadCategoryCounts } from '@/features/collections/api/load-category-counts';
 import { Link } from '@/i18n/navigation';
+
+/** "Page not found · Moon Fashion": the tab and history said only "Moon Fashion" (QA pass). */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('notFound');
+  return { title: t('title') };
+}
 
 /**
  * Every unknown URL, and every missing product, category or collection ("Directory",

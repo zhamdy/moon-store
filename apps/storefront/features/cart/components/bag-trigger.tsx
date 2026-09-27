@@ -108,7 +108,13 @@ export function BagTrigger({
             starts with the same word. */}
         <span aria-hidden="true" className="type-ui hidden whitespace-nowrap lg:inline">
           {strings.label}
-          {label.badgeText !== null && <bdi className="tabular-nums"> ({label.badgeText})</bdi>}
+          {/* The space stays outside the isolate: inside it, an Arabic page drew "الحقيبة(3)". */}
+          {label.badgeText !== null && (
+            <>
+              {' '}
+              <bdi className="tabular-nums">({label.badgeText})</bdi>
+            </>
+          )}
         </span>
         {label.badgeText !== null && (
           // Below 1024: a filled disc in the header's text colour with the action's
