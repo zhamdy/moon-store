@@ -1,5 +1,5 @@
 import { getLocale, getTranslations } from 'next-intl/server';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { Facebook, Instagram, MapPin, Phone, Youtube } from 'lucide-react';
 import { Link } from '@/i18n/navigation';
 import type { AppLocale } from '@/i18n/routing';
@@ -9,8 +9,6 @@ import { TikTokIcon } from '@/components/brand/tiktok-icon';
 import { WhatsAppIcon } from '@/components/brand/whatsapp-icon';
 import { XIcon } from '@/components/brand/x-icon';
 import { hasContactDetails, storeContact, telHref, type SocialNetwork } from '@/lib/brand/contact';
-import { NavLink } from '../nav-link';
-import { primaryNavItems } from '../navigation-items';
 
 type SocialIcon = ComponentType<{
   size?: number;
@@ -31,9 +29,12 @@ const socialIcons: Record<SocialNetwork, SocialIcon> = {
 /**
  * An Espresso close (design system 2026-09-25): the gold lockup reads best there.
  * Column headings are Champagne eyebrows (the surface's accent), links ivory, secondary
- * lines on-dark-muted, one hairline above the copyright. The lockup with a one-line tagline and the social links, the three
- * shop links, the contact details, and a copyright line under the only gold in the
- * footer, a hairline. `data-surface="ink"` swaps the text/bg/border tokens and the
+ * lines on-dark-muted, one hairline above the copyright. The lockup with a one-line tagline
+ * and the social links; the `directory` the layout composes ("Directory", 2026-09-27: Shop
+ * with every category, Collections with season · year, from `features/collections`'
+ * `FooterDirectory`, so this file imports no feature slice); the contact details, the
+ * number never breaking; and a copyright line under a hairline. Two columns on a phone
+ * (brand and contact full width), four at 768, twelve from 1024. `data-surface="ink"` swaps the text/bg/border tokens and the
  * focus ring.
  *
  * Contact and social details come from `lib/brand/contact.ts` (user decision,
@@ -42,7 +43,7 @@ const socialIcons: Record<SocialNetwork, SocialIcon> = {
  * language switcher here (the header toggle and the mobile menu carry it), and no
  * FAQ, Blog, About, Newsletter or policy links.
  */
-export async function Footer() {
+export async function Footer({ directory }: { directory?: ReactNode }) {
   const t = await getTranslations();
   const locale = (await getLocale()) as AppLocale;
   const year = new Date().getFullYear();
@@ -55,8 +56,8 @@ export async function Footer() {
   return (
     <footer data-surface="ink" className="bg-bg text-text">
       <Container as="div" className="section-y">
-        <div className="grid-editorial gap-y-12">
-          <div className="col-span-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-6 lg:grid-cols-12">
+          <div className="col-span-2 md:col-span-4 lg:col-span-3">
             <Link href="/" aria-label={t('common.brandName')} className="inline-block">
               <BrandLogo variant="logo" height={128} className="h-28 w-auto lg:h-32" />
             </Link>
@@ -84,26 +85,12 @@ export async function Footer() {
             )}
           </div>
 
-          <nav
-            aria-label={t('navigation.footerLabel')}
-            className="col-span-2 lg:col-span-3 lg:col-start-7"
-          >
-            <h2 className="type-eyebrow text-brand">{t('footer.shopLabel')}</h2>
-            <ul className="mt-6 flex flex-col gap-4">
-              {primaryNavItems.map((item) => (
-                <li key={item.key}>
-                  <NavLink href={item.href} typography="type-body">
-                    {t(`navigation.${item.messageKey}`)}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          {directory}
 
           {showContact && (
             <div className="col-span-2 lg:col-span-3 lg:col-start-10">
               <h2 className="type-eyebrow text-brand">{t('footer.contactLabel')}</h2>
-              <address className="type-body mt-6 flex flex-col gap-4 not-italic">
+              <address className="type-body mt-4 flex flex-col gap-2 not-italic">
                 {e164 && (
                   <a
                     href={telHref(e164)}
@@ -111,7 +98,9 @@ export async function Footer() {
                   >
                     <Phone size={18} strokeWidth={1.5} aria-hidden="true" className="shrink-0" />
                     {/* Numbers read left to right in both languages. */}
-                    <span dir="ltr">{display}</span>
+                    <span dir="ltr" className="whitespace-nowrap">
+                      {display}
+                    </span>
                   </a>
                 )}
                 {address && (

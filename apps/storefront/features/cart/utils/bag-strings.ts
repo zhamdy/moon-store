@@ -122,6 +122,8 @@ export interface BagSummaryStrings {
 
 export interface BagStatusStrings {
   emptyTitle: string;
+  /** "Start with a category.": the line above the category directory. */
+  emptyBody: string;
   emptyAction: string;
   errorLoad: string;
   retry: string;
@@ -309,6 +311,7 @@ async function sharedBagStrings(locale: AppLocale) {
 
   const status: BagStatusStrings = {
     emptyTitle: t('empty.title'),
+    emptyBody: t('empty.body'),
     emptyAction: t('empty.action'),
     errorLoad: t('error.load'),
     retry: t('error.retry'),

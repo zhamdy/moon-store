@@ -123,6 +123,7 @@
   "notFound": {
     "title": "Page not found",
     "body": "The page you're looking for doesn't exist yet.",
+    "shopAll": "Shop all pieces",
     "backHome": "Back to home"
   },
   "catalog": {
@@ -298,6 +299,7 @@
     "continueShopping": "Continue shopping",
     "empty": {
       "title": "Your bag is empty",
+      "body": "Start with a category.",
       "action": "Continue shopping"
     },
     "quantity": "Quantity, {name}",

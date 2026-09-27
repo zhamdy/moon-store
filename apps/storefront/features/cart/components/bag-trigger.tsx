@@ -1,6 +1,6 @@
 'use client';
 
-import { lazy, Suspense, useState, type MouseEvent } from 'react';
+import { lazy, Suspense, useState, type MouseEvent, type ReactNode } from 'react';
 import { ShoppingBag } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { BAG_HREF } from '@/components/layout/navigation-items';
@@ -19,6 +19,11 @@ export interface BagTriggerProps {
   /** The empty drawer's Continue shopping target, from `catalogPath` on the server. */
   shopHref: string;
   locale: AppLocale;
+  /**
+   * The empty drawer's category rows ("Directory", 2026-09-27), server-rendered by the layout
+   * and passed through to the lazy drawer as a `ReactNode`.
+   */
+  emptyDirectory?: ReactNode;
 }
 
 function isPlainPrimaryClick(event: MouseEvent<HTMLAnchorElement>): boolean {
@@ -47,7 +52,13 @@ const warmDrawer = () => {
  * The server snapshot is "not hydrated", so the server HTML and the first client render are
  * the same element: label "Bag", no badge, no `aria-haspopup`.
  */
-export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTriggerProps) {
+export function BagTrigger({
+  strings,
+  drawerStrings,
+  shopHref,
+  locale,
+  emptyDirectory,
+}: BagTriggerProps) {
   const cart = useCartLines();
   const { drawer } = useCartSession();
   const actions = useCartActions();
@@ -114,7 +125,12 @@ export function BagTrigger({ strings, drawerStrings, shopHref, locale }: BagTrig
       {drawerMounted && (
         <DrawerErrorBoundary onError={onDrawerError}>
           <Suspense fallback={null}>
-            <BagDrawer strings={drawerStrings} locale={locale} shopHref={shopHref} />
+            <BagDrawer
+              strings={drawerStrings}
+              locale={locale}
+              shopHref={shopHref}
+              emptyDirectory={emptyDirectory}
+            />
           </Suspense>
         </DrawerErrorBoundary>
       )}

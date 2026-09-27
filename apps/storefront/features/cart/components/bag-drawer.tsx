@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import { X } from 'lucide-react';
 import { Link, usePathname } from '@/i18n/navigation';
@@ -13,13 +13,17 @@ import { selectPlural } from '../utils/plural-templates';
 import { BagFigure, CartLine } from './cart-line';
 import { useBagController } from './use-bag-controller';
 import { buttonClassName } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
 
 export interface BagDrawerProps {
   strings: BagDrawerStrings;
   locale: AppLocale;
   /** `catalogPath({ kind: 'all' })`, resolved on the server. */
   shopHref: string;
+  /**
+   * The empty drawer's category rows ("Directory", 2026-09-27): server-rendered by the layout
+   * (`CategoryDirectory variant="rows"`), so the drawer resolves no message for them.
+   */
+  emptyDirectory?: ReactNode;
 }
 
 const TEXT_ACTION =
@@ -70,7 +74,7 @@ function AfterTrapUnmount({ onUnmount }: { onUnmount(remounted: boolean): void }
  * reconciles it and applies the model's store writes and toasts; this renders it.
  * The panel's content unmounts when closed, so line photographs load only while it is open.
  */
-export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps) {
+export default function BagDrawer({ strings, locale, shopHref, emptyDirectory }: BagDrawerProps) {
   const { drawer } = useCartSession();
   const actions = useCartActions();
   const { open } = drawer;
@@ -200,17 +204,28 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
             )}
 
             {view.kind === 'empty' && (
-              <EmptyState
-                titleAs="h3"
-                titleRef={emptyHeading}
-                titleFocusable
-                title={strings.status.emptyTitle}
-                actions={
-                  <Link href={shopHref} onClick={navigate} className={TEXT_ACTION}>
-                    {strings.status.emptyAction}
-                  </Link>
-                }
-              />
+              <div className="py-7">
+                <h3
+                  ref={emptyHeading}
+                  tabIndex={-1}
+                  className="type-title text-balance focus:outline-none"
+                >
+                  {strings.status.emptyTitle}
+                </h3>
+                <p className="type-body mt-2 text-text-secondary">{strings.status.emptyBody}</p>
+                {emptyDirectory && (
+                  // A category link is a navigation like any other: close and hand focus to
+                  // the page, even when it names the page already open behind the drawer.
+                  <div
+                    className="mt-5"
+                    onClickCapture={(event) => {
+                      if ((event.target as Element).closest('a[href]')) navigate();
+                    }}
+                  >
+                    {emptyDirectory}
+                  </div>
+                )}
+              </div>
             )}
 
             {rows && (
@@ -233,6 +248,14 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
               </ul>
             )}
           </div>
+
+          {view.kind === 'empty' && (
+            <div className="shrink-0 border-t border-border px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-8 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+              <Link href={shopHref} onClick={navigate} className={PRIMARY_LINK}>
+                {strings.status.emptyAction}
+              </Link>
+            </div>
+          )}
 
           {view.kind !== 'empty' && (
             <div className="flex shrink-0 flex-col gap-4 border-t border-border px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-8 md:pb-[max(1.5rem,env(safe-area-inset-bottom))]">
