@@ -6,7 +6,6 @@ import { notFound } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { BAG_HREF } from '@/components/layout/navigation-items';
-import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
 import { CHECKOUT_ENABLED } from '@/features/cart/utils/checkout-availability';
 import { catalogPath } from '@/features/catalog/utils/catalog-path';
@@ -57,11 +56,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ local
         <ArrowLeft size={16} strokeWidth={1.5} aria-hidden="true" className="rtl:-scale-x-100" />
         {strings.backToBag}
       </Link>
-      <Reveal className="pt-4 pb-10 md:pb-12">
-        <h1 data-motion="rise" className="type-h1 [--motion-offset:120ms] [--motion-rise:24px]">
-          {strings.title}
-        </h1>
-      </Reveal>
+      {/* No entrance: the design system keeps the bag and checkout still ("Fitting room"). */}
+      <h1 className="type-page-title mt-2 pb-8 md:pb-9">{strings.title}</h1>
       <CheckoutView
         strings={strings}
         locale={locale}

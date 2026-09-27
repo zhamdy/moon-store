@@ -21,7 +21,7 @@ export interface TextFieldProps extends Omit<
 /**
  * A labelled checkout input (plan 2026-09-15-002, *Field Specification*), in the filter
  * sheet's vocabulary: label above, a 52px bordered frame that carries the focus ring, and a
- * reserved error row with icon and text, so an error never moves the fields below it and colour
+ * reserved error row with icon and text, so a one-line error never moves the fields below it and colour
  * never carries it alone. The error is linked with `aria-describedby`, never a live region:
  * focus is the announcement (CO-12). Client-bundled: only the checkout island renders it.
  */
@@ -65,7 +65,11 @@ export function TextField({
           )}
         />
       </div>
-      <FieldError id={errorId}>{error}</FieldError>
+      {/* The row reserves exactly one error line (8px + one `type-supporting` line in the page's
+          locale), so a one-line error moves nothing below it. */}
+      <FieldError id={errorId} className="type-supporting min-h-[calc(0.5rem+1lh)]">
+        {error}
+      </FieldError>
     </div>
   );
 }

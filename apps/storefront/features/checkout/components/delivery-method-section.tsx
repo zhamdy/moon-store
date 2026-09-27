@@ -1,3 +1,5 @@
+import { StepHeading } from './step-heading';
+
 /** A delivery option, once real delivery rules exist (CO-18). */
 export interface DeliveryMethodOption {
   id: string;
@@ -7,6 +9,8 @@ export interface DeliveryMethodOption {
 export interface DeliveryMethodSectionProps {
   headingId: string;
   heading: string;
+  /** Its place in the form's numbered sections. */
+  step: number;
   /** Empty in this phase: no delivery rules, fees, couriers or timings exist yet. */
   methods: readonly DeliveryMethodOption[];
   pendingText: string;
@@ -21,14 +25,15 @@ export interface DeliveryMethodSectionProps {
 export function DeliveryMethodSection({
   headingId,
   heading,
+  step,
   methods,
   pendingText,
 }: DeliveryMethodSectionProps) {
   return (
-    <section aria-labelledby={headingId} className="mt-4 border-t border-border pt-8">
-      <h2 id={headingId} className="type-h4">
+    <section aria-labelledby={headingId} className="border-t border-border pt-7 pb-8">
+      <StepHeading id={headingId} step={step}>
         {heading}
-      </h2>
+      </StepHeading>
       {methods.length === 0 && <p className="type-body mt-3 text-text-secondary">{pendingText}</p>}
     </section>
   );

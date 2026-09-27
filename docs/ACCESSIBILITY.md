@@ -281,9 +281,11 @@ navigation shell.
    Enter inside that empty Full name again: it is read again. Fix a field: its error disappears
    as you type. Phone accepts `٠١٠٠١١١٢٢٣٣` and `+20 100 111 2233`; `123` gives "Enter a phone
    number of 8 to 15 digits". No field or error ever sits under the sticky header. **Summary:**
-   below 1024 the toggle is announced as "Summary, 1 piece, 2,850 EGP, collapsed/expanded";
+   below 1024 the toggle is announced as "Summary, 1 piece, 2,850 EGP, collapsed/expanded", and
+   while collapsed nothing of the summary follows it in the Tab order;
    from 1024 a long bag's line list is a labelled region you can Tab into and scroll. It says
-   "Delivery: Confirmed later" and has no Total. **Bag changes:** with the form half filled,
+   "Delivery: Confirmed later" and has no Total. The section headings are read as "Contact",
+   "Delivery address" and "Delivery", without their numerals. **Bag changes:** with the form half filled,
    set the variant's stock to 0 in the dashboard and return to the tab: "Your bag was updated"
    is spoken once from a toast, and the notice above the form names the piece. Press Continue:
    focus moves to that notice's heading, and Return to bag is the next Tab. **Outcome
@@ -291,7 +293,7 @@ navigation shell.
    "Online ordering isn't open yet…" with Back to bag and Continue shopping, plus one toast;
    nothing navigates. **Draft:** refresh, and the typed details are back without being announced.
    At 320px and 200% zoom there is no horizontal page scroll, long Arabic errors wrap, and every
-   input is 48px tall. Reduced motion: the heading does not rise and the chevron does not turn.
+   input is 48px tall. Reduced motion: the chevron does not turn (the heading has no entrance at all).
 
 ## Running the checks
 
