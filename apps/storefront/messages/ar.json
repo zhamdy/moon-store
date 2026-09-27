@@ -310,6 +310,7 @@
     "optionValue": "{label}: {value}",
     "unitPrice": "السعر",
     "lineTotal": "الإجمالي",
+    "each": "{price} للقطعة",
     "unavailablePiece": "قطعة لم تعد متوفّرة",
     "pendingPiece": "هذه القطعة",
     "notice": {

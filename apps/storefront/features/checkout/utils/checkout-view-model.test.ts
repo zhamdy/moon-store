@@ -27,6 +27,7 @@ const LINE: BagLineStrings = {
   optionLabels: { size: 'Size', color: 'Colour' },
   unitPrice: 'Price',
   lineTotal: 'Total',
+  each: '{price} each',
   unavailablePiece: 'A piece that is no longer available',
   pendingPiece: 'This piece',
   updating: 'Updating',

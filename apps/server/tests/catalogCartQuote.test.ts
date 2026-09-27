@@ -210,6 +210,14 @@ describe('POST /api/v1/catalog/cart/quote', () => {
          (7, 4, 'V-SO-S', 0, NULL, '{"size":"S"}'),
          (8, 4, 'V-SO-M', 0, NULL, '{"size":"M"}')`
     );
+    // silk-midi has no primary image, only a gallery (as every seeded product does); the
+    // tote's gallery must never displace its primary.
+    await pool.query(
+      `INSERT INTO product_images (product_id, image_url, position) VALUES
+         (2, '/uploads/products/silk-midi-b.jpg', 1),
+         (2, '/uploads/products/silk-midi-a.jpg', 0),
+         (1, '/uploads/products/tote-back.jpg', 0)`
+    );
 
     const app = createApp();
     server = await new Promise((resolve) => {
@@ -264,6 +272,16 @@ describe('POST /api/v1/catalog/cart/quote', () => {
         subtotal: 2000,
         itemCount: 2,
         maxLineQuantity: 10,
+      });
+    });
+
+    it('falls back to the first gallery image when the product has no primary', async () => {
+      const r = await quote([line('silk-midi', { size: 'M' }, 1), line('plain-tote', {}, 1)]);
+      expect(r.body.data.lines[0].product).toMatchObject({
+        image: { url: 'https://media.example.com/uploads/products/silk-midi-a.jpg' },
+      });
+      expect(r.body.data.lines[1].product).toMatchObject({
+        image: { url: 'https://media.example.com/uploads/products/tote.jpg' },
       });
     });
 
