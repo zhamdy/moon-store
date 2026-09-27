@@ -137,18 +137,21 @@ value is struck through in `text-disabled` and its label carries visually hidden
 one polite live region rendered with the first paint, because a region mounted alongside its
 message announces nothing.
 
-**The storefront gallery is a vertical tablist of thumbnails.** With two or more images the
-thumbnails are a WAI-ARIA tablist (`aria-orientation="vertical"`, labelled) with a roving
-tabindex and automatic activation: Up/Down move, Left/Right move in reading direction
-(mirrored in RTL), Home/End jump, and movement wraps. The large image frame is the one
-`tabpanel`, labelled by the active tab and itself a tab stop (it holds no focusable content),
-with an inset focus ring. Zoom in place is pointer-only by design (a fine hovering pointer at
-1024 and above); keyboard and touch users rely on browser zoom. One image: no tablist.
+**The storefront gallery is a horizontal tablist of thumbnails under the photograph.** With
+two or more images the thumbnails are a WAI-ARIA tablist (`aria-orientation="horizontal"`,
+labelled) with a roving tabindex and automatic activation: Left/Right move in reading
+direction (mirrored in RTL), Home/End jump, and movement wraps. The large image frame is the
+one `tabpanel`, labelled by the active tab and itself a tab stop (it holds no focusable
+content), with an inset focus ring; it comes first in the DOM as on screen, so Tab reaches the
+photograph and then the selected thumbnail. Zoom in place is pointer-only by design (a fine
+hovering pointer at 1024 and above); keyboard and touch users rely on browser zoom. One
+image: no tablist.
 
-**The storefront product details are horizontal tabs.** Description / Details / Shipping &
-returns are WAI-ARIA tabs with Left/Right (mirrored in RTL) and Home/End, wrapping; inactive
-panels are `hidden`, and a panel with no focusable content is itself a tab stop. The tab bar
-is sticky under the site header, so focus must never land beneath either.
+**The storefront product details are native disclosures.** Under Add to Bag, "More about this
+piece" and "Shipping & returns" are `<details>` / `<summary>` (2026-09-26, replacing the
+tabs): the browser supplies the button role, the expanded state and Enter/Space. The size
+legend's sold-out note ("S and L are sold out") is `aria-hidden`, because each size already
+announces "sold out" and the note would otherwise join the group's name.
 
 **Storefront checkout validation is announced by focus, not by toasts.** Errors are inline
 (icon, text and border) and linked with `aria-describedby`; none is a live region. Continue on
@@ -186,14 +189,14 @@ navigation shell.
    (`cashmere-pullover` in a seeded catalog), in EN and AR: Tab enters each size fieldset
    once, arrow keys move and select, and the focus ring is visible and never under the
    sticky header. VoiceOver/NVDA announce something like "M, sold out, 2 of 3, selected",
-   and the price/status change is spoken. Gallery: Tab reaches the selected thumbnail once;
-   Up/Down, reading-direction Left/Right (mirrored in AR), Home/End move and wrap, and each
-   change is announced as the selected tab. Tab again reaches the image panel, its ring is
-   visible inside the frame, and its alt text is read. Details tabs: Tab reaches the active
-   tab once; Left/Right (mirrored in AR) and Home/End switch, and Tab moves into the panel.
-   Focus is never hidden under the sticky header or the stuck details tab bar. At 320px
-   there is no horizontal page scroll: a long category in the breadcrumb truncates, and the
-   thumbnail column and the tab bar stay inside the page (the bar scrolls sideways itself).
+   and the price/status change is spoken. Gallery: Tab reaches the image panel first (its
+   ring is visible inside the frame, and its alt text is read), then the selected thumbnail
+   once; reading-direction Left/Right (mirrored in AR) and Home/End move and wrap, and each
+   change is announced as the selected tab. Folds: Tab reaches "More
+   about this piece" and "Shipping & returns", each announced as a collapsed button; Enter
+   or Space opens it and Tab moves into its text. Focus is never hidden under the sticky
+   header. At 320px there is no horizontal page scroll: a long category in the breadcrumb
+   truncates, and the thumbnail row stays inside the page (it scrolls sideways itself).
 8. **Storefront bag, keyboard and screen reader.** Also not axe-scanned. In EN and AR,
    with `silk-midi-dress` (sizes), `cashmere-pullover` (mixed stock) and `silk-slip-dress`
    (sold out). **Add to Bag:** with no size chosen, the button is enabled; pressing it

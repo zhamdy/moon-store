@@ -16,7 +16,10 @@ export function splitParagraphs(text: string): string[] {
     .filter(Boolean);
 }
 
-/** The info column's short lead: the first paragraph of the localized description. */
+/**
+ * The lead under the price: the first paragraph of the localized description. The rest,
+ * if any, is the "More about this piece" fold (`productInfo`), so nothing is said twice.
+ */
 export function productLead(
   product: Pick<CatalogProductDetail, 'description' | 'descriptionEn'>,
   locale: AppLocale
@@ -42,10 +45,14 @@ export interface PolicySection {
   paragraphs: string[];
 }
 
-export type DetailsTab =
-  | { id: 'description'; lang: AppLocale; paragraphs: string[] }
-  | { id: 'details'; rows: DetailsRow[] }
-  | { id: 'shipping'; sections: PolicySection[] };
+export interface ProductInfoModel {
+  /** The facts list, in display order; empty rows are not in it. */
+  rows: DetailsRow[];
+  /** The description after the lead paragraph, or `null` when it is one paragraph. */
+  more: { lang: AppLocale; paragraphs: string[] } | null;
+  /** The Shipping & returns fold; empty when the policies are missing or failed. */
+  shipping: PolicySection[];
+}
 
 function link(context: CatalogProductContext, locale: AppLocale): DetailsLink {
   return { slug: context.slug, name: localizedName(context, locale) };
@@ -91,32 +98,20 @@ function policySections(policies: StorePolicies | null, locale: AppLocale): Poli
 }
 
 /**
- * The details section's tabs, in display order, from real data only (ED-4): a tab with
- * nothing to show is not in the list. `policies` is `null` when the read failed.
+ * Everything under Add to Bag ("In its chapter", 2026-09-26; it replaces the ED-4 tabs):
+ * the facts list and the two folds, from real data only. `policies` is `null` when the
+ * read failed.
  */
-export function productDetailsTabs(
+export function productInfo(
   product: CatalogProductDetail,
   policies: StorePolicies | null,
   locale: AppLocale
-): DetailsTab[] {
-  const tabs: DetailsTab[] = [];
-
+): ProductInfoModel {
   const description = localizedDescription(product, locale);
-  const paragraphs = description ? splitParagraphs(description.text) : [];
-  if (description && paragraphs.length > 0) {
-    tabs.push({ id: 'description', lang: description.lang, paragraphs });
-  }
-
-  const rows = detailsRows(product, locale);
-  if (rows.length > 0) tabs.push({ id: 'details', rows });
-
-  const sections = policySections(policies, locale);
-  if (sections.length > 0) tabs.push({ id: 'shipping', sections });
-
-  return tabs;
-}
-
-/** Whether a panel holds a focusable element; APG makes the panel itself a tab stop if not. */
-export function tabHasFocusableContent(tab: DetailsTab): boolean {
-  return tab.id === 'details' && tab.rows.some((row) => row.kind === 'links');
+  const rest = description ? splitParagraphs(description.text).slice(1) : [];
+  return {
+    rows: detailsRows(product, locale),
+    more: description && rest.length > 0 ? { lang: description.lang, paragraphs: rest } : null,
+    shipping: policySections(policies, locale),
+  };
 }

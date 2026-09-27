@@ -16,7 +16,7 @@ import { GALLERY_ZOOM_QUERY, galleryKeyTarget, galleryThumbLoading } from '../ut
 export interface GalleryViewerImage {
   url: string;
   alt: string;
-  /** "Image 2 of 6"; only read when there is a thumbnail column. */
+  /** "Image 2 of 6"; only read when there is a thumbnail row. */
   thumbLabel?: string;
   sizes: string;
   zoomSizes: string;
@@ -46,11 +46,12 @@ function withIndex(set: ReadonlySet<number>, index: number): ReadonlySet<number>
 }
 
 /**
- * The product gallery (owner decision 2026-09-14, the Bella template's gallery): a
- * vertical tablist of thumbnails beside one large image, and zoom in place for a
- * precise hovering pointer. Thumbnail state and pointer zoom cannot be CSS, so this is
- * the storefront's eleventh client boundary; layout, fades and zoom scale are CSS
- * (`[data-gallery*]` in `app/globals.css`).
+ * The product gallery ("In its chapter", owner decision 2026-09-26): one large 4:5 image
+ * the width of its column, a horizontal tablist of thumbnails under it, and zoom in place
+ * for a precise hovering pointer. Thumbnail state and pointer zoom cannot be CSS, so this
+ * is a client boundary (the tenth); layout, fades and zoom scale are CSS (`[data-gallery*]`
+ * in `app/globals.css`). The frame comes first in the DOM as on screen, so Tab reaches the
+ * photograph, then the row; `aria-controls` ties the tabs to it either way.
  *
  * A large image mounts only once it has been shown (the first on the server), and stays
  * mounted, hidden, for instant re-selection: lazy alone would not stop hidden panes
@@ -132,47 +133,6 @@ export function ProductGalleryViewer({
 
   return (
     <div data-gallery>
-      {withThumbs && (
-        <div data-gallery-thumbs>
-          <div
-            role="tablist"
-            aria-orientation="vertical"
-            aria-label={label}
-            onKeyDown={onTabKeyDown}
-          >
-            {images.map((image, index) => (
-              <button
-                key={index}
-                ref={(element) => {
-                  tabs.current[index] = element;
-                }}
-                type="button"
-                role="tab"
-                id={tabId(index)}
-                aria-selected={index === active}
-                aria-controls={panelId}
-                aria-label={image.thumbLabel}
-                tabIndex={index === active ? 0 : -1}
-                data-gallery-thumb
-                onClick={() => select(index)}
-              >
-                <span>
-                  <Image
-                    src={image.url}
-                    alt=""
-                    fill
-                    sizes={thumbSizes}
-                    loading={galleryThumbLoading(index)}
-                    fetchPriority="low"
-                    className="object-cover"
-                  />
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div
         ref={frame}
         data-gallery-frame
@@ -181,7 +141,7 @@ export function ProductGalleryViewer({
         onPointerEnter={onPointerEnter}
         onPointerMove={zoomed ? (event) => trackPointer(event, false) : undefined}
         onPointerLeave={() => setHovering(false)}
-        // The panel holds only an image, so it is itself a tab stop (APG), as in product-tabs.
+        // The panel holds only an image, so it is itself a tab stop (APG).
         {...(withThumbs
           ? { id: panelId, role: 'tabpanel', 'aria-labelledby': tabId(active), tabIndex: 0 }
           : {})}
@@ -227,6 +187,47 @@ export function ProductGalleryViewer({
           })}
         </div>
       </div>
+
+      {withThumbs && (
+        <div data-gallery-thumbs>
+          <div
+            role="tablist"
+            aria-orientation="horizontal"
+            aria-label={label}
+            onKeyDown={onTabKeyDown}
+          >
+            {images.map((image, index) => (
+              <button
+                key={index}
+                ref={(element) => {
+                  tabs.current[index] = element;
+                }}
+                type="button"
+                role="tab"
+                id={tabId(index)}
+                aria-selected={index === active}
+                aria-controls={panelId}
+                aria-label={image.thumbLabel}
+                tabIndex={index === active ? 0 : -1}
+                data-gallery-thumb
+                onClick={() => select(index)}
+              >
+                <span>
+                  <Image
+                    src={image.url}
+                    alt=""
+                    fill
+                    sizes={thumbSizes}
+                    loading={galleryThumbLoading(index)}
+                    fetchPriority="low"
+                    className="object-cover"
+                  />
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

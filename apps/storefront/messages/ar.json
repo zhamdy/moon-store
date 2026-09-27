@@ -184,7 +184,6 @@
       "shopByCategory": "تسوّقي حسب الفئة"
     },
     "collections": {
-      "explore": "اكتشفي",
       "description": "خزانة مختارة بعناية، مجموعة تلو الأخرى. اكتشفي القطع التي تروي كل حكاية.",
       "count": "{count, plural, zero {لا توجد مجموعات} one {مجموعة واحدة} two {مجموعتان} few {# مجموعات} many {# مجموعة} other {# مجموعة}}",
       "credits": "في هذه المجموعة",
@@ -245,17 +244,19 @@
       "size": "المقاس",
       "color": "اللون",
       "selected": "{option}: {value}",
-      "valueSoldOut": "{value}، نفدت الكمية"
+      "valueSoldOut": "{value}، نفدت الكمية",
+      "soldOutNote": {
+        "one": "نفدت كمية {values}",
+        "other": "نفدت كمية {values}"
+      }
     },
     "gallery": {
       "label": "صور المنتج",
       "imageAlt": "{name}، الصورة {n} من {count}",
       "thumbLabel": "الصورة {n} من {count}"
     },
-    "partOf": "ضمن {collection}",
     "related": {
-      "heading": "منتجات ذات صلة",
-      "description": "قطع أخرى من {name}"
+      "heading": "المزيد من {name}"
     },
     "breadcrumb": {
       "label": "مسار التنقل",
@@ -263,9 +264,6 @@
       "shop": "كل القطع"
     },
     "details": {
-      "label": "معلومات المنتج",
-      "description": "الوصف",
-      "details": "التفاصيل",
       "shipping": "الشحن والإرجاع",
       "material": "الخامة",
       "care": "العناية",
@@ -274,7 +272,8 @@
       "collection": "المجموعة",
       "sizes": "المقاسات",
       "delivery": "التوصيل",
-      "returns": "الإرجاع"
+      "returns": "الإرجاع",
+      "more": "المزيد عن هذه القطعة"
     },
     "share": {
       "label": "شاركيها:",

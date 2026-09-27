@@ -236,8 +236,9 @@ study over a refined bar and a centred masthead):
 
 ## Client boundary rule
 
-Server Components by default (R21/R22). `'use client'` is limited to nineteen entries
-(twenty files):
+Server Components by default (R21/R22). `'use client'` is limited to eighteen live
+entries (nineteen files). Number 11 is retired rather than reused, so the numbers cited
+elsewhere ("boundary 13") stay put:
 
 1. `providers/app-providers.tsx` / `providers/query-provider.tsx` — the provider tree.
 2. `components/layout/mobile-menu/mobile-menu.tsx` — Headless UI's Dialog needs state.
@@ -271,21 +272,20 @@ Server Components by default (R21/R22). `'use client'` is limited to nineteen en
    radios, live price and availability (PD-11, owner decision PD-E): the selection
    drives price and per-value availability, which CSS cannot compute, and Cart needs an
    island here anyway. Takes the DTO's `price`/`inStock`/`options`/`variants`, resolved
-   strings and a pre-formatted price map from `purchase-panel-slot.tsx`; the rules are
+   strings, a pre-formatted price map, the `locale` (for the sold-out note's list) and the
+   server-rendered `lead` from `purchase-panel-slot.tsx`; the rules are
    `utils/variant-selection.ts`, unit-tested. It renders the page-composed `action` slot
    inside `PurchaseSelectionContext` (CD-11), which is how Add to Bag (13) reads
    `purchaseReadiness`; `data-readiness` still exposes it.
 10. `features/products/components/product-gallery-viewer.tsx` — the product gallery's
-    thumbnail tabs and zoom in place (owner decision 2026-09-14): which image is active
+    thumbnail row and zoom in place ("In its chapter", 2026-09-26): which image is active
     and the pointer-following zoom origin cannot be CSS. Takes resolved `label`/`alt`/
     `thumbLabel` strings, `dir`, and plain `{ url, sizes, zoomSizes, loading,
 fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     rule are `utils/gallery-layout.ts`, unit-tested.
-11. `features/products/components/product-tabs.tsx` — the product details tabs (ED-4):
-    owns only which tab is active. Takes `tabs: { id, label, panelHasFocusable }[]`, the
-    tablist `label`, `dir` and `panels: Record<id, ReactNode>` rendered on the server by
-    `product-details-tabs.tsx`; the keyboard rule is `utils/tab-keys.ts` (`tabKeyTarget`,
-    shared with the gallery), unit-tested.
+11. _Retired 2026-09-26._ It was `product-tabs.tsx`, the product details tabs (ED-4);
+    "In its chapter" replaced them with native `<details>` folds, which need no JS. The
+    keyboard rule it shared, `utils/tab-keys.ts` (`tabKeyTarget`), stays for the gallery.
 12. `features/products/components/share-button.tsx` — the share row's native share
     button (owner decision 2026-09-15): `navigator.share` and the clipboard exist only in
     the browser, and Instagram, TikTok and Messenger have no web share URL. Takes `url`,
@@ -387,7 +387,7 @@ second `NextIntlClientProvider` carrying `{ catalog: { error } }` and nothing el
 `useTranslations('catalog.error')` in `(catalog)/error.tsx` is the only client
 `useTranslations` in the app. The layout fetches nothing from the API, so it cannot
 throw past the boundary it serves. Widening that object, or a second client
-`useTranslations`, is a new decision, not a precedent. Before adding a twentieth
+`useTranslations`, is a new decision, not a precedent. Before adding a nineteenth
 `"use client"` boundary, check whether the interactive part can be isolated into a
 small leaf instead of converting an entire Server Component tree.
 
@@ -997,38 +997,48 @@ self canonical and both-locale alternates; the first image as `openGraph.images`
 indexable. No JSON-LD `Product` (PD-7): it waits for Checkout, since a bag is not a
 purchase.
 
-### Composition
+### Composition — "In its chapter" (owner decision 2026-09-26)
+
+Chosen from three directions drawn in Claude Design (Atelier, Stage, In its chapter), with
+one change by the owner: the page ends on Stage's "More from {collection}" card row instead
+of In its chapter's collection chapter band. It replaces the 2026-09-14 Bella layout (a
+thumbnail column beside a viewport-capped frame, the details tabs under the split, and
+"Related products").
 
 `ProductDetail` is a slot layout: the page passes `breadcrumb`, `gallery`, `purchase`,
-`details`, `related` and the listing `hrefs` (it builds every href; `features/products`
-never imports `features/catalog`). Order: breadcrumb row, a 50/50 split from 1024 with a
-64px column gap (`lg:grid-cols-2 lg:gap-x-16`, mirrored by `utils/gallery-layout.ts`; one
-column below), the details tabs at full container width, the related row.
+`details`, `share` and `related` (it builds every href; `features/products` never imports
+`features/catalog`). Order: breadcrumb row, then the page's twelve columns from 1024
+(`lg:grid-cols-12 lg:gap-x-6`, mirrored by `utils/gallery-layout.ts`): the gallery on six,
+the info column on five from the eighth, so one column of air separates them; one column
+below. Then the More from row.
 
-- **One screen from 1024** (owner feedback 2026-09-14, the Bella product page): the large
-  frame is `flex: 0 1 max(22rem, calc((100svh - var(--header-h) - 11rem) * 0.8))`, so the
-  4:5 image fits under the sticky header with the breadcrumb and shrinks to the space the
-  thumbnails leave; the thumbnail column follows its height. The gallery row packs to
-  `flex-end`, its inline end, which faces the info column in both directions. `sizes`
-  still describe the uncapped half column, a slight overestimate.
-
+- **The photograph runs the full column width** (644×805 at 1440) with the thumbnail row
+  under it; the 2026-09-14 "one screen" cap is gone, so the frame no longer shrinks to the
+  viewport height. Below 768 it runs edge to edge (see _Gallery_).
 - **Breadcrumb** (`product-breadcrumb.tsx`): `nav` (`product.breadcrumb.label`) > `ol`,
   Home (`product.breadcrumb.home`) / Shop (its own noun key `product.breadcrumb.shop`,
   "Shop" / "كل القطع", not the `navigation.shop` verb) / Category when present, then the
   product as a non-link `span aria-current="page"`. The product and the category (capped
   width) truncate; Home and Shop never shrink, so 320px never overflows. Separators are
   `aria-hidden`.
-- **Info column**, `position: sticky` from 1024 (PD-15), kept after the enhancement: with
-  the description moved into the tabs the column is usually shorter than the 4:5 gallery,
-  so price and sizes stay in view beside it. Content capped at `max-w-[30rem]`. No category
-  eyebrow (owner, 2026-09-14: the breadcrumb already names it); the column opens with the
-  h1 at `type-h2` (it must not compete with the photograph), then a short lead (the first
-  paragraph of the localized description, `productLead`; omitted without one), the
-  purchase slot (whose `[data-product-action]` now holds Add to Bag inside the panel, PD-B
-  filled; still no sticky mobile purchase bar, PD-14), quick facts (a
-  `type-small` `dl` of material and fit under a hairline, omitted when both are empty; the
-  Details tab keeps the full list), "Part of" links (Arabic `ضمن {collection}`, since
-  collection names already carry مجموعة). The lead sits above the price because price and sizes are one island.
+- **Info column**, `position: sticky` from 1024 (PD-15). No category eyebrow (owner,
+  2026-09-14: the breadcrumb already names it). It reads, in order: the h1
+  (`type-page-title`: it must not compete with the photograph); the purchase slot, which
+  holds the price with the status **beside** it (nothing reserved under it, so the price
+  and the sizes are never separated by an empty row), the lead (the first paragraph of the
+  localized description, `productLead`, rendered by `purchase-panel-slot.tsx` into the
+  panel's `lead` slot), the options and the action (Add to Bag, PD-B; still no sticky
+  mobile purchase bar, PD-14); then `ProductInfo` (`details`); then share. The "Part of"
+  links and the quick-facts `dl` are gone: the facts list names the collection.
+- **`ProductInfo`** (`product-info.tsx`, the `details` slot; it replaces the ED-4 tabs):
+  a `type-supporting` facts `dl` under a hairline (material, care, fit, the category link,
+  the collection links, sizes from the `size` option), then two native `<details>` folds,
+  closed by default: **More about this piece** (the description's paragraphs after the
+  lead, so the description is said once; absent for a one-paragraph description) and
+  **Shipping & returns** (delivery and returns). Built by `productInfo`
+  (`utils/product-details-model.ts`, unit-tested) from real data only: an empty row or
+  fold is not rendered, and with nothing at all the component renders nothing. No JS: the
+  folds are the browser's, and the old tab island (boundary 11) is retired.
 - **Share row** (`product-share.tsx`, the `share` slot, last in the info column): "Share
   it:", server-rendered links to X and WhatsApp built by the pure `utils/share-links.ts`
   (no SDK), and a Share button, the `share-button.tsx` island as the list's last `li`
@@ -1038,21 +1048,12 @@ column below), the details tabs at full container width, the related row.
   other share error, or no Web Share API (most desktops), copies the link and raises a
   "Link copied" success toast (or a "Couldn't copy the link" error toast; see _Cart_ →
   _Toasts_). The shared URL is absolute, from `SITE_URL` through `lib/site-url.ts` (the
-  same origin as `metadataBase`). A hairline above it unless the facts `dl` is directly
-  above.
-- **Details tabs** (ED-4, `product-details-tabs.tsx` + the `product-tabs.tsx` island):
-  Description (every paragraph), Details (a `dl`: material, care, fit, category link,
-  collection links, sizes from the `size` option) and Shipping & returns (delivery and
-  returns). Built by `productDetailsTabs` (`utils/product-details-model.ts`, unit-tested)
-  from real data only: **a tab or row with no content is not rendered**; one tab renders
-  as a headed section without a tablist; none renders nothing. Horizontal WAI-ARIA tabs,
-  automatic activation, Left/Right (mirrored in RTL) and Home/End wrap; inactive panels
-  `hidden`; a panel with no focusable content is itself a tab stop. The bar
-  (`[data-product-tabs*]` in `app/globals.css`) is sticky under the header (z-30, below
-  its z-40), scrolls sideways if the labels overflow, and marks the active tab with a 2px
-  inset ink underline. Changing tabs while the bar is stuck scrolls the section top back
-  under the header; a changed panel fades in over 180ms. One Reveal (a fade) on the
-  section. The island measured +0.4 KB gz of eager JS (194.8 → 195.2).
+  same origin as `metadataBase`).
+- **A sold-out piece** (`product.inStock` false) ends on **Explore {name}**, a primary
+  button to its related scope's listing (the collection, else the category), composed by
+  the page into the `action` slot in place of Add to Bag; the status beside the price
+  already says it cannot be bought. With no collection and no category it keeps the
+  inert "Sold out" Add to Bag.
 
 ### Store policies
 
@@ -1062,7 +1063,7 @@ lifetime (300s) and no `timeoutMs`; a missing field reads as `null`, any other t
 `INVALID_RESPONSE`. The page calls it through `load-store-policies.ts` only after the
 product resolved (so it never touches a 404): `unstable_rethrow` first, any `ApiError`
 logged and mapped to `null`, anything else rethrown — a failed read only drops the
-Shipping tab. The text is edited in the dashboard's store settings. **The delivery and
+Shipping & returns fold. The text is edited in the dashboard's store settings. **The delivery and
 returns copy seeded in dev is placeholder text and a launch blocker** until the business
 replaces it (ED-5 revised); no fees, times, areas or return periods may be invented here.
 
@@ -1078,40 +1079,45 @@ Bag consumes it; see _Cart_). POS now agrees on the NULL variant price (PD-C, fi
 
 ### Gallery
 
-The Bella template's gallery (owner decision 2026-09-14, replacing the PD-10 rail/grid).
-`product-gallery.tsx` (Server Component) resolves strings and the model; the island
-`product-gallery-viewer.tsx` (the tenth boundary) renders a thumbnail column beside
-one 4:5 large image. Thumbnails sit at the large image's inline start from 992 and its
-inline end below (`row-reverse`), so in Arabic they are on the right from 992 and the
-left below; photographs are never mirrored. Thumbs are 72px from 992, 88px at 768-991
-and 72px below, with 4px between them, 3px padding and a 1px border; inactive at 0.6
-opacity, the active one at 1 with a `--color-text` hairline (gold on ivory is 2.64:1,
-under 3:1). A column taller than the frame scrolls inside the frame height.
-`[data-gallery*]` in `app/globals.css` holds the layout; `utils/gallery-layout.ts` holds
-the step table every `sizes` string is derived from.
+"In its chapter" (owner decision 2026-09-26, replacing the 2026-09-14 Bella thumbnail
+column). `product-gallery.tsx` (Server Component) resolves strings and the model; the
+island `product-gallery-viewer.tsx` (the tenth boundary) renders one 4:5 large image the
+full width of its column, then a row of 4:5 thumbnails under it, 12px below. The frame is
+first in the DOM as on screen. Below 768 the frame runs edge to edge (a negative
+`--page-gutter` margin) while the row keeps the gutter. Thumbs are 64px wide below 768 and
+72px from it, 6px apart, with 3px padding and a 1px border; inactive at 0.6 opacity, the
+active one at 1 with a `--color-text` hairline (gold on ivory is 2.64:1, under 3:1). The
+row runs in reading direction (from the right in Arabic) and scrolls sideways when it
+outruns the column; photographs are never mirrored. Frame and thumbnails sit on the Stone
+mat (`--color-surface-media`). `[data-gallery*]` in `app/globals.css` holds the layout;
+`utils/gallery-layout.ts` holds the step table every `sizes` string is derived from
+(644px at 1440, `50vw − 60px` from 1024, the content box at 768, `100vw` below).
 
-- **Semantics.** A vertical WAI-ARIA tablist (`product.gallery.label`) of buttons named
+- **Semantics.** A horizontal WAI-ARIA tablist (`product.gallery.label`) of buttons named
   `product.gallery.thumbLabel`, roving `tabIndex`, automatic activation; the frame is the
   one `tabpanel`, labelled by the active tab and itself a tab stop (`tabIndex=0`: it holds
   only an image), with an inset focus ring drawn on a `::after` above the panes because the
-  frame clips an outside outline. Arrow Down/Up and the reading-direction Left/Right move and wrap (the APG
-  tabs rule), Home/End jump (`galleryKeyTarget`, unit-tested). One image: no tablist.
+  frame clips an outside outline. Tab reaches the frame, then the selected thumbnail. The
+  reading-direction Left/Right move and wrap (the APG tabs rule; Up/Down are left to the
+  page), Home/End jump (`galleryKeyTarget`, unit-tested). One image: no tablist.
 - **Downloads.** The first large image is the page's only eager _high-priority_ image
   (`loading="eager"` + `fetchPriority="high"`; React also emits its head preload). A large pane mounts
   only once shown and stays mounted but `hidden`: lazy alone would not stop hidden panes
   laid out in the frame from downloading (the lesson of the old hero carousel). A new
   pane fades in over the previous one (300ms, `--ease-ui`). Thumbnails are
-  `fetchPriority="low"`, `sizes` 64/80px; the first `GALLERY_EAGER_THUMBS` (3) are eager
-  and the rest lazy (`galleryThumbLoading`, unit-tested). Switching thumbnails while zoomed
-  also mounts that pane's zoom image, so a keyboard change never magnifies the 1x source.
+  `fetchPriority="low"`, `sizes` 56/64px; the first `GALLERY_EAGER_THUMBS` (4, what the
+  row shows at 320px) are eager and the rest lazy (`galleryThumbLoading`, unit-tested).
+  Switching thumbnails while zoomed also mounts that pane's zoom image, so a keyboard
+  change never magnifies the 1x source.
 - **Zoom in place.** Only under `GALLERY_ZOOM_QUERY` (hover, fine pointer, 1024+),
   tracked with `matchMedia`. A mouse entering the frame scales the pane layer 2x with
   `transform-origin` from `--zoom-x`/`--zoom-y`, written in a rAF-throttled
   `pointermove`; leaving resets. A second image at `zoomSizes` (2x) mounts for that pane
   on its first zoom and fades in once loaded, so the LCP never pays for it. No zoom on
   touch or keyboard; clicking does nothing; reduced motion keeps zoom without transitions.
-- No image: the `ProductImagePlaceholder` brand-mark frame `ProductCard` also uses. No
-  component harness exists, so the island itself is covered only by the screenshot review.
+- No image: the `ProductImagePlaceholder` brand-mark frame `ProductCard` also uses, on the
+  Stone mat and edge to edge below 768 like the real frame. No component harness exists,
+  so the island itself is covered only by the screenshot review.
 
 ### Purchase panel
 
@@ -1119,19 +1125,32 @@ The ninth client boundary (see _Client boundary rule_). Native radios in a `fiel
 option; sold-out and unavailable values stay enabled, struck through in `text-text-secondary`
 (not `text-disabled`, ~2.3:1 and hard to see) inside a dashed `bg-surface-soft` cell, with
 visually hidden "sold out" text — never `disabled`, never colour alone. Price and status share one polite
-live region rendered with the first paint. `purchase-panel-slot.tsx` resolves strings and
-a map of pre-formatted prices on the server, so the island never formats a number.
+live region rendered with the first paint, on one row: the status appears beside the
+price, so nothing is reserved for it. The lead follows (the `lead` slot). Each legend is a
+floated row with a **sold-out note** at its inline end ("S and L are sold out", Arabic
+"نفدت كمية S وL"): the values `unavailableValues` returns (the cells' own rule, so it
+follows the other options' choices), listed with `Intl.ListFormat` in the page's locale,
+`product.options.soldOutNote.one|other` for the verb. It is `aria-hidden` (each cell
+already says "sold out") and absent when every value, or none, can be bought: with none,
+the status says "Sold out". Under the legend a row is reserved for the "Choose a {option}"
+prompt, exactly one line tall (28px, 32px in Arabic), so the cells never move when it
+appears. `purchase-panel-slot.tsx` resolves strings and a map of pre-formatted prices on
+the server, so the island never formats a price.
 `fillTemplate` lives in `lib/utils/fill-template.ts`: importing it from
 `catalog-controls-state.ts` pulled nuqs into this route. The island measured +1.2 KB gz
 of eager JS. Its `action` slot holds Add to Bag with a 1..10 quantity stepper at the inline
 start (owner decision 2026-09-15; see _Cart_ → _Surfaces_); the stepper is the cart
 slice's, never the panel's.
 
-### Related row
+### More from row
 
-`features/catalog/components/related-products.tsx` (PD-13): scope is the first public
-collection (sort `curated`), else the category (sort `newest`), page 1, current product
-excluded, 4 kept, section hidden when empty. It reads through
+`features/catalog/components/related-products.tsx` (PD-13 scope, "In its chapter"
+presentation): **More from {name}** (`type-page-title`) and **Explore {name}** (an
+`EditorialLink` to the scope's listing) on one row, then up to four product cards (card A,
+with Quick Add) in the related grid. The scope is the first public collection (sort
+`curated`), else the category (sort `newest`), so a piece in no collection reads "More
+from Knitwear"; page 1, current product excluded, 4 kept, section hidden when empty. The
+name carries its own `lang` when it falls back to the other language. It reads through
 `listCatalogProducts(toProductQuery(...))`, and a test pins that its API path equals the
 listing's page-1 path, so they share one data-cache entry. It streams in its own
 Suspense; `loadRelatedProducts` calls `unstable_rethrow` first, returns `null` on an
@@ -1141,22 +1160,17 @@ stopped API).
 
 ### Open for the screenshot review
 
-Fixtures (dev DB `moon_store_sf_smoke`, 2026-09-14): `silk-midi-dress` (6 images, mixed
-sizes), `embroidered-evening-gown` (1 image), `linen-summer-dress` (long EN/AR names,
-descriptions), `cashmere-pullover` (mixed stock), `silk-slip-dress` (all sold out).
+Seen on 2026-09-26 in EN and AR at 1440, 1280, 1024, 768, 390 and 320 against the dev
+seed (`silk-midi-dress`: sizes with S and L sold out, 2 photos; `silk-slip-dress`: every
+size sold out, no photo; `linen-summer-dress`: no options; `cashmere-pullover`: no
+collection), plus six photographs and a two-paragraph description written into the dev
+database for the check and removed after it. Still open:
 
-- Gallery: thumbnail column scrolling at 320-375 (6 thumbs overflow the frame), the
-  crossfade and zoom feel at 1440, the 992-1023 band (thumbs at the start, no split), and
-  whether keyboard focus on a thumb clears the sticky header (`scroll-margin-block-start`
-  also offsets the column's own scroll).
-- A single image fills the full width below 1024 (~704px on a portrait tablet).
+- The crossfade and zoom feel at 1440 on real photography; a long Arabic title beside the
+  gallery at 1024.
+- The sticky info column with both folds open beside a short gallery at 1024.
 - An in-stock product with no options shows no status line, per the plan's model;
   "In stock" there is the alternative.
-- The sticky info column beside a short gallery at 1024; long Arabic titles; option
-  wrapping at 320.
-- Details tabs: the lead above the price (the reference shows it below); the sticky tab
-  bar's scroll-back on tab change; tab labels scrolling at 320; the `dl` two-column rows
-  from 768; the breadcrumb truncating a long Arabic name.
 - The related skeleton is hidden from screen readers and announces no loading state.
 - Keyboard and screen-reader path: `docs/ACCESSIBILITY.md` → _Manual scenarios_ 7.
 
@@ -1310,7 +1324,9 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   grey status-line prompt was hard to see, and errors read as red) and raises the same text
   as an error toast; choosing a value dismisses it. The inline prompt is not a live region
   (the toast announces it) and keeps `min-h-6` reserved, so the cells and Add to Bag never
-  move under a second tap. `soldOut` reads "Sold out", `aria-disabled`, focusable, inert.
+  move under a second tap. `soldOut` reads "Sold out", `aria-disabled`, focusable, inert
+  (reached only by a product with no collection and no category: otherwise the page puts
+  Explore {name} in the slot instead; see _Product detail_ → _Composition_).
 - **Product page quantity** (owner decision 2026-09-15, overriding plan Unit 5's "one piece
   per press"): a − / value / + stepper at the row's inline start, Add to Bag taking the rest,
   in one `flex-wrap` row (the button's `basis-40` wraps it onto its own line when narrow). It
