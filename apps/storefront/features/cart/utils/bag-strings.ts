@@ -88,6 +88,8 @@ export interface BagLineStrings {
   optionLabels: { size: string; color: string };
   unitPrice: string;
   lineTotal: string;
+  /** `{price} each`: the unit price under a line holding more than one. */
+  each: string;
   unavailablePiece: string;
   /** The accessible name of a row nothing names yet (no quote line, no hint). */
   pendingPiece: string;
@@ -273,6 +275,7 @@ async function sharedBagStrings(locale: AppLocale) {
     optionLabels: { size: tp('options.size'), color: tp('options.color') },
     unitPrice: t('unitPrice'),
     lineTotal: t('lineTotal'),
+    each: t.raw('each') as string,
     unavailablePiece: t('unavailablePiece'),
     pendingPiece: t('pendingPiece'),
     updating: t('updating'),

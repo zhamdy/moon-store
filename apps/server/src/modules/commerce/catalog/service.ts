@@ -162,7 +162,7 @@ export class CatalogService {
 
   /**
    * A fresh, batched quote for bag lines (plan 2026-09-15-001, Unit 1). One read for every
-   * named product and its variants, then each line resolved on its own through the same
+   * named product, its variants and its gallery, then each line resolved on its own through the same
    * derivation the product page uses (CD-5), capped per line and never cumulatively (CD-7).
    *
    * Dropped variants are not logged here: the product page already logs them, and this read
@@ -179,8 +179,19 @@ export class CatalogService {
         products.filter(rowHasVariants).map((product) => product.id),
         client
       );
-      return { products, variants };
+      const gallery = await this.repo.listGallery(
+        products.map((product) => product.id),
+        client
+      );
+      return { products, variants, gallery };
     });
+
+    const galleryByProduct = new Map<number, string[]>();
+    for (const image of read.gallery) {
+      const list = galleryByProduct.get(image.product_id) ?? [];
+      list.push(image.image_url);
+      galleryByProduct.set(image.product_id, list);
+    }
 
     const variantsByProduct = new Map<number, CatalogVariantRow[]>();
     for (const variant of read.variants) {
@@ -200,6 +211,7 @@ export class CatalogService {
         hasVariants,
         options: derived?.options ?? [],
         usable: derived?.usable ?? [],
+        gallery: galleryByProduct.get(row.id) ?? [],
       });
     }
 

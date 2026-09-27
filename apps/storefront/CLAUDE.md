@@ -306,7 +306,8 @@ fetchPriority }` images from `product-gallery.tsx`; the sizes table and keyboard
     slot, with the trigger's and the drawer's strings resolved there. The label and ARIA
     state are `utils/bag-trigger-label.ts`, unit-tested.
 15. `features/cart/components/bag-view.tsx` — the `/bag` review island; its messages are
-    toasts.
+    toasts. Takes the page's server-rendered `h1` as `heading` and sets the piece count
+    beside it ("Fitting room", 2026-09-27).
 16. `components/feedback/app-toaster.tsx` — the one Sonner `<Toaster>` (owner decision
     2026-09-15), mounted by `app/[locale]/layout.tsx` after the footer as a direct child of
     `<body>`. Takes resolved `label` / `closeLabel` (`toaster.*`) and `dir`. Lazy: it imports
@@ -1281,7 +1282,8 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   available", but the stored quantity changes only when the shopper presses the stepper or
   Remove (CD-15); both stepper buttons stay enabled then, and either press commits a quantity
   the quote allows. `soldOut`, `variantUnavailable`, `productUnavailable` → kept, flagged,
-  excluded from the subtotal, never auto-removed; stepper disabled, Remove enabled. A
+  excluded from the subtotal, never auto-removed; no stepper (`lineHasStepper`; it was a
+  disabled one until 2026-09-27), Remove enabled. A
   `productUnavailable` line shows the image placeholder, "A piece that is no longer
   available", the stored option text and Remove.
 - A line whose quantity changed waits (`pending`) for its own verdict; + holds at the last
@@ -1363,12 +1365,31 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
   own unmount cleanup, so it runs after that restore; the decision is
   `shouldFocusMainAfterDrawerUnmount` (`utils/drawer-close-focus.ts`, unit-tested: navigation
   close, not reopened, really unmounted). During the leave focus stays on the pressed link.
+- **"Fitting room"** (owner decision 2026-09-27, chosen from three directions drawn in
+  Claude Design: Fitting room, Ledger, Dressing table). One line (`cart-line.tsx`) in both
+  surfaces: the 4:5 photograph on the Stone mat (80px in the drawer, 64px under 360; 96px on the page, 80px
+  under 360, 128px from 768), then the name (`type-body`, 500) with the line total at the
+  end of its row, the options, the unit price only when there is more than one ("3,200 EGP
+  each", `bag.each`) or for a pending hinted line, any notice, and the stepper with Remove
+  at the foot (Remove at the inline end in the drawer and on a phone). An excluded line keeps
+  its photograph and shows its price in secondary ink where the total would be.
+  `linePriceDisplay` decides the figures and `storedPieceCount` the count (both
+  `utils/bag-view-model.ts`, unit-tested). **The photograph is the quote's
+  `product.image`**, which since 2026-09-27 is the listing's first image (the primary, else
+  the gallery); before, gallery-only products (the whole seed) showed the brand mark.
+  The page: the `type-page-title` `h1` with the piece count beside it (the header Bag's
+  count, CD-18), the lines on seven of twelve columns, a pause, and the summary on four
+  (`lg:col-start-9`, sticky); one column below 1024, the summary under the lines. The
+  summary (`bag-summary.tsx`) is a Stone panel: a `type-label` heading, Subtotal
+  (`type-body-lg`, 500), pieces, excluded pieces, the checkout slot under a hairline, and
+  Continue shopping centred. No entrance motion on the page: the design system keeps the bag
+  still. The drawer's title carries the same count, and its Subtotal is `type-body-lg`.
 - **`/bag`**: static per locale, outside `(catalog)`, `noindex, nofollow`, no canonical, no
   `loading.tsx` (`app/bag-route.test.ts`). Before hydration one reserved `aria-busy` region
   one row tall (no fake row count) beside the summary in its final layout (heading,
   Subtotal, placeholder figure and pieces line, Continue shopping), so a non-empty bag never
-  flashes the empty state and the summary never changes shape. From 1024 a 8/4 grid with the summary sticky
-  under the header; below, linear. Summary: Subtotal, pieces, excluded pieces, the empty
+  flashes the empty state and the summary never changes shape. From 1024 the 7 + 4 grid
+  above, the summary sticky under the header; below, linear. Summary: Subtotal, pieces, excluded pieces, the empty
   `[data-checkout-action]`, Continue shopping to `/shop`.
 - **Remove**: the row fades 180ms (instant under reduced motion), then unmounts; focus
   moves to the next row's name link (or its Remove when the product is gone), else the
@@ -1379,7 +1400,7 @@ Quote lines join stored lines **by line key**, never by position; rows render ne
 
 **Placeholders and reveals** (`app/globals.css`, CSS only). `[data-bag-placeholder]`
 (`BagPlaceholder` in `cart-line.tsx`, a `bg-surface-soft` shape; the frame keeps its 4:5
-`rounded-media-sm`) holds opacity 0 for 150ms, fades in, then breathes 1 → 0.55 over 1.6s,
+`rounded-media-sm`, on `bg-surface-media` once the row is named) holds opacity 0 for 150ms, fades in, then breathes 1 → 0.55 over 1.6s,
 alternating; the loop fills nothing so the delayed entrance wins meanwhile. Never
 `ProductImagePlaceholder`, which means "no photograph". `[data-bag-reveal]` fades content in
 over `--motion-fast` on mount only: placeholder and content are differently keyed elements,

@@ -94,6 +94,54 @@ export function lineStepper(row: StepperRow, pending: boolean): LineStepper {
   return { value, control };
 }
 
+/** A line that can no longer be bought: it keeps Remove and loses its stepper. */
+const EXCLUDED_STATUSES: ReadonlySet<BagRow['status']> = new Set([
+  'soldOut',
+  'variantUnavailable',
+  'productUnavailable',
+]);
+
+export function lineHasStepper(row: Pick<BagRow, 'status'>): boolean {
+  return !EXCLUDED_STATUSES.has(row.status);
+}
+
+/**
+ * Which figures a line shows ("Fitting room", 2026-09-27). Every amount is one the quote or
+ * the Add to Bag hint gave; nothing is multiplied here.
+ *
+ * - `total`: the line total at the end of the name row, kept dimmed while `pending`.
+ * - `unit`: the unit price under the options, "3,200 EGP each" when there is more than one;
+ *   also a pending line's hinted price, which has no total yet.
+ * - `excludedPrice`: a sold-out or unavailable line's price, in secondary ink where the
+ *   total would be (it is not in the subtotal).
+ */
+export interface LinePriceDisplay {
+  total: { value: number | null; stale: boolean } | null;
+  unit: { amount: number; each: boolean } | null;
+  excludedPrice: number | null;
+}
+
+export function linePriceDisplay(
+  row: Pick<BagRow, 'status' | 'unitPrice' | 'lineTotal' | 'displayQuantity'>
+): LinePriceDisplay {
+  const awaiting = row.status === 'pending';
+  const total =
+    row.lineTotal !== null || awaiting ? { value: row.lineTotal, stale: awaiting } : null;
+  const each = row.displayQuantity > 1;
+  const showUnit =
+    row.unitPrice !== null && total !== null && (each || (awaiting && row.lineTotal === null));
+  return {
+    total,
+    unit: showUnit ? { amount: row.unitPrice!, each } : null,
+    excludedPrice: total === null ? row.unitPrice : null,
+  };
+}
+
+/** Σ stored quantities: the count beside the title, the same one the header Bag shows (CD-18). */
+export function storedPieceCount(lines: readonly { quantity: number }[]): number {
+  return lines.reduce((sum, line) => sum + line.quantity, 0);
+}
+
 /** The quantity one press writes to the store, or `null` when it changes nothing. */
 export function stepperCommitValue(
   storedQuantity: number,

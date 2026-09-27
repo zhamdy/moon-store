@@ -6,6 +6,8 @@ import {
   bagAnnouncementToast,
   focusTargetAfterRemove,
   visibleRowKeys,
+  lineHasStepper,
+  linePriceDisplay,
   lineStepper,
   noticeText,
   optionText,
@@ -15,6 +17,7 @@ import {
   settledQuantity,
   stepperCommitValue,
   stepperLimitText,
+  storedPieceCount,
 } from './bag-view-model';
 import type { BagRow, BagSummary } from './reconcile';
 
@@ -28,6 +31,7 @@ const LINE: BagLineStrings = {
   optionLabels: { size: 'Size', color: 'Colour' },
   unitPrice: 'Price',
   lineTotal: 'Total',
+  each: '{price} each',
   unavailablePiece: 'A piece that is no longer available',
   pendingPiece: 'This piece',
   updating: 'Updating',
@@ -230,6 +234,61 @@ describe('lineStepper and stepperCommitValue', () => {
       expect(stepperCommitValue(2, stepper, 1)).toBeNull();
       expect(stepperCommitValue(2, stepper, -1)).toBeNull();
     }
+  });
+});
+
+describe('line figures', () => {
+  it('shows the total, and the unit price only when there is more than one', () => {
+    expect(linePriceDisplay(rowOf())).toEqual({
+      total: { value: 5700, stale: false },
+      unit: { amount: 2850, each: true },
+      excludedPrice: null,
+    });
+    expect(linePriceDisplay(rowOf({ displayQuantity: 1, lineTotal: 2850 }))).toEqual({
+      total: { value: 2850, stale: false },
+      unit: null,
+      excludedPrice: null,
+    });
+  });
+
+  it('keeps a pending total dimmed, and shows a hinted price that has no total yet', () => {
+    expect(linePriceDisplay(rowOf({ status: 'pending' }))).toMatchObject({
+      total: { value: 5700, stale: true },
+    });
+    expect(
+      linePriceDisplay(rowOf({ status: 'pending', lineTotal: null, displayQuantity: 1 }))
+    ).toEqual({
+      total: { value: null, stale: true },
+      unit: { amount: 2850, each: false },
+      excludedPrice: null,
+    });
+  });
+
+  it('puts an excluded line price where the total would be, and no unit line', () => {
+    expect(linePriceDisplay(rowOf({ status: 'soldOut', lineTotal: null }))).toEqual({
+      total: null,
+      unit: null,
+      excludedPrice: 2850,
+    });
+    expect(
+      linePriceDisplay(rowOf({ status: 'productUnavailable', lineTotal: null, unitPrice: null }))
+    ).toEqual({ total: null, unit: null, excludedPrice: null });
+  });
+
+  it('takes the stepper away from a line that can no longer be bought', () => {
+    expect(
+      ['ok', 'reduced', 'pending'].map((status) => lineHasStepper({ status } as BagRow))
+    ).toEqual([true, true, true]);
+    expect(
+      ['soldOut', 'variantUnavailable', 'productUnavailable'].map((status) =>
+        lineHasStepper({ status } as BagRow)
+      )
+    ).toEqual([false, false, false]);
+  });
+
+  it('counts stored pieces for the title', () => {
+    expect(storedPieceCount([{ quantity: 1 }, { quantity: 2 }, { quantity: 1 }])).toBe(4);
+    expect(storedPieceCount([])).toBe(0);
   });
 });
 

@@ -310,6 +310,7 @@
     "optionValue": "{label}: {value}",
     "unitPrice": "Price",
     "lineTotal": "Total",
+    "each": "{price} each",
     "unavailablePiece": "A piece that is no longer available",
     "pendingPiece": "This piece",
     "notice": {

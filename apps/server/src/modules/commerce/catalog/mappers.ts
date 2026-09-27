@@ -369,6 +369,8 @@ export interface QuoteProductContext {
   hasVariants: boolean;
   options: CatalogOptionDto[];
   usable: UsableVariant[];
+  /** The product's gallery URLs in position order, for when it has no usable primary image. */
+  gallery: readonly string[];
 }
 
 /** Money in the response: two decimals, so `1399.5 * 3` never ships as `4198.499999`. */
@@ -428,12 +430,15 @@ export function toCartQuoteLineDto(
 ): CartQuoteLineDto {
   if (product === undefined) return unavailableLine(line, index, 'productUnavailable', null);
 
-  const url = absoluteMediaUrl(product.row.image_url, origin);
+  // The listing's first image (the primary, else the gallery by position), so the bag shows
+  // the photograph the card and the product page show: products whose photographs are all in
+  // the gallery had none in the bag.
+  const [image = null] = productImages(product.row.image_url, product.gallery, origin, 1);
   const productDto = {
     slug: product.row.slug,
     name: product.row.name,
     nameEn: product.row.name_en ?? null,
-    image: url ? { url } : null,
+    image,
   };
 
   let unitPrice: number;

@@ -551,7 +551,12 @@ Pinned in `tests/catalogCartQuote.test.ts`:
 
 - **One read** in one `runCatalogRead`: public products by the deduplicated slug set (the
   detail predicate), then variants for those with `has_variants = 1`, ordered
-  `product_id, id` so each group keeps the lowest-id canonical tie-break.
+  `product_id, id` so each group keeps the lowest-id canonical tie-break, then their
+  gallery (`listGallery`, position order).
+- **`product.image` is the listing's first image**: `productImages(image_url, gallery, 1)`,
+  the primary else the first gallery image by position, so the bag shows the photograph
+  the card and the product page show. It was the primary alone until 2026-09-27, and every
+  seeded product keeps its photographs in the gallery, so the bag showed none.
 - **Same derivation as the product page.** Each product goes through the mapper's
   `deriveVariantsWithStock`, the function `deriveVariantOptions` wraps, so dropped variants,
   canonical spellings and effective price are exactly what `/products/:slug` shows; option

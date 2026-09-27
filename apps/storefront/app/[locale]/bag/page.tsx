@@ -3,7 +3,6 @@ import { hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
-import { Reveal } from '@/components/motion/reveal';
 import { Container } from '@/components/ui/container';
 import { BagView } from '@/features/cart/components/bag-view';
 import { getBagMetadataStrings, getBagPageStrings } from '@/features/cart/utils/bag-strings';
@@ -33,7 +32,9 @@ export async function generateMetadata({
 /**
  * `/bag` (plan Unit 7): outside `(catalog)`, since it fetches nothing on the server and
  * needs no catalog error boundary; static per locale. The bag lives in the browser, so
- * the island fills the review after hydration. No `loading.tsx`: nothing streams.
+ * the island fills the review after hydration. No `loading.tsx`: nothing streams. The `h1`
+ * is server markup handed to the island, which sets the piece count beside it. No entrance
+ * motion: the design system keeps the bag still.
  */
 export default async function BagPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -44,13 +45,13 @@ export default async function BagPage({ params }: { params: Promise<{ locale: st
   const strings = await getBagPageStrings(locale);
 
   return (
-    <Container className="pt-10 pb-20 md:pt-14 md:pb-24 lg:pt-16 lg:pb-32">
-      <Reveal className="pb-10 md:pb-12">
-        <h1 data-motion="rise" className="type-h1 [--motion-offset:120ms] [--motion-rise:24px]">
-          {strings.title}
-        </h1>
-      </Reveal>
-      <BagView strings={strings} locale={locale} shopHref={catalogPath({ kind: 'all' })} />
+    <Container className="pt-8 pb-20 md:pt-12 md:pb-24 lg:pt-14 lg:pb-28">
+      <BagView
+        heading={<h1 className="type-page-title">{strings.title}</h1>}
+        strings={strings}
+        locale={locale}
+        shopHref={catalogPath({ kind: 'all' })}
+      />
     </Container>
   );
 }

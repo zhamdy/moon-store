@@ -7,6 +7,7 @@ import { BAG_HREF } from '@/components/layout/navigation-items';
 import { formatPrice } from '@/features/products/utils/price';
 import { cartStore, useCartActions, useCartSession } from '../store/cart-store';
 import type { BagDrawerStrings } from '../utils/bag-strings';
+import { storedPieceCount } from '../utils/bag-view-model';
 import { shouldFocusMainAfterDrawerUnmount } from '../utils/drawer-close-focus';
 import { selectPlural } from '../utils/plural-templates';
 import { BagFigure, CartLine } from './cart-line';
@@ -62,7 +63,8 @@ function AfterTrapUnmount({ onUnmount }: { onUnmount(remounted: boolean): void }
 }
 
 /**
- * The Bag drawer (plan Unit 6): reached only through `BagTrigger`'s lazy import, so it is not
+ * The Bag drawer (plan Unit 6; "Fitting room" 2026-09-27: the page's line, smaller, and the
+ * piece count beside the title): reached only through `BagTrigger`'s lazy import, so it is not
  * a client boundary of its own, and opened only from the header Bag link (Add to Bag raises a
  * toast instead, owner decision 2026-09-15). `useBagController` quotes the bag while open,
  * reconciles it and applies the model's store writes and toasts; this renders it.
@@ -74,6 +76,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
   const { open } = drawer;
 
   const {
+    cart,
     view,
     pending,
     removing,
@@ -127,6 +130,7 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
 
   const rows = view.kind === 'ready' || view.kind === 'loading' ? view.rows : null;
   const summary = view.kind === 'ready' ? view.summary : null;
+  const pieces = cart.hydrated ? storedPieceCount(cart.lines) : 0;
   const subtotal = summary ? formatPrice(summary.subtotal, locale, strings.line.currency) : null;
   const excluded = summary?.excludedPieces ?? 0;
 
@@ -145,15 +149,21 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
           className="flex h-full w-full max-w-[28.75rem] flex-col bg-surface text-text shadow-(--shadow-overlay) transition duration-base ease-sheet data-closed:translate-x-full rtl:data-closed:-translate-x-full"
         >
           <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border py-2.5 ps-5 pe-3 md:ps-8 md:pe-5">
-            <div className="min-w-0 py-2">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 py-1.5">
               <DialogTitle
                 as="h2"
                 tabIndex={-1}
                 data-autofocus
-                className="type-h4 focus:outline-none"
+                className="type-title focus:outline-none"
               >
                 {strings.title}
               </DialogTitle>
+              {/* The same count the header Bag shows (CD-18); the title stays "Bag". */}
+              {pieces > 0 && (
+                <p className="type-supporting text-text-secondary tabular-nums">
+                  {selectPlural(strings.summary.pieces, pieces, locale)}
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -235,11 +245,11 @@ export default function BagDrawer({ strings, locale, shopHref }: BagDrawerProps)
                       value={subtotal}
                       stale={summary?.state === 'stale'}
                       updating={strings.summary.updating}
-                      className="type-body"
+                      className="type-body-lg font-medium"
                     />
                   </div>
                   {excluded > 0 && (
-                    <p className="type-small mt-1 text-text-secondary">
+                    <p className="type-supporting mt-1 text-text-secondary">
                       {selectPlural(strings.summary.excluded, excluded, locale)}
                     </p>
                   )}

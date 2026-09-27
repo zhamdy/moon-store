@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils/cn';
 import { fillTemplate } from '@/lib/utils/fill-template';
 import type { BagLineStrings } from '../utils/bag-strings';
 import {
+  lineHasStepper,
+  linePriceDisplay,
   lineStepper,
   noticeText,
   optionText,
@@ -29,11 +31,17 @@ const NOTICE_TONE: Record<BagNotice['kind'], 'notice' | 'danger'> = {
 
 export type CartLineVariant = 'drawer' | 'page';
 
-/** 72px 4:5 frames in the drawer; the page widens to 120px from 768. */
-const FRAME: Record<CartLineVariant, string> = { drawer: 'w-18', page: 'w-18 md:w-30' };
+/**
+ * 4:5 frames: 80px in the drawer; 96px on the page (each 16px less under 360, so the stepper and
+ * Remove keep one row at 320), 128px from 768 ("Fitting room").
+ */
+const FRAME: Record<CartLineVariant, string> = {
+  drawer: 'w-16 min-[360px]:w-20',
+  page: 'w-20 min-[360px]:w-24 md:w-32',
+};
 const IMAGE_SIZES: Record<CartLineVariant, string> = {
-  drawer: '72px',
-  page: '(min-width: 768px) 120px, 72px',
+  drawer: '80px',
+  page: '(min-width: 768px) 128px, 96px',
 };
 
 /**
@@ -118,10 +126,15 @@ export interface CartLineProps {
 }
 
 /**
- * One bag line, shared by the drawer and the bag page. Hairline-separated by its list, no
- * card. The photograph is decorative (the name beside it is the link). Stock and price
- * verdicts come from `reconcileBag`; nothing here computes a price. A row no quote has seen
- * still shows its options, stepper and Remove; only name, photo and price are placeholders.
+ * One bag line, shared by the drawer and the bag page ("Fitting room", 2026-09-27): the 4:5
+ * photograph on the Stone mat, then the name with the line total at the end of its row, the
+ * options, the unit price only when there is more than one ("3,200 EGP each"), any notice,
+ * and the stepper with Remove at the foot. A line that can no longer be bought keeps its
+ * photograph and its price (in secondary ink, where the total would be) and loses its
+ * stepper. Hairline-separated by its list, no card; the photograph is decorative (the name
+ * is the link). Figures come from `reconcileBag` through `linePriceDisplay`; nothing here
+ * computes a price. A row no quote has seen still shows its options, stepper and Remove;
+ * only name, photo and price are placeholders.
  */
 export function CartLine({
   row,
@@ -148,7 +161,12 @@ export function CartLine({
   };
 
   const heading = (
-    <Heading className={cn('type-body min-w-0 font-body break-words', name === null && 'flex-1')}>
+    <Heading
+      className={cn(
+        'type-body min-w-0 font-body font-medium break-words',
+        name === null && 'flex-1'
+      )}
+    >
       {name === null ? (
         <>
           <span className="sr-only">{strings.pendingPiece}</span>
@@ -176,33 +194,49 @@ export function CartLine({
       )}
     </Heading>
   );
-  const lineTotal = (className: string) =>
-    (row.lineTotal !== null || awaiting) && (
-      <p className={className}>
-        <BagFigure
-          value={
-            row.lineTotal === null ? null : formatPrice(row.lineTotal, locale, strings.currency)
-          }
-          stale={awaiting}
-          label={strings.lineTotal}
-          updating={strings.updating}
-          placeholderClassName="w-16"
-        />
-      </p>
-    );
+  const figures = linePriceDisplay(row);
+  const endFigure = figures.total ? (
+    <p className="type-body shrink-0 font-medium">
+      <BagFigure
+        value={
+          figures.total.value === null
+            ? null
+            : formatPrice(figures.total.value, locale, strings.currency)
+        }
+        stale={figures.total.stale}
+        label={strings.lineTotal}
+        updating={strings.updating}
+        placeholderClassName="w-16"
+      />
+    </p>
+  ) : figures.excludedPrice !== null ? (
+    // Not in the subtotal: the price stays, in secondary ink, where the total would be.
+    <p className="type-body shrink-0 text-text-secondary tabular-nums">
+      <span className="sr-only">{strings.unitPrice} </span>
+      <span key="price" data-bag-reveal="">
+        {formatPrice(figures.excludedPrice, locale, strings.currency)}
+      </span>
+    </p>
+  ) : null;
   const details = (
     <>
-      {options && <p className="type-small mt-1 text-text-secondary">{options}</p>}
-      {row.unitPrice !== null ? (
-        <p className="type-small mt-1 text-text-secondary tabular-nums">
+      {options && <p className="type-supporting mt-1 text-text-secondary">{options}</p>}
+      {figures.unit ? (
+        <p className="type-supporting text-text-secondary tabular-nums">
           <span className="sr-only">{strings.unitPrice} </span>
           <span key="price" data-bag-reveal="">
-            {formatPrice(row.unitPrice, locale, strings.currency)}
+            {figures.unit.each
+              ? fillTemplate(strings.each, {
+                  price: formatPrice(figures.unit.amount, locale, strings.currency),
+                })
+              : formatPrice(figures.unit.amount, locale, strings.currency)}
           </span>
         </p>
       ) : (
-        awaiting && (
-          <p className="type-small mt-1 flex h-lh items-center">
+        awaiting &&
+        figures.total?.value == null &&
+        row.unitPrice === null && (
+          <p className="type-supporting mt-1 flex h-lh items-center">
             <BagPlaceholder key="placeholder" className="h-[0.7lh] w-1/4" />
           </p>
         )
@@ -220,7 +254,7 @@ export function CartLine({
       ))}
     </ul>
   );
-  const quantityStepper = row.status !== 'productUnavailable' && (
+  const quantityStepper = lineHasStepper(row) && (
     <QuantityStepper
       value={stepper.value}
       control={stepper.control}
@@ -233,7 +267,7 @@ export function CartLine({
       onStep={step}
     />
   );
-  const removeButton = (className: string) => (
+  const removeButton = (
     <button
       ref={row.product ? undefined : focusRef}
       type="button"
@@ -241,7 +275,9 @@ export function CartLine({
       aria-label={fillTemplate(strings.removeLabel, { name: displayName })}
       className={cn(
         'type-supporting inline-flex min-h-(--size-tap) cursor-pointer items-center text-text-secondary underline decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:text-danger',
-        className
+        // In the drawer, and on a phone, Remove sits at the row's inline end; on the page
+        // from 768 it follows the stepper.
+        variant === 'drawer' ? 'ms-auto' : 'ms-auto md:ms-0'
       )}
     >
       {strings.remove}
@@ -257,13 +293,13 @@ export function CartLine({
       data-removing={removing ? '' : undefined}
       className={cn(
         'relative flex gap-4 py-5 transition-opacity duration-fast ease-ui data-removing:opacity-0',
-        variant === 'page' && 'md:gap-6 md:py-7'
+        variant === 'page' && 'md:gap-6 md:py-6'
       )}
     >
       <div
         className={cn(
           'relative isolate aspect-4/5 shrink-0 self-start overflow-hidden rounded-media-sm',
-          !photoUnknown && 'bg-surface-soft',
+          !photoUnknown && 'bg-surface-media',
           FRAME[variant]
         )}
       >
@@ -284,43 +320,25 @@ export function CartLine({
         )}
       </div>
 
-      {variant === 'drawer' ? (
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-start justify-between gap-x-4">
-            {heading}
-            {lineTotal('type-body shrink-0')}
-          </div>
-          {details}
-          {notices}
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-            {quantityStepper}
-            {removeButton('ms-auto')}
-          </div>
+      {/* One column in both surfaces: the name row, the lines under it, then the controls
+          pushed to the photograph's foot. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-baseline justify-between gap-x-4">
+          {heading}
+          {endFigure}
         </div>
-      ) : (
-        // One DOM order for both layouts. Below 768 it stacks: text, the line total under
-        // the unit price, then stepper and Remove on one row. From 768 the grid places the
-        // stepper in its own column and the total at the inline end, Remove under the text.
-        <div className="grid min-w-0 flex-1 grid-cols-1 content-start md:grid-cols-[minmax(0,1fr)_auto_minmax(6rem,auto)] md:gap-x-8">
-          <div className="min-w-0 md:col-start-1 md:row-start-1">
-            {heading}
-            {details}
-            {lineTotal('type-body mt-1 md:hidden')}
-            {notices}
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 md:contents">
-            {quantityStepper && (
-              <div className="md:col-start-2 md:row-start-1 md:self-start">{quantityStepper}</div>
-            )}
-            {removeButton(
-              'ms-auto md:col-start-1 md:row-start-2 md:ms-0 md:mt-2 md:justify-self-start'
-            )}
-          </div>
-          {lineTotal(
-            'type-body hidden md:col-start-3 md:row-start-1 md:block md:pt-0.5 md:text-end'
+        {details}
+        {notices}
+        <div
+          className={cn(
+            'mt-auto flex flex-wrap items-center gap-x-4 gap-y-2 pt-3',
+            variant === 'page' && 'md:gap-x-6 md:pt-4'
           )}
+        >
+          {quantityStepper}
+          {removeButton}
         </div>
-      )}
+      </div>
     </li>
   );
 }
