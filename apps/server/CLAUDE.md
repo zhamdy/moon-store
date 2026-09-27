@@ -651,9 +651,10 @@ quote CORS → observability → `createCartQuoteLimiter` → `express.json({ li
 - **CORS scoped to the path**: exact origins from `STOREFRONT_ORIGINS`, `credentials: false`,
   `POST`/`OPTIONS`, `Content-Type` only. An unlisted origin gets no allow header, not an error.
 - **The storefront origin is never added to `ALLOWED_ORIGINS`.** That CORS is credentialed
-  and covers every route, admin included, and its `.vercel.app` branch would open it wider
-  still; a storefront origin there would get credentialed cross-origin access to the whole
-  API. `STOREFRONT_ORIGINS` is exact matches only, with no wildcard branch.
+  and covers every route, admin included; a storefront origin there would get credentialed
+  cross-origin access to the whole API. Both lists are exact matches only: `ALLOWED_ORIGINS`
+  used to admit any `*.vercel.app` once one was listed, which with a `SameSite=None` refresh
+  cookie lets anyone's Vercel site mint an access token (`isAllowedApiOrigin`, 2026-09-27).
 - **Dedicated per-IP limiter**, no server-token bucket: a valid `X-Catalog-Server-Token`
   earns nothing here. It runs before parsing, so an abusive caller is refused before its body
   is read, and its store is separate from the global and catalog limiters (one budget spent).

@@ -42,6 +42,17 @@ export function resolveStorefrontOrigins(
     .filter((origin) => origin.length > 0);
 }
 
+/**
+ * The app-wide CORS is credentialed, so an allowed origin can spend the refresh cookie and
+ * read the access token `/auth/refresh` returns. Exact matches only: it used to admit every
+ * `*.vercel.app` origin once one was listed, and anyone can deploy one of those. A preview
+ * deployment that needs the API is listed by its exact URL. A request with no Origin is not
+ * a browser cross-origin call, so CORS has nothing to decide.
+ */
+export function isAllowedApiOrigin(origin: string | undefined, allowedOrigins: string[]): boolean {
+  return origin === undefined || allowedOrigins.includes(origin);
+}
+
 const onlyForCartQuote =
   (handler: RequestHandler): RequestHandler =>
   (req, res, next) =>
@@ -143,13 +154,7 @@ export function createApp(): express.Express {
           origin: string | undefined,
           callback: (err: Error | null, allow?: boolean) => void
         ) {
-          if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-          } else if (
-            origin.endsWith('.vercel.app') &&
-            allowedOrigins.some((o) => o.endsWith('.vercel.app'))
-          ) {
-            // Allow all Vercel preview/branch URLs when any Vercel domain is whitelisted
+          if (isAllowedApiOrigin(origin, allowedOrigins)) {
             callback(null, true);
           } else {
             callback(new Error(`Origin ${origin} not allowed by CORS`));
