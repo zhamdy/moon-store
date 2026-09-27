@@ -3,9 +3,15 @@ services:
     name: moon-store-api
     runtime: node
     plan: free
-    rootDir: .
-    buildCommand: corepack pnpm install --frozen-lockfile --prod=false
-    startCommand: corepack pnpm --filter moon-store-server migrate && corepack pnpm --filter moon-store-server start
+    region: oregon
+    branch: main
+    autoDeploy: true
+    # Mirrors the live service (reconciled 2026-09-27). pnpm walks up from rootDir to the
+    # workspace root for the lockfile; `--filter moon-store-server...` installs only the
+    # API and its workspace dependencies.
+    rootDir: apps/server
+    buildCommand: corepack enable && HUSKY=0 pnpm install --frozen-lockfile --prod=false --filter moon-store-server...
+    startCommand: pnpm --filter moon-store-server run migrate && pnpm --filter moon-store-server run start
     envVars:
       - key: NODE_ENV
         value: production
@@ -20,7 +26,18 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      # Exact dashboard origins; credentialed CORS has no wildcard (isAllowedApiOrigin).
       - key: ALLOWED_ORIGINS
+        sync: false
+      # The dashboard (vercel.app) and this API (onrender.com) are different sites, so the
+      # refresh cookie must be SameSite=None (which forces Secure) or refresh never works.
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: STOREFRONT_ORIGINS
+        sync: false
+      - key: CATALOG_SERVER_TOKEN
+        sync: false
+      - key: MEDIA_PUBLIC_BASE_URL
         sync: false
 
       # Media storage (#82). Unset, this is `local` and behaves exactly as before:
