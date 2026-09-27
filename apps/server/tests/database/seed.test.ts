@@ -3,7 +3,7 @@ import { Pool as PgPool } from 'pg';
 import path from 'path';
 import { createPgMemPool } from '../support/pgMem';
 import { runMigrationsUp } from '../../src/database/migrate';
-import { seedDatabase } from '../../src/database/seed';
+import { assertSeedCliTarget, seedDatabase } from '../../src/database/seed';
 
 describe('PostgreSQL Seed System', () => {
   let memPool: PgPool;
@@ -67,5 +67,34 @@ describe('PostgreSQL Seed System', () => {
     } finally {
       process.env.NODE_ENV = orig;
     }
+  });
+
+  it('treats FORCE_SEED=false as not forced in production', async () => {
+    const orig = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      process.env.FORCE_SEED = 'false';
+      await expect(seedDatabase(memPool)).rejects.toThrow(/blocked in production/);
+    } finally {
+      process.env.NODE_ENV = orig;
+      delete process.env.FORCE_SEED;
+    }
+  });
+});
+
+describe('seed CLI target guard', () => {
+  it('allows a local database', () => {
+    expect(() =>
+      assertSeedCliTarget('postgresql://u:p@localhost:5432/db', undefined)
+    ).not.toThrow();
+    expect(() => assertSeedCliTarget('postgresql://u:p@127.0.0.1/db', undefined)).not.toThrow();
+    expect(() => assertSeedCliTarget(undefined, undefined)).not.toThrow();
+  });
+
+  it('refuses a hosted database unless FORCE_SEED=true', () => {
+    const url = 'postgresql://u:p@ep-x.us-east-2.aws.neon.tech/neondb?sslmode=require';
+    expect(() => assertSeedCliTarget(url, undefined)).toThrow(/non-local host/);
+    expect(() => assertSeedCliTarget(url, 'false')).toThrow(/non-local host/);
+    expect(() => assertSeedCliTarget(url, 'true')).not.toThrow();
   });
 });

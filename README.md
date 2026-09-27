@@ -296,7 +296,9 @@ cd apps/server && npm test
 The project includes a [`render.yaml`](render.yaml) for one-click deployment to [Render](https://render.com):
 
 - **API**: Node.js web service running `npm run migrate && npm run start`; seed demo data only in development.
-- **Database**: Add a PostgreSQL instance on Render and set `DATABASE_URL`
+- **Database**: Neon (project `rapid-river-71535967`, aws-us-west-2, branch `production`). Set the API's
+  `DATABASE_URL` to the branch's direct connection string (`neon cs production`); `pg`
+  honours its `sslmode`. `npm run seed` refuses any non-local host unless `FORCE_SEED=true`.
 - **Client**: Deploy the `apps/dashboard/` build output to any static host (Vercel, Netlify, Render Static)
 
 For databases created before the baseline schema corrections, migration 009 upgrades

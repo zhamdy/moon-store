@@ -324,3 +324,10 @@ prune stale ones; anything cross-project belongs in the global instructions inst
   logged `TIMEOUT`; empty that directory before the build. Vercel never reads it
   (`flushToDisk: !hasNextSupport`). Details in `apps/storefront/CLAUDE.md` → *Catalog*
   → *Rendering and caching* (2026-09-26)
+- Render's free PostgreSQL expires 30 days after creation and is then suspended for
+  billing, so the API crash-loops at `migrate` with `ENOTFOUND dpg-...` long before anyone
+  looks. The database moves to Neon; its data can only be read back by upgrading the Render
+  instance. Local `pg_dump` on Windows cannot verify Neon's certificate with
+  `sslrootcert=system`; export Node's `tls.rootCertificates` to a PEM and point
+  `PGSSLROOTCERT` at it. Over a transatlantic link the real-PG test "never takes a row lock
+  on the preview path" fails on its 1 s budget, not on a lock (2026-09-27)
