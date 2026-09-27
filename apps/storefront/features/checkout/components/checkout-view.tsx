@@ -47,9 +47,16 @@ import { CheckoutCartNotice } from './checkout-cart-notice';
 import { CheckoutSummary } from './checkout-summary';
 import { DeliveryMethodSection, type DeliveryMethodOption } from './delivery-method-section';
 import { GovernorateField } from './governorate-field';
+import { StepHeading } from './step-heading';
 import { TextField, type TextFieldProps } from './text-field';
 
 const NO_LINES: readonly CartLine[] = [];
+
+/** A numbered form section ("Fitting room", 2026-09-27): a hairline above, its fields below. */
+const SECTION = 'border-t border-border pt-7 pb-4';
+
+/** Rows are 12px apart past each field's reserved error row, so an error never meets a label. */
+const FIELD_GRID = 'mt-6 grid gap-x-6 gap-y-3 md:grid-cols-2';
 
 const TEXT_ACTION =
   'type-small inline-flex min-h-11 cursor-pointer items-center text-text underline decoration-text-secondary decoration-1 underline-offset-4 transition-colors duration-fast ease-ui hover:decoration-text';
@@ -344,7 +351,7 @@ function CheckoutForm({
   );
 
   return (
-    <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-12 xl:gap-x-16">
+    <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-x-6">
       <div className="lg:sticky lg:top-[calc(var(--header-h)+2rem)] lg:col-span-4 lg:col-start-9 lg:row-start-1">
         <CheckoutSummary
           rows={rows}
@@ -356,7 +363,7 @@ function CheckoutForm({
         />
       </div>
 
-      <div className="mt-12 lg:col-span-7 lg:col-start-1 lg:row-start-1 lg:mt-0">
+      <div className="mt-8 lg:col-span-7 lg:col-start-1 lg:row-start-1 lg:mt-0">
         {notice && (
           <CheckoutCartNotice
             text={checkoutNoticeText(
@@ -380,22 +387,22 @@ function CheckoutForm({
             dispatch({ type: 'submit' });
           }}
         >
-          <section aria-labelledby={`${ids}-contact`} className="border-t border-border pt-8">
-            <h2 id={`${ids}-contact`} className="type-h4">
+          <section aria-labelledby={`${ids}-contact`} className={SECTION}>
+            <StepHeading id={`${ids}-contact`} step={1}>
               {strings.sections.contact}
-            </h2>
-            <div className="mt-6 grid gap-x-6 md:grid-cols-2">
+            </StepHeading>
+            <div className={FIELD_GRID}>
               {renderField('fullName', 'md:col-span-2')}
               {renderField('phone')}
               {renderField('email')}
             </div>
           </section>
 
-          <section aria-labelledby={`${ids}-address`} className="mt-4 border-t border-border pt-8">
-            <h2 id={`${ids}-address`} className="type-h4">
+          <section aria-labelledby={`${ids}-address`} className={SECTION}>
+            <StepHeading id={`${ids}-address`} step={2}>
               {strings.sections.address}
-            </h2>
-            <div className="mt-6 grid gap-x-6 md:grid-cols-2">
+            </StepHeading>
+            <div className={FIELD_GRID}>
               {renderField('governorate')}
               {renderField('area')}
               {renderField('street', 'md:col-span-2')}
@@ -407,15 +414,16 @@ function CheckoutForm({
           <DeliveryMethodSection
             headingId={`${ids}-delivery`}
             heading={strings.sections.delivery}
+            step={3}
             methods={deliveryMethods}
             pendingText={strings.delivery.pending}
           />
 
-          <div className="mt-10 border-t border-border pt-8">
+          <div>
             <Button
               type="submit"
               aria-disabled={busy || undefined}
-              className={cn('w-full md:w-auto md:min-w-64', busy && 'cursor-progress')}
+              className={cn('w-full', busy && 'cursor-progress')}
             >
               {busy ? strings.action.checking : strings.action.continue}
             </Button>

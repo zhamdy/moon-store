@@ -365,7 +365,7 @@ Component must never import it: `createContext` does not exist in the react-serv
 
 The checkout island's children are client-bundled the same way: `checkout-summary.tsx`,
 `checkout-cart-notice.tsx`, `text-field.tsx`, `governorate-field.tsx`,
-`delivery-method-section.tsx` and `use-media-query.ts`, plus the Bag page's
+`delivery-method-section.tsx`, `step-heading.tsx` and `use-media-query.ts`, plus the Bag page's
 `features/cart/components/checkout-entry.tsx` (reached only from 15).
 
 **Nothing imports from `motion/react`.** Its named exports do not tree-shake apart: one
@@ -624,7 +624,7 @@ data-cache entry.
 
 ### Rendering and caching
 
-The six catalog routes are dynamic (`ƒ`); no catalog *page* calls the API at `next build`.
+The six catalog routes are dynamic (`ƒ`); no catalog _page_ calls the API at `next build`.
 The four listings read `searchParams`. `/collections` and `/products/[slug]` read none, so
 they call `await connection()`; without that they would prerender (at build, or at
 runtime into the full-route cache). **The locale layout does call it at build**: the
@@ -923,8 +923,7 @@ own `section` named by its `h2`:
   collection has more. Then Explore {name} and the facts line ("6 pieces ·
   1,800–5,500 EGP", the range in `<bdi dir="ltr">`; `CollectionFacts`).
 - **Midnight once**: the first featured collection's chapter is `data-surface="navy"`, as
-  the design system reserves Midnight for the Evening chapter; its frame is full-bleed below
-  768. No featured collection, no Midnight. Two Ivory chapters in a row get a hairline.
+  the design system reserves Midnight for the Evening chapter; its frame is full-bleed below 768. No featured collection, no Midnight. Two Ivory chapters in a row get a hairline.
   The rules are the pure `collectionChapters` (`utils/collection-chapters.ts`,
   unit-tested).
 - **Data**: the collections list (a failure is the catalog error screen, as before), then
@@ -1640,11 +1639,29 @@ quote key ignores stock and price: a second sell-out under the same lines is ann
 
 `app/[locale]/checkout/page.tsx`: static per locale, `noindex, nofollow`, outside `(catalog)`,
 no `loading.tsx` (`app/checkout-route.test.ts`). The normal header and footer, a "Back to bag"
-link, the rising `h1`, then `CheckoutView` (boundary 17). Before the bag hydrates: one reserved
-busy region, no fields. An empty bag: the Bag's empty state, no form. Otherwise a 12-column grid
-from 1024 (form 7, summary 4, sticky at the inline end); below, the summary comes first. The
-summary is first in source order at every width, so from 1024 Tab reaches Edit bag before the
-fields (accepted, CO-19).
+link, the `type-page-title` `h1` (no entrance motion, as on the Bag), then `CheckoutView`
+(boundary 17). Before the bag hydrates: one reserved busy region, no fields. An empty bag: the
+Bag's empty state, no form. Otherwise a 12-column grid from 1024 (form 7, a pause, summary 4 from
+the ninth, sticky at the inline end); below, the summary comes first. The summary is first in
+source order at every width, so from 1024 Tab reaches Edit bag before the fields (accepted,
+CO-19).
+
+**"Fitting room"** (owner decision 2026-09-27, chosen from three directions drawn in Claude
+Design: Fitting room, Quiet room, Two sides) carries the Bag's layout into checkout:
+
+- **Sections** are numbered: `StepHeading` (`step-heading.tsx`) draws a Bronze
+  `type-supporting` numeral (`aria-hidden`, so the heading is named by its title) before a
+  `type-title` title: 1 Contact, 2 Delivery address, 3 Delivery. Each section opens on a hairline.
+- **Field rows** are 12px apart past each field's reserved error row, and `TextField` sizes that
+  row to exactly one `type-supporting` line plus 8px in the page's locale, so a one-line error
+  neither moves the fields below it nor meets the next label.
+- **Continue** is full width at every width, right after the Delivery section.
+- **The summary** is the Bag's Stone panel (`bg-surface-media`, `type-label` heading): 64px 4:5
+  thumbnails on an Ivory frame, the name and line total on one row, then "Size: M · Qty 1" on
+  one line (just "Qty 1" with no options), Subtotal (`type-body-lg`, 500), Delivery "Confirmed
+  later" and Edit bag. **Below 1024 it is one Stone bar**, "Summary · 3 pieces · 9,250 EGP ⌄":
+  closed, nothing else shows, so the subtotal is said once; open, the lines, Subtotal,
+  Delivery and Edit bag follow under it. A blocked bag still opens it by itself.
 
 ### Fields
 
@@ -1880,7 +1897,7 @@ up memoization for that call. **Every server call is still bounded** by
 a signal, so the shared reads stay shared: before it, a category, collection or
 store-policies read against an API that accepted the connection and never answered held
 the request open indefinitely. A raced-out request keeps running on its own and never
-surfaces late. It bounds the *render*, not the socket; where Next itself waits on a
+surfaces late. It bounds the _render_, not the socket; where Next itself waits on a
 socket after the render (a stale on-disk fetch entry at build, see _Catalog_ →
 _Rendering and caching_), only cancelling the fetch would help, and Next strips the
 signal on that path.
