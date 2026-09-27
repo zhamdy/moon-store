@@ -9,10 +9,13 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Neon project round-frog-89454563, branch `production`: the direct (non -pooler)
+      # connection string, set in the Render dashboard. The free Render database below
+      # expired on 2026-09-21; it stays declared until its data is exported or declared
+      # disposable, so removing it here cannot delete it. The start command runs
+      # `migrate` on every boot; nothing here ever seeds.
       - key: DATABASE_URL
-        fromDatabase:
-          name: moon-store-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET

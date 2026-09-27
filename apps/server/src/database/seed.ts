@@ -8,7 +8,8 @@ import { slugify } from '../modules/inventory/shared/slug';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function seedDatabase(pool?: Pool): Promise<void> {
-  if (process.env.NODE_ENV === 'production' && !process.env.FORCE_SEED) {
+  // Exactly 'true': a truthiness check let FORCE_SEED=false through.
+  if (process.env.NODE_ENV === 'production' && process.env.FORCE_SEED !== 'true') {
     throw new Error(
       'Seeding is blocked in production mode unless FORCE_SEED=true is explicitly set'
     );
@@ -1283,10 +1284,37 @@ export async function seedDatabase(pool?: Pool): Promise<void> {
   logger.info('✅ Seeding complete! Database ready with Egyptian Arabic data.');
 }
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+/**
+ * The seed deletes every row in 77 tables, and the NODE_ENV guard above only holds when
+ * the shell says production. A local shell with DATABASE_URL exported for a hosted
+ * database (Neon, Render) does not, so the CLI refuses any non-local host on its own.
+ * Library callers (tests, the E2E harness) pass their own pool and never reach this.
+ */
+export function assertSeedCliTarget(
+  databaseUrl: string | undefined,
+  forceSeed: string | undefined
+): void {
+  if (!databaseUrl || forceSeed === 'true') return;
+  let host: string;
+  try {
+    host = new URL(databaseUrl).hostname;
+  } catch {
+    throw new Error('Seeding refused: DATABASE_URL is not a parseable URL');
+  }
+  if (!LOCAL_HOSTS.has(host)) {
+    throw new Error(
+      'Seeding refused: DATABASE_URL points at a non-local host. Set FORCE_SEED=true only for a disposable database.'
+    );
+  }
+}
+
 // CLI Execution
 if (require.main === module) {
   (async () => {
     try {
+      assertSeedCliTarget(process.env.DATABASE_URL, process.env.FORCE_SEED);
       await seedDatabase();
       console.log('Seeding finished successfully.');
     } catch (err) {
